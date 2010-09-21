@@ -8,4 +8,16 @@ Here are the design choices as well as some justification for the decisions made
 = Details =
 
 The details of the design follow the flow of the data as it starts from the libaudit auditing framework to our our producer and onwards to the provenance kernel.
-The libaudit auditing framework produces audit events for each system call. One system call may generate many audit minievents which contain information regarding that system call. The libaudit framework passes these events to an af_unix socket. Our parser reads the event stream from this socket and bundles up each system call and all its minievent. Each system call is then converted into its provenance analogue representations and passed onwards. Although the initial plan was to keep no state whatsoever in the producer, we had to let go of this approach once we realize that the audit system does not produce enough data per system call to allow independent logging of each call. An example of this is that the read system call only has a file descriptor in it and no file path name. This means one needs to keep track of all the open files and what version it is.
+
+The libaudit auditing framework produces audit events for each system call. One system call may generate many audit minievents which contain information regarding that system call. The libaudit framework passes these events to an af_unix socket. Our parser reads the event stream from this socket and bundles up each system call and all its minievent. Each system call is then converted into its provenance analogue representations and passed onwards.
+
+Although the initial plan was to keep no state whatsoever in the producer, we had to let go of this approach once we realize that the audit system does not produce enough data per system call to allow independent logging of each call. An example of this is that the read system call only has a file descriptor in it and no file path name. This means one needs to keep track of all the open files. A linked problem is of file versioning. As we do not get the file's last modified time on any call we cannot determine its version. We came up with a model that solves both these problems. Keep a map which maps the process,file descriptor(fd) pair to the file that is open and represents this descriptor in this process. Now multiple process,fd pairs might be pointing to this same file which is allowed. Whenever a write happens the file version is changed. As everyone is pointing to the same file object the version will be changed for everyone and versioning would be handled accross all processes.
+
+Similarly we also have a process table in the producer that keeps track of active pids and stores a map of pid against the process information. So for example on a read you just need to look up the process using the pid and look up the file using the process,fd pair and you can convert it into a read edge and sent it along.
+
+Now we are going to take a look at how each system call is converted to its analogue provenance respresentation.
+
+
+Fork:
+When a fork happens the process remains same except for the pid
+
