@@ -7,11 +7,11 @@ Problems in LibAudit Producer
 
 = Details =
 
-  *Come up with a way to version files when writes happen. Currently when a read happens the only information we get about the file is the file descriptor.
+  * Come up with a way to version files when writes happen. Currently when a read happens the only information we get about the file is the file descriptor.
 
-  *Come up with a way to key processes such that we can key  back from an event to a process vertex. For example a read happens. The only information you have about the process is name,pid,ppid (and user related stuff e.g. uid etc.) How can you use this information to know what process is making the read. What if two currently running processes have same information in the generated events.
+  * Come up with a way to key processes such that we can key  back from an event to a process vertex. For example a read happens. The only information you have about the process is name,pid,ppid (and user related stuff e.g. uid etc.) How can you use this information to know what process is making the read. What if two currently running processes have same information in the generated events.
 
-  *Come up with a way to handle edges that should be present when a clone-execve pair happens. There are the following issues in this problem:
+  * Come up with a way to handle edges that should be present when a clone-execve pair happens. There are the following issues in this problem:
 a) Non-blocking clones. After a clone the parent process exits and the child process now has init (pid=1) as its parent. All its calls will list this as its pid but when the child process execve-ed its ppid was the pid of the parent which had not exited at that time. How to handle this edge.
 b) Clone and exec call are only linked via a pid->ppid link and not any name link unless we keep state. Keeping state also only works if parent process is still alive otherwise we cannot even add that link.
 Basically if bash clones and execves cat for example then we get the bash node first (as it execved in the past) then we get the clone edge and a child pid and then finally we get an exec from the child pid. This means we need a clone table to keep track of clones that have no execved. Issues in this are as follows:
