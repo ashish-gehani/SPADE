@@ -18,7 +18,7 @@ Similarly we also have a process table in the producer that keeps track of activ
 Now we are going to take a look at how each system call is converted to its analogue provenance respresentation.
 
 
-  * Fork:
+* Fork:
 When a fork happens the process remains same except for the pid,ppid which changes. So we create a new process in the process table with all the same information except the pid and ppid. And we also create a fork edge and send the new process and edge onward.
 
   * Read:
