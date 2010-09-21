@@ -19,5 +19,23 @@ Now we are going to take a look at how each system call is converted to its anal
 
 
 Fork:
-When a fork happens the process remains same except for the pid
+When a fork happens the process remains same except for the pid,ppid which changes. So we create a new process in the process table with all the same information except the pid and ppid. And we also create a fork edge and send the new process and edge onward.
 
+Read:
+We do not need a new process vertex as the reading process would have been created at exec time. We merely need to get its pointer from the process table. We also do not need to create a new file. It was created at open time. We just need to look up the file in file table using process,fd pair. The new thing we need to create a read edge from this process to this file and send this edge along.
+
+Write:
+We do not need a new process vertex as the reading process would have been created at exec time. We merely need to get its pointer from the process table. We also do not need to create a new file. It was created at open time. We just need to look up the file in file table using process,fd pair and increment its version. The new thing we need to create a write edge from this process to this new versioned file and send this edge along.
+
+Open:
+We do not need a new process vertex as the reading process would have been created at exec time. We merely need to get its pointer from the process table. As far as the file is concerned we might or might need to create a new file. If the file is already present in the table then we just need to add an edge to this file from the new process,fd pair we have. If the file is not the table then we need to create a new file vertex and set its logical version to 1 and then point the new process,fd pair to this file. Open itself does not have any provenance semantics as no data is flowing. An edge will be added if this open file in read or written in the future.
+
+Close:
+We do not need a new process vertex as the reading process would have been created at exec time. We merely need to get its pointer from the process table. Close also does not have any provenance semantics as no data is flowing. When a close happens we merely need to delete the process,fd to file edge in the file table.
+
+Link:
+
+Unlink:
+
+Execve:
+We need to create a new process on an execve. We check for the pid of the new process and get all the information regarding the process from the audit event. Then we store this new process vertex against its pid in the process table, overwriting whatever was written against that pid. As we only care about currently running processes we do not have to worry about pid wrap around as only one process can have the same pid at any given time. The only exception to this is when a process execve from another process, then it has the same pid. But as the older process is overwritten in memory it cannot make any calls and hence can be considered to be terminated.
