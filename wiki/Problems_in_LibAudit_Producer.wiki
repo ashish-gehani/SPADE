@@ -7,7 +7,7 @@ Problems in LibAudit Producer
 
 = Details =
 
-  #1. Come up with a way to version files when writes happen. Currently when a read happens the only information we get about the file is the file descriptor.
+  #Come up with a way to version files when writes happen. Currently when a read happens the only information we get about the file is the file descriptor.
 
   Come up with a way to key processes such that we can key  back from an event to a process vertex. For example a read happens. The only information you have about the process is name,pid,ppid (and user related stuff e.g. uid etc.) How can you use this information to know what process is making the read. What if two currently running processes have same information in the generated events.
 
