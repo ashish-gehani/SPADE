@@ -39,3 +39,29 @@ Unlink:
 
 Execve:
 We need to create a new process on an execve. We check for the pid of the new process and get all the information regarding the process from the audit event. Then we store this new process vertex against its pid in the process table, overwriting whatever was written against that pid. As we only care about currently running processes we do not have to worry about pid wrap around as only one process can have the same pid at any given time. The only exception to this is when a process execve from another process, then it has the same pid. But as the older process is overwritten in memory it cannot make any calls and hence can be considered to be terminated.
+
+Mknod:
+
+Rename:
+We create a new file vertex in the table in place of the old file that was renamed and also we create a file to file edge from the old file to the new file and send this along.
+
+Dup/Dup2:
+Dup merely returns a new file descriptor given an old one. So this means we just need to add a process,fd to file edge in the file map.
+
+Pipe:
+
+Symlink:
+
+Socketcall:
+
+Clone:
+See Fork.
+
+Readv:
+See Read.
+
+Writev:
+See Write.
+
+Vfork:
+See Fork.
