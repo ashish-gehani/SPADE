@@ -18,13 +18,31 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-public interface StorageInterface {
+import java.util.concurrent.*;
 
-    public boolean initialize(String path);
+public class Buffer {
+    private ConcurrentLinkedQueue queue;
 
-    public boolean putVertex(Vertex v);
+    public Buffer() {
+        queue = new ConcurrentLinkedQueue();
+    }
 
-    public boolean putEdge(Edge e);
+    public boolean putVertex(Vertex v) {
+        queue.add(v);
+        return true;
+    }
 
-    public boolean shutdown();
+    public boolean putEdge(Edge e) {
+        queue.add(e);
+        return true;
+    }
+
+    public Object getBufferElement() {
+        return queue.poll();
+    }
+
+    public boolean isEmpty() {
+        return queue.isEmpty();
+    }
+
 }

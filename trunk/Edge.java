@@ -68,15 +68,50 @@ public abstract class Edge {
         this.edgeType = edgeType;
     }
 
+    public Vertex getSrcVertex() {
+        return null;
+    }
+
+    public Vertex getDstVertex() {
+        return null;
+    }
+
     @Override
     public String toString() {
-        String vertexstring = "";
+        String annotationstring = "";
         for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
             String name = (String) it.next();
             String value = (String) annotations.get(name);
-            vertexstring = vertexstring + name + ": " + value + "|";
+            if (name.equals("type")) continue;
+            annotationstring = annotationstring + name + ":" + value + ", ";
         }
-        vertexstring = vertexstring.substring(0, vertexstring.length() - 1);
-        return vertexstring;
+        if (annotationstring.length() > 3) {
+            annotationstring = getEdgeType() + " (" + annotationstring.substring(0, annotationstring.length() - 2) + ")";
+        } else {
+            annotationstring = getEdgeType();
+        }
+        return annotationstring;
     }
+
+    @Override
+    public boolean equals(Object that) {
+        if (this == that) return true;
+        if (!(that instanceof Edge)) return false;
+        Edge thatE = (Edge) that;
+        return (this.annotations.equals(thatE.annotations)
+            && this.getSrcVertex().equals(thatE.getSrcVertex())
+            && this.getDstVertex().equals(thatE.getDstVertex()));
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 53 * hash + (this.getSrcVertex() != null ? this.getSrcVertex().hashCode() : 0);
+        hash = 53 * hash + (this.getDstVertex() != null ? this.getDstVertex().hashCode() : 0);
+        hash = 53 * hash + (this.edgeType != null ? this.edgeType.hashCode() : 0);
+        hash = 53 * hash + (this.annotations != null ? this.annotations.hashCode() : 0);
+        hash = 53 * hash + (this.role != null ? this.role.hashCode() : 0);
+        return hash;
+    }
+
 }

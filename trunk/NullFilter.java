@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-public class NullFilter implements Filter {
+public class NullFilter implements FilterInterface {
 
     private StorageInterface storage;
 
@@ -27,42 +27,42 @@ public class NullFilter implements Filter {
     }
 
     @Override
-    public void putVertex(Agent a) {
-        storage.putVertex(a);
+    public boolean putVertex(Agent a) {
+        return storage.putVertex(a);
     }
 
     @Override
-    public void putVertex(Process p) {
-        storage.putVertex(p);
+    public boolean putVertex(Process p) {
+        return storage.putVertex(p);
     }
 
     @Override
-    public void putVertex(Artifact a) {
-        storage.putVertex(a);
+    public boolean putVertex(Artifact a) {
+        return storage.putVertex(a);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, Used u) {
-        storage.putEdge(u.getProcess(), u.getArtifact(), u);
+    public boolean putEdge(Used u) {
+        return storage.putEdge(u);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasControlledBy wcb) {
-        storage.putEdge(wcb.getProcess(), wcb.getAgent(), wcb);
+    public boolean putEdge(WasControlledBy wcb) {
+        return storage.putEdge(wcb);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasDerivedFrom wdf) {
-        storage.putEdge(wdf.getArtifact2(), wdf.getArtifact1(), wdf);
+    public boolean putEdge(WasDerivedFrom wdf) {
+        return storage.putEdge(wdf);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasGeneratedBy wgb) {
-        storage.putEdge(wgb.getArtifact(), wgb.getProcess(), wgb);
+    public boolean putEdge(WasGeneratedBy wgb) {
+        return storage.putEdge(wgb);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasTriggeredBy wtb) {
-        storage.putEdge(wtb.getProcess1(), wtb.getProcess2(), wtb);
+    public boolean putEdge(WasTriggeredBy wtb) {
+        return storage.putEdge(wtb);
     }
 }

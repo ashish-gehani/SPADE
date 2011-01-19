@@ -18,13 +18,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-public interface StorageInterface {
 
-    public boolean initialize(String path);
+public interface ProducerInterface {
 
-    public boolean putVertex(Vertex v);
-
-    public boolean putEdge(Edge e);
-
-    public boolean shutdown();
+    public boolean initialize(Buffer buff);
+    public void shutdown();
+    
 }

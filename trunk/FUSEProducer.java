@@ -18,22 +18,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-/*
-
-Compile:
-javac -classpath lib/*:. *.java -Xlint:unchecked
-
- */
-
 import java.io.*;
 import java.util.*;
 
-public class FUSEProducer {
+public class FUSEProducer implements ProducerInterface {
 
     private long boottime;
-    private Filter storage;
-    private StorageInterface finalstorage;
+    private Buffer buffer;
     private HashMap<String, Vertex> LocalCache;
+
+    public native int launchFUSE();
 
     public void createProcessVertex(String pid, Process tempVertex) {
         try {
@@ -66,7 +60,8 @@ public class FUSEProducer {
             String stats[] = statline.split("\\s+");
             long elapsedtime = Long.parseLong(stats[21]) * 10;
             long starttime = boottime + elapsedtime;
-            String stime = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(starttime));
+//            String stime = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(starttime));
+            String stime = Long.toString(starttime);
 
             StringTokenizer st1 = new StringTokenizer(nameline);
             st1.nextToken();
@@ -107,11 +102,21 @@ public class FUSEProducer {
         }
     }
 
-    public FUSEProducer() {
-        finalstorage = new Neo4JStorage();
-        finalstorage.initialize("db/testdb");
-        storage = new NullFilter(finalstorage);
+    public boolean initialize(Buffer buff) {
         LocalCache = new HashMap<String, Vertex>();
+        buffer = buff;
+
+        System.loadLibrary("jfuse");
+        Runnable r1 = new Runnable() {
+            public void run() {
+                try {
+                    launchFUSE();
+                } catch (Exception iex) {
+                    iex.printStackTrace();
+                }
+            }
+        };
+        new Thread(r1).start();
 
         boottime = 0;
         try {
@@ -128,15 +133,17 @@ public class FUSEProducer {
             }
             boottimeReader.close();
         } catch (Exception e) {
+            e.printStackTrace();
         }
 
         Process rootVertex = new Process();
         rootVertex.addAnnotation("pid", "0");
         rootVertex.addAnnotation("type", "Process");
         rootVertex.addAnnotation("pidname", "System");
-        String stime = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(boottime));
+//        String stime = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(boottime));
+        String stime = Long.toString(boottime);
         rootVertex.addAnnotation("boottime", stime);
-        storage.putVertex(rootVertex);
+        buffer.putVertex(rootVertex);
         LocalCache.put("0", rootVertex);
 
         String path = "/proc";
@@ -154,12 +161,12 @@ public class FUSEProducer {
                     createProcessVertex(processDir, tempVertex);
                     String ppid = (String) tempVertex.getAnnotationValue("ppid");
                     tempVertex.addAnnotation("type", "Process");
-                    storage.putVertex(tempVertex);
+                    buffer.putVertex(tempVertex);
                     LocalCache.put(tempVertex.getAnnotationValue("pid"), tempVertex);
                     if (Integer.parseInt(ppid) >= 0) {
                         WasTriggeredBy tempEdge = new WasTriggeredBy((Process) LocalCache.get(processDir), (Process) LocalCache.get(ppid), "WasTriggeredBy", "WasTriggeredBy");
                         tempEdge.addAnnotation("type", "WasTriggeredBy");
-                        storage.putEdge((Vertex) tempEdge.getProcess1(), (Vertex) tempEdge.getProcess2(), tempEdge);
+                        buffer.putEdge(tempEdge);
                     }
                 } catch (Exception e) {
                     continue;
@@ -167,6 +174,7 @@ public class FUSEProducer {
 
             }
         }
+        return true;
     }
 
     public void checkProcessTree(String pid) {
@@ -179,13 +187,13 @@ public class FUSEProducer {
                 createProcessVertex(pid, tempVertex);
                 String ppid = (String) tempVertex.getAnnotationValue("ppid");
                 tempVertex.addAnnotation("type", "Process");
-                storage.putVertex(tempVertex);
+                buffer.putVertex(tempVertex);
                 LocalCache.put(tempVertex.getAnnotationValue("pid"), tempVertex);
                 if (Integer.parseInt(ppid) >= 0) {
                     checkProcessTree(ppid);
                     WasTriggeredBy tempEdge = new WasTriggeredBy((Process) LocalCache.get(pid), (Process) LocalCache.get(ppid), "WasTriggeredBy", "WasTriggeredBy");
                     tempEdge.addAnnotation("type", "WasTriggeredBy");
-                    storage.putEdge((Vertex) tempEdge.getProcess1(), (Vertex) tempEdge.getProcess2(), tempEdge);
+                    buffer.putEdge(tempEdge);
                 } else {
                     return;
                 }
@@ -196,42 +204,51 @@ public class FUSEProducer {
         return;
     }
 
-    public void readwrite(int write, int pid, int uid, int gid, String path) {
+    public void readwrite(int write, int pid, int iotime, int var1, String path) {
         checkProcessTree(Integer.toString(pid));
         File file = new File(path);
-        String lastmodified = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(file.lastModified()));
+//        String lastmodified = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(file.lastModified()));
+        String lastmodified = Long.toString(file.lastModified());
         String filesize = Long.toString(file.length());
         Artifact tempVertex = new Artifact();
         tempVertex.addAnnotation("filename", file.getName());
-        tempVertex.addAnnotation("path", path);
-        tempVertex.addAnnotation("modified", lastmodified);
-        tempVertex.addAnnotation("size", filesize);
+        tempVertex.addAnnotation("filepath", path);
+        tempVertex.addAnnotation("lastmodified", lastmodified);
+        tempVertex.addAnnotation("filesize", filesize);
         tempVertex.addAnnotation("type", "Artifact");
-        storage.putVertex(tempVertex);
-        LocalCache.put(tempVertex.getAnnotationValue("path"), tempVertex);
+        buffer.putVertex(tempVertex);
+        LocalCache.put(tempVertex.getAnnotationValue("filepath"), tempVertex);
         if (write == 0) {
             Used tempEdge = new Used((Process) LocalCache.get(Integer.toString(pid)), (Artifact) LocalCache.get(path), "Used", "Used");
             tempEdge.addAnnotation("type", "Used");
-            storage.putEdge((Vertex) tempEdge.getProcess(), (Vertex) tempEdge.getArtifact(), tempEdge);
+            tempEdge.addAnnotation("iotime", Integer.toString(iotime));
+            buffer.putEdge(tempEdge);
         } else {
             WasGeneratedBy tempEdge = new WasGeneratedBy((Artifact) LocalCache.get(path), (Process) LocalCache.get(Integer.toString(pid)), "WasGeneratedBy", "WasGeneratedBy");
             tempEdge.addAnnotation("type", "WasGeneratedBy");
-            storage.putEdge((Vertex) tempEdge.getArtifact(), (Vertex) tempEdge.getProcess(), tempEdge);
+            tempEdge.addAnnotation("iotime", Integer.toString(iotime));
+            buffer.putEdge(tempEdge);
         }
     }
 
-    public void rename(int pid, int uid, int gid, String pathfrom, String pathto) {
+    public void rename(int pid, int iotime, int var1, String pathfrom, String pathto) {
         checkProcessTree(Integer.toString(pid));
         WasDerivedFrom tempEdge = new WasDerivedFrom((Artifact) LocalCache.get(pathto), (Artifact) LocalCache.get(pathfrom), "WasDerivedFrom", "WasDerivedFrom");
         tempEdge.addAnnotation("type", "WasDerivedFrom");
-        storage.putEdge((Artifact) tempEdge.getArtifact1(), (Artifact) tempEdge.getArtifact2(), tempEdge);
+        tempEdge.addAnnotation("iotime", Integer.toString(iotime));
+        buffer.putEdge(tempEdge);
     }
 
-    public void link(int pid, int uid, int gid, String pathfrom, String pathto) {
+    public void link(int pid, int var1, int var2, String pathfrom, String pathto) {
         checkProcessTree(Integer.toString(pid));
     }
 
     public void shutdown() {
-        finalstorage.shutdown();
+        try {
+            Runtime.getRuntime().exec("fusermount -u test");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
+
 }

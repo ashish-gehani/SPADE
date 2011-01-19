@@ -56,4 +56,15 @@ public class WasTriggeredBy extends Edge {
     public void setProcess2(Process process2) {
         this.process2 = process2;
     }
+
+    @Override
+    public Vertex getSrcVertex() {
+        return process1;
+    }
+
+    @Override
+    public Vertex getDstVertex() {
+        return process2;
+    }
+
 }

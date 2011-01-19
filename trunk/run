@@ -1,0 +1,3 @@
+#!/bin/bash
+java -classpath lib/*:. -Djava.library.path=. Kernel
+

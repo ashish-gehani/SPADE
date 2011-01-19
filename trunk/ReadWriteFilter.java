@@ -22,10 +22,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Set;
 
-public class ReadWriteFilter implements Filter {
+public class ReadWriteFilter implements FilterInterface {
 
     boolean chain;
-    Filter chainFilter;
+    FilterInterface chainFilter;
     StorageInterface storage;
     private HashMap<String, ReadWriteRuns> files;
     //files is basically hashmap from file path -> read/write runs for all processes
@@ -37,7 +37,7 @@ public class ReadWriteFilter implements Filter {
         storage = inputStorage;
     }
 
-    public ReadWriteFilter(StorageInterface inputStorage, Filter f) {
+    public ReadWriteFilter(StorageInterface inputStorage, FilterInterface f) {
 
         chain = true;
         chainFilter = f;
@@ -46,42 +46,42 @@ public class ReadWriteFilter implements Filter {
     }
 
     @Override
-    public void putVertex(Agent a) {
-        // TODO Auto-generated method stub
+    public boolean putVertex(Agent a) {
         if (chain == false) {
             storage.putVertex(a);
         } else {
             chainFilter.putVertex(a);
         }
+        return true;
 
     }
 
     @Override
-    public void putVertex(Process p) {
-        // TODO Auto-generated method stub
+    public boolean putVertex(Process p) {
         if (chain == false) {
             storage.putVertex(p);
         } else {
             chainFilter.putVertex(p);
         }
+        return true;
 
     }
 
     @Override
-    public void putVertex(Artifact a) {
-        // TODO Auto-generated method stub
+    public boolean putVertex(Artifact a) {
         if (chain == false) {
             storage.putVertex(a);
         } else {
             chainFilter.putVertex(a);
         }
+        return true;
 
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, Used u) {
-        // TODO Auto-generated method stub
-
+    public boolean putEdge(Used u) {
+        Vertex v1 = u.getSrcVertex();
+        Vertex v2 = u.getDstVertex();
         //first of all get the filename
         String filename = u.getArtifact().getAnnotationValue("filename");
         //get the pid of the reading process
@@ -139,7 +139,7 @@ public class ReadWriteFilter implements Filter {
                     Iterator<String> it = processes.iterator();
                     while (it.hasNext()) {
 
-                        this.putEdgeThrough(v1, v2, state.getWriteRuns().get(it.next()));
+                        this.putEdgeThrough(state.getWriteRuns().get(it.next()));
 
                     }
 
@@ -166,37 +166,34 @@ public class ReadWriteFilter implements Filter {
 
 
         }
+        return true;
 
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasControlledBy wcb) {
-        // TODO Auto-generated method stub
-
-
+    public boolean putEdge(WasControlledBy wcb) {
         if (chain == false) {
-            storage.putEdge(wcb.getProcess(), wcb.getAgent(), wcb);
+            storage.putEdge(wcb);
         } else {
-            chainFilter.putEdge(v1, v2, wcb);
+            chainFilter.putEdge(wcb);
         }
+        return true;
 
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasDerivedFrom wdf) {
-        // TODO Auto-generated method stub
+    public boolean putEdge(WasDerivedFrom wdf) {
         if (chain == false) {
-            storage.putEdge(wdf.getArtifact2(), wdf.getArtifact1(), wdf);
+            storage.putEdge(wdf);
         } else {
-            chainFilter.putEdge(v1, v2, wdf);
+            chainFilter.putEdge(wdf);
         }
+        return true;
 
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasGeneratedBy wgb) {
-        // TODO Auto-generated method stub
-
+    public boolean putEdge(WasGeneratedBy wgb) {
         //first of all get the filename
         String filename = wgb.getArtifact().getAnnotationValue("filename");
         //get the pid of the reading process
@@ -251,7 +248,7 @@ public class ReadWriteFilter implements Filter {
                     Iterator<String> it = processes.iterator();
                     while (it.hasNext()) {
 
-                        this.putEdgeThrough(v1, v2, state.getReadRuns().get(it.next()));
+                        this.putEdgeThrough(state.getReadRuns().get(it.next()));
 
                     }
 
@@ -279,42 +276,41 @@ public class ReadWriteFilter implements Filter {
 
         }
 
+        return true;
 
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasTriggeredBy wtb) {
-        // TODO Auto-generated method stub
+    public boolean putEdge(WasTriggeredBy wtb) {
         if (chain == false) {
-            storage.putEdge(wtb.getProcess1(), wtb.getProcess2(), wtb);
+            storage.putEdge(wtb);
         } else {
-            chainFilter.putEdge(v1, v2, wtb);
+            chainFilter.putEdge(wtb);
         }
+        return true;
 
     }
 
     //private methods
-    private void putEdgeThrough(Vertex v1, Vertex v2, WasGeneratedBy wgb) {
-        // TODO Auto-generated method stub
+    private boolean putEdgeThrough(WasGeneratedBy wgb) {
 
         if (chain == false) {
-            storage.putEdge(wgb.getArtifact(), wgb.getProcess(), wgb);
+            storage.putEdge(wgb);
         } else {
-            chainFilter.putEdge(v1, v2, wgb);
+            chainFilter.putEdge(wgb);
         }
+        return true;
 
     }
 
-    private void putEdgeThrough(Vertex v1, Vertex v2, Used u) {
-        // TODO Auto-generated method stub
-
-
+    private boolean putEdgeThrough(Used u) {
 
         if (chain == false) {
-            storage.putEdge(u.getProcess(), u.getArtifact(), u);
+            storage.putEdge(u);
         } else {
-            chainFilter.putEdge(v1, v2, u);
+            chainFilter.putEdge(u);
         }
+        return true;
 
 
     }

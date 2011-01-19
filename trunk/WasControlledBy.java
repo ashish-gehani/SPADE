@@ -45,15 +45,26 @@ public class WasControlledBy extends Edge {
         return process;
     }
 
-    public void setProcess(Process process) {
-        this.process = process;
-    }
-
     public Agent getAgent() {
         return agent;
+    }
+
+    public void setProcess(Process process) {
+        this.process = process;
     }
 
     public void setAgent(Agent agent) {
         this.agent = agent;
     }
+
+    @Override
+    public Vertex getSrcVertex() {
+        return process;
+    }
+
+    @Override
+    public Vertex getDstVertex() {
+        return agent;
+    }
+
 }

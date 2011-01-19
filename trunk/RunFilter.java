@@ -17,9 +17,10 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
+
 import java.util.*;
 
-public class RunFilter implements Filter {
+public class RunFilter implements FilterInterface {
 
     private StorageInterface storage;
     private HashMap writes;
@@ -32,72 +33,74 @@ public class RunFilter implements Filter {
     }
 
     @Override
-    public void putVertex(Agent a) {
-        storage.putVertex(a);
+    public boolean putVertex(Agent a) {
+        return storage.putVertex(a);
     }
 
     @Override
-    public void putVertex(Process p) {
-        storage.putVertex(p);
+    public boolean putVertex(Process p) {
+        return storage.putVertex(p);
     }
 
     @Override
-    public void putVertex(Artifact a) {
-        storage.putVertex(a);
+    public boolean putVertex(Artifact a) {
+        return storage.putVertex(a);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, Used u) {
-        String filename = v2.getAnnotationValue("filename");
-        String pidname = v1.getAnnotationValue("pidname");
+    public boolean putEdge(Used u) {
+        String filename = u.getArtifact().getAnnotationValue("filename");
+        String pidname = u.getProcess().getAnnotationValue("pidname");
         if (reads.containsKey(filename) == false) {
             HashSet tempSet = new HashSet();
             tempSet.add(pidname);
             reads.put(filename, tempSet);
         } else {
             HashSet tempSet = (HashSet)reads.get(filename);
-            if (tempSet.contains(pidname)) return;
+            if (tempSet.contains(pidname)) return false;
             else tempSet.add(pidname);
         }
-        storage.putEdge(u.getProcess(), u.getArtifact(), u);
+        storage.putEdge(u);
         if (writes.containsKey(filename)) {
             HashSet tempSet = (HashSet)writes.get(filename);
             tempSet.remove(pidname);
         }
+        return true;
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasControlledBy wcb) {
-        storage.putEdge(wcb.getProcess(), wcb.getAgent(), wcb);
+    public boolean putEdge(WasControlledBy wcb) {
+        return storage.putEdge(wcb);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasDerivedFrom wdf) {
-        storage.putEdge(wdf.getArtifact2(), wdf.getArtifact1(), wdf);
+    public boolean putEdge(WasDerivedFrom wdf) {
+        return storage.putEdge(wdf);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasGeneratedBy wgb) {
-        String filename = v1.getAnnotationValue("filename");
-        String pidname = v2.getAnnotationValue("pidname");
+    public boolean putEdge(WasGeneratedBy wgb) {
+        String filename = wgb.getArtifact().getAnnotationValue("filename");
+        String pidname = wgb.getProcess().getAnnotationValue("pidname");
         if (writes.containsKey(filename) == false) {
             HashSet tempSet = new HashSet();
             tempSet.add(pidname);
             writes.put(filename, tempSet);
         } else {
             HashSet tempSet = (HashSet)writes.get(filename);
-            if (tempSet.contains(pidname)) return;
+            if (tempSet.contains(pidname)) return false;
             else tempSet.add(pidname);
         }
-        storage.putEdge(wgb.getArtifact(), wgb.getProcess(), wgb);
+        storage.putEdge(wgb);
         if (reads.containsKey(filename)) {
             HashSet tempSet = (HashSet)reads.get(filename);
             tempSet.remove(pidname);
         }
+        return true;
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasTriggeredBy wtb) {
-        storage.putEdge(wtb.getProcess1(), wtb.getProcess2(), wtb);
+    public boolean putEdge(WasTriggeredBy wtb) {
+        return storage.putEdge(wtb);
     }
 }

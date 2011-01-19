@@ -49,11 +49,22 @@ public class Used extends Edge {
         return artifact;
     }
 
+    public void setProcess(Process process) {
+        this.process = process;
+    }
+
     public void setArtifact(Artifact artifact) {
         this.artifact = artifact;
     }
 
-    public void setProcess(Process process) {
-        this.process = process;
+    @Override
+    public Vertex getSrcVertex() {
+        return process;
     }
+
+    @Override
+    public Vertex getDstVertex() {
+        return artifact;
+    }
+    
 }

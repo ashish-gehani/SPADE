@@ -56,4 +56,15 @@ public class WasDerivedFrom extends Edge {
     public void setArtifact2(Artifact artifact2) {
         this.artifact2 = artifact2;
     }
+
+    @Override
+    public Vertex getSrcVertex() {
+        return artifact1;
+    }
+
+    @Override
+    public Vertex getDstVertex() {
+        return artifact2;
+    }
+
 }

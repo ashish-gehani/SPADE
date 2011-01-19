@@ -41,12 +41,12 @@ public class WasGeneratedBy extends Edge {
         annotations = new HashMap<String, String>();
     }
 
-    public Process getProcess() {
-        return process;
-    }
-
     public Artifact getArtifact() {
         return artifact;
+    }
+
+    public Process getProcess() {
+        return process;
     }
 
     public void setArtifact(Artifact artifact) {
@@ -56,4 +56,15 @@ public class WasGeneratedBy extends Edge {
     public void setProcess(Process process) {
         this.process = process;
     }
+
+    @Override
+    public Vertex getSrcVertex() {
+        return artifact;
+    }
+
+    @Override
+    public Vertex getDstVertex() {
+        return process;
+    }
+
 }

@@ -35,16 +35,12 @@ public abstract class Vertex {
     }
 
     public boolean addAnnotation(String inputKey, String inputValue) {
-        annotations.put(inputKey, inputValue);
-        return true;
-/*
         if (!annotations.containsKey(inputKey)) {
             annotations.put(inputKey, inputValue);
             return true;
         } else {
             return false;
         }
- */
     }
 
     public String getAnnotationValue(String inputKey) {
@@ -65,9 +61,26 @@ public abstract class Vertex {
         for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
             String name = (String) it.next();
             String value = (String) annotations.get(name);
-            vertexstring = vertexstring + name + ": " + value + "|";
+            vertexstring = vertexstring + name + ":" + value + "|";
         }
         vertexstring = vertexstring.substring(0, vertexstring.length() - 1);
         return vertexstring;
     }
+
+    @Override
+    public boolean equals(Object that) {
+        if (this == that) return true;
+        if (!(that instanceof Vertex)) return false;
+        Vertex thatV = (Vertex) that;
+        return (this.annotations.equals(thatV.annotations));
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 3;
+        hash = 67 * hash + (this.vertexType != null ? this.vertexType.hashCode() : 0);
+        hash = 67 * hash + (this.annotations != null ? this.annotations.hashCode() : 0);
+        return hash;
+    }
+
 }

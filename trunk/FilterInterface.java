@@ -16,51 +16,23 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License  
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
-*/
+ */
 
-import java.util.HashMap;
+public interface FilterInterface {
 
-public class ReadWriteRuns {
-	
-	int currentRun;
-	//currentRun = 0 -> read run
-	//currentRun = 1 -> write run
-	private HashMap<String,Used> readRuns;
-	private HashMap<String,WasGeneratedBy> writeRuns;
-	//key is pid->edge
-	
-	public ReadWriteRuns(){
-		readRuns = new HashMap<String,Used>();
-		writeRuns = new HashMap<String,WasGeneratedBy>();
-		currentRun = -1;
-	}
+    public boolean putVertex(Agent a);
 
-	public int getCurrentRun() {
-		return currentRun;
-	}
+    public boolean putVertex(Process p);
 
-	public void setCurrentRun(int currentRun) {
-		this.currentRun = currentRun;
-	}
+    public boolean putVertex(Artifact a);
 
-	public HashMap<String, Used> getReadRuns() {
-		return readRuns;
-	}
+    public boolean putEdge(Used u);
 
-	public void setReadRuns(HashMap<String, Used> readRuns) {
-		this.readRuns = readRuns;
-	}
+    public boolean putEdge(WasControlledBy wcb);
 
-	public HashMap<String, WasGeneratedBy> getWriteRuns() {
-		return writeRuns;
-	}
+    public boolean putEdge(WasDerivedFrom wdf);
 
-	public void setWriteRuns(HashMap<String, WasGeneratedBy> writeRuns) {
-		this.writeRuns = writeRuns;
-	}
-	
-	
-	
-	
+    public boolean putEdge(WasGeneratedBy wgb);
 
+    public boolean putEdge(WasTriggeredBy wtb);
 }

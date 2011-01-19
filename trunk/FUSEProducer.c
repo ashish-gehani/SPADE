@@ -10,6 +10,8 @@
 
 #define FUSE_USE_VERSION 26
 
+#include "FUSEProducer.h"
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -44,12 +46,17 @@ jmethodID renameMethod;
 jmethodID linkMethod;
 jmethodID shutdownMethod;
 
+JNIEXPORT jint JNICALL JNI_OnLoad( JavaVM *vm, void *pvt ) {
+	jvm = vm;
+	return JNI_VERSION_1_2;
+}
+
+/*
 void create_vm()
 {
 	JavaVMInitArgs args;
 	JavaVMOption options[1];
 
-	/* There is a new JNI_VERSION_1_4, but it doesn't add anything for the purposes of our example. */
 	args.version = JNI_VERSION_1_2;
 	args.nOptions = 1;
 	options[0].optionString = "-Djava.class.path=.:lib/geronimo-jta_1.1_spec-1.1.1.jar:lib/neo4j-1.2.M04.jar:lib/neo4j-1.2.M04-javadoc.jar:lib/neo4j-examples-1.2.M04.jar:lib/neo4j-graph-algo-0.7-1.2.M04.jar:lib/neo4j-index-1.2-1.2.M04.jar:lib/neo4j-kernel-1.2-1.2.M04.jar:lib/neo4j-kernel-1.2-1.2.M04-tests.jar:lib/neo4j-lucene-index-0.2-1.2.M04.jar:lib/neo4j-management-1.2-1.2.M04.jar:lib/neo4j-online-backup-0.7-1.2.M04.jar:lib/neo4j-remote-graphdb-0.8-1.2.M04.jar:lib/neo4j-shell-1.2-1.2.M04.jar:lib/neo4j-udc-0.1-1.2.M04-neo4j.jar:lib/org.apache.servicemix.bundles.jline-0.9.94_1.jar:lib/org.apache.servicemix.bundles.lucene-3.0.1_2.jar:lib/protobuf-java-2.3.0.jar:lib/jgrapht-jdk1.6.jar";
@@ -67,6 +74,7 @@ void create_vm()
 
 	producerInstance = (*env)->NewObject(env, FUSEProducerClass, initMethod);
 }
+*/
 
 static int make_java_call(char method, int pid, int uid, int gid, const char *path1, const char *path2)
 {
@@ -216,7 +224,7 @@ static int xmp_symlink(const char *from, const char *to)
 	if (res == -1)
 		return -errno;
 
-	make_java_call('l', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, from, to);
+	make_java_call('l', fuse_get_context()->pid, 0, 0, from, to);
 
 	return 0;
 }
@@ -225,13 +233,23 @@ static int xmp_rename(const char *from, const char *to)
 {
 	int res;
 
-	make_java_call('r', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, from, "");
+	struct timeval starttime, endtime;
+	long seconds, useconds, mtime;
+	gettimeofday(&starttime, NULL);
+
+	make_java_call('r', fuse_get_context()->pid, 0, 0, from, "");
 	res = rename(from, to);
 	if (res == -1)
 		return -errno;
 
-	make_java_call('w', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, to, "");
-	make_java_call('n', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, from, to);
+	gettimeofday(&endtime, NULL);
+	seconds  = endtime.tv_sec - starttime.tv_sec;
+	useconds = endtime.tv_usec - starttime.tv_usec;
+	mtime = (seconds*1000000 + useconds);
+	int iotime = mtime;
+
+	make_java_call('w', fuse_get_context()->pid, 0, 0, to, "");
+	make_java_call('n', fuse_get_context()->pid, iotime, 0, from, to);
 
 	return 0;
 }
@@ -244,7 +262,7 @@ static int xmp_link(const char *from, const char *to)
 	if (res == -1)
 		return -errno;
 
-	make_java_call('l', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, from, to);
+	make_java_call('l', fuse_get_context()->pid, 0, 0, from, to);
 
 	return 0;
 }
@@ -275,11 +293,21 @@ static int xmp_truncate(const char *path, off_t size)
 {
 	int res;
 
+	struct timeval starttime, endtime;
+	long seconds, useconds, mtime;
+	gettimeofday(&starttime, NULL);
+
 	res = truncate(path, size);
 	if (res == -1)
 		return -errno;
 
-	make_java_call('w', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, path, "");
+	gettimeofday(&endtime, NULL);
+	seconds  = endtime.tv_sec - starttime.tv_sec;
+	useconds = endtime.tv_usec - starttime.tv_usec;
+	mtime = (seconds*1000000 + useconds);
+	int iotime = mtime;
+
+	make_java_call('w', fuse_get_context()->pid, iotime, 0, path, "");
 
 	return 0;
 }
@@ -310,9 +338,9 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 		return -errno;
 /*
 	if ((fi->flags & O_RDONLY) == O_RDONLY) 
-		make_java_call('r', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, path, "");
+		make_java_call('r', fuse_get_context()->pid, 0, 0, path, "");
 	else
-		make_java_call('w', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, path, "");
+		make_java_call('w', fuse_get_context()->pid, 0, 0, path, "");
 */
 	close(res);
 	return 0;
@@ -323,6 +351,10 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 {
 	int fd;
 	int res;
+
+	struct timeval starttime, endtime;
+	long seconds, useconds, mtime;
+	gettimeofday(&starttime, NULL);
 
 	(void) fi;
 	fd = open(path, O_RDONLY);
@@ -335,7 +367,13 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 
 	close(fd);
 
-	make_java_call('r', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, path, "");
+	gettimeofday(&endtime, NULL);
+	seconds  = endtime.tv_sec - starttime.tv_sec;
+	useconds = endtime.tv_usec - starttime.tv_usec;
+	mtime = (seconds*1000000 + useconds);
+	int iotime = mtime;
+
+	make_java_call('r', fuse_get_context()->pid, iotime, 0, path, "");
 
 	return res;
 }
@@ -345,6 +383,10 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 {
 	int fd;
 	int res;
+
+	struct timeval starttime, endtime;
+	long seconds, useconds, mtime;
+	gettimeofday(&starttime, NULL);
 
 	(void) fi;
 	fd = open(path, O_WRONLY);
@@ -357,7 +399,13 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 
 	close(fd);
 
-	make_java_call('w', fuse_get_context()->pid, fuse_get_context()->uid, fuse_get_context()->gid, path, "");
+	gettimeofday(&endtime, NULL);
+	seconds  = endtime.tv_sec - starttime.tv_sec;
+	useconds = endtime.tv_usec - starttime.tv_usec;
+	mtime = (seconds*1000000 + useconds);
+	int iotime = mtime;
+
+	make_java_call('w', fuse_get_context()->pid, iotime, 0, path, "");
 
 	return res;
 }
@@ -462,10 +510,24 @@ static struct fuse_operations xmp_oper = {
 #endif
 };
 
-int main(int argc, char *argv[])
-{
+JNIEXPORT jint JNICALL Java_FUSEProducer_launchFUSE (JNIEnv *e, jobject o) {
+	producerInstance = o;
+	env = e;
+
+	FUSEProducerClass = (*env)->FindClass(env, "FUSEProducer");
+	initMethod = (*env)->GetMethodID(env, FUSEProducerClass, "<init>", "()V");
+	readwriteMethod = (*env)->GetMethodID(env, FUSEProducerClass, "readwrite", "(IIIILjava/lang/String;)V");
+	renameMethod = (*env)->GetMethodID(env, FUSEProducerClass, "rename", "(IIILjava/lang/String;Ljava/lang/String;)V");
+	linkMethod = (*env)->GetMethodID(env, FUSEProducerClass, "link", "(IIILjava/lang/String;Ljava/lang/String;)V");
+
+	int argc = 4;
+	char *argv[4];
+	argv[0] = "fusexmp";
+	argv[1] = "-f";
+	argv[2] = "-s";
+	argv[3] = "test";
+
 	umask(0);
-	create_vm();
 	return fuse_main(argc, argv, &xmp_oper, NULL);
 }
 

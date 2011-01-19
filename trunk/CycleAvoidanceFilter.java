@@ -20,7 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import java.util.*;
 
-public class CycleAvoidanceFilter implements Filter {
+public class CycleAvoidanceFilter implements FilterInterface {
 
     private HashSet<Vertex> set;
     private HashMap ancestors;
@@ -33,74 +33,71 @@ public class CycleAvoidanceFilter implements Filter {
     }
 
     @Override
-    public void putVertex(Agent a) {
-        storage.putVertex(a);
+    public boolean putVertex(Agent a) {
+        return storage.putVertex(a);
     }
 
     @Override
-    public void putVertex(Process p) {
-        storage.putVertex(p);
+    public boolean putVertex(Process p) {
+        return storage.putVertex(p);
     }
 
     @Override
-    public void putVertex(Artifact a) {
-        storage.putVertex(a);
+    public boolean putVertex(Artifact a) {
+        return storage.putVertex(a);
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, Used u) {
-//        AddVertex(u.getProcess());
-//        AddVertex(u.getArtifact());
-        AddEdge(u.getProcess(), u.getArtifact(), u);
+    public boolean putEdge(Used u) {
+        AddEdge(u);
+        return true;
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasControlledBy wcb) {
-//        AddVertex(wcb.getProcess());
-//        AddVertex(wcb.getAgent());
-        AddEdge(wcb.getProcess(), wcb.getAgent(), wcb);
+    public boolean putEdge(WasControlledBy wcb) {
+        AddEdge(wcb);
+        return true;
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasDerivedFrom wdf) {
-//        AddVertex(wdf.getArtifact2());
-//        AddVertex(wdf.getArtifact1());
-        AddEdge(wdf.getArtifact2(), wdf.getArtifact1(), wdf);
+    public boolean putEdge(WasDerivedFrom wdf) {
+        AddEdge(wdf);
+        return true;
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasGeneratedBy wgb) {
-//        AddVertex(wgb.getProcess());
-//        AddVertex(wgb.getArtifact());
-        AddEdge(wgb.getArtifact(), wgb.getProcess(), wgb);
+    public boolean putEdge(WasGeneratedBy wgb) {
+        AddEdge(wgb);
+        return true;
     }
 
     @Override
-    public void putEdge(Vertex v1, Vertex v2, WasTriggeredBy wtb) {
-//        AddVertex(wtb.getProcess1());
-//        AddVertex(wtb.getProcess2());
-        AddEdge(wtb.getProcess1(), wtb.getProcess2(), wtb);
+    public boolean putEdge(WasTriggeredBy wtb) {
+        AddEdge(wtb);
+        return true;
     }
 
     private void AddVertex(Vertex v) {
         if (set.contains(v) == false) {
-            storage.putVertex(v);
             set.add(v);
+            storage.putVertex(v);
         }
     }
 
-    private void AddEdge(Vertex v1, Vertex v2, Edge e) {
+    private void AddEdge(Edge e) {
+        Vertex v1 = e.getSrcVertex();
+        Vertex v2 = e.getDstVertex();
         if (ancestors.containsKey(v2)) {
             HashSet tempSet = (HashSet)ancestors.get(v2);
             if (tempSet.contains(v1) == false) {
                 tempSet.add(v1);
-                storage.putEdge(v1, v2, e);
+                storage.putEdge(e);
             }
         } else {
             HashSet tempSet = new HashSet();
             tempSet.add(v1);
             ancestors.put(v2, tempSet);
-            storage.putEdge(v1, v2, e);
+            storage.putEdge(e);
         }
     }
 

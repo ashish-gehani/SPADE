@@ -18,7 +18,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.util.Iterator;
+import java.io.*;
+import java.util.*;
+import org.jgrapht.Graph;
+import org.jgrapht.ext.DOTExporter;
+import org.jgrapht.ext.EdgeNameProvider;
+import org.jgrapht.ext.VertexNameProvider;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.traverse.BreadthFirstIterator;
 import org.jgrapht.traverse.DepthFirstIterator;
@@ -29,6 +34,10 @@ public class Lineage implements Comparable {
     private Vertex root;
     private int depth;
     private String pruneExpression;
+
+    public Lineage() {
+        graph = new DefaultDirectedGraph<Vertex, Edge>(Edge.class);
+    }
 
     public Lineage(Vertex inputSource, int inputDepth) {
         root = inputSource;
@@ -63,32 +72,11 @@ public class Lineage implements Comparable {
     }
 
     public boolean putVertex(Vertex inputVertex) {
-        if (inputVertex.getVertexType().equals("Process")) {
-            return graph.addVertex((Process) inputVertex);
-        } else if (inputVertex.getVertexType().equals("Artifact")) {
-            return graph.addVertex((Artifact) inputVertex);
-        } else if (inputVertex.getVertexType().equals("Agent")) {
-            return graph.addVertex((Agent) inputVertex);
-        } else {
-            return false;
-        }
+        return graph.addVertex(inputVertex);
     }
 
     public boolean putEdge(Edge inputEdge) {
-        String edgeType = inputEdge.getEdgeType();
-        if (edgeType.equals("Used")) {
-            return graph.addEdge(((Used) inputEdge).getProcess(), ((Used) inputEdge).getArtifact(), ((Used) inputEdge));
-        } else if (edgeType.equals("WasControlledBy")) {
-            return graph.addEdge(((WasControlledBy) inputEdge).getProcess(), ((WasControlledBy) inputEdge).getAgent(), ((WasControlledBy) inputEdge));
-        } else if (edgeType.equals("WasDerivedFrom")) {
-            return graph.addEdge(((WasDerivedFrom) inputEdge).getArtifact1(), ((WasDerivedFrom) inputEdge).getArtifact2(), ((WasDerivedFrom) inputEdge));
-        } else if (edgeType.equals("WasGeneratedBy")) {
-            return graph.addEdge(((WasGeneratedBy) inputEdge).getArtifact(), ((WasGeneratedBy) inputEdge).getProcess(), ((WasGeneratedBy) inputEdge));
-        } else if (edgeType.equals("WasTriggeredBy")) {
-            return graph.addEdge(((WasTriggeredBy) inputEdge).getProcess1(), ((WasTriggeredBy) inputEdge).getProcess2(), ((WasTriggeredBy) inputEdge));
-        } else {
-            return false;
-        }
+        return graph.addEdge(inputEdge.getSrcVertex(), inputEdge.getDstVertex(), inputEdge);
     }
 
     public int getMaxDepth() {
@@ -105,5 +93,89 @@ public class Lineage implements Comparable {
 
     public DefaultDirectedGraph<Vertex, Edge> getGraph() {
         return graph;
+    }
+
+    public static Lineage intersection(DefaultDirectedGraph<Vertex, Edge> g1, DefaultDirectedGraph<Vertex, Edge> g2) {
+        Lineage output = new Lineage();
+        HashSet vertices = new HashSet();
+        HashSet edges = new HashSet();
+
+        vertices.addAll(g1.vertexSet());
+        vertices.retainAll(g2.vertexSet());
+        edges.addAll(g1.edgeSet());
+        edges.retainAll(g2.edgeSet());
+
+        Iterator v = vertices.iterator();
+        Iterator e = edges.iterator();
+        while (v.hasNext()) output.putVertex((Vertex)v.next());
+        while (e.hasNext()) output.putEdge((Edge)e.next());
+
+        return output;
+    }
+
+    public static Lineage union(DefaultDirectedGraph<Vertex, Edge> g1, DefaultDirectedGraph<Vertex, Edge> g2) {
+        Lineage output = new Lineage();
+        HashSet vertices = new HashSet();
+        HashSet edges = new HashSet();
+
+        vertices.addAll(g1.vertexSet());
+        vertices.addAll(g2.vertexSet());
+        edges.addAll(g1.edgeSet());
+        edges.addAll(g2.edgeSet());
+
+        Iterator v = vertices.iterator();
+        Iterator e = edges.iterator();
+        while (v.hasNext()) output.putVertex((Vertex)v.next());
+        while (e.hasNext()) output.putEdge((Edge)e.next());
+
+        return output;
+    }
+
+    public static void exportDOT(Graph<Vertex, Edge> g, String path) {
+        try {
+            FileWriter out = new FileWriter("temp_out.tmp", false);
+            DOTExporter d = new DOTExporter(new IDProvider(), new LabelProvider(), new EdgeProvider());
+            d.export(out, g);
+            out.close();
+            FileWriter out2 = new FileWriter(path, false);
+            BufferedReader in = new BufferedReader(new FileReader("temp_out.tmp"));
+            String inString = "";
+            out2.write(in.readLine() + "\n");
+            out2.write("graph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\" shape=\"Mrecord\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
+            while ((inString = in.readLine()) != null) {
+                out2.write(inString + "\n");
+            }
+            out2.close();
+            in.close();
+            File deleteFile = new File("temp_out.tmp");
+            deleteFile.delete();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+}
+
+class IDProvider implements VertexNameProvider<Vertex> {
+
+    @Override
+    public String getVertexName(Vertex v) {
+        return Integer.toString(v.hashCode());
+    }
+}
+
+class LabelProvider implements VertexNameProvider<Vertex> {
+
+    @Override
+    public String getVertexName(Vertex v) {
+        return v.toString();
+    }
+}
+
+class EdgeProvider implements EdgeNameProvider<Edge> {
+
+    @Override
+    public String getEdgeName(Edge e) {
+        return e.getEdgeType();
     }
 }
