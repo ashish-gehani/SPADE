@@ -96,7 +96,7 @@ public class FUSEProducer implements ProducerInterface {
             tempVertex.addAnnotation("startime", stime);
             tempVertex.addAnnotation("group", stats[4]);
             tempVertex.addAnnotation("session", stats[5]);
-//            tempVertex.addAnnotation("cmdline", cmdline);
+            tempVertex.addAnnotation("cmdline", cmdline);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -205,6 +205,7 @@ public class FUSEProducer implements ProducerInterface {
     }
 
     public void readwrite(int write, int pid, int iotime, int var1, String path) {
+        long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
         File file = new File(path);
 //        String lastmodified = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(file.lastModified()));
@@ -222,20 +223,24 @@ public class FUSEProducer implements ProducerInterface {
             Used tempEdge = new Used((Process) LocalCache.get(Integer.toString(pid)), (Artifact) LocalCache.get(path), "Used", "Used");
             tempEdge.addAnnotation("type", "Used");
             tempEdge.addAnnotation("iotime", Integer.toString(iotime));
+            tempEdge.addAnnotation("endtime", Long.toString(now));
             buffer.putEdge(tempEdge);
         } else {
             WasGeneratedBy tempEdge = new WasGeneratedBy((Artifact) LocalCache.get(path), (Process) LocalCache.get(Integer.toString(pid)), "WasGeneratedBy", "WasGeneratedBy");
             tempEdge.addAnnotation("type", "WasGeneratedBy");
             tempEdge.addAnnotation("iotime", Integer.toString(iotime));
+            tempEdge.addAnnotation("endtime", Long.toString(now));
             buffer.putEdge(tempEdge);
         }
     }
 
     public void rename(int pid, int iotime, int var1, String pathfrom, String pathto) {
+        long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
         WasDerivedFrom tempEdge = new WasDerivedFrom((Artifact) LocalCache.get(pathto), (Artifact) LocalCache.get(pathfrom), "WasDerivedFrom", "WasDerivedFrom");
         tempEdge.addAnnotation("type", "WasDerivedFrom");
         tempEdge.addAnnotation("iotime", Integer.toString(iotime));
+        tempEdge.addAnnotation("endtime", Long.toString(now));
         buffer.putEdge(tempEdge);
     }
 

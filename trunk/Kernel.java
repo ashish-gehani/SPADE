@@ -108,7 +108,7 @@ public class Kernel {
                                 p.shutdown();
                             }
                             System.out.println("done");
-                            System.out.print("Emptying buffers... ");
+                            System.out.print("Flushing buffers... ");
                             shutdown = true;
                             break;
                         } else if (command.equals("add")) {
