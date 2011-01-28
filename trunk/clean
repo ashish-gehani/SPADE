@@ -1,9 +1,0 @@
-#!/bin/bash
-rm -rf *.class
-rm -rf libjfuse.so
-rm -rf FUSEProducer.h
-rm -rf db/*
-rm -rf *.log
-rm -rf *.dot
-rm -rf *.svg
-
