@@ -25,6 +25,14 @@ public class WasGeneratedBy extends Edge {
     private Artifact artifact;
     private Process process;
 
+    public WasGeneratedBy(Artifact inputArtifact, Process inputProcess) {
+        process = inputProcess;
+        artifact = inputArtifact;
+        role = "WasGeneratedBy";
+        edgeType = "WasGeneratedBy";
+        annotations = new HashMap<String, String>();
+    }
+
     public WasGeneratedBy(Artifact inputArtifact, Process inputProcess, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
         process = inputProcess;
         artifact = inputArtifact;

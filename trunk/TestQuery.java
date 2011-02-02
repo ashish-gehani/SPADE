@@ -28,7 +28,7 @@ public class TestQuery {
         t.initialize("db/testdb");
 
         try {
-            Set<Vertex> testSet1 = t.getVertices("(pid:{* TO 11} NOT pidname:in?t) OR (startime:[* TO 1296236913060] AND cmdline:/sbin/*)");
+            Set<Vertex> testSet1 = t.getVertices("(pid:{* TO 11} NOT pidname:?nit) OR (startime:[* TO 1296236913060] AND cmdline:/sbin/*)");
             Iterator i1 = testSet1.iterator();
             Lineage lin1 = new Lineage();
             while (i1.hasNext()) {

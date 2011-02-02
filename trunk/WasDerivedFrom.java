@@ -25,6 +25,14 @@ public class WasDerivedFrom extends Edge {
     private Artifact artifact1;
     private Artifact artifact2;
 
+    public WasDerivedFrom(Artifact inputArtifact1, Artifact inputArtifact2) {
+        artifact1 = inputArtifact1;
+        artifact2 = inputArtifact2;
+        role = "WasDerivedFrom";
+        edgeType = "WasDerivedFrom";
+        annotations = new HashMap<String, String>();
+    }
+
     public WasDerivedFrom(Artifact inputArtifact1, Artifact inputArtifact2, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
         artifact1 = inputArtifact1;
         artifact2 = inputArtifact2;

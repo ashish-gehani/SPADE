@@ -25,6 +25,14 @@ public class WasTriggeredBy extends Edge {
     private Process process1;
     private Process process2;
 
+    public WasTriggeredBy(Process inputProcess1, Process inputProcess2) {
+        process1 = inputProcess1;
+        process2 = inputProcess2;
+        role = "WasTriggeredBy";
+        edgeType = "WasTriggeredBy";
+        annotations = new HashMap<String, String>();
+    }
+
     public WasTriggeredBy(Process inputProcess1, Process inputProcess2, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
         process1 = inputProcess1;
         process2 = inputProcess2;

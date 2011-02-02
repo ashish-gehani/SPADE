@@ -141,7 +141,7 @@ public class FUSEProducer implements ProducerInterface {
         Process rootVertex = new Process();
         rootVertex.addAnnotation("ppid", "0");
         rootVertex.addAnnotation("pid", "0");
-        rootVertex.addAnnotation("type", "Process");
+//        rootVertex.addAnnotation("type", "Process");
         rootVertex.addAnnotation("pidname", "System");
 //        String stime = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(boottime));
         String stime = Long.toString(boottime);
@@ -163,12 +163,12 @@ public class FUSEProducer implements ProducerInterface {
                     Process tempVertex = new Process();
                     createProcessVertex(processDir, tempVertex);
                     String ppid = (String) tempVertex.getAnnotationValue("ppid");
-                    tempVertex.addAnnotation("type", "Process");
+//                    tempVertex.addAnnotation("type", "Process");
                     buffer.putVertex(tempVertex);
                     LocalCache.put(tempVertex.getAnnotationValue("pid"), tempVertex);
                     if (Integer.parseInt(ppid) >= 0) {
                         WasTriggeredBy tempEdge = new WasTriggeredBy((Process) LocalCache.get(processDir), (Process) LocalCache.get(ppid), "WasTriggeredBy", "WasTriggeredBy");
-                        tempEdge.addAnnotation("type", "WasTriggeredBy");
+//                        tempEdge.addAnnotation("type", "WasTriggeredBy");
                         buffer.putEdge(tempEdge);
                     }
                 } catch (Exception e) {
@@ -202,13 +202,13 @@ public class FUSEProducer implements ProducerInterface {
                 Process tempVertex = new Process();
                 createProcessVertex(pid, tempVertex);
                 String ppid = (String) tempVertex.getAnnotationValue("ppid");
-                tempVertex.addAnnotation("type", "Process");
+//                tempVertex.addAnnotation("type", "Process");
                 buffer.putVertex(tempVertex);
                 LocalCache.put(tempVertex.getAnnotationValue("pid"), tempVertex);
                 if (Integer.parseInt(ppid) >= 0) {
                     checkProcessTree(ppid);
                     WasTriggeredBy tempEdge = new WasTriggeredBy((Process) LocalCache.get(pid), (Process) LocalCache.get(ppid), "WasTriggeredBy", "WasTriggeredBy");
-                    tempEdge.addAnnotation("type", "WasTriggeredBy");
+//                    tempEdge.addAnnotation("type", "WasTriggeredBy");
                     buffer.putEdge(tempEdge);
                 } else {
                     return;
@@ -232,18 +232,18 @@ public class FUSEProducer implements ProducerInterface {
         tempVertex.addAnnotation("path", path);
         tempVertex.addAnnotation("lastmodified", lastmodified);
         tempVertex.addAnnotation("size", filesize);
-        tempVertex.addAnnotation("type", "Artifact");
+//        tempVertex.addAnnotation("type", "Artifact");
         buffer.putVertex(tempVertex);
         LocalCache.put(path, tempVertex);
         if (write == 0) {
             Used tempEdge = new Used((Process) LocalCache.get(Integer.toString(pid)), (Artifact) LocalCache.get(path), "Used", "Used");
-            tempEdge.addAnnotation("type", "Used");
+//            tempEdge.addAnnotation("type", "Used");
             tempEdge.addAnnotation("iotime", Integer.toString(iotime));
             tempEdge.addAnnotation("endtime", Long.toString(now));
             buffer.putEdge(tempEdge);
         } else {
             WasGeneratedBy tempEdge = new WasGeneratedBy((Artifact) LocalCache.get(path), (Process) LocalCache.get(Integer.toString(pid)), "WasGeneratedBy", "WasGeneratedBy");
-            tempEdge.addAnnotation("type", "WasGeneratedBy");
+//            tempEdge.addAnnotation("type", "WasGeneratedBy");
             tempEdge.addAnnotation("iotime", Integer.toString(iotime));
             tempEdge.addAnnotation("endtime", Long.toString(now));
             buffer.putEdge(tempEdge);
@@ -254,7 +254,7 @@ public class FUSEProducer implements ProducerInterface {
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
         WasDerivedFrom tempEdge = new WasDerivedFrom((Artifact) LocalCache.get(pathto), (Artifact) LocalCache.get(pathfrom), "WasDerivedFrom", "WasDerivedFrom");
-        tempEdge.addAnnotation("type", "WasDerivedFrom");
+//        tempEdge.addAnnotation("type", "WasDerivedFrom");
         tempEdge.addAnnotation("iotime", Integer.toString(iotime));
         tempEdge.addAnnotation("endtime", Long.toString(now));
         buffer.putEdge(tempEdge);

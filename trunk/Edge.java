@@ -48,6 +48,7 @@ public abstract class Edge {
             annotations.put(inputKey, inputValue);
             return true;
         } else {
+            annotations.put(inputKey, inputValue);
             return false;
         }
     }
@@ -62,11 +63,7 @@ public abstract class Edge {
     }
 
     public String getAnnotationValue(String inputKey) {
-        if (annotations.containsKey(inputKey)) {
-            return annotations.get(inputKey);
-        } else {
-            return null;
-        }
+        return annotations.get(inputKey);
     }
 
     public String getEdgeType() {

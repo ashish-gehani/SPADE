@@ -117,7 +117,7 @@ public class Neo4jStorage implements ConsumerInterface {
         if (VertexTable.get(v) != null) {
             return false;
         }
-//        v = fixVertex(v);
+        v = fixVertex(v);
         Node newVertex = graphDb.createNode();
         HashMap<String, String> annotations = v.getAnnotations();
         for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
@@ -141,9 +141,9 @@ public class Neo4jStorage implements ConsumerInterface {
         if (txcount == 0) {
             tx = graphDb.beginTx();
         }
-        Vertex vsrc = e.getSrcVertex();
-        Vertex vdst = e.getDstVertex();
-//        e = fixEdge(e);
+        Vertex vsrc = fixVertex(e.getSrcVertex());
+        Vertex vdst = fixVertex(e.getDstVertex());
+        e = fixEdge(e);
         Long srcNodeId = (Long) VertexTable.get(vsrc);
         Long dstNodeId = (Long) VertexTable.get(vdst);
         Node srcNode = graphDb.getNodeById(srcNodeId);

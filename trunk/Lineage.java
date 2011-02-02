@@ -87,10 +87,6 @@ public class Lineage implements Comparable {
         return pruneExpression;
     }
 
-    public int compareTo(Object inputLineage) {
-        return 0;
-    }
-
     public DefaultDirectedGraph<Vertex, Edge> getGraph() {
         return graph;
     }
@@ -160,6 +156,10 @@ public class Lineage implements Comparable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public int compareTo(Object o) {
+        return 0;
     }
 }
 

@@ -74,7 +74,7 @@ public class DOTOutput implements ConsumerInterface {
                 } else {
                     annotationstring = e.getEdgeType();
                 }
-                String edgestring = "\"" + e.getSrcVertex().hashCode() + "\" -> \"" + e.getDstVertex().hashCode() + "\" [id=" + e.hashCode() + " label=\"" + annotationstring + "\"];\n";
+                String edgestring = "\"" + e.getSrcVertex().hashCode() + "\" -> \"" + e.getDstVertex().hashCode() + "\" [label=\"" + annotationstring + "\"];\n";
                 out.write(edgestring);
                 return true;
             }

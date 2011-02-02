@@ -25,6 +25,14 @@ public class Used extends Edge {
     private Process process;
     private Artifact artifact;
 
+    public Used(Process inputProcess, Artifact inputArtifact) {
+        process = inputProcess;
+        artifact = inputArtifact;
+        role = "Used";
+        edgeType = "Used";
+        annotations = new HashMap<String, String>();
+    }
+
     public Used(Process inputProcess, Artifact inputArtifact, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
         process = inputProcess;
         artifact = inputArtifact;

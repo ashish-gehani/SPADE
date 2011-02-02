@@ -27,12 +27,24 @@ public class OpenBSMProducer implements ProducerInterface {
     private BufferedReader eventreader;
     private java.lang.Process pipeprocess;
     private boolean shutdown;
-    private boolean reading_event;
+    private HashMap processVertices;
+    private HashMap processParents;
+    private HashMap unfinishedVertices;
+    private HashSet sentObjects;
+    private Vertex tempVertex1, tempVertex2;
+    private Edge tempEdge;
+    private int current_event_id;
 
     public boolean initialize(Buffer buff) {
         buffer = buff;
+        processVertices = new HashMap();
+        processParents = new HashMap();
+        sentObjects = new HashSet();
+        unfinishedVertices = new HashMap();
+        shutdown = false;
+
         try {
-            String[] cmd = {"/bin/sh", "-c", "sudo praudit -l /dev/auditpipe"};
+            String[] cmd = {"/bin/sh", "-c", "sudo praudit -r /dev/auditpipe"};
             pipeprocess = Runtime.getRuntime().exec(cmd);
             eventreader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
             eventreader.readLine();
@@ -45,7 +57,9 @@ public class OpenBSMProducer implements ProducerInterface {
                             if (shutdown) {
                                 break;
                             }
-                            if (line != null) parseEvent(line);
+                            if (line != null) {
+                                parseEvent(line);
+                            }
                             line = eventreader.readLine();
                         }
                         pipeprocess.destroy();
@@ -79,28 +93,72 @@ public class OpenBSMProducer implements ProducerInterface {
             case 21:						// AUT_HEADER32_EX
             case 116: 						// AUT_HEADER64
             case 121: 						// AUT_HEADER64_EX
-                reading_event = true;
                 int record_length = Integer.parseInt(tokenizer.nextToken());
                 int audit_record_version = Integer.parseInt(tokenizer.nextToken());
                 int event_id = Integer.parseInt(tokenizer.nextToken());
                 int event_id_modifier = Integer.parseInt(tokenizer.nextToken());
-                int date_time = Integer.parseInt(tokenizer.nextToken());
-                int offset_msec = Integer.parseInt(tokenizer.nextToken());
+                String date_time = tokenizer.nextToken();
+                String offset_msec = tokenizer.nextToken();
+
+                current_event_id = event_id;
+                if ((event_id > 71) && (event_id < 84)) {       // read/write events
+                    tempVertex1 = new Process();
+                    tempVertex2 = new Artifact();
+                    if (event_id == 72) {
+                        tempEdge = new Used((Process) tempVertex1, (Artifact) tempVertex2);
+                    } else {
+                        tempEdge = new WasGeneratedBy((Artifact) tempVertex2, (Process) tempVertex1);
+                    }
+                } else if (event_id == 2) {                     // fork
+                    tempVertex1 = new Process();
+                    tempVertex2 = new Process();
+                    tempEdge = new WasTriggeredBy((Process) tempVertex2, (Process) tempVertex1);
+                }
+                if (tempEdge != null) {
+                    tempEdge.addAnnotation("endtime", date_time + offset_msec);
+                }
                 break;
 
             case 36:						// AUT_SUBJECT32
             case 122:						// AUT_SUBJECT32_EX
             case 117:						// AUT_SUBJECT64
             case 124:						// AUT_SUBJECT64_EX
-                int user_audit_id = Integer.parseInt(tokenizer.nextToken());
-                int euid = Integer.parseInt(tokenizer.nextToken());
-                int egid = Integer.parseInt(tokenizer.nextToken());
-                int uid = Integer.parseInt(tokenizer.nextToken());
-                int gid = Integer.parseInt(tokenizer.nextToken());
-                int pid = Integer.parseInt(tokenizer.nextToken());
-                int session_id = Integer.parseInt(tokenizer.nextToken());
-                int device_id = Integer.parseInt(tokenizer.nextToken());
-                String machine_id = tokenizer.nextToken();
+                String user_audit_id = tokenizer.nextToken();
+                String euid = tokenizer.nextToken();
+                String egid = tokenizer.nextToken();
+                String uid = tokenizer.nextToken();
+                String gid = tokenizer.nextToken();
+                String pid = tokenizer.nextToken();
+                String sessionid = tokenizer.nextToken();
+                String deviceid = tokenizer.nextToken();
+                String machineid = tokenizer.nextToken();
+                if (tempVertex1 != null) {
+                    tempVertex1.addAnnotation("euid", euid);
+                    tempVertex1.addAnnotation("egid", egid);
+                    tempVertex1.addAnnotation("uid", uid);
+                    tempVertex1.addAnnotation("gid", gid);
+                    tempVertex1.addAnnotation("pid", pid);
+                    tempVertex1.addAnnotation("sessionid", sessionid);
+                    tempVertex1.addAnnotation("deviceid", deviceid);
+                    tempVertex1.addAnnotation("machineid", machineid);
+                    processVertices.put(pid, tempVertex1);
+                    pushToBuffer(tempVertex1);
+                }
+                if (unfinishedVertices.get(pid) != null) {
+                    Vertex childVertex = (Vertex) unfinishedVertices.get(pid);
+                    childVertex.addAnnotation("euid", euid);
+                    childVertex.addAnnotation("egid", egid);
+                    childVertex.addAnnotation("uid", uid);
+                    childVertex.addAnnotation("gid", gid);
+                    childVertex.addAnnotation("sessionid", sessionid);
+                    childVertex.addAnnotation("deviceid", deviceid);
+                    childVertex.addAnnotation("machineid", machineid);
+                    processVertices.put(pid, tempVertex1);
+                    unfinishedVertices.remove(pid);
+                    Edge triggered = new WasTriggeredBy((Process)childVertex, (Process)processVertices.get(processParents.get(pid)));
+                    pushToBuffer(childVertex);
+                    pushToBuffer(triggered);
+                }
                 break;
 
             case 38:						// AUT_PROCESS32
@@ -122,17 +180,32 @@ public class OpenBSMProducer implements ProducerInterface {
             case 114:						// AUT_RETURN64
                 int error = Integer.parseInt(tokenizer.nextToken());
                 String return_value = tokenizer.nextToken();
+                if (current_event_id == 2) {                    // fork occurred, determine child PID
+                    tempVertex2.addAnnotation("pid", return_value);
+                    processParents.put(return_value, tempVertex1.getAnnotationValue("pid"));
+                    unfinishedVertices.put(return_value, tempVertex2);
+                }
                 break;
 
             case 49: 						// AUT_ATTR
             case 62:						// AUT_ATTR32
             case 115:						// AUT_ATTR64
-                int file_access_mode = Integer.parseInt(tokenizer.nextToken());
-                int owner_uid = Integer.parseInt(tokenizer.nextToken());
-                int owner_gid = Integer.parseInt(tokenizer.nextToken());
-                int filesystem_id = Integer.parseInt(tokenizer.nextToken());
-                int inode_id = Integer.parseInt(tokenizer.nextToken());
-                int file_device_id = Integer.parseInt(tokenizer.nextToken());
+                String file_access_mode = tokenizer.nextToken();
+                String owneruid = tokenizer.nextToken();
+                String ownergid = tokenizer.nextToken();
+                String filesystemid = tokenizer.nextToken();
+                String inodeid = tokenizer.nextToken();
+                String filedeviceid = tokenizer.nextToken();
+                /*
+                if ((current_event_id > 71) && (current_event_id < 84) && (tempVertex2 != null)) {
+                    tempVertex2.addAnnotation("owneruid", owneruid);
+                    tempVertex2.addAnnotation("ownergid", ownergid);
+                    tempVertex2.addAnnotation("filesystemid", filesystemid);
+                    tempVertex2.addAnnotation("inodeid", inodeid);
+                    tempVertex2.addAnnotation("filedeviceid", filedeviceid);
+                }
+                 * 
+                 */
                 break;
 
             case 45:						// AUT_ARG32
@@ -144,6 +217,13 @@ public class OpenBSMProducer implements ProducerInterface {
 
             case 35: 						// AUT_PATH
                 String path = tokenizer.nextToken();
+                if ((current_event_id > 71) && (current_event_id < 84) && (tempVertex2 != null)) {
+                    String[] filename = path.split("/");
+                    if (filename.length > 0) {
+                        tempVertex2.addAnnotation("filename", filename[filename.length-1]);
+                    }
+                    tempVertex2.addAnnotation("path", path);
+                }
                 break;
 
             case 40: 						// AUT_TEXT
@@ -151,7 +231,17 @@ public class OpenBSMProducer implements ProducerInterface {
                 break;
 
             case 19:						// AUT_TRAILER
-                reading_event = false;
+                if ((tempVertex1 != null) && (tempVertex2 != null) && (tempEdge != null)) {
+                    if ((current_event_id > 71) && (current_event_id < 84)) {
+                        pushToBuffer(tempVertex1);
+                        pushToBuffer(tempVertex2);
+                        pushToBuffer(tempEdge);
+                    }
+                }
+                current_event_id = 0;
+                tempVertex1 = null;
+                tempVertex2 = null;
+                tempEdge = null;
                 break;
 
             case 128:						// AUT_SOCKINET32
@@ -182,6 +272,16 @@ public class OpenBSMProducer implements ProducerInterface {
             default:
                 break;
 
+        }
+    }
+
+    private void pushToBuffer(Object o) {
+        if (sentObjects.add(o)) {
+            if (o instanceof Vertex) {
+                buffer.putVertex((Vertex) o);
+            } else if (o instanceof Edge) {
+                buffer.putEdge((Edge) o);
+            }
         }
     }
 }

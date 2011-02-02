@@ -27,6 +27,7 @@ public class TestFilter implements FilterInterface {
     }
 
     public void putVertex(Vertex v) {
+        v.removeAnnotation("cmdline");
         v.removeAnnotation("environment");
         next.putVertex(v);
     }

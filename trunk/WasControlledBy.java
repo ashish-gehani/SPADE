@@ -25,6 +25,14 @@ public class WasControlledBy extends Edge {
     private Process process;
     private Agent agent;
 
+    public WasControlledBy(Process inputProcess, Agent inputAgent) {
+        process = inputProcess;
+        agent = inputAgent;
+        role = "WasControlledBy";
+        edgeType = "WasControlledBy";
+        annotations = new HashMap<String, String>();
+    }
+
     public WasControlledBy(Process inputProcess, Agent inputAgent, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
         process = inputProcess;
         agent = inputAgent;
