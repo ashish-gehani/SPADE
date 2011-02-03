@@ -26,22 +26,22 @@ public class OpenBSMProducer implements ProducerInterface {
     private Buffer buffer;
     private BufferedReader eventreader;
     private java.lang.Process pipeprocess;
-    private boolean shutdown;
     private HashMap processVertices;
-    private HashMap processParents;
-    private HashMap unfinishedVertices;
     private HashSet sentObjects;
+    private HashSet processTree;
     private Vertex tempVertex1, tempVertex2;
-    private Edge tempEdge;
     private int current_event_id;
+    private String current_event_time;
+    private String current_file_path;
+    private boolean shutdown;
 
     public boolean initialize(Buffer buff) {
         buffer = buff;
         processVertices = new HashMap();
-        processParents = new HashMap();
         sentObjects = new HashSet();
-        unfinishedVertices = new HashMap();
+        processTree = new HashSet();
         shutdown = false;
+        buildProcessTree();
 
         try {
             String[] cmd = {"/bin/sh", "-c", "sudo praudit -r /dev/auditpipe"};
@@ -55,6 +55,8 @@ public class OpenBSMProducer implements ProducerInterface {
                         String line = eventreader.readLine();
                         while (true) {
                             if (shutdown) {
+                                eventreader.close();
+                                pipeprocess.destroy();
                                 break;
                             }
                             if (line != null) {
@@ -62,7 +64,6 @@ public class OpenBSMProducer implements ProducerInterface {
                             }
                             line = eventreader.readLine();
                         }
-                        pipeprocess.destroy();
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -79,7 +80,118 @@ public class OpenBSMProducer implements ProducerInterface {
         shutdown = true;
     }
 
-    public void parseEvent(String line) {
+    private void buildProcessTree() {
+        Vertex parentVertex, childVertex;
+        try {
+            String line = "";
+            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
+            BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+            line = pidreader.readLine();
+            line = pidreader.readLine().trim();
+            String info[] = line.split("\\s+", 3);
+            getProcessVertex(info[0]);
+            while (true) {
+                line = pidreader.readLine().trim();
+                String childinfo[] = line.split("\\s+", 3);
+                if (childinfo[2].equals("ps")) break;
+                childVertex = getProcessVertex(childinfo[0]);
+                if (childVertex != null) {
+                    parentVertex = (Vertex)processVertices.get(childVertex.getAnnotationValue("ppid"));
+                    Edge edge = new WasTriggeredBy((Process)childVertex, (Process)parentVertex);
+                    pushToBuffer(parentVertex);
+                    pushToBuffer(childVertex);
+                    pushToBuffer(edge);
+                    processTree.add(childinfo[0]);
+                    processTree.add(childinfo[1]);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private Vertex createFileVertex(String path) {
+        try {
+            Vertex f = new Artifact();
+            java.lang.Process fileinfo = Runtime.getRuntime().exec("stat -f \"%Op%n%Su(%u)%n%Sg(%g)%n%m%n%z\" " + path);
+            BufferedReader inforeader = new BufferedReader(new InputStreamReader(fileinfo.getInputStream()));
+            f.addAnnotation("permissions", inforeader.readLine().replace("\"", ""));
+            f.addAnnotation("owneruid", inforeader.readLine());
+            f.addAnnotation("ownergid", inforeader.readLine());
+            f.addAnnotation("lastmodified", inforeader.readLine());
+            f.addAnnotation("size", inforeader.readLine().replace("\"", ""));
+            String[] filename = path.split("/");
+            f.addAnnotation("filename", filename[filename.length-1]);
+            f.addAnnotation("path", path);
+            fileinfo.destroy();
+            return f;
+        } catch (Exception e) {
+            Vertex f = new Artifact();
+            String[] filename = path.split("/");
+            if (filename.length > 0) {
+                f.addAnnotation("filename", filename[filename.length-1]);
+            }
+            f.addAnnotation("path", path);
+            return f;
+        }
+    }
+
+    private Vertex getProcessVertex(String pid) {
+        Vertex v = (Vertex)processVertices.get(pid);
+        if (v != null) return v;
+        try {
+            String line = "";
+            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,gid,comm");
+            BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+            line = pidreader.readLine();
+            line = pidreader.readLine();
+            pidinfo.destroy();
+            if (line == null) return null;
+            v = new Process();
+            String info[] = line.trim().split("\\s+", 5);
+            v.addAnnotation("pid", pid);
+            v.addAnnotation("ppid", info[1]);
+            v.addAnnotation("uid", info[2]);
+            v.addAnnotation("gid", info[3]);
+            v.addAnnotation("pidname", info[4]);
+            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o lstart");
+            pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+            line = pidreader.readLine();
+            line = pidreader.readLine();
+            if (line != null) v.addAnnotation("starttime", line);
+            pidinfo.destroy();
+            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
+            pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+            line = pidreader.readLine();
+            line = pidreader.readLine();
+            if (line != null) v.addAnnotation("commandline", line);
+            pidinfo.destroy();
+            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command");
+            pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+            line = pidreader.readLine();
+            line = pidreader.readLine();
+            if ((line != null) && (line.length() > v.getAnnotationValue("commandline").length())) {
+                v.addAnnotation("environment", line.substring(v.getAnnotationValue("commandline").length()));
+            }
+            pidinfo.destroy();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        processVertices.put(pid, v);
+        if (processTree.contains(pid) == false) {
+            Vertex p = getProcessVertex(v.getAnnotationValue("ppid"));
+            if (p != null) {
+                Edge e = new WasTriggeredBy((Process)v, (Process)p);
+                pushToBuffer(p);
+                pushToBuffer(v);
+                pushToBuffer(e);
+                processTree.add(pid);
+            }
+        }
+        return v;
+    }
+
+    private void parseEvent(String line) {
         StringTokenizer tokenizer = new StringTokenizer(line, ",");
         int token_type = Integer.parseInt(tokenizer.nextToken());
 
@@ -101,22 +213,7 @@ public class OpenBSMProducer implements ProducerInterface {
                 String offset_msec = tokenizer.nextToken();
 
                 current_event_id = event_id;
-                if ((event_id > 71) && (event_id < 84)) {       // read/write events
-                    tempVertex1 = new Process();
-                    tempVertex2 = new Artifact();
-                    if (event_id == 72) {
-                        tempEdge = new Used((Process) tempVertex1, (Artifact) tempVertex2);
-                    } else {
-                        tempEdge = new WasGeneratedBy((Artifact) tempVertex2, (Process) tempVertex1);
-                    }
-                } else if (event_id == 2) {                     // fork
-                    tempVertex1 = new Process();
-                    tempVertex2 = new Process();
-                    tempEdge = new WasTriggeredBy((Process) tempVertex2, (Process) tempVertex1);
-                }
-                if (tempEdge != null) {
-                    tempEdge.addAnnotation("endtime", date_time + offset_msec);
-                }
+                current_event_time = date_time + offset_msec;
                 break;
 
             case 36:						// AUT_SUBJECT32
@@ -132,32 +229,8 @@ public class OpenBSMProducer implements ProducerInterface {
                 String sessionid = tokenizer.nextToken();
                 String deviceid = tokenizer.nextToken();
                 String machineid = tokenizer.nextToken();
-                if (tempVertex1 != null) {
-                    tempVertex1.addAnnotation("euid", euid);
-                    tempVertex1.addAnnotation("egid", egid);
-                    tempVertex1.addAnnotation("uid", uid);
-                    tempVertex1.addAnnotation("gid", gid);
-                    tempVertex1.addAnnotation("pid", pid);
-                    tempVertex1.addAnnotation("sessionid", sessionid);
-                    tempVertex1.addAnnotation("deviceid", deviceid);
-                    tempVertex1.addAnnotation("machineid", machineid);
-                    processVertices.put(pid, tempVertex1);
-                    pushToBuffer(tempVertex1);
-                }
-                if (unfinishedVertices.get(pid) != null) {
-                    Vertex childVertex = (Vertex) unfinishedVertices.get(pid);
-                    childVertex.addAnnotation("euid", euid);
-                    childVertex.addAnnotation("egid", egid);
-                    childVertex.addAnnotation("uid", uid);
-                    childVertex.addAnnotation("gid", gid);
-                    childVertex.addAnnotation("sessionid", sessionid);
-                    childVertex.addAnnotation("deviceid", deviceid);
-                    childVertex.addAnnotation("machineid", machineid);
-                    processVertices.put(pid, tempVertex1);
-                    unfinishedVertices.remove(pid);
-                    Edge triggered = new WasTriggeredBy((Process)childVertex, (Process)processVertices.get(processParents.get(pid)));
-                    pushToBuffer(childVertex);
-                    pushToBuffer(triggered);
+                if ((current_event_id == 2) || ((current_event_id > 71) && (current_event_id < 84))) {
+                    tempVertex1 = getProcessVertex(pid);
                 }
                 break;
 
@@ -165,25 +238,28 @@ public class OpenBSMProducer implements ProducerInterface {
             case 123:						// AUT_PROCESS32_EX
             case 119:						// AUT_PROCESS64
             case 125:						// AUT_PROCESS64_EX
-                int process_user_audit_id = Integer.parseInt(tokenizer.nextToken());
-                int process_euid = Integer.parseInt(tokenizer.nextToken());
-                int process_egid = Integer.parseInt(tokenizer.nextToken());
-                int process_uid = Integer.parseInt(tokenizer.nextToken());
-                int process_gid = Integer.parseInt(tokenizer.nextToken());
-                int process_pid = Integer.parseInt(tokenizer.nextToken());
-                int process_session_id = Integer.parseInt(tokenizer.nextToken());
-                int process_device_id = Integer.parseInt(tokenizer.nextToken());
+                String process_user_audit_id = tokenizer.nextToken();
+                String process_euid = tokenizer.nextToken();
+                String process_egid = tokenizer.nextToken();
+                String process_uid = tokenizer.nextToken();
+                String process_gid = tokenizer.nextToken();
+                String process_pid = tokenizer.nextToken();
+                String process_session_id = tokenizer.nextToken();
+                String process_device_id = tokenizer.nextToken();
                 String process_machine_id = tokenizer.nextToken();
                 break;
 
             case 39:						// AUT_RETURN32
             case 114:						// AUT_RETURN64
-                int error = Integer.parseInt(tokenizer.nextToken());
+                String error = tokenizer.nextToken();
                 String return_value = tokenizer.nextToken();
                 if (current_event_id == 2) {                    // fork occurred, determine child PID
-                    tempVertex2.addAnnotation("pid", return_value);
-                    processParents.put(return_value, tempVertex1.getAnnotationValue("pid"));
-                    unfinishedVertices.put(return_value, tempVertex2);
+                    tempVertex2 = getProcessVertex(return_value);
+                    if (tempVertex2 == null) {                  // short-lived process
+                        tempVertex2 = new Process();
+                        tempVertex2.addAnnotation("pid", return_value);
+                        tempVertex2.addAnnotation("ppid", tempVertex1.getAnnotationValue("pid"));
+                    }
                 }
                 break;
 
@@ -196,33 +272,19 @@ public class OpenBSMProducer implements ProducerInterface {
                 String filesystemid = tokenizer.nextToken();
                 String inodeid = tokenizer.nextToken();
                 String filedeviceid = tokenizer.nextToken();
-                /*
-                if ((current_event_id > 71) && (current_event_id < 84) && (tempVertex2 != null)) {
-                    tempVertex2.addAnnotation("owneruid", owneruid);
-                    tempVertex2.addAnnotation("ownergid", ownergid);
-                    tempVertex2.addAnnotation("filesystemid", filesystemid);
-                    tempVertex2.addAnnotation("inodeid", inodeid);
-                    tempVertex2.addAnnotation("filedeviceid", filedeviceid);
-                }
-                 * 
-                 */
                 break;
 
             case 45:						// AUT_ARG32
             case 113:						// AUT_ARG64
-                int arg_number = Integer.parseInt(tokenizer.nextToken());
+                String arg_number = tokenizer.nextToken();
                 String arg_value = tokenizer.nextToken();
                 String arg_text = tokenizer.nextToken();
                 break;
 
             case 35: 						// AUT_PATH
                 String path = tokenizer.nextToken();
-                if ((current_event_id > 71) && (current_event_id < 84) && (tempVertex2 != null)) {
-                    String[] filename = path.split("/");
-                    if (filename.length > 0) {
-                        tempVertex2.addAnnotation("filename", filename[filename.length-1]);
-                    }
-                    tempVertex2.addAnnotation("path", path);
+                if ((current_event_id > 71) && (current_event_id < 84)) {
+                    current_file_path = path;
                 }
                 break;
 
@@ -231,17 +293,26 @@ public class OpenBSMProducer implements ProducerInterface {
                 break;
 
             case 19:						// AUT_TRAILER
-                if ((tempVertex1 != null) && (tempVertex2 != null) && (tempEdge != null)) {
-                    if ((current_event_id > 71) && (current_event_id < 84)) {
-                        pushToBuffer(tempVertex1);
-                        pushToBuffer(tempVertex2);
-                        pushToBuffer(tempEdge);
-                    }
+                Edge edge = null;
+                if (current_event_id == 72) {
+                    tempVertex2 = createFileVertex(current_file_path);
+                    edge = new Used((Process)tempVertex1, (Artifact)tempVertex2);
+                    edge.addAnnotation("endtime", current_event_time);
+                } else if ((current_event_id > 72) && (current_event_id < 84)) {
+                    tempVertex2 = createFileVertex(current_file_path);
+                    edge = new WasGeneratedBy((Artifact)tempVertex2, (Process)tempVertex1);
+                    edge.addAnnotation("endtime", current_event_time);
+                } else if (current_event_id == 2) {
+                    edge = new WasTriggeredBy((Process)tempVertex2, (Process)tempVertex1);
+                }
+                if ((tempVertex1 != null) && (tempVertex2 != null) && (edge != null)) {
+                    pushToBuffer(tempVertex1);
+                    pushToBuffer(tempVertex2);
+                    pushToBuffer(edge);
                 }
                 current_event_id = 0;
                 tempVertex1 = null;
                 tempVertex2 = null;
-                tempEdge = null;
                 break;
 
             case 128:						// AUT_SOCKINET32
@@ -253,7 +324,7 @@ public class OpenBSMProducer implements ProducerInterface {
 
             case 82: 						// AUT_EXIT
                 String exit_status = tokenizer.nextToken();
-                int exit_value = Integer.parseInt(tokenizer.nextToken());
+                String exit_value = tokenizer.nextToken();
                 break;
 
 

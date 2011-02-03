@@ -30,7 +30,7 @@ public class DOTOutput implements ConsumerInterface {
         try {
             EdgeSet = new HashSet<String>();
             out = new FileWriter(path, false);
-            out.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\" shape=\"Mrecord\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
+            out.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -48,7 +48,11 @@ public class DOTOutput implements ConsumerInterface {
                 vertexstring = vertexstring + name + ":" + value + "|";
             }
             vertexstring = vertexstring.substring(0, vertexstring.length() - 1);
-            out.write("\"" + v.hashCode() + "\" [label=\"" + vertexstring + "\"];\n");
+            if (v instanceof Artifact) {
+                out.write("\"" + v.hashCode() + "\" [label=\"" + vertexstring + "\" shape=\"Mrecord\"];\n");
+            } else {
+                out.write("\"" + v.hashCode() + "\" [label=\"" + vertexstring + "\" shape=\"record\"];\n");
+            }
             return true;
         } catch (Exception e) {
             e.printStackTrace();
