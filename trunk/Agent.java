@@ -18,11 +18,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
+import java.util.Map;
 import java.util.HashMap;
 
 public class Agent extends Vertex {
 
-    public Agent(HashMap<String, String> inputAnnotations) {
+    public Agent(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
         this.vertexType = "Agent";
     }

@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
+import java.util.Map;
 import java.util.HashMap;
 
 public class WasTriggeredBy extends Edge {
@@ -33,7 +34,7 @@ public class WasTriggeredBy extends Edge {
         annotations = new HashMap<String, String>();
     }
 
-    public WasTriggeredBy(Process inputProcess1, Process inputProcess2, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
+    public WasTriggeredBy(Process inputProcess1, Process inputProcess2, String inputRole, String inputEdgeType, Map<String, String> inputAnnotations) {
         process1 = inputProcess1;
         process2 = inputProcess2;
         role = inputRole;

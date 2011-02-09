@@ -212,8 +212,8 @@ public class Neo4jQuery implements QueryInterface {
     }
 
     public Set<Edge> getEdges(Vertex source, Vertex destination) {
-        HashMap<String, String> sourceAnnotations = source.getAnnotations();
-        HashMap<String, String> destinationAnnotations = destination.getAnnotations();
+        Map<String, String> sourceAnnotations = source.getAnnotations();
+        Map<String, String> destinationAnnotations = destination.getAnnotations();
         Set<Node> sourceSet = new HashSet<Node>();
         Set<Node> destinationSet = new HashSet<Node>();
 
@@ -320,7 +320,7 @@ public class Neo4jQuery implements QueryInterface {
             pruneSet.add(foundNode);
         }
 
-        HashMap<String, String> sourceAnnotations = source.getAnnotations();
+        Map<String, String> sourceAnnotations = source.getAnnotations();
         Set<Node> sourceSet = new HashSet<Node>();
         boolean firstrun = true;
         for (Map.Entry<String, String> entry : sourceAnnotations.entrySet()) {
@@ -455,7 +455,7 @@ public class Neo4jQuery implements QueryInterface {
         Lineage lineage = new Lineage(source, depth);
         HashMap VertexTable = new HashMap<Long, Vertex>();
 
-        HashMap<String, String> sourceAnnotations = source.getAnnotations();
+        Map<String, String> sourceAnnotations = source.getAnnotations();
         Set<Node> sourceSet = new HashSet<Node>();
         boolean firstrun = true;
         for (Map.Entry<String, String> entry : sourceAnnotations.entrySet()) {

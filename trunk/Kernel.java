@@ -18,9 +18,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-/*
- *    java -classpath lib/*:. -Djava.library.path=. Kernel
- */
 import java.util.*;
 
 public class Kernel {
@@ -73,8 +70,12 @@ public class Kernel {
                             ProducerInterface p = (ProducerInterface) it.next();
                             Object bufferelement = ((Buffer) buffers.get(p)).getBufferElement();
                             if (bufferelement instanceof Vertex) {
-                                ((FilterInterface) filters.get(0)).putVertex((Vertex) bufferelement);
+                                Vertex tempVertex = (Vertex) bufferelement;
+                                tempVertex.addAnnotation("source_producer", p.getClass().getName());
+                                ((FilterInterface) filters.get(0)).putVertex(tempVertex);
                             } else if (bufferelement instanceof Edge) {
+                                Edge tempEdge = (Edge) bufferelement;
+                                tempEdge.addAnnotation("source_producer", p.getClass().getName());
                                 ((FilterInterface) filters.get(0)).putEdge((Edge) bufferelement);
                             } else if ((bufferelement == null) && (removeproducers.contains(p))) {
                                 p.shutdown();
@@ -142,7 +143,7 @@ public class Kernel {
         System.out.println("       add producer <class name>");
         System.out.println("       add consumer <class name> <initialization argument>");
         System.out.println("       add filter <class name> <index>");
-        System.out.println("       remove <producer|consumer> <name>");
+        System.out.println("       remove <producer|consumer> <class name>");
         System.out.println("       remove <filter> <index>");
         System.out.println("       list <producers|consumers|filters>");
         System.out.println("       exit");
@@ -275,7 +276,7 @@ public class Kernel {
                 throw new Exception();
             }
         } catch (Exception e) {
-            System.out.println("Usage: remove <producer|consumer> <name>");
+            System.out.println("Usage: remove <producer|consumer> <class name>");
             System.out.println("       remove <filter> <index>");
         }
     }
@@ -285,9 +286,10 @@ public class Kernel {
             ProducerInterface p = (ProducerInterface) Class.forName(classname).newInstance();
             System.out.print("Adding producer " + classname + "... ");
             Buffer buff = new Buffer();
-            buffers.put(p, buff);
-            producers.add(p);
-            p.initialize(buff);
+            if (p.initialize(buff)) {
+                buffers.put(p, buff);
+                producers.add(p);
+            }
             System.out.println("done");
         } catch (Exception e) {
             System.out.println("Error: Unable to add producer " + classname + " - please check class name");
@@ -298,8 +300,9 @@ public class Kernel {
         try {
             ConsumerInterface c = (ConsumerInterface) Class.forName(classname).newInstance();
             System.out.print("Adding consumer " + classname + "... ");
-            c.initialize(arg);
-            consumers.add(c);
+            if (c.initialize(arg)) {
+                consumers.add(c);
+            }
             System.out.println("done");
         } catch (Exception e) {
             System.out.println("Error: Unable to add consumer " + classname + " - please check class name and argument");

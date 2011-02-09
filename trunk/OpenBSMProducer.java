@@ -19,6 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import java.io.*;
+import java.lang.management.ManagementFactory;
 import java.util.*;
 
 public class OpenBSMProducer implements ProducerInterface {
@@ -26,13 +27,15 @@ public class OpenBSMProducer implements ProducerInterface {
     private Buffer buffer;
     private BufferedReader eventreader;
     private java.lang.Process pipeprocess;
-    private HashMap processVertices;
-    private HashSet sentObjects;
-    private HashSet processTree;
+    private Map processVertices;
+    private Set sentObjects;
+    private Set processTree;
     private Vertex tempVertex1, tempVertex2;
     private int current_event_id;
     private String current_event_time;
     private String current_file_path;
+    private String javaPID;
+    private String eventPID;
     private boolean shutdown;
 
     public boolean initialize(Buffer buff) {
@@ -42,6 +45,8 @@ public class OpenBSMProducer implements ProducerInterface {
         processTree = new HashSet();
         shutdown = false;
         buildProcessTree();
+
+        javaPID = ManagementFactory.getRuntimeMXBean().getName().split("@")[0].trim();
 
         try {
             String[] cmd = {"/bin/sh", "-c", "sudo praudit -r /dev/auditpipe"};
@@ -55,9 +60,7 @@ public class OpenBSMProducer implements ProducerInterface {
                         String line = eventreader.readLine();
                         while (true) {
                             if (shutdown) {
-                                eventreader.close();
-                                pipeprocess.destroy();
-                                break;
+                                return;
                             }
                             if (line != null) {
                                 parseEvent(line);
@@ -78,10 +81,11 @@ public class OpenBSMProducer implements ProducerInterface {
 
     public void shutdown() {
         shutdown = true;
+        pipeprocess.destroy();
     }
 
     private void buildProcessTree() {
-        Vertex parentVertex, childVertex;
+        Process parentVertex, childVertex;
         try {
             String line = "";
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
@@ -93,11 +97,13 @@ public class OpenBSMProducer implements ProducerInterface {
             while (true) {
                 line = pidreader.readLine().trim();
                 String childinfo[] = line.split("\\s+", 3);
-                if (childinfo[2].equals("ps")) break;
+                if (childinfo[2].equals("ps")) {
+                    break;
+                }
                 childVertex = getProcessVertex(childinfo[0]);
                 if (childVertex != null) {
-                    parentVertex = (Vertex)processVertices.get(childVertex.getAnnotationValue("ppid"));
-                    Edge edge = new WasTriggeredBy((Process)childVertex, (Process)parentVertex);
+                    parentVertex = (Process) processVertices.get(childinfo[1]);
+                    Edge edge = new WasTriggeredBy(childVertex, parentVertex);
                     pushToBuffer(parentVertex);
                     pushToBuffer(childVertex);
                     pushToBuffer(edge);
@@ -110,78 +116,91 @@ public class OpenBSMProducer implements ProducerInterface {
         }
     }
 
-    private Vertex createFileVertex(String path) {
+    private Artifact createFileVertex(String path) {
         try {
-            Vertex f = new Artifact();
-            java.lang.Process fileinfo = Runtime.getRuntime().exec("stat -f \"%Op%n%Su(%u)%n%Sg(%g)%n%m%n%z\" " + path);
+            Artifact f = new Artifact();
+            /*
+            java.lang.Process fileinfo = Runtime.getRuntime().exec("stat -f \"%Op%n%u%n%g%n%m%n%z\" " + path);
             BufferedReader inforeader = new BufferedReader(new InputStreamReader(fileinfo.getInputStream()));
             f.addAnnotation("permissions", inforeader.readLine().replace("\"", ""));
             f.addAnnotation("owneruid", inforeader.readLine());
             f.addAnnotation("ownergid", inforeader.readLine());
-            f.addAnnotation("lastmodified", inforeader.readLine());
+            f.addAnnotation("lastmodified", inforeader.readLine() + "000");
             f.addAnnotation("size", inforeader.readLine().replace("\"", ""));
-            String[] filename = path.split("/");
-            f.addAnnotation("filename", filename[filename.length-1]);
-            f.addAnnotation("path", path);
-            fileinfo.destroy();
-            return f;
-        } catch (Exception e) {
-            Vertex f = new Artifact();
+             *
+             */
+            File file = new File(path);
+            if ((file.lastModified() != 0) && (file.length() != 0)) {
+                String lastmodified = Long.toString(file.lastModified());
+                String filesize = Long.toString(file.length());
+                f.addAnnotation("lastmodified", lastmodified);
+                f.addAnnotation("size", filesize);
+            }
             String[] filename = path.split("/");
             if (filename.length > 0) {
-                f.addAnnotation("filename", filename[filename.length-1]);
+                f.addAnnotation("filename", filename[filename.length - 1]);
+            }
+            f.addAnnotation("path", path);
+            return f;
+        } catch (Exception e) {
+            Artifact f = new Artifact();
+            String[] filename = path.split("/");
+            if (filename.length > 0) {
+                f.addAnnotation("filename", filename[filename.length - 1]);
             }
             f.addAnnotation("path", path);
             return f;
         }
     }
 
-    private Vertex getProcessVertex(String pid) {
-        Vertex v = (Vertex)processVertices.get(pid);
-        if (v != null) return v;
+    private Process getProcessVertex(String pid) {
+        Process v = (Process) processVertices.get(pid);
+        if (v != null) {
+            return v;
+        }
         try {
             String line = "";
-            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,gid,comm");
+            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,gid,lstart,sess,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
             line = pidreader.readLine();
-            pidinfo.destroy();
-            if (line == null) return null;
+            if (line == null) {
+                return null;
+            }
             v = new Process();
-            String info[] = line.trim().split("\\s+", 5);
+            String info[] = line.trim().split("\\s+", 11);
             v.addAnnotation("pid", pid);
             v.addAnnotation("ppid", info[1]);
             v.addAnnotation("uid", info[2]);
             v.addAnnotation("gid", info[3]);
-            v.addAnnotation("pidname", info[4]);
-            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o lstart");
-            pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
-            line = pidreader.readLine();
-            if (line != null) v.addAnnotation("starttime", line);
-            pidinfo.destroy();
+//            v.addAnnotation("sessionid", info[9]);
+            v.addAnnotation("pidname", info[10]);
+            String timestring = info[4] + " " + info[5] + " " + info[6] + " " + info[7] + " " + info[8];
+            String starttime = Long.toString(new java.text.SimpleDateFormat("EEE MMM d HH:mm:ss yyyy").parse(timestring).getTime());
+            v.addAnnotation("starttime", starttime);
+            /*
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
             line = pidreader.readLine();
             if (line != null) v.addAnnotation("commandline", line);
-            pidinfo.destroy();
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
             line = pidreader.readLine();
             if ((line != null) && (line.length() > v.getAnnotationValue("commandline").length())) {
-                v.addAnnotation("environment", line.substring(v.getAnnotationValue("commandline").length()));
+            v.addAnnotation("environment", line.substring(v.getAnnotationValue("commandline").length()));
             }
-            pidinfo.destroy();
+             * 
+             */
         } catch (Exception e) {
             e.printStackTrace();
         }
         processVertices.put(pid, v);
         if (processTree.contains(pid) == false) {
-            Vertex p = getProcessVertex(v.getAnnotationValue("ppid"));
+            Process p = getProcessVertex(v.getAnnotationValue("ppid"));
             if (p != null) {
-                Edge e = new WasTriggeredBy((Process)v, (Process)p);
+                Edge e = new WasTriggeredBy(v, p);
                 pushToBuffer(p);
                 pushToBuffer(v);
                 pushToBuffer(e);
@@ -229,8 +248,13 @@ public class OpenBSMProducer implements ProducerInterface {
                 String sessionid = tokenizer.nextToken();
                 String deviceid = tokenizer.nextToken();
                 String machineid = tokenizer.nextToken();
+                eventPID = pid;
                 if ((current_event_id == 2) || ((current_event_id > 71) && (current_event_id < 84))) {
-                    tempVertex1 = getProcessVertex(pid);
+                    if (pid.equals(javaPID)) {
+                        tempVertex1 = null;
+                    } else {
+                        tempVertex1 = getProcessVertex(pid);
+                    }
                 }
                 break;
 
@@ -253,7 +277,7 @@ public class OpenBSMProducer implements ProducerInterface {
             case 114:						// AUT_RETURN64
                 String error = tokenizer.nextToken();
                 String return_value = tokenizer.nextToken();
-                if (current_event_id == 2) {                    // fork occurred, determine child PID
+                if ((current_event_id == 2) && (tempVertex1 != null)) {                    // fork occurred, determine child PID
                     tempVertex2 = getProcessVertex(return_value);
                     if (tempVertex2 == null) {                  // short-lived process
                         tempVertex2 = new Process();
@@ -272,6 +296,9 @@ public class OpenBSMProducer implements ProducerInterface {
                 String filesystemid = tokenizer.nextToken();
                 String inodeid = tokenizer.nextToken();
                 String filedeviceid = tokenizer.nextToken();
+                if (current_event_id == 42) {
+                    tempVertex1 = createFileVertex(current_file_path);
+                }
                 break;
 
             case 45:						// AUT_ARG32
@@ -283,8 +310,10 @@ public class OpenBSMProducer implements ProducerInterface {
 
             case 35: 						// AUT_PATH
                 String path = tokenizer.nextToken();
-                if ((current_event_id > 71) && (current_event_id < 84)) {
-                    current_file_path = path;
+//                if ((current_event_id > 71) && (current_event_id < 84)) {
+                current_file_path = path;
+                if ((current_event_id == 42) && (tempVertex1 != null)) {
+                    tempVertex2 = createFileVertex(current_file_path);
                 }
                 break;
 
@@ -294,25 +323,54 @@ public class OpenBSMProducer implements ProducerInterface {
 
             case 19:						// AUT_TRAILER
                 Edge edge = null;
-                if (current_event_id == 72) {
+                if (current_event_id == 72) { // read only
                     tempVertex2 = createFileVertex(current_file_path);
-                    edge = new Used((Process)tempVertex1, (Artifact)tempVertex2);
-                    edge.addAnnotation("endtime", current_event_time);
-                } else if ((current_event_id > 72) && (current_event_id < 84)) {
+                    if ((tempVertex1 != null) && (tempVertex2 != null)) {
+                        edge = new Used((Process) tempVertex1, (Artifact) tempVertex2);
+                        edge.addAnnotation("endtime", current_event_time);
+                        pushToBuffer(tempVertex1);
+                        pushToBuffer(tempVertex2);
+                        pushToBuffer(edge);
+                    }
+                } else if ((current_event_id > 72) && (current_event_id < 84)) { // read,write,create
                     tempVertex2 = createFileVertex(current_file_path);
-                    edge = new WasGeneratedBy((Artifact)tempVertex2, (Process)tempVertex1);
-                    edge.addAnnotation("endtime", current_event_time);
-                } else if (current_event_id == 2) {
-                    edge = new WasTriggeredBy((Process)tempVertex2, (Process)tempVertex1);
-                }
-                if ((tempVertex1 != null) && (tempVertex2 != null) && (edge != null)) {
-                    pushToBuffer(tempVertex1);
-                    pushToBuffer(tempVertex2);
-                    pushToBuffer(edge);
+                    if ((tempVertex1 != null) && (tempVertex2 != null)) {
+                        edge = new WasGeneratedBy((Artifact) tempVertex2, (Process) tempVertex1);
+                        edge.addAnnotation("endtime", current_event_time);
+                        pushToBuffer(tempVertex1);
+                        pushToBuffer(tempVertex2);
+                        pushToBuffer(edge);
+                    }
+                } else if (current_event_id == 2) { // fork
+                    if ((tempVertex1 != null) && (tempVertex2 != null)) {
+                        edge = new WasTriggeredBy((Process) tempVertex2, (Process) tempVertex1);
+                        pushToBuffer(tempVertex1);
+                        pushToBuffer(tempVertex2);
+                        pushToBuffer(edge);
+                    }
+                } else if (current_event_id == 42) { // rename
+                    Vertex procVertex = getProcessVertex(eventPID);
+                    if ((tempVertex1 != null) && (tempVertex2 != null) && (procVertex != null)) {
+                        edge = new Used((Process) procVertex, (Artifact) tempVertex1);
+                        pushToBuffer(procVertex);
+                        pushToBuffer(tempVertex1);
+                        pushToBuffer(edge);
+                        edge = new WasGeneratedBy((Artifact) tempVertex2, (Process) procVertex);
+                        pushToBuffer(tempVertex2);
+                        pushToBuffer(edge);
+                        edge = new WasDerivedFrom((Artifact) tempVertex2, (Artifact) tempVertex1);
+                        edge.addAnnotation("endtime", current_event_time);
+                        pushToBuffer(edge);
+                    }
+                } else if ((current_event_id == 1) || (current_event_id == 15)) { // exit, kill
+                    processVertices.remove(eventPID);
                 }
                 current_event_id = 0;
                 tempVertex1 = null;
                 tempVertex2 = null;
+                edge = null;
+                current_file_path = null;
+                eventPID = null;
                 break;
 
             case 128:						// AUT_SOCKINET32

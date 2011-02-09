@@ -33,6 +33,7 @@ public class FinalCommitFilter implements FilterInterface {
     }
 
     public void putVertex(Vertex v) {
+        v.removeAnnotation("source_producer");
         Iterator it = consumers.iterator();
         while (it.hasNext()) {
             ((ConsumerInterface) it.next()).putVertex(v);
@@ -40,6 +41,7 @@ public class FinalCommitFilter implements FilterInterface {
     }
 
     public void putEdge(Edge e) {
+        e.removeAnnotation("source_producer");
         Iterator it = consumers.iterator();
         while (it.hasNext()) {
             ((ConsumerInterface) it.next()).putEdge(e);

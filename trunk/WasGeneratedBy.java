@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
+import java.util.Map;
 import java.util.HashMap;
 
 public class WasGeneratedBy extends Edge {
@@ -33,7 +34,7 @@ public class WasGeneratedBy extends Edge {
         annotations = new HashMap<String, String>();
     }
 
-    public WasGeneratedBy(Artifact inputArtifact, Process inputProcess, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
+    public WasGeneratedBy(Artifact inputArtifact, Process inputProcess, String inputRole, String inputEdgeType, Map<String, String> inputAnnotations) {
         process = inputProcess;
         artifact = inputArtifact;
         role = inputRole;

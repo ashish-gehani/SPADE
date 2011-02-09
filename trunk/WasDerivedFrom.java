@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
+import java.util.Map;
 import java.util.HashMap;
 
 public class WasDerivedFrom extends Edge {
@@ -33,7 +34,7 @@ public class WasDerivedFrom extends Edge {
         annotations = new HashMap<String, String>();
     }
 
-    public WasDerivedFrom(Artifact inputArtifact1, Artifact inputArtifact2, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
+    public WasDerivedFrom(Artifact inputArtifact1, Artifact inputArtifact2, String inputRole, String inputEdgeType, Map<String, String> inputAnnotations) {
         artifact1 = inputArtifact1;
         artifact2 = inputArtifact2;
         role = inputRole;

@@ -18,19 +18,19 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Iterator;
 
 public abstract class Vertex {
 
     protected String vertexType;
-    protected HashMap<String, String> annotations;
+    protected Map<String, String> annotations;
 
-    public HashMap<String, String> getAnnotations() {
+    public Map<String, String> getAnnotations() {
         return annotations;
     }
 
-    public void setAnnotations(HashMap<String, String> annotations) {
+    public void setAnnotations(Map<String, String> annotations) {
         this.annotations = annotations;
     }
 

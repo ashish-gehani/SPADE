@@ -81,21 +81,23 @@ public class FUSEProducer implements ProducerInterface {
 
             StringTokenizer st5 = new StringTokenizer(uidline);
             st5.nextToken();
-            String uid = st5.nextToken("").trim();
+//            String uid = st5.nextToken("").trim();
+            String uid = st5.nextToken().trim();
 
             StringTokenizer st6 = new StringTokenizer(gidline);
             st6.nextToken();
-            String gid = st6.nextToken("").trim();
+//            String gid = st6.nextToken("").trim();
+            String gid = st6.nextToken().trim();
 
             tempVertex.addAnnotation("ppid", ppid);
             tempVertex.addAnnotation("pidname", name);
-            tempVertex.addAnnotation("tgid", tgid);
-            tempVertex.addAnnotation("tracerpid", tracerpid);
-            tempVertex.addAnnotation("uid", uid.replace("\t", " "));
-            tempVertex.addAnnotation("gid", gid.replace("\t", " "));
+//            tempVertex.addAnnotation("tgid", tgid);
+//            tempVertex.addAnnotation("tracerpid", tracerpid);
+            tempVertex.addAnnotation("uid", uid);
+            tempVertex.addAnnotation("gid", gid);
             tempVertex.addAnnotation("starttime", stime);
-            tempVertex.addAnnotation("group", stats[4]);
-            tempVertex.addAnnotation("session", stats[5]);
+//            tempVertex.addAnnotation("group", stats[4]);
+//            tempVertex.addAnnotation("sessionid", stats[5]);
             tempVertex.addAnnotation("commandline", cmdline);
         } catch (Exception e) {
             e.printStackTrace();

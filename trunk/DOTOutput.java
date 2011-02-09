@@ -41,7 +41,7 @@ public class DOTOutput implements ConsumerInterface {
     public boolean putVertex(Vertex v) {
         try {
             String vertexstring = "";
-            HashMap<String, String> annotations = v.getAnnotations();
+            Map<String, String> annotations = v.getAnnotations();
             for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
                 String name = (String) it.next();
                 String value = (String) annotations.get(name);
@@ -64,7 +64,7 @@ public class DOTOutput implements ConsumerInterface {
         try {
             if (EdgeSet.add(e.getSrcVertex().hashCode() + "-" + e.getDstVertex().hashCode())) {
                 String annotationstring = "";
-                HashMap<String, String> annotations = e.getAnnotations();
+                Map<String, String> annotations = e.getAnnotations();
                 for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
                     String name = (String) it.next();
                     String value = (String) annotations.get(name);

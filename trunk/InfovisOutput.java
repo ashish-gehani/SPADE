@@ -38,7 +38,7 @@ public class InfovisOutput implements ConsumerInterface {
             return false;
         }
         try {
-            HashMap annotations = v.getAnnotations();
+            Map annotations = v.getAnnotations();
             int vid = v.hashCode();
             if (vid < 0) {
                 vid *= -1;

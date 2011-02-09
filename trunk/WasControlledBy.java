@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
+import java.util.Map;
 import java.util.HashMap;
 
 public class WasControlledBy extends Edge {
@@ -33,7 +34,7 @@ public class WasControlledBy extends Edge {
         annotations = new HashMap<String, String>();
     }
 
-    public WasControlledBy(Process inputProcess, Agent inputAgent, String inputRole, String inputEdgeType, HashMap<String, String> inputAnnotations) {
+    public WasControlledBy(Process inputProcess, Agent inputAgent, String inputRole, String inputEdgeType, Map<String, String> inputAnnotations) {
         process = inputProcess;
         agent = inputAgent;
         role = inputRole;

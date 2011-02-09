@@ -119,7 +119,7 @@ public class Neo4jStorage implements ConsumerInterface {
         }
         v = fixVertex(v);
         Node newVertex = graphDb.createNode();
-        HashMap<String, String> annotations = v.getAnnotations();
+        Map<String, String> annotations = v.getAnnotations();
         for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
             String name = (String) it.next();
             String value = (String) annotations.get(name);
@@ -149,7 +149,7 @@ public class Neo4jStorage implements ConsumerInterface {
         Node srcNode = graphDb.getNodeById(srcNodeId);
         Node dstNode = graphDb.getNodeById(dstNodeId);
 
-        HashMap<String, String> annotations = e.getAnnotations();
+        Map<String, String> annotations = e.getAnnotations();
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
         for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
             String name = (String) it.next();

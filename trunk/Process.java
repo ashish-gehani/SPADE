@@ -18,11 +18,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
+import java.util.Map;
 import java.util.HashMap;
 
 public class Process extends Vertex {
 
-    public Process(HashMap<String, String> inputAnnotations) {
+    public Process(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
         this.vertexType = "Process";
     }
