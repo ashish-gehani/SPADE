@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import java.util.Map;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class Process extends Vertex {
 
@@ -29,7 +29,7 @@ public class Process extends Vertex {
     }
 
     public Process() {
-        this.setAnnotations(new HashMap<String, String>());
+        this.setAnnotations(new LinkedHashMap<String, String>());
         this.vertexType = "Process";
     }
 }

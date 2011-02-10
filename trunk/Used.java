@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import java.util.Map;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class Used extends Edge {
 
@@ -31,7 +31,7 @@ public class Used extends Edge {
         artifact = inputArtifact;
         role = "Used";
         edgeType = "Used";
-        annotations = new HashMap<String, String>();
+        annotations = new LinkedHashMap<String, String>();
     }
 
     public Used(Process inputProcess, Artifact inputArtifact, String inputRole, String inputEdgeType, Map<String, String> inputAnnotations) {
@@ -47,7 +47,7 @@ public class Used extends Edge {
         artifact = inputArtifact;
         role = inputRole;
         edgeType = inputEdgeType;
-        annotations = new HashMap<String, String>();
+        annotations = new LinkedHashMap<String, String>();
     }
 
     public Process getProcess() {

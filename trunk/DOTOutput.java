@@ -86,9 +86,7 @@ public class DOTOutput implements ConsumerInterface {
                     color = "teal";
                 }
                 if (annotationstring.length() > 3) {
-                    annotationstring = e.getEdgeType() + " (" + annotationstring.substring(0, annotationstring.length() - 2) + ")";
-                } else {
-                    annotationstring = e.getEdgeType();
+                    annotationstring = "(" + annotationstring.substring(0, annotationstring.length() - 2) + ")";
                 }
                 String edgestring = "\"" + e.getSrcVertex().hashCode() + "\" -> \"" + e.getDstVertex().hashCode() + "\" [label=\"" + annotationstring + "\" color=\"" + color + "\"];\n";
                 out.write(edgestring);

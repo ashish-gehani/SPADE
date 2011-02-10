@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import java.util.Map;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class WasTriggeredBy extends Edge {
 
@@ -31,7 +31,7 @@ public class WasTriggeredBy extends Edge {
         process2 = inputProcess2;
         role = "WasTriggeredBy";
         edgeType = "WasTriggeredBy";
-        annotations = new HashMap<String, String>();
+        annotations = new LinkedHashMap<String, String>();
     }
 
     public WasTriggeredBy(Process inputProcess1, Process inputProcess2, String inputRole, String inputEdgeType, Map<String, String> inputAnnotations) {
@@ -47,7 +47,7 @@ public class WasTriggeredBy extends Edge {
         process2 = inputProcess2;
         role = inputRole;
         edgeType = inputEdgeType;
-        annotations = new HashMap<String, String>();
+        annotations = new LinkedHashMap<String, String>();
     }
 
     public Process getProcess1() {

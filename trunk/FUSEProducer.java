@@ -31,7 +31,6 @@ public class FUSEProducer implements ProducerInterface {
 
     public void createProcessVertex(String pid, Process tempVertex) {
         try {
-            tempVertex.addAnnotation("pid", pid);
             BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
             String nameline = procReader.readLine();
             procReader.readLine();
@@ -61,41 +60,32 @@ public class FUSEProducer implements ProducerInterface {
             long elapsedtime = Long.parseLong(stats[21]) * 10;
             long starttime = boottime + elapsedtime;
 //            String stime = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(starttime));
+            String stime_readable = new java.text.SimpleDateFormat("EEE MMM d, h:mm:ss aa").format(new java.util.Date(starttime));
             String stime = Long.toString(starttime);
 
             StringTokenizer st1 = new StringTokenizer(nameline);
             st1.nextToken();
             String name = st1.nextToken();
 
-            StringTokenizer st2 = new StringTokenizer(tgidline);
-            st2.nextToken();
-            String tgid = st2.nextToken("").trim();
-
             StringTokenizer st3 = new StringTokenizer(ppidline);
             st3.nextToken();
             String ppid = st3.nextToken("").trim();
 
-            StringTokenizer st4 = new StringTokenizer(tracerpidline);
-            st4.nextToken();
-            String tracerpid = st4.nextToken("").trim();
-
             StringTokenizer st5 = new StringTokenizer(uidline);
             st5.nextToken();
-//            String uid = st5.nextToken("").trim();
             String uid = st5.nextToken().trim();
 
             StringTokenizer st6 = new StringTokenizer(gidline);
             st6.nextToken();
-//            String gid = st6.nextToken("").trim();
             String gid = st6.nextToken().trim();
 
-            tempVertex.addAnnotation("ppid", ppid);
             tempVertex.addAnnotation("pidname", name);
-//            tempVertex.addAnnotation("tgid", tgid);
-//            tempVertex.addAnnotation("tracerpid", tracerpid);
+            tempVertex.addAnnotation("pid", pid);
+            tempVertex.addAnnotation("ppid", ppid);
             tempVertex.addAnnotation("uid", uid);
             tempVertex.addAnnotation("gid", gid);
-            tempVertex.addAnnotation("starttime", stime);
+            tempVertex.addAnnotation("starttime_unix", stime);
+            tempVertex.addAnnotation("starttime_simple", stime_readable);
 //            tempVertex.addAnnotation("group", stats[4]);
 //            tempVertex.addAnnotation("sessionid", stats[5]);
             tempVertex.addAnnotation("commandline", cmdline);
@@ -142,12 +132,14 @@ public class FUSEProducer implements ProducerInterface {
         }
 
         Process rootVertex = new Process();
-        rootVertex.addAnnotation("ppid", "0");
-        rootVertex.addAnnotation("pid", "0");
         rootVertex.addAnnotation("pidname", "System");
+        rootVertex.addAnnotation("pid", "0");
+        rootVertex.addAnnotation("ppid", "0");
 //        String stime = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(boottime));
+        String stime_readable = new java.text.SimpleDateFormat("EEE MMM d, h:mm:ss aa").format(new java.util.Date(boottime));
         String stime = Long.toString(boottime);
-        rootVertex.addAnnotation("boottime", stime);
+        rootVertex.addAnnotation("boottime_unix", stime);
+        rootVertex.addAnnotation("boottime_simple", stime);
         buffer.putVertex(rootVertex);
         LocalCache.put("0", rootVertex);
 
@@ -222,14 +214,15 @@ public class FUSEProducer implements ProducerInterface {
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
         File file = new File(path);
-//        String lastmodified = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").format(new java.util.Date(file.lastModified()));
+        String lastmodified_readable = new java.text.SimpleDateFormat("EEE MMM d, h:mm:ss aa").format(new java.util.Date(file.lastModified()));
         String lastmodified = Long.toString(file.lastModified());
         String filesize = Long.toString(file.length());
         Artifact tempVertex = new Artifact();
         tempVertex.addAnnotation("filename", file.getName());
         tempVertex.addAnnotation("path", path);
-        tempVertex.addAnnotation("lastmodified", lastmodified);
         tempVertex.addAnnotation("size", filesize);
+        tempVertex.addAnnotation("lastmodified_unix", lastmodified);
+        tempVertex.addAnnotation("lastmodified_simple", lastmodified_readable);
         buffer.putVertex(tempVertex);
         LocalCache.put(path, tempVertex);
         if (write == 0) {

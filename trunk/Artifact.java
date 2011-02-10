@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import java.util.Map;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class Artifact extends Vertex {
 
@@ -29,7 +29,7 @@ public class Artifact extends Vertex {
     }
 
     public Artifact() {
-        this.setAnnotations(new HashMap<String, String>());
+        this.setAnnotations(new LinkedHashMap<String, String>());
         this.vertexType = "Artifact";
     }
 }

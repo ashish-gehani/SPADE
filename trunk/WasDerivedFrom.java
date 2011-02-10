@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import java.util.Map;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class WasDerivedFrom extends Edge {
 
@@ -31,7 +31,7 @@ public class WasDerivedFrom extends Edge {
         artifact2 = inputArtifact2;
         role = "WasDerivedFrom";
         edgeType = "WasDerivedFrom";
-        annotations = new HashMap<String, String>();
+        annotations = new LinkedHashMap<String, String>();
     }
 
     public WasDerivedFrom(Artifact inputArtifact1, Artifact inputArtifact2, String inputRole, String inputEdgeType, Map<String, String> inputAnnotations) {
@@ -47,7 +47,7 @@ public class WasDerivedFrom extends Edge {
         artifact2 = inputArtifact2;
         role = inputRole;
         edgeType = inputEdgeType;
-        annotations = new HashMap<String, String>();
+        annotations = new LinkedHashMap<String, String>();
     }
 
     public Artifact getArtifact1() {
