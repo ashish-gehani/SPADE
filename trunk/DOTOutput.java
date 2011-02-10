@@ -73,12 +73,24 @@ public class DOTOutput implements ConsumerInterface {
                     }
                     annotationstring = annotationstring + name + ":" + value + ", ";
                 }
+                String color = "";
+                if (e instanceof Used) {
+                    color = "green";
+                } else if (e instanceof WasGeneratedBy) {
+                    color = "red";
+                } else if (e instanceof WasTriggeredBy) {
+                    color = "blue";
+                } else if (e instanceof WasControlledBy) {
+                    color = "orange";
+                } else if (e instanceof WasDerivedFrom) {
+                    color = "teal";
+                }
                 if (annotationstring.length() > 3) {
                     annotationstring = e.getEdgeType() + " (" + annotationstring.substring(0, annotationstring.length() - 2) + ")";
                 } else {
                     annotationstring = e.getEdgeType();
                 }
-                String edgestring = "\"" + e.getSrcVertex().hashCode() + "\" -> \"" + e.getDstVertex().hashCode() + "\" [label=\"" + annotationstring + "\"];\n";
+                String edgestring = "\"" + e.getSrcVertex().hashCode() + "\" -> \"" + e.getDstVertex().hashCode() + "\" [label=\"" + annotationstring + "\" color=\"" + color + "\"];\n";
                 out.write(edgestring);
                 return true;
             }

@@ -39,19 +39,22 @@ public class Neo4jQuery implements QueryInterface {
     private RelationshipIndex edgeIndex;                                        /* index for edges */
 
 
-    public void initialize(String path) {
+    public boolean initialize(String path) {
         try {
             graphDb = new EmbeddedGraphDatabase(path);
             /* initialize vertex and edge indexes and specify configuration */
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    public void shutdown() {
+    public boolean shutdown() {
         graphDb.shutdown();
+        return true;
     }
 
     private void convertNodeToVertex(Node n, Vertex v) {
@@ -60,7 +63,7 @@ public class Neo4jQuery implements QueryInterface {
                 String value = (String) n.getProperty(key);
                 v.addAnnotation(key, value);
             } catch (Exception e) {
-                String value = Long.toString((Long)n.getProperty(key));
+                String value = Long.toString((Long) n.getProperty(key));
                 v.addAnnotation(key, value);
             }
         }

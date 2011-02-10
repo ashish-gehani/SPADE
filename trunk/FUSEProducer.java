@@ -117,7 +117,7 @@ public class FUSEProducer implements ProducerInterface {
 
     }
 
-    public boolean initialize(Buffer buff) {
+    public boolean initialize(Buffer buff, String arguments) {
         LocalCache = new HashMap<String, Vertex>();
         buffer = buff;
 
@@ -258,11 +258,14 @@ public class FUSEProducer implements ProducerInterface {
         checkProcessTree(Integer.toString(pid));
     }
 
-    public void shutdown() {
+    public boolean shutdown() {
         try {
             Runtime.getRuntime().exec("fusermount -u -z test");
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
+
 }

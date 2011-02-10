@@ -38,7 +38,7 @@ public class OpenBSMProducer implements ProducerInterface {
     private String eventPID;
     private boolean shutdown;
 
-    public boolean initialize(Buffer buff) {
+    public boolean initialize(Buffer buff, String arguments) {
         buffer = buff;
         processVertices = new HashMap();
         sentObjects = new HashSet();
@@ -79,9 +79,10 @@ public class OpenBSMProducer implements ProducerInterface {
         return true;
     }
 
-    public void shutdown() {
+    public boolean shutdown() {
         shutdown = true;
         pipeprocess.destroy();
+        return true;
     }
 
     private void buildProcessTree() {
@@ -224,10 +225,10 @@ public class OpenBSMProducer implements ProducerInterface {
             case 21:						// AUT_HEADER32_EX
             case 116: 						// AUT_HEADER64
             case 121: 						// AUT_HEADER64_EX
-                int record_length = Integer.parseInt(tokenizer.nextToken());
-                int audit_record_version = Integer.parseInt(tokenizer.nextToken());
+                String record_length = tokenizer.nextToken();
+                String audit_record_version = tokenizer.nextToken();
                 int event_id = Integer.parseInt(tokenizer.nextToken());
-                int event_id_modifier = Integer.parseInt(tokenizer.nextToken());
+                String event_id_modifier = tokenizer.nextToken();
                 String date_time = tokenizer.nextToken();
                 String offset_msec = tokenizer.nextToken();
 
@@ -245,9 +246,12 @@ public class OpenBSMProducer implements ProducerInterface {
                 String uid = tokenizer.nextToken();
                 String gid = tokenizer.nextToken();
                 String pid = tokenizer.nextToken();
+                /*
                 String sessionid = tokenizer.nextToken();
                 String deviceid = tokenizer.nextToken();
                 String machineid = tokenizer.nextToken();
+                 * 
+                 */
                 eventPID = pid;
                 if ((current_event_id == 2) || ((current_event_id > 71) && (current_event_id < 84))) {
                     if (pid.equals(javaPID)) {
@@ -262,6 +266,7 @@ public class OpenBSMProducer implements ProducerInterface {
             case 123:						// AUT_PROCESS32_EX
             case 119:						// AUT_PROCESS64
             case 125:						// AUT_PROCESS64_EX
+                /*
                 String process_user_audit_id = tokenizer.nextToken();
                 String process_euid = tokenizer.nextToken();
                 String process_egid = tokenizer.nextToken();
@@ -271,6 +276,8 @@ public class OpenBSMProducer implements ProducerInterface {
                 String process_session_id = tokenizer.nextToken();
                 String process_device_id = tokenizer.nextToken();
                 String process_machine_id = tokenizer.nextToken();
+                 * 
+                 */
                 break;
 
             case 39:						// AUT_RETURN32
@@ -290,12 +297,15 @@ public class OpenBSMProducer implements ProducerInterface {
             case 49: 						// AUT_ATTR
             case 62:						// AUT_ATTR32
             case 115:						// AUT_ATTR64
+                /*
                 String file_access_mode = tokenizer.nextToken();
                 String owneruid = tokenizer.nextToken();
                 String ownergid = tokenizer.nextToken();
                 String filesystemid = tokenizer.nextToken();
                 String inodeid = tokenizer.nextToken();
                 String filedeviceid = tokenizer.nextToken();
+                 * 
+                 */
                 if (current_event_id == 42) {
                     tempVertex1 = createFileVertex(current_file_path);
                 }
@@ -303,14 +313,16 @@ public class OpenBSMProducer implements ProducerInterface {
 
             case 45:						// AUT_ARG32
             case 113:						// AUT_ARG64
+                /*
                 String arg_number = tokenizer.nextToken();
                 String arg_value = tokenizer.nextToken();
                 String arg_text = tokenizer.nextToken();
+                 * 
+                 */
                 break;
 
             case 35: 						// AUT_PATH
                 String path = tokenizer.nextToken();
-//                if ((current_event_id > 71) && (current_event_id < 84)) {
                 current_file_path = path;
                 if ((current_event_id == 42) && (tempVertex1 != null)) {
                     tempVertex2 = createFileVertex(current_file_path);
@@ -318,7 +330,10 @@ public class OpenBSMProducer implements ProducerInterface {
                 break;
 
             case 40: 						// AUT_TEXT
+                /*
                 String text_string = tokenizer.nextToken();
+                 * 
+                 */
                 break;
 
             case 19:						// AUT_TRAILER
@@ -327,7 +342,7 @@ public class OpenBSMProducer implements ProducerInterface {
                     tempVertex2 = createFileVertex(current_file_path);
                     if ((tempVertex1 != null) && (tempVertex2 != null)) {
                         edge = new Used((Process) tempVertex1, (Artifact) tempVertex2);
-                        edge.addAnnotation("endtime", current_event_time);
+//                        edge.addAnnotation("endtime", current_event_time);
                         pushToBuffer(tempVertex1);
                         pushToBuffer(tempVertex2);
                         pushToBuffer(edge);
@@ -336,7 +351,7 @@ public class OpenBSMProducer implements ProducerInterface {
                     tempVertex2 = createFileVertex(current_file_path);
                     if ((tempVertex1 != null) && (tempVertex2 != null)) {
                         edge = new WasGeneratedBy((Artifact) tempVertex2, (Process) tempVertex1);
-                        edge.addAnnotation("endtime", current_event_time);
+//                        edge.addAnnotation("endtime", current_event_time);
                         pushToBuffer(tempVertex1);
                         pushToBuffer(tempVertex2);
                         pushToBuffer(edge);
@@ -359,7 +374,7 @@ public class OpenBSMProducer implements ProducerInterface {
                         pushToBuffer(tempVertex2);
                         pushToBuffer(edge);
                         edge = new WasDerivedFrom((Artifact) tempVertex2, (Artifact) tempVertex1);
-                        edge.addAnnotation("endtime", current_event_time);
+//                        edge.addAnnotation("endtime", current_event_time);
                         pushToBuffer(edge);
                     }
                 } else if ((current_event_id == 1) || (current_event_id == 15)) { // exit, kill

@@ -51,7 +51,7 @@ public class LibauditProducer implements ProducerInterface {
     @return void
      *
      */
-    public boolean initialize(Buffer buff) {
+    public boolean initialize(Buffer buff, String arguments) {
         buffer = buff;
         OpenCloseSemanticsOn = true;
 
@@ -2041,7 +2041,7 @@ public class LibauditProducer implements ProducerInterface {
         return fake;
     }
 
-    public void shutdown() {
-        return;
+    public boolean shutdown() {
+        return true;
     }
 }

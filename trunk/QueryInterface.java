@@ -22,7 +22,9 @@ import java.util.Set;
 
 public interface QueryInterface {
 
-    public void initialize(String path);
+    public boolean initialize(String path);
+
+    public boolean shutdown();
 
     public Set<String> getKeySet(String OPMObjectName);
 
@@ -37,6 +39,4 @@ public interface QueryInterface {
     public Lineage getLineage(Vertex source, String pruneExpression, int direction, boolean includeTerminatingNode);
 
     public Lineage getLineage(Vertex source, int depth, int direction);
-
-    public void shutdown();
 }

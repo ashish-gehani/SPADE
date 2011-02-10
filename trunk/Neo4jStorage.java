@@ -51,7 +51,6 @@ public class Neo4jStorage implements ConsumerInterface {
     public boolean initialize(String path) {
 
         graphDb = new EmbeddedGraphDatabase(path);
-        registerShutdownHook(graphDb);
         txcount = 0;
         vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
         edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
@@ -73,7 +72,7 @@ public class Neo4jStorage implements ConsumerInterface {
 
     public void commit() {
         txcount++;
-        if (txcount == 25000) {
+        if (txcount == 10000) {
             txcount = 0;
             try {
                 tx.success();
@@ -162,21 +161,11 @@ public class Neo4jStorage implements ConsumerInterface {
     }
 
     public boolean shutdown() {
-        tx.success();
-        tx.finish();
+        if (tx != null) {
+            tx.success();
+            tx.finish();
+        }
         graphDb.shutdown();
         return true;
-    }
-
-    private void registerShutdownHook(final GraphDatabaseService graphDb) {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-
-            @Override
-            public void run() {
-                tx.success();
-                tx.finish();
-                graphDb.shutdown();
-            }
-        });
     }
 }

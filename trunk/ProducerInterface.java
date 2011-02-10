@@ -20,7 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 public interface ProducerInterface {
 
-    public boolean initialize(Buffer buff);
+    public boolean initialize(Buffer buff, String arguments);
 
-    public void shutdown();
+    public boolean shutdown();
 }

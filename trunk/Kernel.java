@@ -286,11 +286,13 @@ public class Kernel {
             ProducerInterface p = (ProducerInterface) Class.forName(classname).newInstance();
             System.out.print("Adding producer " + classname + "... ");
             Buffer buff = new Buffer();
-            if (p.initialize(buff)) {
+            if (p.initialize(buff, null)) {
                 buffers.put(p, buff);
                 producers.add(p);
+                System.out.println("done");
+            } else {
+                System.out.println("failed");
             }
-            System.out.println("done");
         } catch (Exception e) {
             System.out.println("Error: Unable to add producer " + classname + " - please check class name");
         }
@@ -302,8 +304,10 @@ public class Kernel {
             System.out.print("Adding consumer " + classname + "... ");
             if (c.initialize(arg)) {
                 consumers.add(c);
+                System.out.println("done");
+            } else {
+                System.out.println("failed");
             }
-            System.out.println("done");
         } catch (Exception e) {
             System.out.println("Error: Unable to add consumer " + classname + " - please check class name and argument");
         }
@@ -312,7 +316,6 @@ public class Kernel {
     public static void addFilter(String classname, String arg) {
         try {
             FilterInterface f = (FilterInterface) Class.forName(classname).newInstance();
-            System.out.print("Adding filter " + classname + "... ");
             int index = Integer.parseInt(arg);
             if (index >= filters.size()) {
                 throw new Exception();
@@ -321,6 +324,7 @@ public class Kernel {
             if (index > 0) {
                 ((FilterInterface) filters.get(index - 1)).setNextFilter(f);
             }
+            System.out.print("Adding filter " + classname + "... ");
             filters.add(index, f);
             System.out.println("done");
         } catch (Exception e) {
