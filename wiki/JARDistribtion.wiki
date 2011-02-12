@@ -4,7 +4,7 @@
 A minimal distribution can now be downloaded for use:
 http://code.google.com/p/data-provenance/source/browse/trunk/distribution/Spade2.zip
 
-Launching SPADE is simply done by extracting the contents of Spade2.zip and then executing the following command: `java -jar Spade2.jar`
+SPADE can be launched by extracting the contents of Spade2.zip and then executing the following command: `java -jar Spade2.jar`
 
 The list of available commands are displayed on startup. The minimal distribution contains no producers but has the following consumers:
 
