@@ -5,7 +5,7 @@
 
 The SPADE2 core distribution can be checked out from the repository using the following command:
 
-*`svn checkout http://data-provenance.googlecode.com/svn/trunk/distribution/Spade2.zip data-provenance-read-only`*
+*`svn checkout http://data-provenance.googlecode.com/svn/trunk/distribution/SPADE2.zip data-provenance-read-only`*
 
 The kernel can be launched by extracting the contents of SPADE2.zip and then executing the following command: `java -jar SPADE2.jar`
 
