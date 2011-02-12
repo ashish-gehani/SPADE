@@ -3,7 +3,7 @@
 
 = SPADE2 Core Distribution =
 
-The SPADE2 core distribution can be checked out from the repository using the following command:
+The SPADE2 core distribution can be downloaded from http://data-provenance.googlecode.com/svn/trunk/distribution/SPADE2.zip or checked out from the repository using the following command:
 
 *`svn checkout http://data-provenance.googlecode.com/svn/trunk/distribution/SPADE2.zip data-provenance-read-only`*
 
