@@ -1,4 +1,6 @@
 #labels Featured,Phase-Deploy
+---
+
 == SPADE 2.0 JAR Distribution ==
 
 A minimal distribution can now be downloaded for use:
@@ -105,3 +107,5 @@ Terminating kernel...
 [user@localhost Spade2]$ dot -Tsvg -o outputimage.svg samplegraph.dot
 [user@localhost Spade2]$
 }}}
+
+---
