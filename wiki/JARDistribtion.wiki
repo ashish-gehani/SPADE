@@ -31,7 +31,7 @@ To write a custom producer, the following source files are needed which can be d
     * WasDerivedFrom.java
     * WasControlledBy.java
 
-Use the following code to check out from the repository:
+Use the following command to check out source code from the repository:
 
 *`svn checkout http://data-provenance.googlecode.com/svn/trunk/ data-provenance-read-only`*
 
