@@ -19,7 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 import java.io.FileWriter;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Iterator;
 
 public class DOTOutput implements ConsumerInterface {
 
@@ -49,9 +51,9 @@ public class DOTOutput implements ConsumerInterface {
             }
             vertexstring = vertexstring.substring(0, vertexstring.length() - 1);
             if (v instanceof Artifact) {
-                out.write("\"" + v.hashCode() + "\" [label=\"" + vertexstring + "\" shape=\"Mrecord\"];\n");
+                out.write("\"" + v.hashCode() + "\" [label=\"" + vertexstring.replace("\"", "'") + "\" shape=\"Mrecord\"];\n");
             } else {
-                out.write("\"" + v.hashCode() + "\" [label=\"" + vertexstring + "\" shape=\"record\"];\n");
+                out.write("\"" + v.hashCode() + "\" [label=\"" + vertexstring.replace("\"", "'") + "\" shape=\"record\"];\n");
             }
             return true;
         } catch (Exception e) {
@@ -83,12 +85,12 @@ public class DOTOutput implements ConsumerInterface {
                 } else if (e instanceof WasControlledBy) {
                     color = "orange";
                 } else if (e instanceof WasDerivedFrom) {
-                    color = "teal";
+                    color = "purple";
                 }
                 if (annotationstring.length() > 3) {
                     annotationstring = "(" + annotationstring.substring(0, annotationstring.length() - 2) + ")";
                 }
-                String edgestring = "\"" + e.getSrcVertex().hashCode() + "\" -> \"" + e.getDstVertex().hashCode() + "\" [label=\"" + annotationstring + "\" color=\"" + color + "\"];\n";
+                String edgestring = "\"" + e.getSrcVertex().hashCode() + "\" -> \"" + e.getDstVertex().hashCode() + "\" [label=\"" + annotationstring.replace("\"", "'") + "\" color=\"" + color + "\"];\n";
                 out.write(edgestring);
                 return true;
             }

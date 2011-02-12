@@ -18,7 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
 
 public class RunFilter implements FilterInterface {
 

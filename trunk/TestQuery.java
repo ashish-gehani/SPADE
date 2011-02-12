@@ -18,17 +18,17 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.util.*;
+import java.util.Iterator;
 import java.util.Set;
 
 public class TestQuery {
 
     public static void main(String args[]) {
-        Neo4jQuery t = new Neo4jQuery();
-        t.initialize("db/testdb");
+        QueryInterface query = new Neo4jQuery();
+        query.initialize("db/testdb");
 
         try {
-            Set<Vertex> testSet1 = t.getVertices("(pid:{* TO 11} NOT pidname:?nit) OR (startime:[* TO 1296236913060] AND cmdline:/sbin/*)");
+            Set<Vertex> testSet1 = query.getVertices("(pid:{* TO 11} NOT pidname:?nit) OR (startime_unix:[* TO 1296236913060] AND cmdline:/sbin/*)");
             Iterator i1 = testSet1.iterator();
             Lineage lin1 = new Lineage();
             while (i1.hasNext()) {
@@ -39,7 +39,7 @@ public class TestQuery {
             e.printStackTrace();
         }
 
-        t.shutdown();
+        query.shutdown();
 
     }
 }

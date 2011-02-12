@@ -43,6 +43,8 @@ public class LibauditProducer implements ProducerInterface {
     private Buffer buffer;
     public java.lang.Process socketToPipe;
 
+    private BufferedReader eventReader;
+
     /**
      * The class constructor that is initiated with a {@link StorageInterface}. The parser will use this interface to store all the data.
 
@@ -1899,13 +1901,34 @@ public class LibauditProducer implements ProducerInterface {
     //this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
     public void startParsing() {
 
-        BufferedReader br = null;
-
         try {
 
-            br = new BufferedReader(new FileReader("/home/basim/workspace/JavaOPMv3/src/libAuditPipe"));
+            Runtime.getRuntime().exec("sudo auditctl -D");
+            Runtime.getRuntime().exec("sudo auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork");
+            String[] cmd = {"/bin/sh", "-c", "sudo ./a.out"};
+            java.lang.Process pipeprocess = Runtime.getRuntime().exec(cmd);
+            eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
+            eventReader.readLine();
+            
+            Runnable eventThread = new Runnable() {
 
+                public void run() {
+                    try {
+                        String line = eventReader.readLine();
+                        while (true) {
+                            if (line != null) {
+                                processInputLine(line);
+                            }
+                            line = eventReader.readLine();
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+            new Thread(eventThread).start();
 
+            /*
             while (true) {
                 // this statement reads the line from the file and print it to
                 // the console.
@@ -1916,6 +1939,8 @@ public class LibauditProducer implements ProducerInterface {
                 }
 
             }
+             * 
+             */
 
             // dispose all the resources after using them.
             //br.close();

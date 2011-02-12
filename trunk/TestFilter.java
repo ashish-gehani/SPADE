@@ -29,10 +29,14 @@ public class TestFilter implements FilterInterface {
     public void putVertex(Vertex v) {
         v.removeAnnotation("commandline");
         v.removeAnnotation("environment");
+        v.removeAnnotation("lastmodified_unix");
+        v.removeAnnotation("starttime_unix");
+        v.removeAnnotation("path");
         next.putVertex(v);
     }
 
     public void putEdge(Edge e) {
-            next.putEdge(e);
+        e.removeAnnotation("endtime");
+        next.putEdge(e);
     }
 }

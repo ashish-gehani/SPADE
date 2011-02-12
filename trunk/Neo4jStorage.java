@@ -18,8 +18,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.util.*;
-
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -126,9 +127,15 @@ public class Neo4jStorage implements ConsumerInterface {
                 Long val = Long.parseLong(value);
                 newVertex.setProperty(name, val);
                 vertexIndex.add(newVertex, name, new ValueContext(val).indexNumeric());
-            } catch (Exception e) {
-                newVertex.setProperty(name, value);
-                vertexIndex.add(newVertex, name, value);
+            } catch (Exception e1) {
+                try {
+                    Double val = Double.parseDouble(value);
+                    newVertex.setProperty(name, val);
+                    vertexIndex.add(newVertex, name, new ValueContext(val).indexNumeric());
+                } catch (Exception e2) {
+                    newVertex.setProperty(name, value);
+                    vertexIndex.add(newVertex, name, value);
+                }
             }
         }
         VertexTable.put(v, newVertex.getId());

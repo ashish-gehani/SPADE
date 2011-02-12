@@ -18,8 +18,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.util.*;
-
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -27,22 +30,19 @@ import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.graphdb.index.IndexHits;
-import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.helpers.collection.MapUtil;
+import org.neo4j.kernel.EmbeddedGraphDatabase;
 
 public class Neo4jQuery implements QueryInterface {
 
-    private GraphDatabaseService graphDb;                                       /* Neo4j graph database instance */
-
-    private Index<Node> vertexIndex;                                            /* index for vertices */
-
-    private RelationshipIndex edgeIndex;                                        /* index for edges */
-
+    private GraphDatabaseService graphDb;                                       // Neo4j graph database instance
+    private Index<Node> vertexIndex;                                            // index for vertices
+    private RelationshipIndex edgeIndex;                                        // index for edges
 
     public boolean initialize(String path) {
         try {
             graphDb = new EmbeddedGraphDatabase(path);
-            /* initialize vertex and edge indexes and specify configuration */
+            // initialize vertex and edge indexes and specify configuration
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             return true;
@@ -62,9 +62,14 @@ public class Neo4jQuery implements QueryInterface {
             try {
                 String value = (String) n.getProperty(key);
                 v.addAnnotation(key, value);
-            } catch (Exception e) {
-                String value = Long.toString((Long) n.getProperty(key));
-                v.addAnnotation(key, value);
+            } catch (Exception e1) {
+                try {
+                    String value = Long.toString((Long) n.getProperty(key));
+                    v.addAnnotation(key, value);
+                } catch (Exception e2) {
+                    String value = Double.toString((Double) n.getProperty(key));
+                    v.addAnnotation(key, value);
+                }
             }
         }
     }
@@ -77,20 +82,22 @@ public class Neo4jQuery implements QueryInterface {
     }
 
     public Set<String> getKeySet(String OPMObjectName) {
+        /*
         Set<String> keySet = new HashSet<String>();
         if (OPMObjectName.equals("Process")) {
             keySet.add("pid");
         } else if (OPMObjectName.equals("Artifact")) {
             keySet.add("path");
         }
-        return keySet;
+         */
+        return null;
     }
 
     public Set<Vertex> getVertices(String expression) {
-        Set<Vertex> vertexSet = new HashSet<Vertex>();                          /* create empty result set to store matching vertices */
-        for (Node foundNode : vertexIndex.query(expression)) {                  /* evaluate expression and iterate over nodes */
-            String type = (String) foundNode.getProperty("type");               /* determine type of vertex */
-            Vertex tempVertex;                                                  /* create vertex object according to type and populate annotations */
+        Set<Vertex> vertexSet = new HashSet<Vertex>();                          // create empty result set to store matching vertices
+        for (Node foundNode : vertexIndex.query(expression)) {                  // evaluate expression and iterate over nodes
+            String type = (String) foundNode.getProperty("type");               // determine type of vertex
+            Vertex tempVertex;                                                  // create vertex object according to type and populate annotations
             if (type.equals("Process")) {
                 tempVertex = new Process();
             } else if (type.equals("Artifact")) {
@@ -99,15 +106,15 @@ public class Neo4jQuery implements QueryInterface {
                 tempVertex = new Agent();
             }
             convertNodeToVertex(foundNode, tempVertex);
-            vertexSet.add(tempVertex);                                          /* add final populated vertex to result set */
+            vertexSet.add(tempVertex);                                          // add final populated vertex to result set
         }
-        return vertexSet;                                                       /* return result set */
+        return vertexSet;                                                       // return result set
     }
 
     public Set<Edge> getEdges(String expression) {
-        Set<Edge> edgeSet = new HashSet<Edge>();                                    /* create empty result set to store matching edges */
-        for (Relationship foundRelationship : edgeIndex.query(expression)) {        /* evaluate expression and iterate over relationships */
-            String type = (String) foundRelationship.getProperty("type");           /* determine edge type: create and populate edge annotations */
+        Set<Edge> edgeSet = new HashSet<Edge>();                                    // create empty result set to store matching edges
+        for (Relationship foundRelationship : edgeIndex.query(expression)) {        // evaluate expression and iterate over relationships
+            String type = (String) foundRelationship.getProperty("type");           // determine edge type: create and populate edge annotations
             if (type.equals("Used")) {
                 Process vertex1 = new Process();
                 Artifact vertex2 = new Artifact();
@@ -154,18 +161,18 @@ public class Neo4jQuery implements QueryInterface {
     }
 
     public Set<Edge> getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
-        Set<Vertex> sourceSet = getVertices(sourceExpression);                              /* get set of source vertices matching the expression */
-        Set<Vertex> destinationSet = getVertices(destinationExpression);                    /* get set of destination vertices matching the expression */
-        Set<Edge> edgeSet = new HashSet<Edge>();                                            /* create empty result set to store matching edges */
-        for (Relationship foundRelationship : edgeIndex.query(edgeExpression)) {            /* evaluate edge expression and iterate over relationships */
-            String type = (String) foundRelationship.getProperty("type");                   /* determine edge type */
+        Set<Vertex> sourceSet = getVertices(sourceExpression);                              // get set of source vertices matching the expression
+        Set<Vertex> destinationSet = getVertices(destinationExpression);                    // get set of destination vertices matching the expression
+        Set<Edge> edgeSet = new HashSet<Edge>();                                            // create empty result set to store matching edges
+        for (Relationship foundRelationship : edgeIndex.query(edgeExpression)) {            // evaluate edge expression and iterate over relationships
+            String type = (String) foundRelationship.getProperty("type");                   // determine edge type
             if (type.equals("Used")) {
                 Process vertex1 = new Process();
                 Artifact vertex2 = new Artifact();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
                 convertNodeToVertex(foundRelationship.getEndNode(), vertex2);
-                if (sourceSet.contains(vertex1) && destinationSet.contains(vertex2)) {      /* check that relationship source and destination nodes */
-                    Edge tempEdge = new Used(vertex1, vertex2, "Used", "Used");             /* are in the sets that we populated earlier */
+                if (sourceSet.contains(vertex1) && destinationSet.contains(vertex2)) {      // check that relationship source and destination nodes
+                    Edge tempEdge = new Used(vertex1, vertex2, "Used", "Used");             // are in the sets that we populated earlier
                     convertRelationshipToEdge(foundRelationship, tempEdge);
                     edgeSet.add(tempEdge);
                 }

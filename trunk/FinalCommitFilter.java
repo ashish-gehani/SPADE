@@ -18,7 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.Set;
 
 public class FinalCommitFilter implements FilterInterface {
 

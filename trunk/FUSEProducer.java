@@ -18,8 +18,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
 
-import java.io.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.HashMap;
+import java.util.StringTokenizer;
 
 public class FUSEProducer implements ProducerInterface {
 
@@ -225,17 +228,17 @@ public class FUSEProducer implements ProducerInterface {
         tempVertex.addAnnotation("lastmodified_simple", lastmodified_readable);
         buffer.putVertex(tempVertex);
         LocalCache.put(path, tempVertex);
+        Edge tempEdge = null;
         if (write == 0) {
-            Used tempEdge = new Used((Process) LocalCache.get(Integer.toString(pid)), (Artifact) LocalCache.get(path), "Used", "Used");
-            tempEdge.addAnnotation("iotime", Integer.toString(iotime));
-            tempEdge.addAnnotation("endtime", Long.toString(now));
-            buffer.putEdge(tempEdge);
+            tempEdge = new Used((Process) LocalCache.get(Integer.toString(pid)), (Artifact) LocalCache.get(path), "Used", "Used");
         } else {
-            WasGeneratedBy tempEdge = new WasGeneratedBy((Artifact) LocalCache.get(path), (Process) LocalCache.get(Integer.toString(pid)), "WasGeneratedBy", "WasGeneratedBy");
-            tempEdge.addAnnotation("iotime", Integer.toString(iotime));
-            tempEdge.addAnnotation("endtime", Long.toString(now));
-            buffer.putEdge(tempEdge);
+            tempEdge = new WasGeneratedBy((Artifact) LocalCache.get(path), (Process) LocalCache.get(Integer.toString(pid)), "WasGeneratedBy", "WasGeneratedBy");
         }
+        if (iotime > 0) {
+            tempEdge.addAnnotation("iotime", Integer.toString(iotime));
+        }
+        tempEdge.addAnnotation("endtime", Long.toString(now));
+        buffer.putEdge(tempEdge);
     }
 
     public void rename(int pid, int iotime, int var1, String pathfrom, String pathto) {
