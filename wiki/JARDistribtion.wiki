@@ -83,19 +83,18 @@ Once this producer is compiled, the class file must be copied to the directory t
 SPADE 2.0 Kernel
 
 Available commands:
-       add producer <class name>
-       add consumer <class name> <initialization argument>
+       add <producer|consumer> <class name> <initialization arguments>
        add filter <class name> <index>
        remove <producer|consumer> <class name>
-       remove <filter> <index>
+       remove filter <index>
        list <producers|consumers|filters>
        exit
 
 -> add consumer DOTOutput samplegraph.dot
 Adding consumer DOTOutput... done
 
--> add producer FUSEProducer
-Adding producer FUSEProducer... done
+-> add producer SimpleProducer null
+Adding producer SimpleProducer... done
 
 -> exit
 Shutting down producers... done
