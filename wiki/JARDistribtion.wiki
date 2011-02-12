@@ -1,5 +1,5 @@
 #labels Featured,Phase-Deploy
----
+----
 
 == SPADE 2.0 JAR Distribution ==
 
@@ -108,4 +108,4 @@ Terminating kernel...
 [user@localhost Spade2]$
 }}}
 
----
+----
