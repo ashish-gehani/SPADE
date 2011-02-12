@@ -1,7 +1,7 @@
 #labels Featured,Phase-Deploy
 ----
 
-== SPADE 2.0 JAR Distribution ==
+= SPADE 2.0 JAR Distribution =
 
 A minimal distribution can now be downloaded for use:
 http://code.google.com/p/data-provenance/source/browse/trunk/distribution/Spade2.zip
