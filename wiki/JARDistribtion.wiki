@@ -11,7 +11,7 @@ SPADE can be launched by extracting the contents of Spade2.zip and then executin
 The list of available commands are displayed on startup. The minimal distribution contains no producers but has the following consumers:
 
     # *Neo4jStorage* - initialization argument is the location of the neo4j database in the filesystem. Example: `add consumer Neo4jStorage /path/to/neo4jdb`. If a database does not exist at the given path, a new one is created. The path can be absolute or relative.
-    # *DOTOutput* - initialization argument is the name of the DOT file. Example: `add consumer DOTOutput testgraph.dot`. If the given file already exists, it is overwritten. After this consumer is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: `dot -Tsvg -o graph.svg testgraph.dot` will generate graph.svg from testgraph.dot which can then be viewed in a browser.
+    # *DOTOutput* - initialization argument is the name of the DOT file. Example: `add consumer DOTOutput testgraph.dot`. If the given file already exists, it is overwritten. After this consumer is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: `dot -Tpng -o graph.png testgraph.dot` will generate graph.png from testgraph.dot.
 
 
 
@@ -104,7 +104,7 @@ Flushing buffers... done
 Shutting down consumers... done
 Terminating kernel...
 
-[user@localhost Spade2]$ dot -Tsvg -o outputimage.svg samplegraph.dot
+[user@localhost Spade2]$ dot -Tpng -o outputimage.png samplegraph.dot
 [user@localhost Spade2]$
 }}}
 
