@@ -7,7 +7,7 @@ The SPADE2 source code can be checked out from the repository using the followin
 
 *`svn checkout http://data-provenance.googlecode.com/svn/trunk/ data-provenance-read-only`*
 
-The source code and libraries will be downloaded with an ANT script that can be used to compile SPADE2 by typing `ant`. Once compiled, the KernelThe list of available commands is displayed on startup. The core distribution contains no producers but has the following consumers:
+The source code and libraries will be downloaded with an ANT script that can be used to compile SPADE2 by typing `ant`. Once compiled, the Kernel can be started by using the following command: *`java -classpath lib/*:build spade/Kernel`*. The list of available commands is displayed on startup. The core distribution contains no producers but has the following consumers:
 
     # *Neo4jStorage* - initialization argument is the location of the neo4j database in the filesystem. Example: `add consumer Neo4jStorage /path/to/neo4jdb`. If a database does not exist at the given path, a new one is created. The path can be absolute or relative.
     # *DOTOutput* - initialization argument is the name of the DOT file. Example: `add consumer DOTOutput testgraph.dot`. If the given file already exists, it is overwritten. After this consumer is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: `dot -Tpng -o graph.png testgraph.dot` will generate graph.png from testgraph.dot.
