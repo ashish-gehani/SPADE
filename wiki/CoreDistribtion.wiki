@@ -132,7 +132,7 @@ Terminating kernel...
 
 The DOTOutput consumer automatically colors edges according to the edge type. The output of the above execution yields the following image (outputimage.png):
 
-<p align="right">
+<p align="center">
 http://data-provenance.googlecode.com/svn/trunk/doc/images/outputimage.png
 </p>
 
