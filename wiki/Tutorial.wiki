@@ -1,1 +1,3 @@
 =Background=
+
+Starting in 2006, a community of two dozen research groups interested in data annotation, derivation, and provenance has met _to understand the capabilities of different provenance systems and the expressiveness of their provenance representations,_ and then iteratively created an [http://openprovenance.org/ Open Provenance Model (OPM)] aimed at increasing the interoperability of systems.
