@@ -1,0 +1,37 @@
+<project name="SPADE2" default="main">
+
+	<property name="src.dir" value="src"/>
+	<property name="build.dir" value="build"/>
+	<property name="lib.dir" value="lib"/>
+
+	<patternset id="java.libs" includes="**/*.jar,**/*.zip" />
+	<path id="libpath" >
+		<fileset dir="${lib.dir}" >
+			<patternset refid="java.libs" />
+		</fileset>
+	</path>
+
+	<target name="clean">
+	        <delete dir="${build.dir}"/>
+	</target>
+
+	<target name="compile">
+        	<mkdir dir="${build.dir}"/>
+        	<javac classpathref="libpath" srcdir="${src.dir}" destdir="${build.dir}" includeantruntime="false"/>
+	</target>
+
+	<target name="main" depends="clean,compile"/>
+
+	<!--
+	<target name="run">
+		<java classname="spade.Kernel" fork="true" spawn="true">
+			<classpath>  
+				<pathelement path="${lib.dir}"/>  
+				<pathelement path="${build.dir}"/>  
+			</classpath>  
+		</java>  
+	</target>
+	-->
+
+</project>
+
