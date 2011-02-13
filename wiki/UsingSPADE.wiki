@@ -1,6 +1,0 @@
-#Tutorial
-
-= Introduction =
-
-This page will explain how to begin using SPADE.
-
