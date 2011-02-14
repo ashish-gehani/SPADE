@@ -3,10 +3,12 @@
 
 = SPADE Tutorial =
 
+_need to add text for downloading/compiling/running here_
+
 Consumers:
 
-    # *Neo4jStorage* - initialization argument is the location of the neo4j database in the filesystem. Example: `add consumer Neo4jStorage /path/to/neo4jdb`. If a database does not exist at the given path, a new one is created. The path can be absolute or relative.
-    # *DOTOutput* - initialization argument is the name of the DOT file. Example: `add consumer DOTOutput testgraph.dot`. If the given file already exists, it is overwritten. After this consumer is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: `dot -Tpng -o graph.png testgraph.dot` will generate graph.png from testgraph.dot.
+    # *Neo4jStorage* - initialization argument is the location of the neo4j database in the filesystem. Example: *`add consumer Neo4jStorage /path/to/neo4jdb`*. If a database does not exist at the given path, a new one is created. The path can be absolute or relative.
+    # *DOTOutput* - initialization argument is the name of the DOT file. Example: *`add consumer DOTOutput testgraph.dot`*. If the given file already exists, it is overwritten. After this consumer is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: *`dot -Tpng -o graph.png testgraph.dot`* will generate graph.png from testgraph.dot.
 
 
 
