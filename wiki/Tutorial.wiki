@@ -46,16 +46,24 @@ public class SimpleProducer extends AbstractProducer {
     }
 
     private void addSomeData() {
+        // Create a root process vertex and pass it
+        // to the kernel using the putVertex() method
         Process root = new Process();
         root.addAnnotation("name", "root process");
         root.addAnnotation("pid", "10");
         putVertex(root);
 
+        // Create a child process vertex
         Process child = new Process();
         child.addAnnotation("name", "child process");
         child.addAnnotation("pid", "32");
         putVertex(child);
 
+        // Create an edge between the root and child process
+        // vertices. Edges are directed where the first
+        // argument in the constructor is the source and the
+        // second argument is the destination (e.g., this
+        // edge can be read as "child _WasTriggeredBy_ root")
         Edge forkedge = new WasTriggeredBy(child, root);
         forkedge.addAnnotation("time", "5:56 PM");
         putEdge(forkedge);
