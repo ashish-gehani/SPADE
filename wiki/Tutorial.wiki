@@ -41,6 +41,8 @@ public class SimpleProducer extends AbstractProducer {
 
     @Override
     public boolean launch(String arguments) {
+        // Add data and return true to indicate that the
+        // producer was launched successfully.
         addSomeData();
         return true;
     }
