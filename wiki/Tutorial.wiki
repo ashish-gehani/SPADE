@@ -14,7 +14,7 @@ Consumers:
 
 == Writing a Producer ==
 
-Writing a producer is done by extending the *AbstractProducer* class and must belong to the *spade.producers* package. Only the following methods need to be overridden:
+Producers must belong to the *spade.producers* package and are written by extending the *AbstractProducer* class. Only the following methods need to be overridden:
 
     * *public boolean launch(String arguments)* - This method is called by the kernel when the producer is launched. The argument is a string that can be used to do any custom configuration. This method must return true to indicate that the producer was launched successfully, otherwise it is not added to the kernel. To send data (vertices and edges) to the kernel, the *putVertex(Vertex)* and *putEdge(Edge)* methods are used which are part of the abstract class.
     * *public boolean shutdown()* - The kernel calls this method when removing a producer. This can be used to perform any necessary cleanup.
