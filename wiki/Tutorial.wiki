@@ -86,12 +86,15 @@ Terminating kernel...
 [user@localhost SPADE]$
 }}}
 
-The DOTOutput storage automatically colors edges according to the edge type and uses different shapes to distinguish between vertex types:
+For visual clarity, the DOTOutput storage automatically colors edges according to the edge type and uses different shapes to distinguish between vertex types:
 
-  * `Process` and `Agent` vertices have square edges.
-  * `Artifact` vertices have rounded edges.
-  * `Used` edges are green.
-  *
+  * `Process` and `Agent` vertices have square edges
+  * `Artifact` vertices have rounded edges
+  * `Used` edges are green
+  * `WasGeneratedBy` edges are red
+  * `WasTriggeredBy` edges are blue
+  * `WasDerivedFrom` edges are purple
+  * `WasControlledBy` edges are orange
 
 The output of the complete sample run above yields the following image (outputimage.png):
 
