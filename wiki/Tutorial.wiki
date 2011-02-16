@@ -7,8 +7,8 @@ _need to add text for downloading/compiling/running here_
 
 The following storage classes are already included in SPADE:
 
-    # *Neo4jStorage* - initialization argument is the location of the neo4j database in the filesystem. Example: *`add consumer Neo4jStorage /path/to/neo4jdb`*. If a database does not exist at the given path, a new one is created. The path can be absolute or relative.
-    # *DOTOutput* - initialization argument is the name of the DOT file. Example: *`add consumer DOTOutput testgraph.dot`*. If the given file already exists, it is overwritten. After this consumer is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: *`dot -Tpng -o graph.png testgraph.dot`* will generate graph.png from testgraph.dot.
+    # *Neo4jStorage* - initialization argument is the location of the neo4j database in the filesystem. Example: *`add storage Neo4jStorage /path/to/neo4jdb`*. If a database does not exist at the given path, a new one is created. The path can be absolute or relative.
+    # *DOTOutput* - initialization argument is the name of the DOT file. Example: *`add storage DOTOutput testgraph.dot`*. If the given file already exists, it is overwritten. After this storage is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: *`dot -Tpng -o graph.png testgraph.dot`* will generate graph.png from testgraph.dot.
 
 
 
@@ -86,7 +86,14 @@ Terminating kernel...
 [user@localhost SPADE]$
 }}}
 
-The DOTOutput consumer automatically colors edges according to the edge type. The output of the above execution yields the following image (outputimage.png):
+The DOTOutput storage automatically colors edges according to the edge type and uses different shapes to distinguish between vertex types:
+
+  * `Process` and `Agent` vertices have square edges.
+  * `Artifact` vertices have rounded edges.
+  * `Used` edges are green.
+  *
+
+The output of the complete sample run above yields the following image (outputimage.png):
 
 <p align="center">
 http://data-provenance.googlecode.com/svn/trunk/doc/images/outputimage.png
