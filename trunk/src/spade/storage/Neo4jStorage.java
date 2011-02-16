@@ -66,15 +66,19 @@ public class Neo4jStorage extends AbstractStorage {
 
     @Override
     public boolean initialize(String path) {
+        try {
+            graphDb = new EmbeddedGraphDatabase(path);
+            txcount = 0;
+            vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+            edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+            vertexTable = new HashMap<AbstractVertex, Long>();
+            edgeSet = new HashSet();
 
-        graphDb = new EmbeddedGraphDatabase(path);
-        txcount = 0;
-        vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
-        edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
-        vertexTable = new HashMap<AbstractVertex, Long>();
-        edgeSet = new HashSet();
-
-        return true;
+            return true;
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
+            return false;
+        }
     }
 
     private void commit() {
@@ -84,8 +88,8 @@ public class Neo4jStorage extends AbstractStorage {
             try {
                 transaction.success();
                 transaction.finish();
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (Exception exception) {
+                exception.printStackTrace(System.err);
             }
         }
     }
@@ -134,12 +138,12 @@ public class Neo4jStorage extends AbstractStorage {
                 Long val = Long.parseLong(value);
                 newVertex.setProperty(name, val);
                 vertexIndex.add(newVertex, name, new ValueContext(val).indexNumeric());
-            } catch (Exception e1) {
+            } catch (Exception parseLongException) {
                 try {
                     Double val = Double.parseDouble(value);
                     newVertex.setProperty(name, val);
                     vertexIndex.add(newVertex, name, new ValueContext(val).indexNumeric());
-                } catch (Exception e2) {
+                } catch (Exception parseDoubleException) {
                     newVertex.setProperty(name, value);
                     vertexIndex.add(newVertex, name, value);
                 }
@@ -195,11 +199,11 @@ public class Neo4jStorage extends AbstractStorage {
             try {
                 String value = (String) node.getProperty(key);
                 vertex.addAnnotation(key, value);
-            } catch (Exception e1) {
+            } catch (Exception fetchStringException) {
                 try {
                     String value = Long.toString((Long) node.getProperty(key));
                     vertex.addAnnotation(key, value);
-                } catch (Exception e2) {
+                } catch (Exception fetchLongException) {
                     String value = Double.toString((Double) node.getProperty(key));
                     vertex.addAnnotation(key, value);
                 }
@@ -237,8 +241,8 @@ public class Neo4jStorage extends AbstractStorage {
     public Set<AbstractEdge> getEdges(String expression) {
         Set<AbstractEdge> resultSet = new HashSet<AbstractEdge>();                                    // create empty result set to store matching edges
         for (Relationship foundRelationship : edgeIndex.query(expression)) {        // evaluate expression and iterate over relationships
-            String type = (String) foundRelationship.getProperty("type");           // determine edge type: create and populate edge annotations
-            if (type.equals("Used")) {
+            String relationshipType = (String) foundRelationship.getProperty("type");           // determine edge type: create and populate edge annotations
+            if (relationshipType.equals("Used")) {
                 Process vertex1 = new Process();
                 Artifact vertex2 = new Artifact();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -246,7 +250,7 @@ public class Neo4jStorage extends AbstractStorage {
                 AbstractEdge tempEdge = new Used(vertex1, vertex2);
                 convertRelationshipToEdge(foundRelationship, tempEdge);
                 resultSet.add(tempEdge);
-            } else if (type.equals("WasGeneratedBy")) {
+            } else if (relationshipType.equals("WasGeneratedBy")) {
                 Artifact vertex1 = new Artifact();
                 Process vertex2 = new Process();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -254,7 +258,7 @@ public class Neo4jStorage extends AbstractStorage {
                 AbstractEdge tempEdge = new WasGeneratedBy(vertex1, vertex2);
                 convertRelationshipToEdge(foundRelationship, tempEdge);
                 resultSet.add(tempEdge);
-            } else if (type.equals("WasTriggeredBy")) {
+            } else if (relationshipType.equals("WasTriggeredBy")) {
                 Process vertex1 = new Process();
                 Process vertex2 = new Process();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -262,7 +266,7 @@ public class Neo4jStorage extends AbstractStorage {
                 AbstractEdge tempEdge = new WasTriggeredBy(vertex1, vertex2);
                 convertRelationshipToEdge(foundRelationship, tempEdge);
                 resultSet.add(tempEdge);
-            } else if (type.equals("WasDerivedFrom")) {
+            } else if (relationshipType.equals("WasDerivedFrom")) {
                 Artifact vertex1 = new Artifact();
                 Artifact vertex2 = new Artifact();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -270,7 +274,7 @@ public class Neo4jStorage extends AbstractStorage {
                 AbstractEdge tempEdge = new WasDerivedFrom(vertex1, vertex2);
                 convertRelationshipToEdge(foundRelationship, tempEdge);
                 resultSet.add(tempEdge);
-            } else if (type.equals("WasControlledBy")) {
+            } else if (relationshipType.equals("WasControlledBy")) {
                 Process vertex1 = new Process();
                 Agent vertex2 = new Agent();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -289,8 +293,8 @@ public class Neo4jStorage extends AbstractStorage {
         Set<AbstractVertex> destinationSet = getVertices(destinationExpression);                    // get set of destination vertices matching the expression
         Set<AbstractEdge> resultSet = new HashSet<AbstractEdge>();                                            // create empty result set to store matching edges
         for (Relationship foundRelationship : edgeIndex.query(edgeExpression)) {            // evaluate edge expression and iterate over relationships
-            String type = (String) foundRelationship.getProperty("type");                   // determine edge type
-            if (type.equals("Used")) {
+            String relationshipType = (String) foundRelationship.getProperty("type");                   // determine edge type
+            if (relationshipType.equals("Used")) {
                 Process vertex1 = new Process();
                 Artifact vertex2 = new Artifact();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -300,7 +304,7 @@ public class Neo4jStorage extends AbstractStorage {
                     convertRelationshipToEdge(foundRelationship, tempEdge);
                     resultSet.add(tempEdge);
                 }
-            } else if (type.equals("WasGeneratedBy")) {
+            } else if (relationshipType.equals("WasGeneratedBy")) {
                 Artifact vertex1 = new Artifact();
                 Process vertex2 = new Process();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -310,7 +314,7 @@ public class Neo4jStorage extends AbstractStorage {
                     convertRelationshipToEdge(foundRelationship, tempEdge);
                     resultSet.add(tempEdge);
                 }
-            } else if (type.equals("WasTriggeredBy")) {
+            } else if (relationshipType.equals("WasTriggeredBy")) {
                 Process vertex1 = new Process();
                 Process vertex2 = new Process();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -320,7 +324,7 @@ public class Neo4jStorage extends AbstractStorage {
                     convertRelationshipToEdge(foundRelationship, tempEdge);
                     resultSet.add(tempEdge);
                 }
-            } else if (type.equals("WasDerivedFrom")) {
+            } else if (relationshipType.equals("WasDerivedFrom")) {
                 Artifact vertex1 = new Artifact();
                 Artifact vertex2 = new Artifact();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -330,7 +334,7 @@ public class Neo4jStorage extends AbstractStorage {
                     convertRelationshipToEdge(foundRelationship, tempEdge);
                     resultSet.add(tempEdge);
                 }
-            } else if (type.equals("WasControlledBy")) {
+            } else if (relationshipType.equals("WasControlledBy")) {
                 Process vertex1 = new Process();
                 Agent vertex2 = new Agent();
                 convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -398,8 +402,8 @@ public class Neo4jStorage extends AbstractStorage {
                 IndexHits<Relationship> relationshipHits = edgeIndex.query("type:*", srcNode, dstNode);
                 while (relationshipHits.hasNext()) {
                     Relationship foundRelationship = relationshipHits.next();
-                    String type = (String) foundRelationship.getProperty("type");
-                    if (type.equals("Used")) {
+                    String relationshipType = (String) foundRelationship.getProperty("type");
+                    if (relationshipType.equals("Used")) {
                         Process vertex1 = new Process();
                         Artifact vertex2 = new Artifact();
                         convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -407,7 +411,7 @@ public class Neo4jStorage extends AbstractStorage {
                         AbstractEdge tempEdge = new Used(vertex1, vertex2);
                         convertRelationshipToEdge(foundRelationship, tempEdge);
                         resultSet.add(tempEdge);
-                    } else if (type.equals("WasGeneratedBy")) {
+                    } else if (relationshipType.equals("WasGeneratedBy")) {
                         Artifact vertex1 = new Artifact();
                         Process vertex2 = new Process();
                         convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -415,7 +419,7 @@ public class Neo4jStorage extends AbstractStorage {
                         AbstractEdge tempEdge = new WasGeneratedBy(vertex1, vertex2);
                         convertRelationshipToEdge(foundRelationship, tempEdge);
                         resultSet.add(tempEdge);
-                    } else if (type.equals("WasTriggeredBy")) {
+                    } else if (relationshipType.equals("WasTriggeredBy")) {
                         Process vertex1 = new Process();
                         Process vertex2 = new Process();
                         convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -423,7 +427,7 @@ public class Neo4jStorage extends AbstractStorage {
                         AbstractEdge tempEdge = new WasTriggeredBy(vertex1, vertex2);
                         convertRelationshipToEdge(foundRelationship, tempEdge);
                         resultSet.add(tempEdge);
-                    } else if (type.equals("WasDerivedFrom")) {
+                    } else if (relationshipType.equals("WasDerivedFrom")) {
                         Artifact vertex1 = new Artifact();
                         Artifact vertex2 = new Artifact();
                         convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -431,7 +435,7 @@ public class Neo4jStorage extends AbstractStorage {
                         AbstractEdge tempEdge = new WasDerivedFrom(vertex1, vertex2);
                         convertRelationshipToEdge(foundRelationship, tempEdge);
                         resultSet.add(tempEdge);
-                    } else if (type.equals("WasControlledBy")) {
+                    } else if (relationshipType.equals("WasControlledBy")) {
                         Process vertex1 = new Process();
                         Agent vertex2 = new Agent();
                         convertNodeToVertex(foundRelationship.getStartNode(), vertex1);
@@ -505,12 +509,12 @@ public class Neo4jStorage extends AbstractStorage {
                 } else {
                     dir = Direction.INCOMING;
                 }
-                for (Relationship r : tempNode.getRelationships(dir)) {
+                for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
                     Node otherNode;
                     if (direction == 0) {
-                        otherNode = r.getEndNode();
+                        otherNode = nodeRelationship.getEndNode();
                     } else {
-                        otherNode = r.getStartNode();
+                        otherNode = nodeRelationship.getStartNode();
                     }
                     if (pruneSet.contains(otherNode) && (includeTerminatingNode == false)) {
                         continue;
@@ -528,49 +532,49 @@ public class Neo4jStorage extends AbstractStorage {
                     tempVertexTable.put(otherNode.getId(), otherVertex);
                     resultLineage.putVertex(otherVertex);
 
-                    String rtype = (String) r.getProperty("type");
+                    String relationshipType = (String) nodeRelationship.getProperty("type");
                     if (direction == 0) {
-                        if (rtype.equals("Used")) {
+                        if (relationshipType.equals("Used")) {
                             AbstractEdge tempEdge = new Used((Process) tempVertexTable.get(tempNode.getId()), (Artifact) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasGeneratedBy")) {
+                        } else if (relationshipType.equals("WasGeneratedBy")) {
                             AbstractEdge tempEdge = new WasGeneratedBy((Artifact) tempVertexTable.get(tempNode.getId()), (Process) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasTriggeredBy")) {
+                        } else if (relationshipType.equals("WasTriggeredBy")) {
                             AbstractEdge tempEdge = new WasTriggeredBy((Process) tempVertexTable.get(tempNode.getId()), (Process) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasDerivedFrom")) {
+                        } else if (relationshipType.equals("WasDerivedFrom")) {
                             AbstractEdge tempEdge = new WasDerivedFrom((Artifact) tempVertexTable.get(tempNode.getId()), (Artifact) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasControlledBy")) {
+                        } else if (relationshipType.equals("WasControlledBy")) {
                             AbstractEdge tempEdge = new WasControlledBy((Process) tempVertexTable.get(tempNode.getId()), (Agent) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
                         }
                     } else {
-                        if (rtype.equals("Used")) {
+                        if (relationshipType.equals("Used")) {
                             AbstractEdge tempEdge = new Used((Process) tempVertexTable.get(otherNode.getId()), (Artifact) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasGeneratedBy")) {
+                        } else if (relationshipType.equals("WasGeneratedBy")) {
                             AbstractEdge tempEdge = new WasGeneratedBy((Artifact) tempVertexTable.get(otherNode.getId()), (Process) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasTriggeredBy")) {
+                        } else if (relationshipType.equals("WasTriggeredBy")) {
                             AbstractEdge tempEdge = new WasTriggeredBy((Process) tempVertexTable.get(otherNode.getId()), (Process) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasDerivedFrom")) {
+                        } else if (relationshipType.equals("WasDerivedFrom")) {
                             AbstractEdge tempEdge = new WasDerivedFrom((Artifact) tempVertexTable.get(otherNode.getId()), (Artifact) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasControlledBy")) {
+                        } else if (relationshipType.equals("WasControlledBy")) {
                             AbstractEdge tempEdge = new WasControlledBy((Process) tempVertexTable.get(otherNode.getId()), (Agent) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
                         }
                     }
@@ -638,12 +642,12 @@ public class Neo4jStorage extends AbstractStorage {
                 } else {
                     dir = Direction.INCOMING;
                 }
-                for (Relationship r : tempNode.getRelationships(dir)) {
+                for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
                     Node otherNode;
                     if (direction == 0) {
-                        otherNode = r.getEndNode();
+                        otherNode = nodeRelationship.getEndNode();
                     } else {
-                        otherNode = r.getStartNode();
+                        otherNode = nodeRelationship.getStartNode();
                     }
                     String otherNodeType = (String) otherNode.getProperty("type");
                     AbstractVertex otherVertex;
@@ -658,49 +662,49 @@ public class Neo4jStorage extends AbstractStorage {
                     tempVertexTable.put(otherNode.getId(), otherVertex);
                     resultLineage.putVertex(otherVertex);
 
-                    String rtype = (String) r.getProperty("type");
+                    String relationshipType = (String) nodeRelationship.getProperty("type");
                     if (direction == 0) {
-                        if (rtype.equals("Used")) {
+                        if (relationshipType.equals("Used")) {
                             AbstractEdge tempEdge = new Used((Process) tempVertexTable.get(tempNode.getId()), (Artifact) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasGeneratedBy")) {
+                        } else if (relationshipType.equals("WasGeneratedBy")) {
                             AbstractEdge tempEdge = new WasGeneratedBy((Artifact) tempVertexTable.get(tempNode.getId()), (Process) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasTriggeredBy")) {
+                        } else if (relationshipType.equals("WasTriggeredBy")) {
                             AbstractEdge tempEdge = new WasTriggeredBy((Process) tempVertexTable.get(tempNode.getId()), (Process) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasDerivedFrom")) {
+                        } else if (relationshipType.equals("WasDerivedFrom")) {
                             AbstractEdge tempEdge = new WasDerivedFrom((Artifact) tempVertexTable.get(tempNode.getId()), (Artifact) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasControlledBy")) {
+                        } else if (relationshipType.equals("WasControlledBy")) {
                             AbstractEdge tempEdge = new WasControlledBy((Process) tempVertexTable.get(tempNode.getId()), (Agent) tempVertexTable.get(otherNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
                         }
                     } else {
-                        if (rtype.equals("Used")) {
+                        if (relationshipType.equals("Used")) {
                             AbstractEdge tempEdge = new Used((Process) tempVertexTable.get(otherNode.getId()), (Artifact) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasGeneratedBy")) {
+                        } else if (relationshipType.equals("WasGeneratedBy")) {
                             AbstractEdge tempEdge = new WasGeneratedBy((Artifact) tempVertexTable.get(otherNode.getId()), (Process) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasTriggeredBy")) {
+                        } else if (relationshipType.equals("WasTriggeredBy")) {
                             AbstractEdge tempEdge = new WasTriggeredBy((Process) tempVertexTable.get(otherNode.getId()), (Process) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasDerivedFrom")) {
+                        } else if (relationshipType.equals("WasDerivedFrom")) {
                             AbstractEdge tempEdge = new WasDerivedFrom((Artifact) tempVertexTable.get(otherNode.getId()), (Artifact) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
-                        } else if (rtype.equals("WasControlledBy")) {
+                        } else if (relationshipType.equals("WasControlledBy")) {
                             AbstractEdge tempEdge = new WasControlledBy((Process) tempVertexTable.get(otherNode.getId()), (Agent) tempVertexTable.get(tempNode.getId()));
-                            convertRelationshipToEdge(r, tempEdge);
+                            convertRelationshipToEdge(nodeRelationship, tempEdge);
                             resultLineage.putEdge(tempEdge);
                         }
                     }

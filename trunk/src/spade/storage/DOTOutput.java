@@ -36,18 +36,18 @@ import java.util.Iterator;
 
 public class DOTOutput extends AbstractStorage {
 
-    private FileWriter out;
+    private FileWriter outputFile;
     private HashSet EdgeSet;
 
     @Override
     public boolean initialize(String path) {
         try {
             EdgeSet = new HashSet();
-            out = new FileWriter(path, false);
-            out.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
+            outputFile = new FileWriter(path, false);
+            outputFile.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
             return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
         }
         return false;
     }
@@ -55,22 +55,22 @@ public class DOTOutput extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
-            String vertexstring = "";
+            String vertexString = "";
             Map<String, String> annotations = incomingVertex.getAnnotations();
             for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
                 String name = (String) it.next();
                 String value = (String) annotations.get(name);
-                vertexstring = vertexstring + name + ":" + value + "|";
+                vertexString = vertexString + name + ":" + value + "|";
             }
-            vertexstring = vertexstring.substring(0, vertexstring.length() - 1);
+            vertexString = vertexString.substring(0, vertexString.length() - 1);
             if (incomingVertex instanceof Artifact) {
-                out.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + vertexstring.replace("\"", "'") + "\" shape=\"Mrecord\"];\n");
+                outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"Mrecord\"];\n");
             } else {
-                out.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + vertexstring.replace("\"", "'") + "\" shape=\"record\"];\n");
+                outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"record\"];\n");
             }
             return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
         }
         return false;
     }
@@ -79,7 +79,7 @@ public class DOTOutput extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
             if (EdgeSet.add(incomingEdge.hashCode())) {
-                String annotationstring = "";
+                String annotationString = "";
                 Map<String, String> annotations = incomingEdge.getAnnotations();
                 for (Iterator it = annotations.keySet().iterator(); it.hasNext();) {
                     String name = (String) it.next();
@@ -87,7 +87,7 @@ public class DOTOutput extends AbstractStorage {
                     if (name.equals("type")) {
                         continue;
                     }
-                    annotationstring = annotationstring + name + ":" + value + ", ";
+                    annotationString = annotationString + name + ":" + value + ", ";
                 }
                 String color = "";
                 if (incomingEdge instanceof Used) {
@@ -101,15 +101,15 @@ public class DOTOutput extends AbstractStorage {
                 } else if (incomingEdge instanceof WasDerivedFrom) {
                     color = "purple";
                 }
-                if (annotationstring.length() > 3) {
-                    annotationstring = "(" + annotationstring.substring(0, annotationstring.length() - 2) + ")";
+                if (annotationString.length() > 3) {
+                    annotationString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
                 }
-                String edgestring = "\"" + incomingEdge.getSrcVertex().hashCode() + "\" -> \"" + incomingEdge.getDstVertex().hashCode() + "\" [label=\"" + annotationstring.replace("\"", "'") + "\" color=\"" + color + "\"];\n";
-                out.write(edgestring);
+                String edgeString = "\"" + incomingEdge.getSrcVertex().hashCode() + "\" -> \"" + incomingEdge.getDstVertex().hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" color=\"" + color + "\"];\n";
+                outputFile.write(edgeString);
                 return true;
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
         }
         return false;
     }
@@ -117,11 +117,11 @@ public class DOTOutput extends AbstractStorage {
     @Override
     public boolean shutdown() {
         try {
-            out.write("}\n");
-            out.close();
+            outputFile.write("}\n");
+            outputFile.close();
             return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
         }
         return false;
     }
