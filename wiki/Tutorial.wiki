@@ -57,7 +57,7 @@ Adding consumer DOTOutput... done
 Adding producer PipeProducer... done
 }}}
 
-With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pipe) in a bash shell:
+With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pipe) in a bash shell. Note that spaces and colons in annotations are escaped by two backslashes because the backslash is an escape character in bash as well:
 
 {{{
 [user@localhost SPADE]$ echo type:Process id:1 name:root\\ process pid:10 > /tmp/spade_pipe 
