@@ -21,7 +21,12 @@ Producers must belong to the *spade.producers* package and are written by extend
 
 
 
-== SimpleProducer Example ==
+== Using the PipeProducer ==
+
+The PipeProducer, included in the SPADE package, works on Mac/Linux by creating a named pipe in the file system to which events can be passed. This makes it easy to send data to SPADE without the need to interface with it directly or to write a producer in java. Each event is passed to the pipe on a separate line using _*key:value*_ pairs separated by spaces. Following is the format used:
+
+  * type:vertex_type id:_identifier_ annotation1:value1 annotation2:value2 ...
+  * type:edge_type from:_vertexIdentifier_ to:_vertexIdentifier_ annotation1:value1 annotation2:value2 ...
 
 The following code illustrates how a very simple producer may be written:
 
