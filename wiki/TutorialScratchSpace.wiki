@@ -6,7 +6,18 @@ Since *SPADE* is under active development, below we will explain how you can dow
 
 ===Downloading *SPADE*===
 
-  # Download the external libraries that *SPADE* uses:
+  * Download the external libraries that *SPADE* uses:
+
   `svn checkout http://data-provenance.googlecode.com/svn/trunk/lib/`
-  # Create the *SPADE* source directories:
+
+  * Create the *SPADE* source directories:
+
+  `svn checkout --depth empty http://data-provenance.googlecode.com/svn/trunk/src/`
+
   `svn update --set-depth immediates src/spade`
+
+  * Download the *SPADE* kernel:
+
+  `svn update --set-depth infinity src/spade/core/`
+
+  `svn update --set-depth infinity src/spade/opm/`
