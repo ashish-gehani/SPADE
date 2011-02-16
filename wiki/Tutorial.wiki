@@ -68,6 +68,9 @@ With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pi
 [user@localhost SPADE]$ echo type:Used from:2 to:3 iotime:12\\ ms > /tmp/spade_pipe 
 [user@localhost SPADE]$ echo type:WasGeneratedBy from:4 to:2 iotime:11\\ ms > /tmp/spade_pipe 
 [user@localhost SPADE]$ echo type:WasDerivedFrom from:4 to:3 > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:Agent id:user uid:10 gid:10 username:SPADE\\ User > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:WasControlledBy from:1 to:user > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:WasControlledBy from:2 to:user > /tmp/spade_pipe 
 }}}
 
 The SPADE kernel is shut down and an image is generated of the resultant DOT file:
