@@ -156,7 +156,7 @@ public class Kernel {
         System.out.println("       add filter <class name> <index>");
         System.out.println("       remove producer|storage <class name>");
         System.out.println("       remove filter <index>");
-        System.out.println("       list producer|storage|filter");
+        System.out.println("       list producers|storages|filters");
         System.out.println("       exit");
     }
 
@@ -187,7 +187,7 @@ public class Kernel {
             tokens[i] = tokens[i].trim();
         }
         try {
-            if (tokens[1].equalsIgnoreCase("producer")) {
+            if (tokens[1].equalsIgnoreCase("producers")) {
                 if (producers.isEmpty()) {
                     System.out.println("No producers added");
                     return;
@@ -199,7 +199,7 @@ public class Kernel {
                     System.out.println(count + ". " + iter.next().getClass().getName().split("\\.")[2]);
                     count++;
                 }
-            } else if (tokens[1].equalsIgnoreCase("storage")) {
+            } else if (tokens[1].equalsIgnoreCase("storages")) {
                 if (storages.isEmpty()) {
                     System.out.println("No storages added");
                     return;
@@ -211,7 +211,7 @@ public class Kernel {
                     System.out.println(count + ". " + iter.next().getClass().getName().split("\\.")[2]);
                     count++;
                 }
-            } else if (tokens[1].equalsIgnoreCase("filter")) {
+            } else if (tokens[1].equalsIgnoreCase("filters")) {
                 if (filters.size() == 1) {
                     System.out.println("No filters added");
                     return;
@@ -224,7 +224,7 @@ public class Kernel {
                 throw new Exception();
             }
         } catch (Exception listCommandException) {
-            System.out.println("Usage: list producer|storage|filter");
+            System.out.println("Usage: list producers|storages|filters");
         }
     }
 
