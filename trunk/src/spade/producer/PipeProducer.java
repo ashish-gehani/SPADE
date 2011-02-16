@@ -85,7 +85,6 @@ public class PipeProducer extends AbstractProducer {
     }
 
     private void parseEvent(String line) {
-        System.out.println("\n" + line);
         try {
             String[] tokens = line.split("(?<!\\\\) ");
             String id = null;
@@ -96,7 +95,6 @@ public class PipeProducer extends AbstractProducer {
             AbstractEdge edge = null;
             LinkedHashMap annotations = new LinkedHashMap();
             for (int i = 0; i < tokens.length; i++) {
-                System.out.println(tokens[i]);
                 if (getKey(tokens[i]).equalsIgnoreCase("id")) {
                     id = getValue(tokens[i]);
                 } else if (getKey(tokens[i]).equalsIgnoreCase("type")) {
