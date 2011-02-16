@@ -35,7 +35,7 @@ where *`type`*, *`from`* and *`to`* fields are mandatory and _edgeType_ can be *
 
 == PipeProducer Sample Run ==
 
-The following run of SPADE first adds the DOTOutput storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added and some sample provenance data is passed to the pipe. Finally, the system is shut down and the DOT file created by the DOTOutput storage is used to generate a graphical image.
+The following run of SPADE first adds the DOTOutput storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added, allowing for provenance data to be passed to SPADE via the named pipe:
 
 {{{
 [user@localhost SPADE]$ java spade.core.Kernel
@@ -73,7 +73,7 @@ With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pi
 [user@localhost SPADE]$ echo type:WasControlledBy from:2 to:user > /tmp/spade_pipe 
 }}}
 
-The SPADE kernel is shut down and an image is generated of the resultant DOT file:
+Finally, the SPADE kernel is shut down and an image is generated using the resultant DOT file created by the DOTOutput storage:
 
 {{{
 -> exit
