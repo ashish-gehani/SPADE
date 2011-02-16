@@ -21,7 +21,7 @@ Producers must belong to the *spade.producers* package and are written by extend
 
 
 
-== Using the PipeProducer ==
+== PipeProducer Intro ==
 
 The PipeProducer, included in the SPADE package, works on Mac and Linux by creating a named pipe in the file system to which events can be passed. This makes it easy to send data to SPADE without the need to interface with it directly or to write a producer in java. The name of the pipe is the argument passed when adding this producer to the kernel. Each event is passed to the pipe on a separate line having _*key:value*_ pairs separated by spaces. For vertices, the format is:
 
