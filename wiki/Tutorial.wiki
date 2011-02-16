@@ -23,7 +23,7 @@ Producers must belong to the *spade.producers* package and are written by extend
 
 == Using the PipeProducer ==
 
-The PipeProducer, included in the SPADE package, works on Mac and Linux by creating a named pipe in the file system to which events can be passed. This makes it easy to send data to SPADE without the need to interface with it directly or to write a producer in java. The name of the pipe is the argument when adding this producer to the kernel. Each event is passed to the pipe on a separate line using _*key:value*_ pairs separated by spaces. For vertices, the format is:
+The PipeProducer, included in the SPADE package, works on Mac and Linux by creating a named pipe in the file system to which events can be passed. This makes it easy to send data to SPADE without the need to interface with it directly or to write a producer in java. The name of the pipe is the argument passed when adding this producer to the kernel. Each event is passed to the pipe on a separate line using _*key:value*_ pairs separated by spaces. For vertices, the format is:
 
 *`type:vertexType id:vertexId annotation1:value1 annotation2:value2 ... annotationN:valueN`*
 
@@ -38,20 +38,20 @@ where *`type`*, *`from`* and *`to`* fields are mandatory and _edgeType_ can be o
 The following run of SPADE first adds the DOTOutput storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added and some sample provenance data is passed to the pipe. Finally, the system is shut down and the DOT file created by the DOTOutput storage is used to generate a graphical image.
 
 {{{
-[user@localhost SPADE2]$ java spade.core.Kernel
+[user@localhost SPADE]$ java spade.core.Kernel
 
 SPADE 2.0 Kernel
 
 Available commands:
-       add <producer|consumer> <class name> <initialization arguments>
+       add producer|storage <class name> <initialization arguments>
        add filter <class name> <index>
-       remove <producer|consumer> <class name>
+       remove producer|storage <class name>
        remove filter <index>
-       list <producers|consumers|filters>
+       list producer|storage|filter
        exit
 
--> add consumer DOTOutput samplegraph.dot
-Adding consumer DOTOutput... done
+-> add storage DOTOutput samplegraph.dot
+Adding storage DOTOutput... done
 
 -> add producer PipeProducer /tmp/spade_pipe
 Adding producer PipeProducer... done
@@ -76,11 +76,11 @@ The SPADE kernel is shut down and an image is generated of the resultant DOT fil
 -> exit
 Shutting down producers... done
 Flushing buffers... done
-Shutting down consumers... done
+Shutting down storages... done
 Terminating kernel...
 
-[user@localhost SPADE2]$ dot -Tpng samplegraph.dot -o outputimage.png
-[user@localhost SPADE2]$
+[user@localhost SPADE]$ dot -Tpng samplegraph.dot -o outputimage.png
+[user@localhost SPADE]$
 }}}
 
 The DOTOutput consumer automatically colors edges according to the edge type. The output of the above execution yields the following image (outputimage.png):
