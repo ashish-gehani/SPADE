@@ -35,7 +35,7 @@ where *`type`*, *`from`* and *`to`* fields are mandatory and _edgeType_ can be o
 
 == PipeProducer Sample Run ==
 
-The following run of SPADE first adds the DOTOutput storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added and some sample provenance data is passed to the pipe. Finally, the system is shut down and the DOT file created the DOTOutput storage is used to generate a graphical image.
+The following run of SPADE first adds the DOTOutput storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added and some sample provenance data is passed to the pipe. Finally, the system is shut down and the DOT file created by the DOTOutput storage is used to generate a graphical image.
 
 {{{
 [user@localhost SPADE2]$ java spade.core.Kernel
@@ -60,7 +60,14 @@ Adding producer PipeProducer... done
 With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pipe) in a bash shell:
 
 {{{
-asdsa
+[user@localhost SPADE]$ echo type:Process id:1 name:root\\ process pid:10 > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:Process id:2 name:child\\ process pid:32 > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:WasTriggeredBy from:2 to:1 time:5\\:56\\ PM > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:Artifact id:3 filename:output.tmp > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:Artifact id:4 filename:output.o > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:Used from:2 to:3 iotime:12\\ ms > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:WasGeneratedBy from:4 to:2 iotime:11\\ ms > /tmp/spade_pipe 
+[user@localhost SPADE]$ echo type:WasDerivedFrom from:4 to:3 > /tmp/spade_pipe 
 }}}
 
 The SPADE kernel is shut down and an image is generated of the resultant DOT file:
