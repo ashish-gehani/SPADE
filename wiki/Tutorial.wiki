@@ -102,11 +102,12 @@ In addition to employing the OPM convention of using different shapes to represe
   * `WasDerivedFrom` edges are orange
   * `WasControlledBy` edges are purple
 
-The output of the complete sample run above yields the following image (outputimage.png):
+The output of the complete sample run above yields the following image:
 
 <p align="center">
 http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/PipeProducerSampleRun.gif
 </p>
+<p align="center">_^outputimage.png^_</p>
 
 ----
 
