@@ -99,7 +99,7 @@ For visual clarity, the DOTOutput storage automatically colors edges according t
 The output of the complete sample run above yields the following image (outputimage.png):
 
 <p align="center">
-http://data-provenance.googlecode.com/svn/trunk/doc/images/outputimage.png
+http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/PipeProducerSampleRun.gif
 </p>
 
 ----
