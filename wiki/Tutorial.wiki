@@ -88,13 +88,14 @@ Terminating kernel...
 
 In addition to employing the OPM convention of using different shapes to represent different vertex types, the Graphviz storage uses the following color scheme to enhance visual clarity:
 
-  * `Process` vertices (rectangles) are 
-  * `Artifact` vertices have rounded edges
+  * `Process` vertices (rectangles) are colored blue
+  * `Artifact` vertices (ellipses) are colored yellow
+  * `Agent` vertices (octagons) are colored pink
   * `Used` edges are green
   * `WasGeneratedBy` edges are red
   * `WasTriggeredBy` edges are blue
-  * `WasDerivedFrom` edges are purple
-  * `WasControlledBy` edges are orange
+  * `WasDerivedFrom` edges are orange
+  * `WasControlledBy` edges are purple
 
 The output of the complete sample run above yields the following image (outputimage.png):
 
