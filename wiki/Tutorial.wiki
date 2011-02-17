@@ -58,7 +58,7 @@ Adding storage Graphviz... done
 -> add producer PipeProducer /tmp/spade_pipe
 Adding producer PipeProducer... done
 }}}
-<p align="center">_^Listing 1^_</p>
+<p align="center">_^Listing 1.1^_</p>
 
 With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pipe) in a bash shell. Note that spaces and colons in annotations are escaped by two backslashes because the backslash is an escape character in bash as well:
 
@@ -75,7 +75,7 @@ With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pi
 [user@localhost SPADE]$ echo type:WasControlledBy from:1 to:user > /tmp/spade_pipe 
 [user@localhost SPADE]$ echo type:WasControlledBy from:2 to:user > /tmp/spade_pipe 
 }}}
-<p align="center">_^Listing 2^_</p>
+<p align="center">_^Listing 1.2^_</p>
 
 Finally, the SPADE kernel is shut down and an image is generated using the resultant DOT file created by the Graphviz storage:
 
@@ -89,7 +89,7 @@ Terminating kernel...
 [user@localhost SPADE]$ dot -Tpng samplegraph.dot -o outputimage.png
 [user@localhost SPADE]$
 }}}
-<p align="center">_^Listing 3^_</p>
+<p align="center">_^Listing 1.3^_</p>
 
 In addition to employing the OPM convention of using different shapes to represent different vertex types, the Graphviz storage uses the following color scheme to enhance visual clarity:
 
