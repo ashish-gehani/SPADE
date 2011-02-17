@@ -149,6 +149,22 @@ Adding producer PipeProducer... done
 }}}
 <p align="center">_^Listing 2.2^_</p>
 
-After *_Listing 1.2_* is used to pass provenance data to SPADE, the Neo4j storage can be queried as follows:
+After _Listing 1.2_ is used to pass provenance data to SPADE, the Neo4j storage can be queried as follows:
 
+{{{
+-> query Neo4j vertices name:*
+[vertexId:2        type:Process        pid:32        name:child process]
+[vertexId:5        type:Agent        name:john        gid:10        uid:10]
+[vertexId:1        type:Process        pid:10        name:root process]
+Done
+
+-> query Neo4j vertices name:*process
+[vertexId:2        type:Process        pid:32        name:child process]
+[vertexId:1        type:Process        pid:10        name:root process]
+Done
+
+-> query Neo4j vertices name:*process AND pid:[0 TO 20]
+[vertexId:1        type:Process        pid:10        name:root process]
+Done
+}}}
 ----
