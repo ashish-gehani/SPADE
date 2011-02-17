@@ -64,5 +64,5 @@ clean-class:
 	cd $(SPADE_DIR);\
 	find src -name '*.class' -exec rm \{\} \;
 
-clean-all:
-	rm -rf *
+clean:
+	rm -rf lib src
