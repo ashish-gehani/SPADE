@@ -10,7 +10,7 @@ The following storage classes are already included in SPADE:
     # *Neo4j* - Creates or uses a Neo4j graph database. The initialization argument is the path to the Neo4j database. Example: *`add storage Neo4j /path/to/neo4jdb`*. If a database does not exist at the given path, a new one is created.
     # *Graphviz* - Writes provenance data to a file in the DOT language which can be rendered using Graphviz. The initialization argument is the path to the DOT file. Example: *`add storage Graphviz testgraph.dot`*. If the given file already exists, it is overwritten. After this storage is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: *`dot -Tpng -o graph.png testgraph.dot`* will generate graph.png from testgraph.dot.
 
-
+----
 
 == Writing a Producer ==
 
@@ -19,7 +19,7 @@ Producers must belong to the *spade.producers* package and are written by extend
     * *public boolean launch(String arguments)* - This method is called by the kernel when the producer is launched. The argument is a string that can be used to do any custom configuration. This method must return true to indicate that the producer was launched successfully, otherwise it is not added to the kernel. To send data (vertices and edges) to the kernel, the *putVertex(Vertex)* and *putEdge(Edge)* methods are used which are part of the abstract class.
     * *public boolean shutdown()* - The kernel calls this method when removing a producer. This can be used to perform any necessary cleanup.
 
-
+----
 
 == PipeProducer Intro ==
 
@@ -33,7 +33,7 @@ where *`type`* and *`id`* fields are mandatory and _vertexType_ can be *Process*
 
 where *`type`*, *`from`* and *`to`* fields are mandatory and _edgeType_ can be *Used*, *WasGeneratedBy*, *WasTriggeredBy*, *WasDerivedFrom* or *WasControlledBy*. Any number of annotations can be sent with events. However, the keywords *type*, *id*, *from* and *to* are reserved for use by the producer and cannot be used as annotation keys. Spaces or colons can be used in keys or values by escaping them with a backslash.
 
-
+----
 
 == PipeProducer Sample Run ==
 
@@ -49,7 +49,7 @@ Available commands:
        remove filter <index>
        list producers|storages|filters
        query <class name> vertices <expression>
-       query <class name> lineage <vertex id> <depth> ancestors|decendants <output file>
+       query <class name> lineage <vertex id> <depth> ancestors|descendants <output file>
        exit
 
 -> add storage Graphviz samplegraph.dot
@@ -108,7 +108,7 @@ The output of the complete sample run above yields the following image (outputim
 http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/PipeProducerSampleRun.gif
 </p>
 
-
+----
 
 == Querying the Storage ==
 
