@@ -193,5 +193,12 @@ http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleAnc
 </p>
 <p align="center">_^ancestors.png^_</p>
 
+The lineage query to get descendants (*`query Neo4j lineage 1 2 descendants lineage_descendants.dot`*) results in the following:
+
+<p align="center">
+http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleDescendants.gif
+</p>
+<p align="center">_^descendants.png^_</p>
+
 
 ----
