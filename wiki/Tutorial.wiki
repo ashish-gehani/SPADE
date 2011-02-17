@@ -113,7 +113,7 @@ http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/PipeProducerSam
 
 == Querying the Storage ==
 
-Storages can be queried via the kernel and the following query methods are currently supported:
+Storages can be queried via the kernel using the following commands:
 
 {{{
        query <class name> vertices <expression>
@@ -121,7 +121,7 @@ Storages can be queried via the kernel and the following query methods are curre
 }}}
 <p align="center">_^Listing 2.1^_</p>
 
-The class name represents the storage on which to call the query. The first method is used to get all vertices that match the given expression. The expression is storage-specific and is evaluated by the storage class. For example, the Neo4j storage uses a lucene index so the expression must be a valid lucene query string when querying this storage. The second method gets a lineage graph of the given vertex. The depth parameter is used to specify the maximum depth of the resultant graph and direction is specified using the keywords *`ancestors`* or *`descendants`*. The graph is written to the specified output file using the Graphviz DOT language and can be used to generate an image of the results.
+The class name represents the storage on which to call the query. The first command is used to get all vertices that match the given expression. The expression is storage-specific and is evaluated by the storage class. For example, the Neo4j storage uses a lucene index so the expression must be a valid lucene query string when querying this storage. The second command gets a lineage graph of the given vertex. The depth parameter is used to specify the maximum depth of the resultant graph and direction is specified using the keywords *`ancestors`* or *`descendants`*. The graph is written to the specified output file using the Graphviz DOT language and can be used to generate an image of the results.
 
 ----
 
@@ -150,7 +150,7 @@ Adding producer PipeProducer... done
 }}}
 <p align="center">_^Listing 2.2^_</p>
 
-After _Listing 1.2_ is used to pass provenance data to SPADE, the Neo4j storage can be queried as follows:
+After _Listing 1.2_ is used to pass provenance data to SPADE, the Neo4j storage is queried:
 
 {{{
 -> query Neo4j vertices name:*
