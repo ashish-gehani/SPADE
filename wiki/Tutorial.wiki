@@ -7,8 +7,8 @@ _need to add text for downloading/compiling/running here_
 
 The following storage classes are already included in SPADE:
 
-    # *Neo4jStorage* - initialization argument is the location of the neo4j database in the filesystem. Example: *`add storage Neo4jStorage /path/to/neo4jdb`*. If a database does not exist at the given path, a new one is created. The path can be absolute or relative.
-    # *DOTOutput* - initialization argument is the name of the DOT file. Example: *`add storage DOTOutput testgraph.dot`*. If the given file already exists, it is overwritten. After this storage is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: *`dot -Tpng -o graph.png testgraph.dot`* will generate graph.png from testgraph.dot.
+    # *Neo4j* - Creates or uses a Neo4j graph database. The initialization argument is the path to the Neo4j database. Example: *`add storage Neo4j /path/to/neo4jdb`*. If a database does not exist at the given path, a new one is created.
+    # *Graphviz* - Writes provenance data to a file in the DOT language which can be rendered using Graphviz. The initialization argument is the path to the DOT file. Example: *`add storage Graphviz testgraph.dot`*. If the given file already exists, it is overwritten. After this storage is removed (or when the kernel is shut down), the file can be used to generate an image of the graph using the Graphviz dot utility. Example: *`dot -Tpng -o graph.png testgraph.dot`* will generate graph.png from testgraph.dot.
 
 
 
@@ -35,11 +35,9 @@ where *`type`*, *`from`* and *`to`* fields are mandatory and _edgeType_ can be *
 
 == PipeProducer Sample Run ==
 
-The following run of SPADE first adds the DOTOutput storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added, allowing for provenance data to be passed to SPADE via the named pipe:
+The following run of SPADE first adds the Graphviz storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added, allowing for provenance data to be passed to SPADE via the named pipe:
 
 {{{
-[user@localhost SPADE]$ java spade.core.Kernel
-
 SPADE 2.0 Kernel
 
 Available commands:
@@ -47,11 +45,13 @@ Available commands:
        add filter <class name> <index>
        remove producer|storage <class name>
        remove filter <index>
-       list producer|storage|filter
+       list producers|storages|filters
+       query <class name> vertices <expression>
+       query <class name> lineage <vertex id> <depth> ancestors|decendants <output file>
        exit
 
--> add storage DOTOutput samplegraph.dot
-Adding storage DOTOutput... done
+-> add storage Graphviz samplegraph.dot
+Adding storage Graphviz... done
 
 -> add producer PipeProducer /tmp/spade_pipe
 Adding producer PipeProducer... done
