@@ -33,6 +33,8 @@ where *`type`* and *`id`* fields are mandatory and _vertexType_ can be *Process*
 
 where *`type`*, *`from`* and *`to`* fields are mandatory and _edgeType_ can be *Used*, *WasGeneratedBy*, *WasTriggeredBy*, *WasDerivedFrom* or *WasControlledBy*. Any number of annotations can be sent with events. However, the keywords *type*, *id*, *from* and *to* are reserved for use by the producer and cannot be used as annotation keys. Spaces or colons can be used in keys or values by escaping them with a backslash.
 
+
+
 == PipeProducer Sample Run ==
 
 The following run of SPADE first adds the Graphviz storage which will create a DOT file of all data received by the producers. Then the PipeProducer is added, allowing for provenance data to be passed to SPADE via the named pipe:
@@ -105,5 +107,9 @@ The output of the complete sample run above yields the following image (outputim
 <p align="center">
 http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/PipeProducerSampleRun.gif
 </p>
+
+
+
+== Querying the Storage ==
 
 ----
