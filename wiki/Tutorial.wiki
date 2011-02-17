@@ -118,7 +118,37 @@ Storages can be queried via the kernel and the following query methods are curre
        query <class name> vertices <expression>
        query <class name> lineage <vertex id> <depth> ancestors|descendants <output file>
 }}}
+<p align="center">_^Listing 2.1^_</p>
 
 The class name represents the storage on which to call the query. The first method is used to get all vertices that match the given expression. The expression is storage-specific and is evaluated by the storage class. For example, the Neo4j storage uses a lucene index so the expression must be a valid lucene query string when querying this storage. The second method gets a lineage graph of the given vertex. The depth parameter is used to specify the maximum depth of the resultant graph and direction is specified using the keywords *`ancestors`* or *`descendants`*. The graph is written to the specified output file using the Graphviz DOT language and can be used to generate an image of the results.
+
+----
+
+== Query Example ==
+
+The following illustrates how querying can be used. First, the Neo4j storage and the PipeProducer are added to the kernel. This means that all provenance data passed to SPADE via the named pipe will be stored in the Neo4j database:
+
+{{{
+SPADE 2.0 Kernel
+
+Available commands:
+       add producer|storage <class name> <initialization arguments>
+       add filter <class name> <index>
+       remove producer|storage <class name>
+       remove filter <index>
+       list producers|storages|filters
+       query <class name> vertices <expression>
+       query <class name> lineage <vertex id> <depth> ancestors|descendants <output file>
+       exit
+
+-> add storage Neo4j /tmp/db/neo4jdb
+Adding storage Neo4j... done
+
+-> add producer PipeProducer /tmp/spade_pipe
+Adding producer PipeProducer... done
+}}}
+<p align="center">_^Listing 2.2^_</p>
+
+After *_Listing 1.2_* is used to pass provenance data to SPADE, the Neo4j storage can be queried as follows:
 
 ----
