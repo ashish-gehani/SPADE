@@ -56,6 +56,7 @@ Adding storage Graphviz... done
 -> add producer PipeProducer /tmp/spade_pipe
 Adding producer PipeProducer... done
 }}}
+<p align="right">_Listing 1_</p>
 
 With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pipe) in a bash shell. Note that spaces and colons in annotations are escaped by two backslashes because the backslash is an escape character in bash as well:
 
