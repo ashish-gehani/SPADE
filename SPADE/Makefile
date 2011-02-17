@@ -27,7 +27,11 @@ pipe-source:	skeleton-source
 	svn update --set-depth infinity src/spade/producer/PipeProducer.java
 
 # Buld the SPADE kernel.
-kernel-build:	kernel-source libraries
+# NOTE: storage-source is a dependency because of Lineage.exportDOT(),
+#       which is temporarily present for querying as a stopgap till the
+#       REST API is implemented, at which point the method and dependency
+#       should be removed.
+kernel-build:	kernel-source storage-source libraries
 	cd src;\
 	javac -cp '.:../lib/*' spade/core/Kernel.java;
 	touch .kernel_built
