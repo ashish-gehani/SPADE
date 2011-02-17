@@ -112,4 +112,13 @@ http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/PipeProducerSam
 
 == Querying the Storage ==
 
+Storages can be queried via the kernel and the following query methods are currently supported:
+
+{{{
+       query <class name> vertices <expression>
+       query <class name> lineage <vertex id> <depth> ancestors|descendants <output file>
+}}}
+
+The class name represents the storage on which to call the query. The first method is used to get all vertices that match the given expression. The expression is storage-specific and is evaluated by the storage class. For example, the Neo4j storage uses a lucene index so the expression must be a valid lucene query string when querying this storage. The second method gets a lineage graph of the given vertex. The depth parameter is used to specify the maximum depth of the resultant graph and direction is specified using the ancestors|descendants keywords. The graph is written to the specified output file using the Graphviz DOT language and can be used to generate an image file of the results.
+
 ----
