@@ -167,5 +167,22 @@ Done
 -> query Neo4j vertices name:*process AND pid:[0 TO 20]
 [vertexId:1        type:Process        pid:10        name:root process]
 Done
+
+-> query Neo4j lineage 1 1 ancestors lineage_ancestors.dot
+Done
+
+-> query Neo4j lineage 1 2 descendants lineage_descendants.dot
+Done
+
+-> exit
+Shutting down producers... done
+Flushing buffers... done
+Shutting down storages... done
+Terminating kernel...
+
+[user@localhost SPADE]$ dot -Tpng lineage_ancestors.dot -o ancestors.png
+[user@localhost SPADE]$ dot -Tpng lineage_descendants.dot -o descendants.png
+[user@localhost SPADE]$
 }}}
+
 ----
