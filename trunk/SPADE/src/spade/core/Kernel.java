@@ -202,19 +202,21 @@ public class Kernel {
                             resultLineage = storage.getLineage(vertexId, depth, direction);
                         } catch (Exception badQuery) {
                             System.out.println("Error: Please check query expression");
+                            badQuery.printStackTrace();
                             return;
                         }
                         Lineage.exportDOT(resultLineage.getGraph(), tokens[6]);
                     } else {
                         throw new Exception();
                     }
+                    System.out.println("Done");
                     return;
                 }
             }
             throw new Exception();
         } catch (Exception exception) {
             System.out.println("Usage: query <class name> vertices <expression>");
-            System.out.println("       query <class name> lineage <vertex id> <depth> ancestors|decendants <output file>");
+            System.out.println("       query <class name> lineage <vertex id> <depth> ancestors|descendants <output file>");
         }
     }
 
@@ -226,7 +228,7 @@ public class Kernel {
         System.out.println("       remove filter <index>");
         System.out.println("       list producers|storages|filters");
         System.out.println("       query <class name> vertices <expression>");
-        System.out.println("       query <class name> lineage <vertex id> <depth> ancestors|decendants <output file>");
+        System.out.println("       query <class name> lineage <vertex id> <depth> ancestors|descendants <output file>");
         System.out.println("       exit");
     }
 

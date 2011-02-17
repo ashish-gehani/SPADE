@@ -192,8 +192,23 @@ public class Neo4j extends AbstractStorage {
         for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
             String key = (String) iterator.next();
             String value = (String) annotations.get(key);
-            newEdge.setProperty(key, value);
-            edgeIndex.add(newEdge, key, value);
+            if (key.equals("edgeId")) {
+                continue;
+            }
+            try {
+                Long val = Long.parseLong(value);
+                newEdge.setProperty(key, val);
+                edgeIndex.add(newEdge, key, new ValueContext(val).indexNumeric());
+            } catch (Exception parseLongException) {
+                try {
+                    Double val = Double.parseDouble(value);
+                    newEdge.setProperty(key, val);
+                    edgeIndex.add(newEdge, key, new ValueContext(val).indexNumeric());
+                } catch (Exception parseDoubleException) {
+                    newEdge.setProperty(key, value);
+                    edgeIndex.add(newEdge, key, value);
+                }
+            }
         }
         newEdge.setProperty("edgeId", newEdge.getId());
         edgeIndex.add(newEdge, "edgeId", new ValueContext(newEdge.getId()).indexNumeric());
@@ -231,8 +246,18 @@ public class Neo4j extends AbstractStorage {
 
     private void convertRelationshipToEdge(Relationship relationship, AbstractEdge edge) {
         for (String key : relationship.getPropertyKeys()) {
-            String value = (String) relationship.getProperty(key);
-            edge.addAnnotation(key, value);
+            try {
+                String value = (String) relationship.getProperty(key);
+                edge.addAnnotation(key, value);
+            } catch (Exception fetchStringException) {
+                try {
+                    String value = Long.toString((Long) relationship.getProperty(key));
+                    edge.addAnnotation(key, value);
+                } catch (Exception fetchLongException) {
+                    String value = Double.toString((Double) relationship.getProperty(key));
+                    edge.addAnnotation(key, value);
+                }
+            }
         }
     }
 
@@ -752,12 +777,11 @@ public class Neo4j extends AbstractStorage {
             sourceVertex = new Agent();
         }
         convertNodeToVertex(sourceNode, sourceVertex);
-        int dir;
         if (direction.equalsIgnoreCase("ancestors")) {
-            dir = 0;
-        } else {
-            dir = 1;
+            return getLineage(sourceVertex, depth, 0);
+        } else if (direction.equalsIgnoreCase("descendants")) {
+            return getLineage(sourceVertex, depth, 1);
         }
-        return getLineage(sourceVertex, depth, dir);
+        return null;
     }
 }

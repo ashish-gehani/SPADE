@@ -46,7 +46,7 @@ public class SimpleProducer extends AbstractProducer {
         // to the kernel using the putVertex() method
         Process root = new Process();
         root.addAnnotation("name", "root process");
-        root.addAnnotation("pid", "-10");
+        root.addAnnotation("pid", "10");
         putVertex(root);
 
         // Create a child process vertex
