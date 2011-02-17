@@ -184,5 +184,14 @@ Terminating kernel...
 [user@localhost SPADE]$ dot -Tpng lineage_descendants.dot -o descendants.png
 [user@localhost SPADE]$
 }}}
+<p align="center">_^Listing 2.3^_</p>
+
+The lineage query to get ancestors (*`query Neo4j lineage 1 1 ancestors lineage_ancestors.dot`*) results in the following image generated from the DOT file:
+
+<p align="center">
+http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleAncestors.gif
+</p>
+<p align="center">_^ancestors.png^_</p>
+
 
 ----
