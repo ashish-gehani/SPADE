@@ -73,7 +73,7 @@ With the PipeProducer active, events are passed to the named pipe (/tmp/spade_pi
 [user@localhost SPADE]$ echo type:WasControlledBy from:2 to:user > /tmp/spade_pipe 
 }}}
 
-Finally, the SPADE kernel is shut down and an image is generated using the resultant DOT file created by the DOTOutput storage:
+Finally, the SPADE kernel is shut down and an image is generated using the resultant DOT file created by the Graphviz storage:
 
 {{{
 -> exit
@@ -86,9 +86,9 @@ Terminating kernel...
 [user@localhost SPADE]$
 }}}
 
-For visual clarity, the DOTOutput storage automatically colors edges according to the edge type and uses different shapes to distinguish between vertex types:
+In addition to employing the OPM convention of using different shapes to represent different vertex types, the Graphviz storage uses the following color scheme to enhance visual clarity:
 
-  * `Process` and `Agent` vertices have square edges
+  * `Process` vertices (rectangles) are 
   * `Artifact` vertices have rounded edges
   * `Used` edges are green
   * `WasGeneratedBy` edges are red
