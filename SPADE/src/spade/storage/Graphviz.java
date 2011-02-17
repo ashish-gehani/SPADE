@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-
 package spade.storage;
 
 import spade.core.AbstractStorage;
@@ -62,7 +61,7 @@ public class Graphviz extends AbstractStorage {
             for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
                 String key = (String) iterator.next();
                 String value = (String) annotations.get(key);
-                if (key.equals("vertexId")) {
+                if ((key.equals("type")) || (key.equals("vertexId"))) {
                     continue;
                 }
                 vertexString = vertexString + key + ":" + value + "\\n";
@@ -97,7 +96,7 @@ public class Graphviz extends AbstractStorage {
                 for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
                     String key = (String) iterator.next();
                     String value = (String) annotations.get(key);
-                    if (key.equals("type")) {
+                    if ((key.equals("edgeId")) || (key.equals("type"))) {
                         continue;
                     }
                     annotationString = annotationString + key + ":" + value + ", ";
