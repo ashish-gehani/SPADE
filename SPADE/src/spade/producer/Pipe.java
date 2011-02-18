@@ -37,7 +37,7 @@ import spade.opm.vertex.Artifact;
 import spade.opm.vertex.Process;
 import spade.opm.vertex.Agent;
 
-public class PipeProducer extends AbstractProducer {
+public class Pipe extends AbstractProducer {
 
     private String pipePath;
     private BufferedReader eventReader;
