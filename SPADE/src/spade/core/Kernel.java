@@ -359,10 +359,10 @@ public class Kernel {
         try {
             AbstractProducer producer = (AbstractProducer) Class.forName("spade.producer." + classname).newInstance();
             System.out.print("Adding producer " + classname + "... ");
-            Buffer buff = new Buffer();
-            producer.setBuffer(buff);
+            Buffer buffer = new Buffer();
+            producer.setBuffer(buffer);
             if (producer.launch(arguments)) {
-                buffers.put(producer, buff);
+                buffers.put(producer, buffer);
                 producers.add(producer);
                 System.out.println("done");
             } else {
@@ -427,8 +427,8 @@ class FinalCommitFilter extends AbstractFilter {
 
     private Set storages;
 
-    public void setStorages(Set mainStroageSet) {
-        storages = mainStroageSet;
+    public void setStorages(Set mainStorageSet) {
+        storages = mainStorageSet;
     }
 
     @Override
