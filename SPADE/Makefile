@@ -39,20 +39,10 @@ build-spade:
 	cd src;\
 	javac -cp '.:../lib/*' spade/core/*.java;
 
-# Build the SPADE OPM code.
-build-opm:
-	cd src;\
-	javac -cp '.:../lib/*' spade/opm/vertex/*.java spade/opm/edge/*.java
-
 # Build the Neo4j storage.
 build-neo4j:
 	cd src;\
 	javac -cp '.:../lib/*' spade/storage/Neo4j.java
-
-# Build the Graphviz output.
-build-graphviz:
-	cd src;\
-	javac -cp '.:../lib/*' spade/storage/Graphviz.java
 
 # Build the Pipe producer.
 build-pipe:
