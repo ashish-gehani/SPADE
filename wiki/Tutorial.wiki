@@ -44,7 +44,7 @@ make build-spade
 Start the *SPADE* kernel:
 
 {{{
-make start
+make start-spade
 }}}
 
 The *SPADE* kernel's shell will appear:
