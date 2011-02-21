@@ -50,7 +50,7 @@ build-pipe:
 	javac -cp '.:../lib/*' spade/producer/Pipe.java
 
 # Run the SPADE kernel.
-start:
+start-spade:
 	cd src;\
 	java -cp '.:../lib/*' spade/core/Kernel
 
