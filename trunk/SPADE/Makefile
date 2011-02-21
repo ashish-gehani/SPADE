@@ -2,59 +2,65 @@
 # Copyright (C) 2011 SRI International.
 
 # Download the external libraries that SPADE uses.
-libraries:
-	svn checkout http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
+svn-libraries:
+	svn checkout --force http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
 
 # Create the SPADE source directories.
-skeleton-source:
+skeleton:
 	svn checkout --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/src/;\
 	svn update --force --set-depth immediates src/spade/
 
 # Download the SPADE kernel.
-kernel-source:	skeleton-source
+svn-core:
 	svn update --force --set-depth infinity src/spade/core/
 
 # Download SPADE's OPM implementation.
-opm-source:	skeleton-source
+svn-opm:
 	svn update --force --set-depth infinity src/spade/opm/
 
 # Download the storage systems.
-storage-source:	skeleton-source
+svn-storage:
 	svn update --force --set-depth infinity src/spade/storage/
 
-# Buld the SPADE kernel.
-# NOTE: storage-source (and transitively opm-source) are dependencies 
-#       because of Lineage.exportDOT(), which is temporarily present 
+# Download the Pipe producer.
+svn-pipe:
+	svn update --force src/spade/producer/Pipe.java
+
+# NOTE: svn-storage (and transitively svn-opm) are dependencies below
+#       because of Lineage.exportDOT(), which is temporarily present
 #       for querying as a stopgap till the REST API is implemented,
 #       at which point the method and dependencies should be removed.
-kernel-build:	kernel-source opm-source storage-source libraries
+
+# Download SPADE's core and its dependencies.
+svn-spade:	svn-libraries skeleton svn-core svn-opm svn-storage
+
+# Build the SPADE kernel.
+build-spade:
 	cd src;\
-	javac -cp '.:../lib/*' spade/core/Kernel.java;
+	javac -cp '.:../lib/*' spade/core/*.java;
 
 # Build the SPADE OPM code.
-opm-build:	opm-source kernel-build
+build-opm:
 	cd src;\
 	javac -cp '.:../lib/*' spade/opm/vertex/*.java spade/opm/edge/*.java
 
-# Build the storage systems.
-storage-build:	storage-source kernel-build
+# Build the Neo4j storage.
+build-neo4j:
 	cd src;\
-	javac -cp '.:../lib/*' spade/storage/*.java
+	javac -cp '.:../lib/*' spade/storage/Neo4j.java
 
-# Download the Pipe producer.
-pipe-source:	skeleton-source
-	svn update --force --set-depth infinity src/spade/producer/PipeProducer.java
+# Build the Graphviz output.
+build-graphviz:
+	cd src;\
+	javac -cp '.:../lib/*' spade/storage/Graphviz.java
 
 # Build the Pipe producer.
-pipe-build:	pipe-source opm-build
+build-pipe:
 	cd src;\
-	javac -cp '.:../lib/*' spade/producer/PipeProducer.java
+	javac -cp '.:../lib/*' spade/producer/Pipe.java
 
-# Build the Pipe producer and Graphviz storage for the tutorial.
-tutorial:	pipe-build storage-build
-
-# Start the SPADE kernel.
-run:
+# Run the SPADE kernel.
+start:
 	cd src;\
 	java -cp '.:../lib/*' spade/core/Kernel
 
@@ -62,5 +68,6 @@ run:
 clean-class:
 	find src -name '*.class' -exec rm \{\} \;
 
+# Remove everything except the Makefile.
 clean:
 	rm -rf lib src
