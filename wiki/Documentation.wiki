@@ -1,0 +1,8 @@
+
+  * [Installing Installing the SPADE kernel]
+
+  * [Storage Adding persistent storage]
+
+  * [Collecting Collecting provenance metadata]
+
+  * [Querying Making queries about data provenance]
