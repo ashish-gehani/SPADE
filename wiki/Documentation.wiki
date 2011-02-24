@@ -1,0 +1,10 @@
+#labels Featured
+ * [Architecture Overview of SPADE's architecture]
+
+ * [Installation Steps to download, compile, and run SPADE]
+
+ * [Storage Adding persistent metadata storage]
+
+ * [Reporting Reporting computational history]
+
+ * [Querying Querying the provenance of data]
