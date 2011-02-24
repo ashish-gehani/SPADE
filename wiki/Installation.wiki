@@ -1,0 +1,85 @@
+=_Steps to download, compile, and run SPADE_=
+
+*SPADE* is written in Java, allowing it to be used on a wide range of platforms. The steps described assume a Linux or Mac OS X command line environment with recent versions of `make`, `svn`, `java`, `javac`, and `find` installed. On Windows, these are available with [http://www.cygwin.com Cygwin].
+
+Since *SPADE* is under active development, the instructions below describe how to download, compile, and run the latest version of the code. (Older versions can be used by passing `-r <revision number>` to the `svn checkout|update` commands in the `Makefile`.)
+
+----
+
+Download the *SPADE* `Makefile`:
+
+{{{
+svn checkout --depth files http://data-provenance.googlecode.com/svn/trunk/SPADE/
+}}}
+
+This will create a `SPADE` directory with a `Makefile` in it.
+
+----
+
+Change to the new directory and download the *SPADE* kernel and its dependencies:
+
+{{{
+cd SPADE
+make svn-spade
+}}}
+
+----
+
+Compile the core *SPADE* code:
+
+{{{
+make build-spade
+}}}
+
+----
+
+Start the *SPADE* kernel:
+
+{{{
+make start-spade
+}}}
+
+The *SPADE* shell will appear:
+
+{{{
+SPADE 2.0 Kernel
+
+Available commands:
+       add reporter|storage <class name> <initialization arguments>
+       add filter <class name> <index>
+       remove reporter|storage <class name>
+       remove filter <index>
+       list reporters|storages|filters
+       query <class name> vertices <expression>
+       query <class name> lineage <vertex id> <depth> ancestors|descendants <output file>
+       exit
+
+-> 
+}}}
+
+----
+
+At the outset, no reporters, storage, or filters are present. This can be seen with the *SPADE* shell's `list` command:
+
+{{{
+-> list reporters
+No reporters added
+
+-> list storages
+No storages added
+
+-> list filters
+No filters added
+}}}
+
+----
+
+To stop *SPADE*, use the `exit` command in the shell:
+
+{{{
+->exit
+Shutting down reporters... done
+Flushing buffers... done
+Shutting down storages... done
+Terminating kernel...
+}}}
