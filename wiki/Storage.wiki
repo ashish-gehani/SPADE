@@ -1,0 +1,73 @@
+=_Adding persistent metadata storage_=
+
+If no _storage_ is added, the *SPADE* kernel will silently discard any provenance metadata that is sent to it. To subsequently use the information, it must be committed to persistent storage. An arbitrary number of storage systems can be added. The *SPADE* kernel will send the filtered, integrated provenance metadata to each of the storage classes that have been added.
+
+*SPADE* includes support for storing provenance in the [http://neo4j.org Neo4j] graph database, the [http://www.h2database.com H2] SQL database, and in Graphviz format. (Support for other storage can be implemented creating a class in the `spade.storage.*` package that extends the [http://code.google.com/p/data-provenance/source/browse/trunk/SPADE/src/spade/core/AbstractStorage.java spade.core.AbstractStorage] class.)
+
+===Storing provenance in the Neo4j graph database===
+
+----
+
+Unless otherwise specified, we will use the Neo4j database for storage in the descriptions of *SPADE*'s functionality. To compile *SPADE* support for Neo4j use:
+
+{{{
+make build-neo4j
+}}}
+
+----
+
+Add the Neo4j storage in the *SPADE* shell (after starting it with `make start-spade`). Note that a single argument must be provided. This is the location in the filesystem where the database is to be created if it does not exist, or where it is to be retrieved from if it has previously been created. `/tmp/spade.db` is the database location here:
+
+{{{
+-> add storage Neo4j /tmp/spade.db
+Adding storage Neo4j... done
+}}}
+
+----
+
+Storage can be added and removed while the *SPADE* kernel is running. For example, this will cause the kernel to stop sending provenance records to the Neo4j database:
+
+{{{
+-> remove storage Neo4j
+Shutting down storage Neo4j... done
+}}}
+
+----
+
+===Creating Graphviz output===
+
+*SPADE* includes support for the kernel to send all the provenance metadata to a single file in [http://www.graphviz.org Graphviz] _dot_ format.
+
+In order to do this, add the Graphviz storage before sending the relevant provenance metadata to the kernel:
+
+{{{
+-> add storage Graphviz /tmp/provenance.dot
+Adding storage Graphviz... done
+}}}
+
+At this point any provenance metadata that is sent to the kernel will be integrated and corresponding elements will be output to the `/tmp/provenance.dot` file. (Note that the file will be overwritten if it already existed.)
+
+----
+
+To stop further provenance metadata from being added to the file, the Graphviz storage can be removed:
+
+{{{
+-> remove storage Graphviz
+Shutting down storage Graphviz... done
+}}}
+
+----
+
+Assuming [http://www.graphviz.org Graphviz] is installed, the `/tmp/provenance.dot` file can be rendered with:
+
+{{{
+dot -Tsvg -o /tmp/provenance.svg /tmp/provenance.dot
+}}}
+
+----
+
+The resulting file `/tmp/provenance.svg` can be opened with a Web browser:
+
+{{{
+firefox /tmp/provenance.svg
+}}}
