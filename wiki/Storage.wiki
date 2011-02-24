@@ -4,9 +4,9 @@ If no _storage_ is added, the *SPADE* kernel will silently discard any provenanc
 
 *SPADE* includes support for storing provenance in the [http://neo4j.org Neo4j] graph database, the [http://www.h2database.com H2] SQL database, and in Graphviz format. (Support for other storage can be implemented creating a class in the `spade.storage.*` package that extends the [http://code.google.com/p/data-provenance/source/browse/trunk/SPADE/src/spade/core/AbstractStorage.java spade.core.AbstractStorage] class.)
 
-===Storing provenance in the Neo4j graph database===
-
 ----
+
+===Storing provenance in the Neo4j graph database===
 
 Unless otherwise specified, we will use the Neo4j database for storage in the descriptions of *SPADE*'s functionality. To compile *SPADE* support for Neo4j use:
 
