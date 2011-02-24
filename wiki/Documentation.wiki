@@ -5,6 +5,6 @@
 
  * [Storage Adding persistent metadata storage]
 
- * [Reporting Reporting computational history]
+ * [Reporting Reporting the history of a computation]
 
  * [Querying Querying the provenance of data]
