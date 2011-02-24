@@ -1,3 +1,5 @@
+#sidebar Documentation
+
 =_Overview of SPADE's architecture_=
 
 The current version of *SPADE* is the second generation of our data provenance collection, analysis and management software infrastructure. The system has been completely re-architected to decouple the production, storage, and utilization of provenance metadata, as illustrated below. At its core is a novel _*provenance kernel*_ that mediates between the producers and consumers of provenance information, providing policy-based integration and storage of the records.
