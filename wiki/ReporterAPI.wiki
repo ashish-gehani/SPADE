@@ -1,3 +1,5 @@
+#sidebar Documentation
+
 =_Programmatically reporting provenance_=
 
 To create a reporter that sends information programmatically to the *SPADE* kernel, create a class in the `spade.reporter.*` package that extends the [http://code.google.com/p/data-provenance/source/browse/trunk/SPADE/src/spade/core/AbstractReporter.java AbstractReporter] class. For example, to activate a class named `myReporter` in the *SPADE* kernel use:
