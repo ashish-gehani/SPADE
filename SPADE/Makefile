@@ -22,9 +22,9 @@ svn-opm:
 svn-storage:
 	svn update --force --set-depth infinity src/spade/storage/
 
-# Download the Pipe producer.
+# Download the Pipe reporter.
 svn-pipe:
-	svn update --force src/spade/producer/Pipe.java
+	svn update --force src/spade/reporter/Pipe.java
 
 # NOTE: svn-storage (and transitively svn-opm) are dependencies below
 #       because of Lineage.exportDOT(), which is temporarily present
@@ -44,10 +44,10 @@ build-neo4j:
 	cd src;\
 	javac -cp '.:../lib/*' spade/storage/Neo4j.java
 
-# Build the Pipe producer.
+# Build the Pipe reporter.
 build-pipe:
 	cd src;\
-	javac -cp '.:../lib/*' spade/producer/Pipe.java
+	javac -cp '.:../lib/*' spade/reporter/Pipe.java
 
 # Run the SPADE kernel.
 start-spade:
