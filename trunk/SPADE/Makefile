@@ -1,30 +1,33 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2011 SRI International.
 
+# Last stable Subversion revision.
+REVISION = 240
+
 # Download the external libraries that SPADE uses.
 svn-libraries:
-	svn checkout --force http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
+	svn checkout -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
 
 # Create the SPADE source directories.
 skeleton:
-	svn checkout --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/src/;\
-	svn update --force --set-depth immediates src/spade/
+	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/src/;\
+	svn update -r $(REVISION) --force --set-depth immediates src/spade/
 
 # Download the SPADE kernel.
 svn-core:
-	svn update --force --set-depth infinity src/spade/core/
+	svn update -r $(REVISION) --force --set-depth infinity src/spade/core/
 
 # Download SPADE's OPM implementation.
 svn-opm:
-	svn update --force --set-depth infinity src/spade/opm/
+	svn update -r $(REVISION) --force --set-depth infinity src/spade/opm/
 
 # Download the storage systems.
 svn-storage:
-	svn update --force --set-depth infinity src/spade/storage/
+	svn update -r $(REVISION) --force --set-depth infinity src/spade/storage/
 
 # Download the Pipe reporter.
 svn-pipe:
-	svn update --force src/spade/reporter/Pipe.java
+	svn update -r $(REVISION) --force src/spade/reporter/Pipe.java
 
 # NOTE: svn-storage (and transitively svn-opm) are dependencies below
 #       because of Lineage.exportDOT(), which is temporarily present
