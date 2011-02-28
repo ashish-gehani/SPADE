@@ -11,3 +11,5 @@
 
  * [Querying Querying the provenance of data]
   * [QueryExample Example illustrating provenance querying]
+
+(Note that later pages assume you have read the earlier ones.)
