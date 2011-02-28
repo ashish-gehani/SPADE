@@ -34,4 +34,4 @@ For example, if the Neo4j database contained *Artifact* vertices with the dates 
 
 ----
 
- * [QueryExample See this illustration of the use of the query command.]
+ * [QueryExample An illustration of the use of the query command.]
