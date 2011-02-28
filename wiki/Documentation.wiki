@@ -6,5 +6,7 @@
  * [Storage Adding persistent metadata storage]
 
  * [Reporting Reporting the history of a computation]
+  * [Pipe Writing provenance to a pipe]
+  * [ReporterAPI Programmatically reporting provenance]
 
  * [Querying Querying the provenance of data]
