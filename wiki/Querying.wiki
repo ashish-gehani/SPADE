@@ -15,7 +15,7 @@ For example, to query the `Neo4j` graph database for all vertices that have the 
 [vertexId:1024        type:Artifact        date:02-15-1564        event:Galileo born]
 }}}
 
-In the case of `Neo4j`, the expressions can be framed using the full [http://lucene.apache.org/java/2_3_2/queryparsersyntax.html Lucene query syntax], including the use of wildcards, lexicographic ranges, Boolean operators, fuzzy matching, and proximity searches. 
+In the case of `Neo4j`, the expressions can be framed using the full [http://lucene.apache.org/java/3_0_1/queryparsersyntax.html Lucene query syntax], including the use of wildcards, lexicographic ranges, Boolean operators, fuzzy matching, and proximity searches. 
 
 ----
 
