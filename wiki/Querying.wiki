@@ -1,6 +1,6 @@
 =_Querying the provenance of data_=
 
-*SPADE* supports two classes of queries. Both types are invoked in the *SPADE* shell with the `query` command. The first argument specifies the storage system that is to be queried. The second argument is either `vertices` or `lineage`.
+*SPADE* supports two classes of queries. Both types are invoked with the `query` command in the *SPADE* shell. The first argument specifies the storage system that is to be queried. The second argument is either `vertices` or `lineage`.
 
 ===Finding provenance vertices===
 
@@ -15,10 +15,17 @@ For example, to query the `Neo4j` graph database for all vertices that have the 
 [vertexId:1024        type:Artifact        date:02-15-1564        event:Galileo born]
 }}}
 
-In the case of `Neo4j`, the expressions can be framed using the full [http://lucene.apache.org/java/3_0_1/queryparsersyntax.html Lucene query syntax], including the use of wildcards, lexicographic ranges, Boolean operators, fuzzy matching, and proximity searches. 
+In the case of `Neo4j`, the expressions can use the full [http://lucene.apache.org/java/3_0_1/queryparsersyntax.html Lucene query syntax], including wildcards, lexicographic ranges, Boolean operators, fuzzy matching, and proximity searches. 
 
 ----
 
 ===Retrieving lineage===
 
-The `lineage` class of queries takes a 
+The `lineage` class of queries is used find the ancestors or descendants of a specific provenance vertex. The third argument is the `vertexId` used by the storage system. The fourth argument is the maximum number of levels of the graph that should be returned. 
+The fifth argument is either `ancestors` or `descendants` to indicate whether to return the vertices from which the specified one was derived or the vertices which used the specified vertex. The sixth argument is the name of a file in which the response to the query will be stored in [http://www.graphviz.org Graphviz] format.
+
+For example, if the Neo4j database contained *Artifact* vertices with the dates of birth of people and *WasDerivedFrom* edges from children to parents, this query could be used to find Galileo's parents:
+
+{{{
+-> query lineage 1024 1 ancestors /tmp/Galileo_parents.dot
+}}}
