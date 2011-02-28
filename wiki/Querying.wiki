@@ -1,0 +1,15 @@
+=_Querying the provenance of data_=
+
+*SPADE* supports two classes of queries. The first lets the user find all the provenance vertices that have specific properties. The properties are framed as a query expression that can be evaluated by the storage system.
+
+----
+
+For example, to query the `Neo4j` graph database for all vertices that have the annotation `date:02-15-1564` use:
+
+{{{
+-> query Neo4j vertices date:02-15-1564
+}}}
+
+In the case of `Neo4j`, the expressions can be framed using the full [http://lucene.apache.org/java/2_3_2/queryparsersyntax.html Lucene query syntax], including the use of wildcards, lexicographic ranges, Boolean operators, fuzzy matching, and proximity searches. 
+
+----
