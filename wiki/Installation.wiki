@@ -4,7 +4,9 @@
 
 *SPADE* is written in Java, allowing it to be used on a wide range of platforms. The steps described assume a Linux or Mac OS X command line environment with recent versions of `make`, `svn`, `java`, `javac`, and `find` installed. On Windows, these are available with [http://www.cygwin.com Cygwin].
 
-Since *SPADE* is under active development, the instructions below describe how to download, compile, and run the latest stable version of the code. (Other versions can be used by adjusting the revision number in the `Makefile`.)
+Since *SPADE* is under active development, the instructions below describe how to download, compile, and run the latest stable version of the code. Other versions can be used by adjusting the revision number in the `Makefile`.
+
+Note that `->` at the beginning of a line indicates that the command is to be executed in the *SPADE* shell. Other commands are to be used in a Unix shell (such as `/bin/tcsh`).
 
 ----
 
