@@ -31,3 +31,7 @@ For example, if the Neo4j database contained *Artifact* vertices with the dates 
 {{{
 -> query lineage 1024 1 ancestors /tmp/Galileo_parents.dot
 }}}
+
+----
+
+This [example QueryExample] further elucidates the use of the `query` command.
