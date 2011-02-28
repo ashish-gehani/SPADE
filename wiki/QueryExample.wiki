@@ -34,6 +34,8 @@ echo type:WasControlledBy from:1 to:user >> /tmp/spade_pipe
 echo type:WasControlledBy from:2 to:user >> /tmp/spade_pipe 
 }}}
 
+Note that the *Agent* vertex has a non-numeric `id`. This illustrates that a vertex's `id` key can have any value as long as it is unique.
+
 ----
 
 If the `Graphviz` storage had been added, the resulting graph would be:
