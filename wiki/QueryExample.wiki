@@ -84,6 +84,8 @@ The file `/tmp/ancestors.dot` is in [http://www.graphviz.org Graphviz] format. W
 http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleAncestors.gif
 </p>
 
+----
+
 Similarly, the graph in which the same vertex is part of the provenance can be retrieved with:
 
 {{{
