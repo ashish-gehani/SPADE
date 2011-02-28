@@ -76,7 +76,7 @@ No filters added
 
 ----
 
-To stop *SPADE*, use the `exit` command in the shell:
+To stop *SPADE*, use the `exit` command in its shell:
 
 {{{
 ->exit
