@@ -55,3 +55,44 @@ Note that the [http://eprints.ecs.soton.ac.uk/21449/ Open Provenance Model (OPM)
 || dark blue || WasTriggeredBy ||
 || orange || WasDerivedFrom ||
 </p>
+
+----
+
+The *SPADE* shell's `query` command with the `vertices` option can be used to get a list of all the process vertices:
+
+{{{
+-> query Neo4j vertices type:Process
+[vertexId:2        type:Process        pid:32        name:child process]
+[vertexId:1        type:Process        pid:10        name:root process]
+Done
+}}}
+
+----
+
+The graph of the provenance of the `root process` (which has a `vertexId` of `1` as can be seen from the above query) can be retrieved with:
+
+{{{
+-> query Neo4j lineage 1 10 ancestors /tmp/ancestors.dot
+Done
+}}}
+
+The second argument (`Neo4j`) is the name of the storage system to query. The fourth argument (`1`) is the vertex. The fifth argument (`10`) is the maximum number of levels of the graph to report. (In this example, there is only one level of ancestry provenance available, though.) The seventh argument is the name of the file in which to store the response to the query.
+
+The file `/tmp/ancestors.dot` is in [http://www.graphviz.org Graphviz] format. When rendered it looks like this:
+
+<p align="center">
+http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleAncestors.gif
+</p>
+
+Similarly, the graph in which the same vertex is part of the provenance can be retrieved with:
+
+{{{
+-> query Neo4j lineage 1 10 descendants /tmp/descendants.dot
+Done
+}}}
+
+When rendered, it looks like this:
+
+<p align="center">
+http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleDescendants.gif
+</p>
