@@ -36,6 +36,8 @@ To send a vertex, write a line of the below form to the pipe:
 
 Depending on whether the value associated with the key `type` is `Agent`, `Process`, or `Artifact`, a corresponding Open Provenance Model vertex will be created. The `unique identifier` is used to disambiguate a vertex so that it can be referred to as the endpoint of an edge. Each `<key>:<value` pair (of which there can be an arbitrary number) is turned into an annotation on the vertex.
 
+(Note that the `type:<Agent|Process|Artifact>` and `id:<unique identifier>` elements are only used to tell the `Pipe` reporter what vertices / edges to create, and are not committed to storage.)
+
 ----
 
 For example, the line below can be entered on the command line of a Unix shell to report that a program named `firefox` ran with a `PID` of 1234:
