@@ -5,9 +5,8 @@
 REVISION = 240
 
 # Build everything.
-all:
-	svn-spade svn-pipe build-spade build-neo4j build-pipe
- 
+all:	svn-spade svn-pipe build-spade build-neo4j build-pipe
+
 # Download the external libraries that SPADE uses.
 svn-libraries:
 	svn checkout -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
