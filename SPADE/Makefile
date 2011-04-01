@@ -32,6 +32,30 @@ svn-storage:
 svn-pipe:
 	svn update -r $(REVISION) --force src/spade/reporter/Pipe.java
 
+# Download the OpenBSM reporter.
+svn-openbsm:
+	svn update -r $(REVISION) --force src/spade/reporter/OpenBSM.java
+	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_OpenBSM.c
+
+# Download the LinuxAudit reporter.
+svn-linuxaudit:
+	svn update -r $(REVISION) --force src/spade/reporter/LinuxAudit.java
+	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_LinuxAudit.c
+
+# Download the LinuxFUSE reporter.
+svn-linuxfuse:
+	svn update -r $(REVISION) --force src/spade/reporter/LinuxFUSE.java
+	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_LinuxFUSE.c
+
+# Download the MacFUSE reporter.
+svn-macfuse:
+	svn update -r $(REVISION) --force src/spade/reporter/MacFUSE.java
+	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_MacFUSE.c
+
+# Download the Lsof reporter.
+svn-lsof:
+	svn update -r $(REVISION) --force src/spade/reporter/Lsof.java
+
 # NOTE: svn-storage (and transitively svn-opm) are dependencies below
 #       because of Lineage.exportDOT(), which is temporarily present
 #       for querying as a stopgap till the REST API is implemented,
@@ -54,6 +78,37 @@ build-neo4j:
 build-pipe:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/Pipe.java
+
+# Build the OpenBSM reporter.
+build-openbsm:
+	cd src;\
+	javac -cp '.:../lib/*' spade/reporter/OpenBSM.java
+	gcc -o spade/reporter/spade_reporter_OpenBSM -lbsm spade/reporter/spade_reporter_OpenBSM.c
+
+# Build the LinuxAudit reporter.
+build-linuxaudit:
+	cd src;\
+	javac -cp '.:../lib/*' spade/reporter/LinuxAudit.java
+	gcc -o spade/reporter/spade_reporter_LinuxAudit spade/reporter/spade_reporter_LinuxAudit.c
+
+# Build the LinuxFUSE reporter.
+build-linuxfuse:
+	cd src;\
+	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java
+	javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE
+	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I/usr/java/jdk1.6.0_21/include -I/usr/java/jdk1.6.0_21/include/linux -L. -ljvm -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so
+
+# Build the MacFUSE reporter.
+build-macfuse:
+	cd src;\
+	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java
+	javah -o spade/reporter/spade_reporter_MacFUSE.h spade.reporter.MacFUSE
+	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/spade_reporter_MacFUSE.c -o libspadeMacFUSE.jnilib
+
+# Build the Lsof reporter.
+build-lsof:
+	cd src;\
+	javac -cp '.:../lib/*' spade/reporter/Lsof.java
 
 # Run the SPADE kernel.
 start-spade:
