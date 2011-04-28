@@ -20,7 +20,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.core;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
@@ -28,22 +27,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
-import jline.ArgumentCompletor;
-import jline.ConsoleReader;
-import jline.MultiCompletor;
-import jline.NullCompletor;
 import jline.SimpleCompletor;
-
-
-import javax.swing.*;
-import com.mxgraph.layout.hierarchical.*;
-import com.mxgraph.swing.*;
-import com.mxgraph.view.*;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.net.ServerSocket;
 
 
 public class Kernel {
@@ -56,14 +47,20 @@ public class Kernel {
     private static Map<AbstractReporter, Buffer> buffers;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
-    private static final String historyFile = "spade.history";
     private static final String configFile = "spade.config";
     private static ArrayList<String> reporterStrings;
     private static ArrayList<String> storageStrings;
     private static SimpleCompletor reporterCompletor;
     private static SimpleCompletor storageCompletor;
 
-//    private static TestViz testViz;
+    private static PrintStream outputStream = System.out;
+    private static PrintStream errorStream = System.err;
+    private static String queryPipeInputPath = "queryPipeIn";
+    private static String controlPipeInputPath = "controlPipeIn";
+    private static String controlPipeOutputPath = "controlPipeOut";
+
+    private static ServerSocket queryServerSocket;
+    private static SketchManager sketchManager;
 
     public static void main(String args[]) {
 
@@ -81,12 +78,46 @@ public class Kernel {
         reporterCompletor = new SimpleCompletor("");
         storageCompletor = new SimpleCompletor("");
 
-//        testViz = new TestViz();
-//        testViz.setSize(800, 600);
-        FinalCommitFilter commitfilter = new FinalCommitFilter();
-//        commitfilter.testViz = testViz;
-        commitfilter.setStorages(storages);
-        filters.add(commitfilter);
+        sketchManager = new SketchManager();
+
+        FinalCommitFilter commitFilter = new FinalCommitFilter();
+        commitFilter.sketchManager = sketchManager;
+        commitFilter.setStorages(storages);
+        filters.add(commitFilter);
+
+        try {
+            int exitValue1 = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
+            if (exitValue1 != 0) {
+                errorStream.println("Error creating query pipes!");
+            } else {
+                Runnable queryThread = new Runnable() {
+
+                    public void run() {
+                        try {
+                            BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
+                            while (!shutdown) {
+                                String line = queryInputStream.readLine();
+                                if (line != null) {
+                                    String[] queryTokens = line.split("\\s", 3);
+                                    if (queryTokens[0].equalsIgnoreCase("query")) {
+                                        PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[1]));
+                                        queryCommand("query " + queryTokens[2], queryOutputStream);
+                                        queryOutputStream.close();
+                                    }
+                                }
+                                Thread.sleep(10);
+                            }
+                            queryInputStream.close();
+                        } catch (Exception exception) {
+                            exception.printStackTrace(errorStream);
+                        }
+                    }
+                };
+                new Thread(queryThread).start();
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace(errorStream);
+        }
 
         Runnable mainRunnable = new Runnable() {
 
@@ -101,8 +132,9 @@ public class Kernel {
                                 }
                             }
                             if (buffers.isEmpty()) {
-                                System.out.println("done");
+                                outputStream.println("done");
                                 shutdown();
+                                break;
                             }
                         }
                         if (flushTransactions) {
@@ -140,92 +172,47 @@ public class Kernel {
                         Thread.sleep(5);
                     }
                 } catch (Exception exception) {
-                    exception.printStackTrace(System.err);
+                    exception.printStackTrace(errorStream);
                 }
             }
         };
         new Thread(mainRunnable).start();
 
-        Runnable consoleRunnable = new Runnable() {
+
+        Runnable daemonRunnable = new Runnable() {
 
             public void run() {
                 try {
-                    System.out.println("");
-                    System.out.println("SPADE 2.0 Kernel");
-                    System.out.println("");
+                    int exitValue1 = Runtime.getRuntime().exec("mkfifo " + controlPipeInputPath).waitFor();
+                    int exitValue2 = Runtime.getRuntime().exec("mkfifo " + controlPipeOutputPath).waitFor();
+                    if (exitValue1 != 0 && exitValue2 != 0) {
+                        errorStream.println("Error creating control pipes!");
+                    } else {
+                        outputStream.println("");
+                        outputStream.println("SPADE 2.0 Kernel");
+                        outputStream.println("");
 
-                    configCommand("config load " + configFile);
-                    System.out.println("");
+                        configCommand("config load " + configFile);
+                        outputStream.println("");
 
-                    showCommands();
-                    ConsoleReader commandReader = new ConsoleReader();
-                    commandReader.getHistory().setHistoryFile(new File(historyFile));
-
-                    List argCompletor1 = new LinkedList();
-                    argCompletor1.add(new SimpleCompletor(new String[]{"add"}));
-                    argCompletor1.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
-                    argCompletor1.add(new NullCompletor());
-
-                    List argCompletor2 = new LinkedList();
-                    argCompletor2.add(new SimpleCompletor(new String[]{"remove"}));
-                    argCompletor2.add(new SimpleCompletor(new String[]{"filter"}));
-                    argCompletor2.add(new NullCompletor());
-
-                    List argCompletor3 = new LinkedList();
-                    argCompletor3.add(new SimpleCompletor(new String[]{"remove"}));
-                    argCompletor3.add(new SimpleCompletor(new String[]{"storage"}));
-                    argCompletor3.add(storageCompletor);
-                    argCompletor3.add(new NullCompletor());
-
-                    List argCompletor4 = new LinkedList();
-                    argCompletor4.add(new SimpleCompletor(new String[]{"remove"}));
-                    argCompletor4.add(new SimpleCompletor(new String[]{"reporter"}));
-                    argCompletor4.add(reporterCompletor);
-                    argCompletor4.add(new NullCompletor());
-
-                    List argCompletor5 = new LinkedList();
-                    argCompletor5.add(new SimpleCompletor(new String[]{"list"}));
-                    argCompletor5.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all"}));
-                    argCompletor5.add(new NullCompletor());
-
-                    List argCompletor6 = new LinkedList();
-                    argCompletor6.add(new SimpleCompletor(new String[]{"query"}));
-                    argCompletor6.add(storageCompletor);
-                    argCompletor6.add(new SimpleCompletor(new String[]{"vertices", "lineage"}));
-                    argCompletor6.add(new NullCompletor());
-
-                    List argCompletor7 = new LinkedList();
-                    argCompletor7.add(new SimpleCompletor(new String[]{"config"}));
-                    argCompletor7.add(new SimpleCompletor(new String[]{"load", "save"}));
-                    argCompletor7.add(new NullCompletor());
-
-                    List completors = new LinkedList();
-                    completors.add(new ArgumentCompletor(argCompletor1));
-                    completors.add(new ArgumentCompletor(argCompletor2));
-                    completors.add(new ArgumentCompletor(argCompletor3));
-                    completors.add(new ArgumentCompletor(argCompletor4));
-                    completors.add(new ArgumentCompletor(argCompletor5));
-                    completors.add(new ArgumentCompletor(argCompletor6));
-                    completors.add(new ArgumentCompletor(argCompletor7));
-
-                    commandReader.addCompletor(new MultiCompletor(completors));
-
-                    while (true) {
-                        System.out.println("");
-                        String line = commandReader.readLine("-> ");
-                        if (executeCommand(line) == false) {
-                            break;
+                        BufferedReader controlInputStream = new BufferedReader(new FileReader(controlPipeInputPath));
+                        PrintStream controlOutputStream = new PrintStream(new FileOutputStream(controlPipeOutputPath));
+                        outputStream = controlOutputStream;
+                        errorStream = controlOutputStream;
+                        while (true) {
+                            // String line = commandReader.readLine("-> ");
+                            String line = controlInputStream.readLine();
+                            if (executeCommand(line) == false) {
+                                break;
+                            }
                         }
                     }
                 } catch (Exception exception) {
-                    exception.printStackTrace(System.err);
+                    exception.printStackTrace(errorStream);
                 }
             }
         };
-        new Thread(consoleRunnable).start();
-
-//        testViz.setVisible(true);
-
+        new Thread(daemonRunnable).start();
     }
 
     public static boolean executeCommand(String line) {
@@ -233,13 +220,13 @@ public class Kernel {
         if (command.equalsIgnoreCase("exit")) {
             configCommand("config save " + configFile);
             Iterator itp = reporters.iterator();
-            System.out.print("Shutting down reporters... ");
+            outputStream.print("Shutting down reporters... ");
             while (itp.hasNext()) {
                 AbstractReporter reporter = (AbstractReporter) itp.next();
                 reporter.shutdown();
             }
-            System.out.println("done");
-            System.out.print("Flushing buffers... ");
+            outputStream.println("done");
+            outputStream.print("Flushing buffers... ");
             shutdown = true;
             return false;
         } else if (command.equalsIgnoreCase("add")) {
@@ -252,7 +239,7 @@ public class Kernel {
             removeCommand(line);
             return true;
         } else if (command.equalsIgnoreCase("query")) {
-            queryCommand(line);
+            queryCommand(line, outputStream);
             return true;
         } else if (command.equalsIgnoreCase("config")) {
             configCommand(line);
@@ -272,9 +259,9 @@ public class Kernel {
                 while ((configLine = configReader.readLine()) != null) {
                     addCommand("add " + configLine);
                 }
-                System.out.println("Finished loading configuration file");
+                outputStream.println("Finished loading configuration file");
             } else if (tokens[1].equalsIgnoreCase("save")) {
-                System.out.print("Saving configuration... ");
+                outputStream.print("Saving configuration... ");
                 FileWriter configWriter = new FileWriter(tokens[2], false);
                 for (int i = 0; i < filters.size() - 1; i++) {
                     configWriter.write("filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i + "\n");
@@ -292,16 +279,16 @@ public class Kernel {
                     configWriter.write("reporter " + reporter.getClass().getName().split("\\.")[2] + " " + arguments + "\n");
                 }
                 configWriter.close();
-                System.out.println("done");
+                outputStream.println("done");
             } else {
                 throw new Exception();
             }
         } catch (Exception configCommandException) {
-            System.out.println("Usage: config load|save <filename>");
+            outputStream.println("Usage: config load|save <filename>");
         }
     }
 
-    public static void queryCommand(String line) {
+    public static void queryCommand(String line, PrintStream output) {
         flushTransactions = true;
         while (flushTransactions) {
             // wait for other thread to flush transactions
@@ -310,7 +297,7 @@ public class Kernel {
             String[] tokens = line.split("\\s");
             Iterator iterator = storages.iterator();
             if (storages.isEmpty()) {
-                System.out.println("No storage(s) added");
+                output.println("No storage(s) added");
                 return;
             }
             while (iterator.hasNext()) {
@@ -325,17 +312,17 @@ public class Kernel {
                         try {
                             resultSet = storage.getVertices(queryExpression.trim());
                         } catch (Exception badQuery) {
-                            System.out.println("Error: Please check query expression");
-                            badQuery.printStackTrace(System.err);
+                            outputStream.println("Error: Please check query expression");
+                            badQuery.printStackTrace(errorStream);
                             return;
                         }
                         Iterator resultIterator = resultSet.iterator();
                         while (resultIterator.hasNext()) {
                             AbstractVertex tempVertex = (AbstractVertex) resultIterator.next();
-                            System.out.println("[" + tempVertex.toString() + "]");
+                            output.println("[" + tempVertex.toString() + "]");
                         }
                     } else if (tokens[2].equalsIgnoreCase("lineage")) {
-                        Lineage resultLineage = null;
+                        Graph resultLineage = null;
                         String vertexId = tokens[3];
                         int depth = Integer.parseInt(tokens[4]);
                         String direction = tokens[5];
@@ -347,8 +334,21 @@ public class Kernel {
                             resultLineage = storage.getLineage(vertexId, depth, direction, terminatingExpression);
                             resultLineage.exportDOT(tokens[tokens.length - 1]);
                         } catch (Exception badQuery) {
-                            System.out.println("Error: Please check query expression");
-                            badQuery.printStackTrace(System.err);
+                            outputStream.println("Error: Please check query expression");
+                            badQuery.printStackTrace(errorStream);
+                            return;
+                        }
+                    } else if (tokens[2].equalsIgnoreCase("paths")) {
+                        Graph resultGraph = null;
+                        String srcVertexId = tokens[3];
+                        String dstVertexId = tokens[4];
+                        int maxLength = Integer.parseInt(tokens[5]);
+                        try {
+                            resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
+                            resultGraph.exportDOT(tokens[6]);
+                        } catch (Exception badQuery) {
+                            outputStream.println("Error: Please check query expression");
+                            badQuery.printStackTrace(errorStream);
                             return;
                         }
                     } else {
@@ -359,22 +359,18 @@ public class Kernel {
             }
             throw new Exception();
         } catch (Exception exception) {
-            System.out.println("Usage: query <class name> vertices <expression>");
-            System.out.println("       query <class name> lineage <vertex id> <depth> <direction> <terminating expression> <output file>");
         }
     }
 
     public static void showCommands() {
-        System.out.println("Available commands:");
-        System.out.println("       add reporter|storage <class name> <initialization arguments>");
-        System.out.println("       add filter <class name> <index>");
-        System.out.println("       remove reporter|storage <class name>");
-        System.out.println("       remove filter <index>");
-        System.out.println("       list reporters|storages|filters|all");
-        System.out.println("       query <class name> vertices <expression>");
-        System.out.println("       query <class name> lineage <vertex id> <depth> <direction> <terminating expression> <output file>");
-        System.out.println("       config load|save <filename>");
-        System.out.println("       exit");
+        outputStream.println("Available commands:");
+        outputStream.println("       add reporter|storage <class name> <initialization arguments>");
+        outputStream.println("       add filter <class name> <index>");
+        outputStream.println("       remove reporter|storage <class name>");
+        outputStream.println("       remove filter <index>");
+        outputStream.println("       list reporters|storages|filters|all");
+        outputStream.println("       config load|save <filename>");
+        outputStream.println("       exit");
     }
 
     public static void addCommand(String line) {
@@ -390,8 +386,8 @@ public class Kernel {
                 throw new Exception();
             }
         } catch (Exception addCommandException) {
-            System.out.println("Usage: add reporter|storage <class name> <initialization arguments>");
-            System.out.println("       add filter <class name> <index>");
+            outputStream.println("Usage: add reporter|storage <class name> <initialization arguments>");
+            outputStream.println("       add filter <class name> <index>");
         }
     }
 
@@ -400,40 +396,40 @@ public class Kernel {
         try {
             if (tokens[1].equalsIgnoreCase("reporters")) {
                 if (reporters.isEmpty()) {
-                    System.out.println("No reporters added");
+                    outputStream.println("No reporters added");
                     return;
                 }
-                System.out.println(reporters.size() + " reporter(s) added:");
+                outputStream.println(reporters.size() + " reporter(s) added:");
                 Iterator iterator = reporters.iterator();
                 int count = 1;
                 while (iterator.hasNext()) {
                     AbstractReporter reporter = (AbstractReporter) iterator.next();
                     String arguments = reporter.arguments;
-                    System.out.println("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
+                    outputStream.println("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                     count++;
                 }
             } else if (tokens[1].equalsIgnoreCase("storages")) {
                 if (storages.isEmpty()) {
-                    System.out.println("No storages added");
+                    outputStream.println("No storages added");
                     return;
                 }
-                System.out.println(storages.size() + " storage(s) added:");
+                outputStream.println(storages.size() + " storage(s) added:");
                 Iterator iterator = storages.iterator();
                 int count = 1;
                 while (iterator.hasNext()) {
                     AbstractStorage storage = (AbstractStorage) iterator.next();
                     String arguments = storage.arguments;
-                    System.out.println("\t" + count + ". " + storage.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
+                    outputStream.println("\t" + count + ". " + storage.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                     count++;
                 }
             } else if (tokens[1].equalsIgnoreCase("filters")) {
                 if (filters.size() == 1) {
-                    System.out.println("No filters added");
+                    outputStream.println("No filters added");
                     return;
                 }
-                System.out.println((filters.size() - 1) + " filter(s) added:");
+                outputStream.println((filters.size() - 1) + " filter(s) added:");
                 for (int i = 0; i < filters.size() - 1; i++) {
-                    System.out.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
+                    outputStream.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
                 }
             } else if (tokens[1].equalsIgnoreCase("all")) {
                 listCommand("list reporters");
@@ -443,7 +439,7 @@ public class Kernel {
                 throw new Exception();
             }
         } catch (Exception listCommandException) {
-            System.out.println("Usage: list reporters|storages|filters|all");
+            outputStream.println("Usage: list reporters|storages|filters|all");
         }
     }
 
@@ -458,7 +454,7 @@ public class Kernel {
                     if (reporter.getClass().getName().equals("spade.reporter." + tokens[2])) {
                         removereporters.add(reporter);
                         found = true;
-                        System.out.print("Shutting down reporter " + tokens[2] + "... ");
+                        outputStream.print("Shutting down reporter " + tokens[2] + "... ");
                         while (removereporters.contains(reporter)) {
                             // wait for other thread to safely remove reporter
                         }
@@ -467,11 +463,11 @@ public class Kernel {
                         for (int i = 0; i < reporterStrings.size(); i++) {
                             reporterCompletor.addCandidateString((String) reporterStrings.get(i));
                         }
-                        System.out.println("done");
+                        outputStream.println("done");
                     }
                 }
                 if (!found) {
-                    System.out.println("Reporter " + tokens[2] + " not found");
+                    outputStream.println("Reporter " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("storage")) {
                 boolean found = false;
@@ -481,7 +477,7 @@ public class Kernel {
                     if (storage.getClass().getName().equals("spade.storage." + tokens[2])) {
                         removestorages.add(storage);
                         found = true;
-                        System.out.print("Shutting down storage " + tokens[2] + "... ");
+                        outputStream.print("Shutting down storage " + tokens[2] + "... ");
                         while (removestorages.contains(storage)) {
                             // wait for other thread to safely remove storage
                         }
@@ -490,39 +486,39 @@ public class Kernel {
                         for (int i = 0; i < storageStrings.size(); i++) {
                             storageCompletor.addCandidateString((String) storageStrings.get(i));
                         }
-                        System.out.println("done");
+                        outputStream.println("done");
                     }
                 }
                 if (!found) {
-                    System.out.println("Storage " + tokens[2] + " not found");
+                    outputStream.println("Storage " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("filter")) {
                 int index = Integer.parseInt(tokens[2]);
                 if ((index <= 0) || (index >= filters.size())) {
-                    System.out.println("Error: Unable to remove filter - bad index");
+                    outputStream.println("Error: Unable to remove filter - bad index");
                     return;
                 }
                 String filterName = filters.get(index - 1).getClass().getName();
-                System.out.print("Removing filter " + filterName.split("\\.")[2] + "... ");
+                outputStream.print("Removing filter " + filterName.split("\\.")[2] + "... ");
                 if (index > 1) {
                     ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
                 }
                 filters.remove(index - 1);
-                System.out.println("done");
+                outputStream.println("done");
             } else {
                 throw new Exception();
             }
         } catch (Exception removeCommandException) {
-            System.out.println("Usage: remove reporter|storage <class name>");
-            System.out.println("       remove filter <index>");
-            removeCommandException.printStackTrace(System.err);
+            outputStream.println("Usage: remove reporter|storage <class name>");
+            outputStream.println("       remove filter <index>");
+            removeCommandException.printStackTrace(errorStream);
         }
     }
 
     public static void addReporter(String classname, String arguments) {
         try {
             AbstractReporter reporter = (AbstractReporter) Class.forName("spade.reporter." + classname).newInstance();
-            System.out.print("Adding reporter " + classname + "... ");
+            outputStream.print("Adding reporter " + classname + "... ");
             Buffer buffer = new Buffer();
             reporter.setBuffer(buffer);
             if (reporter.launch(arguments)) {
@@ -534,20 +530,20 @@ public class Kernel {
                 for (int i = 0; i < reporterStrings.size(); i++) {
                     reporterCompletor.addCandidateString((String) reporterStrings.get(i));
                 }
-                System.out.println("done");
+                outputStream.println("done");
             } else {
-                System.out.println("failed");
+                outputStream.println("failed");
             }
         } catch (Exception addReporterException) {
-            System.out.println("Error: Unable to add reporter " + classname + " - please check class name");
-            addReporterException.printStackTrace(System.err);
+            outputStream.println("Error: Unable to add reporter " + classname + " - please check class name");
+            addReporterException.printStackTrace(errorStream);
         }
     }
 
     public static void addStorage(String classname, String arguments) {
         try {
             AbstractStorage storage = (AbstractStorage) Class.forName("spade.storage." + classname).newInstance();
-            System.out.print("Adding storage " + classname + "... ");
+            outputStream.print("Adding storage " + classname + "... ");
             if (storage.initialize(arguments)) {
                 storage.arguments = arguments;
                 storages.add(storage);
@@ -556,13 +552,13 @@ public class Kernel {
                 for (int i = 0; i < storageStrings.size(); i++) {
                     storageCompletor.addCandidateString((String) storageStrings.get(i));
                 }
-                System.out.println("done");
+                outputStream.println("done");
             } else {
-                System.out.println("failed");
+                outputStream.println("failed");
             }
         } catch (Exception addStorageException) {
-            System.out.println("Error: Unable to add storage " + classname + " - please check class name and argument");
-            addStorageException.printStackTrace(System.err);
+            outputStream.println("Error: Unable to add storage " + classname + " - please check class name and argument");
+            addStorageException.printStackTrace(errorStream);
         }
     }
 
@@ -577,24 +573,30 @@ public class Kernel {
             if (index > 0) {
                 ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
             }
-            System.out.print("Adding filter " + classname + "... ");
+            outputStream.print("Adding filter " + classname + "... ");
             filters.add(index, filter);
-            System.out.println("done");
+            outputStream.println("done");
         } catch (Exception addFilterException) {
-            System.out.println("Error: Unable to add filter " + classname + " - please check class name and index");
-            addFilterException.printStackTrace(System.err);
+            outputStream.println("Error: Unable to add filter " + classname + " - please check class name and index");
+            addFilterException.printStackTrace(errorStream);
         }
     }
 
     public static void shutdown() {
         Iterator iterator = storages.iterator();
-        System.out.print("Shutting down storages... ");
+        outputStream.print("Shutting down storages... ");
         while (iterator.hasNext()) {
             AbstractStorage storage = (AbstractStorage) iterator.next();
             storage.shutdown();
         }
-        System.out.println("done");
-        System.out.println("Terminating kernel...\n");
+        outputStream.println("done");
+        outputStream.println("Terminating kernel...\n");
+        try {
+            Runtime.getRuntime().exec("rm -f " + queryPipeInputPath).waitFor();
+            Runtime.getRuntime().exec("rm -f " + controlPipeInputPath + " " + controlPipeOutputPath).waitFor();
+        } catch (Exception exception) {
+            exception.printStackTrace(errorStream);
+        }
         System.exit(0);
     }
 }
@@ -602,7 +604,7 @@ public class Kernel {
 class FinalCommitFilter extends AbstractFilter {
 
     private Set storages;
-//    public TestViz testViz;
+    public SketchManager sketchManager;
 
     public void setStorages(Set mainStorageSet) {
         storages = mainStorageSet;
@@ -610,100 +612,19 @@ class FinalCommitFilter extends AbstractFilter {
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-//        incomingVertex.removeAnnotation("source_reporter");
         Iterator iterator = storages.iterator();
         while (iterator.hasNext()) {
             ((AbstractStorage) iterator.next()).putVertex(incomingVertex);
         }
-//        testViz.putVertex(incomingVertex);
+        sketchManager.processVertex(incomingVertex);
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-//        incomingEdge.removeAnnotation("source_reporter");
         Iterator iterator = storages.iterator();
         while (iterator.hasNext()) {
             ((AbstractStorage) iterator.next()).putEdge(incomingEdge);
         }
-//        testViz.putEdge(incomingEdge);
-    }
-}
-
-class TestViz extends JFrame {
-
-    private mxGraph graph;
-    private mxHierarchicalLayout layout;
-    private HashMap vertices;
-    private Object parent;
-
-    public TestViz() {
-        vertices = new HashMap();
-        graph = new mxGraph();
-        graph.setCellsEditable(false);
-        graph.setCellsMovable(false);
-        graph.setCellsResizable(false);
-        graph.setCellsDeletable(false);
-        graph.setCellsCloneable(false);
-        graph.setCellsBendable(false);
-        graph.setCellsDisconnectable(false);
-        graph.setAllowDanglingEdges(false);
-        graph.setConnectableEdges(false);
-        parent = graph.getDefaultParent();
-
-        layout = new mxHierarchicalLayout(graph);
-        mxGraphComponent graphComponent = new mxGraphComponent(graph);
-        getContentPane().add(graphComponent);
-        Runnable refreshLayout = new Runnable() {
-
-            public void run() {
-                while (true) {
-                    layout.execute(graph.getDefaultParent());
-                    try {
-                        Thread.sleep(4000);
-                    } catch (Exception exception) {
-                        exception.printStackTrace(System.err);
-                    }
-                }
-            }
-        };
-        new Thread(refreshLayout).start();
-    }
-    
-    public void putEdge(AbstractEdge incomingEdge) {
-        String label = incomingEdge.toString();
-        String style = "";
-        if (incomingEdge instanceof spade.opm.edge.Used) {
-            style = "strokeColor=#00cd00";
-        } else if (incomingEdge instanceof spade.opm.edge.WasGeneratedBy) {
-            style = "strokeColor=#ff0000";
-        } else if (incomingEdge instanceof spade.opm.edge.WasTriggeredBy) {
-            style = "strokeColor=#0000ff";
-        } else if (incomingEdge instanceof spade.opm.edge.WasControlledBy) {
-            style = "strokeColor=#d050ff";
-        } else if (incomingEdge instanceof spade.opm.edge.WasDerivedFrom) {
-            style = "strokeColor=#ee9a00";
-        }
-
-        graph.getModel().beginUpdate();
-        graph.insertEdge(graph.getDefaultParent(), null, label,
-                vertices.get(incomingEdge.getSrcVertex()), vertices.get(incomingEdge.getDstVertex()), "fontSize=12;fontColor=black;" + style);
-        graph.getModel().endUpdate();
-    }
-
-    public void putVertex(AbstractVertex incomingVertex) {
-        String label = incomingVertex.toString().replaceAll("\\|", "\n");
-        String style = "";
-        if (incomingVertex instanceof spade.opm.vertex.Process) {
-            style = "fillColor=#cae1ff";
-        } else if (incomingVertex instanceof spade.opm.vertex.Artifact) {
-            style = "fillColor=#fff68f";
-        } else {
-            style = "fillColor=#ffc1c1";
-        }
-        graph.getModel().beginUpdate();
-        Object tmpObject = graph.insertVertex(graph.getDefaultParent(), null, label, 0, 0, 0, 0, "shadow=1;fontSize=12;fontColor=black;strokeColor=black;spacing=5;" + style);
-        graph.updateCellSize(tmpObject);
-        graph.getModel().endUpdate();
-        vertices.put(incomingVertex, tmpObject);
+        sketchManager.processEdge(incomingEdge);
     }
 }

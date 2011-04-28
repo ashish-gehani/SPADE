@@ -31,12 +31,14 @@ public class Edge extends AbstractEdge {
         this.sourceVertex = sourceVertex;
         this.destinationVertex = destinationVertex;
         annotations = new LinkedHashMap<String, String>();
+        this.edgeType = "Edge";
     }
 
     public Edge(Vertex sourceVertex, Vertex destinationVertex, Map<String, String> inputAnnotations) {
         this.sourceVertex = sourceVertex;
         this.destinationVertex = destinationVertex;
         this.setAnnotations(inputAnnotations);
+        this.edgeType = "Edge";
     }
 
     public void setSrcVertex(Vertex sourceVertex) {

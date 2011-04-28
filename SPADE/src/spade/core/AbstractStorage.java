@@ -57,7 +57,11 @@ public abstract class AbstractStorage {
         return null;
     }
 
-    public Lineage getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
+    public Graph getPaths(String srcVertexId, String dstVertexId, int maxLength) {
+        return null;
+    }
+
+    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
         return null;
     }
 }

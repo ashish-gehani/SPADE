@@ -20,24 +20,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.storage;
 
 import spade.core.AbstractStorage;
-import spade.core.Lineage;
+import spade.core.Graph;
 import spade.core.AbstractEdge;
 import spade.core.Edge;
 import spade.core.Vertex;
-import spade.opm.edge.WasTriggeredBy;
-import spade.opm.edge.WasControlledBy;
-import spade.opm.edge.WasGeneratedBy;
-import spade.opm.edge.Used;
-import spade.opm.edge.WasDerivedFrom;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Agent;
 import spade.core.AbstractVertex;
-import spade.opm.vertex.Process;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import org.neo4j.graphalgo.GraphAlgoFactory;
+import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -49,7 +43,9 @@ import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.helpers.collection.MapUtil;
 import org.neo4j.index.impl.lucene.ValueContext;
 import org.neo4j.graphdb.Direction;
+import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.index.IndexHits;
+import org.neo4j.kernel.Traversal;
 
 public class Neo4j extends AbstractStorage {
 
@@ -60,7 +56,7 @@ public class Neo4j extends AbstractStorage {
     private Transaction transaction;
     private int transactionCount;
     private HashMap<AbstractVertex, Long> vertexTable;
-    private HashSet edgeSet;
+    private HashSet<Integer> edgeHashCodes;
 
     public enum MyRelationshipTypes implements RelationshipType {
 
@@ -75,7 +71,7 @@ public class Neo4j extends AbstractStorage {
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             vertexTable = new HashMap<AbstractVertex, Long>();
-            edgeSet = new HashSet();
+            edgeHashCodes = new HashSet<Integer>();
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
@@ -159,16 +155,14 @@ public class Neo4j extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         AbstractVertex srcVertex = incomingEdge.getSrcVertex();
         AbstractVertex dstVertex = incomingEdge.getDstVertex();
-        if (edgeSet.add(incomingEdge.hashCode()) == false) {
+        if ((edgeHashCodes.add(incomingEdge.hashCode()) == false) || !vertexTable.containsKey(srcVertex) || !vertexTable.containsKey(dstVertex)) {
             return false;
         }
         if (transactionCount == 0) {
             transaction = graphDb.beginTx();
         }
-        Long srcNodeId = (Long) vertexTable.get(srcVertex);
-        Long dstNodeId = (Long) vertexTable.get(dstVertex);
-        Node srcNode = graphDb.getNodeById(srcNodeId);
-        Node dstNode = graphDb.getNodeById(dstNodeId);
+        Node srcNode = graphDb.getNodeById(vertexTable.get(srcVertex));
+        Node dstNode = graphDb.getNodeById(vertexTable.get(dstVertex));
 
         Map<String, String> annotations = incomingEdge.getAnnotations();
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
@@ -201,17 +195,7 @@ public class Neo4j extends AbstractStorage {
     }
 
     private AbstractVertex convertNodeToVertex(Node node) {
-        AbstractVertex resultVertex = null;
-        String type = (String) node.getProperty("type");
-        if (type.equals("Process")) {
-            resultVertex = new Process();
-        } else if (type.equals("Artifact")) {
-            resultVertex = new Artifact();
-        } else if (type.equals("Agent")) {
-            resultVertex = new Agent();
-        } else {
-            resultVertex = new Vertex();
-        }
+        AbstractVertex resultVertex = new Vertex();
         for (String key : node.getPropertyKeys()) {
             try {
                 String value = (String) node.getProperty(key);
@@ -230,21 +214,7 @@ public class Neo4j extends AbstractStorage {
     }
 
     private AbstractEdge convertRelationshipToEdge(Relationship relationship) {
-        AbstractEdge resultEdge = null;
-        String relationshipType = (String) relationship.getProperty("type");
-        if (relationshipType.equals("Used")) {
-            resultEdge = new Used((Process) convertNodeToVertex(relationship.getStartNode()), (Artifact) convertNodeToVertex(relationship.getEndNode()));
-        } else if (relationshipType.equals("WasGeneratedBy")) {
-            resultEdge = new WasGeneratedBy((Artifact) convertNodeToVertex(relationship.getStartNode()), (Process) convertNodeToVertex(relationship.getEndNode()));
-        } else if (relationshipType.equals("WasTriggeredBy")) {
-            resultEdge = new WasTriggeredBy((Process) convertNodeToVertex(relationship.getStartNode()), (Process) convertNodeToVertex(relationship.getEndNode()));
-        } else if (relationshipType.equals("WasControlledBy")) {
-            resultEdge = new WasControlledBy((Process) convertNodeToVertex(relationship.getStartNode()), (Agent) convertNodeToVertex(relationship.getEndNode()));
-        } else if (relationshipType.equals("WasDerivedFrom")) {
-            resultEdge = new WasDerivedFrom((Artifact) convertNodeToVertex(relationship.getStartNode()), (Artifact) convertNodeToVertex(relationship.getEndNode()));
-        } else {
-            resultEdge = new Edge((Vertex) convertNodeToVertex(relationship.getStartNode()), (Vertex) convertNodeToVertex(relationship.getEndNode()));
-        }
+        AbstractEdge resultEdge = new Edge((Vertex) convertNodeToVertex(relationship.getStartNode()), (Vertex) convertNodeToVertex(relationship.getEndNode()));
         for (String key : relationship.getPropertyKeys()) {
             try {
                 String value = (String) relationship.getProperty(key);
@@ -260,21 +230,6 @@ public class Neo4j extends AbstractStorage {
             }
         }
         return resultEdge;
-    }
-
-    private Node convertVertexToNode(AbstractVertex sourceVertex) {
-        String expression = "";
-        Map<String, String> sourceAnnotations = sourceVertex.getAnnotations();
-        for (Map.Entry<String, String> entry : sourceAnnotations.entrySet()) {
-            String key = (String) entry.getKey();
-            String value = (String) entry.getValue();
-            expression = expression + key + ":" + "\"" + value + "\" AND ";
-        }
-        if (expression.length() > 4) {
-            expression = expression.substring(0, expression.length() - 4);
-        }
-        Node resultNode = vertexIndex.query(expression).getSingle();
-        return resultNode;
     }
 
     @Override
@@ -331,8 +286,31 @@ public class Neo4j extends AbstractStorage {
     }
 
     @Override
-    public Lineage getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
-        Lineage resultLineage = new Lineage();
+    public Graph getPaths(String srcVertexId, String dstVertexId, int maxLength) {
+        Graph resultGraph = new Graph();
+        
+        Node sourceNode = graphDb.getNodeById(Long.parseLong(srcVertexId));
+        Node destinationNode = graphDb.getNodeById(Long.parseLong(dstVertexId));
+
+        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.INCOMING), maxLength);
+        Iterable<Path> foundPaths = pathFinder.findAllPaths(sourceNode, destinationNode);
+
+        for (Iterator<Path> pathIterator = foundPaths.iterator(); pathIterator.hasNext();) {
+            Path currentPath = pathIterator.next();
+            for (Iterator<Node> nodeIterator = currentPath.nodes().iterator(); nodeIterator.hasNext();) {
+                resultGraph.putVertex(convertNodeToVertex(nodeIterator.next()));
+            }
+            for (Iterator<Relationship> edgeIterator = currentPath.relationships().iterator(); edgeIterator.hasNext();) {
+                resultGraph.putEdge(convertRelationshipToEdge(edgeIterator.next()));
+            }
+        }
+        
+        return resultGraph;
+    }
+
+    @Override
+    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
+        Graph resultLineage = new Graph();
 
         Long sourceNodeId = Long.parseLong(vertexId);
         Node sourceNode = graphDb.getNodeById(sourceNodeId);
@@ -351,38 +329,37 @@ public class Neo4j extends AbstractStorage {
         }
 
         Direction dir = null;
-        if (direction.equalsIgnoreCase("ancestors")) {
+        if (direction.equalsIgnoreCase("a")) {
             dir = Direction.OUTGOING;
-        } else if (direction.equalsIgnoreCase("descendants")) {
+        } else if (direction.equalsIgnoreCase("d")) {
             dir = Direction.INCOMING;
+        } else if (direction.equalsIgnoreCase("b")) {
+            dir = Direction.BOTH;
         } else {
             return null;
         }
 
+        Set<Node> doneSet = new HashSet<Node>();
         Set<Node> tempSet = new HashSet<Node>();
         tempSet.add(sourceNode);
         while (true) {
             if ((tempSet.isEmpty()) || (depth == 0)) {
                 break;
             }
+            doneSet.addAll(tempSet);
             Set<Node> tempSet2 = new HashSet<Node>();
             Iterator iterator = tempSet.iterator();
             while (iterator.hasNext()) {
                 Node tempNode = (Node) iterator.next();
                 for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
-                    Node otherNode = null;
-                    if (dir == Direction.OUTGOING) {
-                        otherNode = nodeRelationship.getEndNode();
-                    } else {
-                        otherNode = nodeRelationship.getStartNode();
-                    }
+                    Node otherNode = nodeRelationship.getOtherNode(tempNode);
                     if (terminatingExpression != null) {
                         if (terminatingSet.contains(otherNode)) {
                             continue;
-                        } else {
+                        } else if (!doneSet.contains(otherNode)) {
                             tempSet2.add(otherNode);
                         }
-                    } else {
+                    } else if (!doneSet.contains(otherNode)) {
                         tempSet2.add(otherNode);
                     }
                     resultLineage.putVertex(convertNodeToVertex(otherNode));
