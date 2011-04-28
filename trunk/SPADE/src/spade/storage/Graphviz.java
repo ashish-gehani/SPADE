@@ -21,19 +21,11 @@ package spade.storage;
 
 import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
-import spade.opm.edge.WasTriggeredBy;
-import spade.opm.edge.WasControlledBy;
-import spade.opm.edge.WasGeneratedBy;
-import spade.opm.edge.Used;
-import spade.opm.edge.WasDerivedFrom;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Process;
 import spade.core.AbstractVertex;
 import java.io.FileWriter;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Iterator;
-import spade.opm.vertex.Agent;
 
 public class Graphviz extends AbstractStorage {
 
@@ -61,7 +53,7 @@ public class Graphviz extends AbstractStorage {
             for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
                 String key = (String) iterator.next();
                 String value = (String) annotations.get(key);
-                if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("vertexId"))) {
+                if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))) {
                     continue;
                 }
                 vertexString = vertexString + key + ":" + value + "\\n";
@@ -69,15 +61,16 @@ public class Graphviz extends AbstractStorage {
             vertexString = vertexString.substring(0, vertexString.length() - 2);
             String shape = "";
             String color = "";
-            if (incomingVertex instanceof Artifact) {
-                shape = "ellipse";
-                color = "khaki1";
-            } else if (incomingVertex instanceof Agent) {
+            String type = incomingVertex.getAnnotation("type");
+            if (type.equalsIgnoreCase("Agent")) {
                 shape = "octagon";
                 color = "rosybrown1";
-            } else if (incomingVertex instanceof Process) {
+            } else if (type.equalsIgnoreCase("Process")) {
                 shape = "box";
                 color = "lightsteelblue1";
+            } else {
+                shape = "ellipse";
+                color = "khaki1";
             }
             outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
             return true;
@@ -96,21 +89,22 @@ public class Graphviz extends AbstractStorage {
                 for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
                     String key = (String) iterator.next();
                     String value = (String) annotations.get(key);
-                    if ((key.equalsIgnoreCase("edgeId")) || (key.equalsIgnoreCase("type"))) {
+                    if ((key.equalsIgnoreCase("storageId")) || (key.equalsIgnoreCase("type"))) {
                         continue;
                     }
                     annotationString = annotationString + key + ":" + value + ", ";
                 }
                 String color = "";
-                if (incomingEdge instanceof Used) {
+                String type = incomingEdge.getAnnotation("type");
+                if (type.equalsIgnoreCase("Used")) {
                     color = "green";
-                } else if (incomingEdge instanceof WasGeneratedBy) {
+                } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
                     color = "red";
-                } else if (incomingEdge instanceof WasTriggeredBy) {
+                } else if (type.equalsIgnoreCase("WasTriggeredBy")) {
                     color = "blue";
-                } else if (incomingEdge instanceof WasControlledBy) {
+                } else if (type.equalsIgnoreCase("WasControlledBy")) {
                     color = "purple";
-                } else if (incomingEdge instanceof WasDerivedFrom) {
+                } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
                     color = "orange";
                 }
                 if (annotationString.length() > 3) {

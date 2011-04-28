@@ -19,18 +19,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import java.util.Map;
-import java.util.LinkedHashMap;
+public class Sketch {
 
-public class Vertex extends AbstractVertex {
-
-    public Vertex(Map<String, String> inputAnnotations) {
-        this.setAnnotations(inputAnnotations);
-        this.vertexType = "Vertex";
-    }
-
-    public Vertex() {
-        this.setAnnotations(new LinkedHashMap<String, String>());
-        this.vertexType = "Vertex";
-    }
 }

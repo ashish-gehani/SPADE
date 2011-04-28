@@ -19,18 +19,39 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import java.util.Map;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 
-public class Vertex extends AbstractVertex {
+public class SketchManager {
 
-    public Vertex(Map<String, String> inputAnnotations) {
-        this.setAnnotations(inputAnnotations);
-        this.vertexType = "Vertex";
+    private Sketch localSketch;
+    private HashMap<String, Sketch> remoteSketches;
+
+    public SketchManager() {
+        remoteSketches = new HashMap<String, Sketch>();
     }
 
-    public Vertex() {
-        this.setAnnotations(new LinkedHashMap<String, String>());
-        this.vertexType = "Vertex";
+    public void processVertex(AbstractVertex incomingVertex) {
+        
     }
+
+    public void processEdge(AbstractEdge incomingEdge) {
+
+    }
+
+    public Sketch getLocalSketch() {
+        return localSketch;
+    }
+
+    public void updateRemoteSketch(String host, Sketch sketch) {
+        remoteSketches.put(host, sketch);
+    }
+
+    public Sketch getRemoteSketch(String host) {
+        return remoteSketches.get(host);
+    }
+
+    public void getPath(String srcVertexId, String dstVertexId) {
+
+    }
+    
 }
