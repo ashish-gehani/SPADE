@@ -115,6 +115,16 @@ start-spade:
 	cd src;\
 	java -cp '.:../lib/*' spade/core/Kernel
 
+# Run the control shell.
+start-control-shell:
+	cd src;\
+	java -cp '.:../lib/*' spade/core/ControlClient controlPipeIn controlPipeOut
+
+# Run the query shell.
+start-query-shell:
+	cd src;\
+	java -cp '.:../lib/*' spade/core/QueryClient queryPipeIn queryPipeOut
+
 # Remove all .class files.
 clean-class:
 	find src -name '*.class' -exec rm \{\} \;
