@@ -38,6 +38,7 @@ public class ControlClient {
     private static PrintStream errorStream;
     private static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
+    private static String inputPath;
     private static String outputPath;
     private static volatile boolean shutdown;
     private static final String historyFile = "control.history";
@@ -46,11 +47,13 @@ public class ControlClient {
 
         outputStream = System.out;
         errorStream = System.err;
-        shutdown = false;
+        inputPath = args[0];
         outputPath = args[1];
 
+        shutdown = false;
+
         try {
-            SPADEControlIn = new PrintStream(new FileOutputStream(args[0]));
+            SPADEControlIn = new PrintStream(new FileOutputStream(inputPath));
         } catch (Exception exception) {
             outputStream.println("Control pipes not ready!");
             System.exit(0);
@@ -62,12 +65,15 @@ public class ControlClient {
                 try {
                     SPADEControlOut = new BufferedReader(new FileReader(outputPath));
                     while (!shutdown) {
-                        String outputLine = SPADEControlOut.readLine();
-                        if (outputLine != null) {
-                            outputStream.println(outputLine);
+                        if (SPADEControlOut.ready()) {
+                            String outputLine = SPADEControlOut.readLine();
+                            if (outputLine != null) {
+                                outputStream.println(outputLine);
+                            }
                         }
                         Thread.sleep(10);
                     }
+                    SPADEControlOut.close();
                 } catch (Exception exception) {
                     exception.printStackTrace(errorStream);
                 }
@@ -79,6 +85,7 @@ public class ControlClient {
 
             outputStream.println("");
             outputStream.println("SPADE 2.0 Control Client");
+            outputStream.println("");
 
             ConsoleReader commandReader = new ConsoleReader();
             commandReader.getHistory().setHistoryFile(new File(historyFile));
@@ -111,19 +118,20 @@ public class ControlClient {
 
             commandReader.addCompletor(new MultiCompletor(completors));
 
+            SPADEControlIn.println("");
             while (true) {
                 String line = commandReader.readLine();
                 if (line.split("\\s")[0].equalsIgnoreCase("query")) {
                     SPADEControlIn.println("");
                 } else if (line.equalsIgnoreCase("exit")) {
                     shutdown = true;
-                    System.exit(0);
+                    SPADEControlIn.close();
+                    break;
                 } else if (line.equalsIgnoreCase("shutdown")) {
                     shutdown = true;
-                    SPADEControlIn.println("exit");
-                    SPADEControlOut.close();
+                    SPADEControlIn.println("shutdown");
                     SPADEControlIn.close();
-                    System.exit(0);
+                    break;
                 } else {
                     SPADEControlIn.println(line);
                 }

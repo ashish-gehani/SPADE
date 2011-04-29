@@ -30,11 +30,11 @@ public class SketchManager {
         remoteSketches = new HashMap<String, Sketch>();
     }
 
-    public void processVertex(AbstractVertex incomingVertex) {
+    public void putVertex(AbstractVertex incomingVertex) {
         
     }
 
-    public void processEdge(AbstractEdge incomingEdge) {
+    public void putEdge(AbstractEdge incomingEdge) {
 
     }
 

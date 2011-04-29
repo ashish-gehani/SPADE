@@ -64,6 +64,7 @@ public class Kernel {
 
     public static void main(String args[]) {
 
+        // Basic initialization
         shutdown = false;
         flushTransactions = false;
         reporters = Collections.synchronizedSet(new HashSet());
@@ -73,58 +74,42 @@ public class Kernel {
         filters = Collections.synchronizedList(new Vector());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
 
+        // Data structures used for tab completion
         reporterStrings = new ArrayList<String>();
         storageStrings = new ArrayList<String>();
         reporterCompletor = new SimpleCompletor("");
         storageCompletor = new SimpleCompletor("");
 
+        // Initialize the SketchManager and the final commit filter.
+        // The FinalCommitFilter acts as a terminator for the filter list
+        // and also maintains a pointer to the list of active storages to which
+        // the provenance data is finally passed. It also has a reference to
+        // the SketchManager and triggers its putVertex() and putEdge() methods
         sketchManager = new SketchManager();
-
         FinalCommitFilter commitFilter = new FinalCommitFilter();
         commitFilter.sketchManager = sketchManager;
         commitFilter.setStorages(storages);
         filters.add(commitFilter);
 
-        try {
-            int exitValue1 = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
-            if (exitValue1 != 0) {
-                errorStream.println("Error creating query pipes!");
-            } else {
-                Runnable queryThread = new Runnable() {
 
-                    public void run() {
-                        try {
-                            BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
-                            while (!shutdown) {
-                                String line = queryInputStream.readLine();
-                                if (line != null) {
-                                    String[] queryTokens = line.split("\\s", 3);
-                                    if (queryTokens[0].equalsIgnoreCase("query")) {
-                                        PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[1]));
-                                        queryCommand("query " + queryTokens[2], queryOutputStream);
-                                        queryOutputStream.close();
-                                    }
-                                }
-                                Thread.sleep(10);
-                            }
-                            queryInputStream.close();
-                        } catch (Exception exception) {
-                            exception.printStackTrace(errorStream);
-                        }
-                    }
-                };
-                new Thread(queryThread).start();
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace(errorStream);
-        }
-
+        // Initialize the main thread. This thread performs critical provenance-related
+        // work inside SPADE. It extracts provenance objects (vertices, edges) from the
+        // buffers, adds the source_reporter annotation to each object which is class name
+        // of the reporter, and then sends these objects to the filter list.
+        // This thread is also used for cleanly removing reporters and storages (through
+        // the control commands and also when shutting down). This is done by ensuring that
+        // once a reporter is marked for removal, the provenance objects from its buffer are
+        // completely flushed.
         Runnable mainRunnable = new Runnable() {
 
             public void run() {
                 try {
                     while (true) {
                         if (shutdown) {
+                            // The shutdown process is also partially handled by this thread. On
+                            // shutdown, all reporters are marked for removal so that their buffers
+                            // are cleanly flushed and no data is lost. When a buffer becomes empty,
+                            // it is removed along with its corresponding reporter.
                             Iterator iterator = buffers.entrySet().iterator();
                             while (iterator.hasNext()) {
                                 if (((Buffer) ((Map.Entry) iterator.next()).getValue()).isEmpty()) {
@@ -138,6 +123,10 @@ public class Kernel {
                             }
                         }
                         if (flushTransactions) {
+                            // Flushing of transactions is also handled by this thread to ensure that
+                            // there are no errors/problems when using storages that are sensitive to
+                            // thread-context for their transactions. For example, this is true for
+                            // the embedded neo4j graph database.
                             Iterator iterator = storages.iterator();
                             while (iterator.hasNext()) {
                                 ((AbstractStorage) iterator.next()).flushTransactions();
@@ -179,6 +168,59 @@ public class Kernel {
         new Thread(mainRunnable).start();
 
 
+        // Construct the query pipe. The exit value is used to determine if the
+        // query pipe was successfully created.
+        try {
+            int exitValue1 = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
+            if (exitValue1 != 0) {
+                errorStream.println("Error creating query pipes!");
+            } else {
+                Runnable queryThread = new Runnable() {
+
+                    public void run() {
+                        try {
+                            BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
+                            while (!shutdown) {
+                                if (queryInputStream.ready()) {
+                                    String line = queryInputStream.readLine();
+                                    if (line != null) {
+                                        try {
+                                            String[] queryTokens = line.split("\\s", 2);
+                                            // Only accept query commands from this pipe
+                                            // The second argument in the query command is used to specify the
+                                            // output for this query (i.e., a file or a pipe). This argument is
+                                            // stripped from the query string and is passed as a separate argument
+                                            // to the queryCommand() as the output stream.
+                                            PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[0]));
+                                            if (queryTokens.length == 1) {
+                                                showQueryCommands(queryOutputStream);
+                                            } else if (queryTokens[1].startsWith("query ")) {
+                                                queryCommand(queryTokens[1], queryOutputStream);
+                                            } else {
+                                                showQueryCommands(queryOutputStream);
+                                            }
+                                            queryOutputStream.close();
+                                        } catch (Exception exception) {
+                                        }
+                                    }
+                                }
+                                Thread.sleep(10);
+                            }
+                        } catch (Exception exception) {
+                            exception.printStackTrace(errorStream);
+                        }
+                    }
+                };
+                new Thread(queryThread).start();
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace(errorStream);
+        }
+
+        // This thread creates the input and output pipes used for control (and also used
+        // by the control client). The exit value is used to determine if the pipes were
+        // successfully created. The input pipe (to which commands are issued) is read in
+        // a loop and the commands are processed.
         Runnable daemonRunnable = new Runnable() {
 
             public void run() {
@@ -190,21 +232,21 @@ public class Kernel {
                     } else {
                         outputStream.println("");
                         outputStream.println("SPADE 2.0 Kernel");
-                        outputStream.println("");
 
                         configCommand("config load " + configFile);
-                        outputStream.println("");
 
                         BufferedReader controlInputStream = new BufferedReader(new FileReader(controlPipeInputPath));
                         PrintStream controlOutputStream = new PrintStream(new FileOutputStream(controlPipeOutputPath));
                         outputStream = controlOutputStream;
                         errorStream = controlOutputStream;
                         while (true) {
-                            // String line = commandReader.readLine("-> ");
-                            String line = controlInputStream.readLine();
-                            if (executeCommand(line) == false) {
-                                break;
+                            if (controlInputStream.ready()) {
+                                String line = controlInputStream.readLine();
+                                if ((line != null) && (executeCommand(line) == false)) {
+                                    break;
+                                }
                             }
+                            Thread.sleep(10);
                         }
                     }
                 } catch (Exception exception) {
@@ -215,9 +257,12 @@ public class Kernel {
         new Thread(daemonRunnable).start();
     }
 
+    // All command strings are passed to this function which subsequently calls the
+    // correct method based on the command. Each command is determined by the first
+    // token in the string.
     public static boolean executeCommand(String line) {
         String command = line.split("\\s")[0];
-        if (command.equalsIgnoreCase("exit")) {
+        if (command.equalsIgnoreCase("shutdown")) {
             configCommand("config save " + configFile);
             Iterator itp = reporters.iterator();
             outputStream.print("Shutting down reporters... ");
@@ -250,6 +295,8 @@ public class Kernel {
         }
     }
 
+    // The configCommand is used to load or save the current SPADE configuration
+    // from/to a file.
     public static void configCommand(String line) {
         String[] tokens = line.split("\\s");
         try {
@@ -284,10 +331,13 @@ public class Kernel {
                 throw new Exception();
             }
         } catch (Exception configCommandException) {
-            outputStream.println("Usage: config load|save <filename>");
+            // outputStream.println("Usage: config load|save <filename>");
         }
     }
 
+    // The queryCommand is used to call query methods on the desired storage. The
+    // transactions are also flushed to ensure that the data in the storages is
+    // consistent and updated with all the data received by SPADE up to this point.
     public static void queryCommand(String line, PrintStream output) {
         flushTransactions = true;
         while (flushTransactions) {
@@ -370,6 +420,15 @@ public class Kernel {
         outputStream.println("       remove filter <index>");
         outputStream.println("       list reporters|storages|filters|all");
         outputStream.println("       config load|save <filename>");
+        outputStream.println("       exit");
+        outputStream.println("       shutdown");
+    }
+
+    public static void showQueryCommands(PrintStream outputStream) {
+        outputStream.println("Available commands:");
+        outputStream.println("       query <class name> vertices <expression>");
+        outputStream.println("       query <class name> lineage <vertex id> <depth> <direction> <terminating expression> <output file>");
+        outputStream.println("       query <class name> paths <source vertex id> <destination vertex id> <max length> <output file>");
         outputStream.println("       exit");
     }
 
@@ -616,7 +675,7 @@ class FinalCommitFilter extends AbstractFilter {
         while (iterator.hasNext()) {
             ((AbstractStorage) iterator.next()).putVertex(incomingVertex);
         }
-        sketchManager.processVertex(incomingVertex);
+        sketchManager.putVertex(incomingVertex);
     }
 
     @Override
@@ -625,6 +684,6 @@ class FinalCommitFilter extends AbstractFilter {
         while (iterator.hasNext()) {
             ((AbstractStorage) iterator.next()).putEdge(incomingEdge);
         }
-        sketchManager.processEdge(incomingEdge);
+        sketchManager.putEdge(incomingEdge);
     }
 }
