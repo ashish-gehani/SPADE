@@ -24,6 +24,9 @@ import java.util.Iterator;
 
 public abstract class AbstractEdge {
 
+    // The AbstractEdge class is from which other edge classes (e.g., OPM edges)
+    // are derived.
+
     protected String edgeType;
     protected Map<String, String> annotations;
 
@@ -66,6 +69,11 @@ public abstract class AbstractEdge {
         this.edgeType = edgeType;
     }
 
+    // The following functions that get and set source and destination vertices
+    // are left empty in this abstract class - they are overridden and implemented
+    // in derived classes since the source and destination vertex types may be
+    // specific to those classes.
+
     public AbstractVertex getSrcVertex() {
         return null;
     }
@@ -81,6 +89,10 @@ public abstract class AbstractEdge {
     public void setDstVertex(AbstractVertex destinationVertex) {
         return;
     }
+
+    // The toString method is used to generate a single string of all the annotations
+    // separated by commas. This is used in some storages (i.e., currently by Graphviz)
+    // and may also be used by visualizations (work in progress).
 
     @Override
     public String toString() {
