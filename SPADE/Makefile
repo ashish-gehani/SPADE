@@ -2,7 +2,8 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 240
+REVISION = 281
+JAVAHOME := $(shell cd src;java JavaHome)
 
 # Build everything.
 all:	svn-spade svn-pipe build-spade build-neo4j build-pipe
@@ -94,16 +95,16 @@ build-linuxaudit:
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
 	cd src;\
-	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java
-	javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE
-	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I/usr/java/jdk1.6.0_21/include -I/usr/java/jdk1.6.0_21/include/linux -L. -ljvm -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so
+	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java;\
+	javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE;\
+	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I$(JAVAHOME)/../include -I$(JAVAHOME)/../include/linux -L. -ljvm -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so;\
 
 # Build the MacFUSE reporter.
 build-macfuse:
 	cd src;\
-	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java
-	javah -o spade/reporter/spade_reporter_MacFUSE.h spade.reporter.MacFUSE
-	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/spade_reporter_MacFUSE.c -o libspadeMacFUSE.jnilib
+	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java;\
+	javah -o spade/reporter/spade_reporter_MacFUSE.h spade.reporter.MacFUSE;\
+	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/spade_reporter_MacFUSE.c -o libspadeMacFUSE.jnilib;\
 
 # Build the Lsof reporter.
 build-lsof:
