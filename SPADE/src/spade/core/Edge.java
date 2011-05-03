@@ -24,6 +24,8 @@ import java.util.Map;
 
 public class Edge extends AbstractEdge {
 
+    // A general-purpose, semantic-agnostic implementation of the Edge class.
+
     private Vertex sourceVertex;
     private Vertex destinationVertex;
 

@@ -23,44 +23,65 @@ import java.util.Set;
 
 public abstract class AbstractStorage {
 
+    // All the methods in this class must be overridden by custom-implemented
+    // storages.
+
     public String arguments;
 
+    // This method must return true to indicate that the storage was
+    // succsessfully initialized.
     public boolean initialize(String arguments) {
         return false;
     }
 
+    // This method must return true to indicate that the storage was shut
+    // down successfully.
     public boolean shutdown() {
         return true;
     }
 
+    // This method is triggered when the storage receives a vertex.
     public boolean putVertex(AbstractVertex incomingVertex) {
         return false;
     }
 
+    // This method is triggered when the storage receives an edge.
     public boolean putEdge(AbstractEdge incomingEdge) {
         return false;
     }
 
+    // This method is triggered by the Kernel to flush transactions.
     public boolean flushTransactions() {
         return true;
     }
 
+    // Query method that returns a set of vertices based on a given expression.
     public Set<AbstractVertex> getVertices(String expression) {
         return null;
     }
 
+    // Query method that returns a set of edges given expressions for the edge,
+    // the source vertex and the destination vertex.
     public Set<AbstractEdge> getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
         return null;
     }
 
+    // Query method that returns a set of edges given the source and destination
+    // vertex identifiers.
     public Set<AbstractEdge> getEdges(String srcVertexId, String dstVertexId) {
         return null;
     }
 
+    // Query method that returns a graph object containing all paths from the given
+    // source vertex to the given destination vertex, contrained by the maxLength
+    // argument as the maximum length of the paths.
     public Graph getPaths(String srcVertexId, String dstVertexId, int maxLength) {
         return null;
     }
 
+    // Query method that returns a graph object containing the lineage of a given
+    // vertex. The controlling parameters for the lineage are depth and direction
+    // along with an optional expression for terminating on vertices.
     public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
         return null;
     }

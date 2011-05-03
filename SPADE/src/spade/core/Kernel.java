@@ -243,6 +243,7 @@ public class Kernel {
                             if (controlInputStream.ready()) {
                                 String line = controlInputStream.readLine();
                                 if ((line != null) && (executeCommand(line) == false)) {
+                                    outputStream.println("Shutting down...");
                                     break;
                                 }
                             }
@@ -263,10 +264,14 @@ public class Kernel {
     public static boolean executeCommand(String line) {
         String command = line.split("\\s")[0];
         if (command.equalsIgnoreCase("shutdown")) {
+            // On shutdown, save the current configuration in the default configuration
+            // file.
             configCommand("config save " + configFile);
             Iterator itp = reporters.iterator();
             outputStream.print("Shutting down reporters... ");
             while (itp.hasNext()) {
+                // Iterate through the set of reporters and shut them all down. After
+                // this, their buffers are flushed and then the storages are shut down.
                 AbstractReporter reporter = (AbstractReporter) itp.next();
                 reporter.shutdown();
             }
@@ -412,6 +417,9 @@ public class Kernel {
         }
     }
 
+    // Method to display control commands to the output stream. The control and query
+    // commands are displayed using separate methods since these commands are issued
+    // from different shells.
     public static void showCommands() {
         outputStream.println("Available commands:");
         outputStream.println("       add reporter|storage <class name> <initialization arguments>");
@@ -424,6 +432,7 @@ public class Kernel {
         outputStream.println("       shutdown");
     }
 
+    // Method to display query commands to the given output stream.
     public static void showQueryCommands(PrintStream outputStream) {
         outputStream.println("Available commands:");
         outputStream.println("       query <class name> vertices <expression>");
@@ -455,6 +464,7 @@ public class Kernel {
         try {
             if (tokens[1].equalsIgnoreCase("reporters")) {
                 if (reporters.isEmpty()) {
+                    // Nothing to list if the set of reporters is empty.
                     outputStream.println("No reporters added");
                     return;
                 }
@@ -462,6 +472,7 @@ public class Kernel {
                 Iterator iterator = reporters.iterator();
                 int count = 1;
                 while (iterator.hasNext()) {
+                    // Iterate through the set of reporters, printing their names and arguments.
                     AbstractReporter reporter = (AbstractReporter) iterator.next();
                     String arguments = reporter.arguments;
                     outputStream.println("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
@@ -469,6 +480,7 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("storages")) {
                 if (storages.isEmpty()) {
+                    // Nothing to list if the set of storages is empty.
                     outputStream.println("No storages added");
                     return;
                 }
@@ -476,6 +488,7 @@ public class Kernel {
                 Iterator iterator = storages.iterator();
                 int count = 1;
                 while (iterator.hasNext()) {
+                    // Iterate through the set of storages, printing their names and arguments.
                     AbstractStorage storage = (AbstractStorage) iterator.next();
                     String arguments = storage.arguments;
                     outputStream.println("\t" + count + ". " + storage.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
@@ -483,11 +496,18 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("filters")) {
                 if (filters.size() == 1) {
+                    // The size of the filters list will always be at least 1 because
+                    // of the FinalCommitFilter. The user is not made aware of the
+                    // presence of this filter and it is only used for committing
+                    // provenance data to the storages. Therefore, there is nothing
+                    // to list if the size of the filters list is 1.
                     outputStream.println("No filters added");
                     return;
                 }
                 outputStream.println((filters.size() - 1) + " filter(s) added:");
                 for (int i = 0; i < filters.size() - 1; i++) {
+                    // Loop through the filters list, printing their names (except
+                    // for the last FinalCommitFilter).
                     outputStream.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
                 }
             } else if (tokens[1].equalsIgnoreCase("all")) {
@@ -509,14 +529,21 @@ public class Kernel {
                 boolean found = false;
                 Iterator iterator = reporters.iterator();
                 while (iterator.hasNext()) {
+                    // Iterate through the set of reporters until one is found which
+                    // matches the given argument by its name.
                     AbstractReporter reporter = (AbstractReporter) iterator.next();
                     if (reporter.getClass().getName().equals("spade.reporter." + tokens[2])) {
+                        // Mark the reporter for removal by adding it to the removereporters set.
+                        // This will enable the main SPADE thread to cleanly flush the reporter
+                        // buffer and remove it.
                         removereporters.add(reporter);
                         found = true;
                         outputStream.print("Shutting down reporter " + tokens[2] + "... ");
                         while (removereporters.contains(reporter)) {
-                            // wait for other thread to safely remove reporter
+                            // Wait for other thread to safely remove reporter
                         }
+                        // reporterStrings and reporterCompletor are only used for tab completion
+                        // in the command terminal.
                         reporterStrings.remove(tokens[2]);
                         reporterCompletor.setCandidateStrings(new String[]{});
                         for (int i = 0; i < reporterStrings.size(); i++) {
@@ -532,14 +559,21 @@ public class Kernel {
                 boolean found = false;
                 Iterator iterator = storages.iterator();
                 while (iterator.hasNext()) {
+                    // Iterate through the set of storages until one is found which
+                    // matches the given argument by its name.
                     AbstractStorage storage = (AbstractStorage) iterator.next();
                     if (storage.getClass().getName().equals("spade.storage." + tokens[2])) {
+                        // Mark the storage for removal by adding it to the removestorages set.
+                        // This will enable the main SPADE thread to safely commit any transactions
+                        // and then remove the storage.
                         removestorages.add(storage);
                         found = true;
                         outputStream.print("Shutting down storage " + tokens[2] + "... ");
                         while (removestorages.contains(storage)) {
-                            // wait for other thread to safely remove storage
+                            // Wait for other thread to safely remove storage
                         }
+                        // storageStrings and storageCompletor are only used for tab completion
+                        // in the command terminal.
                         storageStrings.remove(tokens[2]);
                         storageCompletor.setCandidateStrings(new String[]{});
                         for (int i = 0; i < storageStrings.size(); i++) {
@@ -552,6 +586,7 @@ public class Kernel {
                     outputStream.println("Storage " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("filter")) {
+                // Filter removal is done by the index number (beginning from 1).
                 int index = Integer.parseInt(tokens[2]);
                 if ((index <= 0) || (index >= filters.size())) {
                     outputStream.println("Error: Unable to remove filter - bad index");
@@ -560,6 +595,9 @@ public class Kernel {
                 String filterName = filters.get(index - 1).getClass().getName();
                 outputStream.print("Removing filter " + filterName.split("\\.")[2] + "... ");
                 if (index > 1) {
+                    // Update the internal links between filters by calling the setNextFilter
+                    // method on the filter just before the one being removed. The (index-1)
+                    // check is used because this method is not to be called on the first filter.
                     ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
                 }
                 filters.remove(index - 1);
@@ -576,11 +614,17 @@ public class Kernel {
 
     public static void addReporter(String classname, String arguments) {
         try {
+            // Get the reporter by classname and create a new instance.
             AbstractReporter reporter = (AbstractReporter) Class.forName("spade.reporter." + classname).newInstance();
             outputStream.print("Adding reporter " + classname + "... ");
+            // Create a new buffer and allocate it to this reporter.
             Buffer buffer = new Buffer();
             reporter.setBuffer(buffer);
             if (reporter.launch(arguments)) {
+                // The launch() method must return true to indicate a successful launch.
+                // On true, the reporter is added to the reporters set and the buffer
+                // is put into a HashMap keyed by the reporter (this is used by the main
+                // SPADE thread to extract buffer elements).
                 reporter.arguments = arguments;
                 buffers.put(reporter, buffer);
                 reporters.add(reporter);
@@ -601,9 +645,12 @@ public class Kernel {
 
     public static void addStorage(String classname, String arguments) {
         try {
+            // Get the storage by classname and create a new instance.
             AbstractStorage storage = (AbstractStorage) Class.forName("spade.storage." + classname).newInstance();
             outputStream.print("Adding storage " + classname + "... ");
             if (storage.initialize(arguments)) {
+                // The initialize() method must return true to indicate successful startup.
+                // On true, the storage is added to the storages set.
                 storage.arguments = arguments;
                 storages.add(storage);
                 storageStrings.add(classname);
@@ -623,16 +670,23 @@ public class Kernel {
 
     public static void addFilter(String classname, String arguments) {
         try {
+            // Get the filter by classname and create a new instance.
             AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
+            // The argument is the index at which the filter is to be inserted.
             int index = Integer.parseInt(arguments);
             if (index >= filters.size()) {
                 throw new Exception();
             }
+            // Set the next filter of this newly added filter.
             filter.setNextFilter((AbstractFilter) filters.get(index));
             if (index > 0) {
+                // If the newly added filter is not the first in the list, then
+                // then configure the previous filter in the list to point to this
+                // newly added filter as its next.
                 ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
             }
             outputStream.print("Adding filter " + classname + "... ");
+            // Add filter to the list.
             filters.add(index, filter);
             outputStream.println("done");
         } catch (Exception addFilterException) {
@@ -645,14 +699,15 @@ public class Kernel {
         Iterator iterator = storages.iterator();
         outputStream.print("Shutting down storages... ");
         while (iterator.hasNext()) {
+            // Shut down all storages.
             AbstractStorage storage = (AbstractStorage) iterator.next();
             storage.shutdown();
         }
         outputStream.println("done");
         outputStream.println("Terminating kernel...\n");
         try {
-            Runtime.getRuntime().exec("rm -f " + queryPipeInputPath).waitFor();
-            Runtime.getRuntime().exec("rm -f " + controlPipeInputPath + " " + controlPipeOutputPath).waitFor();
+            // Remove the control and query pipes.
+            Runtime.getRuntime().exec("rm -f " + controlPipeInputPath + " " + controlPipeOutputPath + " " + queryPipeInputPath).waitFor();
         } catch (Exception exception) {
             exception.printStackTrace(errorStream);
         }
@@ -662,12 +717,18 @@ public class Kernel {
 
 class FinalCommitFilter extends AbstractFilter {
 
+    // Reference to the set of storages maintained by the Kernel.
     private Set storages;
     public SketchManager sketchManager;
 
     public void setStorages(Set mainStorageSet) {
         storages = mainStorageSet;
     }
+
+    // This filter is the last filter in the list so any vertices or edges
+    // received by it need to be passed to the storages. On receiving any
+    // provenance elements, iterate through the set of storages and pass
+    // the element to each storage.
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {

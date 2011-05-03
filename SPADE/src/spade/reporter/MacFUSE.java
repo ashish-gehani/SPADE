@@ -42,6 +42,8 @@ public class MacFUSE extends AbstractReporter {
     public native int launchFUSE(String argument);
 
     public Process createProcessVertex(String pid) {
+        // Create the process vertex and populate annotations with information
+        // retrieved using the ps utility.
         Process processVertex = new Process();
         try {
             String line = "";
@@ -76,11 +78,13 @@ public class MacFUSE extends AbstractReporter {
             }
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
+            return null;
         }
         return processVertex;
     }
 
     private void buildProcessTree() {
+        // Recursively build the process tree using the ps utility.
         try {
             String line = "";
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
@@ -95,9 +99,13 @@ public class MacFUSE extends AbstractReporter {
                 line = pidreader.readLine().trim();
                 String childinfo[] = line.split("\\s+", 3);
                 if (childinfo[2].equals("ps")) {
+                    // Break when we encounter the ps utility itself.
                     break;
                 }
                 Process tempVertex = createProcessVertex(childinfo[0]);
+                if (tempVertex == null) {
+                    continue;
+                }
                 String ppid = (String) tempVertex.getAnnotation("ppid");
                 putVertex(tempVertex);
                 localCache.put(tempVertex.getAnnotation("pid"), tempVertex);
@@ -113,22 +121,29 @@ public class MacFUSE extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
+        // The argument to this reporter is the mount point for FUSE.
         mountPoint = arguments;
         localCache = new HashMap<String, AbstractVertex>();
         links = new HashMap<String, String>();
 
+        // Create a new directory as the mount point for FUSE.
         File mount = new File(mountPoint);
         if (mount.exists()) {
             return false;
         } else {
             try {
-                Runtime.getRuntime().exec("mkdir " + mountPoint);
+                int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
+                if (exitValue != 0) {
+                    System.err.println("Error creating mount point!");
+                    throw new Exception();
+                }
             } catch (Exception exception) {
                 exception.printStackTrace(System.err);
                 return false;
             }
         }
 
+        // Load the native library.
         System.loadLibrary("spadeMacFUSE");
         buildProcessTree();
 
@@ -136,6 +151,7 @@ public class MacFUSE extends AbstractReporter {
 
             public void run() {
                 try {
+                    // Launch FUSE from the native library.
                     launchFUSE(mountPoint);
                 } catch (Exception exception) {
                     exception.printStackTrace(System.err);
@@ -148,12 +164,18 @@ public class MacFUSE extends AbstractReporter {
     }
 
     public void checkProcessTree(String pid) {
+        // Check the process tree to ensure that the given PID exists in it. If not,
+        // then add it and recursively check its parents so that this process
+        // eventually joins the main process tree.
         try {
             while (true) {
                 if (localCache.get(pid) != null) {
                     return;
                 }
                 Process tempVertex = createProcessVertex(pid);
+                if (tempVertex == null) {
+                    continue;
+                }
                 String ppid = (String) tempVertex.getAnnotation("ppid");
                 putVertex(tempVertex);
                 localCache.put(tempVertex.getAnnotation("pid"), tempVertex);
@@ -166,12 +188,12 @@ public class MacFUSE extends AbstractReporter {
                 }
             }
         } catch (Exception exception) {
-//            exception.printStackTrace(System.err);
         }
         return;
     }
 
     public void readwrite(int write, int pid, int iotime, String path) {
+        // Create the file artifact and populate the annotations with file information.
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
         File file = new File(path);
@@ -187,6 +209,7 @@ public class MacFUSE extends AbstractReporter {
             tempVertex.addAnnotation("lastmodified_simple", lastmodified_readable);
         }
         putVertex(tempVertex);
+        // Put the file artifact in a local cache to be used later when creating edges.
         localCache.put(path, tempVertex);
         AbstractEdge tempEdge = null;
         if (write == 0) {
@@ -199,6 +222,8 @@ public class MacFUSE extends AbstractReporter {
         }
         tempEdge.addAnnotation("endtime", Long.toString(now));
         putEdge(tempEdge);
+        // If the given path represents a link, then perform the same operation on the
+        // artifact to which the link points.
         if (links.containsKey(path)) {
             readwrite(write, pid, iotime, links.get(path));
         }
@@ -213,6 +238,7 @@ public class MacFUSE extends AbstractReporter {
         tempEdge.addAnnotation("endtime", Long.toString(now));
         putEdge(tempEdge);
         if (links.containsKey(pathfrom)) {
+            // If the rename is on a link then update the link name.
             String linkedLocation = links.get(pathfrom);
             links.remove(pathfrom);
             links.put(pathto, linkedLocation);
@@ -235,9 +261,9 @@ public class MacFUSE extends AbstractReporter {
     @Override
     public boolean shutdown() {
         try {
-            Runtime.getRuntime().exec("fusermount -u -z " + mountPoint);
-            Thread.sleep(500);
-            Runtime.getRuntime().exec("rm -r " + mountPoint);
+            // Force dismount of FUSE and then remove the mount point directory.
+            Runtime.getRuntime().exec("umount -f " + mountPoint).waitFor();
+            Runtime.getRuntime().exec("rm -r " + mountPoint).waitFor();
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);

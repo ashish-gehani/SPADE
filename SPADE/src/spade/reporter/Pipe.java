@@ -45,6 +45,9 @@ public class Pipe extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
+        // The Pipe reporter creates a simple named pipe to which provenance events
+        // can be written. The argument to the launch method is the location of the
+        // pipe.
         vertices = new HashMap();
         pipePath = arguments;
         File checkpipe = new File(pipePath);
@@ -52,24 +55,26 @@ public class Pipe extends AbstractReporter {
             return false;
         } else {
             try {
-                Runtime.getRuntime().exec("mkfifo " + pipePath);
+                int exitValue = Runtime.getRuntime().exec("mkfifo " + pipePath).waitFor();
+                if (exitValue != 0) {
+                    System.err.println("Error creating pipe!");
+                    return false;
+                }
                 Runnable eventThread = new Runnable() {
 
                     public void run() {
                         try {
                             eventReader = new BufferedReader(new FileReader(pipePath));
-                            String line = eventReader.readLine();
-                            while (true) {
-                                if (shutdown) {
-                                    eventReader.close();
-                                    return;
+                            while (!shutdown) {
+                                if (eventReader.ready()) {
+                                    String line = eventReader.readLine();
+                                    if (line != null) {
+                                        parseEvent(line);
+                                    }
                                 }
-                                if (line != null) {
-                                    parseEvent(line);
-                                }
-                                line = eventReader.readLine();
-                                Thread.sleep(1);
+                                Thread.sleep(5);
                             }
+                            eventReader.close();
                         } catch (Exception exception) {
                             exception.printStackTrace(System.err);
                         }
@@ -86,6 +91,8 @@ public class Pipe extends AbstractReporter {
 
     private void parseEvent(String line) {
         try {
+            // Tokens are split on spaces not preceded by a backslash using
+            // a negative lookbehind in the regex.
             String[] tokens = line.split("(?<!\\\\) ");
             String id = null;
             String type = null;
@@ -93,8 +100,12 @@ public class Pipe extends AbstractReporter {
             String to = null;
             AbstractVertex vertex = null;
             AbstractEdge edge = null;
+            // Create an empty HashMap for annotations. We use a LinkedHashMap
+            // to preserve order of annotations.
             LinkedHashMap annotations = new LinkedHashMap();
             for (int i = 0; i < tokens.length; i++) {
+                // Check if the key is one of the keywords, otherwise treat it as
+                // an annotation.
                 if (getKey(tokens[i]).equalsIgnoreCase("id")) {
                     id = getValue(tokens[i]);
                 } else if (getKey(tokens[i]).equalsIgnoreCase("type")) {
@@ -107,12 +118,14 @@ public class Pipe extends AbstractReporter {
                     annotations.put(getKey(tokens[i]), getValue(tokens[i]));
                 }
             }
+            // Instantiate object based on the type and associate annotations to it.
             if (type.equalsIgnoreCase("process")) {
                 vertex = new Process(annotations);
             } else if (type.equalsIgnoreCase("artifact")) {
                 vertex = new Artifact(annotations);
             } else if (type.equalsIgnoreCase("agent")) {
                 vertex = new Agent(annotations);
+            // Create edges and also check if the 'from' and 'to' values are valid.
             } else if ((type.equalsIgnoreCase("used")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Artifact)) {
                     edge = new Used((Process) vertices.get(from), (Artifact) vertices.get(to), annotations);
@@ -134,6 +147,7 @@ public class Pipe extends AbstractReporter {
                     edge = new WasDerivedFrom((Artifact) vertices.get(from), (Artifact) vertices.get(to), annotations);
                 }
             }
+            // Finally, pass vertex or edge to buffer.
             if ((id != null) && (vertex != null)) {
                 vertices.put(id, vertex);
                 putVertex(vertex);
@@ -146,10 +160,14 @@ public class Pipe extends AbstractReporter {
     }
 
     private String getKey(String token) {
+        // Return the key after removing escaping backslashes. The backslashes
+        // are detected using positive lookbehind.
         return token.split("(?<!\\\\):")[0].replaceAll("\\\\(?=[: ])", "");
     }
 
     private String getValue(String token) {
+        // Return the value after removing escaping backslashes. The backslashes
+        // are detected using positive lookbehind.
         return token.split("(?<!\\\\):")[1].replaceAll("\\\\(?=[: ])", "");
     }
 
@@ -157,7 +175,8 @@ public class Pipe extends AbstractReporter {
     public boolean shutdown() {
         shutdown = true;
         try {
-            Runtime.getRuntime().exec("rm -f " + pipePath);
+            // Remove the pipe created at startup.
+            Runtime.getRuntime().exec("rm -f " + pipePath).waitFor();
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);

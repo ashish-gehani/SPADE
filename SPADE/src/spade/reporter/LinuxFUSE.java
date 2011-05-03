@@ -41,9 +41,12 @@ public class LinuxFUSE extends AbstractReporter {
     private HashMap<String, String> links;
     private String mountPoint;
 
+    // The native launchFUSE method to start FUSE. The argument is the
+    // mount point.
     public native int launchFUSE(String argument);
 
     public void createProcessVertex(String pid, Process tempVertex) {
+        // The process vertex is created using the proc filesystem.
         try {
             BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
             String nameline = procReader.readLine();
@@ -103,7 +106,6 @@ public class LinuxFUSE extends AbstractReporter {
             tempVertex.addAnnotation("sessionid", stats[5]);
             tempVertex.addAnnotation("commandline", cmdline);
         } catch (Exception exception) {
-//            exception.printStackTrace(System.err);
         }
 
         try {
@@ -116,31 +118,38 @@ public class LinuxFUSE extends AbstractReporter {
                 tempVertex.addAnnotation("environment", environ);
             }
         } catch (Exception exception) {
-//            exception.printStackTrace(System.err);
         }
 
     }
 
     @Override
     public boolean launch(String arguments) {
+        // The argument to this reporter is the mount point for FUSE.
         mountPoint = arguments;
         localCache = new HashMap<String, AbstractVertex>();
         links = new HashMap<String, String>();
 
+        // Create a new directory as the mount point for FUSE.
         File mount = new File(mountPoint);
         if (mount.exists()) {
             return false;
         } else {
             try {
-                Runtime.getRuntime().exec("mkdir " + mountPoint);
+                int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
+                if (exitValue != 0) {
+                    System.err.println("Error creating mount point!");
+                    throw new Exception();
+                }
             } catch (Exception exception) {
                 exception.printStackTrace(System.err);
                 return false;
             }
         }
 
+        // Load the native library.
         System.loadLibrary("spadeLinuxFUSE");
 
+        // Get the system boot time from the proc filesystem.
         boottime = 0;
         try {
             BufferedReader boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
@@ -159,6 +168,8 @@ public class LinuxFUSE extends AbstractReporter {
             exception.printStackTrace(System.err);
         }
 
+        // Create an initial root vertex which will be used as the root of the
+        // process tree.
         Process rootVertex = new Process();
         rootVertex.addAnnotation("pidname", "System");
         rootVertex.addAnnotation("pid", "0");
@@ -175,6 +186,8 @@ public class LinuxFUSE extends AbstractReporter {
         File folder = new File(path);
         File[] listOfFiles = folder.listFiles();
 
+        // Build the process tree using the directories under /proc/. Directories
+        // which have a numeric name represent processes.
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isDirectory()) {
 
@@ -201,6 +214,7 @@ public class LinuxFUSE extends AbstractReporter {
 
             public void run() {
                 try {
+                    // Launch FUSE from the native library.
                     launchFUSE(mountPoint);
                 } catch (Exception exception) {
                     exception.printStackTrace(System.err);
@@ -213,6 +227,9 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     public void checkProcessTree(String pid) {
+        // Check the process tree to ensure that the given PID exists in it. If not,
+        // then add it and recursively check its parents so that this process
+        // eventually joins the main process tree.
         try {
             while (true) {
                 if (localCache.get(pid) != null) {
@@ -232,12 +249,12 @@ public class LinuxFUSE extends AbstractReporter {
                 }
             }
         } catch (Exception exception) {
-//            exception.printStackTrace(System.err);
         }
         return;
     }
 
     public void readwrite(int write, int pid, int iotime, String path) {
+        // Create the file artifact and populate the annotations with file information.
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
         File file = new File(path);
@@ -253,6 +270,7 @@ public class LinuxFUSE extends AbstractReporter {
             tempVertex.addAnnotation("lastmodified_simple", lastmodified_readable);
         }
         putVertex(tempVertex);
+        // Put the file artifact in a local cache to be used later when creating edges.
         localCache.put(path, tempVertex);
         AbstractEdge tempEdge = null;
         if (write == 0) {
@@ -265,6 +283,8 @@ public class LinuxFUSE extends AbstractReporter {
         }
         tempEdge.addAnnotation("endtime", Long.toString(now));
         putEdge(tempEdge);
+        // If the given path represents a link, then perform the same operation on the
+        // artifact to which the link points.
         if (links.containsKey(path)) {
             readwrite(write, pid, iotime, links.get(path));
         }
@@ -278,6 +298,7 @@ public class LinuxFUSE extends AbstractReporter {
         tempEdge.addAnnotation("endtime", Long.toString(now));
         putEdge(tempEdge);
         if (links.containsKey(pathfrom)) {
+            // If the rename is on a link then update the link name.
             String linkedLocation = links.get(pathfrom);
             links.remove(pathfrom);
             links.put(pathto, linkedLocation);
@@ -300,9 +321,9 @@ public class LinuxFUSE extends AbstractReporter {
     @Override
     public boolean shutdown() {
         try {
-            Runtime.getRuntime().exec("fusermount -u -z " + mountPoint);
-            Thread.sleep(500);
-            Runtime.getRuntime().exec("rm -r " + mountPoint);
+            // Force dismount of FUSE and then remove the mount point directory.
+            Runtime.getRuntime().exec("fusermount -u -z " + mountPoint).waitFor();
+            Runtime.getRuntime().exec("rm -r " + mountPoint).waitFor();
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);

@@ -25,7 +25,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  Compile with:
  
  javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE
- gcc -shared -Wl,-soname,libjfuse.so -I/usr/java/jdk1.6.0_21/include -I/usr/java/jdk1.6.0_21/include/linux -L. -ljvm -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_FUSE.c -o libjfuse.so
+ gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I/usr/java/jdk1.6.0_21/include -I/usr/java/jdk1.6.0_21/include/linux -L. -ljvm -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so
 
 --------------------------------------------------------------------------------
 */

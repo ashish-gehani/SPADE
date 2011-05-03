@@ -24,6 +24,9 @@ import java.util.Iterator;
 
 public abstract class AbstractVertex {
 
+    // The AbstractVertex class is from which other vertex classes (e.g., OPM
+    // vertices) are derived.
+
     protected String vertexType;
     protected Map<String, String> annotations;
 

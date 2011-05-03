@@ -53,6 +53,8 @@ public class ControlClient {
         shutdown = false;
 
         try {
+            // The input stream is to which commands are issued. This pipe is created
+            // by the Kernel on startup.
             SPADEControlIn = new PrintStream(new FileOutputStream(inputPath));
         } catch (Exception exception) {
             outputStream.println("Control pipes not ready!");
@@ -63,9 +65,13 @@ public class ControlClient {
 
             public void run() {
                 try {
+                    // This BufferedReader is connected to the output of the control
+                    // pipe which is also created by the Kernel on startup.
                     SPADEControlOut = new BufferedReader(new FileReader(outputPath));
                     while (!shutdown) {
                         if (SPADEControlOut.ready()) {
+                            // This thread keeps reading from the output pipe and
+                            // printing to the current output stream.
                             String outputLine = SPADEControlOut.readLine();
                             if (outputLine != null) {
                                 outputStream.println(outputLine);
@@ -86,6 +92,8 @@ public class ControlClient {
             outputStream.println("");
             outputStream.println("SPADE 2.0 Control Client");
             outputStream.println("");
+
+            // Set up command history and tab completion.
 
             ConsoleReader commandReader = new ConsoleReader();
             commandReader.getHistory().setHistoryFile(new File(historyFile));
@@ -122,6 +130,7 @@ public class ControlClient {
             while (true) {
                 String line = commandReader.readLine();
                 if (line.split("\\s")[0].equalsIgnoreCase("query")) {
+                    // Do not allow query commands from this control shell.
                     SPADEControlIn.println("");
                 } else if (line.equalsIgnoreCase("exit")) {
                     shutdown = true;
