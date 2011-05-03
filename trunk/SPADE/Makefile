@@ -2,11 +2,11 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 281
-JAVAHOME := $(shell cd src;java JavaHome)
+REVISION = 282
+JAVAHOME := $(shell cd src;java util/JavaHome)
 
 # Build everything.
-all:	svn-spade svn-pipe build-spade build-neo4j build-pipe
+all:	svn-spade svn-pipe svn-util build-spade build-neo4j build-pipe build-util
 
 # Download the external libraries that SPADE uses.
 svn-libraries:
@@ -16,6 +16,10 @@ svn-libraries:
 skeleton:
 	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/src/;\
 	svn update -r $(REVISION) --force --set-depth immediates src/spade/
+
+# Download the utilities.
+svn-util:
+	svn update -r $(REVISION) --force --set-depth infinity src/util/
 
 # Download the SPADE kernel.
 svn-core:
@@ -70,61 +74,66 @@ build-spade:
 	cd src;\
 	javac -cp '.:../lib/*' spade/core/*.java;
 
+# Build the utilities.
+build-util:
+	cd src;\
+	javac util/*.java;
+
 # Build the Neo4j storage.
 build-neo4j:
 	cd src;\
-	javac -cp '.:../lib/*' spade/storage/Neo4j.java
+	javac -cp '.:../lib/*' spade/storage/Neo4j.java;
 
 # Build the Pipe reporter.
 build-pipe:
 	cd src;\
-	javac -cp '.:../lib/*' spade/reporter/Pipe.java
+	javac -cp '.:../lib/*' spade/reporter/Pipe.java;
 
 # Build the OpenBSM reporter.
 build-openbsm:
 	cd src;\
-	javac -cp '.:../lib/*' spade/reporter/OpenBSM.java
-	gcc -o spade/reporter/spade_reporter_OpenBSM -lbsm spade/reporter/spade_reporter_OpenBSM.c
+	javac -cp '.:../lib/*' spade/reporter/OpenBSM.java;\
+	gcc -o spade/reporter/spade_reporter_OpenBSM -lbsm spade/reporter/spade_reporter_OpenBSM.c;
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
 	cd src;\
-	javac -cp '.:../lib/*' spade/reporter/LinuxAudit.java
-	gcc -o spade/reporter/spade_reporter_LinuxAudit spade/reporter/spade_reporter_LinuxAudit.c
+	javac -cp '.:../lib/*' spade/reporter/LinuxAudit.java;\
+	gcc -o spade/reporter/spade_reporter_LinuxAudit spade/reporter/spade_reporter_LinuxAudit.c;
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java;\
 	javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE;\
-	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I$(JAVAHOME)/../include -I$(JAVAHOME)/../include/linux -L. -ljvm -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so;\
+	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I$(JAVAHOME)/../include -I$(JAVAHOME)/../include/linux -L. -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so;
 
 # Build the MacFUSE reporter.
 build-macfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java;\
 	javah -o spade/reporter/spade_reporter_MacFUSE.h spade.reporter.MacFUSE;\
-	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/spade_reporter_MacFUSE.c -o libspadeMacFUSE.jnilib;\
+	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/spade_reporter_MacFUSE.c -o libspadeMacFUSE.jnilib;
 
 # Build the Lsof reporter.
 build-lsof:
 	cd src;\
-	javac -cp '.:../lib/*' spade/reporter/Lsof.java
+	javac -cp '.:../lib/*' spade/reporter/Lsof.java;
 
 # Run the SPADE kernel.
 start-spade:
 	cd src;\
-	java -cp '.:../lib/*' spade/core/Kernel
+	java -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel;
 
 # Run the control shell.
 start-control-shell:
 	cd src;\
-	java -cp '.:../lib/*' spade/core/ControlClient controlPipeIn controlPipeOut
+	java -cp '.:../lib/*' spade/core/ControlClient controlPipeIn controlPipeOut;
 
 # Run the query shell.
 start-query-shell:
 	cd src;\
-	java -cp '.:../lib/*' spade/core/QueryClient queryPipeIn queryPipeOut
+	java -cp '.:../lib/*' spade/core/QueryClient queryPipeIn queryPipeOut;
 
 # Remove all .class files.
 clean-class:
@@ -132,4 +141,4 @@ clean-class:
 
 # Remove everything except the Makefile.
 clean:
-	rm -rf lib src
+	rm -rf lib src;

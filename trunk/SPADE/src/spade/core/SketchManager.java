@@ -27,6 +27,7 @@ public class SketchManager {
     private HashMap<String, Sketch> remoteSketches;
 
     public SketchManager() {
+        localSketch = new Sketch();
         remoteSketches = new HashMap<String, Sketch>();
     }
 
@@ -50,8 +51,8 @@ public class SketchManager {
         return remoteSketches.get(host);
     }
 
-    public void getPath(String srcVertexId, String dstVertexId) {
-
+    public Graph getPath(String srcVertexId, String dstVertexId) {
+        return null;
     }
     
 }

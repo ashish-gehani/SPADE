@@ -55,15 +55,19 @@ public class OpenBSM extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
+        // The argument to the launch method is unused.
         processVertices = new HashMap();
         sentObjects = new HashSet();
         processTree = new HashSet();
         shutdown = false;
         buildProcessTree();
 
+        // Get the PID of SPADE (i.e., the current JavaVM) so that events generated
+        // by it can be ignored.
         javaPID = ManagementFactory.getRuntimeMXBean().getName().split("@")[0].trim();
 
         try {
+            // Launch the utility to start reading from the auditpipe.
             String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spade_reporter_OpenBSM"};
             pipeProcess = Runtime.getRuntime().exec(cmd);
             eventReader = new BufferedReader(new InputStreamReader(pipeProcess.getInputStream()));
@@ -72,16 +76,15 @@ public class OpenBSM extends AbstractReporter {
 
                 public void run() {
                     try {
-                        String line = eventReader.readLine();
-                        while (true) {
-                            if (shutdown) {
-                                break;
+                        while (!shutdown) {
+                            if (eventReader.ready()) {
+                                String line = eventReader.readLine();
+                                if (line != null) {
+                                    // Call the parseEvent method to parse the audit data.
+                                    parseEvent(line);
+                                }
                             }
-                            if (line != null) {
-                                parseEvent(line);
-                            }
-                            line = eventReader.readLine();
-                            Thread.sleep(1);
+                            Thread.sleep(5);
                         }
                         eventReader.close();
                         pipeProcess.destroy();
@@ -104,6 +107,7 @@ public class OpenBSM extends AbstractReporter {
     }
 
     private void buildProcessTree() {
+        // Build the process tree using the ps utility.
         Process parentVertex, childVertex;
         try {
             String line = "";
@@ -136,6 +140,8 @@ public class OpenBSM extends AbstractReporter {
     }
 
     private Artifact createFileVertex(String path) {
+        // Create a file artifact and use the stat utility to populate annotations.
+        // If stat fails then return a file artifact with limited annotations.
         try {
             Artifact fileArtifact = new Artifact();
             String[] filename = path.split("/");
@@ -178,6 +184,9 @@ public class OpenBSM extends AbstractReporter {
     }
 
     private Process getProcessVertex(String pid) {
+        // Use the ps utility to create a process vertex and add it to the current
+        // process tree. This is done recursively on the parent process to ensure
+        // completeness of the process tree.
         Process processVertex = (Process) processVertices.get(pid);
         if (processVertex != null) {
             return processVertex;
@@ -234,6 +243,8 @@ public class OpenBSM extends AbstractReporter {
     }
 
     private void parseEvent(String line) {
+        // This is the main loop that reads the audit data and tokenizes it to create
+        // provenance semantics.
         StringTokenizer tokenizer = new StringTokenizer(line, ",");
         int token_type = Integer.parseInt(tokenizer.nextToken());
 
@@ -438,12 +449,13 @@ public class OpenBSM extends AbstractReporter {
         }
     }
 
-    private void pushToBuffer(Object o) {
-        if (sentObjects.add(o)) {
-            if (o instanceof AbstractVertex) {
-                putVertex((AbstractVertex) o);
-            } else if (o instanceof AbstractEdge) {
-                putEdge((AbstractEdge) o);
+    private void pushToBuffer(Object incomingObject) {
+        // This method is used to push provenance objects to the reporter's buffer.
+        if (sentObjects.add(incomingObject)) {
+            if (incomingObject instanceof AbstractVertex) {
+                putVertex((AbstractVertex) incomingObject);
+            } else if (incomingObject instanceof AbstractEdge) {
+                putEdge((AbstractEdge) incomingObject);
             }
         }
     }

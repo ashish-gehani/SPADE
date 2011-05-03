@@ -24,22 +24,29 @@ public abstract class AbstractReporter {
     private Buffer internalBuffer;
     public String arguments;
 
+    // This method is called by the Kernel for configuration purposes.
     public void setBuffer(Buffer buffer) {
         internalBuffer = buffer;
     }
 
+    // This method is called by custom reporters.
     public boolean putVertex(AbstractVertex vertex) {
         return internalBuffer.putVertex(vertex);
     }
 
+    // This method is called by custom reporters.
     public boolean putEdge(AbstractEdge edge) {
         return internalBuffer.putEdge(edge);
     }
 
+    // This method is overridden when implementing custom reporters. It
+    // must return true to indicate a successful launch.
     public boolean launch(String arguments) {
         return false;
     }
 
+    // This method is overridden when implementing custom reporters. It
+    // must return true to indicate a successful shutdown of the reporter.
     public boolean shutdown() {
         return false;
     }

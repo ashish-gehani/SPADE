@@ -52,6 +52,7 @@ public class QueryClient {
         shutdown = false;
 
         try {
+            // Create the output pipe for queries.
             int exitValue = Runtime.getRuntime().exec("mkfifo " + outputPath).waitFor();
             if (exitValue != 0) {
                 throw new Exception();
@@ -66,9 +67,12 @@ public class QueryClient {
 
             public void run() {
                 try {
+                    // This BufferedReader is connected to the output pipe.
                     SPADEQueryOut = new BufferedReader(new FileReader(outputPath));
                     while (!shutdown) {
                         if (SPADEQueryOut.ready()) {
+                            // This thread keeps reading from the output pipe and
+                            // printing to the current output stream.
                             String outputLine = SPADEQueryOut.readLine();
                             if (outputLine != null) {
                                 outputStream.println(outputLine);
@@ -89,6 +93,8 @@ public class QueryClient {
             outputStream.println("SPADE 2.0 Query Client");
             outputStream.println("");
 
+            // Set up command history and tab completion.
+
             ConsoleReader commandReader = new ConsoleReader();
             commandReader.getHistory().setHistoryFile(new File(historyFile));
 
@@ -106,10 +112,14 @@ public class QueryClient {
                 try {
                     String line = commandReader.readLine();
                     if (line.equalsIgnoreCase("exit")) {
+                        // On shutdown, remove the output pipe created earlier.
                         shutdown = true;
                         Runtime.getRuntime().exec("rm -f " + outputPath).waitFor();
                         break;
                     } else {
+                        // The output path is embedded in each query sent to SPADE
+                        // as the first token of the query. This is to allow multiple
+                        // query clients to work simultaneously with SPADE.
                         SPADEQueryIn.println(outputPath + " " + line);
                     }
                 } catch (Exception exception) {

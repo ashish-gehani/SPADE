@@ -30,6 +30,9 @@ import java.util.Set;
 
 public class Graph {
 
+    // This class uses a set of vertices and a set of edges to represent the
+    // graph.
+
     private HashSet<AbstractVertex> vertexSet;
     private HashSet<AbstractEdge> edgeSet;
     public String details;
@@ -41,6 +44,8 @@ public class Graph {
     }
 
     public boolean putVertex(AbstractVertex inputVertex) {
+        // Add the vertex to the vertex set. If the vertex is a network vertex,
+        // then the networkTrigger() method is called.
         if (inputVertex.getAnnotation("type").equalsIgnoreCase("Network")) {
             networkTrigger(inputVertex);
         }
@@ -48,6 +53,7 @@ public class Graph {
     }
 
     public boolean putEdge(AbstractEdge inputEdge) {
+        // Add the edge to the edge set.
         return edgeSet.add(inputEdge);
     }
 
@@ -74,6 +80,9 @@ public class Graph {
         }
     }
 
+    // This method is used to create a new graph as an intersection of the two
+    // given input graphs. This is done simply by using set functions on the
+    // vertex and edge sets.
     public static Graph intersection(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
         HashSet vertices = new HashSet();
@@ -90,6 +99,9 @@ public class Graph {
         return resultGraph;
     }
 
+    // This method is used to create a new graph as a union of the two
+    // given input graphs. This is done simply by using set functions on the
+    // vertex and edge sets.
     public static Graph union(Graph inputLineage1, Graph inputLineage2) {
         Graph resultGraph = new Graph();
         HashSet vertices = new HashSet();
@@ -106,6 +118,8 @@ public class Graph {
         return resultGraph;
     }
 
+    // This method is used to export the graph to a given output stream. This is
+    // useful for sending graph information across the network.
     public void export(PrintStream outputStream) {
         Iterator vertexIterator = vertexSet().iterator();
         while (vertexIterator.hasNext()) {
@@ -156,6 +170,8 @@ public class Graph {
         }
     }
 
+    // This method is used to export the graph to a DOT file which is useful for
+    // visualization.
     public void exportDOT(String path) {
         try {
             spade.storage.Graphviz outputStorage = new spade.storage.Graphviz();
