@@ -2,8 +2,8 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 282
-JAVAHOME := $(shell cd src;java util/JavaHome)
+REVISION = 284
+JAVAHOME := $(shell cd src;javac util/JavaHome.java; java util/JavaHome)
 
 # Build everything.
 all:	svn-spade svn-pipe svn-util build-spade build-neo4j build-pipe build-util
@@ -123,7 +123,7 @@ build-lsof:
 # Run the SPADE kernel.
 start-spade:
 	cd src;\
-	java -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel;
+	java -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel nohup;
 
 # Run the control shell.
 start-control-shell:
