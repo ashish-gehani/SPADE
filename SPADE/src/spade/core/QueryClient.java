@@ -27,6 +27,7 @@ import java.io.PrintStream;
 import java.util.LinkedList;
 import java.util.List;
 import jline.ArgumentCompletor;
+import jline.Completor;
 import jline.ConsoleReader;
 import jline.MultiCompletor;
 import jline.NullCompletor;
@@ -98,11 +99,11 @@ public class QueryClient {
             ConsoleReader commandReader = new ConsoleReader();
             commandReader.getHistory().setHistoryFile(new File(historyFile));
 
-            List argCompletor7 = new LinkedList();
+            List<Completor> argCompletor7 = new LinkedList<Completor>();
             argCompletor7.add(new SimpleCompletor(new String[]{"query"}));
             argCompletor7.add(new NullCompletor());
 
-            List completors = new LinkedList();
+            List<Completor> completors = new LinkedList<Completor>();
             completors.add(new ArgumentCompletor(argCompletor7));
 
             commandReader.addCompletor(new MultiCompletor(completors));

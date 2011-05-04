@@ -27,6 +27,7 @@ import java.io.PrintStream;
 import java.util.LinkedList;
 import java.util.List;
 import jline.ArgumentCompletor;
+import jline.Completor;
 import jline.ConsoleReader;
 import jline.MultiCompletor;
 import jline.NullCompletor;
@@ -98,27 +99,27 @@ public class ControlClient {
             ConsoleReader commandReader = new ConsoleReader();
             commandReader.getHistory().setHistoryFile(new File(historyFile));
 
-            List argCompletor1 = new LinkedList();
+            List<Completor> argCompletor1 = new LinkedList<Completor>();
             argCompletor1.add(new SimpleCompletor(new String[]{"add"}));
             argCompletor1.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
             argCompletor1.add(new NullCompletor());
 
-            List argCompletor2 = new LinkedList();
+            List<Completor> argCompletor2 = new LinkedList<Completor>();
             argCompletor2.add(new SimpleCompletor(new String[]{"remove"}));
             argCompletor2.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
             argCompletor2.add(new NullCompletor());
 
-            List argCompletor5 = new LinkedList();
+            List<Completor> argCompletor5 = new LinkedList<Completor>();
             argCompletor5.add(new SimpleCompletor(new String[]{"list"}));
             argCompletor5.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all"}));
             argCompletor5.add(new NullCompletor());
 
-            List argCompletor7 = new LinkedList();
+            List<Completor> argCompletor7 = new LinkedList<Completor>();
             argCompletor7.add(new SimpleCompletor(new String[]{"config"}));
             argCompletor7.add(new SimpleCompletor(new String[]{"load", "save"}));
             argCompletor7.add(new NullCompletor());
 
-            List completors = new LinkedList();
+            List<Completor> completors = new LinkedList<Completor>();
             completors.add(new ArgumentCompletor(argCompletor1));
             completors.add(new ArgumentCompletor(argCompletor2));
             completors.add(new ArgumentCompletor(argCompletor5));

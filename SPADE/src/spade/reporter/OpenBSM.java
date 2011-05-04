@@ -42,9 +42,9 @@ public class OpenBSM extends AbstractReporter {
 
     private BufferedReader eventReader;
     private java.lang.Process pipeProcess;
-    private Map processVertices;
-    private Set sentObjects;
-    private Set processTree;
+    private Map<String, AbstractVertex> processVertices;
+    private Set<Integer> sentObjects;
+    private Set<String> processTree;
     private AbstractVertex tempVertex1, tempVertex2;
     private int current_event_id;
     private String currentEventTime;
@@ -56,9 +56,9 @@ public class OpenBSM extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
         // The argument to the launch method is unused.
-        processVertices = new HashMap();
-        sentObjects = new HashSet();
-        processTree = new HashSet();
+        processVertices = new HashMap<String, AbstractVertex>();
+        sentObjects = new HashSet<Integer>();
+        processTree = new HashSet<String>();
         shutdown = false;
         buildProcessTree();
 
@@ -451,7 +451,7 @@ public class OpenBSM extends AbstractReporter {
 
     private void pushToBuffer(Object incomingObject) {
         // This method is used to push provenance objects to the reporter's buffer.
-        if (sentObjects.add(incomingObject)) {
+        if (sentObjects.add(incomingObject.hashCode())) {
             if (incomingObject instanceof AbstractVertex) {
                 putVertex((AbstractVertex) incomingObject);
             } else if (incomingObject instanceof AbstractEdge) {

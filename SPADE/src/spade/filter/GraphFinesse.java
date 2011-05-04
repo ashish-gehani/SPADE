@@ -28,10 +28,10 @@ import java.util.Iterator;
 
 public class GraphFinesse extends AbstractFilter {
 
-    private HashMap edges;
+    private HashMap<AbstractVertex, HashSet<AbstractVertex>> edges;
 
     public GraphFinesse() {
-        edges = new HashMap();
+        edges = new HashMap<AbstractVertex, HashSet<AbstractVertex>>();
     }
 
     @Override
@@ -44,32 +44,32 @@ public class GraphFinesse extends AbstractFilter {
         AbstractVertex sourceVertex = incomingEdge.getSrcVertex();
         AbstractVertex destinationVertex = incomingEdge.getDstVertex();
         if (edges.containsKey(sourceVertex)) {
-            HashSet checkSet = (HashSet) edges.get(sourceVertex);
+            HashSet<AbstractVertex> checkSet = edges.get(sourceVertex);
             if (checkSet.contains(destinationVertex)) {
                 return;
             }
         }
 
         if (edges.get(destinationVertex) == null) {
-            HashSet tempSet = new HashSet();
+            HashSet<AbstractVertex> tempSet = new HashSet<AbstractVertex>();
             tempSet.add(sourceVertex);
             edges.put(destinationVertex, tempSet);
             if (edges.containsKey(sourceVertex)) {
-                HashSet copytempSet = (HashSet) edges.get(sourceVertex);
+                HashSet<AbstractVertex> copytempSet = edges.get(sourceVertex);
                 Iterator iterator = copytempSet.iterator();
                 while (iterator.hasNext()) {
-                    tempSet.add(iterator.next());
+                    tempSet.add((AbstractVertex)iterator.next());
                 }
             }
             putInNextFilter(incomingEdge);
         } else {
-            HashSet tempSet = (HashSet) edges.get(destinationVertex);
+            HashSet<AbstractVertex> tempSet = edges.get(destinationVertex);
             if (tempSet.add(sourceVertex)) {
                 if (edges.containsKey(sourceVertex)) {
-                    HashSet copytempSet = (HashSet) edges.get(sourceVertex);
+                    HashSet<AbstractVertex> copytempSet = edges.get(sourceVertex);
                     Iterator iterator = copytempSet.iterator();
                     while (iterator.hasNext()) {
-                        tempSet.add(iterator.next());
+                        tempSet.add((AbstractVertex)iterator.next());
                     }
                 }
                 putInNextFilter(incomingEdge);

@@ -19,6 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Buffer {
@@ -26,10 +27,10 @@ public class Buffer {
     // The buffer is essentially a queue to which vertices and edges are
     // added by the reporters and removed by the Kernel.
 
-    private ConcurrentLinkedQueue queue;
+    private Queue<Object> queue;
 
     public Buffer() {
-        queue = new ConcurrentLinkedQueue();
+        queue = new ConcurrentLinkedQueue<Object>();
     }
 
     public boolean putVertex(AbstractVertex incomingVertex) {
