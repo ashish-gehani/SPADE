@@ -19,6 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
+import spade.client.SketchManager;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
