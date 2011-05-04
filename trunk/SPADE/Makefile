@@ -2,11 +2,10 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 290
+REVISION = 291
 
 # Build everything.
-all:
-	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
+all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
 
 # Download the external libraries that SPADE uses.
 svn-libraries:
@@ -81,12 +80,12 @@ build-spade:
 # Build the utilities.
 build-utility:
 	cd src;\
-	javac spade/utility/*.java;
+	javac -cp '.:../lib/*' spade/utility/*.java;
 
 # Build the clients.
 build-client:
 	cd src;\
-	javac spade/client/*.java;
+	javac -cp '.:../lib/*' spade/client/*.java;
 
 # Build the Neo4j storage.
 build-neo4j:
