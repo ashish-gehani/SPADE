@@ -3,10 +3,10 @@
 
 # Last stable Subversion revision.
 REVISION = 287
-JAVAHOME := $(shell cd src;javac util/JavaHome.java; java util/JavaHome)
 
 # Build everything.
-all:	svn-spade svn-pipe svn-util build-spade build-neo4j build-pipe build-util
+all:
+	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
 
 # Download the external libraries that SPADE uses.
 svn-libraries:
@@ -18,8 +18,12 @@ skeleton:
 	svn update -r $(REVISION) --force --set-depth immediates src/spade/
 
 # Download the utilities.
-svn-util:
-	svn update -r $(REVISION) --force --set-depth infinity src/util/
+svn-utility:
+	svn update -r $(REVISION) --force --set-depth infinity src/spade/utility/
+
+# Download the clients.
+svn-client:
+	svn update -r $(REVISION) --force --set-depth infinity src/spade/client/
 
 # Download the SPADE kernel.
 svn-core:
@@ -75,9 +79,14 @@ build-spade:
 	javac -cp '.:../lib/*' spade/core/*.java;
 
 # Build the utilities.
-build-util:
+build-utility:
 	cd src;\
-	javac util/*.java;
+	javac spade/utility/*.java;
+
+# Build the clients.
+build-client:
+	cd src;\
+	javac spade/client/*.java;
 
 # Build the Neo4j storage.
 build-neo4j:
@@ -106,7 +115,7 @@ build-linuxfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java;\
 	javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE;\
-	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I$(JAVAHOME)/../include -I$(JAVAHOME)/../include/linux -L. -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so;
+	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I$(shell java spade/utility/JavaHome)/../include -I$(shell java spade/utility/JavaHome)/../include/linux -L. -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so;
 
 # Build the MacFUSE reporter.
 build-macfuse:
@@ -126,14 +135,14 @@ start-spade:
 	java -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel;
 
 # Run the control shell.
-start-control-shell:
+start-control-client:
 	cd src;\
-	java -cp '.:../lib/*' spade/core/ControlClient controlPipeIn controlPipeOut;
+	java -cp '.:../lib/*' spade/client/ControlClient controlPipeIn controlPipeOut;
 
 # Run the query shell.
-start-query-shell:
+start-query-client:
 	cd src;\
-	java -cp '.:../lib/*' spade/core/QueryClient queryPipeIn queryPipeOut;
+	java -cp '.:../lib/*' spade/client/QueryClient queryPipeIn queryPipeOut;
 
 # Remove all .class files.
 clean-class:
