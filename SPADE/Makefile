@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 284
+REVISION = 287
 JAVAHOME := $(shell cd src;javac util/JavaHome.java; java util/JavaHome)
 
 # Build everything.
