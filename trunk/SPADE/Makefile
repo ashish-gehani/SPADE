@@ -123,7 +123,7 @@ build-lsof:
 # Run the SPADE kernel.
 start-spade:
 	cd src;\
-	java -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel nohup;
+	java -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel;
 
 # Run the control shell.
 start-control-shell:

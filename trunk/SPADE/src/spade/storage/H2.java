@@ -32,12 +32,11 @@ import java.util.LinkedList;
 import java.util.Properties;
 import java.util.Queue;
 import java.util.Set;
-import org.jgrapht.graph.DefaultDirectedGraph;
-import org.hsqldb.*;
 import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Lineage;
+import spade.core.Graph;
+import spade.core.Vertex;
 import spade.opm.edge.Used;
 import spade.opm.edge.WasControlledBy;
 import spade.opm.edge.WasDerivedFrom;
@@ -48,6 +47,7 @@ import spade.opm.vertex.Artifact;
 import spade.opm.vertex.Process;
 
 public class H2 extends AbstractStorage {
+/*
 
     private HashMap<AbstractVertex, String> vertexCache;
     private Connection sqlConnection;
@@ -82,17 +82,7 @@ public class H2 extends AbstractStorage {
 
     private boolean checkDatabaseForAbstractVertex(AbstractVertex source) {
         boolean vertexExistsInDatabase = false;
-        String OPMObjectName = source.getVertexType();
-        String tableName = "";
-        if (OPMObjectName.equalsIgnoreCase("Process")) {
-            tableName = "PROCESS";
-        } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-            tableName = "ARTIFACT";
-        } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-            tableName = "AGENT";
-        } else {
-            return false;
-        }
+        String tableName = "VERTICES";
         String constraints = "";
         Iterator<String> annotationsKeysIterator = source.getAnnotations().keySet().iterator();
         while (annotationsKeysIterator.hasNext()) {
@@ -143,7 +133,7 @@ public class H2 extends AbstractStorage {
 
         //put vertex into the database
         String vertexType = incomingVertex.getVertexType();
-        String tableName = this.getAbstractVertexTable(incomingVertex);
+        String tableName = "VERTICES";
         if (tableName == null) {
             return false;
         }
@@ -254,7 +244,7 @@ public class H2 extends AbstractStorage {
                 //System.out.println("Hit1");
             } else {
 
-                String vertex1Table = getAbstractVertexTable(vsrc);
+                String vertex1Table = "VERTICES";
 
 
 
@@ -308,7 +298,7 @@ public class H2 extends AbstractStorage {
                 //System.out.println("Hit2");
             } else {
 
-                String vertex2Table = getAbstractVertexTable(vdst);
+                String vertex2Table = "VERTICES";
                 //find vertex id of first vertex
 
 
@@ -422,12 +412,8 @@ public class H2 extends AbstractStorage {
 
     private Connection dbConnect(String db_connect_string, Properties props) {
         try {
-
-            Class.forName("org.hsqldb.jdbc.JDBCDriver").newInstance();
-            Connection conn = DriverManager.getConnection("jdbc:hsqldb:file:testdb", "SA", "");
-
-//            Class.forName("org.h2.Driver").newInstance();
-//            Connection conn = DriverManager.getConnection(db_connect_string, props);
+            Class.forName("org.h2.Driver").newInstance();
+            Connection conn = DriverManager.getConnection(db_connect_string, props);
 
             return conn;
 
@@ -481,45 +467,23 @@ public class H2 extends AbstractStorage {
             ResultSet checkResult = stmt.executeQuery(check);
 
             if (checkResult.next() == false) {
-                String vertexQuery = "CREATE TABLE " + tableName + " (VERTEXID INT PRIMARY KEY IDENTITY, VERTEXTYPE VARCHAR(50) NOT NULL, LINKEDVERTEXID INT NOT NULL)";
+                String vertexQuery = "CREATE TABLE " + tableName + " (VERTEXID INT(11) PRIMARY KEY AUTO_INCREMENT, VERTEXTYPE VARCHAR(50) NOT NULL, LINKEDVERTEXID INT(11) NOT NULL)";
                 boolean vertexResult = stmt.execute(vertexQuery);
             } else {
                 //System.out.println("table already there");
             }
 
             //make process table
-            tableName = "PROCESS";
+            tableName = "VERTICES";
             check = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='" + tableSchema + "' AND TABLE_NAME = '" + tableName + "'";
             checkResult = stmt.executeQuery(check);
 
             if (checkResult.next() == false) {
-                String processQuery = "CREATE TABLE " + tableName + "(ID INT PRIMARY KEY IDENTITY)";
+                String processQuery = "CREATE TABLE " + tableName + "(ID INT(11) PRIMARY KEY AUTO_INCREMENT)";
                 boolean processResult = stmt.execute(processQuery);
             } else {
                 //System.out.println("table already there");
             }
-
-            //make agent table
-            tableName = "AGENT";
-            check = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='" + tableSchema + "' AND TABLE_NAME = '" + tableName + "'";
-            checkResult = stmt.executeQuery(check);
-
-            if (checkResult.next() == false) {
-                String agentQuery = "CREATE TABLE " + tableName + "(ID INT PRIMARY KEY IDENTITY)";
-                boolean agentResult = stmt.execute(agentQuery);
-            }
-
-
-            //make file table
-            tableName = "ARTIFACT";
-            check = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='" + tableSchema + "' AND TABLE_NAME = '" + tableName + "'";
-            checkResult = stmt.executeQuery(check);
-
-            if (checkResult.next() == false) {
-                String fileQuery = "CREATE TABLE " + tableName + "(ID INT PRIMARY KEY IDENTITY)";
-                boolean fileResult = stmt.execute(fileQuery);
-            }
-
 
             //make edge table
 
@@ -528,7 +492,7 @@ public class H2 extends AbstractStorage {
             checkResult = stmt.executeQuery(check);
 
             if (checkResult.next() == false) {
-                String edgeQuery = "CREATE TABLE " + tableName + "(EDGEID INT PRIMARY KEY IDENTITY, SOURCEID INT NOT NULL, DESTINATIONID INT NOT NULL, EDGETYPE VARCHAR(50) NOT NULL, FOREIGN KEY (SOURCEID) REFERENCES VERTEX(VERTEXID),FOREIGN KEY (DESTINATIONID) REFERENCES VERTEX(VERTEXID))";
+                String edgeQuery = "CREATE TABLE " + tableName + "(EDGEID INT(11) PRIMARY KEY AUTO_INCREMENT, SOURCEID INT(11) NOT NULL, DESTINATIONID INT(11) NOT NULL, EDGETYPE VARCHAR(50) NOT NULL, FOREIGN KEY (SOURCEID) REFERENCES VERTEX(VERTEXID),FOREIGN KEY (DESTINATIONID) REFERENCES VERTEX(VERTEXID))";
                 boolean edgeResult = stmt.execute(edgeQuery);
             }
 
@@ -548,37 +512,14 @@ public class H2 extends AbstractStorage {
 
     private void checkSchemaForAbstractVertex(AbstractVertex v) {
         String vertexType = v.getVertexType();
-        if (vertexType.equalsIgnoreCase("Process")) {
             Set<String> cloumnNames = v.getAnnotations().keySet();
             Iterator<String> it = cloumnNames.iterator();
 
             while (it.hasNext()) {
 
-                this.checkandAddColumn(it.next(), "PROCESS");
+                this.checkandAddColumn(it.next(), "VERTICES");
 
             }
-
-        } else if (vertexType.equalsIgnoreCase("Agent")) {
-            Set<String> cloumnNames = v.getAnnotations().keySet();
-            Iterator<String> it = cloumnNames.iterator();
-
-            while (it.hasNext()) {
-
-                this.checkandAddColumn(it.next(), "AGENT");
-
-            }
-
-        } else if (vertexType.equalsIgnoreCase("Artifact")) {
-            Set<String> cloumnNames = v.getAnnotations().keySet();
-            Iterator<String> it = cloumnNames.iterator();
-
-            while (it.hasNext()) {
-
-                this.checkandAddColumn(it.next(), "ARTIFACT");
-
-            }
-
-        }
     }
 
     private void checkSchemaForAbstractEdge(AbstractEdge e) {
@@ -600,20 +541,6 @@ public class H2 extends AbstractStorage {
 
     }
 
-    private String getAbstractVertexTable(AbstractVertex v) {
-        String vertexType = v.getVertexType();
-        String tableName = "";
-        if (vertexType.equalsIgnoreCase("Process")) {
-            tableName = "PROCESS";
-        } else if (vertexType.equalsIgnoreCase("Artifact")) {
-            tableName = "ARTIFACT";
-        } else if (vertexType.equalsIgnoreCase("Agent")) {
-            tableName = "AGENT";
-        }
-
-        return tableName;
-    }
-
     // ============================================================================================
     //
     // BEGIN QUERY METHODS
@@ -621,62 +548,10 @@ public class H2 extends AbstractStorage {
     // ============================================================================================
     @Override
     public Set<AbstractVertex> getVertices(String expression) {
-        Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
-        Set<AbstractVertex> processes = this.getVertices(expression, "Process");
-        Set<AbstractVertex> agents = this.getVertices(expression, "Agent");
-        Set<AbstractVertex> artifacts = this.getVertices(expression, "Artifact");
-
-        if (processes != null) {
-            Iterator<AbstractVertex> processVertices = processes.iterator();
-            while (processVertices.hasNext()) {
-                vertices.add(processVertices.next());
-                //vertices.clear();
-            }
-        }
-        if (agents != null) {
-
-            Iterator<AbstractVertex> agentVertices = agents.iterator();
-            while (agentVertices.hasNext()) {
-                vertices.add(agentVertices.next());
-                //agentVertices.next();
-            }
-
-
-        }
-        if (artifacts != null) {
-
-            Iterator<AbstractVertex> artifactVertices = artifacts.iterator();
-            while (artifactVertices.hasNext()) {
-                vertices.add(artifactVertices.next());
-                //artifactVertices.next();
-            }
-
-        }
-
-        //System.out.println(vertices.size());
-        //System.out.println(processes.size()+agents.size()+artifacts.size());
-
-        return vertices;
-    }
-
-    private Set<AbstractVertex> getVertices(String expression, String OPMObjectName) {
 
         Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
         //set the sql table name depedenent on the OPM object type
-        String tableName = "";
-        int vertexType = -1;
-        if (OPMObjectName.equalsIgnoreCase("Process")) {
-            tableName = "PROCESS";
-            vertexType = 0;
-        } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-            tableName = "ARTIFACT";
-            vertexType = 1;
-        } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-            tableName = "AGENT";
-            vertexType = 2;
-        } else {
-            return null;
-        }
+        String tableName = "VERTICES";
 
         try {
             //first change the given boolean expression into SQL understandable form
@@ -706,8 +581,7 @@ public class H2 extends AbstractStorage {
             while (result.next()) {
 
                 //depending on vertex type, create the appropriate vertex object objects, create its annotations, and add it to Set we will return
-                if (vertexType == 0) {
-                    Process p = new Process();
+                    Vertex p = new Vertex();
                     HashMap<String, String> annotations = new HashMap<String, String>();
 
                     //iterate over the column names and add their values to the annotations
@@ -720,39 +594,6 @@ public class H2 extends AbstractStorage {
 
                     p.setAnnotations(annotations);
                     vertices.add(p);
-                } //same for artifact as process above
-                else if (vertexType == 1) {
-                    Artifact a = new Artifact();
-                    HashMap<String, String> annotations = new HashMap<String, String>();
-
-                    //iterate over the column names and add their values to the annotations
-                    Iterator<String> keyIterator = keySet.iterator();
-
-                    while (keyIterator.hasNext()) {
-                        String key = keyIterator.next();
-                        annotations.put(key, result.getString("C_" + key));
-                    }
-                    a.setAnnotations(annotations);
-                    //System.out.println(annotations);
-                    vertices.add(a);
-
-
-                } //and again for agent
-                else if (vertexType == 2) {
-
-                    Agent ag = new Agent();
-                    HashMap<String, String> annotations = new HashMap<String, String>();
-
-                    //iterate over the column names and add their values to the annotations
-                    Iterator<String> keyIterator = keySet.iterator();
-
-                    while (keyIterator.hasNext()) {
-                        String key = keyIterator.next();
-                        annotations.put(key, result.getString("C_" + key));
-                    }
-                    ag.setAnnotations(annotations);
-                    vertices.add(ag);
-                }
 
             }
 
@@ -815,29 +656,8 @@ public class H2 extends AbstractStorage {
             return null;
         }
         //get the two tables that need to be read for this particular edge type
-        String sourceTable;
-        String destinationTable;
-
-        //get the two tables
-        if (OPMObjectType.equalsIgnoreCase("Used")) {
-            sourceTable = "PROCESS";
-            destinationTable = "ARTIFACT";
-        } else if (OPMObjectType.equalsIgnoreCase("WasControlledBy")) {
-            sourceTable = "PROCESS";
-            destinationTable = "AGENT";
-        } else if (OPMObjectType.equalsIgnoreCase("WasDerivedFrom")) {
-            sourceTable = "ARTIFACT";
-            destinationTable = "ARTIFACT";
-        } else if (OPMObjectType.equalsIgnoreCase("WasGeneratedBy")) {
-            sourceTable = "ARTIFACT";
-            destinationTable = "PROCESS";
-        } else if (OPMObjectType.equalsIgnoreCase("WasTriggeredBy")) {
-            sourceTable = "PROCESS";
-            destinationTable = "PROCESS";
-        } else {
-            System.out.println("I messed up:2");
-            return null;
-        }
+        String sourceTable = "VERTICES";
+        String destinationTable = "VERTICES";
 
         //get edges(1 query). for each edge get the two vertex ids. for both vertex ids get the linked vertex ids(2 queries) and hence exact vertex info (2 queries). 5 queries
         try {
@@ -913,8 +733,8 @@ public class H2 extends AbstractStorage {
                 Statement stmt4 = sqlConnection.createStatement();
                 String sourceQuery = "SELECT * FROM " + sourceTable + " WHERE ID=" + linkedSourceVID;
 
-                Set<AbstractVertex> sourceVertexSet = this.getVertices("ID=" + linkedSourceVID, sourceTable);
-                Set<AbstractVertex> destinationVertexSet = this.getVertices("ID=" + linkedDestinationVID, destinationTable);
+                Set<AbstractVertex> sourceVertexSet = this.getVertices("ID=" + linkedSourceVID);
+                Set<AbstractVertex> destinationVertexSet = this.getVertices("ID=" + linkedDestinationVID);
 
                 if (!sourceVertexSet.isEmpty() && !destinationVertexSet.isEmpty()) {
 
@@ -957,11 +777,11 @@ public class H2 extends AbstractStorage {
     public Set<String> getKeySet(String OPMObjectName) {
         String tableName = "";
         if (OPMObjectName.equalsIgnoreCase("Process")) {
-            tableName = "PROCESS";
+            tableName = "VERTICES";
         } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-            tableName = "ARTIFACT";
+            tableName = "VERTICES";
         } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-            tableName = "AGENT";
+            tableName = "VERTICES";
         } else {
             tableName = "EDGES";
         }
@@ -996,7 +816,7 @@ public class H2 extends AbstractStorage {
         return keySet;
     }
 
-    public Lineage getLineage(AbstractVertex source, String pruneExpression, int direction, boolean includeTerminatingNodes) {
+    public Graph getLineage(AbstractVertex source, String pruneExpression, int direction, boolean includeTerminatingNodes) {
 
         DefaultDirectedGraph<Integer, String> lineageDAG = this.buildLineage(source, pruneExpression, direction, includeTerminatingNodes);
         //System.out.println(lineageDAG);
@@ -1006,7 +826,7 @@ public class H2 extends AbstractStorage {
         source.getAnnotations().remove("storageId");
 
         //this is the graph that we will put into the lineage object
-        Lineage lineageDAGWithInfo = new Lineage();
+        Graph lineageDAGWithInfo = new Graph();
 
         //make hash maps to hold the vertices
         HashMap<Integer, Process> processes = new HashMap<Integer, Process>();
@@ -1039,13 +859,13 @@ public class H2 extends AbstractStorage {
 
                 //get the table name
                 if (OPMObjectName.equalsIgnoreCase("Process")) {
-                    tableName = "PROCESS";
+                    tableName = "VERTICES";
                     vertexType = 0;
                 } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-                    tableName = "ARTIFACT";
+                    tableName = "VERTICES";
                     vertexType = 1;
                 } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-                    tableName = "AGENT";
+                    tableName = "VERTICES";
                     vertexType = 2;
                 }
 
@@ -1204,7 +1024,7 @@ public class H2 extends AbstractStorage {
 
     }
 
-    public Lineage getLineage(AbstractVertex source, int depth, int direction) {
+    public Graph getLineage(AbstractVertex source, int depth, int direction) {
         // TODO Auto-generated method stub
 
 
@@ -1216,7 +1036,7 @@ public class H2 extends AbstractStorage {
         source.getAnnotations().remove("storageId");
 
         //this is the graph that we will put into the lineage object
-        Lineage lineageDAGWithInfo = new Lineage();
+        Graph lineageDAGWithInfo = new Graph();
 
         //make hash maps to hold the vertices
         HashMap<Integer, Process> processes = new HashMap<Integer, Process>();
@@ -1249,13 +1069,13 @@ public class H2 extends AbstractStorage {
 
                 //get the table name
                 if (OPMObjectName.equalsIgnoreCase("Process")) {
-                    tableName = "PROCESS";
+                    tableName = "VERTICES";
                     vertexType = 0;
                 } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-                    tableName = "ARTIFACT";
+                    tableName = "VERTICES";
                     vertexType = 1;
                 } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-                    tableName = "AGENT";
+                    tableName = "VERTICES";
                     vertexType = 2;
                 }
 
@@ -1445,11 +1265,11 @@ public class H2 extends AbstractStorage {
         String tableName = "";
 
         if (OPMObjectName.equalsIgnoreCase("Process")) {
-            tableName = "PROCESS";
+            tableName = "VERTICES";
         } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-            tableName = "ARTIFACT";
+            tableName = "VERTICES";
         } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-            tableName = "AGENT";
+            tableName = "VERTICES";
         } else {
             return null;
         }
@@ -1667,13 +1487,13 @@ public class H2 extends AbstractStorage {
         String tableName = "";
         int vertexType = -1;
         if (OPMObjectName.equalsIgnoreCase("Process")) {
-            tableName = "PROCESS";
+            tableName = "VERTICES";
             vertexType = 0;
         } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-            tableName = "ARTIFACT";
+            tableName = "VERTICES";
             vertexType = 1;
         } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-            tableName = "AGENT";
+            tableName = "VERTICES";
             vertexType = 2;
         } else {
             return null;
@@ -1735,11 +1555,11 @@ public class H2 extends AbstractStorage {
         String tableName = "";
 
         if (OPMObjectName.equalsIgnoreCase("Process")) {
-            tableName = "PROCESS";
+            tableName = "VERTICES";
         } else if (OPMObjectName.equalsIgnoreCase("Artifact")) {
-            tableName = "ARTIFACT";
+            tableName = "VERTICES";
         } else if (OPMObjectName.equalsIgnoreCase("Agent")) {
-            tableName = "AGENT";
+            tableName = "VERTICES";
         } else {
             return null;
         }
@@ -1933,4 +1753,6 @@ public class H2 extends AbstractStorage {
         return lineageDAG;
 
     }
+ * 
+ */
 }

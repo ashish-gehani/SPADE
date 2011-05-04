@@ -30,12 +30,12 @@ import java.util.Iterator;
 public class Graphviz extends AbstractStorage {
 
     private FileWriter outputFile;
-    private HashSet EdgeSet;
+    private HashSet<Integer> EdgeSet;
 
     @Override
     public boolean initialize(String arguments) {
         try {
-            EdgeSet = new HashSet();
+            EdgeSet = new HashSet<Integer>();
             outputFile = new FileWriter(arguments, false);
             outputFile.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
             return true;

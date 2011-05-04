@@ -41,14 +41,14 @@ public class Pipe extends AbstractReporter {
     private String pipePath;
     private BufferedReader eventReader;
     private volatile boolean shutdown;
-    private HashMap vertices;
+    private HashMap<String, AbstractVertex> vertices;
 
     @Override
     public boolean launch(String arguments) {
         // The Pipe reporter creates a simple named pipe to which provenance events
         // can be written. The argument to the launch method is the location of the
         // pipe.
-        vertices = new HashMap();
+        vertices = new HashMap<String, AbstractVertex>();
         pipePath = arguments;
         File checkpipe = new File(pipePath);
         if (checkpipe.exists()) {
@@ -102,7 +102,7 @@ public class Pipe extends AbstractReporter {
             AbstractEdge edge = null;
             // Create an empty HashMap for annotations. We use a LinkedHashMap
             // to preserve order of annotations.
-            LinkedHashMap annotations = new LinkedHashMap();
+            LinkedHashMap<String,String> annotations = new LinkedHashMap<String,String>();
             for (int i = 0; i < tokens.length; i++) {
                 // Check if the key is one of the keywords, otherwise treat it as
                 // an annotation.

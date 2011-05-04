@@ -27,10 +27,10 @@ import java.util.HashSet;
 
 public class CycleAvoidance extends AbstractFilter {
 
-    private HashMap ancestors;
+    private HashMap<AbstractVertex, HashSet<AbstractVertex>> ancestors;
 
     public CycleAvoidance() {
-        ancestors = new HashMap();
+        ancestors = new HashMap<AbstractVertex, HashSet<AbstractVertex>>();
     }
 
     @Override
@@ -43,13 +43,13 @@ public class CycleAvoidance extends AbstractFilter {
         AbstractVertex sourceVertex = incomingEdge.getSrcVertex();
         AbstractVertex destinationVertex = incomingEdge.getDstVertex();
         if (ancestors.containsKey(destinationVertex)) {
-            HashSet tempSet = (HashSet) ancestors.get(destinationVertex);
+            HashSet<AbstractVertex> tempSet = ancestors.get(destinationVertex);
             if (tempSet.contains(sourceVertex) == false) {
                 tempSet.add(sourceVertex);
                 putInNextFilter(incomingEdge);
             }
         } else {
-            HashSet tempSet = new HashSet();
+            HashSet<AbstractVertex> tempSet = new HashSet<AbstractVertex>();
             tempSet.add(sourceVertex);
             ancestors.put(destinationVertex, tempSet);
             putInNextFilter(incomingEdge);

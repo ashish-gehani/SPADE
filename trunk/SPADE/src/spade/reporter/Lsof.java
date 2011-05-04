@@ -179,7 +179,7 @@ public class Lsof extends AbstractReporter implements Runnable {
         try {
             String source, destination, port;
             String[] endPoint, endPoints;
-            LinkedHashMap annotations;
+            LinkedHashMap<String, String> annotations;
             boolean endPointMatched = false;
             Date currentTime;
 
@@ -189,7 +189,7 @@ public class Lsof extends AbstractReporter implements Runnable {
             Used usedEdge;
 
             // Create process vertex.
-            annotations = new LinkedHashMap();
+            annotations = new LinkedHashMap<String, String>();
             annotations.put("pid", pid);
             processVertex = new spade.opm.vertex.Process(annotations);
 
@@ -198,7 +198,7 @@ public class Lsof extends AbstractReporter implements Runnable {
             }
 
             // Create network artifact.
-            annotations = new LinkedHashMap();
+            annotations = new LinkedHashMap<String, String>();
             endPoints = connection.split("->");
 
             endPoint = endPoints[0].split(":");
@@ -220,7 +220,7 @@ public class Lsof extends AbstractReporter implements Runnable {
 
             // Create an outgoing edge.
             if (InetAddress.getByName(destination).isSiteLocalAddress()) {
-                annotations = new LinkedHashMap();
+                annotations = new LinkedHashMap<String, String>();
                 currentTime = new Date();
                 annotations.put("time", currentTime.toString());
                 usedEdge = new Used(processVertex, networkVertex, annotations);
@@ -235,7 +235,7 @@ public class Lsof extends AbstractReporter implements Runnable {
 
             // Create an incoming edge.
             if (InetAddress.getByName(source).isSiteLocalAddress()) {
-                annotations = new LinkedHashMap();
+                annotations = new LinkedHashMap<String, String>();
                 currentTime = new Date();
                 annotations.put("time", currentTime.toString());
                 wasGeneratedByEdge =

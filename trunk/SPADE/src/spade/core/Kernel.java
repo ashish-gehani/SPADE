@@ -39,11 +39,11 @@ import java.net.ServerSocket;
 
 public class Kernel {
 
-    private static Set reporters;
-    private static Set storages;
-    private static Set removereporters;
-    private static Set removestorages;
-    private static List filters;
+    private static Set<AbstractReporter> reporters;
+    private static Set<AbstractStorage> storages;
+    private static Set<AbstractReporter> removereporters;
+    private static Set<AbstractStorage> removestorages;
+    private static List<AbstractFilter> filters;
     private static Map<AbstractReporter, Buffer> buffers;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
@@ -64,14 +64,17 @@ public class Kernel {
 
     public static void main(String args[]) {
 
+        System.out.close();
+        System.err.close();
+
         // Basic initialization
         shutdown = false;
         flushTransactions = false;
-        reporters = Collections.synchronizedSet(new HashSet());
-        storages = Collections.synchronizedSet(new HashSet());
-        removereporters = Collections.synchronizedSet(new HashSet());
-        removestorages = Collections.synchronizedSet(new HashSet());
-        filters = Collections.synchronizedList(new Vector());
+        reporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
+        storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
+        removereporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
+        removestorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
+        filters = Collections.synchronizedList(new Vector<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
 
         // Data structures used for tab completion

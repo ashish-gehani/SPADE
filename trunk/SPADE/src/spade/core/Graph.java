@@ -33,8 +33,8 @@ public class Graph {
     // This class uses a set of vertices and a set of edges to represent the
     // graph.
 
-    private HashSet<AbstractVertex> vertexSet;
-    private HashSet<AbstractEdge> edgeSet;
+    private Set<AbstractVertex> vertexSet;
+    private Set<AbstractEdge> edgeSet;
     public String details;
 
     public Graph() {
@@ -57,11 +57,11 @@ public class Graph {
         return edgeSet.add(inputEdge);
     }
 
-    public Set vertexSet() {
+    public Set<AbstractVertex> vertexSet() {
         return vertexSet;
     }
 
-    public Set edgeSet() {
+    public Set<AbstractEdge> edgeSet() {
         return edgeSet;
     }
 
@@ -85,8 +85,8 @@ public class Graph {
     // vertex and edge sets.
     public static Graph intersection(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
-        HashSet vertices = new HashSet();
-        HashSet edges = new HashSet();
+        Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
+        Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
 
         vertices.addAll(graph1.vertexSet());
         vertices.retainAll(graph2.vertexSet());
@@ -104,8 +104,8 @@ public class Graph {
     // vertex and edge sets.
     public static Graph union(Graph inputLineage1, Graph inputLineage2) {
         Graph resultGraph = new Graph();
-        HashSet vertices = new HashSet();
-        HashSet edges = new HashSet();
+        Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
+        Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
 
         vertices.addAll(inputLineage1.vertexSet());
         vertices.addAll(inputLineage2.vertexSet());

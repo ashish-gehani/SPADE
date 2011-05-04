@@ -30,12 +30,12 @@ import java.util.HashSet;
 
 public class IORuns extends AbstractFilter {
 
-    private HashMap writes;
-    private HashMap reads;
+    private HashMap<Integer, HashSet<Integer>> writes;
+    private HashMap<Integer, HashSet<Integer>> reads;
 
     public IORuns() {
-        writes = new HashMap();
-        reads = new HashMap();
+        writes = new HashMap<Integer, HashSet<Integer>>();
+        reads = new HashMap<Integer, HashSet<Integer>>();
     }
 
     @Override
@@ -50,11 +50,11 @@ public class IORuns extends AbstractFilter {
             int fileVertexHash = usedEdge.getArtifact().hashCode();
             int processVertexHash = usedEdge.getProcess().hashCode();
             if (reads.containsKey(fileVertexHash) == false) {
-                HashSet tempSet = new HashSet();
+                HashSet<Integer> tempSet = new HashSet<Integer>();
                 tempSet.add(processVertexHash);
                 reads.put(fileVertexHash, tempSet);
             } else {
-                HashSet tempSet = (HashSet) reads.get(fileVertexHash);
+                HashSet<Integer> tempSet = reads.get(fileVertexHash);
                 if (tempSet.contains(processVertexHash)) {
                     return;
                 } else {
@@ -63,7 +63,7 @@ public class IORuns extends AbstractFilter {
             }
             putInNextFilter(usedEdge);
             if (writes.containsKey(fileVertexHash)) {
-                HashSet tempSet = (HashSet) writes.get(fileVertexHash);
+                HashSet<Integer> tempSet = writes.get(fileVertexHash);
                 tempSet.remove(processVertexHash);
             }
         } else if (incomingEdge instanceof WasGeneratedBy) {
@@ -71,11 +71,11 @@ public class IORuns extends AbstractFilter {
             int fileVertexHash = wgb.getArtifact().hashCode();
             int processVertexHash = wgb.getProcess().hashCode();
             if (writes.containsKey(fileVertexHash) == false) {
-                HashSet tempSet = new HashSet();
+                HashSet<Integer> tempSet = new HashSet<Integer>();
                 tempSet.add(processVertexHash);
                 writes.put(fileVertexHash, tempSet);
             } else {
-                HashSet tempSet = (HashSet) writes.get(fileVertexHash);
+                HashSet<Integer> tempSet = writes.get(fileVertexHash);
                 if (tempSet.contains(processVertexHash)) {
                     return;
                 } else {
@@ -84,7 +84,7 @@ public class IORuns extends AbstractFilter {
             }
             putInNextFilter(wgb);
             if (reads.containsKey(fileVertexHash)) {
-                HashSet tempSet = (HashSet) reads.get(fileVertexHash);
+                HashSet<Integer> tempSet = reads.get(fileVertexHash);
                 tempSet.remove(processVertexHash);
             }
         } else {
