@@ -56,19 +56,19 @@ public abstract class AbstractStorage {
     }
 
     // Query method that returns a set of vertices based on a given expression.
-    public Set<AbstractVertex> getVertices(String expression) {
+    public Graph getVertices(String expression) {
         return null;
     }
 
     // Query method that returns a set of edges given expressions for the edge,
     // the source vertex and the destination vertex.
-    public Set<AbstractEdge> getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
+    public Graph getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
         return null;
     }
 
     // Query method that returns a set of edges given the source and destination
     // vertex identifiers.
-    public Set<AbstractEdge> getEdges(String srcVertexId, String dstVertexId) {
+    public Graph getEdges(String srcVertexId, String dstVertexId) {
         return null;
     }
 

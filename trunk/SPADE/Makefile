@@ -2,10 +2,16 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 292
+REVISION = 293
+
+# Download and build everything.
+all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
+
+# Download everything.
+svn:	svn-spade svn-pipe svn-utility svn-client
 
 # Build everything.
-all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
+build:	build-spade build-neo4j build-pipe build-utility build-client
 
 # Download the external libraries that SPADE uses.
 svn-libraries:
@@ -150,3 +156,4 @@ clean-class:
 # Remove everything except the Makefile.
 clean:
 	rm -rf lib src;
+

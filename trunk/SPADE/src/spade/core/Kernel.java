@@ -19,7 +19,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import spade.client.SketchManager;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -31,14 +30,24 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Vector;
+import java.util.LinkedList;
 import jline.SimpleCompletor;
 import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
+import java.net.Socket;
 
 
 public class Kernel {
+
+    private static final String configFile = "spade.config";
+    private static final String queryPipeInputPath = "queryPipeIn";
+    private static final String controlPipeInputPath = "controlPipeIn";
+    private static final String controlPipeOutputPath = "controlPipeOut";
+    private static final int REMOTE_QUERY_PORT = 9999;
+    private static final int BATCH_BUFFER_ELEMENTS = 50;
 
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
@@ -48,7 +57,6 @@ public class Kernel {
     private static Map<AbstractReporter, Buffer> buffers;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
-    private static final String configFile = "spade.config";
     private static ArrayList<String> reporterStrings;
     private static ArrayList<String> storageStrings;
     private static SimpleCompletor reporterCompletor;
@@ -56,17 +64,8 @@ public class Kernel {
 
     private static PrintStream outputStream = System.out;
     private static PrintStream errorStream = System.err;
-    private static String queryPipeInputPath = "queryPipeIn";
-    private static String controlPipeInputPath = "controlPipeIn";
-    private static String controlPipeOutputPath = "controlPipeOut";
-
-    private static ServerSocket queryServerSocket;
-    private static SketchManager sketchManager;
 
     public static void main(String args[]) {
-
-        System.out.close();
-        System.err.close();
 
         // Basic initialization
         shutdown = false;
@@ -75,7 +74,7 @@ public class Kernel {
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
         removereporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
         removestorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
-        filters = Collections.synchronizedList(new Vector<AbstractFilter>());
+        filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
 
         // Data structures used for tab completion
@@ -89,9 +88,7 @@ public class Kernel {
         // and also maintains a pointer to the list of active storages to which
         // the provenance data is finally passed. It also has a reference to
         // the SketchManager and triggers its putVertex() and putEdge() methods
-        sketchManager = new SketchManager();
         FinalCommitFilter commitFilter = new FinalCommitFilter();
-        commitFilter.sketchManager = sketchManager;
         commitFilter.setStorages(storages);
         filters.add(commitFilter);
 
@@ -104,7 +101,7 @@ public class Kernel {
         // the control commands and also when shutting down). This is done by ensuring that
         // once a reporter is marked for removal, the provenance objects from its buffer are
         // completely flushed.
-        Runnable mainRunnable = new Runnable() {
+        Runnable mainThread = new Runnable() {
 
             public void run() {
                 try {
@@ -146,30 +143,34 @@ public class Kernel {
                         }
                         for (Iterator iterator = buffers.keySet().iterator(); iterator.hasNext();) {
                             AbstractReporter reporter = (AbstractReporter) iterator.next();
-                            Object bufferelement = ((Buffer) buffers.get(reporter)).getBufferElement();
-                            if (bufferelement instanceof AbstractVertex) {
-                                AbstractVertex tempVertex = (AbstractVertex) bufferelement;
-                                tempVertex.addAnnotation("source_reporter", reporter.getClass().getName());
-                                ((AbstractFilter) filters.get(0)).putVertex(tempVertex);
-                            } else if (bufferelement instanceof AbstractEdge) {
-                                AbstractEdge tempEdge = (AbstractEdge) bufferelement;
-                                tempEdge.addAnnotation("source_reporter", reporter.getClass().getName());
-                                ((AbstractFilter) filters.get(0)).putEdge((AbstractEdge) bufferelement);
-                            } else if ((bufferelement == null) && (removereporters.contains(reporter))) {
-                                reporter.shutdown();
-                                reporters.remove(reporter);
-                                removereporters.remove(reporter);
-                                iterator.remove();
+                            for (int i=0; i<BATCH_BUFFER_ELEMENTS; i++) {
+                                Object bufferelement = ((Buffer) buffers.get(reporter)).getBufferElement();
+                                if (bufferelement instanceof AbstractVertex) {
+                                    AbstractVertex tempVertex = (AbstractVertex) bufferelement;
+                                    tempVertex.addAnnotation("source_reporter", reporter.getClass().getName());
+                                    ((AbstractFilter) filters.get(0)).putVertex(tempVertex);
+                                } else if (bufferelement instanceof AbstractEdge) {
+                                    AbstractEdge tempEdge = (AbstractEdge) bufferelement;
+                                    tempEdge.addAnnotation("source_reporter", reporter.getClass().getName());
+                                    ((AbstractFilter) filters.get(0)).putEdge((AbstractEdge) bufferelement);
+                                } else if (bufferelement == null) {
+                                    if (removereporters.contains(reporter)) {
+                                        reporters.remove(reporter);
+                                        removereporters.remove(reporter);
+                                        iterator.remove();
+                                    }
+                                    break;
+                                }
                             }
                         }
-                        Thread.sleep(5);
+                        Thread.sleep(3);
                     }
                 } catch (Exception exception) {
                     exception.printStackTrace(errorStream);
                 }
             }
         };
-        new Thread(mainRunnable).start();
+        new Thread(mainThread).start();
 
 
         // Construct the query pipe. The exit value is used to determine if the
@@ -208,7 +209,7 @@ public class Kernel {
                                         }
                                     }
                                 }
-                                Thread.sleep(10);
+                                Thread.sleep(200);
                             }
                         } catch (Exception exception) {
                             exception.printStackTrace(errorStream);
@@ -221,11 +222,12 @@ public class Kernel {
             ex.printStackTrace(errorStream);
         }
 
+
         // This thread creates the input and output pipes used for control (and also used
         // by the control client). The exit value is used to determine if the pipes were
         // successfully created. The input pipe (to which commands are issued) is read in
         // a loop and the commands are processed.
-        Runnable daemonRunnable = new Runnable() {
+        Runnable daemonThread = new Runnable() {
 
             public void run() {
                 try {
@@ -251,7 +253,7 @@ public class Kernel {
                                     break;
                                 }
                             }
-                            Thread.sleep(10);
+                            Thread.sleep(100);
                         }
                     }
                 } catch (Exception exception) {
@@ -259,7 +261,40 @@ public class Kernel {
                 }
             }
         };
-        new Thread(daemonRunnable).start();
+        new Thread(daemonThread).start();
+
+        
+        // This thread creates the input and output pipes used for control (and also used
+        // by the control client). The exit value is used to determine if the pipes were
+        // successfully created. The input pipe (to which commands are issued) is read in
+        // a loop and the commands are processed.
+        Runnable remoteThread = new Runnable() {
+
+            public void run() {
+                try {
+                    ServerSocket serverSocket = new ServerSocket(REMOTE_QUERY_PORT);
+                    Socket clientSocket = serverSocket.accept();
+                    BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
+                    String queryLine = clientInputReader.readLine();
+                    Graph resultGraph = query(queryLine);
+                    if (resultGraph == null) {
+                        clientPrintStream.println("null");
+                    } else {
+                        clientPrintStream.println("result");
+                        ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+                        clientObjectOutputStream.writeObject(resultGraph);
+                        clientObjectOutputStream.close();
+                    }
+                    clientPrintStream.close();
+                    clientInputReader.close();
+                } catch (Exception exception) {
+                    exception.printStackTrace(errorStream);
+                }
+            }
+        };
+        // new Thread(remoteThread).start();
+
     }
 
     // All command strings are passed to this function which subsequently calls the
@@ -344,80 +379,84 @@ public class Kernel {
         }
     }
 
-    // The queryCommand is used to call query methods on the desired storage. The
+    // This method is used to call query methods on the desired storage. The
     // transactions are also flushed to ensure that the data in the storages is
     // consistent and updated with all the data received by SPADE up to this point.
-    public static void queryCommand(String line, PrintStream output) {
+    public static Graph query(String line) {
+        Graph resultGraph = null;
         flushTransactions = true;
         while (flushTransactions) {
             // wait for other thread to flush transactions
         }
-        try {
-            String[] tokens = line.split("\\s");
-            Iterator iterator = storages.iterator();
-            if (storages.isEmpty()) {
-                output.println("No storage(s) added");
-                return;
-            }
-            while (iterator.hasNext()) {
-                AbstractStorage storage = (AbstractStorage) iterator.next();
-                if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
-                    if (tokens[2].equalsIgnoreCase("vertices")) {
-                        String queryExpression = "";
-                        for (int i = 3; i < tokens.length; i++) {
-                            queryExpression = queryExpression + tokens[i] + " ";
-                        }
-                        Set resultSet = null;
-                        try {
-                            resultSet = storage.getVertices(queryExpression.trim());
-                        } catch (Exception badQuery) {
-                            outputStream.println("Error: Please check query expression");
-                            badQuery.printStackTrace(errorStream);
-                            return;
-                        }
-                        Iterator resultIterator = resultSet.iterator();
-                        while (resultIterator.hasNext()) {
-                            AbstractVertex tempVertex = (AbstractVertex) resultIterator.next();
-                            output.println("[" + tempVertex.toString() + "]");
-                        }
-                    } else if (tokens[2].equalsIgnoreCase("lineage")) {
-                        Graph resultLineage = null;
-                        String vertexId = tokens[3];
-                        int depth = Integer.parseInt(tokens[4]);
-                        String direction = tokens[5];
-                        String terminatingExpression = "";
-                        for (int i = 6; i < tokens.length - 1; i++) {
-                            terminatingExpression = terminatingExpression + tokens[i] + " ";
-                        }
-                        try {
-                            resultLineage = storage.getLineage(vertexId, depth, direction, terminatingExpression);
-                            resultLineage.exportDOT(tokens[tokens.length - 1]);
-                        } catch (Exception badQuery) {
-                            outputStream.println("Error: Please check query expression");
-                            badQuery.printStackTrace(errorStream);
-                            return;
-                        }
-                    } else if (tokens[2].equalsIgnoreCase("paths")) {
-                        Graph resultGraph = null;
-                        String srcVertexId = tokens[3];
-                        String dstVertexId = tokens[4];
-                        int maxLength = Integer.parseInt(tokens[5]);
-                        try {
-                            resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
-                            resultGraph.exportDOT(tokens[6]);
-                        } catch (Exception badQuery) {
-                            outputStream.println("Error: Please check query expression");
-                            badQuery.printStackTrace(errorStream);
-                            return;
-                        }
-                    } else {
-                        throw new Exception();
+        if (storages.isEmpty()) {
+            return null;
+        }
+        String[] tokens = line.split("\\s");
+        Iterator iterator = storages.iterator();
+        while (iterator.hasNext()) {
+            AbstractStorage storage = (AbstractStorage) iterator.next();
+            if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
+                if (tokens[2].equalsIgnoreCase("vertices")) {
+                    String queryExpression = "";
+                    for (int i = 3; i < tokens.length; i++) {
+                        queryExpression = queryExpression + tokens[i] + " ";
                     }
-                    return;
+                    try {
+                        resultGraph = storage.getVertices(queryExpression.trim());
+                    } catch (Exception badQuery) {
+                        return null;
+                    }
+                } else if (tokens[2].equalsIgnoreCase("lineage")) {
+                    String vertexId = tokens[3];
+                    int depth = Integer.parseInt(tokens[4]);
+                    String direction = tokens[5];
+                    String terminatingExpression = "";
+                    for (int i = 6; i < tokens.length - 1; i++) {
+                        terminatingExpression = terminatingExpression + tokens[i] + " ";
+                    }
+                    try {
+                        resultGraph = storage.getLineage(vertexId, depth, direction, terminatingExpression);
+                    } catch (Exception badQuery) {
+                        return null;
+                    }
+                } else if (tokens[2].equalsIgnoreCase("paths")) {
+                    String srcVertexId = tokens[3];
+                    String dstVertexId = tokens[4];
+                    int maxLength = Integer.parseInt(tokens[5]);
+                    try {
+                        resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
+                    } catch (Exception badQuery) {
+                        return null;
+                    }
+                } else {
+                    return null;
                 }
             }
-            throw new Exception();
-        } catch (Exception exception) {
+        }
+        return resultGraph;
+    }
+
+    // Call the main query method.
+    public static void queryCommand(String line, PrintStream output) {
+        Graph resultGraph = query(line);
+        if (resultGraph != null) {
+            String[] tokens = line.split("\\s");
+            String outputFile = tokens[tokens.length - 1];
+            if (tokens[2].equalsIgnoreCase("vertices")) {
+                Iterator resultIterator = resultGraph.vertexSet().iterator();
+                while (resultIterator.hasNext()) {
+                    AbstractVertex tempVertex = (AbstractVertex) resultIterator.next();
+                    output.println("[" + tempVertex.toString() + "]");
+                }
+            } else if (tokens[2].equalsIgnoreCase("lineage")) {
+                resultGraph.exportDOT(outputFile);
+                output.println("Exported graph to " + outputFile);
+            } else if (tokens[2].equalsIgnoreCase("paths")) {
+                resultGraph.exportDOT(outputFile);
+                output.println("Exported graph to " + outputFile);
+            }
+        } else {
+            output.println("Error: Please check query expression");
         }
     }
 
@@ -540,11 +579,13 @@ public class Kernel {
                         // Mark the reporter for removal by adding it to the removereporters set.
                         // This will enable the main SPADE thread to cleanly flush the reporter
                         // buffer and remove it.
+                        reporter.shutdown();
                         removereporters.add(reporter);
                         found = true;
                         outputStream.print("Shutting down reporter " + tokens[2] + "... ");
                         while (removereporters.contains(reporter)) {
                             // Wait for other thread to safely remove reporter
+                            Thread.sleep(200);
                         }
                         // reporterStrings and reporterCompletor are only used for tab completion
                         // in the command terminal.
@@ -575,6 +616,7 @@ public class Kernel {
                         outputStream.print("Shutting down storage " + tokens[2] + "... ");
                         while (removestorages.contains(storage)) {
                             // Wait for other thread to safely remove storage
+                            Thread.sleep(200);
                         }
                         // storageStrings and storageCompletor are only used for tab completion
                         // in the command terminal.
@@ -723,7 +765,6 @@ class FinalCommitFilter extends AbstractFilter {
 
     // Reference to the set of storages maintained by the Kernel.
     private Set storages;
-    public SketchManager sketchManager;
 
     public void setStorages(Set mainStorageSet) {
         storages = mainStorageSet;
@@ -740,7 +781,6 @@ class FinalCommitFilter extends AbstractFilter {
         while (iterator.hasNext()) {
             ((AbstractStorage) iterator.next()).putVertex(incomingVertex);
         }
-        sketchManager.putVertex(incomingVertex);
     }
 
     @Override
@@ -749,6 +789,5 @@ class FinalCommitFilter extends AbstractFilter {
         while (iterator.hasNext()) {
             ((AbstractStorage) iterator.next()).putEdge(incomingEdge);
         }
-        sketchManager.putEdge(incomingEdge);
     }
 }

@@ -19,16 +19,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.net.Socket;
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 
-public class Graph {
+public class Graph implements Serializable {
 
     // This class uses a set of vertices and a set of edges to represent the
     // graph.
@@ -44,16 +40,10 @@ public class Graph {
     }
 
     public boolean putVertex(AbstractVertex inputVertex) {
-        // Add the vertex to the vertex set. If the vertex is a network vertex,
-        // then the networkTrigger() method is called.
-        if (inputVertex.getAnnotation("type").equalsIgnoreCase("Network")) {
-            networkTrigger(inputVertex);
-        }
         return vertexSet.add(inputVertex);
     }
 
     public boolean putEdge(AbstractEdge inputEdge) {
-        // Add the edge to the edge set.
         return edgeSet.add(inputEdge);
     }
 
@@ -65,25 +55,10 @@ public class Graph {
         return edgeSet;
     }
 
-    public void networkTrigger(AbstractVertex networkVertex) {
-        try {
-            Socket querySocket = new Socket("hostname", 3333);
-            PrintStream socketOutputStream = new PrintStream(querySocket.getOutputStream(), true);
-            BufferedReader socketInputStream = new BufferedReader(new InputStreamReader(querySocket.getInputStream()));
-            socketOutputStream.println("query expression here");
-            String inputLine;
-            while ((inputLine = socketInputStream.readLine()) != null) {
-                // process incoming text here
-            }
-        } catch (Exception exception) {
-
-        }
-    }
-
     // This method is used to create a new graph as an intersection of the two
     // given input graphs. This is done simply by using set functions on the
     // vertex and edge sets.
-    public static Graph intersection(Graph graph1, Graph graph2) {
+    public static Graph getIntersection(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
         Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
         Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
@@ -102,72 +77,20 @@ public class Graph {
     // This method is used to create a new graph as a union of the two
     // given input graphs. This is done simply by using set functions on the
     // vertex and edge sets.
-    public static Graph union(Graph inputLineage1, Graph inputLineage2) {
+    public static Graph getUnion(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
         Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
         Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
 
-        vertices.addAll(inputLineage1.vertexSet());
-        vertices.addAll(inputLineage2.vertexSet());
-        edges.addAll(inputLineage1.edgeSet());
-        edges.addAll(inputLineage2.edgeSet());
+        vertices.addAll(graph1.vertexSet());
+        vertices.addAll(graph2.vertexSet());
+        edges.addAll(graph1.edgeSet());
+        edges.addAll(graph2.edgeSet());
 
         resultGraph.vertexSet().addAll(vertices);
         resultGraph.edgeSet().addAll(edges);
 
         return resultGraph;
-    }
-
-    // This method is used to export the graph to a given output stream. This is
-    // useful for sending graph information across the network.
-    public void export(PrintStream outputStream) {
-        Iterator vertexIterator = vertexSet().iterator();
-        while (vertexIterator.hasNext()) {
-            AbstractVertex incomingVertex = (AbstractVertex) vertexIterator.next();
-            String vertexString = "";
-            Map<String, String> annotations = incomingVertex.getAnnotations();
-            for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-                String key = (String) iterator.next();
-                String value = (String) annotations.get(key);
-                if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))) {
-                    continue;
-                }
-                key = key.replaceAll(" ", "\\ ");
-                key = key.replaceAll(":", "\\:");
-                value = value.replaceAll(" ", "\\ ");
-                value = value.replaceAll(":", "\\:");
-                vertexString = vertexString + key + ":" + value + " ";
-            }
-            vertexString = vertexString.substring(0, vertexString.length() - 1);
-            outputStream.print("id:" + incomingVertex.hashCode() + " ");
-            outputStream.print("type:" + incomingVertex.getAnnotation("type") + " ");
-            outputStream.print(vertexString + ";\n");
-        }
-
-        Iterator edgeIterator = edgeSet().iterator();
-        while (edgeIterator.hasNext()) {
-            AbstractEdge incomingEdge = (AbstractEdge) vertexIterator.next();
-            String edgeString = "";
-            Map<String, String> annotations = incomingEdge.getAnnotations();
-            for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-                String key = (String) iterator.next();
-                String value = (String) annotations.get(key);
-                if ((key.equalsIgnoreCase("storageId")) || (key.equalsIgnoreCase("type"))) {
-                    continue;
-                }
-                key = key.replaceAll(" ", "\\ ");
-                key = key.replaceAll(":", "\\:");
-                value = value.replaceAll(" ", "\\ ");
-                value = value.replaceAll(":", "\\:");
-                edgeString = edgeString + key + ":" + value + " ";
-            }
-            edgeString = edgeString.substring(0, edgeString.length() - 1);
-            outputStream.print("id:" + incomingEdge.hashCode() + " ");
-            outputStream.print("type:" + incomingEdge.getAnnotation("type") + " ");
-            outputStream.print("from:" + incomingEdge.getSrcVertex().hashCode() + " ");
-            outputStream.print("to:" + incomingEdge.getDstVertex().hashCode() + " ");
-            outputStream.print(edgeString + ";\n");
-        }
     }
 
     // This method is used to export the graph to a DOT file which is useful for

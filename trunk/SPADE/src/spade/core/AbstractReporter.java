@@ -29,6 +29,11 @@ public abstract class AbstractReporter {
         internalBuffer = buffer;
     }
 
+    // This method is called by the Kernel for configuration purposes.
+    public Buffer getBuffer() {
+        return internalBuffer;
+    }
+
     // This method is called by custom reporters.
     public boolean putVertex(AbstractVertex vertex) {
         return internalBuffer.putVertex(vertex);
