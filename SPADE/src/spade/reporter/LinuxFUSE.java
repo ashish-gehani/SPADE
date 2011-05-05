@@ -31,14 +31,16 @@ import spade.opm.vertex.Process;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.StringTokenizer;
 
 public class LinuxFUSE extends AbstractReporter {
 
     private long boottime;
-    private HashMap<String, AbstractVertex> localCache;
-    private HashMap<String, String> links;
+    private Map<String, AbstractVertex> localCache;
+    private Map<String, String> links;
     private String mountPoint;
 
     // The native launchFUSE method to start FUSE. The argument is the
@@ -126,8 +128,8 @@ public class LinuxFUSE extends AbstractReporter {
     public boolean launch(String arguments) {
         // The argument to this reporter is the mount point for FUSE.
         mountPoint = arguments;
-        localCache = new HashMap<String, AbstractVertex>();
-        links = new HashMap<String, String>();
+        localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
+        links = Collections.synchronizedMap(new HashMap<String, String>());
 
         // Create a new directory as the mount point for FUSE.
         File mount = new File(mountPoint);

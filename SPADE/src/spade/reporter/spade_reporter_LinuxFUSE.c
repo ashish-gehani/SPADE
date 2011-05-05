@@ -483,12 +483,12 @@ JNIEXPORT jint JNICALL Java_spade_reporter_LinuxFUSE_launchFUSE(JNIEnv *e, jobje
     linkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "link", "(ILjava/lang/String;Ljava/lang/String;)V");
     unlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "unlink", "(ILjava/lang/String;)V");
 
-    int argc = 4;
-    char *argv[4];
+    int argc = 3;
+    char *argv[3];
     argv[0] = "spade_reporter_LinuxFUSE";
     argv[1] = "-f";
-    argv[2] = "-s";
-    argv[3] = (*env)->GetStringUTFChars(env, mountPoint, NULL);
+    // argv[2] = "-s";
+    argv[2] = (*env)->GetStringUTFChars(env, mountPoint, NULL);
 
     umask(0);
     return fuse_main(argc, argv, &xmp_oper, NULL);

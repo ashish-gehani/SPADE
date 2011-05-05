@@ -26,7 +26,6 @@ public class Buffer {
 
     // The buffer is essentially a queue to which vertices and edges are
     // added by the reporters and removed by the Kernel.
-
     private Queue<Object> queue;
 
     public Buffer() {
