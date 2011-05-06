@@ -138,7 +138,7 @@ public class Kernel {
                             Iterator iterator = removestorages.iterator();
                             AbstractStorage storage = (AbstractStorage) iterator.next();
                             storage.shutdown();
-                            storages.remove(storage);
+                            // storages.remove(storage);
                             iterator.remove();
                         }
                         for (Iterator iterator = buffers.keySet().iterator(); iterator.hasNext();) {
@@ -155,7 +155,7 @@ public class Kernel {
                                     ((AbstractFilter) filters.get(0)).putEdge((AbstractEdge) bufferelement);
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
-                                        reporters.remove(reporter);
+                                        // reporters.remove(reporter);
                                         removereporters.remove(reporter);
                                         iterator.remove();
                                     }
@@ -587,6 +587,7 @@ public class Kernel {
                             // Wait for other thread to safely remove reporter
                             Thread.sleep(200);
                         }
+                        iterator.remove();
                         // reporterStrings and reporterCompletor are only used for tab completion
                         // in the command terminal.
                         reporterStrings.remove(tokens[2]);
@@ -595,6 +596,7 @@ public class Kernel {
                             reporterCompletor.addCandidateString((String) reporterStrings.get(i));
                         }
                         outputStream.println("done");
+                        break;
                     }
                 }
                 if (!found) {
@@ -618,6 +620,7 @@ public class Kernel {
                             // Wait for other thread to safely remove storage
                             Thread.sleep(200);
                         }
+                        iterator.remove();
                         // storageStrings and storageCompletor are only used for tab completion
                         // in the command terminal.
                         storageStrings.remove(tokens[2]);
@@ -626,6 +629,7 @@ public class Kernel {
                             storageCompletor.addCandidateString((String) storageStrings.get(i));
                         }
                         outputStream.println("done");
+                        break;
                     }
                 }
                 if (!found) {

@@ -49,14 +49,14 @@ import org.neo4j.kernel.Traversal;
 
 public class Neo4j extends AbstractStorage {
 
-    private final int TRANSACTION_LIMIT = 10000;
+    private final int TRANSACTION_LIMIT = 1000;
     private GraphDatabaseService graphDb;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
     private Transaction transaction;
     private int transactionCount;
-    private HashMap<AbstractVertex, Long> vertexTable;
-    private HashSet<Integer> edgeHashCodes;
+    private Map<Integer, Long> vertexTable;
+    private Set<Integer> edgeSet;
 
     public enum MyRelationshipTypes implements RelationshipType {
 
@@ -70,8 +70,8 @@ public class Neo4j extends AbstractStorage {
             transactionCount = 0;
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
-            vertexTable = new HashMap<AbstractVertex, Long>();
-            edgeHashCodes = new HashSet<Integer>();
+            vertexTable = new HashMap<Integer, Long>();
+            edgeSet = new HashSet<Integer>();
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
@@ -115,7 +115,7 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-        if (vertexTable.containsKey(incomingVertex)) {
+        if (vertexTable.containsKey(incomingVertex.hashCode())) {
             return false;
         }
         if (transactionCount == 0) {
@@ -146,7 +146,7 @@ public class Neo4j extends AbstractStorage {
         }
         newVertex.setProperty("storageId", newVertex.getId());
         vertexIndex.add(newVertex, "storageId", new ValueContext(newVertex.getId()).indexNumeric());
-        vertexTable.put(incomingVertex, newVertex.getId());
+        vertexTable.put(incomingVertex.hashCode(), newVertex.getId());
         checkTransactionCount();
         return true;
     }
@@ -155,14 +155,16 @@ public class Neo4j extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         AbstractVertex srcVertex = incomingEdge.getSrcVertex();
         AbstractVertex dstVertex = incomingEdge.getDstVertex();
-        if ((edgeHashCodes.add(incomingEdge.hashCode()) == false) || !vertexTable.containsKey(srcVertex) || !vertexTable.containsKey(dstVertex)) {
+        if ((edgeSet.add(incomingEdge.hashCode()) == false) ||
+                !vertexTable.containsKey(srcVertex.hashCode()) ||
+                !vertexTable.containsKey(dstVertex.hashCode())) {
             return false;
         }
         if (transactionCount == 0) {
             transaction = graphDb.beginTx();
         }
-        Node srcNode = graphDb.getNodeById(vertexTable.get(srcVertex));
-        Node dstNode = graphDb.getNodeById(vertexTable.get(dstVertex));
+        Node srcNode = graphDb.getNodeById(vertexTable.get(srcVertex.hashCode()));
+        Node dstNode = graphDb.getNodeById(vertexTable.get(dstVertex.hashCode()));
 
         Map<String, String> annotations = incomingEdge.getAnnotations();
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
@@ -233,56 +235,56 @@ public class Neo4j extends AbstractStorage {
     }
 
     @Override
-    public Set<AbstractVertex> getVertices(String expression) {
-        Set<AbstractVertex> vertexSet = new HashSet<AbstractVertex>();
+    public Graph getVertices(String expression) {
+        Graph resultGraph = new Graph();
         for (Node foundNode : vertexIndex.query(expression)) {
-            vertexSet.add(convertNodeToVertex(foundNode));
+            resultGraph.putVertex(convertNodeToVertex(foundNode));
         }
-        return vertexSet;
+        return resultGraph;
     }
 
     @Override
-    public Set<AbstractEdge> getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
+    public Graph getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
+        Graph resultGraph = new Graph();
         Set<AbstractVertex> sourceSet = null;
         Set<AbstractVertex> destinationSet = null;
         if (sourceExpression != null) {
-            sourceSet = getVertices(sourceExpression);
+            sourceSet = getVertices(sourceExpression).vertexSet();
         }
         if (destinationExpression != null) {
-            destinationSet = getVertices(destinationExpression);
+            destinationSet = getVertices(destinationExpression).vertexSet();
         }
-        Set<AbstractEdge> resultSet = new HashSet<AbstractEdge>();
         for (Relationship foundRelationship : edgeIndex.query(edgeExpression)) {
             AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
             if ((sourceExpression != null) && (destinationExpression != null)) {
                 if (sourceSet.contains(tempEdge.getSrcVertex()) && destinationSet.contains(tempEdge.getDstVertex())) {
-                    resultSet.add(tempEdge);
+                    resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression != null) && (destinationExpression == null)) {
                 if (sourceSet.contains(tempEdge.getSrcVertex())) {
-                    resultSet.add(tempEdge);
+                    resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression == null) && (destinationExpression != null)) {
                 if (destinationSet.contains(tempEdge.getDstVertex())) {
-                    resultSet.add(tempEdge);
+                    resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression == null) && (destinationExpression == null)) {
-                resultSet.add(tempEdge);
+                resultGraph.putEdge(tempEdge);
             }
         }
-        return resultSet;
+        return resultGraph;
     }
 
     @Override
-    public Set<AbstractEdge> getEdges(String srcVertexId, String dstVertexId) {
+    public Graph getEdges(String srcVertexId, String dstVertexId) {
+        Graph resultGraph = new Graph();
         Long srcNodeId = Long.parseLong(srcVertexId);
         Long dstNodeId = Long.parseLong(dstVertexId);
-        Set<AbstractEdge> resultSet = new HashSet<AbstractEdge>();
         IndexHits<Relationship> foundRelationships = edgeIndex.query("type:*", graphDb.getNodeById(srcNodeId), graphDb.getNodeById(dstNodeId));
         while (foundRelationships.hasNext()) {
-            resultSet.add(convertRelationshipToEdge(foundRelationships.next()));
+            resultGraph.putEdge(convertRelationshipToEdge(foundRelationships.next()));
         }
-        return resultSet;
+        return resultGraph;
     }
 
     @Override
