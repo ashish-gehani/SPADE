@@ -21,14 +21,7 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
-
- Compile with:
- 
- javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE
- gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I/usr/java/jdk1.6.0_21/include -I/usr/java/jdk1.6.0_21/include/linux -L. -ljvm -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so
-
---------------------------------------------------------------------------------
-*/
+ */
 
 #define FUSE_USE_VERSION 26
 
@@ -52,6 +45,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #include <dirent.h>
 #include <errno.h>
 #include <sys/time.h>
+#ifdef HAVE_SETXATTR
+#include <sys/xattr.h>
+#endif
 
 JavaVM* jvm;
 JNIEnv* env;
@@ -449,28 +445,68 @@ static int xmp_fsync(const char *path, int isdatasync, struct fuse_file_info *fi
     return 0;
 }
 
+#ifdef HAVE_SETXATTR
+
+/* xattr operations are optional and can safely be left unimplemented */
+static int xmp_setxattr(const char *path, const char *name, const char *value,
+        size_t size, int flags) {
+    int res = lsetxattr(path, name, value, size, flags);
+    if (res == -1)
+        return -errno;
+    return 0;
+}
+
+static int xmp_getxattr(const char *path, const char *name, char *value,
+        size_t size) {
+    int res = lgetxattr(path, name, value, size);
+    if (res == -1)
+        return -errno;
+    return res;
+}
+
+static int xmp_listxattr(const char *path, char *list, size_t size) {
+    int res = llistxattr(path, list, size);
+    if (res == -1)
+        return -errno;
+    return res;
+}
+
+static int xmp_removexattr(const char *path, const char *name) {
+    int res = lremovexattr(path, name);
+    if (res == -1)
+        return -errno;
+    return 0;
+}
+#endif /* HAVE_SETXATTR */
+
 static struct fuse_operations xmp_oper = {
     .getattr = xmp_getattr,
     .access = xmp_access,
+    .readlink = xmp_readlink,
     .readdir = xmp_readdir,
     .mknod = xmp_mknod,
     .mkdir = xmp_mkdir,
+    .symlink = xmp_symlink,
+    .unlink = xmp_unlink,
     .rmdir = xmp_rmdir,
+    .rename = xmp_rename,
+    .link = xmp_link,
     .chmod = xmp_chmod,
     .chown = xmp_chown,
+    .truncate = xmp_truncate,
     .utimens = xmp_utimens,
     .open = xmp_open,
+    .read = xmp_read,
+    .write = xmp_write,
     .statfs = xmp_statfs,
     .release = xmp_release,
     .fsync = xmp_fsync,
-    .link = xmp_link,
-    .symlink = xmp_symlink,
-    .readlink = xmp_readlink,
-    .unlink = xmp_unlink,
-    .read = xmp_read,
-    .write = xmp_write,
-    .rename = xmp_rename,
-    .truncate = xmp_truncate
+#ifdef HAVE_SETXATTR
+    .setxattr = xmp_setxattr,
+    .getxattr = xmp_getxattr,
+    .listxattr = xmp_listxattr,
+    .removexattr = xmp_removexattr,
+#endif
 };
 
 JNIEXPORT jint JNICALL Java_spade_reporter_LinuxFUSE_launchFUSE(JNIEnv *e, jobject o, jstring mountPoint) {
