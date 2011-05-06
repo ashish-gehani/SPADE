@@ -21,13 +21,6 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
-
- Compile with:
- 
- javah -o spade/reporter/spade_reporter_MacFUSE.h spade.reporter.MacFUSE
- gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/spade_reporter_MacFUSE.c -o libspadeMacFUSE.jnilib
-
---------------------------------------------------------------------------------
 */
 
 #define FUSE_USE_VERSION 26
