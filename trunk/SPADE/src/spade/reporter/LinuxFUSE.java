@@ -32,7 +32,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
 
@@ -108,10 +107,10 @@ public class LinuxFUSE extends AbstractReporter {
         rootVertex.addAnnotation("boottime_unix", stime);
         rootVertex.addAnnotation("boottime_simple", stime_readable);
         localCache.put("0", rootVertex);
-        putVertex(getProcess(0));
+        putVertex(rootVertex);
 
         String path = "/proc";
-        String processDir;
+        String currentProcess;
         File folder = new File(path);
         File[] listOfFiles = folder.listFiles();
 
@@ -120,16 +119,16 @@ public class LinuxFUSE extends AbstractReporter {
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isDirectory()) {
 
-                processDir = listOfFiles[i].getName();
+                currentProcess = listOfFiles[i].getName();
                 try {
-                    Integer.parseInt(processDir);
-                    Process tempVertex = createProcessVertex(processDir);
-                    String ppid = (String) tempVertex.getAnnotation("ppid");
-                    localCache.put(tempVertex.getAnnotation("pid"), tempVertex);
-                    putVertex(getProcess(Integer.parseInt(tempVertex.getAnnotation("pid"))));
+                    Integer.parseInt(currentProcess);
+                    Process processVertex = createProcessVertex(currentProcess);
+                    String ppid = (String) processVertex.getAnnotation("ppid");
+                    localCache.put(currentProcess, processVertex);
+                    putVertex(processVertex);
                     if (Integer.parseInt(ppid) >= 0) {
-                        WasTriggeredBy tempEdge = new WasTriggeredBy(getProcess(Integer.parseInt(processDir)), getProcess(Integer.parseInt(ppid)));
-                        putEdge(tempEdge);
+                        WasTriggeredBy triggerEdge = new WasTriggeredBy((Process) localCache.get(currentProcess), (Process) localCache.get(ppid));
+                        putEdge(triggerEdge);
                     }
                 } catch (Exception exception) {
                     continue;
@@ -242,14 +241,14 @@ public class LinuxFUSE extends AbstractReporter {
             if (localCache.containsKey(pid)) {
                 return;
             }
-            Process tempVertex = createProcessVertex(pid);
-            String ppid = (String) tempVertex.getAnnotation("ppid");
-            localCache.put(tempVertex.getAnnotation("pid"), tempVertex);
-            putVertex(getProcess(Integer.parseInt(pid)));
+            Process processVertex = createProcessVertex(pid);
+            String ppid = (String) processVertex.getAnnotation("ppid");
+            localCache.put(pid, processVertex);
+            putVertex((Process) localCache.get(pid));
             if (Integer.parseInt(ppid) >= 0) {
                 checkProcessTree(ppid);
-                WasTriggeredBy tempEdge = new WasTriggeredBy(getProcess(Integer.parseInt(pid)), getProcess(Integer.parseInt(ppid)));
-                putEdge(tempEdge);
+                WasTriggeredBy triggerEdge = new WasTriggeredBy((Process) localCache.get(pid), (Process) localCache.get(ppid));
+                putEdge(triggerEdge);
             } else {
                 return;
             }
@@ -259,161 +258,152 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     public void read(int pid, int iotime, String path, int link) {
-        if (path.startsWith(mountPath)) path = path.substring(mountPath.length());
-        try {
-            // Create the file artifact and populate the annotations with file information.
-            long now = System.currentTimeMillis();
-            checkProcessTree(Integer.toString(pid));
-            Artifact fileArtifact;
-            if (link == 1) {
-                fileArtifact = createLinkArtifact(path);
-            } else {
-                fileArtifact = createFileArtifact(path);
-            }
-            putVertex(fileArtifact);
-            Used edge = new Used(getProcess(pid), fileArtifact);
-            if (iotime > 0) {
-                edge.addAnnotation("iotime", Integer.toString(iotime));
-            }
-            edge.addAnnotation("endtime", Long.toString(now));
-            putEdge(edge);
-            // If the given path represents a link, then perform the same operation on the
-            // artifact to which the link points.
-            if (link == 1 && links.containsKey(path)) {
-                read(pid, iotime, links.get(path), 0);
-            }
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        // Create the file artifact and populate the annotations with file information.
+        long now = System.currentTimeMillis();
+        checkProcessTree(Integer.toString(pid));
+        Artifact fileArtifact;
+        // Create file artifact depending on whether this is a link or not.
+        // Link artifacts are created differently to avoid recursion that may
+        // cause FUSE to crash.
+        if (link == 1) {
+            fileArtifact = createLinkArtifact(path);
+        } else {
+            fileArtifact = createFileArtifact(path);
+        }
+        putVertex(fileArtifact);
+        Used edge = new Used((Process) localCache.get(Integer.toString(pid)), fileArtifact);
+        if (iotime > 0) {
+            edge.addAnnotation("iotime", Integer.toString(iotime));
+        }
+        edge.addAnnotation("endtime", Long.toString(now));
+        putEdge(edge);
+        // If the given path represents a link, then perform the same operation on the
+        // artifact to which the link points.
+        if (link == 1 && links.containsKey(path)) {
+            read(pid, iotime, links.get(path), 0);
         }
     }
 
     public void write(int pid, int iotime, String path, int link) {
-        if (path.startsWith(mountPath)) path = path.substring(mountPath.length());
-        try {
-            // Create the file artifact and populate the annotations with file information.
-            long now = System.currentTimeMillis();
-            checkProcessTree(Integer.toString(pid));
-            Artifact fileArtifact;
-            if (link == 1) {
-                fileArtifact = createLinkArtifact(path);
-            } else {
-                fileArtifact = createFileArtifact(path);
-            }
-            putVertex(fileArtifact);
-            WasGeneratedBy edge = new WasGeneratedBy(fileArtifact, getProcess(pid));
-            if (iotime > 0) {
-                edge.addAnnotation("iotime", Integer.toString(iotime));
-            }
-            edge.addAnnotation("endtime", Long.toString(now));
-            putEdge(edge);
-            // If the given path represents a link, then perform the same operation on the
-            // artifact to which the link points.
-            if (link == 1 && links.containsKey(path)) {
-                write(pid, iotime, links.get(path), 0);
-            }
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        // Create the file artifact and populate the annotations with file information.
+        long now = System.currentTimeMillis();
+        checkProcessTree(Integer.toString(pid));
+        Artifact fileArtifact;
+        // Create file artifact depending on whether this is a link or not.
+        // Link artifacts are created differently to avoid recursion that may
+        // cause FUSE to crash.
+        if (link == 1) {
+            fileArtifact = createLinkArtifact(path);
+        } else {
+            fileArtifact = createFileArtifact(path);
+        }
+        putVertex(fileArtifact);
+        WasGeneratedBy edge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));
+        if (iotime > 0) {
+            edge.addAnnotation("iotime", Integer.toString(iotime));
+        }
+        edge.addAnnotation("endtime", Long.toString(now));
+        putEdge(edge);
+        // If the given path represents a link, then perform the same operation on the
+        // artifact to which the link points.
+        if (link == 1 && links.containsKey(path)) {
+            write(pid, iotime, links.get(path), 0);
         }
     }
 
     public void readlink(int pid, int iotime, String path) {
-        if (path.startsWith(mountPath)) path = path.substring(mountPath.length());
-        try {
-            // Create the file artifact and populate the annotations with file information.
-            long now = System.currentTimeMillis();
-            checkProcessTree(Integer.toString(pid));
-            Artifact linkArtifact = createLinkArtifact(path);
-            putVertex(linkArtifact);
-            Used edge = new Used(getProcess(pid), linkArtifact);
-            edge.addAnnotation("endtime", Long.toString(now));
-            edge.addAnnotation("operation", "readlink");
-            putEdge(edge);
-            // If the given path represents a link, then perform the same operation on the
-            // artifact to which the link points.
-            if (links.containsKey(path)) {
-                read(pid, iotime, links.get(path), 0);
-            }
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        // Create the file artifact and populate the annotations with file information.
+        long now = System.currentTimeMillis();
+        checkProcessTree(Integer.toString(pid));
+        Artifact linkArtifact = createLinkArtifact(path);
+        putVertex(linkArtifact);
+        Used edge = new Used((Process) localCache.get(Integer.toString(pid)), linkArtifact);
+        edge.addAnnotation("endtime", Long.toString(now));
+        edge.addAnnotation("operation", "readlink");
+        putEdge(edge);
+        // If the given path represents a link, then perform the same operation on the
+        // artifact to which the link points.
+        if (links.containsKey(path)) {
+            read(pid, iotime, links.get(path), 0);
         }
     }
 
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
-        if (pathfrom.startsWith(mountPath)) pathfrom = pathfrom.substring(mountPath.length());
-        if (pathto.startsWith(mountPath)) pathto = pathto.substring(mountPath.length());
-        try {
-            long now = System.currentTimeMillis();
-            checkProcessTree(Integer.toString(pid));
-            Artifact fileArtifact;
-            if (done == 0) {
-                if (link == 1) {
-                    fileArtifact = createLinkArtifact(pathfrom);
-                } else {
-                    fileArtifact = createFileArtifact(pathfrom);
-                }
-                putVertex(fileArtifact);
-                localCache.put(pathfrom, fileArtifact);
-                Used edge = new Used(getProcess(pid), fileArtifact);
-                edge.addAnnotation("endtime", Long.toString(now));
-                putEdge(edge);
+        long now = System.currentTimeMillis();
+        checkProcessTree(Integer.toString(pid));
+        Artifact fileArtifact;
+        // 'done' is used to indicate whether this is a pre-rename or a post-rename
+        // call. In pre-rename, a Used edge is created from the process to the old
+        // file. In post-rename, a WasGeneratedBy edge is created from the process
+        // to the new file and a WasDerivedEdge created between the two file
+        // artifacts.
+        if (done == 0) {
+            // Create file artifact depending on whether this is a link or not.
+            // Link artifacts are created differently to avoid recursion that may
+            // cause FUSE to crash.
+            if (link == 1) {
+                fileArtifact = createLinkArtifact(pathfrom);
             } else {
-                if (link == 1) {
-                    fileArtifact = createLinkArtifact(pathto);
-                } else {
-                    fileArtifact = createFileArtifact(pathto);
-                }
-                putVertex(fileArtifact);
-                WasGeneratedBy writeEdge = new WasGeneratedBy(fileArtifact, getProcess(pid));
-                writeEdge.addAnnotation("endtime", Long.toString(now));
-                putEdge(writeEdge);
-                WasDerivedFrom renameEdge = new WasDerivedFrom(fileArtifact, (Artifact) localCache.remove(pathfrom));
-                renameEdge.addAnnotation("iotime", Integer.toString(iotime));
-                renameEdge.addAnnotation("endtime", Long.toString(now));
-                renameEdge.addAnnotation("operation", "rename");
-                putEdge(renameEdge);
-                if (links.containsKey(pathfrom)) {
-                    // If the rename is on a link then update the link name.
-                    String linkedLocation = links.get(pathfrom);
-                    links.remove(pathfrom);
-                    links.put(pathto, linkedLocation);
-                }
+                fileArtifact = createFileArtifact(pathfrom);
             }
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            putVertex(fileArtifact);
+            // Put the file artifact in the localCache to be removed on post-rename.
+            localCache.put(pathfrom, fileArtifact);
+            Used edge = new Used((Process) localCache.get(Integer.toString(pid)), fileArtifact);
+            edge.addAnnotation("endtime", Long.toString(now));
+            putEdge(edge);
+        } else {
+            // Create file artifact depending on whether this is a link or not.
+            // Link artifacts are created differently to avoid recursion that may
+            // cause FUSE to crash.
+            if (link == 1) {
+                fileArtifact = createLinkArtifact(pathto);
+            } else {
+                fileArtifact = createFileArtifact(pathto);
+            }
+            putVertex(fileArtifact);
+            WasGeneratedBy writeEdge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));
+            writeEdge.addAnnotation("endtime", Long.toString(now));
+            putEdge(writeEdge);
+            WasDerivedFrom renameEdge = new WasDerivedFrom(fileArtifact, (Artifact) localCache.remove(pathfrom));
+            renameEdge.addAnnotation("iotime", Integer.toString(iotime));
+            renameEdge.addAnnotation("endtime", Long.toString(now));
+            renameEdge.addAnnotation("operation", "rename");
+            putEdge(renameEdge);
+            if (links.containsKey(pathfrom)) {
+                // If the rename is on a link then update the link name.
+                String linkedLocation = links.get(pathfrom);
+                links.remove(pathfrom);
+                links.put(pathto, linkedLocation);
+            }
         }
     }
 
     public void link(int pid, String originalFile, String pathtoLink) {
-        if (originalFile.startsWith(mountPath)) originalFile = originalFile.substring(mountPath.length());
-        if (pathtoLink.startsWith(mountPath)) pathtoLink = pathtoLink.substring(mountPath.length());
-        try {
-            long now = System.currentTimeMillis();
-            checkProcessTree(Integer.toString(pid));
-            Artifact link = createLinkArtifact(pathtoLink);
-            Artifact original = createFileArtifact(originalFile);
-            putVertex(link);
-            putVertex(original);
-            WasDerivedFrom linkEdge = new WasDerivedFrom(original, link);
-            linkEdge.addAnnotation("operation", "link");
-            linkEdge.addAnnotation("endtime", Long.toString(now));
-            putEdge(linkEdge);
-            links.put(pathtoLink, originalFile);
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
-        }
+        long now = System.currentTimeMillis();
+        checkProcessTree(Integer.toString(pid));
+        Artifact link = createLinkArtifact(pathtoLink);
+        Artifact original = createFileArtifact(originalFile);
+        putVertex(link);
+        putVertex(original);
+        WasDerivedFrom linkEdge = new WasDerivedFrom(original, link);
+        linkEdge.addAnnotation("operation", "link");
+        linkEdge.addAnnotation("endtime", Long.toString(now));
+        putEdge(linkEdge);
+        // Add the link to the links map.
+        links.put(pathtoLink, originalFile);
     }
 
     public void unlink(int pid, String path) {
-        if (path.startsWith(mountPath)) path = path.substring(mountPath.length());
-        try {
-            checkProcessTree(Integer.toString(pid));
-            links.remove(path);
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
-        }
+        checkProcessTree(Integer.toString(pid));
+        links.remove(path);
     }
 
     private Artifact createFileArtifact(String path) {
+        // Sanitize the path to avoid recursion and errors.
+        if (path.startsWith(mountPath)) {
+            path = path.substring(mountPath.length());
+        }
         Artifact fileArtifact = new Artifact();
         File file = new File(path);
         fileArtifact.addAnnotation("filename", file.getName());
@@ -428,22 +418,14 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     private Artifact createLinkArtifact(String path) {
+        // Sanitize the path to avoid recursion and errors.
+        if (path.startsWith(mountPath)) {
+            path = path.substring(mountPath.length());
+        }
         Artifact fileArtifact = new Artifact();
         fileArtifact.addAnnotation("path", path);
         fileArtifact.addAnnotation("filetype", "link");
         return fileArtifact;
-    }
-
-    private Process getProcess(int pid) {
-        Process process = new Process();
-        Process tempProcess = (Process) localCache.get(Integer.toString(pid));
-        Map<String, String> annotations = tempProcess.getAnnotations();
-        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-            String key = ((String) iterator.next()).trim();
-            String value = ((String) annotations.get(key)).trim();
-            process.addAnnotation(key, value);
-        }
-        return process;
     }
 
     @Override
@@ -459,4 +441,3 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 }
-

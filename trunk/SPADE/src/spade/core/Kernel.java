@@ -161,7 +161,7 @@ public class Kernel {
                                 }
                             }
                         }
-                        Thread.sleep(5);
+                        Thread.sleep(3);
                     }
                 } catch (Exception exception) {
                     exception.printStackTrace(errorStream);

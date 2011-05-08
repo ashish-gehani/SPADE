@@ -27,7 +27,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class Buffer {
 
     // The buffer is essentially a queue to which vertices and edges are
-    // added by the reporters and removed by the Kernel.
+    // added by the reporters and removed by the Kernel. The objects are deep
+    // copied into the buffer on putEdge() and putVertex().
+
     private Queue<Object> queue;
 
     public Buffer() {

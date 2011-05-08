@@ -49,7 +49,7 @@ import org.neo4j.kernel.Traversal;
 
 public class Neo4j extends AbstractStorage {
 
-    private final int TRANSACTION_LIMIT = 500;
+    private final int TRANSACTION_LIMIT = 1000;
     private GraphDatabaseService graphDb;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
@@ -155,9 +155,9 @@ public class Neo4j extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         AbstractVertex srcVertex = incomingEdge.getSrcVertex();
         AbstractVertex dstVertex = incomingEdge.getDstVertex();
-        if ((edgeSet.add(incomingEdge.hashCode()) == false) ||
-                !vertexTable.containsKey(srcVertex.hashCode()) ||
-                !vertexTable.containsKey(dstVertex.hashCode())) {
+        if (!vertexTable.containsKey(srcVertex.hashCode()) ||
+                !vertexTable.containsKey(dstVertex.hashCode()) ||
+                (edgeSet.add(incomingEdge.hashCode()) == false)) {
             return false;
         }
         if (transactionCount == 0) {
