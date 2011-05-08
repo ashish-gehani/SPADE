@@ -19,6 +19,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -34,17 +36,37 @@ public class Buffer {
 
     public boolean putVertex(AbstractVertex incomingVertex) {
         Vertex copyVertex = new Vertex();
-        copyVertex.getAnnotations().putAll(incomingVertex.getAnnotations());
+        Map<String, String> annotations = incomingVertex.getAnnotations();
+        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
+            String key = ((String) iterator.next()).trim();
+            String value = ((String) annotations.get(key)).trim();
+            copyVertex.addAnnotation(key, value);
+        }
         return queue.add(copyVertex);
     }
 
     public boolean putEdge(AbstractEdge incomingEdge) {
         Vertex srcVertex = new Vertex();
+        Map<String, String> srcAnnotations = incomingEdge.getSrcVertex().getAnnotations();
+        for (Iterator iterator = srcAnnotations.keySet().iterator(); iterator.hasNext();) {
+            String key = ((String) iterator.next()).trim();
+            String value = ((String) srcAnnotations.get(key)).trim();
+            srcVertex.addAnnotation(key, value);
+        }
         Vertex dstVertex = new Vertex();
-        srcVertex.getAnnotations().putAll(incomingEdge.getSrcVertex().getAnnotations());
-        dstVertex.getAnnotations().putAll(incomingEdge.getDstVertex().getAnnotations());
+        Map<String, String> dstAnnotations = incomingEdge.getDstVertex().getAnnotations();
+        for (Iterator iterator = dstAnnotations.keySet().iterator(); iterator.hasNext();) {
+            String key = ((String) iterator.next()).trim();
+            String value = ((String) dstAnnotations.get(key)).trim();
+            dstVertex.addAnnotation(key, value);
+        }
         Edge copyEdge = new Edge(srcVertex, dstVertex);
-        copyEdge.getAnnotations().putAll(incomingEdge.getAnnotations());
+        Map<String, String> annotations = incomingEdge.getAnnotations();
+        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
+            String key = ((String) iterator.next()).trim();
+            String value = ((String) annotations.get(key)).trim();
+            copyEdge.addAnnotation(key, value);
+        }
         return queue.add(copyEdge);
     }
 

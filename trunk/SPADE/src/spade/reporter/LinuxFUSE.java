@@ -211,8 +211,8 @@ public class LinuxFUSE extends AbstractReporter {
             resultVertex.addAnnotation("gid", gid);
             resultVertex.addAnnotation("starttime_unix", stime);
             resultVertex.addAnnotation("starttime_simple", stime_readable);
-            // resultVertex.addAnnotation("group", stats[4]);
-            // resultVertex.addAnnotation("sessionid", stats[5]);
+            resultVertex.addAnnotation("group", stats[4]);
+            resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
@@ -226,7 +226,7 @@ public class LinuxFUSE extends AbstractReporter {
             if (environ != null) {
                 environ = environ.replace("\0", ", ");
                 environ = environ.replace("\"", "'");
-                // resultVertex.addAnnotation("environment", environ);
+                resultVertex.addAnnotation("environment", environ);
             }
         } catch (Exception exception) {
         }
@@ -238,13 +238,13 @@ public class LinuxFUSE extends AbstractReporter {
         // then add it and recursively check its parents so that this process
         // eventually joins the main process tree.
         try {
-            if (localCache.get(pid) != null) {
+            if (localCache.containsKey(pid)) {
                 return;
             }
             Process tempVertex = createProcessVertex(pid);
             String ppid = (String) tempVertex.getAnnotation("ppid");
             localCache.put(tempVertex.getAnnotation("pid"), tempVertex);
-            putVertex(getProcess(Integer.parseInt(tempVertex.getAnnotation("pid"))));
+            putVertex(getProcess(Integer.parseInt(pid)));
             if (Integer.parseInt(ppid) >= 0) {
                 checkProcessTree(ppid);
                 WasTriggeredBy tempEdge = new WasTriggeredBy(getProcess(Integer.parseInt(pid)), getProcess(Integer.parseInt(ppid)));
@@ -276,7 +276,7 @@ public class LinuxFUSE extends AbstractReporter {
             }
             edge.addAnnotation("endtime", Long.toString(now));
             putEdge(edge);
-            if (link == 1 && links.get(path) != null) {
+            if (link == 1 && links.containsKey(path)) {
                 read(pid, iotime, links.get(path), 0);
             }
         } catch (Exception exception) {
@@ -303,7 +303,7 @@ public class LinuxFUSE extends AbstractReporter {
             }
             edge.addAnnotation("endtime", Long.toString(now));
             putEdge(edge);
-            if (link == 1 && links.get(path) != null) {
+            if (link == 1 && links.containsKey(path)) {
                 write(pid, iotime, links.get(path), 0);
             }
         } catch (Exception exception) {
@@ -317,8 +317,9 @@ public class LinuxFUSE extends AbstractReporter {
             // Create the file artifact and populate the annotations with file information.
             long now = System.currentTimeMillis();
             checkProcessTree(Integer.toString(pid));
-            Artifact tempVertex = createLinkArtifact(path);
-            Used edge = new Used(getProcess(pid), tempVertex);
+            Artifact linkArtifact = createLinkArtifact(path);
+            putVertex(linkArtifact);
+            Used edge = new Used(getProcess(pid), linkArtifact);
             edge.addAnnotation("endtime", Long.toString(now));
             edge.addAnnotation("operation", "readlink");
             putEdge(edge);
@@ -360,12 +361,11 @@ public class LinuxFUSE extends AbstractReporter {
                 WasGeneratedBy writeEdge = new WasGeneratedBy(fileArtifact, getProcess(pid));
                 writeEdge.addAnnotation("endtime", Long.toString(now));
                 putEdge(writeEdge);
-                WasDerivedFrom renameEdge = new WasDerivedFrom(fileArtifact, (Artifact) localCache.get(pathfrom));
+                WasDerivedFrom renameEdge = new WasDerivedFrom(fileArtifact, (Artifact) localCache.remove(pathfrom));
                 renameEdge.addAnnotation("iotime", Integer.toString(iotime));
                 renameEdge.addAnnotation("endtime", Long.toString(now));
                 renameEdge.addAnnotation("operation", "rename");
                 putEdge(renameEdge);
-                localCache.remove(pathfrom);
                 if (links.containsKey(pathfrom)) {
                     // If the rename is on a link then update the link name.
                     String linkedLocation = links.get(pathfrom);
@@ -387,9 +387,9 @@ public class LinuxFUSE extends AbstractReporter {
             Artifact original = createFileArtifact(originalFile);
             putVertex(link);
             putVertex(original);
-            WasDerivedFrom tempEdge = new WasDerivedFrom(original, link);
-            tempEdge.addAnnotation("operation", "link");
-            putEdge(tempEdge);
+            WasDerivedFrom linkEdge = new WasDerivedFrom(original, link);
+            linkEdge.addAnnotation("operation", "link");
+            putEdge(linkEdge);
             // The links map is used to maintain links for artifacts or files that may have
             // been linked before provenance started in order to ensure completeness of the
             // provenance graph.
@@ -450,3 +450,4 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 }
+

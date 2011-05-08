@@ -95,8 +95,6 @@ static int spade_readlink(const char *path, char *buf, size_t size) {
 
     int res;
 
-    printf("READLINK path:%s\n", path);
-
     struct timeval starttime, endtime;
     long seconds, useconds, mtime;
     gettimeofday(&starttime, NULL);
@@ -182,8 +180,6 @@ static int spade_unlink(const char *path) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
 
-    printf("UNLINK path:%s\n", path);
-
     int res;
 
     res = unlink(path);
@@ -214,8 +210,6 @@ static int spade_symlink(const char *from, const char *to) {
 
     int res;
 
-    printf("SYMLINK from:%s to:%s\n", from, to);
-
     res = symlink(from, to);
     if (res == -1) {
         return -errno;
@@ -230,8 +224,6 @@ static int spade_rename(const char *from, const char *to) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpathOld = (*env)->NewStringUTF(env, from);
     jstring jpathNew = (*env)->NewStringUTF(env, to);
-
-    printf("RENAME from:%s to:%s\n", from, to);
 
     int link;
     struct stat file_stat;
@@ -271,8 +263,6 @@ static int spade_link(const char *from, const char *to) {
     jstring jpathOriginal = (*env)->NewStringUTF(env, from);
     jstring jpathLink = (*env)->NewStringUTF(env, to);
 
-    printf("LINK from:%s to:%s\n", from, to);
-
     int res;
 
     res = link(from, to);
@@ -310,8 +300,6 @@ static int default_chown(const char *path, uid_t uid, gid_t gid) {
 static int spade_truncate(const char *path, off_t size) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
-
-    printf("TRUNCATE path:%s\n", path);
 
     int link;
     struct stat file_stat;
@@ -377,8 +365,6 @@ static int spade_read(const char *path, char *buf, size_t size, off_t offset, st
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
 
-    printf("READ path:%s\n", path);
-
     int link;
     struct stat file_stat;
     lstat(path, &file_stat);
@@ -422,8 +408,6 @@ static int spade_read(const char *path, char *buf, size_t size, off_t offset, st
 static int spade_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
-
-    printf("WRITE path:%s\n", path);
 
     int link;
     struct stat file_stat;

@@ -31,18 +31,37 @@ public class Graphviz extends AbstractStorage {
 
     private FileWriter outputFile;
     private HashSet<Integer> EdgeSet;
+    private final int TRANSACTION_LIMIT = 1000;
+    private int transaction_count;
+    private String filePath;
 
     @Override
     public boolean initialize(String arguments) {
         try {
+            filePath = arguments;
             EdgeSet = new HashSet<Integer>();
-            outputFile = new FileWriter(arguments, false);
+            outputFile = new FileWriter(filePath, false);
+            transaction_count = 0;
             outputFile.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
         }
         return false;
+    }
+
+    private void checkTransactions() {
+        transaction_count++;
+        if (transaction_count == TRANSACTION_LIMIT) {
+            try {
+                outputFile.flush();
+                outputFile.close();
+                outputFile = new FileWriter(filePath, true);
+                transaction_count = 0;
+            } catch (Exception exception) {
+                exception.printStackTrace(System.err);
+            }
+        }
     }
 
     @Override
@@ -73,6 +92,7 @@ public class Graphviz extends AbstractStorage {
                 color = "khaki1";
             }
             outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
+            checkTransactions();
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
@@ -112,6 +132,7 @@ public class Graphviz extends AbstractStorage {
                 }
                 String edgeString = "\"" + incomingEdge.getSrcVertex().hashCode() + "\" -> \"" + incomingEdge.getDstVertex().hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" color=\"" + color + "\"];\n";
                 outputFile.write(edgeString);
+                checkTransactions();
                 return true;
             }
         } catch (Exception exception) {
