@@ -44,6 +44,7 @@ public class Buffer {
         srcVertex.getAnnotations().putAll(incomingEdge.getSrcVertex().getAnnotations());
         dstVertex.getAnnotations().putAll(incomingEdge.getDstVertex().getAnnotations());
         Edge copyEdge = new Edge(srcVertex, dstVertex);
+        copyEdge.getAnnotations().putAll(incomingEdge.getAnnotations());
         return queue.add(copyEdge);
     }
 

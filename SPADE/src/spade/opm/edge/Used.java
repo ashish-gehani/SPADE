@@ -34,17 +34,15 @@ public class Used extends AbstractEdge {
     public Used(Process actingProcess, Artifact usedArtifact) {
         this.actingProcess = actingProcess;
         this.usedArtifact = usedArtifact;
-        edgeType = "Used";
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "Used");
     }
 
     public Used(Process actingProcess, Artifact usedArtifact, Map<String, String> inputAnnotations) {
         this.actingProcess = actingProcess;
         this.usedArtifact = usedArtifact;
-        edgeType = "Used";
         this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "Used");
     }
 
     public Process getProcess() {

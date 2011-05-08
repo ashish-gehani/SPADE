@@ -33,17 +33,15 @@ public class WasDerivedFrom extends AbstractEdge {
     public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact) {
         this.sourceArtifact = sourceArtifact;
         this.destinationArtifact = destinationArtifact;
-        edgeType = "WasDerivedFrom";
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasDerivedFrom");
     }
 
     public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact, Map<String, String> inputAnnotations) {
         this.sourceArtifact = sourceArtifact;
         this.destinationArtifact = destinationArtifact;
-        edgeType = "WasDerivedFrom";
         this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasDerivedFrom");
     }
 
     public Artifact getSourceArtifact() {

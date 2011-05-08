@@ -34,17 +34,15 @@ public class WasControlledBy extends AbstractEdge {
     public WasControlledBy(Process controlledProcess, Agent controllingAgent) {
         this.controlledProcess = controlledProcess;
         this.controllingAgent = controllingAgent;
-        edgeType = "WasControlledBy";
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasControlledBy");
     }
 
     public WasControlledBy(Process controlledProcess, Agent controllingAgent, Map<String, String> inputAnnotations) {
         this.controlledProcess = controlledProcess;
         this.controllingAgent = controllingAgent;
-        edgeType = "WasControlledBy";
         this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasControlledBy");
     }
 
     public Process getProcess() {
