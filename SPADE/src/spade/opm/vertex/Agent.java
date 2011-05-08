@@ -27,13 +27,11 @@ public class Agent extends AbstractVertex {
 
     public Agent(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
-        this.vertexType = "Agent";
-        this.addAnnotation("type", vertexType);
+        this.addAnnotation("type", "Agent");
     }
 
     public Agent() {
         this.setAnnotations(new LinkedHashMap<String, String>());
-        this.vertexType = "Agent";
-        this.addAnnotation("type", vertexType);
+        this.addAnnotation("type", "Agent");
     }
 }

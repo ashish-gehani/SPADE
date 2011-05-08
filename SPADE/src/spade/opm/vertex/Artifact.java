@@ -27,13 +27,11 @@ public class Artifact extends AbstractVertex {
 
     public Artifact(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
-        this.vertexType = "Artifact";
-        this.addAnnotation("type", vertexType);
+        this.addAnnotation("type", "Artifact");
     }
 
     public Artifact() {
         this.setAnnotations(new LinkedHashMap<String, String>());
-        this.vertexType = "Artifact";
-        this.addAnnotation("type", vertexType);
+        this.addAnnotation("type", "Artifact");
     }
 }
