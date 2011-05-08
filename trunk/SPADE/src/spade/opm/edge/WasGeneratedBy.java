@@ -34,17 +34,15 @@ public class WasGeneratedBy extends AbstractEdge {
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess) {
         this.actingProcess = actingProcess;
         this.generatedArtifact = generatedArtifact;
-        edgeType = "WasGeneratedBy";
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasGeneratedBy");
     }
 
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess, Map<String, String> inputAnnotations) {
         this.actingProcess = actingProcess;
         this.generatedArtifact = generatedArtifact;
-        edgeType = "WasGeneratedBy";
         this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasGeneratedBy");
     }
 
     public Artifact getArtifact() {

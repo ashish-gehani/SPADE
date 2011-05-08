@@ -33,17 +33,15 @@ public class WasTriggeredBy extends AbstractEdge {
     public WasTriggeredBy(Process triggeredProcess, Process callingProcess) {
         this.triggeredProcess = triggeredProcess;
         this.callingProcess = callingProcess;
-        edgeType = "WasTriggeredBy";
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasTriggeredBy");
     }
 
     public WasTriggeredBy(Process triggeredProcess, Process callingProcess, Map<String, String> inputAnnotations) {
         this.triggeredProcess = triggeredProcess;
         this.callingProcess = callingProcess;
-        edgeType = "WasTriggeredBy";
         this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", edgeType);
+        this.addAnnotation("type", "WasTriggeredBy");
     }
 
     public Process getCalledProcess() {

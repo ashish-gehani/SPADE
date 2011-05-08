@@ -27,7 +27,6 @@ public abstract class AbstractEdge {
     // The AbstractEdge class is from which other edge classes (e.g., OPM edges)
     // are derived.
 
-    protected String edgeType;
     protected Map<String, String> annotations;
 
     public Map<String, String> getAnnotations() {
@@ -59,14 +58,6 @@ public abstract class AbstractEdge {
 
     public String getAnnotation(String key) {
         return annotations.get(key);
-    }
-
-    public String getEdgeType() {
-        return edgeType;
-    }
-
-    public void setEdgeType(String edgeType) {
-        this.edgeType = edgeType;
     }
 
     // The following functions that get and set source and destination vertices
@@ -132,7 +123,6 @@ public abstract class AbstractEdge {
         int hashCode = seed2;
         hashCode = seed1 * hashCode + (this.getSrcVertex() != null ? this.getSrcVertex().hashCode() : 0);
         hashCode = seed1 * hashCode + (this.getDstVertex() != null ? this.getDstVertex().hashCode() : 0);
-        hashCode = seed1 * hashCode + (this.edgeType != null ? this.edgeType.hashCode() : 0);
         hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
         return hashCode;
     }

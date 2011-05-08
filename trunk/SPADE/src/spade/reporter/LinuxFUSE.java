@@ -32,7 +32,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
 
@@ -212,8 +211,8 @@ public class LinuxFUSE extends AbstractReporter {
             resultVertex.addAnnotation("gid", gid);
             resultVertex.addAnnotation("starttime_unix", stime);
             resultVertex.addAnnotation("starttime_simple", stime_readable);
-            resultVertex.addAnnotation("group", stats[4]);
-            resultVertex.addAnnotation("sessionid", stats[5]);
+            // resultVertex.addAnnotation("group", stats[4]);
+            // resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
@@ -227,7 +226,7 @@ public class LinuxFUSE extends AbstractReporter {
             if (environ != null) {
                 environ = environ.replace("\0", ", ");
                 environ = environ.replace("\"", "'");
-                resultVertex.addAnnotation("environment", environ);
+                // resultVertex.addAnnotation("environment", environ);
             }
         } catch (Exception exception) {
         }
@@ -434,12 +433,7 @@ public class LinuxFUSE extends AbstractReporter {
     private Process getProcess(int pid) {
         Process process = new Process();
         Process tempProcess = (Process) localCache.get(Integer.toString(pid));
-        Map<String, String> annotations = tempProcess.getAnnotations();
-        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-            String key = (String) iterator.next();
-            String value = (String) annotations.get(key);
-            process.addAnnotation(key, value);
-        }
+        process.getAnnotations().putAll(tempProcess.getAnnotations());
         return process;
     }
 
