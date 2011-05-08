@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 295
+REVISION = 300
 
 # Download and build everything.
 all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
@@ -137,7 +137,7 @@ build-lsof:
 # Run the SPADE kernel.
 start-spade:
 	cd src;\
-	java -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel;
+	java -server -Xmx512M -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel;
 
 # Run the control shell.
 start-control-client:
