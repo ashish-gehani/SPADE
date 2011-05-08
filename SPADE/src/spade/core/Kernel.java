@@ -47,7 +47,7 @@ public class Kernel {
     private static final String controlPipeInputPath = "controlPipeIn";
     private static final String controlPipeOutputPath = "controlPipeOut";
     private static final int REMOTE_QUERY_PORT = 9999;
-    private static final int BATCH_BUFFER_ELEMENTS = 50;
+    private static final int BATCH_BUFFER_ELEMENTS = 250;
 
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
@@ -163,7 +163,7 @@ public class Kernel {
                                 }
                             }
                         }
-                        Thread.sleep(3);
+                        Thread.sleep(10);
                     }
                 } catch (Exception exception) {
                     exception.printStackTrace(errorStream);
