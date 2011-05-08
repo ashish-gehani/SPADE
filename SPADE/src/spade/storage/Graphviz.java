@@ -26,11 +26,12 @@ import java.io.FileWriter;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Iterator;
+import java.util.Set;
 
 public class Graphviz extends AbstractStorage {
 
     private FileWriter outputFile;
-    private HashSet<Integer> EdgeSet;
+    private Set<Integer> EdgeSet;
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
     private String filePath;

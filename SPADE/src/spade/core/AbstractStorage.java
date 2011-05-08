@@ -19,8 +19,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import java.util.Set;
-
 public abstract class AbstractStorage {
 
     // All the methods in this class must be overridden by custom-implemented

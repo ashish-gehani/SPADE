@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
 
@@ -137,7 +138,7 @@ public class LinuxFUSE extends AbstractReporter {
             }
         }
 
-        Runnable r1 = new Runnable() {
+        Runnable FUSEThread = new Runnable() {
 
             public void run() {
                 try {
@@ -148,7 +149,7 @@ public class LinuxFUSE extends AbstractReporter {
                 }
             }
         };
-        new Thread(r1).start();
+        new Thread(FUSEThread, "FUSEThread").start();
 
         return true;
     }
@@ -276,6 +277,8 @@ public class LinuxFUSE extends AbstractReporter {
             }
             edge.addAnnotation("endtime", Long.toString(now));
             putEdge(edge);
+            // If the given path represents a link, then perform the same operation on the
+            // artifact to which the link points.
             if (link == 1 && links.containsKey(path)) {
                 read(pid, iotime, links.get(path), 0);
             }
@@ -303,6 +306,8 @@ public class LinuxFUSE extends AbstractReporter {
             }
             edge.addAnnotation("endtime", Long.toString(now));
             putEdge(edge);
+            // If the given path represents a link, then perform the same operation on the
+            // artifact to which the link points.
             if (link == 1 && links.containsKey(path)) {
                 write(pid, iotime, links.get(path), 0);
             }
@@ -382,6 +387,7 @@ public class LinuxFUSE extends AbstractReporter {
         if (originalFile.startsWith(mountPath)) originalFile = originalFile.substring(mountPath.length());
         if (pathtoLink.startsWith(mountPath)) pathtoLink = pathtoLink.substring(mountPath.length());
         try {
+            long now = System.currentTimeMillis();
             checkProcessTree(Integer.toString(pid));
             Artifact link = createLinkArtifact(pathtoLink);
             Artifact original = createFileArtifact(originalFile);
@@ -389,10 +395,8 @@ public class LinuxFUSE extends AbstractReporter {
             putVertex(original);
             WasDerivedFrom linkEdge = new WasDerivedFrom(original, link);
             linkEdge.addAnnotation("operation", "link");
+            linkEdge.addAnnotation("endtime", Long.toString(now));
             putEdge(linkEdge);
-            // The links map is used to maintain links for artifacts or files that may have
-            // been linked before provenance started in order to ensure completeness of the
-            // provenance graph.
             links.put(pathtoLink, originalFile);
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
@@ -433,7 +437,12 @@ public class LinuxFUSE extends AbstractReporter {
     private Process getProcess(int pid) {
         Process process = new Process();
         Process tempProcess = (Process) localCache.get(Integer.toString(pid));
-        process.getAnnotations().putAll(tempProcess.getAnnotations());
+        Map<String, String> annotations = tempProcess.getAnnotations();
+        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
+            String key = ((String) iterator.next()).trim();
+            String value = ((String) annotations.get(key)).trim();
+            process.addAnnotation(key, value);
+        }
         return process;
     }
 

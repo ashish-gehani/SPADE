@@ -47,7 +47,7 @@ public class Kernel {
     private static final String controlPipeInputPath = "controlPipeIn";
     private static final String controlPipeOutputPath = "controlPipeOut";
     private static final int REMOTE_QUERY_PORT = 9999;
-    private static final int BATCH_BUFFER_ELEMENTS = 250;
+    private static final int BATCH_BUFFER_ELEMENTS = 200;
 
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
@@ -57,8 +57,8 @@ public class Kernel {
     private static Map<AbstractReporter, Buffer> buffers;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
-    private static ArrayList<String> reporterStrings;
-    private static ArrayList<String> storageStrings;
+    private static List<String> reporterStrings;
+    private static List<String> storageStrings;
     private static SimpleCompletor reporterCompletor;
     private static SimpleCompletor storageCompletor;
 
@@ -138,7 +138,6 @@ public class Kernel {
                             Iterator iterator = removestorages.iterator();
                             AbstractStorage storage = (AbstractStorage) iterator.next();
                             storage.shutdown();
-                            // storages.remove(storage);
                             iterator.remove();
                         }
                         for (Iterator iterator = buffers.keySet().iterator(); iterator.hasNext();) {
@@ -155,7 +154,6 @@ public class Kernel {
                                     ((AbstractFilter) filters.get(0)).putEdge((AbstractEdge) bufferelement);
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
-                                        // reporters.remove(reporter);
                                         removereporters.remove(reporter);
                                         iterator.remove();
                                     }
@@ -163,14 +161,14 @@ public class Kernel {
                                 }
                             }
                         }
-                        Thread.sleep(10);
+                        Thread.sleep(5);
                     }
                 } catch (Exception exception) {
                     exception.printStackTrace(errorStream);
                 }
             }
         };
-        new Thread(mainThread).start();
+        new Thread(mainThread, "mainThread").start();
 
 
         // Construct the query pipe. The exit value is used to determine if the
@@ -216,7 +214,7 @@ public class Kernel {
                         }
                     }
                 };
-                new Thread(queryThread).start();
+                new Thread(queryThread, "queryThread").start();
             }
         } catch (Exception ex) {
             ex.printStackTrace(errorStream);
@@ -227,7 +225,7 @@ public class Kernel {
         // by the control client). The exit value is used to determine if the pipes were
         // successfully created. The input pipe (to which commands are issued) is read in
         // a loop and the commands are processed.
-        Runnable daemonThread = new Runnable() {
+        Runnable controlThread = new Runnable() {
 
             public void run() {
                 try {
@@ -261,7 +259,7 @@ public class Kernel {
                 }
             }
         };
-        new Thread(daemonThread).start();
+        new Thread(controlThread, "controlThread").start();
 
         
         // This thread creates the input and output pipes used for control (and also used
@@ -293,7 +291,7 @@ public class Kernel {
                 }
             }
         };
-        // new Thread(remoteThread).start();
+        // new Thread(remoteThread, "remoteThread").start();
 
     }
 
