@@ -49,7 +49,7 @@ import org.neo4j.kernel.Traversal;
 
 public class Neo4j extends AbstractStorage {
 
-    private final int TRANSACTION_LIMIT = 1000;
+    private final int TRANSACTION_LIMIT = 500;
     private GraphDatabaseService graphDb;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
