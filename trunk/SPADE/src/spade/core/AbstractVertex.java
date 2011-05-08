@@ -27,7 +27,6 @@ public abstract class AbstractVertex {
     // The AbstractVertex class is from which other vertex classes (e.g., OPM
     // vertices) are derived.
 
-    protected String vertexType;
     protected Map<String, String> annotations;
 
     public Map<String, String> getAnnotations() {
@@ -61,14 +60,6 @@ public abstract class AbstractVertex {
         return annotations.get(key);
     }
 
-    public String getVertexType() {
-        return vertexType;
-    }
-
-    public void setVertexType(String vertexType) {
-        this.vertexType = vertexType;
-    }
-
     @Override
     public String toString() {
         String vertexString = "";
@@ -98,7 +89,6 @@ public abstract class AbstractVertex {
         final int seed1 = 67;
         final int seed2 = 3;
         int hashCode = seed2;
-        hashCode = seed1 * hashCode + (this.vertexType != null ? this.vertexType.hashCode() : 0);
         hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
         return hashCode;
     }

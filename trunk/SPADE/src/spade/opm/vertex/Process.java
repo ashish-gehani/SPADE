@@ -27,13 +27,11 @@ public class Process extends AbstractVertex {
 
     public Process(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
-        this.vertexType = "Process";
-        this.addAnnotation("type", vertexType);
+        this.addAnnotation("type", "Process");
     }
 
     public Process() {
         this.setAnnotations(new LinkedHashMap<String, String>());
-        this.vertexType = "Process";
-        this.addAnnotation("type", vertexType);
+        this.addAnnotation("type", "Process");
     }
 }

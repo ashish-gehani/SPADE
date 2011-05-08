@@ -33,11 +33,18 @@ public class Buffer {
     }
 
     public boolean putVertex(AbstractVertex incomingVertex) {
-        return queue.add(incomingVertex);
+        Vertex copyVertex = new Vertex();
+        copyVertex.getAnnotations().putAll(incomingVertex.getAnnotations());
+        return queue.add(copyVertex);
     }
 
     public boolean putEdge(AbstractEdge incomingEdge) {
-        return queue.add(incomingEdge);
+        Vertex srcVertex = new Vertex();
+        Vertex dstVertex = new Vertex();
+        srcVertex.getAnnotations().putAll(incomingEdge.getSrcVertex().getAnnotations());
+        dstVertex.getAnnotations().putAll(incomingEdge.getDstVertex().getAnnotations());
+        Edge copyEdge = new Edge(srcVertex, dstVertex);
+        return queue.add(copyEdge);
     }
 
     public Object getBufferElement() {

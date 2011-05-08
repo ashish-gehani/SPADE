@@ -55,44 +55,19 @@ JNIEnv* env;
 jclass FUSEReporterClass;
 jobject reporterInstance;
 
-jmethodID readwriteMethod;
+jmethodID readMethod;
+jmethodID writeMethod;
+jmethodID readlinkMethod;
 jmethodID renameMethod;
 jmethodID linkMethod;
 jmethodID unlinkMethod;
-jmethodID shutdownMethod;
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
     jvm = vm;
     return JNI_VERSION_1_2;
 }
 
-static int make_java_call(char method, int pid, int var, const char *path1, const char *path2) {
-    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
-    jstring jpath1 = (*env)->NewStringUTF(env, path1);
-    jstring jpath2 = (*env)->NewStringUTF(env, path2);
-
-    switch (method) {
-        case 'r': // read
-            (*env)->CallVoidMethod(env, reporterInstance, readwriteMethod, 0, pid, var, jpath1);
-            break;
-        case 'w': // write
-            (*env)->CallVoidMethod(env, reporterInstance, readwriteMethod, 1, pid, var, jpath1);
-            break;
-        case 'n': // rename
-            (*env)->CallVoidMethod(env, reporterInstance, renameMethod, pid, var, jpath1, jpath2);
-            break;
-        case 'l': // link
-            (*env)->CallVoidMethod(env, reporterInstance, linkMethod, pid, jpath1, jpath2);
-            break;
-        case 'u': // link
-            (*env)->CallVoidMethod(env, reporterInstance, unlinkMethod, pid, jpath1);
-            break;
-    }
-
-    return 0;
-}
-
-static int xmp_getattr(const char *path, struct stat *stbuf) {
+static int default_getattr(const char *path, struct stat *stbuf) {
     int res;
 
     res = lstat(path, stbuf);
@@ -103,7 +78,7 @@ static int xmp_getattr(const char *path, struct stat *stbuf) {
     return 0;
 }
 
-static int xmp_access(const char *path, int mask) {
+static int default_access(const char *path, int mask) {
     int res;
 
     res = access(path, mask);
@@ -114,8 +89,13 @@ static int xmp_access(const char *path, int mask) {
     return 0;
 }
 
-static int xmp_readlink(const char *path, char *buf, size_t size) {
+static int spade_readlink(const char *path, char *buf, size_t size) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
     int res;
+
+    printf("READLINK path:%s\n", path);
 
     struct timeval starttime, endtime;
     long seconds, useconds, mtime;
@@ -133,12 +113,12 @@ static int xmp_readlink(const char *path, char *buf, size_t size) {
     mtime = (seconds * 1000000 + useconds);
     int iotime = mtime;
 
-    make_java_call('r', fuse_get_context()->pid, iotime, path, "");
+    (*env)->CallVoidMethod(env, reporterInstance, readlinkMethod, fuse_get_context()->pid, iotime, jpath);
 
     return 0;
 }
 
-static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
+static int default_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
     DIR *dp;
     struct dirent *de;
 
@@ -164,7 +144,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
     return 0;
 }
 
-static int xmp_mknod(const char *path, mode_t mode, dev_t rdev) {
+static int default_mknod(const char *path, mode_t mode, dev_t rdev) {
     int res;
 
     /* On Linux this could just be 'mknod(path, mode, rdev)' but this
@@ -187,7 +167,7 @@ static int xmp_mknod(const char *path, mode_t mode, dev_t rdev) {
     return 0;
 }
 
-static int xmp_mkdir(const char *path, mode_t mode) {
+static int default_mkdir(const char *path, mode_t mode) {
     int res;
 
     res = mkdir(path, mode);
@@ -198,7 +178,12 @@ static int xmp_mkdir(const char *path, mode_t mode) {
     return 0;
 }
 
-static int xmp_unlink(const char *path) {
+static int spade_unlink(const char *path) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
+    printf("UNLINK path:%s\n", path);
+
     int res;
 
     res = unlink(path);
@@ -206,12 +191,12 @@ static int xmp_unlink(const char *path) {
         return -errno;
     }
 
-    make_java_call('u', fuse_get_context()->pid, 0, path, "");
+    (*env)->CallVoidMethod(env, reporterInstance, unlinkMethod, fuse_get_context()->pid, jpath);
 
     return 0;
 }
 
-static int xmp_rmdir(const char *path) {
+static int default_rmdir(const char *path) {
     int res;
 
     res = rmdir(path);
@@ -222,23 +207,44 @@ static int xmp_rmdir(const char *path) {
     return 0;
 }
 
-static int xmp_symlink(const char *from, const char *to) {
+static int spade_symlink(const char *from, const char *to) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpathOriginal = (*env)->NewStringUTF(env, from);
+    jstring jpathLink = (*env)->NewStringUTF(env, to);
+
     int res;
+
+    printf("SYMLINK from:%s to:%s\n", from, to);
 
     res = symlink(from, to);
     if (res == -1) {
         return -errno;
     }
 
-    make_java_call('r', fuse_get_context()->pid, 0, from, "");
-    make_java_call('w', fuse_get_context()->pid, 0, to, "");
-    make_java_call('l', fuse_get_context()->pid, 0, from, to);
+    (*env)->CallVoidMethod(env, reporterInstance, linkMethod, fuse_get_context()->pid, jpathOriginal, jpathLink);
 
     return 0;
 }
 
-static int xmp_rename(const char *from, const char *to) {
+static int spade_rename(const char *from, const char *to) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpathOld = (*env)->NewStringUTF(env, from);
+    jstring jpathNew = (*env)->NewStringUTF(env, to);
+
+    printf("RENAME from:%s to:%s\n", from, to);
+
+    int link;
+    struct stat file_stat;
+    lstat(from, &file_stat);
+    if ((file_stat.st_mode & S_IFMT) == S_IFLNK) {
+        link = 1;
+    } else {
+        link = 0;
+    }
+
     int res;
+
+    (*env)->CallVoidMethod(env, reporterInstance, renameMethod, fuse_get_context()->pid, 0, jpathOld, jpathNew, link, 0);
 
     struct timeval starttime, endtime;
     long seconds, useconds, mtime;
@@ -255,14 +261,18 @@ static int xmp_rename(const char *from, const char *to) {
     mtime = (seconds * 1000000 + useconds);
     int iotime = mtime;
 
-    make_java_call('r', fuse_get_context()->pid, 0, from, "");
-    make_java_call('w', fuse_get_context()->pid, 0, to, "");
-    make_java_call('n', fuse_get_context()->pid, iotime, from, to);
+    (*env)->CallVoidMethod(env, reporterInstance, renameMethod, fuse_get_context()->pid, iotime, jpathOld, jpathNew, link, 1);
 
     return 0;
 }
 
-static int xmp_link(const char *from, const char *to) {
+static int spade_link(const char *from, const char *to) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpathOriginal = (*env)->NewStringUTF(env, from);
+    jstring jpathLink = (*env)->NewStringUTF(env, to);
+
+    printf("LINK from:%s to:%s\n", from, to);
+
     int res;
 
     res = link(from, to);
@@ -270,14 +280,12 @@ static int xmp_link(const char *from, const char *to) {
         return -errno;
     }
 
-    make_java_call('r', fuse_get_context()->pid, 0, from, "");
-    make_java_call('w', fuse_get_context()->pid, 0, to, "");
-    make_java_call('l', fuse_get_context()->pid, 0, from, to);
+    (*env)->CallVoidMethod(env, reporterInstance, linkMethod, fuse_get_context()->pid, jpathOriginal, jpathLink);
 
     return 0;
 }
 
-static int xmp_chmod(const char *path, mode_t mode) {
+static int default_chmod(const char *path, mode_t mode) {
     int res;
 
     res = chmod(path, mode);
@@ -288,7 +296,7 @@ static int xmp_chmod(const char *path, mode_t mode) {
     return 0;
 }
 
-static int xmp_chown(const char *path, uid_t uid, gid_t gid) {
+static int default_chown(const char *path, uid_t uid, gid_t gid) {
     int res;
 
     res = lchown(path, uid, gid);
@@ -299,7 +307,21 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid) {
     return 0;
 }
 
-static int xmp_truncate(const char *path, off_t size) {
+static int spade_truncate(const char *path, off_t size) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
+    printf("TRUNCATE path:%s\n", path);
+
+    int link;
+    struct stat file_stat;
+    lstat(path, &file_stat);
+    if ((file_stat.st_mode & S_IFMT) == S_IFLNK) {
+        link = 1;
+    } else {
+        link = 0;
+    }
+
     int res;
 
     struct timeval starttime, endtime;
@@ -317,12 +339,12 @@ static int xmp_truncate(const char *path, off_t size) {
     mtime = (seconds * 1000000 + useconds);
     int iotime = mtime;
 
-    make_java_call('w', fuse_get_context()->pid, iotime, path, "");
+    (*env)->CallVoidMethod(env, reporterInstance, writeMethod, fuse_get_context()->pid, iotime, jpath, link);
 
     return 0;
 }
 
-static int xmp_utimens(const char *path, const struct timespec ts[2]) {
+static int default_utimens(const char *path, const struct timespec ts[2]) {
     int res;
     struct timeval tv[2];
 
@@ -339,7 +361,7 @@ static int xmp_utimens(const char *path, const struct timespec ts[2]) {
     return 0;
 }
 
-static int xmp_open(const char *path, struct fuse_file_info *fi) {
+static int default_open(const char *path, struct fuse_file_info *fi) {
     int res;
 
     res = open(path, fi->flags);
@@ -351,7 +373,21 @@ static int xmp_open(const char *path, struct fuse_file_info *fi) {
     return 0;
 }
 
-static int xmp_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+static int spade_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
+    printf("READ path:%s\n", path);
+
+    int link;
+    struct stat file_stat;
+    lstat(path, &file_stat);
+    if ((file_stat.st_mode & S_IFMT) == S_IFLNK) {
+        link = 1;
+    } else {
+        link = 0;
+    }
+
     int fd;
     int res;
 
@@ -378,12 +414,26 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset, stru
     mtime = (seconds * 1000000 + useconds);
     int iotime = mtime;
 
-    make_java_call('r', fuse_get_context()->pid, iotime, path, "");
+    (*env)->CallVoidMethod(env, reporterInstance, readMethod, fuse_get_context()->pid, iotime, jpath, link);
 
     return res;
 }
 
-static int xmp_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+static int spade_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
+    printf("WRITE path:%s\n", path);
+
+    int link;
+    struct stat file_stat;
+    lstat(path, &file_stat);
+    if ((file_stat.st_mode & S_IFMT) == S_IFLNK) {
+        link = 1;
+    } else {
+        link = 0;
+    }
+
     int fd;
     int res;
 
@@ -410,12 +460,12 @@ static int xmp_write(const char *path, const char *buf, size_t size, off_t offse
     mtime = (seconds * 1000000 + useconds);
     int iotime = mtime;
 
-    make_java_call('w', fuse_get_context()->pid, iotime, path, "");
+    (*env)->CallVoidMethod(env, reporterInstance, writeMethod, fuse_get_context()->pid, iotime, jpath, link);
 
     return res;
 }
 
-static int xmp_statfs(const char *path, struct statvfs *stbuf) {
+static int default_statfs(const char *path, struct statvfs *stbuf) {
     int res;
 
     res = statvfs(path, stbuf);
@@ -426,7 +476,7 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf) {
     return 0;
 }
 
-static int xmp_release(const char *path, struct fuse_file_info *fi) {
+static int default_release(const char *path, struct fuse_file_info *fi) {
     /* Just a stub.	 This method is optional and can safely be left
        unimplemented */
 
@@ -435,7 +485,7 @@ static int xmp_release(const char *path, struct fuse_file_info *fi) {
     return 0;
 }
 
-static int xmp_fsync(const char *path, int isdatasync, struct fuse_file_info *fi) {
+static int default_fsync(const char *path, int isdatasync, struct fuse_file_info *fi) {
     /* Just a stub.	 This method is optional and can safely be left
        unimplemented */
 
@@ -448,7 +498,7 @@ static int xmp_fsync(const char *path, int isdatasync, struct fuse_file_info *fi
 #ifdef HAVE_SETXATTR
 
 /* xattr operations are optional and can safely be left unimplemented */
-static int xmp_setxattr(const char *path, const char *name, const char *value,
+static int default_setxattr(const char *path, const char *name, const char *value,
         size_t size, int flags) {
     int res = lsetxattr(path, name, value, size, flags);
     if (res == -1)
@@ -456,7 +506,7 @@ static int xmp_setxattr(const char *path, const char *name, const char *value,
     return 0;
 }
 
-static int xmp_getxattr(const char *path, const char *name, char *value,
+static int default_getxattr(const char *path, const char *name, char *value,
         size_t size) {
     int res = lgetxattr(path, name, value, size);
     if (res == -1)
@@ -464,14 +514,14 @@ static int xmp_getxattr(const char *path, const char *name, char *value,
     return res;
 }
 
-static int xmp_listxattr(const char *path, char *list, size_t size) {
+static int default_listxattr(const char *path, char *list, size_t size) {
     int res = llistxattr(path, list, size);
     if (res == -1)
         return -errno;
     return res;
 }
 
-static int xmp_removexattr(const char *path, const char *name) {
+static int default_removexattr(const char *path, const char *name) {
     int res = lremovexattr(path, name);
     if (res == -1)
         return -errno;
@@ -479,33 +529,33 @@ static int xmp_removexattr(const char *path, const char *name) {
 }
 #endif /* HAVE_SETXATTR */
 
-static struct fuse_operations xmp_oper = {
-    .getattr = xmp_getattr,
-    .access = xmp_access,
-    .readlink = xmp_readlink,
-    .readdir = xmp_readdir,
-    .mknod = xmp_mknod,
-    .mkdir = xmp_mkdir,
-    .symlink = xmp_symlink,
-    .unlink = xmp_unlink,
-    .rmdir = xmp_rmdir,
-    .rename = xmp_rename,
-    .link = xmp_link,
-    .chmod = xmp_chmod,
-    .chown = xmp_chown,
-    .truncate = xmp_truncate,
-    .utimens = xmp_utimens,
-    .open = xmp_open,
-    .read = xmp_read,
-    .write = xmp_write,
-    .statfs = xmp_statfs,
-    .release = xmp_release,
-    .fsync = xmp_fsync,
+static struct fuse_operations spade_oper = {
+    .getattr = default_getattr,
+    .access = default_access,
+    .readlink = spade_readlink,
+    .readdir = default_readdir,
+    .mknod = default_mknod,
+    .mkdir = default_mkdir,
+    .symlink = spade_symlink,
+    .unlink = spade_unlink,
+    .rmdir = default_rmdir,
+    .rename = spade_rename,
+    .link = spade_link,
+    .chmod = default_chmod,
+    .chown = default_chown,
+    .truncate = spade_truncate,
+    .utimens = default_utimens,
+    .open = default_open,
+    .read = spade_read,
+    .write = spade_write,
+    .statfs = default_statfs,
+    .release = default_release,
+    .fsync = default_fsync,
 #ifdef HAVE_SETXATTR
-    .setxattr = xmp_setxattr,
-    .getxattr = xmp_getxattr,
-    .listxattr = xmp_listxattr,
-    .removexattr = xmp_removexattr,
+    .setxattr = default_setxattr,
+    .getxattr = default_getxattr,
+    .listxattr = default_listxattr,
+    .removexattr = default_removexattr,
 #endif
 };
 
@@ -514,18 +564,20 @@ JNIEXPORT jint JNICALL Java_spade_reporter_LinuxFUSE_launchFUSE(JNIEnv *e, jobje
     env = e;
 
     FUSEReporterClass = (*env)->FindClass(env, "spade/reporter/LinuxFUSE");
-    readwriteMethod = (*env)->GetMethodID(env, FUSEReporterClass, "readwrite", "(IIILjava/lang/String;)V");
-    renameMethod = (*env)->GetMethodID(env, FUSEReporterClass, "rename", "(IILjava/lang/String;Ljava/lang/String;)V");
+    readMethod = (*env)->GetMethodID(env, FUSEReporterClass, "read", "(IILjava/lang/String;I)V");
+    writeMethod = (*env)->GetMethodID(env, FUSEReporterClass, "write", "(IILjava/lang/String;I)V");
+    readlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "readlink", "(IILjava/lang/String;)V");
+    renameMethod = (*env)->GetMethodID(env, FUSEReporterClass, "rename", "(IILjava/lang/String;Ljava/lang/String;II)V");
     linkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "link", "(ILjava/lang/String;Ljava/lang/String;)V");
     unlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "unlink", "(ILjava/lang/String;)V");
 
-    int argc = 3;
-    char *argv[3];
+    int argc = 4;
+    char *argv[argc];
     argv[0] = "spade_reporter_LinuxFUSE";
     argv[1] = "-f";
-    // argv[2] = "-s";
-    argv[2] = (*env)->GetStringUTFChars(env, mountPoint, NULL);
+    argv[2] = "-s";
+    argv[3] = (*env)->GetStringUTFChars(env, mountPoint, NULL);
 
     umask(0);
-    return fuse_main(argc, argv, &xmp_oper, NULL);
+    return fuse_main(argc, argv, &spade_oper, NULL);
 }

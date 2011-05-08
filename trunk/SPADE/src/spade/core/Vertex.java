@@ -28,11 +28,9 @@ public class Vertex extends AbstractVertex {
 
     public Vertex(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
-        this.vertexType = "Vertex";
     }
 
     public Vertex() {
         this.setAnnotations(new LinkedHashMap<String, String>());
-        this.vertexType = "Vertex";
     }
 }
