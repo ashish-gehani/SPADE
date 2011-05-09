@@ -27,26 +27,18 @@ public abstract class AbstractStorage {
     public String arguments;
 
     // This method must return true to indicate that the storage was
-    // succsessfully initialized.
-    public boolean initialize(String arguments) {
-        return false;
-    }
+    // successfully initialized.
+    public abstract boolean initialize(String arguments);
 
     // This method must return true to indicate that the storage was shut
     // down successfully.
-    public boolean shutdown() {
-        return true;
-    }
+    public abstract boolean shutdown();
 
     // This method is triggered when the storage receives a vertex.
-    public boolean putVertex(AbstractVertex incomingVertex) {
-        return false;
-    }
+    public abstract boolean putVertex(AbstractVertex incomingVertex);
 
     // This method is triggered when the storage receives an edge.
-    public boolean putEdge(AbstractEdge incomingEdge) {
-        return false;
-    }
+    public abstract boolean putEdge(AbstractEdge incomingEdge);
 
     // This method is triggered by the Kernel to flush transactions.
     public boolean flushTransactions() {

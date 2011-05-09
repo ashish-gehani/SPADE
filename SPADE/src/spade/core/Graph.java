@@ -31,12 +31,10 @@ public class Graph implements Serializable {
 
     private Set<AbstractVertex> vertexSet;
     private Set<AbstractEdge> edgeSet;
-    public String details;
 
     public Graph() {
         vertexSet = new HashSet<AbstractVertex>();
         edgeSet = new HashSet<AbstractEdge>();
-        details = "";
     }
 
     public boolean putVertex(AbstractVertex inputVertex) {

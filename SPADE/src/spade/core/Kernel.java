@@ -55,6 +55,8 @@ public class Kernel {
     private static Set<AbstractStorage> removestorages;
     private static List<AbstractFilter> filters;
     private static Map<AbstractReporter, Buffer> buffers;
+    private static Set<AbstractSketch> sketches;
+
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
     private static List<String> reporterStrings;
@@ -76,6 +78,7 @@ public class Kernel {
         removestorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
+        sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
 
         // Data structures used for tab completion
         reporterStrings = new ArrayList<String>();
@@ -89,7 +92,8 @@ public class Kernel {
         // the provenance data is finally passed. It also has a reference to
         // the SketchManager and triggers its putVertex() and putEdge() methods
         FinalCommitFilter commitFilter = new FinalCommitFilter();
-        commitFilter.setStorages(storages);
+        commitFilter.storages = storages;
+        commitFilter.sketches = sketches;
         filters.add(commitFilter);
 
 
@@ -465,9 +469,10 @@ public class Kernel {
         outputStream.println("Available commands:");
         outputStream.println("       add reporter|storage <class name> <initialization arguments>");
         outputStream.println("       add filter <class name> <index>");
-        outputStream.println("       remove reporter|storage <class name>");
+        outputStream.println("       add sketch <class name> <storage class name>");
+        outputStream.println("       remove reporter|storage|sketch <class name>");
         outputStream.println("       remove filter <index>");
-        outputStream.println("       list reporters|storages|filters|all");
+        outputStream.println("       list reporters|storages|filters|sketches|all");
         outputStream.println("       config load|save <filename>");
         outputStream.println("       exit");
         outputStream.println("       shutdown");
@@ -491,12 +496,15 @@ public class Kernel {
                 addStorage(tokens[2], tokens[3]);
             } else if (tokens[1].equalsIgnoreCase("filter")) {
                 addFilter(tokens[2], tokens[3]);
+            } else if (tokens[1].equalsIgnoreCase("sketch")) {
+                addSketch(tokens[2], tokens[3]);
             } else {
                 throw new Exception();
             }
         } catch (Exception addCommandException) {
             outputStream.println("Usage: add reporter|storage <class name> <initialization arguments>");
             outputStream.println("       add filter <class name> <index>");
+            outputStream.println("       add sketch <class name> <storage class name>");
         }
     }
 
@@ -551,15 +559,31 @@ public class Kernel {
                     // for the last FinalCommitFilter).
                     outputStream.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
                 }
+            } else if (tokens[1].equalsIgnoreCase("sketches")) {
+                if (sketches.isEmpty()) {
+                    // Nothing to list if the set of sketches is empty.
+                    outputStream.println("No sketches added");
+                    return;
+                }
+                outputStream.println(sketches.size() + " sketch(es) added:");
+                Iterator iterator = sketches.iterator();
+                int count = 1;
+                while (iterator.hasNext()) {
+                    // Iterate through the set of sketches, printing their names.
+                    AbstractSketch sketch = (AbstractSketch) iterator.next();
+                    outputStream.println("\t" + count + ". " + sketch.getClass().getName().split("\\.")[2]);
+                    count++;
+                }
             } else if (tokens[1].equalsIgnoreCase("all")) {
                 listCommand("list reporters");
                 listCommand("list filters");
                 listCommand("list storages");
+                listCommand("list sketches");
             } else {
                 throw new Exception();
             }
         } catch (Exception listCommandException) {
-            outputStream.println("Usage: list reporters|storages|filters|all");
+            outputStream.println("Usage: list reporters|storages|filters|sketches|all");
         }
     }
 
@@ -650,11 +674,29 @@ public class Kernel {
                 }
                 filters.remove(index - 1);
                 outputStream.println("done");
+            } else if (tokens[1].equalsIgnoreCase("sketch")) {
+                boolean found = false;
+                Iterator iterator = sketches.iterator();
+                while (iterator.hasNext()) {
+                    // Iterate through the set of sketches until one is found which
+                    // matches the given argument by its name.
+                    AbstractSketch sketch = (AbstractSketch) iterator.next();
+                    if (sketch.getClass().getName().equals("spade.sketch." + tokens[2])) {
+                        found = true;
+                        outputStream.print("Removing sketch " + tokens[2] + "... ");
+                        iterator.remove();
+                        outputStream.println("done");
+                        break;
+                    }
+                }
+                if (!found) {
+                    outputStream.println("Sketch " + tokens[2] + " not found");
+                }
             } else {
                 throw new Exception();
             }
         } catch (Exception removeCommandException) {
-            outputStream.println("Usage: remove reporter|storage <class name>");
+            outputStream.println("Usage: remove reporter|storage|sketch <class name>");
             outputStream.println("       remove filter <index>");
             removeCommandException.printStackTrace(errorStream);
         }
@@ -716,6 +758,34 @@ public class Kernel {
         }
     }
 
+    public static void addSketch(String classname, String storagename) {
+        try {
+            // Get the sketch by classname and create a new instance.
+            AbstractSketch sketch = (AbstractSketch) Class.forName("spade.sketch." + classname).newInstance();
+            // The argument is the storage class to which this sketch must refernce.
+            boolean found = false;
+            Iterator iterator = storages.iterator();
+            while (iterator.hasNext()) {
+                // Iterate through the set of storages until one is found which
+                // matches the given argument by its name.
+                AbstractStorage storage = (AbstractStorage) iterator.next();
+                if (storage.getClass().getName().equals("spade.storage." + storagename)) {
+                    sketch.storage = storage;
+                    found = true;
+                }
+            }
+            if (!found) {
+                throw new Exception();
+            }
+            outputStream.print("Adding sketch " + classname + "... ");
+            sketches.add(sketch);
+            outputStream.println("done");
+        } catch (Exception addFilterException) {
+            outputStream.println("Error: Unable to add sketch " + classname + " - please check class name and storage name");
+            addFilterException.printStackTrace(errorStream);
+        }
+    }
+
     public static void addFilter(String classname, String arguments) {
         try {
             // Get the filter by classname and create a new instance.
@@ -766,11 +836,8 @@ public class Kernel {
 class FinalCommitFilter extends AbstractFilter {
 
     // Reference to the set of storages maintained by the Kernel.
-    private Set storages;
-
-    public void setStorages(Set mainStorageSet) {
-        storages = mainStorageSet;
-    }
+    public Set storages;
+    public Set sketches;
 
     // This filter is the last filter in the list so any vertices or edges
     // received by it need to be passed to the storages. On receiving any
@@ -779,17 +846,25 @@ class FinalCommitFilter extends AbstractFilter {
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-        Iterator iterator = storages.iterator();
-        while (iterator.hasNext()) {
-            ((AbstractStorage) iterator.next()).putVertex(incomingVertex);
+        Iterator storageIterator = storages.iterator();
+        while (storageIterator.hasNext()) {
+            ((AbstractStorage) storageIterator.next()).putVertex(incomingVertex);
+        }
+        Iterator sketchIterator = sketches.iterator();
+        while (sketchIterator.hasNext()) {
+            ((AbstractSketch) sketchIterator.next()).putVertex(incomingVertex);
         }
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        Iterator iterator = storages.iterator();
-        while (iterator.hasNext()) {
-            ((AbstractStorage) iterator.next()).putEdge(incomingEdge);
+        Iterator storageIterator = storages.iterator();
+        while (storageIterator.hasNext()) {
+            ((AbstractStorage) storageIterator.next()).putEdge(incomingEdge);
+        }
+        Iterator sketchIterator = sketches.iterator();
+        while (sketchIterator.hasNext()) {
+            ((AbstractSketch) sketchIterator.next()).putEdge(incomingEdge);
         }
     }
 }

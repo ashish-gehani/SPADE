@@ -24,29 +24,25 @@ public abstract class AbstractFilter {
     private AbstractFilter nextFilter;
 
     // This method is used by the Kernel for configuring the filter list.
-    public void setNextFilter(AbstractFilter next) {
+    public final void setNextFilter(AbstractFilter next) {
         nextFilter = next;
     }
 
     // This method is called by custom filters.
-    public void putInNextFilter(AbstractVertex vertex) {
+    public final void putInNextFilter(AbstractVertex vertex) {
         nextFilter.putVertex(vertex);
     }
 
     // This method is called by custom filters.
-    public void putInNextFilter(AbstractEdge edge) {
+    public final void putInNextFilter(AbstractEdge edge) {
         nextFilter.putEdge(edge);
     }
 
     // This method is overridden when implementing custom filters.
     // The putInNextFilter() method is called from the overridden method.
-    public void putVertex(AbstractVertex incomingVertex) {
-        return;
-    }
+    public abstract void putVertex(AbstractVertex incomingVertex);
 
     // This method is overridden when implementing custom filters.
     // The putInNextFilter() method is called from the overridden method.
-    public void putEdge(AbstractEdge incomingEdge) {
-        return;
-    }
+    public abstract void putEdge(AbstractEdge incomingEdge);
 }
