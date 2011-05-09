@@ -19,20 +19,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import java.util.Map;
-import java.util.LinkedHashMap;
+public abstract class AbstractSketch {
 
-public class Vertex extends AbstractVertex {
+    public AbstractStorage storage;
 
-    // A general-purpose, semantic-agnostic implementation of the Vertex class.
+    // This method is triggered when the sketch receives a vertex.
+    public abstract void putVertex(AbstractVertex incomingVertex);
 
-    public Vertex(Map<String, String> inputAnnotations) {
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "Vertex");
-    }
-
-    public Vertex() {
-        this.setAnnotations(new LinkedHashMap<String, String>());
-        this.addAnnotation("type", "Vertex");
-    }
+    // This method is triggered when the sketch receives an edge.
+    public abstract void putEdge(AbstractEdge incomingEdge);
 }

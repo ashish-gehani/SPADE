@@ -17,22 +17,30 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-package spade.core;
+package spade.sketch;
 
-import java.util.Map;
-import java.util.LinkedHashMap;
+import spade.core.AbstractEdge;
+import spade.core.AbstractSketch;
+import spade.core.AbstractVertex;
 
-public class Vertex extends AbstractVertex {
+public class SampleSketch extends AbstractSketch {
 
-    // A general-purpose, semantic-agnostic implementation of the Vertex class.
+    // The 'storage' variable is a reference to the storage to which this sketch
+    // is attached. The reference can be used to call query methods, etc.
 
-    public Vertex(Map<String, String> inputAnnotations) {
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "Vertex");
+    public SampleSketch() {
+        // Initialize any necessary data structures here (HashMaps, Sets, etc.)
     }
 
-    public Vertex() {
-        this.setAnnotations(new LinkedHashMap<String, String>());
-        this.addAnnotation("type", "Vertex");
+    @Override
+    public void putVertex(AbstractVertex incomingVertex) {
+        throw new UnsupportedOperationException("Not supported yet.");
     }
+
+    @Override
+    public void putEdge(AbstractEdge incomingEdge) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+
 }

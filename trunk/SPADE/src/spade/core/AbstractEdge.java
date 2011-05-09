@@ -29,15 +29,15 @@ public abstract class AbstractEdge {
 
     protected Map<String, String> annotations;
 
-    public Map<String, String> getAnnotations() {
+    public final Map<String, String> getAnnotations() {
         return annotations;
     }
 
-    public void setAnnotations(Map<String, String> annotations) {
+    public final void setAnnotations(Map<String, String> annotations) {
         this.annotations = annotations;
     }
 
-    public boolean addAnnotation(String key, String value) {
+    public final boolean addAnnotation(String key, String value) {
         if (!annotations.containsKey(key)) {
             annotations.put(key, value);
             return true;
@@ -47,7 +47,7 @@ public abstract class AbstractEdge {
         }
     }
 
-    public boolean removeAnnotation(String key) {
+    public final boolean removeAnnotation(String key) {
         if (annotations.containsKey(key)) {
             annotations.remove(key);
             return true;
