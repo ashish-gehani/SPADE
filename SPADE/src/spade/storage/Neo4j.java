@@ -331,11 +331,11 @@ public class Neo4j extends AbstractStorage {
         }
 
         Direction dir = null;
-        if (direction.equalsIgnoreCase("a")) {
+        if (direction.trim().equalsIgnoreCase("a")) {
             dir = Direction.OUTGOING;
-        } else if (direction.equalsIgnoreCase("d")) {
+        } else if (direction.trim().equalsIgnoreCase("d")) {
             dir = Direction.INCOMING;
-        } else if (direction.equalsIgnoreCase("b")) {
+        } else if (direction.trim().equalsIgnoreCase("b")) {
             dir = Direction.BOTH;
         } else {
             return null;
@@ -355,13 +355,10 @@ public class Neo4j extends AbstractStorage {
                 Node tempNode = (Node) iterator.next();
                 for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
                     Node otherNode = nodeRelationship.getOtherNode(tempNode);
-                    if (terminatingExpression != null) {
-                        if (terminatingSet.contains(otherNode)) {
-                            continue;
-                        } else if (!doneSet.contains(otherNode)) {
-                            tempSet2.add(otherNode);
-                        }
-                    } else if (!doneSet.contains(otherNode)) {
+                    if ((terminatingExpression != null) && (terminatingSet.contains(otherNode))) {
+                        continue;
+                    }
+                    if (!doneSet.contains(otherNode)) {
                         tempSet2.add(otherNode);
                     }
                     resultLineage.putVertex(convertNodeToVertex(otherNode));

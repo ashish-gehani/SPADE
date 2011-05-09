@@ -383,8 +383,8 @@ public class LinuxFUSE extends AbstractReporter {
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
         Artifact link = createLinkArtifact(pathtoLink);
-        Artifact original = createFileArtifact(originalFile);
         putVertex(link);
+        Artifact original = createFileArtifact(originalFile);
         putVertex(original);
         WasDerivedFrom linkEdge = new WasDerivedFrom(original, link);
         linkEdge.addAnnotation("operation", "link");
