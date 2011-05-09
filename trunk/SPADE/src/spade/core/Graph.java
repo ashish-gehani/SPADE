@@ -99,11 +99,11 @@ public class Graph implements Serializable {
         try {
             spade.storage.Graphviz outputStorage = new spade.storage.Graphviz();
             outputStorage.initialize(path);
-            Iterator vertexIterator = vertexSet().iterator();
-            Iterator edgeIterator = edgeSet().iterator();
+            Iterator vertexIterator = vertexSet.iterator();
             while (vertexIterator.hasNext()) {
                 outputStorage.putVertex((AbstractVertex) vertexIterator.next());
             }
+            Iterator edgeIterator = edgeSet.iterator();
             while (edgeIterator.hasNext()) {
                 outputStorage.putEdge((AbstractEdge) edgeIterator.next());
             }
