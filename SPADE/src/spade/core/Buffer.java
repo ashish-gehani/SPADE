@@ -34,11 +34,19 @@ public class Buffer {
     }
 
     public boolean putVertex(AbstractVertex incomingVertex) {
-        return queue.add(incomingVertex);
+        if (incomingVertex != null) {
+            return queue.add(incomingVertex);
+        } else {
+            return false;
+        }
     }
 
     public boolean putEdge(AbstractEdge incomingEdge) {
-        return queue.add(incomingEdge);
+        if ((incomingEdge.getSrcVertex() != null) && (incomingEdge.getDstVertex() != null)) {
+            return queue.add(incomingEdge);
+        } else {
+            return false;
+        }
     }
 
     public Object getBufferElement() {

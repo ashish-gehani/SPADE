@@ -127,8 +127,10 @@ public class LinuxFUSE extends AbstractReporter {
                     localCache.put(currentProcess, processVertex);
                     putVertex(processVertex);
                     if (Integer.parseInt(ppid) >= 0) {
-                        WasTriggeredBy triggerEdge = new WasTriggeredBy((Process) localCache.get(currentProcess), (Process) localCache.get(ppid));
-                        putEdge(triggerEdge);
+                        if (((Process) localCache.get(ppid) != null) && (processVertex != null)) {
+                            WasTriggeredBy triggerEdge = new WasTriggeredBy(processVertex, (Process) localCache.get(ppid));
+                            putEdge(triggerEdge);
+                        }
                     }
                 } catch (Exception exception) {
                     continue;

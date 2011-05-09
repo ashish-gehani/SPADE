@@ -55,7 +55,7 @@ public class Neo4j extends AbstractStorage {
     private RelationshipIndex edgeIndex;
     private Transaction transaction;
     private int transactionCount;
-    private Map<Integer, Long> vertexTable;
+    private Map<Integer, Long> vertexMap;
     private Set<Integer> edgeSet;
 
     public enum MyRelationshipTypes implements RelationshipType {
@@ -70,7 +70,7 @@ public class Neo4j extends AbstractStorage {
             transactionCount = 0;
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
-            vertexTable = new HashMap<Integer, Long>();
+            vertexMap = new HashMap<Integer, Long>();
             edgeSet = new HashSet<Integer>();
             return true;
         } catch (Exception exception) {
@@ -115,7 +115,7 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-        if (vertexTable.containsKey(incomingVertex.hashCode())) {
+        if (vertexMap.containsKey(incomingVertex.hashCode())) {
             return false;
         }
         if (transactionCount == 0) {
@@ -146,7 +146,7 @@ public class Neo4j extends AbstractStorage {
         }
         newVertex.setProperty("storageId", newVertex.getId());
         vertexIndex.add(newVertex, "storageId", new ValueContext(newVertex.getId()).indexNumeric());
-        vertexTable.put(incomingVertex.hashCode(), newVertex.getId());
+        vertexMap.put(incomingVertex.hashCode(), newVertex.getId());
         checkTransactionCount();
         return true;
     }
@@ -155,16 +155,16 @@ public class Neo4j extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         AbstractVertex srcVertex = incomingEdge.getSrcVertex();
         AbstractVertex dstVertex = incomingEdge.getDstVertex();
-        if (!vertexTable.containsKey(srcVertex.hashCode()) ||
-                !vertexTable.containsKey(dstVertex.hashCode()) ||
+        if (!vertexMap.containsKey(srcVertex.hashCode()) ||
+                !vertexMap.containsKey(dstVertex.hashCode()) ||
                 (edgeSet.add(incomingEdge.hashCode()) == false)) {
             return false;
         }
         if (transactionCount == 0) {
             transaction = graphDb.beginTx();
         }
-        Node srcNode = graphDb.getNodeById(vertexTable.get(srcVertex.hashCode()));
-        Node dstNode = graphDb.getNodeById(vertexTable.get(dstVertex.hashCode()));
+        Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.hashCode()));
+        Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.hashCode()));
 
         Map<String, String> annotations = incomingEdge.getAnnotations();
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
