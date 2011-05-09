@@ -42,7 +42,7 @@ public class Buffer {
     }
 
     public boolean putEdge(AbstractEdge incomingEdge) {
-        if ((incomingEdge.getSrcVertex() != null) && (incomingEdge.getDstVertex() != null)) {
+        if ((incomingEdge != null) && (incomingEdge.getSrcVertex() != null) && (incomingEdge.getDstVertex() != null)) {
             return queue.add(incomingEdge);
         } else {
             return false;

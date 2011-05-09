@@ -43,7 +43,7 @@ public class Graphviz extends AbstractStorage {
             EdgeSet = new HashSet<Integer>();
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
-            outputFile.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
+            outputFile.write("digraph spade_dot {\ngraph [rankdir = \"BT\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
             return true;
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
