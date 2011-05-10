@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 303
+REVISION = 307
 
 # Download and build everything.
 all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
@@ -142,12 +142,12 @@ start-spade:
 # Run the control shell.
 start-control-client:
 	cd src;\
-	java -cp '.:../lib/*' spade/client/ControlClient controlPipeIn controlPipeOut;
+	java -cp '.:../lib/*' spade/client/ControlClient spade/pipe/controlPipeIn spade/pipe/controlPipeOut;
 
 # Run the query shell.
 start-query-client:
 	cd src;\
-	java -cp '.:../lib/*' spade/client/QueryClient queryPipeIn queryPipeOut;
+	java -cp '.:../lib/*' spade/client/QueryClient spade/pipe/queryPipeIn spade/pipe/queryPipeOut;
 
 # Remove all .class files.
 clean-class:
