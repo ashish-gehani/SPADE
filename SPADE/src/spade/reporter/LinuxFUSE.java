@@ -260,18 +260,14 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     public void read(int pid, int iotime, String path, int link) {
+        path = sanitizePath(path);
         // Create the file artifact and populate the annotations with file information.
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
-        Artifact fileArtifact;
         // Create file artifact depending on whether this is a link or not.
         // Link artifacts are created differently to avoid recursion that may
         // cause FUSE to crash.
-        if (link == 1) {
-            fileArtifact = createLinkArtifact(path);
-        } else {
-            fileArtifact = createFileArtifact(path);
-        }
+        Artifact fileArtifact = (link == 1) ? createLinkArtifact(path) : createFileArtifact(path);
         putVertex(fileArtifact);
         Used edge = new Used((Process) localCache.get(Integer.toString(pid)), fileArtifact);
         if (iotime > 0) {
@@ -287,18 +283,14 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     public void write(int pid, int iotime, String path, int link) {
+        path = sanitizePath(path);
         // Create the file artifact and populate the annotations with file information.
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
-        Artifact fileArtifact;
         // Create file artifact depending on whether this is a link or not.
         // Link artifacts are created differently to avoid recursion that may
         // cause FUSE to crash.
-        if (link == 1) {
-            fileArtifact = createLinkArtifact(path);
-        } else {
-            fileArtifact = createFileArtifact(path);
-        }
+        Artifact fileArtifact = (link == 1) ? createLinkArtifact(path) : createFileArtifact(path);
         putVertex(fileArtifact);
         WasGeneratedBy edge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));
         if (iotime > 0) {
@@ -314,6 +306,7 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     public void readlink(int pid, int iotime, String path) {
+        path = sanitizePath(path);
         // Create the file artifact and populate the annotations with file information.
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
@@ -331,9 +324,10 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
+        pathfrom = sanitizePath(pathfrom);
+        pathto = sanitizePath(pathto);
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
-        Artifact fileArtifact;
         // 'done' is used to indicate whether this is a pre-rename or a post-rename
         // call. In pre-rename, a Used edge is created from the process to the old
         // file. In post-rename, a WasGeneratedBy edge is created from the process
@@ -343,11 +337,7 @@ public class LinuxFUSE extends AbstractReporter {
             // Create file artifact depending on whether this is a link or not.
             // Link artifacts are created differently to avoid recursion that may
             // cause FUSE to crash.
-            if (link == 1) {
-                fileArtifact = createLinkArtifact(pathfrom);
-            } else {
-                fileArtifact = createFileArtifact(pathfrom);
-            }
+            Artifact fileArtifact = (link == 1) ? createLinkArtifact(pathfrom) : createFileArtifact(pathfrom);
             putVertex(fileArtifact);
             // Put the file artifact in the localCache to be removed on post-rename.
             localCache.put(pathfrom, fileArtifact);
@@ -358,11 +348,7 @@ public class LinuxFUSE extends AbstractReporter {
             // Create file artifact depending on whether this is a link or not.
             // Link artifacts are created differently to avoid recursion that may
             // cause FUSE to crash.
-            if (link == 1) {
-                fileArtifact = createLinkArtifact(pathto);
-            } else {
-                fileArtifact = createFileArtifact(pathto);
-            }
+            Artifact fileArtifact = (link == 1 ? createLinkArtifact(pathto) : createFileArtifact(pathto));
             putVertex(fileArtifact);
             WasGeneratedBy writeEdge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));
             writeEdge.addAnnotation("endtime", Long.toString(now));
@@ -381,31 +367,30 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
-    public void link(int pid, String originalFile, String pathtoLink) {
+    public void link(int pid, String originalFilePath, String linkPath) {
+        originalFilePath = sanitizePath(originalFilePath);
+        linkPath = sanitizePath(linkPath);
         long now = System.currentTimeMillis();
         checkProcessTree(Integer.toString(pid));
-        Artifact link = createLinkArtifact(pathtoLink);
+        Artifact link = createLinkArtifact(linkPath);
         putVertex(link);
-        Artifact original = createFileArtifact(originalFile);
+        Artifact original = createFileArtifact(originalFilePath);
         putVertex(original);
         WasDerivedFrom linkEdge = new WasDerivedFrom(original, link);
         linkEdge.addAnnotation("operation", "link");
         linkEdge.addAnnotation("endtime", Long.toString(now));
         putEdge(linkEdge);
         // Add the link to the links map.
-        links.put(pathtoLink, originalFile);
+        links.put(linkPath, originalFilePath);
     }
 
     public void unlink(int pid, String path) {
+        path = sanitizePath(path);
         checkProcessTree(Integer.toString(pid));
         links.remove(path);
     }
 
     private Artifact createFileArtifact(String path) {
-        // Sanitize the path to avoid recursion and errors.
-        if (path.startsWith(mountPath)) {
-            path = path.substring(mountPath.length());
-        }
         Artifact fileArtifact = new Artifact();
         File file = new File(path);
         fileArtifact.addAnnotation("filename", file.getName());
@@ -420,14 +405,19 @@ public class LinuxFUSE extends AbstractReporter {
     }
 
     private Artifact createLinkArtifact(String path) {
-        // Sanitize the path to avoid recursion and errors.
-        if (path.startsWith(mountPath)) {
-            path = path.substring(mountPath.length());
-        }
         Artifact fileArtifact = new Artifact();
         fileArtifact.addAnnotation("path", path);
         fileArtifact.addAnnotation("filetype", "link");
         return fileArtifact;
+    }
+    
+    private String sanitizePath(String path) {
+        // Sanitize path to avoid recursion inside FUSE which can cause the
+        // reporter to crash.
+        if (path.startsWith(mountPath)) {
+            path = path.substring(mountPath.length());
+        }
+        return path;
     }
 
     @Override

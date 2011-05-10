@@ -43,11 +43,11 @@ import java.net.Socket;
 public class Kernel {
 
     private static final String configFile = "spade.config";
-    private static final String queryPipeInputPath = "queryPipeIn";
-    private static final String controlPipeInputPath = "controlPipeIn";
-    private static final String controlPipeOutputPath = "controlPipeOut";
+    private static final String queryPipeInputPath = "spade/pipe/queryPipeIn";
+    private static final String controlPipeInputPath = "spade/pipe/controlPipeIn";
+    private static final String controlPipeOutputPath = "spade/pipe/controlPipeOut";
     private static final int REMOTE_QUERY_PORT = 9999;
-    private static final int BATCH_BUFFER_ELEMENTS = 200;
+    private static final int BATCH_BUFFER_ELEMENTS = 100;
 
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
@@ -175,56 +175,6 @@ public class Kernel {
         new Thread(mainThread, "mainThread").start();
 
 
-        // Construct the query pipe. The exit value is used to determine if the
-        // query pipe was successfully created.
-        try {
-            int exitValue1 = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
-            if (exitValue1 != 0) {
-                errorStream.println("Error creating query pipes!");
-            } else {
-                Runnable queryThread = new Runnable() {
-
-                    public void run() {
-                        try {
-                            BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
-                            while (!shutdown) {
-                                if (queryInputStream.ready()) {
-                                    String line = queryInputStream.readLine();
-                                    if (line != null) {
-                                        try {
-                                            String[] queryTokens = line.split("\\s", 2);
-                                            // Only accept query commands from this pipe
-                                            // The second argument in the query command is used to specify the
-                                            // output for this query (i.e., a file or a pipe). This argument is
-                                            // stripped from the query string and is passed as a separate argument
-                                            // to the queryCommand() as the output stream.
-                                            PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[0]));
-                                            if (queryTokens.length == 1) {
-                                                showQueryCommands(queryOutputStream);
-                                            } else if (queryTokens[1].startsWith("query ")) {
-                                                queryCommand(queryTokens[1], queryOutputStream);
-                                            } else {
-                                                showQueryCommands(queryOutputStream);
-                                            }
-                                            queryOutputStream.close();
-                                        } catch (Exception exception) {
-                                        }
-                                    }
-                                }
-                                Thread.sleep(200);
-                            }
-                        } catch (Exception exception) {
-                            exception.printStackTrace(errorStream);
-                        }
-                    }
-                };
-                new Thread(queryThread, "queryThread").start();
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace(errorStream);
-        }
-
-
         // This thread creates the input and output pipes used for control (and also used
         // by the control client). The exit value is used to determine if the pipes were
         // successfully created. The input pipe (to which commands are issued) is read in
@@ -266,6 +216,52 @@ public class Kernel {
         new Thread(controlThread, "controlThread").start();
 
         
+        // Construct the query pipe. The exit value is used to determine if the
+        // query pipe was successfully created.
+        Runnable queryThread = new Runnable() {
+
+            public void run() {
+                try {
+                    int exitValue1 = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
+                    if (exitValue1 != 0) {
+                        errorStream.println("Error creating query pipes!");
+                    } else {
+                        BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
+                        while (!shutdown) {
+                            if (queryInputStream.ready()) {
+                                String line = queryInputStream.readLine();
+                                if (line != null) {
+                                    try {
+                                        String[] queryTokens = line.split("\\s", 2);
+                                        // Only accept query commands from this pipe
+                                        // The second argument in the query command is used to specify the
+                                        // output for this query (i.e., a file or a pipe). This argument is
+                                        // stripped from the query string and is passed as a separate argument
+                                        // to the queryCommand() as the output stream.
+                                        PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[0]));
+                                        if (queryTokens.length == 1) {
+                                            showQueryCommands(queryOutputStream);
+                                        } else if (queryTokens[1].startsWith("query ")) {
+                                            queryCommand(queryTokens[1], queryOutputStream);
+                                        } else {
+                                            showQueryCommands(queryOutputStream);
+                                        }
+                                        queryOutputStream.close();
+                                    } catch (Exception exception) {
+                                    }
+                                }
+                            }
+                            Thread.sleep(200);
+                        }
+                    }
+                } catch (Exception exception) {
+                    exception.printStackTrace(errorStream);
+                }
+            }
+        };
+        new Thread(queryThread, "queryThread").start();
+
+
         // This thread creates the input and output pipes used for control (and also used
         // by the control client). The exit value is used to determine if the pipes were
         // successfully created. The input pipe (to which commands are issued) is read in
