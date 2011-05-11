@@ -73,7 +73,8 @@ public class Graphviz extends AbstractStorage {
             for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
                 String key = (String) iterator.next();
                 String value = (String) annotations.get(key);
-                if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))) {
+                if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId")) ||
+                        (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("source_reporter"))) {
                     continue;
                 }
                 vertexString = vertexString + key + ":" + value + "\\n";
@@ -110,7 +111,8 @@ public class Graphviz extends AbstractStorage {
                 for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
                     String key = (String) iterator.next();
                     String value = (String) annotations.get(key);
-                    if ((key.equalsIgnoreCase("storageId")) || (key.equalsIgnoreCase("type"))) {
+                    if ((key.equalsIgnoreCase("storageId")) || (key.equalsIgnoreCase("type")) ||
+                            (key.equalsIgnoreCase("source_reporter"))) {
                         continue;
                     }
                     annotationString = annotationString + key + ":" + value + ", ";
