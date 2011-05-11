@@ -1920,7 +1920,7 @@ public class LinuxAudit extends AbstractReporter {
 
             Runtime.getRuntime().exec("sudo auditctl -D").waitFor();
             Runtime.getRuntime().exec("sudo auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
-            String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spade_reporter_LinuxAudit"};
+            String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spadeLinuxAudit"};
             java.lang.Process pipeprocess = Runtime.getRuntime().exec(cmd);
             eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
             eventReader.readLine();

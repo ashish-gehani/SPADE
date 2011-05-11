@@ -68,7 +68,7 @@ public class OpenBSM extends AbstractReporter {
 
         try {
             // Launch the utility to start reading from the auditpipe.
-            String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spade_reporter_OpenBSM"};
+            String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spadeOpenBSM"};
             pipeProcess = Runtime.getRuntime().exec(cmd);
             eventReader = new BufferedReader(new InputStreamReader(pipeProcess.getInputStream()));
             eventReader.readLine();

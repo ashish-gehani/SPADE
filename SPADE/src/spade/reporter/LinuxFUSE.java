@@ -54,6 +54,14 @@ public class LinuxFUSE extends AbstractReporter {
         localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
         links = Collections.synchronizedMap(new HashMap<String, String>());
 
+        try {
+            // Load the native library.
+            System.loadLibrary("LinuxFUSE");
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
+            return false;
+        }
+        
         // Create a new directory as the mount point for FUSE.
         File mount1 = new File(mountPoint);
         if (mount1.exists()) {
@@ -73,9 +81,6 @@ public class LinuxFUSE extends AbstractReporter {
 
         File mount2 = new File(mountPoint);
         mountPath = mount2.getAbsolutePath();
-
-        // Load the native library.
-        System.loadLibrary("spadeLinuxFUSE");
 
         // Get the system boot time from the proc filesystem.
         boottime = 0;

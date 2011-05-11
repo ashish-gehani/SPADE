@@ -41,6 +41,50 @@ public class MacFUSE extends AbstractReporter {
 
     public native int launchFUSE(String argument);
 
+    @Override
+    public boolean launch(String arguments) {
+        // The argument to this reporter is the mount point for FUSE.
+        mountPoint = arguments;
+        localCache = new HashMap<String, AbstractVertex>();
+        links = new HashMap<String, String>();
+
+        // Create a new directory as the mount point for FUSE.
+        File mount = new File(mountPoint);
+        if (mount.exists()) {
+            return false;
+        } else {
+            try {
+                int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
+                if (exitValue != 0) {
+                    System.err.println("Error creating mount point!");
+                    throw new Exception();
+                }
+            } catch (Exception exception) {
+                exception.printStackTrace(System.err);
+                return false;
+            }
+        }
+
+        // Load the native library.
+        System.loadLibrary("MacFUSE");
+        buildProcessTree();
+
+        Runnable FUSEThread = new Runnable() {
+
+            public void run() {
+                try {
+                    // Launch FUSE from the native library.
+                    launchFUSE(mountPoint);
+                } catch (Exception exception) {
+                    exception.printStackTrace(System.err);
+                }
+            }
+        };
+        new Thread(FUSEThread).start();
+
+        return true;
+    }
+
     public Process createProcessVertex(String pid) {
         // Create the process vertex and populate annotations with information
         // retrieved using the ps utility.
@@ -117,50 +161,6 @@ public class MacFUSE extends AbstractReporter {
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
         }
-    }
-
-    @Override
-    public boolean launch(String arguments) {
-        // The argument to this reporter is the mount point for FUSE.
-        mountPoint = arguments;
-        localCache = new HashMap<String, AbstractVertex>();
-        links = new HashMap<String, String>();
-
-        // Create a new directory as the mount point for FUSE.
-        File mount = new File(mountPoint);
-        if (mount.exists()) {
-            return false;
-        } else {
-            try {
-                int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
-                if (exitValue != 0) {
-                    System.err.println("Error creating mount point!");
-                    throw new Exception();
-                }
-            } catch (Exception exception) {
-                exception.printStackTrace(System.err);
-                return false;
-            }
-        }
-
-        // Load the native library.
-        System.loadLibrary("spadeMacFUSE");
-        buildProcessTree();
-
-        Runnable r1 = new Runnable() {
-
-            public void run() {
-                try {
-                    // Launch FUSE from the native library.
-                    launchFUSE(mountPoint);
-                } catch (Exception exception) {
-                    exception.printStackTrace(System.err);
-                }
-            }
-        };
-        new Thread(r1).start();
-
-        return true;
     }
 
     public void checkProcessTree(String pid) {
