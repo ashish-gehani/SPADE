@@ -25,6 +25,8 @@ public abstract class AbstractStorage {
     // storages.
 
     public String arguments;
+    public long vertexCount;
+    public long edgeCount;
 
     // This method must return true to indicate that the storage was
     // successfully initialized.
