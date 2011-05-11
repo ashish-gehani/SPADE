@@ -631,6 +631,8 @@ public class Kernel {
                         // Mark the storage for removal by adding it to the removestorages set.
                         // This will enable the main SPADE thread to safely commit any transactions
                         // and then remove the storage.
+                        long vertexCount = storage.vertexCount;
+                        long edgeCount = storage.edgeCount;
                         removestorages.add(storage);
                         found = true;
                         outputStream.print("Shutting down storage " + tokens[2] + "... ");
@@ -646,7 +648,7 @@ public class Kernel {
                         for (int i = 0; i < storageStrings.size(); i++) {
                             storageCompletor.addCandidateString((String) storageStrings.get(i));
                         }
-                        outputStream.println("done");
+                        outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
                         break;
                     }
                 }
@@ -738,6 +740,8 @@ public class Kernel {
                 // The initialize() method must return true to indicate successful startup.
                 // On true, the storage is added to the storages set.
                 storage.arguments = arguments;
+                storage.vertexCount = 0;
+                storage.edgeCount = 0;
                 storages.add(storage);
                 storageStrings.add(classname);
                 storageCompletor.setCandidateStrings(new String[]{});
@@ -844,7 +848,10 @@ class FinalCommitFilter extends AbstractFilter {
     public void putVertex(AbstractVertex incomingVertex) {
         Iterator storageIterator = storages.iterator();
         while (storageIterator.hasNext()) {
-            ((AbstractStorage) storageIterator.next()).putVertex(incomingVertex);
+            AbstractStorage storage = (AbstractStorage) storageIterator.next();
+            if (storage.putVertex(incomingVertex)) {
+                storage.vertexCount++;
+            }
         }
         Iterator sketchIterator = sketches.iterator();
         while (sketchIterator.hasNext()) {
@@ -856,7 +863,10 @@ class FinalCommitFilter extends AbstractFilter {
     public void putEdge(AbstractEdge incomingEdge) {
         Iterator storageIterator = storages.iterator();
         while (storageIterator.hasNext()) {
-            ((AbstractStorage) storageIterator.next()).putEdge(incomingEdge);
+            AbstractStorage storage = (AbstractStorage) storageIterator.next();
+            if (storage.putEdge(incomingEdge)) {
+                storage.edgeCount++;
+            }
         }
         Iterator sketchIterator = sketches.iterator();
         while (sketchIterator.hasNext()) {
@@ -864,3 +874,4 @@ class FinalCommitFilter extends AbstractFilter {
         }
     }
 }
+

@@ -56,7 +56,7 @@ public abstract class AbstractEdge {
         }
     }
 
-    public String getAnnotation(String key) {
+    public final String getAnnotation(String key) {
         return annotations.get(key);
     }
 
