@@ -25,7 +25,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #define FUSE_USE_VERSION 26
 
-#include "spade_reporter_MacFUSE.h"
+#include "libMacFUSE.h"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -478,7 +478,7 @@ JNIEXPORT jint JNICALL Java_spade_reporter_MacFUSE_launchFUSE(JNIEnv *e, jobject
 
     int argc = 4;
     char *argv[4];
-    argv[0] = "spade_reporter_MacFUSE";
+    argv[0] = "libMacFUSE";
     argv[1] = "-f";
     argv[2] = "-s";
     argv[3] = (*env)->GetStringUTFChars(env, mountPoint, NULL);

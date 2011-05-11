@@ -25,7 +25,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #define FUSE_USE_VERSION 26
 
-#include "spade_reporter_LinuxFUSE.h"
+#include "libLinuxFUSE.h"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -557,7 +557,7 @@ JNIEXPORT jint JNICALL Java_spade_reporter_LinuxFUSE_launchFUSE(JNIEnv *e, jobje
 
     int argc = 4;
     char *argv[argc];
-    argv[0] = "spade_reporter_LinuxFUSE";
+    argv[0] = "libLinuxFUSE";
     argv[1] = "-f";
     argv[2] = "-s";
     argv[3] = (*env)->GetStringUTFChars(env, mountPoint, NULL);

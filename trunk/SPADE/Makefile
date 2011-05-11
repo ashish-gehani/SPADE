@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 310
+REVISION = 311
 
 # Download and build everything.
 all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
@@ -12,6 +12,9 @@ svn:	svn-spade svn-pipe svn-utility svn-client
 
 # Build everything.
 build:	build-spade build-neo4j build-pipe build-utility build-client
+
+# Download SPADE's core and its dependencies.
+svn-spade:	svn-libraries skeleton svn-core svn-opm svn-storage
 
 # Download the external libraries that SPADE uses.
 svn-libraries:
@@ -49,22 +52,22 @@ svn-pipe:
 # Download the OpenBSM reporter.
 svn-openbsm:
 	svn update -r $(REVISION) --force src/spade/reporter/OpenBSM.java
-	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_OpenBSM.c
+	svn update -r $(REVISION) --force src/spade/reporter/spadeOpenBSM.c
 
 # Download the LinuxAudit reporter.
 svn-linuxaudit:
 	svn update -r $(REVISION) --force src/spade/reporter/LinuxAudit.java
-	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_LinuxAudit.c
+	svn update -r $(REVISION) --force src/spade/reporter/spadeLinuxAudit.c
 
 # Download the LinuxFUSE reporter.
 svn-linuxfuse:
 	svn update -r $(REVISION) --force src/spade/reporter/LinuxFUSE.java
-	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_LinuxFUSE.c
+	svn update -r $(REVISION) --force src/spade/reporter/libLinuxFUSE.c
 
 # Download the MacFUSE reporter.
 svn-macfuse:
 	svn update -r $(REVISION) --force src/spade/reporter/MacFUSE.java
-	svn update -r $(REVISION) --force src/spade/reporter/spade_reporter_MacFUSE.c
+	svn update -r $(REVISION) --force src/spade/reporter/libMacFUSE.c
 
 # Download the Lsof reporter.
 svn-lsof:
@@ -74,9 +77,6 @@ svn-lsof:
 #       because of Lineage.exportDOT(), which is temporarily present
 #       for querying as a stopgap till the REST API is implemented,
 #       at which point the method and dependencies should be removed.
-
-# Download SPADE's core and its dependencies.
-svn-spade:	svn-libraries skeleton svn-core svn-opm svn-storage
 
 # Build the SPADE kernel.
 build-spade:
@@ -107,27 +107,27 @@ build-pipe:
 build-openbsm:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/OpenBSM.java;\
-	gcc -o spade/reporter/spade_reporter_OpenBSM -lbsm spade/reporter/spade_reporter_OpenBSM.c;
+	gcc -o spade/reporter/spadeOpenBSM -lbsm spade/reporter/spadeOpenBSM.c;
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxAudit.java;\
-	gcc -o spade/reporter/spade_reporter_LinuxAudit spade/reporter/spade_reporter_LinuxAudit.c;
+	gcc -o spade/reporter/spadeLinuxAudit spade/reporter/spadeLinuxAudit.c;
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java;\
-	javah -o spade/reporter/spade_reporter_LinuxFUSE.h spade.reporter.LinuxFUSE;\
-	gcc -shared -Wl,-soname,libspadeLinuxFUSE.so -I$(shell cd src;\ java spade/utility/JavaHome)/../include -I$(shell cd src;\ java spade/utility/JavaHome)/../include/linux -L. -Wall `pkg-config fuse --cflags --libs` spade/reporter/spade_reporter_LinuxFUSE.c -o libspadeLinuxFUSE.so;
+	javah -o spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE;\
+	gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell cd src;\ java spade/utility/JavaHome)/../include -I$(shell cd src;\ java spade/utility/JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` spade/reporter/libLinuxFUSE.c -o ../lib/libLinuxFUSE.so;
 
 # Build the MacFUSE reporter.
 build-macfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java;\
-	javah -o spade/reporter/spade_reporter_MacFUSE.h spade.reporter.MacFUSE;\
-	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/spade_reporter_MacFUSE.c -o libspadeMacFUSE.jnilib;
+	javah -o spade/reporter/libMacFUSE.h spade.reporter.MacFUSE;\
+	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/libMacFUSE.c -o ../lib/libMacFUSE.jnilib;
 
 # Build the Lsof reporter.
 build-lsof:
@@ -137,7 +137,7 @@ build-lsof:
 # Run the SPADE kernel.
 start-spade:
 	cd src;\
-	java -server -Xmx512M -cp '.:../lib/*' -Djava.library.path=. spade/core/Kernel;
+	java -server -Xmx512M -cp '.:../lib/*' -Djava.library.path=../lib/ spade/core/Kernel;
 
 # Run the control shell.
 start-control-client:
