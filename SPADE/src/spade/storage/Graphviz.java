@@ -68,7 +68,7 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
-            String vertexString = "";
+            String annotationString = "";
             Map<String, String> annotations = incomingVertex.getAnnotations();
             for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
                 String key = (String) iterator.next();
@@ -77,9 +77,9 @@ public class Graphviz extends AbstractStorage {
                         (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("source_reporter"))) {
                     continue;
                 }
-                vertexString = vertexString + key + ":" + value + "\\n";
+                annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n";
             }
-            vertexString = vertexString.substring(0, vertexString.length() - 2);
+            annotationString = annotationString.substring(0, annotationString.length() - 2);
             String shape = "";
             String color = "";
             String type = incomingVertex.getAnnotation("type");
@@ -93,7 +93,7 @@ public class Graphviz extends AbstractStorage {
                 shape = "ellipse";
                 color = "khaki1";
             }
-            outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
+            outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
             checkTransactions();
             return true;
         } catch (Exception exception) {
@@ -115,7 +115,7 @@ public class Graphviz extends AbstractStorage {
                             (key.equalsIgnoreCase("source_reporter"))) {
                         continue;
                     }
-                    annotationString = annotationString + key + ":" + value + ", ";
+                    annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + ", ";
                 }
                 String color = "";
                 String type = incomingEdge.getAnnotation("type");
@@ -133,7 +133,7 @@ public class Graphviz extends AbstractStorage {
                 if (annotationString.length() > 3) {
                     annotationString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
                 }
-                String edgeString = "\"" + incomingEdge.getSrcVertex().hashCode() + "\" -> \"" + incomingEdge.getDstVertex().hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" color=\"" + color + "\"];\n";
+                String edgeString = "\"" + incomingEdge.getSourceVertex().hashCode() + "\" -> \"" + incomingEdge.getDestinationVertex().hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" color=\"" + color + "\"];\n";
                 outputFile.write(edgeString);
                 checkTransactions();
                 return true;

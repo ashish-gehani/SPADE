@@ -434,6 +434,17 @@ public class Kernel {
         return resultGraph;
     }
 
+    public static String convertVertexToString(AbstractVertex vertex) {
+        String vertexString = "";
+        for (Iterator iterator = vertex.getAnnotations().keySet().iterator(); iterator.hasNext();) {
+            String key = (String) iterator.next();
+            String value = (String) vertex.getAnnotation(key);
+            vertexString = vertexString + key + ":" + value + "|";
+        }
+        vertexString = vertexString.substring(0, vertexString.length() - 1);
+        return vertexString;
+    }
+    
     // Call the main query method.
     public static void queryCommand(String line, PrintStream output) {
         Graph resultGraph = query(line);
@@ -444,7 +455,7 @@ public class Kernel {
                 Iterator resultIterator = resultGraph.vertexSet().iterator();
                 while (resultIterator.hasNext()) {
                     AbstractVertex tempVertex = (AbstractVertex) resultIterator.next();
-                    output.println("[" + tempVertex.toString() + "]");
+                    output.println("[" + convertVertexToString(tempVertex) + "]");
                 }
             } else if (tokens[2].equalsIgnoreCase("lineage")) {
                 resultGraph.exportDOT(outputFile);

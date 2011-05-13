@@ -20,7 +20,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.core;
 
 import java.util.Map;
-import java.util.Iterator;
 
 public abstract class AbstractVertex {
 
@@ -58,18 +57,6 @@ public abstract class AbstractVertex {
 
     public final String getAnnotation(String key) {
         return annotations.get(key);
-    }
-
-    @Override
-    public String toString() {
-        String vertexString = "";
-        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-            String key = (String) iterator.next();
-            String value = (String) annotations.get(key);
-            vertexString = vertexString + key + ":" + value + "|";
-        }
-        vertexString = vertexString.substring(0, vertexString.length() - 1);
-        return vertexString;
     }
 
     @Override

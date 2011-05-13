@@ -41,8 +41,8 @@ public class GraphFinesse extends AbstractFilter {
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex sourceVertex = incomingEdge.getSrcVertex();
-        AbstractVertex destinationVertex = incomingEdge.getDstVertex();
+        AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
+        AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
         if (edges.containsKey(sourceVertex)) {
             HashSet<AbstractVertex> checkSet = edges.get(sourceVertex);
             if (checkSet.contains(destinationVertex)) {

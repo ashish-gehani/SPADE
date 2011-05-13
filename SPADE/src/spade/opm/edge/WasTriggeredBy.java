@@ -20,53 +20,23 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.opm.edge;
 
 import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class WasTriggeredBy extends AbstractEdge {
 
-    private Process triggeredProcess;
-    private Process callingProcess;
-
     public WasTriggeredBy(Process triggeredProcess, Process callingProcess) {
-        this.triggeredProcess = triggeredProcess;
-        this.callingProcess = callingProcess;
+        setSourceVertex(triggeredProcess);
+        setDestinationVertex(callingProcess);
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", "WasTriggeredBy");
+        addAnnotation("type", "WasTriggeredBy");
     }
 
     public WasTriggeredBy(Process triggeredProcess, Process callingProcess, Map<String, String> inputAnnotations) {
-        this.triggeredProcess = triggeredProcess;
-        this.callingProcess = callingProcess;
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "WasTriggeredBy");
-    }
-
-    public Process getCalledProcess() {
-        return triggeredProcess;
-    }
-
-    public void setCalledProcess(Process triggeredProcess) {
-        this.triggeredProcess = triggeredProcess;
-    }
-
-    public Process getCallingProcess() {
-        return callingProcess;
-    }
-
-    public void setCallingProcess(Process callingProcess) {
-        this.callingProcess = callingProcess;
-    }
-
-    @Override
-    public AbstractVertex getSrcVertex() {
-        return triggeredProcess;
-    }
-
-    @Override
-    public AbstractVertex getDstVertex() {
-        return callingProcess;
+        setSourceVertex(triggeredProcess);
+        setDestinationVertex(callingProcess);
+        setAnnotations(inputAnnotations);
+        addAnnotation("type", "WasTriggeredBy");
     }
 }

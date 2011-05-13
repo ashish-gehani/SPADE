@@ -21,53 +21,23 @@ package spade.opm.edge;
 
 import spade.core.AbstractEdge;
 import spade.opm.vertex.Artifact;
-import spade.core.AbstractVertex;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class WasGeneratedBy extends AbstractEdge {
 
-    private Artifact generatedArtifact;
-    private Process actingProcess;
-
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess) {
-        this.actingProcess = actingProcess;
-        this.generatedArtifact = generatedArtifact;
+        setSourceVertex(actingProcess);
+        setDestinationVertex(generatedArtifact);
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", "WasGeneratedBy");
+        addAnnotation("type", "WasGeneratedBy");
     }
 
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess, Map<String, String> inputAnnotations) {
-        this.actingProcess = actingProcess;
-        this.generatedArtifact = generatedArtifact;
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "WasGeneratedBy");
-    }
-
-    public Artifact getArtifact() {
-        return generatedArtifact;
-    }
-
-    public Process getProcess() {
-        return actingProcess;
-    }
-
-    public void setArtifact(Artifact generatedArtifact) {
-        this.generatedArtifact = generatedArtifact;
-    }
-
-    public void setProcess(Process actingProcess) {
-        this.actingProcess = actingProcess;
-    }
-
-    @Override
-    public AbstractVertex getSrcVertex() {
-        return generatedArtifact;
-    }
-
-    @Override
-    public AbstractVertex getDstVertex() {
-        return actingProcess;
+        setSourceVertex(actingProcess);
+        setDestinationVertex(generatedArtifact);
+        setAnnotations(inputAnnotations);
+        addAnnotation("type", "WasGeneratedBy");
     }
 }
