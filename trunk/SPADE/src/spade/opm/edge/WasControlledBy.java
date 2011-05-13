@@ -21,53 +21,23 @@ package spade.opm.edge;
 
 import spade.core.AbstractEdge;
 import spade.opm.vertex.Agent;
-import spade.core.AbstractVertex;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class WasControlledBy extends AbstractEdge {
 
-    private Process controlledProcess;
-    private Agent controllingAgent;
-
     public WasControlledBy(Process controlledProcess, Agent controllingAgent) {
-        this.controlledProcess = controlledProcess;
-        this.controllingAgent = controllingAgent;
+        setSourceVertex(controlledProcess);
+        setDestinationVertex(controllingAgent);
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", "WasControlledBy");
+        addAnnotation("type", "WasControlledBy");
     }
 
     public WasControlledBy(Process controlledProcess, Agent controllingAgent, Map<String, String> inputAnnotations) {
-        this.controlledProcess = controlledProcess;
-        this.controllingAgent = controllingAgent;
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "WasControlledBy");
-    }
-
-    public Process getProcess() {
-        return controlledProcess;
-    }
-
-    public Agent getAgent() {
-        return controllingAgent;
-    }
-
-    public void setProcess(Process controlledProcess) {
-        this.controlledProcess = controlledProcess;
-    }
-
-    public void setAgent(Agent controllingAgent) {
-        this.controllingAgent = controllingAgent;
-    }
-
-    @Override
-    public AbstractVertex getSrcVertex() {
-        return controlledProcess;
-    }
-
-    @Override
-    public AbstractVertex getDstVertex() {
-        return controllingAgent;
+        setSourceVertex(controlledProcess);
+        setDestinationVertex(controllingAgent);
+        setAnnotations(inputAnnotations);
+        addAnnotation("type", "WasControlledBy");
     }
 }

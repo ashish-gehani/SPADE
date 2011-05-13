@@ -25,39 +25,17 @@ import java.util.Map;
 public class Edge extends AbstractEdge {
 
     // A general-purpose, semantic-agnostic implementation of the Edge class.
-
-    private Vertex sourceVertex;
-    private Vertex destinationVertex;
-
     public Edge(Vertex sourceVertex, Vertex destinationVertex) {
-        this.sourceVertex = sourceVertex;
-        this.destinationVertex = destinationVertex;
+        setSourceVertex(sourceVertex);
+        setDestinationVertex(destinationVertex);
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", "Edge");
+        addAnnotation("type", "Edge");
     }
 
     public Edge(Vertex sourceVertex, Vertex destinationVertex, Map<String, String> inputAnnotations) {
-        this.sourceVertex = sourceVertex;
-        this.destinationVertex = destinationVertex;
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "Edge");
-    }
-
-    public void setSrcVertex(Vertex sourceVertex) {
-        this.sourceVertex = sourceVertex;
-    }
-
-    public void setDstVertex(Vertex destinationVertex) {
-        this.destinationVertex = destinationVertex;
-    }
-
-    @Override
-    public AbstractVertex getSrcVertex() {
-        return sourceVertex;
-    }
-
-    @Override
-    public AbstractVertex getDstVertex() {
-        return destinationVertex;
+        setSourceVertex(sourceVertex);
+        setDestinationVertex(destinationVertex);
+        setAnnotations(inputAnnotations);
+        addAnnotation("type", "Edge");
     }
 }

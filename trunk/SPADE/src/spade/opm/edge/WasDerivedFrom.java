@@ -21,52 +21,22 @@ package spade.opm.edge;
 
 import spade.core.AbstractEdge;
 import spade.opm.vertex.Artifact;
-import spade.core.AbstractVertex;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class WasDerivedFrom extends AbstractEdge {
 
-    private Artifact sourceArtifact;
-    private Artifact destinationArtifact;
-
     public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact) {
-        this.sourceArtifact = sourceArtifact;
-        this.destinationArtifact = destinationArtifact;
+        setSourceVertex(sourceArtifact);
+        setDestinationVertex(destinationArtifact);
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", "WasDerivedFrom");
+        addAnnotation("type", "WasDerivedFrom");
     }
 
     public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact, Map<String, String> inputAnnotations) {
-        this.sourceArtifact = sourceArtifact;
-        this.destinationArtifact = destinationArtifact;
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "WasDerivedFrom");
-    }
-
-    public Artifact getSourceArtifact() {
-        return sourceArtifact;
-    }
-
-    public void setSourceArtifact(Artifact sourceArtifact) {
-        this.sourceArtifact = sourceArtifact;
-    }
-
-    public Artifact getDestinationArtifact() {
-        return destinationArtifact;
-    }
-
-    public void setDestinationArtifact(Artifact destinationArtifact) {
-        this.destinationArtifact = destinationArtifact;
-    }
-
-    @Override
-    public AbstractVertex getSrcVertex() {
-        return sourceArtifact;
-    }
-
-    @Override
-    public AbstractVertex getDstVertex() {
-        return destinationArtifact;
+        setSourceVertex(sourceArtifact);
+        setDestinationVertex(destinationArtifact);
+        setAnnotations(inputAnnotations);
+        addAnnotation("type", "WasDerivedFrom");
     }
 }

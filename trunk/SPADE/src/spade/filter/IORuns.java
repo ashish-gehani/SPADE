@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-
 package spade.filter;
 
 import spade.core.AbstractFilter;
@@ -47,8 +46,8 @@ public class IORuns extends AbstractFilter {
     public void putEdge(AbstractEdge incomingEdge) {
         if (incomingEdge instanceof Used) {
             Used usedEdge = (Used) incomingEdge;
-            int fileVertexHash = usedEdge.getArtifact().hashCode();
-            int processVertexHash = usedEdge.getProcess().hashCode();
+            int fileVertexHash = usedEdge.getDestinationVertex().hashCode();
+            int processVertexHash = usedEdge.getSourceVertex().hashCode();
             if (reads.containsKey(fileVertexHash) == false) {
                 HashSet<Integer> tempSet = new HashSet<Integer>();
                 tempSet.add(processVertexHash);
@@ -68,8 +67,8 @@ public class IORuns extends AbstractFilter {
             }
         } else if (incomingEdge instanceof WasGeneratedBy) {
             WasGeneratedBy wgb = (WasGeneratedBy) incomingEdge;
-            int fileVertexHash = wgb.getArtifact().hashCode();
-            int processVertexHash = wgb.getProcess().hashCode();
+            int fileVertexHash = wgb.getSourceVertex().hashCode();
+            int processVertexHash = wgb.getDestinationVertex().hashCode();
             if (writes.containsKey(fileVertexHash) == false) {
                 HashSet<Integer> tempSet = new HashSet<Integer>();
                 tempSet.add(processVertexHash);

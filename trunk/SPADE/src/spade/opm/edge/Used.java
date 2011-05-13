@@ -21,53 +21,23 @@ package spade.opm.edge;
 
 import spade.core.AbstractEdge;
 import spade.opm.vertex.Artifact;
-import spade.core.AbstractVertex;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Used extends AbstractEdge {
 
-    private Process actingProcess;
-    private Artifact usedArtifact;
-
     public Used(Process actingProcess, Artifact usedArtifact) {
-        this.actingProcess = actingProcess;
-        this.usedArtifact = usedArtifact;
+        setSourceVertex(actingProcess);
+        setDestinationVertex(usedArtifact);
         annotations = new LinkedHashMap<String, String>();
-        this.addAnnotation("type", "Used");
+        addAnnotation("type", "Used");
     }
 
     public Used(Process actingProcess, Artifact usedArtifact, Map<String, String> inputAnnotations) {
-        this.actingProcess = actingProcess;
-        this.usedArtifact = usedArtifact;
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "Used");
-    }
-
-    public Process getProcess() {
-        return actingProcess;
-    }
-
-    public Artifact getArtifact() {
-        return usedArtifact;
-    }
-
-    public void setProcess(Process actingProcess) {
-        this.actingProcess = actingProcess;
-    }
-
-    public void setArtifact(Artifact usedArtifact) {
-        this.usedArtifact = usedArtifact;
-    }
-
-    @Override
-    public AbstractVertex getSrcVertex() {
-        return actingProcess;
-    }
-
-    @Override
-    public AbstractVertex getDstVertex() {
-        return usedArtifact;
+        setSourceVertex(actingProcess);
+        setDestinationVertex(usedArtifact);
+        setAnnotations(inputAnnotations);
+        addAnnotation("type", "Used");
     }
 }

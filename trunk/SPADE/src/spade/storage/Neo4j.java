@@ -153,8 +153,8 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex srcVertex = incomingEdge.getSrcVertex();
-        AbstractVertex dstVertex = incomingEdge.getDstVertex();
+        AbstractVertex srcVertex = incomingEdge.getSourceVertex();
+        AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
         if (!vertexMap.containsKey(srcVertex.hashCode()) ||
                 !vertexMap.containsKey(dstVertex.hashCode()) ||
                 (edgeSet.add(incomingEdge.hashCode()) == false)) {
@@ -257,15 +257,15 @@ public class Neo4j extends AbstractStorage {
         for (Relationship foundRelationship : edgeIndex.query(edgeExpression)) {
             AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
             if ((sourceExpression != null) && (destinationExpression != null)) {
-                if (sourceSet.contains(tempEdge.getSrcVertex()) && destinationSet.contains(tempEdge.getDstVertex())) {
+                if (sourceSet.contains(tempEdge.getSourceVertex()) && destinationSet.contains(tempEdge.getDestinationVertex())) {
                     resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression != null) && (destinationExpression == null)) {
-                if (sourceSet.contains(tempEdge.getSrcVertex())) {
+                if (sourceSet.contains(tempEdge.getSourceVertex())) {
                     resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression == null) && (destinationExpression != null)) {
-                if (destinationSet.contains(tempEdge.getDstVertex())) {
+                if (destinationSet.contains(tempEdge.getDestinationVertex())) {
                     resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression == null) && (destinationExpression == null)) {
