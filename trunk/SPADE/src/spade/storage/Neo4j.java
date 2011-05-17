@@ -155,9 +155,9 @@ public class Neo4j extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         AbstractVertex srcVertex = incomingEdge.getSourceVertex();
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-        if (!vertexMap.containsKey(srcVertex.hashCode()) ||
-                !vertexMap.containsKey(dstVertex.hashCode()) ||
-                (edgeSet.add(incomingEdge.hashCode()) == false)) {
+        if (!vertexMap.containsKey(srcVertex.hashCode())
+                || !vertexMap.containsKey(dstVertex.hashCode())
+                || (edgeSet.add(incomingEdge.hashCode()) == false)) {
             return false;
         }
         if (transactionCount == 0) {
@@ -290,7 +290,7 @@ public class Neo4j extends AbstractStorage {
     @Override
     public Graph getPaths(String srcVertexId, String dstVertexId, int maxLength) {
         Graph resultGraph = new Graph();
-        
+
         Node sourceNode = graphDb.getNodeById(Long.parseLong(srcVertexId));
         Node destinationNode = graphDb.getNodeById(Long.parseLong(dstVertexId));
 
@@ -306,17 +306,16 @@ public class Neo4j extends AbstractStorage {
                 resultGraph.putEdge(convertRelationshipToEdge(edgeIterator.next()));
             }
         }
-        
+
         return resultGraph;
     }
 
     @Override
     public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
-        Graph resultLineage = new Graph();
+        Graph resultGraph = new Graph();
 
-        Long sourceNodeId = Long.parseLong(vertexId);
-        Node sourceNode = graphDb.getNodeById(sourceNodeId);
-        resultLineage.putVertex(convertNodeToVertex(sourceNode));
+        Node sourceNode = graphDb.getNodeById(Long.parseLong(vertexId));
+        resultGraph.putVertex(convertNodeToVertex(sourceNode));
 
         if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
             terminatingExpression = null;
@@ -361,8 +360,8 @@ public class Neo4j extends AbstractStorage {
                     if (!doneSet.contains(otherNode)) {
                         tempSet2.add(otherNode);
                     }
-                    resultLineage.putVertex(convertNodeToVertex(otherNode));
-                    resultLineage.putEdge(convertRelationshipToEdge(nodeRelationship));
+                    resultGraph.putVertex(convertNodeToVertex(otherNode));
+                    resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
                 }
             }
             tempSet.clear();
@@ -370,6 +369,6 @@ public class Neo4j extends AbstractStorage {
             depth--;
         }
 
-        return resultLineage;
+        return resultGraph;
     }
 }

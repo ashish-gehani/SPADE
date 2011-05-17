@@ -39,7 +39,6 @@ import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-
 public class Kernel {
 
     private static final String configFile = "spade.config";
@@ -48,7 +47,6 @@ public class Kernel {
     private static final String controlPipeOutputPath = "spade/pipe/controlPipeOut";
     private static final int REMOTE_QUERY_PORT = 9999;
     private static final int BATCH_BUFFER_ELEMENTS = 100;
-
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
     private static Set<AbstractReporter> removereporters;
@@ -56,14 +54,12 @@ public class Kernel {
     private static List<AbstractFilter> filters;
     private static Map<AbstractReporter, Buffer> buffers;
     private static Set<AbstractSketch> sketches;
-
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
     private static List<String> reporterStrings;
     private static List<String> storageStrings;
     private static SimpleCompletor reporterCompletor;
     private static SimpleCompletor storageCompletor;
-
     private static PrintStream outputStream = System.out;
     private static PrintStream errorStream = System.err;
 
@@ -146,7 +142,7 @@ public class Kernel {
                         }
                         for (Iterator iterator = buffers.keySet().iterator(); iterator.hasNext();) {
                             AbstractReporter reporter = (AbstractReporter) iterator.next();
-                            for (int i=0; i<BATCH_BUFFER_ELEMENTS; i++) {
+                            for (int i = 0; i < BATCH_BUFFER_ELEMENTS; i++) {
                                 Object bufferelement = ((Buffer) buffers.get(reporter)).getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
                                     AbstractVertex tempVertex = (AbstractVertex) bufferelement;
@@ -215,7 +211,7 @@ public class Kernel {
         };
         new Thread(controlThread, "controlThread").start();
 
-        
+
         // Construct the query pipe. The exit value is used to determine if the
         // query pipe was successfully created.
         Runnable queryThread = new Runnable() {
@@ -444,7 +440,7 @@ public class Kernel {
         vertexString = vertexString.substring(0, vertexString.length() - 1);
         return vertexString;
     }
-    
+
     // Call the main query method.
     public static void queryCommand(String line, PrintStream output) {
         Graph resultGraph = query(line);
@@ -707,7 +703,6 @@ public class Kernel {
         } catch (Exception removeCommandException) {
             outputStream.println("Usage: remove reporter|storage|sketch <class name>");
             outputStream.println("       remove filter <index>");
-            removeCommandException.printStackTrace(errorStream);
         }
     }
 
@@ -738,7 +733,6 @@ public class Kernel {
             }
         } catch (Exception addReporterException) {
             outputStream.println("Error: Unable to add reporter " + classname + " - please check class name");
-            addReporterException.printStackTrace(errorStream);
         }
     }
 
@@ -765,7 +759,6 @@ public class Kernel {
             }
         } catch (Exception addStorageException) {
             outputStream.println("Error: Unable to add storage " + classname + " - please check class name and argument");
-            addStorageException.printStackTrace(errorStream);
         }
     }
 
@@ -793,7 +786,6 @@ public class Kernel {
             outputStream.println("done");
         } catch (Exception addFilterException) {
             outputStream.println("Error: Unable to add sketch " + classname + " - please check class name and storage name");
-            addFilterException.printStackTrace(errorStream);
         }
     }
 
@@ -820,7 +812,6 @@ public class Kernel {
             outputStream.println("done");
         } catch (Exception addFilterException) {
             outputStream.println("Error: Unable to add filter " + classname + " - please check class name and index");
-            addFilterException.printStackTrace(errorStream);
         }
     }
 
@@ -854,7 +845,6 @@ class FinalCommitFilter extends AbstractFilter {
     // received by it need to be passed to the storages. On receiving any
     // provenance elements, iterate through the set of storages and pass
     // the element to each storage.
-
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
         Iterator storageIterator = storages.iterator();
@@ -885,4 +875,3 @@ class FinalCommitFilter extends AbstractFilter {
         }
     }
 }
-

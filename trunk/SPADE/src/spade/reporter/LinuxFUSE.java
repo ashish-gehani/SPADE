@@ -68,7 +68,7 @@ public class LinuxFUSE extends AbstractReporter {
             exception.printStackTrace(System.err);
             return false;
         }
-        
+
         // Create a new directory as the mount point for FUSE.
         File mount1 = new File(mountPoint);
         if (mount1.exists()) {
@@ -432,7 +432,7 @@ public class LinuxFUSE extends AbstractReporter {
         fileArtifact.addAnnotation("filetype", "link");
         return fileArtifact;
     }
-    
+
     private String sanitizePath(String path) {
         // Sanitize path to avoid recursion inside FUSE which can cause the
         // reporter to crash.
@@ -441,15 +441,19 @@ public class LinuxFUSE extends AbstractReporter {
         }
         return path;
     }
-    
+
     private void commitIO(int pid, boolean read) {
         FileIOData currentIOData;
         if (read) {
             currentIOData = readAggregation.remove(pid);
-            if (currentIOData == null) return;
+            if (currentIOData == null) {
+                return;
+            }
         } else {
             currentIOData = writeAggregation.remove(pid);
-            if (currentIOData == null) return;            
+            if (currentIOData == null) {
+                return;
+            }
         }
         // Create the file artifact and populate the annotations with file information.
         checkProcessTree(Integer.toString(pid));
@@ -462,7 +466,7 @@ public class LinuxFUSE extends AbstractReporter {
         if (read) {
             edge = new Used((Process) localCache.get(Integer.toString(pid)), fileArtifact);
         } else {
-            edge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));            
+            edge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));
         }
         edge.addAnnotation("iotime", Integer.toString(currentIOData.iotime));
         edge.addAnnotation("endtime", Long.toString(currentIOData.lastmodified));
@@ -474,7 +478,7 @@ public class LinuxFUSE extends AbstractReporter {
                 read(pid, currentIOData.iotime, links.get(currentIOData.path), 0);
             } else {
                 write(pid, currentIOData.iotime, links.get(currentIOData.path), 0);
-            }  
+            }
         }
     }
 
@@ -501,9 +505,9 @@ public class LinuxFUSE extends AbstractReporter {
 }
 
 class FileIOData {
+
     public String path;
     public int link;
     public int iotime;
     public long lastmodified;
 }
-

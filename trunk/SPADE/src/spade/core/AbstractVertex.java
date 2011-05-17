@@ -25,7 +25,6 @@ public abstract class AbstractVertex {
 
     // The AbstractVertex class is from which other vertex classes (e.g., OPM
     // vertices) are derived.
-
     protected Map<String, String> annotations;
 
     public final Map<String, String> getAnnotations() {
