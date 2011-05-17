@@ -105,7 +105,6 @@ int main(int argc, char** argv){
 	int tokenCount;
 	int fetchToken;
 	tokenstr_t token;
-	int charCount;
 	
 	while(remainingRecords){
 

@@ -43,6 +43,7 @@ public class ControlClient {
     private static String outputPath;
     private static volatile boolean shutdown;
     private static final String historyFile = "control.history";
+    private static final int THREAD_SLEEP_TIME = 10;
 
     public static void main(String args[]) {
 
@@ -61,7 +62,7 @@ public class ControlClient {
             outputStream.println("Control pipes not ready!");
             System.exit(0);
         }
-        
+
         Runnable outputReader = new Runnable() {
 
             public void run() {
@@ -78,7 +79,7 @@ public class ControlClient {
                                 outputStream.println(outputLine);
                             }
                         }
-                        Thread.sleep(10);
+                        Thread.sleep(THREAD_SLEEP_TIME);
                     }
                     SPADEControlOut.close();
                 } catch (Exception exception) {
@@ -150,5 +151,4 @@ public class ControlClient {
             exception.printStackTrace(errorStream);
         }
     }
-
 }

@@ -28,7 +28,6 @@ public class Graph implements Serializable {
 
     // This class uses a set of vertices and a set of edges to represent the
     // graph.
-
     private Set<AbstractVertex> vertexSet;
     private Set<AbstractEdge> edgeSet;
 

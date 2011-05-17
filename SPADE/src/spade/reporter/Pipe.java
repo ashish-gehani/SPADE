@@ -42,6 +42,7 @@ public class Pipe extends AbstractReporter {
     private BufferedReader eventReader;
     private volatile boolean shutdown;
     private HashMap<String, AbstractVertex> vertices;
+    private final int THREAD_SLEEP_TIME = 5;
 
     @Override
     public boolean launch(String arguments) {
@@ -72,7 +73,7 @@ public class Pipe extends AbstractReporter {
                                         parseEvent(line);
                                     }
                                 }
-                                Thread.sleep(5);
+                                Thread.sleep(THREAD_SLEEP_TIME);
                             }
                             eventReader.close();
                         } catch (Exception exception) {
@@ -102,7 +103,7 @@ public class Pipe extends AbstractReporter {
             AbstractEdge edge = null;
             // Create an empty HashMap for annotations. We use a LinkedHashMap
             // to preserve order of annotations.
-            LinkedHashMap<String,String> annotations = new LinkedHashMap<String,String>();
+            LinkedHashMap<String, String> annotations = new LinkedHashMap<String, String>();
             for (int i = 0; i < tokens.length; i++) {
                 // Check if the key is one of the keywords, otherwise treat it as
                 // an annotation.
@@ -125,7 +126,7 @@ public class Pipe extends AbstractReporter {
                 vertex = new Artifact(annotations);
             } else if (type.equalsIgnoreCase("agent")) {
                 vertex = new Agent(annotations);
-            // Create edges and also check if the 'from' and 'to' values are valid.
+                // Create edges and also check if the 'from' and 'to' values are valid.
             } else if ((type.equalsIgnoreCase("used")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Artifact)) {
                     edge = new Used((Process) vertices.get(from), (Artifact) vertices.get(to), annotations);

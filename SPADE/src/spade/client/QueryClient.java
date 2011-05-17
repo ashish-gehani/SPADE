@@ -43,6 +43,7 @@ public class QueryClient {
     private static String outputPath;
     private static volatile boolean shutdown;
     private static final String historyFile = "query.history";
+    private static final int THREAD_SLEEP_TIME = 10;
 
     public static void main(String args[]) {
 
@@ -63,7 +64,7 @@ public class QueryClient {
             outputStream.println("Query pipes not ready!");
             System.exit(0);
         }
-        
+
         Runnable outputReader = new Runnable() {
 
             public void run() {
@@ -79,7 +80,7 @@ public class QueryClient {
                                 outputStream.println(outputLine);
                             }
                         }
-                        Thread.sleep(10);
+                        Thread.sleep(THREAD_SLEEP_TIME);
                     }
                 } catch (Exception exception) {
                     exception.printStackTrace(errorStream);
@@ -129,5 +130,4 @@ public class QueryClient {
         } catch (Exception exception) {
         }
     }
-
 }

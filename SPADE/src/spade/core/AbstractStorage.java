@@ -23,7 +23,6 @@ public abstract class AbstractStorage {
 
     // All the methods in this class must be overridden by custom-implemented
     // storages.
-
     public String arguments;
     public long vertexCount;
     public long edgeCount;

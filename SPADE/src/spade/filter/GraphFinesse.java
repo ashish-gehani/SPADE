@@ -58,7 +58,7 @@ public class GraphFinesse extends AbstractFilter {
                 HashSet<AbstractVertex> copytempSet = edges.get(sourceVertex);
                 Iterator iterator = copytempSet.iterator();
                 while (iterator.hasNext()) {
-                    tempSet.add((AbstractVertex)iterator.next());
+                    tempSet.add((AbstractVertex) iterator.next());
                 }
             }
             putInNextFilter(incomingEdge);
@@ -69,7 +69,7 @@ public class GraphFinesse extends AbstractFilter {
                     HashSet<AbstractVertex> copytempSet = edges.get(sourceVertex);
                     Iterator iterator = copytempSet.iterator();
                     while (iterator.hasNext()) {
-                        tempSet.add((AbstractVertex)iterator.next());
+                        tempSet.add((AbstractVertex) iterator.next());
                     }
                 }
                 putInNextFilter(incomingEdge);

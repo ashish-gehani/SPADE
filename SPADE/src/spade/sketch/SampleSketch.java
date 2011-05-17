@@ -27,7 +27,6 @@ public class SampleSketch extends AbstractSketch {
 
     // The 'storage' variable is a reference to the storage to which this sketch
     // is attached. The reference can be used to call query methods, etc.
-
     public SampleSketch() {
         // Initialize any necessary data structures here (HashMaps, Sets, etc.)
     }
@@ -41,6 +40,4 @@ public class SampleSketch extends AbstractSketch {
     public void putEdge(AbstractEdge incomingEdge) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
-    
-
 }

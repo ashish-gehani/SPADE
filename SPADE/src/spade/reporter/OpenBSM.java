@@ -41,7 +41,7 @@ import java.util.StringTokenizer;
 public class OpenBSM extends AbstractReporter {
 
     private BufferedReader eventReader;
-    private java.lang.Process pipeProcess;
+    private java.lang.Process nativeProcess;
     private Map<String, AbstractVertex> processVertices;
     private Set<Integer> sentObjects;
     private Set<String> processTree;
@@ -52,6 +52,8 @@ public class OpenBSM extends AbstractReporter {
     private String javaPID;
     private String eventPID;
     private volatile boolean shutdown;
+    private final String simpleDatePattern = "EEE MMM d, H:mm:ss yyyy";
+    private final int THREAD_SLEEP_TIME = 5;
 
     @Override
     public boolean launch(String arguments) {
@@ -69,9 +71,8 @@ public class OpenBSM extends AbstractReporter {
         try {
             // Launch the utility to start reading from the auditpipe.
             String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spadeOpenBSM"};
-            pipeProcess = Runtime.getRuntime().exec(cmd);
-            eventReader = new BufferedReader(new InputStreamReader(pipeProcess.getInputStream()));
-            eventReader.readLine();
+            nativeProcess = Runtime.getRuntime().exec(cmd);
+            eventReader = new BufferedReader(new InputStreamReader(nativeProcess.getInputStream()));
             Runnable eventThread = new Runnable() {
 
                 public void run() {
@@ -84,10 +85,9 @@ public class OpenBSM extends AbstractReporter {
                                     parseEvent(line);
                                 }
                             }
-                            Thread.sleep(5);
+                            Thread.sleep(THREAD_SLEEP_TIME);
                         }
-                        eventReader.close();
-                        pipeProcess.destroy();
+                        nativeProcess.destroy();
                     } catch (Exception exception) {
                         exception.printStackTrace(System.err);
                     }
@@ -96,6 +96,7 @@ public class OpenBSM extends AbstractReporter {
             new Thread(eventThread).start();
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
+            return false;
         }
         return true;
     }
@@ -159,7 +160,8 @@ public class OpenBSM extends AbstractReporter {
             if ((size == null) || (lastmodified == null) || (ownergid == null) || (owneruid == null) || (permissions == null)) {
                 throw new Exception();
             }
-            fileArtifact.addAnnotation("lastmodified", lastmodified + "000");
+            fileArtifact.addAnnotation("lastmodified_unix", lastmodified + "000");
+            fileArtifact.addAnnotation("lastmodified_simple", new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(lastmodified + "000")));
             fileArtifact.addAnnotation("size", size);
             fileArtifact.addAnnotation("permissions", permissions);
             fileArtifact.addAnnotation("owneruid", owneruid);
@@ -176,7 +178,8 @@ public class OpenBSM extends AbstractReporter {
             if ((file.lastModified() != 0) && (file.length() != 0)) {
                 String lastmodified = Long.toString(file.lastModified());
                 String filesize = Long.toString(file.length());
-                fileArtifact.addAnnotation("lastmodified", lastmodified);
+                fileArtifact.addAnnotation("lastmodified_unix", lastmodified);
+                fileArtifact.addAnnotation("lastmodified_simple", new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(lastmodified)));
                 fileArtifact.addAnnotation("size", filesize);
             }
             return fileArtifact;
@@ -192,7 +195,7 @@ public class OpenBSM extends AbstractReporter {
             return processVertex;
         }
         try {
-            String line = "";
+            String line;
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,gid,lstart,sess,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
@@ -207,7 +210,8 @@ public class OpenBSM extends AbstractReporter {
             processVertex.addAnnotation("ppid", info[1]);
             String timestring = info[4] + " " + info[5] + " " + info[6] + " " + info[7] + " " + info[8];
             String starttime = Long.toString(new java.text.SimpleDateFormat("EEE MMM d HH:mm:ss yyyy").parse(timestring).getTime());
-            processVertex.addAnnotation("starttime", starttime);
+            processVertex.addAnnotation("starttime_unix", starttime);
+            processVertex.addAnnotation("starttime_simple", timestring);
             processVertex.addAnnotation("sessionid", info[9]);
             processVertex.addAnnotation("uid", info[2]);
             processVertex.addAnnotation("gid", info[3]);
