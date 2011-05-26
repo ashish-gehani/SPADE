@@ -41,10 +41,10 @@ import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.helpers.collection.MapUtil;
-import org.neo4j.index.impl.lucene.ValueContext;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.index.IndexHits;
+import org.neo4j.index.lucene.ValueContext;
 import org.neo4j.kernel.Traversal;
 
 public class Neo4j extends AbstractStorage {
