@@ -39,16 +39,18 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean initialize(String arguments) {
         try {
+            if (arguments == null) {
+                return false;
+            }
             filePath = arguments;
             EdgeSet = new HashSet<Integer>();
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
-            outputFile.write("digraph spade_dot {\ngraph [rankdir = \"BT\"];\nnode [fontname=\"Helvetica\" fontsize=\"10\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"10\"];\n");
+            outputFile.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
             return true;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            return false;
         }
-        return false;
     }
 
     private void checkTransactions() {
@@ -74,7 +76,8 @@ public class Graphviz extends AbstractStorage {
                 String key = (String) iterator.next();
                 String value = (String) annotations.get(key);
                 if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))
-                        || (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("source_reporter"))) {
+                        || (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("commandline"))
+                        || (key.equalsIgnoreCase("source_reporter"))) {
                     continue;
                 }
                 annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n";

@@ -46,7 +46,7 @@ public class LinuxFUSE extends AbstractReporter {
     private Map<Integer, FileIOData> writeAggregation;
     private String mountPoint;
     private String mountPath;
-    private final String simpleDatePattern = "EEE MMM d, H:mm:ss yyyy";
+    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     // The native launchFUSE method to start FUSE. The argument is the
     // mount point.
@@ -54,6 +54,9 @@ public class LinuxFUSE extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
+        if (arguments == null) {
+            return false;
+        }
         // The argument to this reporter is the mount point for FUSE.
         mountPoint = arguments;
         localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());

@@ -46,6 +46,9 @@ public class Pipe extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
+        if (arguments == null) {
+            return false;
+        }
         // The Pipe reporter creates a simple named pipe to which provenance events
         // can be written. The argument to the launch method is the location of the
         // pipe.
