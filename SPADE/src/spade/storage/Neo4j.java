@@ -66,6 +66,9 @@ public class Neo4j extends AbstractStorage {
     @Override
     public boolean initialize(String arguments) {
         try {
+            if (arguments == null) {
+                return false;
+            }
             graphDb = new EmbeddedGraphDatabase(arguments);
             transactionCount = 0;
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
@@ -74,7 +77,6 @@ public class Neo4j extends AbstractStorage {
             edgeSet = new HashSet<Integer>();
             return true;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
             return false;
         }
     }

@@ -1,7 +1,7 @@
 /*
 --------------------------------------------------------------------------------
 SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+Copyright (C) 2010 SRI International
 
 This program is free software: you can redistribute it and/or
 modify it under the terms of the GNU General Public License as
@@ -19,25 +19,19 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.reporter;
 
-import spade.core.AbstractReporter;
-import spade.opm.edge.WasTriggeredBy;
-import spade.opm.edge.WasControlledBy;
-import spade.opm.edge.WasGeneratedBy;
-import spade.opm.edge.Used;
-import spade.opm.edge.WasDerivedFrom;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Agent;
-import spade.opm.vertex.Process;
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStreamReader;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.regex.*;
 import java.util.*;
+import spade.core.AbstractReporter;
+import spade.opm.edge.*;
+import spade.opm.vertex.Process;
+import spade.opm.vertex.Artifact;
+import spade.opm.vertex.Agent;
 
-/**
- * This program reads a text file line by line and print to the console. It uses
- * FileOutputStream to read the file.
- *
- */
 public class LinuxAudit extends AbstractReporter {
 
     private boolean OpenCloseSemanticsOn; //true means open and close will be used to check for reads/writes and actual reads/writes will not be monitored. false means reads/writes will be monitored
@@ -53,14 +47,6 @@ public class LinuxAudit extends AbstractReporter {
     public java.lang.Process socketToPipe;
     private BufferedReader eventReader;
 
-    /**
-     * The class constructor that is initiated with a {@link StorageInterface}. The parser will use this interface to store all the data.
-    
-    @param inputStorage This is the {@link StorageInterface} that will be used for storing data.
-     *
-    @return void
-     *
-     */
     @Override
     public boolean launch(String arguments) {
         OpenCloseSemanticsOn = true;
@@ -81,22 +67,74 @@ public class LinuxAudit extends AbstractReporter {
             // Get hostname
             hostname = addr.getHostName();
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (UnknownHostException e) {
         }
         startParsing();
+
         return true;
     }
 
-    //this function processes raw lines of data from the buffer and breaks it up into events that can be understood by our parser
-    /**
-     * This function inputs the raw line that is given to it via the input pipe and seperates mini-events from it by checking for two occurences of host name.
-    
-    @param  inputLine The raw input line received from the pipe.
-     *
-    @return void
-     *
-     */
+    @Override
+    public boolean shutdown() {
+        return true;
+    }
+
+    //this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
+    public void startParsing() {
+
+        try {
+
+            Runtime.getRuntime().exec("sudo auditctl -D").waitFor();
+            Runtime.getRuntime().exec("sudo auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
+            String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spadeLinuxAudit"};
+            java.lang.Process pipeprocess = Runtime.getRuntime().exec(cmd);
+            eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
+            eventReader.readLine();
+
+            Runnable eventThread = new Runnable() {
+
+                public void run() {
+                    try {
+                        while (true) {
+                            if (eventReader.ready()) {
+                                String line = eventReader.readLine();
+                                if (line != null) {
+                                    processInputLine(line);
+                                }
+                            }
+                        }
+                    } catch (Exception exception) {
+                        exception.printStackTrace(System.err);
+                    }
+                }
+            };
+            new Thread(eventThread).start();
+
+            /*
+            while (true) {
+            // this statement reads the line from the file and print it to
+            // the console.
+            String inputLine = br.readLine();
+            if (inputLine != null) {
+            //System.out.println(inputLine);
+            processInputLine(inputLine);
+            }
+
+            }
+             *
+             */
+
+            // dispose all the resources after using them.
+            //br.close();
+
+
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
+        }
+
+
+    }
+
     private void processInputLine(String inputLine) {
 
         //just in case we get something empty so that we don't throw an exception
@@ -155,10 +193,10 @@ public class LinuxAudit extends AbstractReporter {
     /**
      * This function takes mini-events in the form of a string and identifies them as a starting mini-event or as a continuing mini-event by checking for the audit id of the event that has been passed via the lidAudit system. It adds it to a {@link HashMap} as a new event or as a continuing event.
     If the mini-event is an EOE or end-of-event type of event then it takes the chain of mini-events with the same audit id and passes them all on to processFinishedEvent.
-    
+
     @param  event A string from the processLine function that represent one mini-event from the lid audit system.
      *
-    
+
     @return void
      *
      */
@@ -461,8 +499,8 @@ public class LinuxAudit extends AbstractReporter {
 
             }
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
+            e.printStackTrace();
 
         }
 
@@ -471,13 +509,13 @@ public class LinuxAudit extends AbstractReporter {
     //this function gets the finished event from the processEvent (all mini events pertaining to an event are packaged togeter)
     /**
      * This function recieves a chain of mini-events that are packaged together and represent one system call. It identifies the type of the system call and passes the event on to the handler for that particular system call.
-    
+
     @param  finishedEvent This is the Arraylist that contains mini-events for one system call.
      *
-    
+
     @param  givenEventNum this is the system call Id for the passed event. This is used to do a decision about which handler the system call should be passed to.
      *
-    
+
     @return void
      *
      */
@@ -622,7 +660,7 @@ public class LinuxAudit extends AbstractReporter {
     ///////////////////////////////////////////////////////////////////
     /**
      * This function takes a Fork system call and converts it into the appropriate OPM specification objects. It also does house keeping regarding new vertices in the OPM model and keeps track of whether the process vertex generated by this function is a new one of has been seen before. If it generates new OPM vertices or edges these are sent to the filter for further processing.
-    
+
     @param  inputFork The chain of mini-events representing a fork system call
      *
     @return void
@@ -733,7 +771,7 @@ public class LinuxAudit extends AbstractReporter {
 
     /**
      * This function takes a Read system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
-    
+
     @param  inputRead The chain of mini-events representing a read system call
      *
     @return void
@@ -766,15 +804,14 @@ public class LinuxAudit extends AbstractReporter {
 
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
     }
 
     /**
      * This function takes a write system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
-    
+
     @param  inputWrite The chain of mini-events representing a write system call
      *
     @return void
@@ -794,10 +831,12 @@ public class LinuxAudit extends AbstractReporter {
 
             //get the written file
             Artifact fileWritten = processFdIsFile.get(keyPair);
-            int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-            v++;
-            fileWritten.removeAnnotation("version");
-            fileWritten.addAnnotation("version", Integer.toString(v));
+            if (fileWritten.getAnnotation("version") == null) {
+                fileWritten.addAnnotation("version", "0");
+            } else {
+                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+                fileWritten.addAnnotation("version", Integer.toString(v++));
+            }
 
 
 
@@ -811,8 +850,7 @@ public class LinuxAudit extends AbstractReporter {
             putEdge(writeEdge);
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
 
@@ -824,7 +862,7 @@ public class LinuxAudit extends AbstractReporter {
 
     /**
      * This function takes an open system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing. If OpenCloseSemantics flag is set then this function is used to generate read events and optimize the system by obviating the need for monitoring actual read system calls.
-    
+
     @param  inputOpen The chain of mini-events representing a open system call
      *
     @return void
@@ -912,7 +950,6 @@ public class LinuxAudit extends AbstractReporter {
                 fileAnnotations.put("fullpath", filePath);
                 fileAnnotations.put("filename", filePath);
                 fileOpened = new Artifact(fileAnnotations);
-                fileOpened.addAnnotation("version", "0");
                 ArrayList<String> processesThatOpenFiles = new ArrayList<String>();
                 processesThatOpenFiles.add(keyPair);
 
@@ -930,12 +967,12 @@ public class LinuxAudit extends AbstractReporter {
             O_RDONLY        00000000
             O_WRONLY        00000001
             O_RDWR          00000002
-            
+
             system call looks like open(file path, flags, mode)
             so we get flags in a1 parameter from lib audit
-            
+
             so we only convert an open to a read only when the last digit of a1 is either 0 or 2. If it is 1 then it was opened for write only
-            
+
              */
 
             if (OpenCloseSemanticsOn == false) {
@@ -970,8 +1007,10 @@ public class LinuxAudit extends AbstractReporter {
 
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
+            System.out.println("Error");
+            //e.printStackTrace();
+
         }
 
     }
@@ -1012,8 +1051,7 @@ public class LinuxAudit extends AbstractReporter {
 
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
 
@@ -1105,6 +1143,7 @@ public class LinuxAudit extends AbstractReporter {
             HashMap<String, String> binaryAnnotations = new HashMap<String, String>();
             binaryAnnotations.put("filename", processAnnotations.get("exe"));
             binaryAnnotations.put("version", "0");
+            binaryAnnotations.put("type", "Artifact");
             binaryFile.setAnnotations(binaryAnnotations);
             putVertex(binaryFile);
             Used u = new Used(oldProcess, binaryFile);
@@ -1223,10 +1262,10 @@ public class LinuxAudit extends AbstractReporter {
 
                 //make new file Vertex
                 newFile = new Artifact();
-                newFile.addAnnotation("version", "0");
                 HashMap<String, String> newFileAnnotations = new HashMap<String, String>();
                 newFileAnnotations.put("fullpath", path2);
                 newFileAnnotations.put("filename", path2);
+                newFileAnnotations.put("type", "Artifact"); 
 
                 //copy all the annotations
 
@@ -1268,8 +1307,7 @@ public class LinuxAudit extends AbstractReporter {
             }
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
 
@@ -1297,7 +1335,7 @@ public class LinuxAudit extends AbstractReporter {
         if (processFdIsFile.containsKey(keyPair)) {
 
             Artifact file = processFdIsFile.get(keyPair);
-            //String fullpath = file.getAnnotationValue("fullpath");
+            //String fullpath = file.getAnnotation("fullpath");
 
             //add process to file edge
             processFdIsFile.put(newKeyPair, file);
@@ -1338,7 +1376,7 @@ public class LinuxAudit extends AbstractReporter {
         if (processFdIsFile.containsKey(keyPair)) {
 
             Artifact file = processFdIsFile.get(keyPair);
-            //String fullpath = file.getAnnotationValue("fullpath");
+            //String fullpath = file.getAnnotation("fullpath");
 
             //add process to file edge
             processFdIsFile.put(newKeyPair, file);
@@ -1373,10 +1411,12 @@ public class LinuxAudit extends AbstractReporter {
 
             //get the written file
             Artifact fileWritten = processFdIsFile.get(keyPair);
-            int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-            v++;
-            fileWritten.removeAnnotation("version");
-            fileWritten.addAnnotation("version", Integer.toString(v));
+            if (fileWritten.getAnnotation("version") == null) {
+                fileWritten.addAnnotation("version", "0");
+            } else {
+                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+                fileWritten.addAnnotation("version", Integer.toString(v++));
+            }
 
             //make a read edge
 
@@ -1390,8 +1430,7 @@ public class LinuxAudit extends AbstractReporter {
             putEdge(writeEdge);
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
 
@@ -1415,14 +1454,16 @@ public class LinuxAudit extends AbstractReporter {
 
             //get the written file
             Artifact fileWritten = processFdIsFile.get(keyPair);
-            int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-            v++;
-            fileWritten.removeAnnotation("version");
-            fileWritten.addAnnotation("version", Integer.toString(v));
+            if (fileWritten.getAnnotation("version") == null) {
+                fileWritten.addAnnotation("version", "0");
+            } else {
+                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+                fileWritten.addAnnotation("version", Integer.toString(v++));
+            }
 
             //make a read edge
 
-            //WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten,writingProcess,"WasGeneratedBy","WasGeneratedBy");
+            //WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten,writingProcess);
             WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
 
 
@@ -1433,8 +1474,7 @@ public class LinuxAudit extends AbstractReporter {
             putEdge(writeEdge);
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
 
@@ -1574,8 +1614,7 @@ public class LinuxAudit extends AbstractReporter {
 
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
     }
@@ -1594,10 +1633,12 @@ public class LinuxAudit extends AbstractReporter {
 
             //get the written file
             Artifact fileWritten = processFdIsFile.get(keyPair);
-            int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-            v++;
-            fileWritten.removeAnnotation("version");
-            fileWritten.addAnnotation("version", Integer.toString(v));
+            if (fileWritten.getAnnotation("version") == null) {
+                fileWritten.addAnnotation("version", "0");
+            } else {
+                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+                fileWritten.addAnnotation("version", Integer.toString(v++));
+            }
 
             //make a read edge
 
@@ -1611,8 +1652,7 @@ public class LinuxAudit extends AbstractReporter {
             putEdge(writeEdge);
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception e) {
         }
 
 
@@ -1905,66 +1945,10 @@ public class LinuxAudit extends AbstractReporter {
             fileAnnotations.put("filename", filePath);
 
 
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+        } catch (Exception ioe) {
         }
 
         return fileAnnotations;
-
-    }
-
-    //this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
-    public void startParsing() {
-
-        try {
-
-            Runtime.getRuntime().exec("sudo auditctl -D").waitFor();
-            Runtime.getRuntime().exec("sudo auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
-            String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spadeLinuxAudit"};
-            java.lang.Process pipeprocess = Runtime.getRuntime().exec(cmd);
-            eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
-            eventReader.readLine();
-
-            Runnable eventThread = new Runnable() {
-
-                public void run() {
-                    try {
-                        String line = eventReader.readLine();
-                        while (true) {
-                            if (line != null) {
-                                processInputLine(line);
-                            }
-                            line = eventReader.readLine();
-                        }
-                    } catch (Exception exception) {
-                        exception.printStackTrace(System.err);
-                    }
-                }
-            };
-            new Thread(eventThread).start();
-
-            /*
-            while (true) {
-            // this statement reads the line from the file and print it to
-            // the console.
-            String inputLine = br.readLine();
-            if (inputLine != null) {
-            //System.out.println(inputLine);
-            processInputLine(inputLine);
-            }
-            
-            }
-             * 
-             */
-
-            // dispose all the resources after using them.
-            //br.close();
-
-
-        } catch (Exception exception) {
-            exception.printStackTrace(System.err);
-        }
-
 
     }
 
@@ -2079,10 +2063,6 @@ public class LinuxAudit extends AbstractReporter {
         }
 
         return fake;
-    }
 
-    @Override
-    public boolean shutdown() {
-        return true;
     }
 }

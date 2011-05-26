@@ -22,7 +22,6 @@ package spade.core;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.LinkedList;
-import jline.SimpleCompletor;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
@@ -45,6 +43,7 @@ public class Kernel {
     private static final String queryPipeInputPath = "spade/pipe/queryPipeIn";
     private static final String controlPipeInputPath = "spade/pipe/controlPipeIn";
     private static final String controlPipeOutputPath = "spade/pipe/controlPipeOut";
+    private static final String NO_ARGUMENTS = "no arguments";
     private static final int REMOTE_QUERY_PORT = 9999;
     private static final int BATCH_BUFFER_ELEMENTS = 100;
     private static Set<AbstractReporter> reporters;
@@ -56,10 +55,6 @@ public class Kernel {
     private static Set<AbstractSketch> sketches;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
-    private static List<String> reporterStrings;
-    private static List<String> storageStrings;
-    private static SimpleCompletor reporterCompletor;
-    private static SimpleCompletor storageCompletor;
     private static PrintStream outputStream = System.out;
     private static PrintStream errorStream = System.err;
 
@@ -75,12 +70,6 @@ public class Kernel {
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
-
-        // Data structures used for tab completion
-        reporterStrings = new ArrayList<String>();
-        storageStrings = new ArrayList<String>();
-        reporterCompletor = new SimpleCompletor("");
-        storageCompletor = new SimpleCompletor("");
 
         // Initialize the SketchManager and the final commit filter.
         // The FinalCommitFilter acts as a terminator for the filter list
@@ -200,6 +189,7 @@ public class Kernel {
                                     outputStream.println("Shutting down...");
                                     break;
                                 }
+                                outputStream.println("");
                             }
                             Thread.sleep(100);
                         }
@@ -494,13 +484,108 @@ public class Kernel {
         String[] tokens = line.split("\\s", 4);
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
-                addReporter(tokens[2], tokens[3]);
+                String classname = tokens[2];
+                String arguments = (tokens.length == 3) ? null : tokens[3];
+                try {
+                    // Get the reporter by classname and create a new instance.
+                    AbstractReporter reporter = (AbstractReporter) Class.forName("spade.reporter." + classname).newInstance();
+                    outputStream.print("Adding reporter " + classname + "... ");
+                    // Create a new buffer and allocate it to this reporter.
+                    Buffer buffer = new Buffer();
+                    reporter.setBuffer(buffer);
+                    if (reporter.launch(arguments)) {
+                        // The launch() method must return true to indicate a successful launch.
+                        // On true, the reporter is added to the reporters set and the buffer
+                        // is put into a HashMap keyed by the reporter (this is used by the main
+                        // SPADE thread to extract buffer elements).
+                        reporter.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
+                        buffers.put(reporter, buffer);
+                        reporters.add(reporter);
+                        outputStream.println("done");
+                    } else {
+                        outputStream.println("failed");
+                    }
+                } catch (Exception addReporterException) {
+                    outputStream.println("Error: Unable to add reporter " + classname + " - please check class name and arguments");
+                    return;
+                }
             } else if (tokens[1].equalsIgnoreCase("storage")) {
-                addStorage(tokens[2], tokens[3]);
+                String classname = tokens[2];
+                String arguments = (tokens.length == 3) ? null : tokens[3];
+                try {
+                    // Get the storage by classname and create a new instance.
+                    AbstractStorage storage = (AbstractStorage) Class.forName("spade.storage." + classname).newInstance();
+                    outputStream.print("Adding storage " + classname + "... ");
+                    if (storage.initialize(arguments)) {
+                        // The initialize() method must return true to indicate successful startup.
+                        // On true, the storage is added to the storages set.
+                        storage.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
+                        storage.vertexCount = 0;
+                        storage.edgeCount = 0;
+                        storages.add(storage);
+                        outputStream.println("done");
+                    } else {
+                        outputStream.println("failed");
+                    }
+                } catch (Exception addStorageException) {
+                    outputStream.println("Error: Unable to add storage " + classname + " - please check class name and arguments");
+                    return;
+                }
             } else if (tokens[1].equalsIgnoreCase("filter")) {
-                addFilter(tokens[2], tokens[3]);
+                String classname = tokens[2];
+                String arguments = tokens[3];
+                try {
+                    // Get the filter by classname and create a new instance.
+                    AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
+                    // The argument is the index at which the filter is to be inserted.
+                    int index = Integer.parseInt(arguments);
+                    if (index >= filters.size()) {
+                        throw new Exception();
+                    }
+                    // Set the next filter of this newly added filter.
+                    filter.setNextFilter((AbstractFilter) filters.get(index));
+                    if (index > 0) {
+                        // If the newly added filter is not the first in the list, then
+                        // then configure the previous filter in the list to point to this
+                        // newly added filter as its next.
+                        ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
+                    }
+                    outputStream.print("Adding filter " + classname + "... ");
+                    // Add filter to the list.
+                    filters.add(index, filter);
+                    outputStream.println("done");
+                } catch (Exception addFilterException) {
+                    outputStream.println("Error: Unable to add filter " + classname + " - please check class name and index");
+                    return;
+                }
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
-                addSketch(tokens[2], tokens[3]);
+                String classname = tokens[2];
+                String storagename = tokens[3];
+                try {
+                    // Get the sketch by classname and create a new instance.
+                    AbstractSketch sketch = (AbstractSketch) Class.forName("spade.sketch." + classname).newInstance();
+                    // The argument is the storage class to which this sketch must refernce.
+                    boolean found = false;
+                    Iterator iterator = storages.iterator();
+                    while (iterator.hasNext()) {
+                        // Iterate through the set of storages until one is found which
+                        // matches the given argument by its name.
+                        AbstractStorage storage = (AbstractStorage) iterator.next();
+                        if (storage.getClass().getName().equals("spade.storage." + storagename)) {
+                            sketch.storage = storage;
+                            found = true;
+                        }
+                    }
+                    if (!found) {
+                        throw new Exception();
+                    }
+                    outputStream.print("Adding sketch " + classname + "... ");
+                    sketches.add(sketch);
+                    outputStream.println("done");
+                } catch (Exception addFilterException) {
+                    outputStream.println("Error: Unable to add sketch " + classname + " - please check class name and storage name");
+                    return;
+                }
             } else {
                 throw new Exception();
             }
@@ -613,13 +698,6 @@ public class Kernel {
                             Thread.sleep(200);
                         }
                         iterator.remove();
-                        // reporterStrings and reporterCompletor are only used for tab completion
-                        // in the command terminal.
-                        reporterStrings.remove(tokens[2]);
-                        reporterCompletor.setCandidateStrings(new String[]{});
-                        for (int i = 0; i < reporterStrings.size(); i++) {
-                            reporterCompletor.addCandidateString((String) reporterStrings.get(i));
-                        }
                         outputStream.println("done");
                         break;
                     }
@@ -648,13 +726,6 @@ public class Kernel {
                             Thread.sleep(200);
                         }
                         iterator.remove();
-                        // storageStrings and storageCompletor are only used for tab completion
-                        // in the command terminal.
-                        storageStrings.remove(tokens[2]);
-                        storageCompletor.setCandidateStrings(new String[]{});
-                        for (int i = 0; i < storageStrings.size(); i++) {
-                            storageCompletor.addCandidateString((String) storageStrings.get(i));
-                        }
                         outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
                         break;
                     }
@@ -703,115 +774,6 @@ public class Kernel {
         } catch (Exception removeCommandException) {
             outputStream.println("Usage: remove reporter|storage|sketch <class name>");
             outputStream.println("       remove filter <index>");
-        }
-    }
-
-    public static void addReporter(String classname, String arguments) {
-        try {
-            // Get the reporter by classname and create a new instance.
-            AbstractReporter reporter = (AbstractReporter) Class.forName("spade.reporter." + classname).newInstance();
-            outputStream.print("Adding reporter " + classname + "... ");
-            // Create a new buffer and allocate it to this reporter.
-            Buffer buffer = new Buffer();
-            reporter.setBuffer(buffer);
-            if (reporter.launch(arguments)) {
-                // The launch() method must return true to indicate a successful launch.
-                // On true, the reporter is added to the reporters set and the buffer
-                // is put into a HashMap keyed by the reporter (this is used by the main
-                // SPADE thread to extract buffer elements).
-                reporter.arguments = arguments;
-                buffers.put(reporter, buffer);
-                reporters.add(reporter);
-                reporterStrings.add(classname);
-                reporterCompletor.setCandidateStrings(new String[]{});
-                for (int i = 0; i < reporterStrings.size(); i++) {
-                    reporterCompletor.addCandidateString((String) reporterStrings.get(i));
-                }
-                outputStream.println("done");
-            } else {
-                outputStream.println("failed");
-            }
-        } catch (Exception addReporterException) {
-            outputStream.println("Error: Unable to add reporter " + classname + " - please check class name");
-        }
-    }
-
-    public static void addStorage(String classname, String arguments) {
-        try {
-            // Get the storage by classname and create a new instance.
-            AbstractStorage storage = (AbstractStorage) Class.forName("spade.storage." + classname).newInstance();
-            outputStream.print("Adding storage " + classname + "... ");
-            if (storage.initialize(arguments)) {
-                // The initialize() method must return true to indicate successful startup.
-                // On true, the storage is added to the storages set.
-                storage.arguments = arguments;
-                storage.vertexCount = 0;
-                storage.edgeCount = 0;
-                storages.add(storage);
-                storageStrings.add(classname);
-                storageCompletor.setCandidateStrings(new String[]{});
-                for (int i = 0; i < storageStrings.size(); i++) {
-                    storageCompletor.addCandidateString((String) storageStrings.get(i));
-                }
-                outputStream.println("done");
-            } else {
-                outputStream.println("failed");
-            }
-        } catch (Exception addStorageException) {
-            outputStream.println("Error: Unable to add storage " + classname + " - please check class name and argument");
-        }
-    }
-
-    public static void addSketch(String classname, String storagename) {
-        try {
-            // Get the sketch by classname and create a new instance.
-            AbstractSketch sketch = (AbstractSketch) Class.forName("spade.sketch." + classname).newInstance();
-            // The argument is the storage class to which this sketch must refernce.
-            boolean found = false;
-            Iterator iterator = storages.iterator();
-            while (iterator.hasNext()) {
-                // Iterate through the set of storages until one is found which
-                // matches the given argument by its name.
-                AbstractStorage storage = (AbstractStorage) iterator.next();
-                if (storage.getClass().getName().equals("spade.storage." + storagename)) {
-                    sketch.storage = storage;
-                    found = true;
-                }
-            }
-            if (!found) {
-                throw new Exception();
-            }
-            outputStream.print("Adding sketch " + classname + "... ");
-            sketches.add(sketch);
-            outputStream.println("done");
-        } catch (Exception addFilterException) {
-            outputStream.println("Error: Unable to add sketch " + classname + " - please check class name and storage name");
-        }
-    }
-
-    public static void addFilter(String classname, String arguments) {
-        try {
-            // Get the filter by classname and create a new instance.
-            AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
-            // The argument is the index at which the filter is to be inserted.
-            int index = Integer.parseInt(arguments);
-            if (index >= filters.size()) {
-                throw new Exception();
-            }
-            // Set the next filter of this newly added filter.
-            filter.setNextFilter((AbstractFilter) filters.get(index));
-            if (index > 0) {
-                // If the newly added filter is not the first in the list, then
-                // then configure the previous filter in the list to point to this
-                // newly added filter as its next.
-                ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
-            }
-            outputStream.print("Adding filter " + classname + "... ");
-            // Add filter to the list.
-            filters.add(index, filter);
-            outputStream.println("done");
-        } catch (Exception addFilterException) {
-            outputStream.println("Error: Unable to add filter " + classname + " - please check class name and index");
         }
     }
 
