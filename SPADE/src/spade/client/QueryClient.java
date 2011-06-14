@@ -43,7 +43,7 @@ public class QueryClient {
     private static String outputPath;
     private static volatile boolean shutdown;
     private static final String historyFile = "query.history";
-    private static final int THREAD_SLEEP_TIME = 10;
+    private static final int THREAD_SLEEP_DELAY = 10;
 
     public static void main(String args[]) {
 
@@ -61,7 +61,7 @@ public class QueryClient {
             }
             SPADEQueryIn = new PrintStream(new FileOutputStream(inputPath));
         } catch (Exception exception) {
-            outputStream.println("Query pipes not ready!");
+            errorStream.println("Query pipes not ready!");
             System.exit(0);
         }
 
@@ -80,7 +80,7 @@ public class QueryClient {
                                 outputStream.println(outputLine);
                             }
                         }
-                        Thread.sleep(THREAD_SLEEP_TIME);
+                        Thread.sleep(THREAD_SLEEP_DELAY);
                     }
                 } catch (Exception exception) {
                     exception.printStackTrace(errorStream);

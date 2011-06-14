@@ -44,7 +44,7 @@ public class ControlClient {
     private static volatile boolean shutdown;
     private static final String historyFile = "control.history";
     private static final String COMMAND_PROMPT = "-> ";
-    private static final int THREAD_SLEEP_TIME = 10;
+    private static final int THREAD_SLEEP_DELAY = 10;
 
     public static void main(String args[]) {
 
@@ -83,7 +83,7 @@ public class ControlClient {
                                 outputStream.print(COMMAND_PROMPT);
                             }
                         }
-                        Thread.sleep(THREAD_SLEEP_TIME);
+                        Thread.sleep(THREAD_SLEEP_DELAY);
                     }
                     SPADEControlOut.close();
                 } catch (Exception exception) {

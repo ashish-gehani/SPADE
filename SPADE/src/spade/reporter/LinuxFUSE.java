@@ -35,6 +35,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 
 public class LinuxFUSE extends AbstractReporter {
@@ -46,6 +48,7 @@ public class LinuxFUSE extends AbstractReporter {
     private Map<Integer, FileIOData> writeAggregation;
     private String mountPoint;
     private String mountPath;
+
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     // The native launchFUSE method to start FUSE. The argument is the
@@ -68,7 +71,7 @@ public class LinuxFUSE extends AbstractReporter {
             // Load the native library.
             System.loadLibrary("LinuxFUSE");
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
 
@@ -80,11 +83,10 @@ public class LinuxFUSE extends AbstractReporter {
             try {
                 int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
                 if (exitValue != 0) {
-                    System.err.println("Error creating mount point!");
                     throw new Exception();
                 }
             } catch (Exception exception) {
-                exception.printStackTrace(System.err);
+                Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
                 return false;
             }
         }
@@ -108,7 +110,7 @@ public class LinuxFUSE extends AbstractReporter {
             }
             boottimeReader.close();
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
         }
 
         // Create an initial root vertex which will be used as the root of the
@@ -161,7 +163,7 @@ public class LinuxFUSE extends AbstractReporter {
                     // Launch FUSE from the native library.
                     launchFUSE(mountPoint);
                 } catch (Exception exception) {
-                    exception.printStackTrace(System.err);
+                    Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -232,7 +234,7 @@ public class LinuxFUSE extends AbstractReporter {
             resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
             return null;
         }
 
@@ -270,7 +272,7 @@ public class LinuxFUSE extends AbstractReporter {
                 return;
             }
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 
@@ -501,7 +503,7 @@ public class LinuxFUSE extends AbstractReporter {
             Runtime.getRuntime().exec("rm -r " + mountPoint).waitFor();
             return true;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }

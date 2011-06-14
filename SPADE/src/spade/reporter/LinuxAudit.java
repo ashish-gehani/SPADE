@@ -22,10 +22,13 @@ package spade.reporter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.regex.*;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import spade.core.AbstractReporter;
 import spade.opm.edge.*;
 import spade.opm.vertex.Process;
@@ -46,6 +49,7 @@ public class LinuxAudit extends AbstractReporter {
     private HashSet<Agent> cachedAgents;
     public java.lang.Process socketToPipe;
     private BufferedReader eventReader;
+    private final PrintStream errorStream = System.err;
 
     @Override
     public boolean launch(String arguments) {
@@ -104,7 +108,7 @@ public class LinuxAudit extends AbstractReporter {
                             }
                         }
                     } catch (Exception exception) {
-                        exception.printStackTrace(System.err);
+                        Logger.getLogger(LinuxAudit.class.getName()).log(Level.SEVERE, null, exception);
                     }
                 }
             };
@@ -129,7 +133,7 @@ public class LinuxAudit extends AbstractReporter {
 
 
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(LinuxAudit.class.getName()).log(Level.SEVERE, null, exception);
         }
 
 
@@ -499,9 +503,8 @@ public class LinuxAudit extends AbstractReporter {
 
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-
+        } catch (Exception exception) {
+            Logger.getLogger(LinuxAudit.class.getName()).log(Level.SEVERE, null, exception);
         }
 
     }
@@ -1007,10 +1010,8 @@ public class LinuxAudit extends AbstractReporter {
 
 
 
-        } catch (Exception e) {
-            System.out.println("Error");
-            //e.printStackTrace();
-
+        } catch (Exception exception) {
+            Logger.getLogger(LinuxAudit.class.getName()).log(Level.SEVERE, null, exception);
         }
 
     }

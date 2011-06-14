@@ -31,6 +31,7 @@ import spade.opm.vertex.Process;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.util.HashMap;
 
 public class MacFUSE extends AbstractReporter {
@@ -38,6 +39,7 @@ public class MacFUSE extends AbstractReporter {
     private HashMap<String, AbstractVertex> localCache;
     private HashMap<String, String> links;
     private String mountPoint;
+    private final PrintStream errorStream = System.err;
 
     public native int launchFUSE(String argument);
 
@@ -56,11 +58,11 @@ public class MacFUSE extends AbstractReporter {
             try {
                 int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
                 if (exitValue != 0) {
-                    System.err.println("Error creating mount point!");
+                    errorStream.println("Error creating mount point!");
                     throw new Exception();
                 }
             } catch (Exception exception) {
-                exception.printStackTrace(System.err);
+                exception.printStackTrace(errorStream);
                 return false;
             }
         }
@@ -76,7 +78,7 @@ public class MacFUSE extends AbstractReporter {
                     // Launch FUSE from the native library.
                     launchFUSE(mountPoint);
                 } catch (Exception exception) {
-                    exception.printStackTrace(System.err);
+                    exception.printStackTrace(errorStream);
                 }
             }
         };
@@ -121,7 +123,7 @@ public class MacFUSE extends AbstractReporter {
                 processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
             }
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            exception.printStackTrace(errorStream);
             return null;
         }
         return processVertex;
@@ -159,7 +161,7 @@ public class MacFUSE extends AbstractReporter {
                 }
             }
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            exception.printStackTrace(errorStream);
         }
     }
 
@@ -266,7 +268,7 @@ public class MacFUSE extends AbstractReporter {
             Runtime.getRuntime().exec("rm -r " + mountPoint).waitFor();
             return true;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            exception.printStackTrace(errorStream);
             return false;
         }
     }

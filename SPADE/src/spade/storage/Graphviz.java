@@ -31,7 +31,8 @@ import java.util.Set;
 public class Graphviz extends AbstractStorage {
 
     private FileWriter outputFile;
-    private Set<Integer> EdgeSet;
+    private Set<Integer> edgeSet;
+    private Set<Integer> vertexSet;
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
     private String filePath;
@@ -43,10 +44,11 @@ public class Graphviz extends AbstractStorage {
                 return false;
             }
             filePath = arguments;
-            EdgeSet = new HashSet<Integer>();
+            edgeSet = new HashSet<Integer>();
+            vertexSet = new HashSet<Integer>();
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
-            outputFile.write("digraph spade_dot {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
+            outputFile.write("digraph SPADE2Graphviz {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
             return true;
         } catch (Exception exception) {
             return false;
@@ -62,7 +64,6 @@ public class Graphviz extends AbstractStorage {
                 outputFile = new FileWriter(filePath, true);
                 transaction_count = 0;
             } catch (Exception exception) {
-                exception.printStackTrace(System.err);
             }
         }
     }
@@ -70,45 +71,47 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
-            String annotationString = "";
-            Map<String, String> annotations = incomingVertex.getAnnotations();
-            for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-                String key = (String) iterator.next();
-                String value = (String) annotations.get(key);
-                if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))
-                        || (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("commandline"))
-                        || (key.equalsIgnoreCase("source_reporter"))) {
-                    continue;
+            if (vertexSet.add(incomingVertex.hashCode())) {
+                String annotationString = "";
+                Map<String, String> annotations = incomingVertex.getAnnotations();
+                for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
+                    String key = (String) iterator.next();
+                    String value = (String) annotations.get(key);
+                    if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))
+                            || (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("commandline"))
+                            || (key.equalsIgnoreCase("source_reporter"))) {
+                        continue;
+                    }
+                    annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n";
                 }
-                annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n";
+                annotationString = annotationString.substring(0, annotationString.length() - 2);
+                String shape = "box";
+                String color = "white";
+                String type = incomingVertex.getAnnotation("type");
+                if (type.equalsIgnoreCase("Agent")) {
+                    shape = "octagon";
+                    color = "rosybrown1";
+                } else if (type.equalsIgnoreCase("Process")) {
+                    shape = "box";
+                    color = "lightsteelblue1";
+                } else if (type.equalsIgnoreCase("Artifact")) {
+                    shape = "ellipse";
+                    color = "khaki1";
+                }
+                outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
+                checkTransactions();
+                return true;
             }
-            annotationString = annotationString.substring(0, annotationString.length() - 2);
-            String shape = "";
-            String color = "";
-            String type = incomingVertex.getAnnotation("type");
-            if (type.equalsIgnoreCase("Agent")) {
-                shape = "octagon";
-                color = "rosybrown1";
-            } else if (type.equalsIgnoreCase("Process")) {
-                shape = "box";
-                color = "lightsteelblue1";
-            } else {
-                shape = "ellipse";
-                color = "khaki1";
-            }
-            outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
-            checkTransactions();
-            return true;
+            return false;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            return false;
         }
-        return false;
     }
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
-            if (EdgeSet.add(incomingEdge.hashCode())) {
+            if (edgeSet.add(incomingEdge.hashCode())) {
                 String annotationString = "";
                 Map<String, String> annotations = incomingEdge.getAnnotations();
                 for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
@@ -120,7 +123,7 @@ public class Graphviz extends AbstractStorage {
                     }
                     annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + ", ";
                 }
-                String color = "";
+                String color = "black";
                 String type = incomingEdge.getAnnotation("type");
                 if (type.equalsIgnoreCase("Used")) {
                     color = "green";
@@ -141,10 +144,10 @@ public class Graphviz extends AbstractStorage {
                 checkTransactions();
                 return true;
             }
+            return false;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            return false;
         }
-        return false;
     }
 
     @Override
@@ -154,8 +157,7 @@ public class Graphviz extends AbstractStorage {
             outputFile.close();
             return true;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            return false;
         }
-        return false;
     }
 }
