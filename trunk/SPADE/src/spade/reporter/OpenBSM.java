@@ -38,6 +38,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class OpenBSM extends AbstractReporter {
 
@@ -54,8 +56,9 @@ public class OpenBSM extends AbstractReporter {
     private String nativePID;
     private String eventPID;
     private volatile boolean shutdown;
+
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
-    private final int THREAD_SLEEP_TIME = 5;
+    private final int THREAD_SLEEP_DELAY = 5;
 
     @Override
     public boolean launch(String arguments) {
@@ -92,7 +95,7 @@ public class OpenBSM extends AbstractReporter {
                                     parseEvent(line);
                                 }
                             }
-                            Thread.sleep(THREAD_SLEEP_TIME);
+                            Thread.sleep(THREAD_SLEEP_DELAY);
                         }
                         // Get the pid of the process and kill it using sudo. This is
                         // necessary because the process was started in super-user mode
@@ -101,14 +104,14 @@ public class OpenBSM extends AbstractReporter {
                         String[] killcmd = {"/bin/sh", "-c", "sudo kill " + nativePID};
                         Runtime.getRuntime().exec(killcmd);
                     } catch (Exception exception) {
-                        exception.printStackTrace(System.err);
+                        Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
                     }
                 }
             };
             new Thread(eventProcessor, "OpenBSMeventProcessor").start();
             
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
         return true;
@@ -137,62 +140,34 @@ public class OpenBSM extends AbstractReporter {
                 getProcessVertex(childinfo[0]);
             }
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 
     private Artifact getFileVertex(String path, boolean refresh) {
-        // Create a file artifact and use the stat utility to populate annotations.
-        // If stat fails then return a file artifact with limited annotations.
+        // Create a file artifact.
         // The refresh flag is used for caching purposes - a new file vertex is
         // created if the event modified the file (i.e., write, truncate, rename, etc)
         // but the cached one is used in case of read.
         if ((!refresh) && (fileVertices.containsKey(path))) {
             return (Artifact) fileVertices.get(path);        
         }
-        try {
-            Artifact fileArtifact = new Artifact();
-            String[] filename = path.split("/");
-            if (filename.length > 0) {
-                fileArtifact.addAnnotation("filename", filename[filename.length - 1]);
-            }
-            fileArtifact.addAnnotation("path", path);
-            java.lang.Process fileinfo = Runtime.getRuntime().exec("stat -f %Op%n%u%n%g%n%m%n%z " + path);
-            BufferedReader inforeader = new BufferedReader(new InputStreamReader(fileinfo.getInputStream()));
-            String permissions = inforeader.readLine();
-            String owneruid = inforeader.readLine();
-            String ownergid = inforeader.readLine();
-            String lastmodified = inforeader.readLine();
-            String size = inforeader.readLine();
-            if ((size == null) || (lastmodified == null) || (ownergid == null) || (owneruid == null) || (permissions == null)) {
-                throw new Exception();
-            }
-            fileArtifact.addAnnotation("lastmodified_unix", lastmodified + "000");
-            fileArtifact.addAnnotation("lastmodified_simple", new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(Long.parseLong(lastmodified + "000"))));
-            fileArtifact.addAnnotation("size", size);
-            fileArtifact.addAnnotation("permissions", permissions);
-            fileArtifact.addAnnotation("owneruid", owneruid);
-            fileArtifact.addAnnotation("ownergid", ownergid);
-            fileVertices.put(path, fileArtifact);
-            return fileArtifact;
-        } catch (Exception exception) {
-            Artifact fileArtifact = new Artifact();
-            File file = new File(path);
-            String[] filename = path.split("/");
-            if (filename.length > 0) {
-                fileArtifact.addAnnotation("filename", filename[filename.length - 1]);
-            }
-            fileArtifact.addAnnotation("path", path);
-            if ((file.lastModified() != 0) && (file.length() != 0)) {
-                long lastmodified = file.lastModified();
-                String filesize = Long.toString(file.length());
-                fileArtifact.addAnnotation("lastmodified_unix", Long.toString(lastmodified));
-                fileArtifact.addAnnotation("lastmodified_simple", new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(lastmodified)));
-                fileArtifact.addAnnotation("size", filesize);
-            }
-            fileVertices.put(path, fileArtifact);
-            return fileArtifact;
+        Artifact fileArtifact = new Artifact();
+        fileArtifact.addAnnotation("path", path);
+        File file = new File(path);
+        String[] filename = path.split("/");
+        if (filename.length > 0) {
+            fileArtifact.addAnnotation("filename", filename[filename.length - 1]);
         }
+        if ((file.lastModified() != 0L) && (file.length() != 0L)) {
+            long lastmodified = file.lastModified();
+            String filesize = Long.toString(file.length());
+            fileArtifact.addAnnotation("lastmodified_unix", Long.toString(lastmodified));
+            fileArtifact.addAnnotation("lastmodified_simple", new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(lastmodified)));
+            fileArtifact.addAnnotation("size", filesize);
+        }
+        fileVertices.put(path, fileArtifact);
+        return fileArtifact;
     }
 
     private Process getProcessVertex(String pid) {
@@ -362,8 +337,7 @@ public class OpenBSM extends AbstractReporter {
                 break;
 
             case 35: 						// AUT_PATH
-                String path = tokenizer.nextToken();
-                currentFilePath = path;
+                currentFilePath = tokenizer.nextToken();
                 if ((current_event_id == 42) && (tempVertex1 != null)) { // rename
                     tempVertex2 = getFileVertex(currentFilePath, true);
                 }

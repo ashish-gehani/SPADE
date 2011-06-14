@@ -20,6 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.core;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Collections;
@@ -33,9 +34,14 @@ import java.util.LinkedList;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Kernel {
 
@@ -55,11 +61,17 @@ public class Kernel {
     private static Set<AbstractSketch> sketches;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
-    private static PrintStream outputStream = System.out;
-    private static PrintStream errorStream = System.err;
 
     public static void main(String args[]) {
 
+        try {
+            // Configuring the global logger
+            Handler fh = new FileHandler(System.currentTimeMillis() + ".log");
+            Logger.getLogger("").addHandler(fh);
+        } catch (Exception exception) {
+            System.out.println("Error");
+        }
+    
         // Basic initialization
         shutdown = false;
         flushTransactions = false;
@@ -107,7 +119,6 @@ public class Kernel {
                                 }
                             }
                             if (buffers.isEmpty()) {
-                                outputStream.println("done");
                                 shutdown();
                                 break;
                             }
@@ -153,7 +164,7 @@ public class Kernel {
                         Thread.sleep(3);
                     }
                 } catch (Exception exception) {
-                    exception.printStackTrace(errorStream);
+                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -170,32 +181,26 @@ public class Kernel {
                 try {
                     int exitValue1 = Runtime.getRuntime().exec("mkfifo " + controlPipeInputPath).waitFor();
                     int exitValue2 = Runtime.getRuntime().exec("mkfifo " + controlPipeOutputPath).waitFor();
-                    if (exitValue1 != 0 && exitValue2 != 0) {
-                        errorStream.println("Error creating control pipes!");
-                    } else {
-                        outputStream.println("");
-                        outputStream.println("SPADE 2.0 Kernel");
-
-                        configCommand("config load " + configFile);
-
+                    if (exitValue1 == 0 && exitValue2 == 0) {
+                        configCommand("config load " + configFile, NullStream.out);
                         BufferedReader controlInputStream = new BufferedReader(new FileReader(controlPipeInputPath));
                         PrintStream controlOutputStream = new PrintStream(new FileOutputStream(controlPipeOutputPath));
-                        outputStream = controlOutputStream;
-                        errorStream = controlOutputStream;
+                        System.setIn(new FileInputStream(controlPipeInputPath));
+                        System.setOut(controlOutputStream);
+                        System.setErr(controlOutputStream);
                         while (true) {
                             if (controlInputStream.ready()) {
                                 String line = controlInputStream.readLine();
-                                if ((line != null) && (executeCommand(line) == false)) {
-                                    outputStream.println("Shutting down...");
+                                if ((line != null) && (executeCommand(line, controlOutputStream) == false)) {
                                     break;
                                 }
-                                outputStream.println("");
+                                controlOutputStream.println("");
                             }
                             Thread.sleep(100);
                         }
                     }
                 } catch (Exception exception) {
-                    exception.printStackTrace(errorStream);
+                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -209,9 +214,7 @@ public class Kernel {
             public void run() {
                 try {
                     int exitValue1 = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
-                    if (exitValue1 != 0) {
-                        errorStream.println("Error creating query pipes!");
-                    } else {
+                    if (exitValue1 == 0) {
                         BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
                         while (!shutdown) {
                             if (queryInputStream.ready()) {
@@ -241,7 +244,7 @@ public class Kernel {
                         }
                     }
                 } catch (Exception exception) {
-                    exception.printStackTrace(errorStream);
+                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -273,7 +276,7 @@ public class Kernel {
                     clientPrintStream.close();
                     clientInputReader.close();
                 } catch (Exception exception) {
-                    exception.printStackTrace(errorStream);
+                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -284,55 +287,52 @@ public class Kernel {
     // All command strings are passed to this function which subsequently calls the
     // correct method based on the command. Each command is determined by the first
     // token in the string.
-    public static boolean executeCommand(String line) {
+    public static boolean executeCommand(String line, PrintStream outputStream) {
         String command = line.split("\\s")[0];
         if (command.equalsIgnoreCase("shutdown")) {
             // On shutdown, save the current configuration in the default configuration
             // file.
-            configCommand("config save " + configFile);
+            configCommand("config save " + configFile, outputStream);
             Iterator itp = reporters.iterator();
-            outputStream.print("Shutting down reporters... ");
             while (itp.hasNext()) {
                 // Iterate through the set of reporters and shut them all down. After
                 // this, their buffers are flushed and then the storages are shut down.
                 AbstractReporter reporter = (AbstractReporter) itp.next();
                 reporter.shutdown();
             }
-            outputStream.println("done");
-            outputStream.print("Flushing buffers... ");
             shutdown = true;
             return false;
         } else if (command.equalsIgnoreCase("add")) {
-            addCommand(line);
+            addCommand(line, outputStream);
             return true;
         } else if (command.equalsIgnoreCase("list")) {
-            listCommand(line);
+            listCommand(line, outputStream);
             return true;
         } else if (command.equalsIgnoreCase("remove")) {
-            removeCommand(line);
+            removeCommand(line, outputStream);
             return true;
         } else if (command.equalsIgnoreCase("query")) {
             queryCommand(line, outputStream);
             return true;
         } else if (command.equalsIgnoreCase("config")) {
-            configCommand(line);
+            configCommand(line, outputStream);
             return true;
         } else {
-            showCommands();
+            showCommands(outputStream);
             return true;
         }
     }
 
     // The configCommand is used to load or save the current SPADE configuration
     // from/to a file.
-    public static void configCommand(String line) {
+    public static void configCommand(String line, PrintStream outputStream) {
         String[] tokens = line.split("\\s");
         try {
             if (tokens[1].equalsIgnoreCase("load")) {
                 BufferedReader configReader = new BufferedReader(new FileReader(tokens[2]));
                 String configLine;
                 while ((configLine = configReader.readLine()) != null) {
-                    addCommand("add " + configLine);
+                    addCommand("add " + configLine, outputStream);
                 }
                 outputStream.println("Finished loading configuration file");
             } else if (tokens[1].equalsIgnoreCase("save")) {
@@ -358,8 +358,8 @@ public class Kernel {
             } else {
                 throw new Exception();
             }
-        } catch (Exception configCommandException) {
-            // outputStream.println("Usage: config load|save <filename>");
+        } catch (Exception exception) {
+            outputStream.println("Usage: config load|save <filename>");
         }
     }
 
@@ -432,7 +432,7 @@ public class Kernel {
     }
 
     // Call the main query method.
-    public static void queryCommand(String line, PrintStream output) {
+    public static void queryCommand(String line, PrintStream outputStream) {
         Graph resultGraph = query(line);
         if (resultGraph != null) {
             String[] tokens = line.split("\\s");
@@ -441,24 +441,24 @@ public class Kernel {
                 Iterator resultIterator = resultGraph.vertexSet().iterator();
                 while (resultIterator.hasNext()) {
                     AbstractVertex tempVertex = (AbstractVertex) resultIterator.next();
-                    output.println("[" + convertVertexToString(tempVertex) + "]");
+                    outputStream.println("[" + convertVertexToString(tempVertex) + "]");
                 }
             } else if (tokens[2].equalsIgnoreCase("lineage")) {
                 resultGraph.exportDOT(outputFile);
-                output.println("Exported graph to " + outputFile);
+                outputStream.println("Exported graph to " + outputFile);
             } else if (tokens[2].equalsIgnoreCase("paths")) {
                 resultGraph.exportDOT(outputFile);
-                output.println("Exported graph to " + outputFile);
+                outputStream.println("Exported graph to " + outputFile);
             }
         } else {
-            output.println("Error: Please check query expression");
+            outputStream.println("Error: Please check query expression");
         }
     }
 
     // Method to display control commands to the output stream. The control and query
     // commands are displayed using separate methods since these commands are issued
     // from different shells.
-    public static void showCommands() {
+    public static void showCommands(PrintStream outputStream) {
         outputStream.println("Available commands:");
         outputStream.println("       add reporter|storage <class name> <initialization arguments>");
         outputStream.println("       add filter <class name> <index>");
@@ -480,7 +480,7 @@ public class Kernel {
         outputStream.println("       exit");
     }
 
-    public static void addCommand(String line) {
+    public static void addCommand(String line, PrintStream outputStream) {
         String[] tokens = line.split("\\s", 4);
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
@@ -582,7 +582,7 @@ public class Kernel {
                     outputStream.print("Adding sketch " + classname + "... ");
                     sketches.add(sketch);
                     outputStream.println("done");
-                } catch (Exception addFilterException) {
+                } catch (Exception addSketchException) {
                     outputStream.println("Error: Unable to add sketch " + classname + " - please check class name and storage name");
                     return;
                 }
@@ -596,7 +596,7 @@ public class Kernel {
         }
     }
 
-    public static void listCommand(String line) {
+    public static void listCommand(String line, PrintStream outputStream) {
         String[] tokens = line.split("\\s");
         try {
             if (tokens[1].equalsIgnoreCase("reporters")) {
@@ -663,10 +663,10 @@ public class Kernel {
                     count++;
                 }
             } else if (tokens[1].equalsIgnoreCase("all")) {
-                listCommand("list reporters");
-                listCommand("list filters");
-                listCommand("list storages");
-                listCommand("list sketches");
+                listCommand("list reporters", outputStream);
+                listCommand("list filters", outputStream);
+                listCommand("list storages", outputStream);
+                listCommand("list sketches", outputStream);
             } else {
                 throw new Exception();
             }
@@ -675,7 +675,7 @@ public class Kernel {
         }
     }
 
-    public static void removeCommand(String line) {
+    public static void removeCommand(String line, PrintStream outputStream) {
         String[] tokens = line.split("\\s");
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
@@ -779,19 +779,16 @@ public class Kernel {
 
     public static void shutdown() {
         Iterator iterator = storages.iterator();
-        outputStream.print("Shutting down storages... ");
         while (iterator.hasNext()) {
             // Shut down all storages.
             AbstractStorage storage = (AbstractStorage) iterator.next();
             storage.shutdown();
         }
-        outputStream.println("done");
-        outputStream.println("Terminating kernel...\n");
         try {
             // Remove the control and query pipes.
             Runtime.getRuntime().exec("rm -f " + controlPipeInputPath + " " + controlPipeOutputPath + " " + queryPipeInputPath).waitFor();
         } catch (Exception exception) {
-            exception.printStackTrace(errorStream);
+            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
         }
         System.exit(0);
     }
@@ -836,4 +833,29 @@ class FinalCommitFilter extends AbstractFilter {
             ((AbstractSketch) sketchIterator.next()).putEdge(incomingEdge);
         }
     }
+}
+
+final class NullStream {
+
+    public final static PrintStream out = new PrintStream(new OutputStream() {
+
+        @Override
+        public void close() {
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void write(byte[] b) {
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) {
+        }
+
+        public void write(int b) {
+        }
+    });
 }

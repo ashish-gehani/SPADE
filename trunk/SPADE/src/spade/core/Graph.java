@@ -19,10 +19,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
+import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Graph implements Serializable {
 
@@ -30,6 +33,7 @@ public class Graph implements Serializable {
     // graph.
     private Set<AbstractVertex> vertexSet;
     private Set<AbstractEdge> edgeSet;
+    private final PrintStream errorStream = System.err;
 
     public Graph() {
         vertexSet = new HashSet<AbstractVertex>();
@@ -106,7 +110,7 @@ public class Graph implements Serializable {
             }
             outputStorage.shutdown();
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(Graph.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 }

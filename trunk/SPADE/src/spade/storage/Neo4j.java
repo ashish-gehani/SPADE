@@ -40,7 +40,6 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
-import org.neo4j.helpers.collection.MapUtil;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.index.IndexHits;
@@ -50,6 +49,7 @@ import org.neo4j.kernel.Traversal;
 public class Neo4j extends AbstractStorage {
 
     private final int TRANSACTION_LIMIT = 1000;
+    private final String ID_STRING = "storageId";
     private GraphDatabaseService graphDb;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
@@ -71,8 +71,8 @@ public class Neo4j extends AbstractStorage {
             }
             graphDb = new EmbeddedGraphDatabase(arguments);
             transactionCount = 0;
-            vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
-            edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+            vertexIndex = graphDb.index().forNodes("vertexIndex");
+            edgeIndex = graphDb.index().forRelationships("edgeIndex");
             vertexMap = new HashMap<Integer, Long>();
             edgeSet = new HashSet<Integer>();
             return true;
@@ -89,7 +89,6 @@ public class Neo4j extends AbstractStorage {
                 transaction.success();
                 transaction.finish();
             } catch (Exception exception) {
-                exception.printStackTrace(System.err);
             }
         }
     }
@@ -128,7 +127,7 @@ public class Neo4j extends AbstractStorage {
         for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
             String key = (String) iterator.next();
             String value = (String) annotations.get(key);
-            if (key.equalsIgnoreCase("storageId")) {
+            if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
             try {
@@ -146,8 +145,8 @@ public class Neo4j extends AbstractStorage {
                 }
             }
         }
-        newVertex.setProperty("storageId", newVertex.getId());
-        vertexIndex.add(newVertex, "storageId", new ValueContext(newVertex.getId()).indexNumeric());
+        newVertex.setProperty(ID_STRING, newVertex.getId());
+        vertexIndex.add(newVertex, ID_STRING, new ValueContext(newVertex.getId()).indexNumeric());
         vertexMap.put(incomingVertex.hashCode(), newVertex.getId());
         checkTransactionCount();
         return true;
@@ -173,7 +172,7 @@ public class Neo4j extends AbstractStorage {
         for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
             String key = (String) iterator.next();
             String value = (String) annotations.get(key);
-            if (key.equalsIgnoreCase("storageId")) {
+            if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
             try {
@@ -191,8 +190,8 @@ public class Neo4j extends AbstractStorage {
                 }
             }
         }
-        newEdge.setProperty("storageId", newEdge.getId());
-        edgeIndex.add(newEdge, "storageId", new ValueContext(newEdge.getId()).indexNumeric());
+        newEdge.setProperty(ID_STRING, newEdge.getId());
+        edgeIndex.add(newEdge, ID_STRING, new ValueContext(newEdge.getId()).indexNumeric());
 
         checkTransactionCount();
         return true;

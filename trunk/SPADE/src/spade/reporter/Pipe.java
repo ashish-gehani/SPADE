@@ -24,6 +24,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import spade.core.AbstractReporter;
 import spade.core.AbstractEdge;
 import spade.opm.edge.Used;
@@ -42,7 +44,8 @@ public class Pipe extends AbstractReporter {
     private BufferedReader eventReader;
     private volatile boolean shutdown;
     private HashMap<String, AbstractVertex> vertices;
-    private final int THREAD_SLEEP_TIME = 5;
+
+    private final int THREAD_SLEEP_DELAY = 5;
 
     @Override
     public boolean launch(String arguments) {
@@ -61,7 +64,6 @@ public class Pipe extends AbstractReporter {
             try {
                 int exitValue = Runtime.getRuntime().exec("mkfifo " + pipePath).waitFor();
                 if (exitValue != 0) {
-                    System.err.println("Error creating pipe!");
                     return false;
                 }
                 Runnable eventThread = new Runnable() {
@@ -76,18 +78,18 @@ public class Pipe extends AbstractReporter {
                                         parseEvent(line);
                                     }
                                 }
-                                Thread.sleep(THREAD_SLEEP_TIME);
+                                Thread.sleep(THREAD_SLEEP_DELAY);
                             }
                             eventReader.close();
                         } catch (Exception exception) {
-                            exception.printStackTrace(System.err);
+                            Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
                         }
                     }
                 };
                 new Thread(eventThread).start();
                 return true;
             } catch (Exception exception) {
-                exception.printStackTrace(System.err);
+                Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
                 return false;
             }
         }
@@ -158,8 +160,8 @@ public class Pipe extends AbstractReporter {
             } else if (edge != null) {
                 putEdge(edge);
             }
-        } catch (Exception parseException) {
-            parseException.printStackTrace(System.err);
+        } catch (Exception exception) {
+            Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 
@@ -183,7 +185,7 @@ public class Pipe extends AbstractReporter {
             Runtime.getRuntime().exec("rm -f " + pipePath).waitFor();
             return true;
         } catch (Exception exception) {
-            exception.printStackTrace(System.err);
+            Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
