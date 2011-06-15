@@ -43,6 +43,7 @@ import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.index.IndexHits;
+import org.neo4j.helpers.collection.MapUtil;
 import org.neo4j.index.lucene.ValueContext;
 import org.neo4j.kernel.Traversal;
 
@@ -71,8 +72,8 @@ public class Neo4j extends AbstractStorage {
             }
             graphDb = new EmbeddedGraphDatabase(arguments);
             transactionCount = 0;
-            vertexIndex = graphDb.index().forNodes("vertexIndex");
-            edgeIndex = graphDb.index().forRelationships("edgeIndex");
+            vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+            edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));            
             vertexMap = new HashMap<Integer, Long>();
             edgeSet = new HashSet<Integer>();
             return true;
