@@ -28,15 +28,15 @@ import java.util.Map;
 public class WasGeneratedBy extends AbstractEdge {
 
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess) {
-        setSourceVertex(actingProcess);
-        setDestinationVertex(generatedArtifact);
+        setSourceVertex(generatedArtifact);
+        setDestinationVertex(actingProcess);
         annotations = new LinkedHashMap<String, String>();
         addAnnotation("type", "WasGeneratedBy");
     }
 
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess, Map<String, String> inputAnnotations) {
-        setSourceVertex(actingProcess);
-        setDestinationVertex(generatedArtifact);
+        setSourceVertex(generatedArtifact);
+        setDestinationVertex(actingProcess);
         setAnnotations(inputAnnotations);
         addAnnotation("type", "WasGeneratedBy");
     }

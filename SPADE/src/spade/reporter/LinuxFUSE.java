@@ -286,6 +286,7 @@ public class LinuxFUSE extends AbstractReporter {
             if (currentIOData.path.equals(path)) {
                 currentIOData.iotime += iotime;
                 currentIOData.lastmodified = now;
+                readAggregation.put(pid, currentIOData);
             } else {
                 commitIO(pid, true);
             }
@@ -310,6 +311,7 @@ public class LinuxFUSE extends AbstractReporter {
             if (currentIOData.path.equals(path)) {
                 currentIOData.iotime += iotime;
                 currentIOData.lastmodified = now;
+                writeAggregation.put(pid, currentIOData);
             } else {
                 commitIO(pid, false);
             }
@@ -451,14 +453,11 @@ public class LinuxFUSE extends AbstractReporter {
         FileIOData currentIOData;
         if (read) {
             currentIOData = readAggregation.remove(pid);
-            if (currentIOData == null) {
-                return;
-            }
         } else {
             currentIOData = writeAggregation.remove(pid);
-            if (currentIOData == null) {
-                return;
-            }
+        }
+        if (currentIOData == null) {
+            return;
         }
         // Create the file artifact and populate the annotations with file information.
         checkProcessTree(Integer.toString(pid));

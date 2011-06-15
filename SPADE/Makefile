@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 317
+REVISION = 318
 
 # Download and build everything.
 all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
@@ -120,7 +120,7 @@ build-linuxfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java;\
 	javah -o spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE;\
-	gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell cd src;\ java spade/utility/JavaHome)/../include -I$(shell cd src;\ java spade/utility/JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` spade/reporter/libLinuxFUSE.c -o ../lib/libLinuxFUSE.so;
+	gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell cd src;java spade/utility/JavaHome)/../include -I$(shell cd src;java spade/utility/JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` spade/reporter/libLinuxFUSE.c -o ../lib/libLinuxFUSE.so;
 
 # Build the MacFUSE reporter.
 build-macfuse:

@@ -227,7 +227,7 @@ public class Kernel {
                                         // output for this query (i.e., a file or a pipe). This argument is
                                         // stripped from the query string and is passed as a separate argument
                                         // to the queryCommand() as the output stream.
-                                        PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[0]));
+                                        PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[0], false));
                                         if (queryTokens.length == 1) {
                                             showQueryCommands(queryOutputStream);
                                         } else if (queryTokens[1].startsWith("query ")) {
