@@ -159,7 +159,7 @@ public class Neo4j extends AbstractStorage {
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
         if (!vertexMap.containsKey(srcVertex.hashCode())
                 || !vertexMap.containsKey(dstVertex.hashCode())
-                || (edgeSet.add(incomingEdge.hashCode()) == false)) {
+                || !edgeSet.add(incomingEdge.hashCode())) {
             return false;
         }
         if (transactionCount == 0) {

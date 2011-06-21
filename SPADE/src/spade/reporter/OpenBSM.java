@@ -34,9 +34,7 @@ import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -47,7 +45,6 @@ public class OpenBSM extends AbstractReporter {
     private java.lang.Process nativeProcess;
     private Map<String, AbstractVertex> processVertices;
     private Map<String, AbstractVertex> fileVertices;
-    private Set<Integer> sentObjects;
     private AbstractVertex tempVertex1, tempVertex2;
     private int current_event_id;
     private String currentEventTime;
@@ -65,7 +62,6 @@ public class OpenBSM extends AbstractReporter {
         // The argument to the launch method is unused.
         processVertices = new HashMap<String, AbstractVertex>();
         fileVertices = new HashMap<String, AbstractVertex>();
-        sentObjects = new HashSet<Integer>();
         
         shutdown = false;
         buildProcessTree();
@@ -429,12 +425,10 @@ public class OpenBSM extends AbstractReporter {
 
     private void pushToBuffer(Object incomingObject) {
         // This method is used to push provenance objects to the reporter's buffer.
-        if (sentObjects.add(incomingObject.hashCode())) {
-            if (incomingObject instanceof AbstractVertex) {
-                putVertex((AbstractVertex) incomingObject);
-            } else if (incomingObject instanceof AbstractEdge) {
-                putEdge((AbstractEdge) incomingObject);
-            }
+        if (incomingObject instanceof AbstractVertex) {
+            putVertex((AbstractVertex) incomingObject);
+        } else if (incomingObject instanceof AbstractEdge) {
+            putEdge((AbstractEdge) incomingObject);
         }
     }
 }
