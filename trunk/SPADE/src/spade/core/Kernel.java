@@ -45,6 +45,8 @@ import java.util.logging.Logger;
 
 public class Kernel {
 
+    public static final String SOURCE_REPORTER = "source_reporter";
+
     private static final String configFile = "spade.config";
     private static final String queryPipeInputPath = "spade/pipe/queryPipeIn";
     private static final String controlPipeInputPath = "spade/pipe/controlPipeIn";
@@ -52,6 +54,10 @@ public class Kernel {
     private static final String NO_ARGUMENTS = "no arguments";
     private static final int REMOTE_QUERY_PORT = 9999;
     private static final int BATCH_BUFFER_ELEMENTS = 100;
+    private static final int MAIN_THREAD_SLEEP_DELAY = 3;
+    private static final int COMMAND_THREAD_SLEEP_DELAY = 200;
+    private static final int REMOVE_WAIT_DELAY = 300;
+    
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
     private static Set<AbstractReporter> removereporters;
@@ -66,7 +72,7 @@ public class Kernel {
 
         try {
             // Configuring the global logger
-            Handler fh = new FileHandler(System.currentTimeMillis() + ".log");
+            Handler fh = new FileHandler("SPADElog-" + System.currentTimeMillis() + ".log");
             Logger.getLogger("").addHandler(fh);
         } catch (Exception exception) {
             System.out.println("Error");
@@ -146,11 +152,11 @@ public class Kernel {
                                 Object bufferelement = ((Buffer) buffers.get(reporter)).getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
                                     AbstractVertex tempVertex = (AbstractVertex) bufferelement;
-                                    tempVertex.addAnnotation("source_reporter", reporter.getClass().getName());
+                                    tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName());
                                     ((AbstractFilter) filters.get(0)).putVertex(tempVertex);
                                 } else if (bufferelement instanceof AbstractEdge) {
                                     AbstractEdge tempEdge = (AbstractEdge) bufferelement;
-                                    tempEdge.addAnnotation("source_reporter", reporter.getClass().getName());
+                                    tempEdge.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName());
                                     ((AbstractFilter) filters.get(0)).putEdge((AbstractEdge) bufferelement);
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
@@ -161,7 +167,7 @@ public class Kernel {
                                 }
                             }
                         }
-                        Thread.sleep(3);
+                        Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
                     }
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
@@ -196,7 +202,7 @@ public class Kernel {
                                 }
                                 controlOutputStream.println("");
                             }
-                            Thread.sleep(100);
+                            Thread.sleep(COMMAND_THREAD_SLEEP_DELAY);
                         }
                     }
                 } catch (Exception exception) {
@@ -221,7 +227,7 @@ public class Kernel {
                                 String line = queryInputStream.readLine();
                                 if (line != null) {
                                     try {
-                                        String[] queryTokens = line.split("\\s", 2);
+                                        String[] queryTokens = line.split("\\s+", 2);
                                         // Only accept query commands from this pipe
                                         // The second argument in the query command is used to specify the
                                         // output for this query (i.e., a file or a pipe). This argument is
@@ -240,7 +246,7 @@ public class Kernel {
                                     }
                                 }
                             }
-                            Thread.sleep(200);
+                            Thread.sleep(COMMAND_THREAD_SLEEP_DELAY);
                         }
                     }
                 } catch (Exception exception) {
@@ -288,7 +294,7 @@ public class Kernel {
     // correct method based on the command. Each command is determined by the first
     // token in the string.
     public static boolean executeCommand(String line, PrintStream outputStream) {
-        String command = line.split("\\s")[0];
+        String command = line.split("\\s+")[0];
         if (command.equalsIgnoreCase("shutdown")) {
             // On shutdown, save the current configuration in the default configuration
             // file.
@@ -326,7 +332,7 @@ public class Kernel {
     // The configCommand is used to load or save the current SPADE configuration
     // from/to a file.
     public static void configCommand(String line, PrintStream outputStream) {
-        String[] tokens = line.split("\\s");
+        String[] tokens = line.split("\\s+");
         try {
             if (tokens[1].equalsIgnoreCase("load")) {
                 BufferedReader configReader = new BufferedReader(new FileReader(tokens[2]));
@@ -375,7 +381,7 @@ public class Kernel {
         if (storages.isEmpty()) {
             return null;
         }
-        String[] tokens = line.split("\\s");
+        String[] tokens = line.split("\\s+");
         Iterator iterator = storages.iterator();
         while (iterator.hasNext()) {
             AbstractStorage storage = (AbstractStorage) iterator.next();
@@ -435,7 +441,7 @@ public class Kernel {
     public static void queryCommand(String line, PrintStream outputStream) {
         Graph resultGraph = query(line);
         if (resultGraph != null) {
-            String[] tokens = line.split("\\s");
+            String[] tokens = line.split("\\s+");
             String outputFile = tokens[tokens.length - 1];
             if (tokens[2].equalsIgnoreCase("vertices")) {
                 Iterator resultIterator = resultGraph.vertexSet().iterator();
@@ -481,7 +487,7 @@ public class Kernel {
     }
 
     public static void addCommand(String line, PrintStream outputStream) {
-        String[] tokens = line.split("\\s", 4);
+        String[] tokens = line.split("\\s+", 4);
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
                 String classname = tokens[2];
@@ -597,7 +603,7 @@ public class Kernel {
     }
 
     public static void listCommand(String line, PrintStream outputStream) {
-        String[] tokens = line.split("\\s");
+        String[] tokens = line.split("\\s+");
         try {
             if (tokens[1].equalsIgnoreCase("reporters")) {
                 if (reporters.isEmpty()) {
@@ -676,7 +682,7 @@ public class Kernel {
     }
 
     public static void removeCommand(String line, PrintStream outputStream) {
-        String[] tokens = line.split("\\s");
+        String[] tokens = line.split("\\s+");
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
                 boolean found = false;
@@ -695,7 +701,7 @@ public class Kernel {
                         outputStream.print("Shutting down reporter " + tokens[2] + "... ");
                         while (removereporters.contains(reporter)) {
                             // Wait for other thread to safely remove reporter
-                            Thread.sleep(200);
+                            Thread.sleep(REMOVE_WAIT_DELAY);
                         }
                         iterator.remove();
                         outputStream.println("done");
@@ -723,7 +729,7 @@ public class Kernel {
                         outputStream.print("Shutting down storage " + tokens[2] + "... ");
                         while (removestorages.contains(storage)) {
                             // Wait for other thread to safely remove storage
-                            Thread.sleep(200);
+                            Thread.sleep(REMOVE_WAIT_DELAY);
                         }
                         iterator.remove();
                         outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
