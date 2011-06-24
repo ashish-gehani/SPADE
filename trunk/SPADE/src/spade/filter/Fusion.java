@@ -202,7 +202,6 @@ public class Fusion extends AbstractFilter {
         // vertices. The 'source reporter' annotation is changed to reflect that
         // this vertex is now fused
         AbstractVertex fusedVertex = new Vertex();
-        fusedVertex.removeAnnotation("type");
         fusedVertex.getAnnotations().putAll(firstVertex.getAnnotations());
         fusedVertex.getAnnotations().putAll(secondVertex.getAnnotations());
         fusedVertex.addAnnotation(SOURCE_REPORTER, FUSED_SOURCE_REPORTER);

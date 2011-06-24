@@ -82,9 +82,6 @@ public class Graphviz extends AbstractStorage {
                             || (key.equalsIgnoreCase("source_reporter"))) {
                         continue;
                     }
-                    if (key.equalsIgnoreCase("path") && value.length() > 12) {
-                        value = value.substring(0, 11) + "...";
-                    }
                     annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n";
                 }
                 annotationString = annotationString.substring(0, annotationString.length() - 2);
