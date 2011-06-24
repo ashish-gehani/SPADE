@@ -32,7 +32,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
@@ -44,11 +43,8 @@ public class LinuxFUSE extends AbstractReporter {
     private long boottime;
     private Map<String, AbstractVertex> localCache;
     private Map<String, String> links;
-    private Map<Integer, FileIOData> readAggregation;
-    private Map<Integer, FileIOData> writeAggregation;
     private String mountPoint;
     private String mountPath;
-
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     // The native launchFUSE method to start FUSE. The argument is the
@@ -64,8 +60,6 @@ public class LinuxFUSE extends AbstractReporter {
         mountPoint = arguments;
         localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
         links = Collections.synchronizedMap(new HashMap<String, String>());
-        readAggregation = Collections.synchronizedMap(new HashMap<Integer, FileIOData>());
-        writeAggregation = Collections.synchronizedMap(new HashMap<Integer, FileIOData>());
 
         try {
             // Load the native library.
@@ -76,8 +70,7 @@ public class LinuxFUSE extends AbstractReporter {
         }
 
         // Create a new directory as the mount point for FUSE.
-        File mount1 = new File(mountPoint);
-        if (mount1.exists()) {
+        if ((new File(mountPoint)).exists()) {
             return false;
         } else {
             try {
@@ -91,8 +84,7 @@ public class LinuxFUSE extends AbstractReporter {
             }
         }
 
-        File mount2 = new File(mountPoint);
-        mountPath = mount2.getAbsolutePath();
+        mountPath = (new File(mountPoint)).getAbsolutePath();
 
         // Get the system boot time from the proc filesystem.
         boottime = 0;
@@ -152,7 +144,6 @@ public class LinuxFUSE extends AbstractReporter {
                 } catch (Exception exception) {
                     continue;
                 }
-
             }
         }
 
@@ -279,57 +270,45 @@ public class LinuxFUSE extends AbstractReporter {
     public void read(int pid, int iotime, String path, int link) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
-        commitIO(pid, false);
         long now = System.currentTimeMillis();
-        if (readAggregation.containsKey(pid)) {
-            FileIOData currentIOData = readAggregation.get(pid);
-            if (currentIOData.path.equals(path)) {
-                currentIOData.iotime += iotime;
-                currentIOData.lastmodified = now;
-                readAggregation.put(pid, currentIOData);
-            } else {
-                commitIO(pid, true);
-            }
-        }
-        if (!readAggregation.containsKey(pid)) {
-            FileIOData currentIOData = new FileIOData();
-            currentIOData.path = path;
-            currentIOData.link = link;
-            currentIOData.iotime = iotime;
-            currentIOData.lastmodified = now;
-            readAggregation.put(pid, currentIOData);
+        // Create file artifact depending on whether this is a link or not.
+        // Link artifacts are created differently to avoid recursion that may
+        // cause FUSE to crash.
+        Artifact fileArtifact = (link == 1) ? createLinkArtifact(path) : createFileArtifact(path);
+        putVertex(fileArtifact);
+        AbstractEdge edge = new Used((Process) localCache.get(Integer.toString(pid)), fileArtifact);
+        edge.addAnnotation("iotime", Integer.toString(iotime));
+        edge.addAnnotation("endtime", Long.toString(now));
+        putEdge(edge);
+        // If the given path represents a link, then perform the same operation on the
+        // artifact to which the link points.
+        if (link == 1 && links.containsKey(path)) {
+            read(pid, iotime, links.get(path), 0);
         }
     }
 
     public void write(int pid, int iotime, String path, int link) {
         checkProcessTree(Integer.toString(pid));
-        commitIO(pid, true);
         path = sanitizePath(path);
         long now = System.currentTimeMillis();
-        if (writeAggregation.containsKey(pid)) {
-            FileIOData currentIOData = writeAggregation.get(pid);
-            if (currentIOData.path.equals(path)) {
-                currentIOData.iotime += iotime;
-                currentIOData.lastmodified = now;
-                writeAggregation.put(pid, currentIOData);
-            } else {
-                commitIO(pid, false);
-            }
-        }
-        if (!writeAggregation.containsKey(pid)) {
-            FileIOData currentIOData = new FileIOData();
-            currentIOData.path = path;
-            currentIOData.link = link;
-            currentIOData.iotime = iotime;
-            currentIOData.lastmodified = now;
-            writeAggregation.put(pid, currentIOData);
+        // Create file artifact depending on whether this is a link or not.
+        // Link artifacts are created differently to avoid recursion that may
+        // cause FUSE to crash.
+        Artifact fileArtifact = (link == 1) ? createLinkArtifact(path) : createFileArtifact(path);
+        putVertex(fileArtifact);
+        AbstractEdge edge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));
+        edge.addAnnotation("iotime", Integer.toString(iotime));
+        edge.addAnnotation("endtime", Long.toString(now));
+        putEdge(edge);
+        // If the given path represents a link, then perform the same operation on the
+        // artifact to which the link points.
+        if (link == 1 && links.containsKey(path)) {
+            write(pid, iotime, links.get(path), 0);
         }
     }
 
     public void readlink(int pid, int iotime, String path) {
         checkProcessTree(Integer.toString(pid));
-        commitIO(pid, true);
-        commitIO(pid, false);
         path = sanitizePath(path);
         // Create the file artifact and populate the annotations with file information.
         long now = System.currentTimeMillis();
@@ -348,8 +327,6 @@ public class LinuxFUSE extends AbstractReporter {
 
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
         checkProcessTree(Integer.toString(pid));
-        commitIO(pid, true);
-        commitIO(pid, false);
         pathfrom = sanitizePath(pathfrom);
         pathto = sanitizePath(pathto);
         long now = System.currentTimeMillis();
@@ -394,8 +371,6 @@ public class LinuxFUSE extends AbstractReporter {
 
     public void link(int pid, String originalFilePath, String linkPath) {
         checkProcessTree(Integer.toString(pid));
-        commitIO(pid, true);
-        commitIO(pid, false);
         originalFilePath = sanitizePath(originalFilePath);
         linkPath = sanitizePath(linkPath);
         long now = System.currentTimeMillis();
@@ -413,8 +388,6 @@ public class LinuxFUSE extends AbstractReporter {
 
     public void unlink(int pid, String path) {
         checkProcessTree(Integer.toString(pid));
-        commitIO(pid, true);
-        commitIO(pid, false);
         path = sanitizePath(path);
         links.remove(path);
     }
@@ -449,53 +422,8 @@ public class LinuxFUSE extends AbstractReporter {
         return path;
     }
 
-    private void commitIO(int pid, boolean read) {
-        FileIOData currentIOData;
-        if (read) {
-            currentIOData = readAggregation.remove(pid);
-        } else {
-            currentIOData = writeAggregation.remove(pid);
-        }
-        if (currentIOData == null) {
-            return;
-        }
-        // Create the file artifact and populate the annotations with file information.
-        checkProcessTree(Integer.toString(pid));
-        // Create file artifact depending on whether this is a link or not.
-        // Link artifacts are created differently to avoid recursion that may
-        // cause FUSE to crash.
-        Artifact fileArtifact = (currentIOData.link == 1) ? createLinkArtifact(currentIOData.path) : createFileArtifact(currentIOData.path);
-        putVertex(fileArtifact);
-        AbstractEdge edge;
-        if (read) {
-            edge = new Used((Process) localCache.get(Integer.toString(pid)), fileArtifact);
-        } else {
-            edge = new WasGeneratedBy(fileArtifact, (Process) localCache.get(Integer.toString(pid)));
-        }
-        edge.addAnnotation("iotime", Integer.toString(currentIOData.iotime));
-        edge.addAnnotation("endtime", Long.toString(currentIOData.lastmodified));
-        putEdge(edge);
-        // If the given path represents a link, then perform the same operation on the
-        // artifact to which the link points.
-        if (currentIOData.link == 1 && links.containsKey(currentIOData.path)) {
-            if (read) {
-                read(pid, currentIOData.iotime, links.get(currentIOData.path), 0);
-            } else {
-                write(pid, currentIOData.iotime, links.get(currentIOData.path), 0);
-            }
-        }
-    }
-
     @Override
     public boolean shutdown() {
-        for (Iterator iterator = readAggregation.keySet().iterator(); iterator.hasNext();) {
-            int pid = (Integer) iterator.next();
-            commitIO(pid, true);
-        }
-        for (Iterator iterator = writeAggregation.keySet().iterator(); iterator.hasNext();) {
-            int pid = (Integer) iterator.next();
-            commitIO(pid, false);
-        }
         try {
             // Force dismount of FUSE and then remove the mount point directory.
             Runtime.getRuntime().exec("fusermount -u -z " + mountPoint).waitFor();
@@ -506,12 +434,4 @@ public class LinuxFUSE extends AbstractReporter {
             return false;
         }
     }
-}
-
-class FileIOData {
-
-    public String path;
-    public int link;
-    public int iotime;
-    public long lastmodified;
 }

@@ -345,6 +345,7 @@ public class Neo4j extends AbstractStorage {
         Set<Node> doneSet = new HashSet<Node>();
         Set<Node> tempSet = new HashSet<Node>();
         tempSet.add(sourceNode);
+        int currentDepth = 0;
         while (true) {
             if ((tempSet.isEmpty()) || (depth == 0)) {
                 break;
@@ -364,11 +365,17 @@ public class Neo4j extends AbstractStorage {
                     }
                     resultGraph.putVertex(convertNodeToVertex(otherNode));
                     resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
+                    // Add network artifacts to the network map of the graph. This is needed
+                    // to resolve remote queries
+                    if (otherNode.hasProperty("source port")) {
+                        resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+                    }
                 }
             }
             tempSet.clear();
             tempSet.addAll(tempSet2);
             depth--;
+            currentDepth++;
         }
 
         return resultGraph;

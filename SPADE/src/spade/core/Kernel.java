@@ -33,9 +33,11 @@ import java.util.Set;
 import java.util.LinkedList;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.FileHandler;
@@ -46,7 +48,6 @@ import java.util.logging.Logger;
 public class Kernel {
 
     public static final String SOURCE_REPORTER = "source_reporter";
-
     private static final String configFile = "spade.config";
     private static final String queryPipeInputPath = "spade/pipe/queryPipeIn";
     private static final String controlPipeInputPath = "spade/pipe/controlPipeIn";
@@ -57,7 +58,6 @@ public class Kernel {
     private static final int MAIN_THREAD_SLEEP_DELAY = 3;
     private static final int COMMAND_THREAD_SLEEP_DELAY = 200;
     private static final int REMOVE_WAIT_DELAY = 300;
-    
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
     private static Set<AbstractReporter> removereporters;
@@ -77,7 +77,7 @@ public class Kernel {
         } catch (Exception exception) {
             System.out.println("Error");
         }
-    
+
         // Basic initialization
         shutdown = false;
         flushTransactions = false;
@@ -270,7 +270,7 @@ public class Kernel {
                     BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                     PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
                     String queryLine = clientInputReader.readLine();
-                    Graph resultGraph = query(queryLine);
+                    Graph resultGraph = query(queryLine, false);
                     if (resultGraph == null) {
                         clientPrintStream.println("null");
                     } else {
@@ -372,7 +372,7 @@ public class Kernel {
     // This method is used to call query methods on the desired storage. The
     // transactions are also flushed to ensure that the data in the storages is
     // consistent and updated with all the data received by SPADE up to this point.
-    public static Graph query(String line) {
+    public static Graph query(String line, boolean resolveRemote) {
         Graph resultGraph = null;
         flushTransactions = true;
         while (flushTransactions) {
@@ -386,6 +386,7 @@ public class Kernel {
         while (iterator.hasNext()) {
             AbstractStorage storage = (AbstractStorage) iterator.next();
             if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
+                // Determine the type of query and call the corresponding method
                 if (tokens[2].equalsIgnoreCase("vertices")) {
                     String queryExpression = "";
                     for (int i = 3; i < tokens.length; i++) {
@@ -405,9 +406,40 @@ public class Kernel {
                         terminatingExpression = terminatingExpression + tokens[i] + " ";
                     }
                     try {
-                        resultGraph = storage.getLineage(vertexId, depth, direction, terminatingExpression);
+                        resultGraph = storage.getLineage(vertexId, depth, direction, terminatingExpression.trim());
                     } catch (Exception badQuery) {
                         return null;
+                    }
+                    if (resolveRemote) {
+                        // Perform the remote queries here. A temporary remoteGraph is
+                        // created to store the results of the remote queries and then
+                        // added to the final resultGraph
+                        Graph remoteGraph = new Graph();
+                        // Get the map of network vertexes of our current graph
+                        Map<AbstractVertex, Integer> currentNetworkMap = resultGraph.networkMap();
+                        // Perform remote queries until the network map is exhausted
+                        while (!currentNetworkMap.isEmpty()) {
+                            Iterator networkVertexIterator = currentNetworkMap.entrySet().iterator();
+                            // Perform remote query on current network vertex and union
+                            // the result with the remoteGraph. This also adds the network
+                            // vertexes to the remoteGraph as well, so that deeper level
+                            // network queries are resolved iteratively
+                            while (networkVertexIterator.hasNext()) {
+                                Map.Entry currentEntry = (Map.Entry) networkVertexIterator.next();
+                                AbstractVertex networkVertex = (AbstractVertex) currentEntry.getKey();
+                                int currentDepth = (Integer) currentEntry.getValue();
+                                // Execute remote query
+                                Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction, terminatingExpression.trim());
+                                remoteGraph = Graph.union(remoteGraph, tempRemoteGraph);
+                                // Remove the current network vertex iterator since
+                                // it has been evaluated
+                            }
+                            currentNetworkMap.clear();
+                            // Set the networkMap to network vertexes of the newly
+                            // create remoteGraph
+                            currentNetworkMap = remoteGraph.networkMap();
+                        }
+                        resultGraph = Graph.union(resultGraph, remoteGraph);
                     }
                 } else if (tokens[2].equalsIgnoreCase("paths")) {
                     String srcVertexId = tokens[3];
@@ -423,6 +455,53 @@ public class Kernel {
                 }
             }
         }
+        // If the graph is incomplete, perform the necessary remote queries
+        return resultGraph;
+    }
+
+    public static Graph queryNetworkVertex(AbstractVertex networkVertex, int depth, String direction, String terminatingExpression) {
+        Graph resultGraph = null;
+
+        try {
+            // Establish a connection to the remote host
+            Socket remoteSocket = new Socket(networkVertex.getAnnotation("destination host"), REMOTE_QUERY_PORT);
+            // The first query is used to determine the vertex id of the network
+            // vertex on the remote host. This is needed to execute the lineage
+            // query
+            String vertexQueryExpression = "query Neo4j vertices ";
+            Map<String, String> annotations = networkVertex.getAnnotations();
+            for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
+                String key = (String) iterator.next();
+                String value = (String) annotations.get(key);
+                vertexQueryExpression = vertexQueryExpression + key + ":\"" + value + "\" AND ";
+            }
+            vertexQueryExpression = vertexQueryExpression.substring(0, vertexQueryExpression.length() - 4);
+            PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+            BufferedReader remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
+            ObjectInputStream graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
+
+            // Execute remote query for vertices
+            remoteSocketOut.println(vertexQueryExpression);
+            // Check whether the remote query server returned a graph in response
+            if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
+                Graph vertexGraph = (Graph) graphInputStream.readObject();
+                // The graph should only have one vertex which is the network vertex.
+                // We use this to get the vertex id
+                int vertexId = Integer.parseInt(vertexGraph.vertexSet().iterator().next().getAnnotation("storageId"));
+                
+                // Build the expression for the remote lineage query
+                String lineageQueryExpression = "query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
+                remoteSocketOut.println(lineageQueryExpression);
+                if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
+                    // The graph object we get as a response is returned as the
+                    // result of this method
+                    resultGraph = (Graph) graphInputStream.readObject();
+                }
+            }
+        } catch (Exception exception) {
+            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+        }
+
         return resultGraph;
     }
 
@@ -439,7 +518,7 @@ public class Kernel {
 
     // Call the main query method.
     public static void queryCommand(String line, PrintStream outputStream) {
-        Graph resultGraph = query(line);
+        Graph resultGraph = query(line, true);
         if (resultGraph != null) {
             String[] tokens = line.split("\\s+");
             String outputFile = tokens[tokens.length - 1];

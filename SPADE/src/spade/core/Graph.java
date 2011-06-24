@@ -19,10 +19,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import java.io.PrintStream;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,18 +31,24 @@ import java.util.logging.Logger;
 public class Graph implements Serializable {
 
     // This class uses a set of vertices and a set of edges to represent the
-    // graph.
+    // graph. The networkMap holds all network artifacts and their depth which
+    // is needed for remote querying.
     private Set<AbstractVertex> vertexSet;
     private Set<AbstractEdge> edgeSet;
-    private final PrintStream errorStream = System.err;
+    private Map<AbstractVertex, Integer> networkMap;
 
     public Graph() {
         vertexSet = new HashSet<AbstractVertex>();
         edgeSet = new HashSet<AbstractEdge>();
+        networkMap = new HashMap<AbstractVertex, Integer>();
     }
 
     public boolean putVertex(AbstractVertex inputVertex) {
         return vertexSet.add(inputVertex);
+    }
+
+    public void putNetworkVertex(AbstractVertex inputVertex, int depth) {
+        networkMap.put(inputVertex, depth);
     }
 
     public boolean putEdge(AbstractEdge inputEdge) {
@@ -56,10 +63,14 @@ public class Graph implements Serializable {
         return edgeSet;
     }
 
+    public Map<AbstractVertex, Integer> networkMap() {
+        return networkMap;
+    }
+
     // This method is used to create a new graph as an intersection of the two
     // given input graphs. This is done simply by using set functions on the
     // vertex and edge sets.
-    public static Graph getIntersection(Graph graph1, Graph graph2) {
+    public static Graph intersection(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
         Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
         Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
@@ -78,18 +89,22 @@ public class Graph implements Serializable {
     // This method is used to create a new graph as a union of the two
     // given input graphs. This is done simply by using set functions on the
     // vertex and edge sets.
-    public static Graph getUnion(Graph graph1, Graph graph2) {
+    public static Graph union(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
         Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
         Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
+        Map<AbstractVertex, Integer> networkMap = new HashMap<AbstractVertex, Integer>();
 
         vertices.addAll(graph1.vertexSet());
         vertices.addAll(graph2.vertexSet());
         edges.addAll(graph1.edgeSet());
         edges.addAll(graph2.edgeSet());
+        networkMap.putAll(graph1.networkMap());
+        networkMap.putAll(graph2.networkMap());
 
         resultGraph.vertexSet().addAll(vertices);
         resultGraph.edgeSet().addAll(edges);
+        resultGraph.networkMap().putAll(networkMap);
 
         return resultGraph;
     }
