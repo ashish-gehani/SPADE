@@ -26,7 +26,6 @@ import java.io.FileWriter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -118,10 +117,10 @@ public class Kernel {
                             // shutdown, all reporters are marked for removal so that their buffers
                             // are cleanly flushed and no data is lost. When a buffer becomes empty,
                             // it is removed along with its corresponding reporter.
-                            Iterator iterator = buffers.entrySet().iterator();
-                            while (iterator.hasNext()) {
-                                if (((Buffer) ((Map.Entry) iterator.next()).getValue()).isEmpty()) {
-                                    iterator.remove();
+                            for (Map.Entry currentEntry : buffers.entrySet()) {
+                                Buffer tempBuffer = (Buffer) currentEntry.getValue();
+                                if (tempBuffer.isEmpty()) {
+                                    buffers.remove((AbstractReporter) currentEntry.getKey());
                                 }
                             }
                             if (buffers.isEmpty()) {
@@ -134,22 +133,21 @@ public class Kernel {
                             // there are no errors/problems when using storages that are sensitive to
                             // thread-context for their transactions. For example, this is true for
                             // the embedded neo4j graph database.
-                            Iterator iterator = storages.iterator();
-                            while (iterator.hasNext()) {
-                                ((AbstractStorage) iterator.next()).flushTransactions();
+                            for (AbstractStorage currentStorage : storages) {
+                                currentStorage.flushTransactions();
                             }
                             flushTransactions = false;
                         }
                         if (!removestorages.isEmpty()) {
-                            Iterator iterator = removestorages.iterator();
-                            AbstractStorage storage = (AbstractStorage) iterator.next();
-                            storage.shutdown();
-                            iterator.remove();
+                            for (AbstractStorage currentStorage : removestorages) {
+                                currentStorage.shutdown();
+                                removestorages.remove(currentStorage);
+                            }
                         }
-                        for (Iterator iterator = buffers.keySet().iterator(); iterator.hasNext();) {
-                            AbstractReporter reporter = (AbstractReporter) iterator.next();
+                        for (Map.Entry currentEntry : buffers.entrySet()) {
+                            AbstractReporter reporter = (AbstractReporter) currentEntry.getKey();
                             for (int i = 0; i < BATCH_BUFFER_ELEMENTS; i++) {
-                                Object bufferelement = ((Buffer) buffers.get(reporter)).getBufferElement();
+                                Object bufferelement = ((Buffer) currentEntry.getValue()).getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
                                     AbstractVertex tempVertex = (AbstractVertex) bufferelement;
                                     tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName());
@@ -161,7 +159,7 @@ public class Kernel {
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
                                         removereporters.remove(reporter);
-                                        iterator.remove();
+                                        buffers.remove(reporter);
                                     }
                                     break;
                                 }
@@ -299,11 +297,9 @@ public class Kernel {
             // On shutdown, save the current configuration in the default configuration
             // file.
             configCommand("config save " + configFile, outputStream);
-            Iterator itp = reporters.iterator();
-            while (itp.hasNext()) {
+            for (AbstractReporter reporter : reporters) {
                 // Iterate through the set of reporters and shut them all down. After
                 // this, their buffers are flushed and then the storages are shut down.
-                AbstractReporter reporter = (AbstractReporter) itp.next();
                 reporter.shutdown();
             }
             shutdown = true;
@@ -347,15 +343,11 @@ public class Kernel {
                 for (int i = 0; i < filters.size() - 1; i++) {
                     configWriter.write("filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i + "\n");
                 }
-                Iterator storageIterator = storages.iterator();
-                while (storageIterator.hasNext()) {
-                    AbstractStorage storage = (AbstractStorage) storageIterator.next();
+                for (AbstractStorage storage : storages) {
                     String arguments = storage.arguments;
                     configWriter.write("storage " + storage.getClass().getName().split("\\.")[2] + " " + arguments + "\n");
                 }
-                Iterator reporterIterator = reporters.iterator();
-                while (reporterIterator.hasNext()) {
-                    AbstractReporter reporter = (AbstractReporter) reporterIterator.next();
+                for (AbstractReporter reporter : reporters) {
                     String arguments = reporter.arguments;
                     configWriter.write("reporter " + reporter.getClass().getName().split("\\.")[2] + " " + arguments + "\n");
                 }
@@ -382,9 +374,7 @@ public class Kernel {
             return null;
         }
         String[] tokens = line.split("\\s+");
-        Iterator iterator = storages.iterator();
-        while (iterator.hasNext()) {
-            AbstractStorage storage = (AbstractStorage) iterator.next();
+        for (AbstractStorage storage : storages) {
             if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
                 // Determine the type of query and call the corresponding method
                 if (tokens[2].equalsIgnoreCase("vertices")) {
@@ -419,20 +409,25 @@ public class Kernel {
                         Map<AbstractVertex, Integer> currentNetworkMap = resultGraph.networkMap();
                         // Perform remote queries until the network map is exhausted
                         while (!currentNetworkMap.isEmpty()) {
-                            Iterator networkVertexIterator = currentNetworkMap.entrySet().iterator();
                             // Perform remote query on current network vertex and union
                             // the result with the remoteGraph. This also adds the network
                             // vertexes to the remoteGraph as well, so that deeper level
                             // network queries are resolved iteratively
-                            while (networkVertexIterator.hasNext()) {
-                                Map.Entry currentEntry = (Map.Entry) networkVertexIterator.next();
+                            for (Map.Entry currentEntry : currentNetworkMap.entrySet()) {
                                 AbstractVertex networkVertex = (AbstractVertex) currentEntry.getKey();
                                 int currentDepth = (Integer) currentEntry.getValue();
                                 // Execute remote query
                                 Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction, terminatingExpression.trim());
+                                // Update the depth values of all network artifacts in the
+                                // remote network map to reflect current level of iteration
+                                for (Map.Entry currentNetworkEntry : tempRemoteGraph.networkMap().entrySet()) {
+                                    AbstractVertex tempNetworkVertex = (AbstractVertex) currentNetworkEntry.getKey();
+                                    int updatedDepth = currentDepth + (Integer) currentNetworkEntry.getValue();
+                                    tempRemoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
+                                }
+                                // Add the lineage of the current network node to the
+                                // overall result
                                 remoteGraph = Graph.union(remoteGraph, tempRemoteGraph);
-                                // Remove the current network vertex iterator since
-                                // it has been evaluated
                             }
                             currentNetworkMap.clear();
                             // Set the networkMap to network vertexes of the newly
@@ -469,10 +464,9 @@ public class Kernel {
             // vertex on the remote host. This is needed to execute the lineage
             // query
             String vertexQueryExpression = "query Neo4j vertices ";
-            Map<String, String> annotations = networkVertex.getAnnotations();
-            for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-                String key = (String) iterator.next();
-                String value = (String) annotations.get(key);
+            for (Map.Entry currentEntry : networkVertex.getAnnotations().entrySet()) {
+                String key = (String) currentEntry.getKey();
+                String value = (String) currentEntry.getValue();
                 vertexQueryExpression = vertexQueryExpression + key + ":\"" + value + "\" AND ";
             }
             vertexQueryExpression = vertexQueryExpression.substring(0, vertexQueryExpression.length() - 4);
@@ -488,7 +482,7 @@ public class Kernel {
                 // The graph should only have one vertex which is the network vertex.
                 // We use this to get the vertex id
                 int vertexId = Integer.parseInt(vertexGraph.vertexSet().iterator().next().getAnnotation("storageId"));
-                
+
                 // Build the expression for the remote lineage query
                 String lineageQueryExpression = "query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
                 remoteSocketOut.println(lineageQueryExpression);
@@ -507,9 +501,9 @@ public class Kernel {
 
     public static String convertVertexToString(AbstractVertex vertex) {
         String vertexString = "";
-        for (Iterator iterator = vertex.getAnnotations().keySet().iterator(); iterator.hasNext();) {
-            String key = (String) iterator.next();
-            String value = (String) vertex.getAnnotation(key);
+        for (Map.Entry currentEntry : vertex.getAnnotations().entrySet()) {
+            String key = (String) currentEntry.getKey();
+            String value = (String) currentEntry.getValue();
             vertexString = vertexString + key + ":" + value + "|";
         }
         vertexString = vertexString.substring(0, vertexString.length() - 1);
@@ -523,9 +517,7 @@ public class Kernel {
             String[] tokens = line.split("\\s+");
             String outputFile = tokens[tokens.length - 1];
             if (tokens[2].equalsIgnoreCase("vertices")) {
-                Iterator resultIterator = resultGraph.vertexSet().iterator();
-                while (resultIterator.hasNext()) {
-                    AbstractVertex tempVertex = (AbstractVertex) resultIterator.next();
+                for (AbstractVertex tempVertex : resultGraph.vertexSet()) {
                     outputStream.println("[" + convertVertexToString(tempVertex) + "]");
                 }
             } else if (tokens[2].equalsIgnoreCase("lineage")) {
@@ -651,11 +643,9 @@ public class Kernel {
                     AbstractSketch sketch = (AbstractSketch) Class.forName("spade.sketch." + classname).newInstance();
                     // The argument is the storage class to which this sketch must refernce.
                     boolean found = false;
-                    Iterator iterator = storages.iterator();
-                    while (iterator.hasNext()) {
+                    for (AbstractStorage storage : storages) {
                         // Iterate through the set of storages until one is found which
                         // matches the given argument by its name.
-                        AbstractStorage storage = (AbstractStorage) iterator.next();
                         if (storage.getClass().getName().equals("spade.storage." + storagename)) {
                             sketch.storage = storage;
                             found = true;
@@ -691,11 +681,9 @@ public class Kernel {
                     return;
                 }
                 outputStream.println(reporters.size() + " reporter(s) added:");
-                Iterator iterator = reporters.iterator();
                 int count = 1;
-                while (iterator.hasNext()) {
+                for (AbstractReporter reporter : reporters) {
                     // Iterate through the set of reporters, printing their names and arguments.
-                    AbstractReporter reporter = (AbstractReporter) iterator.next();
                     String arguments = reporter.arguments;
                     outputStream.println("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                     count++;
@@ -707,11 +695,9 @@ public class Kernel {
                     return;
                 }
                 outputStream.println(storages.size() + " storage(s) added:");
-                Iterator iterator = storages.iterator();
                 int count = 1;
-                while (iterator.hasNext()) {
+                for (AbstractStorage storage : storages) {
                     // Iterate through the set of storages, printing their names and arguments.
-                    AbstractStorage storage = (AbstractStorage) iterator.next();
                     String arguments = storage.arguments;
                     outputStream.println("\t" + count + ". " + storage.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                     count++;
@@ -739,11 +725,9 @@ public class Kernel {
                     return;
                 }
                 outputStream.println(sketches.size() + " sketch(es) added:");
-                Iterator iterator = sketches.iterator();
                 int count = 1;
-                while (iterator.hasNext()) {
+                for (AbstractSketch sketch : sketches) {
                     // Iterate through the set of sketches, printing their names.
-                    AbstractSketch sketch = (AbstractSketch) iterator.next();
                     outputStream.println("\t" + count + ". " + sketch.getClass().getName().split("\\.")[2]);
                     count++;
                 }
@@ -765,11 +749,9 @@ public class Kernel {
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
                 boolean found = false;
-                Iterator iterator = reporters.iterator();
-                while (iterator.hasNext()) {
+                for (AbstractReporter reporter : reporters) {
                     // Iterate through the set of reporters until one is found which
                     // matches the given argument by its name.
-                    AbstractReporter reporter = (AbstractReporter) iterator.next();
                     if (reporter.getClass().getName().equals("spade.reporter." + tokens[2])) {
                         // Mark the reporter for removal by adding it to the removereporters set.
                         // This will enable the main SPADE thread to cleanly flush the reporter
@@ -782,7 +764,7 @@ public class Kernel {
                             // Wait for other thread to safely remove reporter
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
-                        iterator.remove();
+                        reporters.remove(reporter);
                         outputStream.println("done");
                         break;
                     }
@@ -792,11 +774,9 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("storage")) {
                 boolean found = false;
-                Iterator iterator = storages.iterator();
-                while (iterator.hasNext()) {
+                for (AbstractStorage storage : storages) {
                     // Iterate through the set of storages until one is found which
                     // matches the given argument by its name.
-                    AbstractStorage storage = (AbstractStorage) iterator.next();
                     if (storage.getClass().getName().equals("spade.storage." + tokens[2])) {
                         // Mark the storage for removal by adding it to the removestorages set.
                         // This will enable the main SPADE thread to safely commit any transactions
@@ -810,7 +790,7 @@ public class Kernel {
                             // Wait for other thread to safely remove storage
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
-                        iterator.remove();
+                        storages.remove(storage);
                         outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
                         break;
                     }
@@ -837,15 +817,13 @@ public class Kernel {
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 boolean found = false;
-                Iterator iterator = sketches.iterator();
-                while (iterator.hasNext()) {
+                for (AbstractSketch sketch : sketches) {
                     // Iterate through the set of sketches until one is found which
                     // matches the given argument by its name.
-                    AbstractSketch sketch = (AbstractSketch) iterator.next();
                     if (sketch.getClass().getName().equals("spade.sketch." + tokens[2])) {
                         found = true;
                         outputStream.print("Removing sketch " + tokens[2] + "... ");
-                        iterator.remove();
+                        sketches.remove(sketch);
                         outputStream.println("done");
                         break;
                     }
@@ -863,10 +841,8 @@ public class Kernel {
     }
 
     public static void shutdown() {
-        Iterator iterator = storages.iterator();
-        while (iterator.hasNext()) {
+        for (AbstractStorage storage : storages) {
             // Shut down all storages.
-            AbstractStorage storage = (AbstractStorage) iterator.next();
             storage.shutdown();
         }
         try {
@@ -882,8 +858,8 @@ public class Kernel {
 class FinalCommitFilter extends AbstractFilter {
 
     // Reference to the set of storages maintained by the Kernel.
-    public Set storages;
-    public Set sketches;
+    public Set<AbstractStorage> storages;
+    public Set<AbstractSketch> sketches;
 
     // This filter is the last filter in the list so any vertices or edges
     // received by it need to be passed to the storages. On receiving any
@@ -891,31 +867,25 @@ class FinalCommitFilter extends AbstractFilter {
     // the element to each storage.
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-        Iterator storageIterator = storages.iterator();
-        while (storageIterator.hasNext()) {
-            AbstractStorage storage = (AbstractStorage) storageIterator.next();
+        for (AbstractStorage storage : storages) {
             if (storage.putVertex(incomingVertex)) {
                 storage.vertexCount++;
             }
         }
-        Iterator sketchIterator = sketches.iterator();
-        while (sketchIterator.hasNext()) {
-            ((AbstractSketch) sketchIterator.next()).putVertex(incomingVertex);
+        for (AbstractSketch sketch : sketches) {
+            sketch.putVertex(incomingVertex);
         }
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        Iterator storageIterator = storages.iterator();
-        while (storageIterator.hasNext()) {
-            AbstractStorage storage = (AbstractStorage) storageIterator.next();
+        for (AbstractStorage storage : storages) {
             if (storage.putEdge(incomingEdge)) {
                 storage.edgeCount++;
             }
         }
-        Iterator sketchIterator = sketches.iterator();
-        while (sketchIterator.hasNext()) {
-            ((AbstractSketch) sketchIterator.next()).putEdge(incomingEdge);
+        for (AbstractSketch sketch : sketches) {
+            sketch.putEdge(incomingEdge);
         }
     }
 }

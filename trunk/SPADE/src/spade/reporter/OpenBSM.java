@@ -53,7 +53,6 @@ public class OpenBSM extends AbstractReporter {
     private String nativePID;
     private String eventPID;
     private volatile boolean shutdown;
-
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private final int THREAD_SLEEP_DELAY = 5;
 
@@ -62,7 +61,7 @@ public class OpenBSM extends AbstractReporter {
         // The argument to the launch method is unused.
         processVertices = new HashMap<String, AbstractVertex>();
         fileVertices = new HashMap<String, AbstractVertex>();
-        
+
         shutdown = false;
         buildProcessTree();
 
@@ -105,7 +104,7 @@ public class OpenBSM extends AbstractReporter {
                 }
             };
             new Thread(eventProcessor, "OpenBSMeventProcessor").start();
-            
+
         } catch (Exception exception) {
             Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
             return false;
@@ -146,7 +145,7 @@ public class OpenBSM extends AbstractReporter {
         // created if the event modified the file (i.e., write, truncate, rename, etc)
         // but the cached one is used in case of read.
         if ((!refresh) && (fileVertices.containsKey(path))) {
-            return (Artifact) fileVertices.get(path);        
+            return (Artifact) fileVertices.get(path);
         }
         Artifact fileArtifact = new Artifact();
         fileArtifact.addAnnotation("path", path);
@@ -202,14 +201,14 @@ public class OpenBSM extends AbstractReporter {
             line = pidreader.readLine();
             line = pidreader.readLine();
             if (line != null) {
-                processVertex.addAnnotation("commandline", line);
+            processVertex.addAnnotation("commandline", line);
             }
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
             line = pidreader.readLine();
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
-                processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
+            processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
             }
              * 
              */
