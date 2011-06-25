@@ -25,7 +25,6 @@ import spade.core.AbstractVertex;
 import java.io.FileWriter;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Iterator;
 import java.util.Set;
 
 public class Graphviz extends AbstractStorage {
@@ -73,10 +72,9 @@ public class Graphviz extends AbstractStorage {
         try {
             if (vertexSet.add(incomingVertex.hashCode())) {
                 String annotationString = "";
-                Map<String, String> annotations = incomingVertex.getAnnotations();
-                for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-                    String key = (String) iterator.next();
-                    String value = (String) annotations.get(key);
+                for (Map.Entry currentEntry : incomingVertex.getAnnotations().entrySet()) {
+                    String key = (String) currentEntry.getKey();
+                    String value = (String) currentEntry.getValue();
                     if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))
                             || (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("commandline"))
                             || (key.equalsIgnoreCase("source_reporter"))) {
@@ -113,10 +111,9 @@ public class Graphviz extends AbstractStorage {
         try {
             if (edgeSet.add(incomingEdge.hashCode())) {
                 String annotationString = "";
-                Map<String, String> annotations = incomingEdge.getAnnotations();
-                for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-                    String key = (String) iterator.next();
-                    String value = (String) annotations.get(key);
+                for (Map.Entry currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                    String key = (String) currentEntry.getKey();
+                    String value = (String) currentEntry.getValue();
                     if ((key.equalsIgnoreCase("storageId")) || (key.equalsIgnoreCase("type"))
                             || (key.equalsIgnoreCase("source_reporter"))) {
                         continue;

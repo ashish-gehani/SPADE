@@ -22,7 +22,6 @@ package spade.core;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -115,13 +114,11 @@ public class Graph implements Serializable {
         try {
             spade.storage.Graphviz outputStorage = new spade.storage.Graphviz();
             outputStorage.initialize(path);
-            Iterator vertexIterator = vertexSet.iterator();
-            while (vertexIterator.hasNext()) {
-                outputStorage.putVertex((AbstractVertex) vertexIterator.next());
+            for (AbstractVertex vertex : vertexSet) {
+                outputStorage.putVertex(vertex);
             }
-            Iterator edgeIterator = edgeSet.iterator();
-            while (edgeIterator.hasNext()) {
-                outputStorage.putEdge((AbstractEdge) edgeIterator.next());
+            for (AbstractEdge edge : edgeSet) {
+                outputStorage.putEdge(edge);
             }
             outputStorage.shutdown();
         } catch (Exception exception) {

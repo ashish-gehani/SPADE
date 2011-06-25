@@ -27,7 +27,6 @@ import spade.core.Vertex;
 import spade.core.AbstractVertex;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -73,7 +72,7 @@ public class Neo4j extends AbstractStorage {
             graphDb = new EmbeddedGraphDatabase(arguments);
             transactionCount = 0;
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
-            edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));            
+            edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             vertexMap = new HashMap<Integer, Long>();
             edgeSet = new HashSet<Integer>();
             return true;
@@ -124,10 +123,9 @@ public class Neo4j extends AbstractStorage {
             transaction = graphDb.beginTx();
         }
         Node newVertex = graphDb.createNode();
-        Map<String, String> annotations = incomingVertex.getAnnotations();
-        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-            String key = (String) iterator.next();
-            String value = (String) annotations.get(key);
+        for (Map.Entry currentEntry : incomingVertex.getAnnotations().entrySet()) {
+            String key = (String) currentEntry.getKey();
+            String value = (String) currentEntry.getValue();
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
@@ -168,11 +166,10 @@ public class Neo4j extends AbstractStorage {
         Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.hashCode()));
         Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.hashCode()));
 
-        Map<String, String> annotations = incomingEdge.getAnnotations();
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-        for (Iterator iterator = annotations.keySet().iterator(); iterator.hasNext();) {
-            String key = (String) iterator.next();
-            String value = (String) annotations.get(key);
+        for (Map.Entry currentEntry : incomingEdge.getAnnotations().entrySet()) {
+            String key = (String) currentEntry.getKey();
+            String value = (String) currentEntry.getValue();
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
@@ -297,15 +294,13 @@ public class Neo4j extends AbstractStorage {
         Node destinationNode = graphDb.getNodeById(Long.parseLong(dstVertexId));
 
         PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.INCOMING), maxLength);
-        Iterable<Path> foundPaths = pathFinder.findAllPaths(sourceNode, destinationNode);
 
-        for (Iterator<Path> pathIterator = foundPaths.iterator(); pathIterator.hasNext();) {
-            Path currentPath = pathIterator.next();
-            for (Iterator<Node> nodeIterator = currentPath.nodes().iterator(); nodeIterator.hasNext();) {
-                resultGraph.putVertex(convertNodeToVertex(nodeIterator.next()));
+        for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
+            for (Node currentNode : currentPath.nodes()) {
+                resultGraph.putVertex(convertNodeToVertex(currentNode));
             }
-            for (Iterator<Relationship> edgeIterator = currentPath.relationships().iterator(); edgeIterator.hasNext();) {
-                resultGraph.putEdge(convertRelationshipToEdge(edgeIterator.next()));
+            for (Relationship currentRelationship : currentPath.relationships()) {
+                resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
             }
         }
 
@@ -352,9 +347,7 @@ public class Neo4j extends AbstractStorage {
             }
             doneSet.addAll(tempSet);
             Set<Node> tempSet2 = new HashSet<Node>();
-            Iterator iterator = tempSet.iterator();
-            while (iterator.hasNext()) {
-                Node tempNode = (Node) iterator.next();
+            for (Node tempNode : tempSet) {
                 for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
                     Node otherNode = nodeRelationship.getOtherNode(tempNode);
                     if ((terminatingExpression != null) && (terminatingSet.contains(otherNode))) {
