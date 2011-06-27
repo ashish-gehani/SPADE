@@ -42,7 +42,7 @@ public class ControlClient {
     private static String inputPath;
     private static String outputPath;
     private static volatile boolean shutdown;
-    private static final String historyFile = "control.history";
+    private static final String historyFile = "../config/control.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
 

@@ -37,23 +37,12 @@ public abstract class AbstractEdge {
         this.annotations = annotations;
     }
 
-    public final boolean addAnnotation(String key, String value) {
-        if (!annotations.containsKey(key)) {
-            annotations.put(key, value);
-            return true;
-        } else {
-            annotations.put(key, value);
-            return false;
-        }
+    public final void addAnnotation(String key, String value) {
+        annotations.put(key, value);
     }
 
-    public final boolean removeAnnotation(String key) {
-        if (annotations.containsKey(key)) {
-            annotations.remove(key);
-            return true;
-        } else {
-            return false;
-        }
+    public final void removeAnnotation(String key) {
+        annotations.remove(key);
     }
 
     public final String getAnnotation(String key) {
