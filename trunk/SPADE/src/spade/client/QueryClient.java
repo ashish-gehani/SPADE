@@ -42,7 +42,7 @@ public class QueryClient {
     private static String inputPath;
     private static String outputPath;
     private static volatile boolean shutdown;
-    private static final String historyFile = "query.history";
+    private static final String historyFile = "../config/query.history";
     private static final int THREAD_SLEEP_DELAY = 10;
 
     public static void main(String args[]) {

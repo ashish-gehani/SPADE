@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 321
+REVISION = 323
 
 # Platform must be specified
 all:
@@ -12,7 +12,7 @@ all:
 # ---------- Downloading SPADE ----------
 
 # Download everything.
-svn:	svn-kernel svn-utility svn-client svn-pipe svn-openbsm svn-macfuse svn-linux-audit svn-linux-fuse svn-lsof
+download:	svn-kernel svn-utility svn-client svn-pipe svn-openbsm svn-macfuse svn-linux-audit svn-linux-fuse svn-lsof
 
 # Download SPADE's core and its dependencies.
 svn-kernel:	skeleton svn-libraries svn-core svn-opm svn-storage
@@ -154,12 +154,12 @@ start-spade:
 # Run the control shell.
 start-control-client:
 	cd src;\
-	java -cp '.:../lib/*' spade/client/ControlClient spade/pipe/controlPipeIn spade/pipe/controlPipeOut;
+	java -cp '.:../lib/*' spade/client/ControlClient ../dev/controlPipeIn ../dev/controlPipeOut;
 
 # Run the query shell.
 start-query-client:
 	cd src;\
-	java -cp '.:../lib/*' spade/client/QueryClient spade/pipe/queryPipeIn spade/pipe/queryPipeOut;
+	java -cp '.:../lib/*' spade/client/QueryClient ../dev/queryPipeIn ../dev/queryPipeOut;
 
 # Remove all .class files.
 clean-class:

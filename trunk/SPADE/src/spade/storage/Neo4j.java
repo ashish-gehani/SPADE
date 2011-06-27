@@ -254,20 +254,30 @@ public class Neo4j extends AbstractStorage {
             destinationSet = getVertices(destinationExpression).vertexSet();
         }
         for (Relationship foundRelationship : edgeIndex.query(edgeExpression)) {
+            AbstractVertex sourceVertex = convertNodeToVertex(foundRelationship.getStartNode());
+            AbstractVertex destinationVertex = convertNodeToVertex(foundRelationship.getEndNode());
             AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
             if ((sourceExpression != null) && (destinationExpression != null)) {
                 if (sourceSet.contains(tempEdge.getSourceVertex()) && destinationSet.contains(tempEdge.getDestinationVertex())) {
+                    resultGraph.putVertex(sourceVertex);
+                    resultGraph.putVertex(destinationVertex);
                     resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression != null) && (destinationExpression == null)) {
                 if (sourceSet.contains(tempEdge.getSourceVertex())) {
+                    resultGraph.putVertex(sourceVertex);
+                    resultGraph.putVertex(destinationVertex);
                     resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression == null) && (destinationExpression != null)) {
                 if (destinationSet.contains(tempEdge.getDestinationVertex())) {
+                    resultGraph.putVertex(sourceVertex);
+                    resultGraph.putVertex(destinationVertex);
                     resultGraph.putEdge(tempEdge);
                 }
             } else if ((sourceExpression == null) && (destinationExpression == null)) {
+                resultGraph.putVertex(sourceVertex);
+                resultGraph.putVertex(destinationVertex);
                 resultGraph.putEdge(tempEdge);
             }
         }
@@ -280,8 +290,10 @@ public class Neo4j extends AbstractStorage {
         Long srcNodeId = Long.parseLong(srcVertexId);
         Long dstNodeId = Long.parseLong(dstVertexId);
         IndexHits<Relationship> foundRelationships = edgeIndex.query("type:*", graphDb.getNodeById(srcNodeId), graphDb.getNodeById(dstNodeId));
-        while (foundRelationships.hasNext()) {
-            resultGraph.putEdge(convertRelationshipToEdge(foundRelationships.next()));
+        for (Relationship currentRelationship : foundRelationships) {
+            resultGraph.putVertex(convertNodeToVertex(currentRelationship.getStartNode()));
+            resultGraph.putVertex(convertNodeToVertex(currentRelationship.getEndNode()));
+            resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
         }
         return resultGraph;
     }

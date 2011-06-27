@@ -39,6 +39,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Iterator;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -47,10 +48,10 @@ import java.util.logging.Logger;
 public class Kernel {
 
     public static final String SOURCE_REPORTER = "source_reporter";
-    private static final String configFile = "spade.config";
-    private static final String queryPipeInputPath = "spade/pipe/queryPipeIn";
-    private static final String controlPipeInputPath = "spade/pipe/controlPipeIn";
-    private static final String controlPipeOutputPath = "spade/pipe/controlPipeOut";
+    private static final String configFile = "../config/spade.config";
+    private static final String queryPipeInputPath = "../dev/queryPipeIn";
+    private static final String controlPipeInputPath = "../dev/controlPipeIn";
+    private static final String controlPipeOutputPath = "../dev/controlPipeOut";
     private static final String NO_ARGUMENTS = "no arguments";
     private static final int REMOTE_QUERY_PORT = 9999;
     private static final int BATCH_BUFFER_ELEMENTS = 100;
@@ -71,15 +72,13 @@ public class Kernel {
 
         try {
             // Configuring the global logger
-            Handler fh = new FileHandler("SPADElog-" + System.currentTimeMillis() + ".log");
+            Handler fh = new FileHandler("SPADE-log-" + System.currentTimeMillis() + ".log");
             Logger.getLogger("").addHandler(fh);
         } catch (Exception exception) {
             System.out.println("Error");
         }
 
         // Basic initialization
-        shutdown = false;
-        flushTransactions = false;
         reporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
         removereporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
@@ -87,6 +86,8 @@ public class Kernel {
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
+        shutdown = false;
+        flushTransactions = false;
 
         // Initialize the SketchManager and the final commit filter.
         // The FinalCommitFilter acts as a terminator for the filter list
@@ -117,10 +118,11 @@ public class Kernel {
                             // shutdown, all reporters are marked for removal so that their buffers
                             // are cleanly flushed and no data is lost. When a buffer becomes empty,
                             // it is removed along with its corresponding reporter.
-                            for (Map.Entry currentEntry : buffers.entrySet()) {
+                            for (Iterator iterator = buffers.entrySet().iterator(); iterator.hasNext();) {
+                                Map.Entry currentEntry = (Map.Entry) iterator.next();
                                 Buffer tempBuffer = (Buffer) currentEntry.getValue();
                                 if (tempBuffer.isEmpty()) {
-                                    buffers.remove((AbstractReporter) currentEntry.getKey());
+                                    iterator.remove();
                                 }
                             }
                             if (buffers.isEmpty()) {
@@ -139,27 +141,29 @@ public class Kernel {
                             flushTransactions = false;
                         }
                         if (!removestorages.isEmpty()) {
-                            for (AbstractStorage currentStorage : removestorages) {
+                            for (Iterator iterator = removestorages.iterator(); iterator.hasNext();) {
+                                AbstractStorage currentStorage = (AbstractStorage) iterator.next();
                                 currentStorage.shutdown();
-                                removestorages.remove(currentStorage);
+                                iterator.remove();
                             }
                         }
-                        for (Map.Entry currentEntry : buffers.entrySet()) {
+                        for (Iterator iterator = buffers.entrySet().iterator(); iterator.hasNext();) {
+                            Map.Entry currentEntry = (Map.Entry) iterator.next();
                             AbstractReporter reporter = (AbstractReporter) currentEntry.getKey();
                             for (int i = 0; i < BATCH_BUFFER_ELEMENTS; i++) {
                                 Object bufferelement = ((Buffer) currentEntry.getValue()).getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
                                     AbstractVertex tempVertex = (AbstractVertex) bufferelement;
-                                    tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName());
+                                    tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
                                     ((AbstractFilter) filters.get(0)).putVertex(tempVertex);
                                 } else if (bufferelement instanceof AbstractEdge) {
                                     AbstractEdge tempEdge = (AbstractEdge) bufferelement;
-                                    tempEdge.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName());
+                                    tempEdge.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
                                     ((AbstractFilter) filters.get(0)).putEdge((AbstractEdge) bufferelement);
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
                                         removereporters.remove(reporter);
-                                        buffers.remove(reporter);
+                                        iterator.remove();
                                     }
                                     break;
                                 }
@@ -298,7 +302,7 @@ public class Kernel {
             // file.
             configCommand("config save " + configFile, outputStream);
             for (AbstractReporter reporter : reporters) {
-                // Iterate through the set of reporters and shut them all down. After
+                // Shut down all reporters. After
                 // this, their buffers are flushed and then the storages are shut down.
                 reporter.shutdown();
             }
@@ -644,8 +648,7 @@ public class Kernel {
                     // The argument is the storage class to which this sketch must refernce.
                     boolean found = false;
                     for (AbstractStorage storage : storages) {
-                        // Iterate through the set of storages until one is found which
-                        // matches the given argument by its name.
+                        // Search for the given storage in the storages set.
                         if (storage.getClass().getName().equals("spade.storage." + storagename)) {
                             sketch.storage = storage;
                             found = true;
@@ -683,7 +686,7 @@ public class Kernel {
                 outputStream.println(reporters.size() + " reporter(s) added:");
                 int count = 1;
                 for (AbstractReporter reporter : reporters) {
-                    // Iterate through the set of reporters, printing their names and arguments.
+                    // Print the names and arguments of all reporters.
                     String arguments = reporter.arguments;
                     outputStream.println("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                     count++;
@@ -697,7 +700,7 @@ public class Kernel {
                 outputStream.println(storages.size() + " storage(s) added:");
                 int count = 1;
                 for (AbstractStorage storage : storages) {
-                    // Iterate through the set of storages, printing their names and arguments.
+                    // Print the names and arguments of all storages.
                     String arguments = storage.arguments;
                     outputStream.println("\t" + count + ". " + storage.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                     count++;
@@ -727,7 +730,7 @@ public class Kernel {
                 outputStream.println(sketches.size() + " sketch(es) added:");
                 int count = 1;
                 for (AbstractSketch sketch : sketches) {
-                    // Iterate through the set of sketches, printing their names.
+                    // Print the names of all sketches.
                     outputStream.println("\t" + count + ". " + sketch.getClass().getName().split("\\.")[2]);
                     count++;
                 }
@@ -749,9 +752,9 @@ public class Kernel {
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
                 boolean found = false;
-                for (AbstractReporter reporter : reporters) {
-                    // Iterate through the set of reporters until one is found which
-                    // matches the given argument by its name.
+                for (Iterator iterator = reporters.iterator(); iterator.hasNext();) {
+                    AbstractReporter reporter = (AbstractReporter) iterator.next();
+                    // Search for the given reporter in the set of reporters.
                     if (reporter.getClass().getName().equals("spade.reporter." + tokens[2])) {
                         // Mark the reporter for removal by adding it to the removereporters set.
                         // This will enable the main SPADE thread to cleanly flush the reporter
@@ -764,7 +767,7 @@ public class Kernel {
                             // Wait for other thread to safely remove reporter
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
-                        reporters.remove(reporter);
+                        iterator.remove();
                         outputStream.println("done");
                         break;
                     }
@@ -774,9 +777,9 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("storage")) {
                 boolean found = false;
-                for (AbstractStorage storage : storages) {
-                    // Iterate through the set of storages until one is found which
-                    // matches the given argument by its name.
+                for (Iterator iterator = storages.iterator(); iterator.hasNext();) {
+                    AbstractStorage storage = (AbstractStorage) iterator.next();
+                    // Search for the given storage in the storages set.
                     if (storage.getClass().getName().equals("spade.storage." + tokens[2])) {
                         // Mark the storage for removal by adding it to the removestorages set.
                         // This will enable the main SPADE thread to safely commit any transactions
@@ -790,7 +793,7 @@ public class Kernel {
                             // Wait for other thread to safely remove storage
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
-                        storages.remove(storage);
+                        iterator.remove();
                         outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
                         break;
                     }
@@ -817,13 +820,13 @@ public class Kernel {
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 boolean found = false;
-                for (AbstractSketch sketch : sketches) {
-                    // Iterate through the set of sketches until one is found which
-                    // matches the given argument by its name.
+                for (Iterator iterator = sketches.iterator(); iterator.hasNext();) {
+                    AbstractSketch sketch = (AbstractSketch) iterator.next();
+                    // Search for the given sketch in the sketches set.
                     if (sketch.getClass().getName().equals("spade.sketch." + tokens[2])) {
                         found = true;
                         outputStream.print("Removing sketch " + tokens[2] + "... ");
-                        sketches.remove(sketch);
+                        iterator.remove();
                         outputStream.println("done");
                         break;
                     }
@@ -863,8 +866,7 @@ class FinalCommitFilter extends AbstractFilter {
 
     // This filter is the last filter in the list so any vertices or edges
     // received by it need to be passed to the storages. On receiving any
-    // provenance elements, iterate through the set of storages and pass
-    // the element to each storage.
+    // provenance elements, it is passed to all storages.
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
         for (AbstractStorage storage : storages) {
