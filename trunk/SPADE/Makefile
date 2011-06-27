@@ -4,17 +4,18 @@
 # Last stable Subversion revision.
 REVISION = 321
 
-# Download and build everything.
-all:	svn-spade svn-pipe svn-utility svn-client build-spade build-neo4j build-pipe build-utility build-client
+# Platform must be specified
+all:
+	@echo 'Usage: make <platform>'
+	@echo '       (platform = linux | mac | windows)'
+
+# ---------- Downloading SPADE ----------
 
 # Download everything.
-svn:	svn-spade svn-pipe svn-utility svn-client
-
-# Build everything.
-build:	build-spade build-neo4j build-pipe build-utility build-client
+svn:	svn-kernel svn-utility svn-client svn-pipe svn-openbsm svn-macfuse svn-linux-audit svn-linux-fuse svn-lsof
 
 # Download SPADE's core and its dependencies.
-svn-spade:	svn-libraries skeleton svn-core svn-opm svn-storage
+svn-kernel:	skeleton svn-libraries svn-core svn-opm svn-storage
 
 # Download the external libraries that SPADE uses.
 svn-libraries:
@@ -49,20 +50,20 @@ svn-storage:
 svn-pipe:
 	svn update -r $(REVISION) --force src/spade/reporter/Pipe.java
 
-# Download the OpenBSM reporter.
-svn-openbsm:
-	svn update -r $(REVISION) --force src/spade/reporter/OpenBSM.java
-	svn update -r $(REVISION) --force src/spade/reporter/spadeOpenBSM.c
-
 # Download the LinuxAudit reporter.
-svn-linuxaudit:
+svn-linux-audit:
 	svn update -r $(REVISION) --force src/spade/reporter/LinuxAudit.java
 	svn update -r $(REVISION) --force src/spade/reporter/spadeLinuxAudit.c
 
 # Download the LinuxFUSE reporter.
-svn-linuxfuse:
+svn-linux-fuse:
 	svn update -r $(REVISION) --force src/spade/reporter/LinuxFUSE.java
 	svn update -r $(REVISION) --force src/spade/reporter/libLinuxFUSE.c
+
+# Download the OpenBSM reporter.
+svn-openbsm:
+	svn update -r $(REVISION) --force src/spade/reporter/OpenBSM.java
+	svn update -r $(REVISION) --force src/spade/reporter/spadeOpenBSM.c
 
 # Download the MacFUSE reporter.
 svn-macfuse:
@@ -73,25 +74,25 @@ svn-macfuse:
 svn-lsof:
 	svn update -r $(REVISION) --force src/spade/reporter/Lsof.java
 
-# NOTE: svn-storage (and transitively svn-opm) are dependencies below
-#       because of Lineage.exportDOT(), which is temporarily present
-#       for querying as a stopgap till the REST API is implemented,
-#       at which point the method and dependencies should be removed.
+# ---------- Building SPADE ----------
+
+# Build everything.
+build-common:	build-core build-client build-utility build-neo4j
 
 # Build the SPADE kernel.
-build-spade:
+build-core:
 	cd src;\
 	javac -cp '.:../lib/*' spade/core/*.java;
-
-# Build the utilities.
-build-utility:
-	cd src;\
-	javac -cp '.:../lib/*' spade/utility/*.java;
 
 # Build the clients.
 build-client:
 	cd src;\
 	javac -cp '.:../lib/*' spade/client/*.java;
+
+# Build the utilities.
+build-utility:
+	cd src;\
+	javac -cp '.:../lib/*' spade/utility/*.java;
 
 # Build the Neo4j storage.
 build-neo4j:
@@ -103,24 +104,24 @@ build-pipe:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/Pipe.java;
 
-# Build the OpenBSM reporter.
-build-openbsm:
-	cd src;\
-	javac -cp '.:../lib/*' spade/reporter/OpenBSM.java;\
-	gcc -o spade/reporter/spadeOpenBSM -lbsm spade/reporter/spadeOpenBSM.c;
-
 # Build the LinuxAudit reporter.
-build-linuxaudit:
+build-linux-audit:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxAudit.java;\
 	gcc -o spade/reporter/spadeLinuxAudit spade/reporter/spadeLinuxAudit.c;
 
 # Build the LinuxFUSE reporter.
-build-linuxfuse:
+build-linux-fuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java;\
 	javah -o spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE;\
 	gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell cd src;java spade/utility/JavaHome)/../include -I$(shell cd src;java spade/utility/JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` spade/reporter/libLinuxFUSE.c -o ../lib/libLinuxFUSE.so;
+
+# Build the OpenBSM reporter.
+build-openbsm:
+	cd src;\
+	javac -cp '.:../lib/*' spade/reporter/OpenBSM.java;\
+	gcc -o spade/reporter/spadeOpenBSM -lbsm spade/reporter/spadeOpenBSM.c;
 
 # Build the MacFUSE reporter.
 build-macfuse:
@@ -133,6 +134,17 @@ build-macfuse:
 build-lsof:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/Lsof.java;
+
+# Build SPADE for Linux.
+linux:	build-common build-pipe build-lsof build-linux-audit build-linux-fuse
+
+# Build SPADE for Mac OS X.
+mac:	build-common build-pipe build-lsof build-openbsm build-macfuse
+
+# Build SPADE for Windows.
+windows:	build-common
+
+# ---------- Running SPADE ----------
 
 # Run the SPADE kernel.
 start-spade:
