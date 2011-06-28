@@ -48,7 +48,7 @@ import java.util.logging.Logger;
 public class Kernel {
 
     public static final String SOURCE_REPORTER = "source_reporter";
-    private static final String configFile = "../config/spade.config";
+    private static final String configFile = "../cfg/spade.config";
     private static final String queryPipeInputPath = "../dev/queryPipeIn";
     private static final String controlPipeInputPath = "../dev/controlPipeIn";
     private static final String controlPipeOutputPath = "../dev/controlPipeOut";
@@ -72,8 +72,8 @@ public class Kernel {
 
         try {
             // Configuring the global logger
-            Handler fh = new FileHandler("SPADE-log-" + System.currentTimeMillis() + ".log");
-            Logger.getLogger("").addHandler(fh);
+            Handler logFileHandler = new FileHandler("../SPADE-" + System.currentTimeMillis() + ".log");
+            Logger.getLogger("").addHandler(logFileHandler);
         } catch (Exception exception) {
             System.out.println("Error");
         }

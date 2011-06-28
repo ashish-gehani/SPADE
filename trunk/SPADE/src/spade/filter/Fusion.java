@@ -37,7 +37,7 @@ public class Fusion extends AbstractFilter {
     private LinkedList<Object> rightList;
     private Map<AbstractVertex, AbstractVertex> fusedVertices;
     private Map<RuleIdentifier, RuleIdentifier> rules;
-    private final String configFile = "../config/fusion.config";
+    private final String configFile = "../cfg/fusion.config";
     private final String SOURCE_REPORTER = spade.core.Kernel.SOURCE_REPORTER;
     private final int MAX_LIST_LENGTH = 20;
     private String leftReporter;

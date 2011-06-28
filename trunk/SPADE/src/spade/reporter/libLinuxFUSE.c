@@ -560,7 +560,7 @@ JNIEXPORT jint JNICALL Java_spade_reporter_LinuxFUSE_launchFUSE(JNIEnv *e, jobje
     argv[0] = "libLinuxFUSE";
     argv[1] = "-f";
     argv[2] = "-s";
-    argv[3] = (*env)->GetStringUTFChars(env, mountPoint, NULL);
+    argv[3] = (char*)(*env)->GetStringUTFChars(env, mountPoint, NULL);
 
     umask(0);
     return fuse_main(argc, argv, &spade_oper, NULL);
