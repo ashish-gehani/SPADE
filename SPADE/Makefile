@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 323
+REVISION = 329
 
 # Platform must be specified
 all:
@@ -24,6 +24,8 @@ svn-libraries:
 # Create the SPADE source directories.
 skeleton:
 	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/src/;\
+	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/dev/;\
+	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/;\
 	svn update -r $(REVISION) --force --set-depth immediates src/spade/
 
 # Download the utilities.
@@ -128,7 +130,7 @@ build-macfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java;\
 	javah -o spade/reporter/libMacFUSE.h spade.reporter.MacFUSE;\
-	gcc -dynamiclib -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -I/usr/local/include/fuse -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall -g -lfuse spade/reporter/libMacFUSE.c -o ../lib/libMacFUSE.jnilib;
+	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall `pkg-config fuse --cflags --libs` spade/reporter/libMacFUSE.c -o ../lib/libMacFUSE.jnilib;
 
 # Build the Lsof reporter.
 build-lsof:
@@ -147,17 +149,17 @@ windows:	build-common
 # ---------- Running SPADE ----------
 
 # Run the SPADE kernel.
-start-spade:
+kernel:
 	cd src;\
 	java -server -Xmx512M -cp '.:../lib/*' -Djava.library.path=../lib/ spade/core/Kernel;
 
 # Run the control shell.
-start-control-client:
+control-shell:
 	cd src;\
 	java -cp '.:../lib/*' spade/client/ControlClient ../dev/controlPipeIn ../dev/controlPipeOut;
 
 # Run the query shell.
-start-query-client:
+query-shell:
 	cd src;\
 	java -cp '.:../lib/*' spade/client/QueryClient ../dev/queryPipeIn ../dev/queryPipeOut;
 
