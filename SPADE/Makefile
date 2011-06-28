@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 329
+REVISION = 331
 
 # Platform must be specified
 all:
