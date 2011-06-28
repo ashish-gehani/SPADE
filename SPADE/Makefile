@@ -4,6 +4,9 @@
 # Last stable Subversion revision.
 REVISION = 331
 
+# 'pkg-config' configuration
+MAC_PKG_CONFIG_PATH = /usr/local/lib/pkgconfig
+
 # Platform must be specified
 all:
 	@echo 'Usage: make <platform>'
@@ -130,6 +133,7 @@ build-macfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java;\
 	javah -o spade/reporter/libMacFUSE.h spade.reporter.MacFUSE;\
+	export PKG_CONFIG_PATH=$(MAC_PKG_CONFIG_PATH);\
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall `pkg-config fuse --cflags --libs` spade/reporter/libMacFUSE.c -o ../lib/libMacFUSE.jnilib;
 
 # Build the Lsof reporter.
