@@ -18,473 +18,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
 */
 
-#define FUSE_USE_VERSION 26
-
-#include "libMacFUSE.h"
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-#ifdef linux
-/* For pread()/pwrite() */
-#define _XOPEN_SOURCE 500
-#endif
-
-#include <fuse.h>
-#include <stdio.h>
-#include <string.h>
-#include <jni.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <errno.h>
-#include <sys/time.h>
-
-JavaVM* jvm;
-JNIEnv* env;
-
-jclass FUSEReporterClass;
-jobject reporterInstance;
-
-jmethodID readwriteMethod;
-jmethodID renameMethod;
-jmethodID linkMethod;
-jmethodID unlinkMethod;
-jmethodID shutdownMethod;
-
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
-    jvm = vm;
-    return JNI_VERSION_1_2;
-}
-
-static int make_java_call(char method, int pid, int var, const char *path1, const char *path2) {
-    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
-    jstring jpath1 = (*env)->NewStringUTF(env, path1);
-    jstring jpath2 = (*env)->NewStringUTF(env, path2);
-
-    switch (method) {
-        case 'r': // read
-            (*env)->CallVoidMethod(env, reporterInstance, readwriteMethod, 0, pid, var, jpath1);
-            break;
-        case 'w': // write
-            (*env)->CallVoidMethod(env, reporterInstance, readwriteMethod, 1, pid, var, jpath1);
-            break;
-        case 'n': // rename
-            (*env)->CallVoidMethod(env, reporterInstance, renameMethod, pid, var, jpath1, jpath2);
-            break;
-        case 'l': // link
-            (*env)->CallVoidMethod(env, reporterInstance, linkMethod, pid, jpath1, jpath2);
-            break;
-        case 'u': // link
-            (*env)->CallVoidMethod(env, reporterInstance, unlinkMethod, pid, jpath1);
-            break;
-    }
-
-    return 0;
-}
-
-static int xmp_getattr(const char *path, struct stat *stbuf) {
-    int res;
-
-    res = lstat(path, stbuf);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_access(const char *path, int mask) {
-    int res;
-
-    res = access(path, mask);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_readlink(const char *path, char *buf, size_t size) {
-    int res;
-
-    struct timeval starttime, endtime;
-    long seconds, useconds, mtime;
-    gettimeofday(&starttime, NULL);
-
-    res = readlink(path, buf, size - 1);
-    if (res == -1) {
-        return -errno;
-    }
-    buf[res] = '\0';
-
-    gettimeofday(&endtime, NULL);
-    seconds = endtime.tv_sec - starttime.tv_sec;
-    useconds = endtime.tv_usec - starttime.tv_usec;
-    mtime = (seconds * 1000000 + useconds);
-    int iotime = mtime;
-
-    make_java_call('r', fuse_get_context()->pid, iotime, path, "");
-
-    return 0;
-}
-
-static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
-    DIR *dp;
-    struct dirent *de;
-
-    (void) offset;
-    (void) fi;
-
-    dp = opendir(path);
-    if (dp == NULL) {
-        return -errno;
-    }
-
-    while ((de = readdir(dp)) != NULL) {
-        struct stat st;
-        memset(&st, 0, sizeof (st));
-        st.st_ino = de->d_ino;
-        st.st_mode = de->d_type << 12;
-        if (filler(buf, de->d_name, &st, 0))
-            break;
-    }
-
-    closedir(dp);
-
-    return 0;
-}
-
-static int xmp_mknod(const char *path, mode_t mode, dev_t rdev) {
-    int res;
-
-    /* On Linux this could just be 'mknod(path, mode, rdev)' but this
-       is more portable */
-    if (S_ISREG(mode)) {
-        res = open(path, O_CREAT | O_EXCL | O_WRONLY, mode);
-        if (res >= 0) {
-            res = close(res);
-        }
-    } else if (S_ISFIFO(mode)) {
-        res = mkfifo(path, mode);
-    } else {
-        res = mknod(path, mode, rdev);
-    }
-
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_mkdir(const char *path, mode_t mode) {
-    int res;
-
-    res = mkdir(path, mode);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_unlink(const char *path) {
-    int res;
-
-    res = unlink(path);
-    if (res == -1) {
-        return -errno;
-    }
-
-    make_java_call('u', fuse_get_context()->pid, 0, path, "");
-
-    return 0;
-}
-
-static int xmp_rmdir(const char *path) {
-    int res;
-
-    res = rmdir(path);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_symlink(const char *from, const char *to) {
-    int res;
-
-    res = symlink(from, to);
-    if (res == -1) {
-        return -errno;
-    }
-
-    make_java_call('r', fuse_get_context()->pid, 0, from, "");
-    make_java_call('w', fuse_get_context()->pid, 0, to, "");
-    make_java_call('l', fuse_get_context()->pid, 0, from, to);
-
-    return 0;
-}
-
-static int xmp_rename(const char *from, const char *to) {
-    int res;
-
-    struct timeval starttime, endtime;
-    long seconds, useconds, mtime;
-    gettimeofday(&starttime, NULL);
-
-    res = rename(from, to);
-    if (res == -1) {
-        return -errno;
-    }
-
-    gettimeofday(&endtime, NULL);
-    seconds = endtime.tv_sec - starttime.tv_sec;
-    useconds = endtime.tv_usec - starttime.tv_usec;
-    mtime = (seconds * 1000000 + useconds);
-    int iotime = mtime;
-
-    make_java_call('r', fuse_get_context()->pid, 0, from, "");
-    make_java_call('w', fuse_get_context()->pid, 0, to, "");
-    make_java_call('n', fuse_get_context()->pid, iotime, from, to);
-
-    return 0;
-}
-
-static int xmp_link(const char *from, const char *to) {
-    int res;
-
-    res = link(from, to);
-    if (res == -1) {
-        return -errno;
-    }
-
-    make_java_call('r', fuse_get_context()->pid, 0, from, "");
-    make_java_call('w', fuse_get_context()->pid, 0, to, "");
-    make_java_call('l', fuse_get_context()->pid, 0, from, to);
-
-    return 0;
-}
-
-static int xmp_chmod(const char *path, mode_t mode) {
-    int res;
-
-    res = chmod(path, mode);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_chown(const char *path, uid_t uid, gid_t gid) {
-    int res;
-
-    res = lchown(path, uid, gid);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_truncate(const char *path, off_t size) {
-    int res;
-
-    struct timeval starttime, endtime;
-    long seconds, useconds, mtime;
-    gettimeofday(&starttime, NULL);
-
-    res = truncate(path, size);
-    if (res == -1) {
-        return -errno;
-    }
-
-    gettimeofday(&endtime, NULL);
-    seconds = endtime.tv_sec - starttime.tv_sec;
-    useconds = endtime.tv_usec - starttime.tv_usec;
-    mtime = (seconds * 1000000 + useconds);
-    int iotime = mtime;
-
-    make_java_call('w', fuse_get_context()->pid, iotime, path, "");
-
-    return 0;
-}
-
-static int xmp_utimens(const char *path, const struct timespec ts[2]) {
-    int res;
-    struct timeval tv[2];
-
-    tv[0].tv_sec = ts[0].tv_sec;
-    tv[0].tv_usec = ts[0].tv_nsec / 1000;
-    tv[1].tv_sec = ts[1].tv_sec;
-    tv[1].tv_usec = ts[1].tv_nsec / 1000;
-
-    res = utimes(path, tv);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_open(const char *path, struct fuse_file_info *fi) {
-    int res;
-
-    res = open(path, fi->flags);
-    if (res == -1) {
-        return -errno;
-    }
-
-    close(res);
-    return 0;
-}
-
-static int xmp_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-    int fd;
-    int res;
-
-    struct timeval starttime, endtime;
-    long seconds, useconds, mtime;
-    gettimeofday(&starttime, NULL);
-
-    (void) fi;
-    fd = open(path, O_RDONLY);
-    if (fd == -1) {
-        return -errno;
-    }
-
-    res = pread(fd, buf, size, offset);
-    if (res == -1) {
-        res = -errno;
-    }
-
-    close(fd);
-
-    gettimeofday(&endtime, NULL);
-    seconds = endtime.tv_sec - starttime.tv_sec;
-    useconds = endtime.tv_usec - starttime.tv_usec;
-    mtime = (seconds * 1000000 + useconds);
-    int iotime = mtime;
-
-    make_java_call('r', fuse_get_context()->pid, iotime, path, "");
-
-    return res;
-}
-
-static int xmp_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-    int fd;
-    int res;
-
-    struct timeval starttime, endtime;
-    long seconds, useconds, mtime;
-    gettimeofday(&starttime, NULL);
-
-    (void) fi;
-    fd = open(path, O_WRONLY);
-    if (fd == -1) {
-        return -errno;
-    }
-
-    res = pwrite(fd, buf, size, offset);
-    if (res == -1) {
-        res = -errno;
-    }
-
-    close(fd);
-
-    gettimeofday(&endtime, NULL);
-    seconds = endtime.tv_sec - starttime.tv_sec;
-    useconds = endtime.tv_usec - starttime.tv_usec;
-    mtime = (seconds * 1000000 + useconds);
-    int iotime = mtime;
-
-    make_java_call('w', fuse_get_context()->pid, iotime, path, "");
-
-    return res;
-}
-
-static int xmp_statfs(const char *path, struct statvfs *stbuf) {
-    int res;
-
-    res = statvfs(path, stbuf);
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int xmp_release(const char *path, struct fuse_file_info *fi) {
-    /* Just a stub.	 This method is optional and can safely be left
-       unimplemented */
-
-    (void) path;
-    (void) fi;
-    return 0;
-}
-
-static int xmp_fsync(const char *path, int isdatasync, struct fuse_file_info *fi) {
-    /* Just a stub.	 This method is optional and can safely be left
-       unimplemented */
-
-    (void) path;
-    (void) isdatasync;
-    (void) fi;
-    return 0;
-}
-
-static struct fuse_operations xmp_oper = {
-    .getattr = xmp_getattr,
-    .access = xmp_access,
-    .readdir = xmp_readdir,
-    .mknod = xmp_mknod,
-    .mkdir = xmp_mkdir,
-    .rmdir = xmp_rmdir,
-    .chmod = xmp_chmod,
-    .chown = xmp_chown,
-    .utimens = xmp_utimens,
-    .open = xmp_open,
-    .statfs = xmp_statfs,
-    .release = xmp_release,
-    .fsync = xmp_fsync,
-    .link = xmp_link,
-    .symlink = xmp_symlink,
-    .readlink = xmp_readlink,
-    .unlink = xmp_unlink,
-    .read = xmp_read,
-    .write = xmp_write,
-    .rename = xmp_rename,
-    .truncate = xmp_truncate
-};
-
-JNIEXPORT jint JNICALL Java_spade_reporter_MacFUSE_launchFUSE(JNIEnv *e, jobject o, jstring mountPoint) {
-    reporterInstance = o;
-    env = e;
-
-    FUSEReporterClass = (*env)->FindClass(env, "spade/reporter/MacFUSE");
-    readwriteMethod = (*env)->GetMethodID(env, FUSEReporterClass, "readwrite", "(IIILjava/lang/String;)V");
-    renameMethod = (*env)->GetMethodID(env, FUSEReporterClass, "rename", "(IILjava/lang/String;Ljava/lang/String;)V");
-    linkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "link", "(ILjava/lang/String;Ljava/lang/String;)V");
-    unlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "unlink", "(ILjava/lang/String;)V");
-
-    int argc = 4;
-    char *argv[4];
-    argv[0] = "libMacFUSE";
-    argv[1] = "-f";
-    argv[2] = "-s";
-    argv[3] = (char*)(*env)->GetStringUTFChars(env, mountPoint, NULL);
-
-    umask(0);
-    return fuse_main(argc, argv, &xmp_oper, NULL);
-}
-
-
-/*
- 
 #include <AvailabilityMacros.h>
 
 #if !defined(AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
@@ -507,6 +40,7 @@ JNIEXPORT jint JNICALL Java_spade_reporter_MacFUSE_launchFUSE(JNIEnv *e, jobject
 #include <sys/xattr.h>
 #include <sys/attr.h>
 #include <sys/param.h>
+#include <jni.h>
 
 #if defined(_POSIX_C_SOURCE)
 typedef unsigned char  u_char;
@@ -521,8 +55,26 @@ typedef unsigned long  u_long;
 #define A_KAUTH_FILESEC_XATTR A_PREFIX ".apple.system.Security"
 #define XATTR_APPLE_PREFIX             "com.apple."
 
+JavaVM* jvm;
+JNIEnv* env;
+
+jclass FUSEReporterClass;
+jobject reporterInstance;
+
+jmethodID readMethod;
+jmethodID writeMethod;
+jmethodID readlinkMethod;
+jmethodID renameMethod;
+jmethodID linkMethod;
+jmethodID unlinkMethod;
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
+    jvm = vm;
+    return JNI_VERSION_1_2;
+}
+
 static int
-loopback_getattr(const char *path, struct stat *stbuf)
+spade_getattr(const char *path, struct stat *stbuf)
 {
     int res;
 
@@ -535,7 +87,7 @@ loopback_getattr(const char *path, struct stat *stbuf)
 }
 
 static int
-loopback_fgetattr(const char *path, struct stat *stbuf,
+spade_fgetattr(const char *path, struct stat *stbuf,
                   struct fuse_file_info *fi)
 {
     int res;
@@ -551,9 +103,16 @@ loopback_fgetattr(const char *path, struct stat *stbuf,
 }
 
 static int
-loopback_readlink(const char *path, char *buf, size_t size)
+spade_readlink(const char *path, char *buf, size_t size)
 {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
     int res;
+
+    struct timeval starttime, endtime;
+    long seconds, useconds, mtime;
+    gettimeofday(&starttime, NULL);
 
     res = readlink(path, buf, size - 1);
     if (res == -1) {
@@ -562,21 +121,29 @@ loopback_readlink(const char *path, char *buf, size_t size)
 
     buf[res] = '\0';
 
+    gettimeofday(&endtime, NULL);
+    seconds = endtime.tv_sec - starttime.tv_sec;
+    useconds = endtime.tv_usec - starttime.tv_usec;
+    mtime = (seconds * 1000000 + useconds);
+    int iotime = mtime;
+
+    (*env)->CallVoidMethod(env, reporterInstance, readlinkMethod, fuse_get_context()->pid, iotime, jpath);
+
     return 0;
 }
 
-struct loopback_dirp {
+struct spade_dirp {
     DIR *dp;
     struct dirent *entry;
     off_t offset;
 };
 
 static int
-loopback_opendir(const char *path, struct fuse_file_info *fi)
+spade_opendir(const char *path, struct fuse_file_info *fi)
 {
     int res;
 
-    struct loopback_dirp *d = malloc(sizeof(struct loopback_dirp));
+    struct spade_dirp *d = malloc(sizeof(struct spade_dirp));
     if (d == NULL) {
         return -ENOMEM;
     }
@@ -596,17 +163,17 @@ loopback_opendir(const char *path, struct fuse_file_info *fi)
     return 0;
 }
 
-static inline struct loopback_dirp *
+static inline struct spade_dirp *
 get_dirp(struct fuse_file_info *fi)
 {
-    return (struct loopback_dirp *)(uintptr_t)fi->fh;
+    return (struct spade_dirp *)(uintptr_t)fi->fh;
 }
 
 static int
-loopback_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+spade_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                  off_t offset, struct fuse_file_info *fi)
 {
-    struct loopback_dirp *d = get_dirp(fi);
+    struct spade_dirp *d = get_dirp(fi);
 
     (void)path;
 
@@ -643,9 +210,9 @@ loopback_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 }
 
 static int
-loopback_releasedir(const char *path, struct fuse_file_info *fi)
+spade_releasedir(const char *path, struct fuse_file_info *fi)
 {
-    struct loopback_dirp *d = get_dirp(fi);
+    struct spade_dirp *d = get_dirp(fi);
 
     (void)path;
 
@@ -656,7 +223,7 @@ loopback_releasedir(const char *path, struct fuse_file_info *fi)
 }
 
 static int
-loopback_mknod(const char *path, mode_t mode, dev_t rdev)
+spade_mknod(const char *path, mode_t mode, dev_t rdev)
 {
     int res;
 
@@ -674,7 +241,7 @@ loopback_mknod(const char *path, mode_t mode, dev_t rdev)
 }
 
 static int
-loopback_mkdir(const char *path, mode_t mode)
+spade_mkdir(const char *path, mode_t mode)
 {
     int res;
 
@@ -687,8 +254,11 @@ loopback_mkdir(const char *path, mode_t mode)
 }
 
 static int
-loopback_unlink(const char *path)
+spade_unlink(const char *path)
 {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
     int res;
 
     res = unlink(path);
@@ -696,11 +266,13 @@ loopback_unlink(const char *path)
         return -errno;
     }
 
+    (*env)->CallVoidMethod(env, reporterInstance, unlinkMethod, fuse_get_context()->pid, jpath);
+
     return 0;
 }
 
 static int
-loopback_rmdir(const char *path)
+spade_rmdir(const char *path)
 {
     int res;
 
@@ -713,8 +285,12 @@ loopback_rmdir(const char *path)
 }
 
 static int
-loopback_symlink(const char *from, const char *to)
+spade_symlink(const char *from, const char *to)
 {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpathOriginal = (*env)->NewStringUTF(env, from);
+    jstring jpathLink = (*env)->NewStringUTF(env, to);
+
     int res;
 
     res = symlink(from, to);
@@ -722,24 +298,53 @@ loopback_symlink(const char *from, const char *to)
         return -errno;
     }
 
+    (*env)->CallVoidMethod(env, reporterInstance, linkMethod, fuse_get_context()->pid, jpathOriginal, jpathLink);
+
     return 0;
 }
 
 static int
-loopback_rename(const char *from, const char *to)
+spade_rename(const char *from, const char *to)
 {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpathOld = (*env)->NewStringUTF(env, from);
+    jstring jpathNew = (*env)->NewStringUTF(env, to);
+
+    int link;
+    struct stat file_stat;
+    lstat(from, &file_stat);
+    if ((file_stat.st_mode & S_IFMT) == S_IFLNK) {
+        link = 1;
+    } else {
+        link = 0;
+    }
+
     int res;
+
+    (*env)->CallVoidMethod(env, reporterInstance, renameMethod, fuse_get_context()->pid, 0, jpathOld, jpathNew, link, 0);
+
+    struct timeval starttime, endtime;
+    long seconds, useconds, mtime;
+    gettimeofday(&starttime, NULL);
 
     res = rename(from, to);
     if (res == -1) {
         return -errno;
     }
 
+    gettimeofday(&endtime, NULL);
+    seconds = endtime.tv_sec - starttime.tv_sec;
+    useconds = endtime.tv_usec - starttime.tv_usec;
+    mtime = (seconds * 1000000 + useconds);
+    int iotime = mtime;
+
+    (*env)->CallVoidMethod(env, reporterInstance, renameMethod, fuse_get_context()->pid, iotime, jpathOld, jpathNew, link, 1);
+
     return 0;
 }
 
 static int
-loopback_exchange(const char *path1, const char *path2, unsigned long options)
+spade_exchange(const char *path1, const char *path2, unsigned long options)
 {
     int res;
 
@@ -752,8 +357,12 @@ loopback_exchange(const char *path1, const char *path2, unsigned long options)
 }
 
 static int
-loopback_link(const char *from, const char *to)
+spade_link(const char *from, const char *to)
 {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpathOriginal = (*env)->NewStringUTF(env, from);
+    jstring jpathLink = (*env)->NewStringUTF(env, to);
+
     int res;
 
     res = link(from, to);
@@ -761,11 +370,13 @@ loopback_link(const char *from, const char *to)
         return -errno;
     }
 
+    (*env)->CallVoidMethod(env, reporterInstance, linkMethod, fuse_get_context()->pid, jpathOriginal, jpathLink);
+
     return 0;
 }
 
 static int
-loopback_fsetattr_x(const char *path, struct setattr_x *attr,
+spade_fsetattr_x(const char *path, struct setattr_x *attr,
                     struct fuse_file_info *fi)
 {
     int res;
@@ -889,13 +500,13 @@ loopback_fsetattr_x(const char *path, struct setattr_x *attr,
 }
 
 static int
-loopback_setattr_x(const char *path, struct setattr_x *attr)
+spade_setattr_x(const char *path, struct setattr_x *attr)
 {
-    return loopback_fsetattr_x(path, attr, (struct fuse_file_info *)0);
+    return spade_fsetattr_x(path, attr, (struct fuse_file_info *)0);
 }
 
 static int
-loopback_getxtimes(const char *path, struct timespec *bkuptime,
+spade_getxtimes(const char *path, struct timespec *bkuptime,
                    struct timespec *crtime)
 {
     int res = 0;
@@ -939,7 +550,7 @@ loopback_getxtimes(const char *path, struct timespec *bkuptime,
 }
 
 static int
-loopback_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+spade_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     int fd;
 
@@ -953,7 +564,7 @@ loopback_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 }
 
 static int
-loopback_open(const char *path, struct fuse_file_info *fi)
+spade_open(const char *path, struct fuse_file_info *fi)
 {
     int fd;
 
@@ -967,10 +578,26 @@ loopback_open(const char *path, struct fuse_file_info *fi)
 }
 
 static int
-loopback_read(const char *path, char *buf, size_t size, off_t offset,
+spade_read(const char *path, char *buf, size_t size, off_t offset,
               struct fuse_file_info *fi)
 {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
+    int link;
+    struct stat file_stat;
+    lstat(path, &file_stat);
+    if ((file_stat.st_mode & S_IFMT) == S_IFLNK) {
+        link = 1;
+    } else {
+        link = 0;
+    }
+
     int res;
+
+    struct timeval starttime, endtime;
+    long seconds, useconds, mtime;
+    gettimeofday(&starttime, NULL);
 
     (void)path;
     res = pread(fi->fh, buf, size, offset);
@@ -978,27 +605,59 @@ loopback_read(const char *path, char *buf, size_t size, off_t offset,
         res = -errno;
     }
 
+    gettimeofday(&endtime, NULL);
+    seconds = endtime.tv_sec - starttime.tv_sec;
+    useconds = endtime.tv_usec - starttime.tv_usec;
+    mtime = (seconds * 1000000 + useconds);
+    int iotime = mtime;
+
+    (*env)->CallVoidMethod(env, reporterInstance, readMethod, fuse_get_context()->pid, iotime, jpath, link);
+
     return res;
 }
 
 static int
-loopback_write(const char *path, const char *buf, size_t size,
+spade_write(const char *path, const char *buf, size_t size,
                off_t offset, struct fuse_file_info *fi)
 {
+    (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
+    jstring jpath = (*env)->NewStringUTF(env, path);
+
+    int link;
+    struct stat file_stat;
+    lstat(path, &file_stat);
+    if ((file_stat.st_mode & S_IFMT) == S_IFLNK) {
+        link = 1;
+    } else {
+        link = 0;
+    }
+
     int res;
 
     (void)path;
+
+    struct timeval starttime, endtime;
+    long seconds, useconds, mtime;
+    gettimeofday(&starttime, NULL);
 
     res = pwrite(fi->fh, buf, size, offset);
     if (res == -1) {
         res = -errno;
     }
 
+    gettimeofday(&endtime, NULL);
+    seconds = endtime.tv_sec - starttime.tv_sec;
+    useconds = endtime.tv_usec - starttime.tv_usec;
+    mtime = (seconds * 1000000 + useconds);
+    int iotime = mtime;
+
+    (*env)->CallVoidMethod(env, reporterInstance, writeMethod, fuse_get_context()->pid, iotime, jpath, link);
+
     return res;
 }
 
 static int
-loopback_statfs(const char *path, struct statvfs *stbuf)
+spade_statfs(const char *path, struct statvfs *stbuf)
 {
     int res;
 
@@ -1011,7 +670,7 @@ loopback_statfs(const char *path, struct statvfs *stbuf)
 }
 
 static int
-loopback_flush(const char *path, struct fuse_file_info *fi)
+spade_flush(const char *path, struct fuse_file_info *fi)
 {
     int res;
 
@@ -1026,7 +685,7 @@ loopback_flush(const char *path, struct fuse_file_info *fi)
 }
 
 static int
-loopback_release(const char *path, struct fuse_file_info *fi)
+spade_release(const char *path, struct fuse_file_info *fi)
 {
     (void)path;
 
@@ -1036,7 +695,7 @@ loopback_release(const char *path, struct fuse_file_info *fi)
 }
 
 static int
-loopback_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
+spade_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
 {
     int res;
 
@@ -1053,7 +712,7 @@ loopback_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
 }
 
 static int
-loopback_setxattr(const char *path, const char *name, const char *value,
+spade_setxattr(const char *path, const char *name, const char *value,
                   size_t size, int flags, uint32_t position)
 {
     int res;
@@ -1083,7 +742,7 @@ loopback_setxattr(const char *path, const char *name, const char *value,
 }
 
 static int
-loopback_getxattr(const char *path, const char *name, char *value, size_t size,
+spade_getxattr(const char *path, const char *name, char *value, size_t size,
                   uint32_t position)
 {
     int res;
@@ -1109,7 +768,7 @@ loopback_getxattr(const char *path, const char *name, char *value, size_t size,
 }
 
 static int
-loopback_listxattr(const char *path, char *list, size_t size)
+spade_listxattr(const char *path, char *list, size_t size)
 {
     ssize_t res = listxattr(path, list, size, XATTR_NOFOLLOW);
     if (res > 0) {
@@ -1137,7 +796,7 @@ loopback_listxattr(const char *path, char *list, size_t size)
 }
 
 static int
-loopback_removexattr(const char *path, const char *name)
+spade_removexattr(const char *path, const char *name)
 {
     int res;
 
@@ -1162,7 +821,7 @@ loopback_removexattr(const char *path, const char *name)
 }
 
 void *
-loopback_init(struct fuse_conn_info *conn)
+spade_init(struct fuse_conn_info *conn)
 {
     FUSE_ENABLE_SETVOLNAME(conn);
     FUSE_ENABLE_XTIMES(conn);
@@ -1171,50 +830,65 @@ loopback_init(struct fuse_conn_info *conn)
 }
 
 void
-loopback_destroy(void *userdata)
+spade_destroy(void *userdata)
 {
 }
 
-static struct fuse_operations loopback_oper = {
-    .init        = loopback_init,
-    .destroy     = loopback_destroy,
-    .getattr     = loopback_getattr,
-    .fgetattr    = loopback_fgetattr,
-    .readlink    = loopback_readlink,
-    .opendir     = loopback_opendir,
-    .readdir     = loopback_readdir,
-    .releasedir  = loopback_releasedir,
-    .mknod       = loopback_mknod,
-    .mkdir       = loopback_mkdir,
-    .symlink     = loopback_symlink,
-    .unlink      = loopback_unlink,
-    .rmdir       = loopback_rmdir,
-    .rename      = loopback_rename,
-    .link        = loopback_link,
-    .create      = loopback_create,
-    .open        = loopback_open,
-    .read        = loopback_read,
-    .write       = loopback_write,
-    .statfs      = loopback_statfs,
-    .flush       = loopback_flush,
-    .release     = loopback_release,
-    .fsync       = loopback_fsync,
-    .setxattr    = loopback_setxattr,
-    .getxattr    = loopback_getxattr,
-    .listxattr   = loopback_listxattr,
-    .removexattr = loopback_removexattr,
-    .exchange    = loopback_exchange,
-    .getxtimes   = loopback_getxtimes,
-    .setattr_x   = loopback_setattr_x,
-    .fsetattr_x  = loopback_fsetattr_x,
+static struct fuse_operations spade_oper = {
+    .init        = spade_init,
+    .destroy     = spade_destroy,
+    .getattr     = spade_getattr,
+    .fgetattr    = spade_fgetattr,
+    .readlink    = spade_readlink,
+    .opendir     = spade_opendir,
+    .readdir     = spade_readdir,
+    .releasedir  = spade_releasedir,
+    .mknod       = spade_mknod,
+    .mkdir       = spade_mkdir,
+    .symlink     = spade_symlink,
+    .unlink      = spade_unlink,
+    .rmdir       = spade_rmdir,
+    .rename      = spade_rename,
+    .link        = spade_link,
+    .create      = spade_create,
+    .open        = spade_open,
+    .read        = spade_read,
+    .write       = spade_write,
+    .statfs      = spade_statfs,
+    .flush       = spade_flush,
+    .release     = spade_release,
+    .fsync       = spade_fsync,
+    .setxattr    = spade_setxattr,
+    .getxattr    = spade_getxattr,
+    .listxattr   = spade_listxattr,
+    .removexattr = spade_removexattr,
+    .exchange    = spade_exchange,
+    .getxtimes   = spade_getxtimes,
+    .setattr_x   = spade_setattr_x,
+    .fsetattr_x  = spade_fsetattr_x,
 };
 
-int
-main(int argc, char *argv[])
-{
-    umask(0);
+JNIEXPORT jint JNICALL Java_spade_reporter_MacFUSE_launchFUSE(JNIEnv *e, jobject o, jstring mountPoint) {
+    reporterInstance = o;
+    env = e;
 
-    return fuse_main(argc, argv, &loopback_oper, NULL);
+    FUSEReporterClass = (*env)->FindClass(env, "spade/reporter/MacFUSE");
+    readMethod = (*env)->GetMethodID(env, FUSEReporterClass, "read", "(IILjava/lang/String;I)V");
+    writeMethod = (*env)->GetMethodID(env, FUSEReporterClass, "write", "(IILjava/lang/String;I)V");
+    readlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "readlink", "(IILjava/lang/String;)V");
+    renameMethod = (*env)->GetMethodID(env, FUSEReporterClass, "rename", "(IILjava/lang/String;Ljava/lang/String;II)V");
+    linkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "link", "(ILjava/lang/String;Ljava/lang/String;)V");
+    unlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "unlink", "(ILjava/lang/String;)V");
+
+    int argc = 6;
+    char *argv[6];
+    argv[0] = "libMacFUSE";
+    argv[1] = "-f";
+    argv[2] = "-s";
+    argv[3] = (char*)(*env)->GetStringUTFChars(env, mountPoint, NULL);
+    argv[4] = "-omodules=threadid:subdir,subdir=/";
+    argv[5] = "-oallow_other,native_xattr,volname=SPADE-MacFUSE";
+
+    umask(0);
+    return fuse_main(argc, argv, &spade_oper, NULL);
 }
- 
- */
