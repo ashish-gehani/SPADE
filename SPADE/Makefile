@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 331
+REVISION = 334
 
 # 'pkg-config' configuration
 MAC_PKG_CONFIG_PATH = /usr/local/lib/pkgconfig
@@ -133,8 +133,7 @@ build-macfuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/MacFUSE.java;\
 	javah -o spade/reporter/libMacFUSE.h spade.reporter.MacFUSE;\
-	export PKG_CONFIG_PATH=$(MAC_PKG_CONFIG_PATH);\
-	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -Wall `pkg-config fuse --cflags --libs` spade/reporter/libMacFUSE.c -o ../lib/libMacFUSE.jnilib;
+	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -I/usr/local/include/fuse -Wall -g -D__DARWIN_64_BIT_INO_T=1 -o ../lib/libMacFUSE.jnilib spade/reporter/libMacFUSE.c -lfuse_ino64;
 
 # Build the Lsof reporter.
 build-lsof:
