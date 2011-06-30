@@ -142,11 +142,14 @@ public class MacFUSE extends AbstractReporter {
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
+            /*
             line = pidreader.readLine().trim();
             String info[] = line.split("\\s+", 3);
             Process rootProcess = createProcessVertex(info[0]);
             putVertex(rootProcess);
             localCache.put("0", rootProcess);
+             * 
+             */
             while (true) {
                 line = pidreader.readLine().trim();
                 String childinfo[] = line.split("\\s+", 3);
@@ -154,17 +157,7 @@ public class MacFUSE extends AbstractReporter {
                     // Break when we encounter the ps utility itself.
                     break;
                 }
-                Process tempVertex = createProcessVertex(childinfo[0]);
-                if (tempVertex == null) {
-                    continue;
-                }
-                String ppid = (String) tempVertex.getAnnotation("ppid");
-                putVertex(tempVertex);
-                localCache.put(tempVertex.getAnnotation("pid"), tempVertex);
-                if (Integer.parseInt(ppid) >= 0) {
-                    WasTriggeredBy tempEdge = new WasTriggeredBy((Process) localCache.get(childinfo[0]), (Process) localCache.get(ppid));
-                    putEdge(tempEdge);
-                }
+                checkProcessTree(childinfo[0]);
             }
         } catch (Exception exception) {
             Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
@@ -175,33 +168,25 @@ public class MacFUSE extends AbstractReporter {
         // Check the process tree to ensure that the given PID exists in it. If not,
         // then add it and recursively check its parents so that this process
         // eventually joins the main process tree.
-        try {
-            while (true) {
-                if (localCache.get(pid) != null) {
-                    return;
-                }
-                Process tempVertex = createProcessVertex(pid);
-                if (tempVertex == null) {
-                    continue;
-                }
-                String ppid = (String) tempVertex.getAnnotation("ppid");
-                putVertex(tempVertex);
-                localCache.put(tempVertex.getAnnotation("pid"), tempVertex);
-                if (Integer.parseInt(ppid) >= 0) {
-                    checkProcessTree(ppid);
-                    WasTriggeredBy tempEdge = new WasTriggeredBy((Process) localCache.get(pid), (Process) localCache.get(ppid));
-                    putEdge(tempEdge);
-                } else {
-                    return;
-                }
+        while (true) {
+            if (localCache.containsKey(pid)) {
+                return;
             }
-        } catch (Exception exception) {
+            Process tempVertex = createProcessVertex(pid);
+            putVertex(tempVertex);
+            localCache.put(pid, tempVertex);
+            String ppid = tempVertex.getAnnotation("ppid");
+            if (Integer.parseInt(ppid) > 0) {
+                checkProcessTree(ppid);
+                WasTriggeredBy tempEdge = new WasTriggeredBy((Process) localCache.get(pid), (Process) localCache.get(ppid));
+                putEdge(tempEdge);
+            } else {
+                return;
+            }
         }
-        return;
     }
 
     public void read(int pid, int iotime, String path, int link) {
-        System.out.println("READ METHOD CALLED");
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
         long now = System.currentTimeMillis();

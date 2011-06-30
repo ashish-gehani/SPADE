@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 334
+REVISION = 335
 
 # 'pkg-config' configuration
 MAC_PKG_CONFIG_PATH = /usr/local/lib/pkgconfig
@@ -153,17 +153,18 @@ windows:	build-common
 
 # Run the SPADE kernel.
 kernel:
-	cd src;\
+	@echo 'SPADE 2.0 Kernel'
+	@cd src;\
 	java -server -Xmx512M -cp '.:../lib/*' -Djava.library.path=../lib/ spade/core/Kernel;
 
 # Run the control shell.
 control-shell:
-	cd src;\
+	@cd src;\
 	java -cp '.:../lib/*' spade/client/ControlClient ../dev/controlPipeIn ../dev/controlPipeOut;
 
 # Run the query shell.
 query-shell:
-	cd src;\
+	@cd src;\
 	java -cp '.:../lib/*' spade/client/QueryClient ../dev/queryPipeIn ../dev/queryPipeOut;
 
 # Remove all .class files.
@@ -172,5 +173,5 @@ clean-class:
 
 # Remove everything except the Makefile.
 clean:
-	rm -rf lib src;
+	rm -rf lib src dev cfg;
 
