@@ -5,7 +5,7 @@
 The current version of *SPADE* is the second generation of our data provenance collection, analysis and management software infrastructure. The system has been completely re-architected to decouple the production, storage, and utilization of provenance metadata, as illustrated below. At its core is a novel _*provenance kernel*_ that mediates between the producers and consumers of provenance information, providing policy-based integration and storage of the records.
 
 <p align="center">
-http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/SPADEv2.png
+http://data-provenance.googlecode.com/svn/wiki/img/SPADEv2.png
 </p>
 
 The kernel handles buffering, filtering, and multiplexing incoming metadata from multiple _*provenance reporters*_ (such as programs that monitor an operating system's audit trail or the function calls of a MATLAB application). It can be configured to commit the elements to multiple _*provenance stores*_ (such as a graph database for fast path querying and a SQL database for fast numeric attribute querying), and responds to concurrent queries from _*provenance consumers*_ (such as Web browsers and command-line query tools). The kernel also supports _*provenance filters*_ that operate on the stream of provenance graph elements, allowing the aggregation, fusion, and composition of provenance elements to be customized for specific application domains.
