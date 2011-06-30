@@ -41,7 +41,7 @@ echo type:WasControlledBy from:2 to:user >> /tmp/spade_pipe
 If the `Graphviz` storage had been added, the resulting graph would be:
 
 <p align="center">
-http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryData.gif
+http://data-provenance.googlecode.com/svn/wiki/img/QueryData.gif
 </p>
 
 Note that the [http://eprints.ecs.soton.ac.uk/21449/ Open Provenance Model (OPM)] convention of using octagons for *Agent* vertices, rectangles for *Process* vertices, and ellipses for *Artifact* vertices is followed. In addition, the graph elements are colored with the following semantics:
@@ -83,7 +83,7 @@ The second argument (`Neo4j`) is the name of the storage system to query. The fo
 The file `/tmp/ancestors.dot` is in [http://www.graphviz.org Graphviz] format. When rendered it looks like this:
 
 <p align="center">
-http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleAncestors.gif
+http://data-provenance.googlecode.com/svn/wiki/img/QueryExampleAncestors.gif
 </p>
 
 ----
@@ -98,5 +98,5 @@ Done
 When rendered, it looks like this:
 
 <p align="center">
-http://data-provenance.googlecode.com/svn/trunk/SPADE/doc/images/QueryExampleDescendants.gif
+http://data-provenance.googlecode.com/svn/wiki/img/QueryExampleDescendants.gif
 </p>
