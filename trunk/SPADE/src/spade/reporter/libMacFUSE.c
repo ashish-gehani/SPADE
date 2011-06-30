@@ -634,12 +634,11 @@ spade_write(const char *path, const char *buf, size_t size,
 
     int res;
 
-    (void)path;
-
     struct timeval starttime, endtime;
     long seconds, useconds, mtime;
     gettimeofday(&starttime, NULL);
 
+    (void)path;
     res = pwrite(fi->fh, buf, size, offset);
     if (res == -1) {
         res = -errno;

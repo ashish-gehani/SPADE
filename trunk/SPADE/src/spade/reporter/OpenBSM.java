@@ -120,7 +120,6 @@ public class OpenBSM extends AbstractReporter {
 
     private void buildProcessTree() {
         // Build the process tree using the ps utility.
-        Process parentVertex, childVertex;
         try {
             String line = "";
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
