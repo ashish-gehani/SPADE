@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 339
+REVISION = 340
 
 # 'pkg-config' configuration
 LINUX_PKG_CONFIG_PATH = /usr/lib/pkgconfig
@@ -174,11 +174,10 @@ query-shell:
 # Remove Java classes and native libraries, executables that we compiled.
 
 clean:
-        find src -name '*.class' -exec rm \{\} \;
-        rm -f spade/reporter/spadeLinuxAudit spade/reporter/spadeOpenBSM lib/libLinuxFUSE.so lib/libMacFUSE.jnilib \;
+	find src -name '*.class' -exec rm \{\} \;
+	rm -f spade/reporter/spadeLinuxAudit spade/reporter/spadeOpenBSM lib/libLinuxFUSE.so lib/libMacFUSE.jnilib \;
 
 # Remove everything except the Makefile.
-        
-download-clean:
-        rm -rf lib src dev cfg;
 
+download-clean:
+	rm -rf lib src dev cfg;
