@@ -5,6 +5,7 @@
 REVISION = 335
 
 # 'pkg-config' configuration
+LINUX_PKG_CONFIG_PATH = /usr/lib/pkgconfig
 MAC_PKG_CONFIG_PATH = /usr/local/lib/pkgconfig
 
 # Platform must be specified
@@ -120,6 +121,7 @@ build-linux-fuse:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxFUSE.java;\
 	javah -o spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE;\
+	export PKG_CONFIG_PATH=$(LINUX_PKG_CONFIG_PATH);\
 	gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell cd src;java spade/utility/JavaHome)/../include -I$(shell cd src;java spade/utility/JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` spade/reporter/libLinuxFUSE.c -o ../lib/libLinuxFUSE.so;
 
 # Build the OpenBSM reporter.
