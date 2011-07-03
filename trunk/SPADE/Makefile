@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 340
+REVISION = 341
 
 # 'pkg-config' configuration
 LINUX_PKG_CONFIG_PATH = /usr/lib/pkgconfig
@@ -10,8 +10,10 @@ MAC_PKG_CONFIG_PATH = /usr/local/lib/pkgconfig
 
 # Platform must be specified
 all:
-	@echo 'Usage: make <platform>'
-	@echo '       (platform = linux | mac | windows)'
+	@echo 'Usage:'
+	@echo '      make download     - to download the code.'
+	@echo '      make <platform>   - to compile the code.'
+	@echo '           (platform = linux | mac | windows)'
 
 # ---------- Downloading SPADE ----------
 
