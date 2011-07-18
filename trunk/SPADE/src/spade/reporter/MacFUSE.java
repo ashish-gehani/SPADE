@@ -34,6 +34,8 @@ import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import spade.opm.edge.WasControlledBy;
+import spade.opm.vertex.Agent;
 
 public class MacFUSE extends AbstractReporter {
 
@@ -96,24 +98,25 @@ public class MacFUSE extends AbstractReporter {
         Process processVertex = new Process();
         try {
             String line = "";
-            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,gid,lstart,sess,comm");
+            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,user,gid,lstart,sess,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
             line = pidreader.readLine();
             processVertex = new Process();
-            String info[] = line.trim().split("\\s+", 11);
-            processVertex.addAnnotation("pidname", info[10]);
+            String info[] = line.trim().split("\\s+", 12);
+            processVertex.addAnnotation("pidname", info[11]);
             processVertex.addAnnotation("pid", pid);
             processVertex.addAnnotation("ppid", info[1]);
-            String timestring = info[4] + " " + info[5] + " " + info[6] + " " + info[7] + " " + info[8];
+            String timestring = info[5] + " " + info[6] + " " + info[7] + " " + info[8] + " " + info[9];
             Long unixtime = new java.text.SimpleDateFormat(simpleDatePattern).parse(timestring).getTime();
             String starttime_unix = Long.toString(unixtime);
             String starttime_simple = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(unixtime));
             processVertex.addAnnotation("starttime_unix", starttime_unix);
             processVertex.addAnnotation("starttime_simple", starttime_simple);
-            processVertex.addAnnotation("sessionid", info[9]);
+            processVertex.addAnnotation("sessionid", info[10]);
             processVertex.addAnnotation("uid", info[2]);
-            processVertex.addAnnotation("gid", info[3]);
+            processVertex.addAnnotation("user", info[3]);
+            processVertex.addAnnotation("gid", info[4]);
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
@@ -142,14 +145,6 @@ public class MacFUSE extends AbstractReporter {
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
-            /*
-            line = pidreader.readLine().trim();
-            String info[] = line.split("\\s+", 3);
-            Process rootProcess = createProcessVertex(info[0]);
-            putVertex(rootProcess);
-            localCache.put("0", rootProcess);
-             * 
-             */
             while (true) {
                 line = pidreader.readLine().trim();
                 String childinfo[] = line.split("\\s+", 3);
@@ -172,10 +167,16 @@ public class MacFUSE extends AbstractReporter {
             if (localCache.containsKey(pid)) {
                 return;
             }
-            Process tempVertex = createProcessVertex(pid);
-            putVertex(tempVertex);
-            localCache.put(pid, tempVertex);
-            String ppid = tempVertex.getAnnotation("ppid");
+            Process tempProcess = createProcessVertex(pid);
+            Agent tempAgent = new Agent();
+            tempAgent.addAnnotation("user", tempProcess.removeAnnotation("user"));
+            tempAgent.addAnnotation("uid", tempProcess.removeAnnotation("uid"));
+            tempAgent.addAnnotation("gid", tempProcess.removeAnnotation("gid"));
+            putVertex(tempProcess);
+            putVertex(tempAgent);
+            putEdge(new WasControlledBy(tempProcess, tempAgent));
+            localCache.put(pid, tempProcess);
+            String ppid = tempProcess.getAnnotation("ppid");
             if (Integer.parseInt(ppid) > 0) {
                 checkProcessTree(ppid);
                 WasTriggeredBy tempEdge = new WasTriggeredBy((Process) localCache.get(pid), (Process) localCache.get(ppid));

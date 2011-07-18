@@ -23,7 +23,7 @@ import spade.core.AbstractEdge;
 import spade.opm.vertex.Artifact;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
-import java.util.Map;
+import spade.opm.vertex.Network;
 
 public class WasGeneratedBy extends AbstractEdge {
 
@@ -34,10 +34,10 @@ public class WasGeneratedBy extends AbstractEdge {
         addAnnotation("type", "WasGeneratedBy");
     }
 
-    public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess, Map<String, String> inputAnnotations) {
-        setSourceVertex(generatedArtifact);
+    public WasGeneratedBy(Network generatedNetwork, Process actingProcess) {
+        setSourceVertex(generatedNetwork);
         setDestinationVertex(actingProcess);
-        setAnnotations(inputAnnotations);
+        annotations = new LinkedHashMap<String, String>();
         addAnnotation("type", "WasGeneratedBy");
     }
 }

@@ -23,7 +23,6 @@ import spade.core.AbstractEdge;
 import spade.opm.vertex.Agent;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 public class WasControlledBy extends AbstractEdge {
 
@@ -31,13 +30,6 @@ public class WasControlledBy extends AbstractEdge {
         setSourceVertex(controlledProcess);
         setDestinationVertex(controllingAgent);
         annotations = new LinkedHashMap<String, String>();
-        addAnnotation("type", "WasControlledBy");
-    }
-
-    public WasControlledBy(Process controlledProcess, Agent controllingAgent, Map<String, String> inputAnnotations) {
-        setSourceVertex(controlledProcess);
-        setDestinationVertex(controllingAgent);
-        setAnnotations(inputAnnotations);
         addAnnotation("type", "WasControlledBy");
     }
 }

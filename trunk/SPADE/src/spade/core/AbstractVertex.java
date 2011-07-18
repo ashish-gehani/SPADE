@@ -26,6 +26,7 @@ public abstract class AbstractVertex {
     // The AbstractVertex class is from which other vertex classes (e.g., OPM
     // vertices) are derived.
     protected Map<String, String> annotations;
+    public Graph resultGraph;
 
     public final Map<String, String> getAnnotations() {
         return annotations;
@@ -39,8 +40,8 @@ public abstract class AbstractVertex {
         annotations.put(key, value);
     }
 
-    public final void removeAnnotation(String key) {
-        annotations.remove(key);
+    public final String removeAnnotation(String key) {
+        return annotations.remove(key);
     }
 
     public final String getAnnotation(String key) {
@@ -66,5 +67,15 @@ public abstract class AbstractVertex {
         int hashCode = seed2;
         hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
         return hashCode;
+    }
+    
+    @Override
+    public String toString() {
+        String result = "";
+        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
+            result += currentEntry.getKey() + "|" + currentEntry.getValue();
+        }
+        result = result.substring(0, result.length() - 1);
+        return result;
     }
 }

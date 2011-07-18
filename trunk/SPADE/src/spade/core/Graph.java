@@ -42,18 +42,28 @@ public class Graph implements Serializable {
         networkMap = new HashMap<AbstractVertex, Integer>();
     }
 
-    public boolean putVertex(AbstractVertex inputVertex) {
-        return vertexSet.add(inputVertex);
-    }
-
     public void putNetworkVertex(AbstractVertex inputVertex, int depth) {
         networkMap.put(inputVertex, depth);
     }
 
-    public boolean putEdge(AbstractEdge inputEdge) {
-        return edgeSet.add(inputEdge);
+    public void putVertex(AbstractVertex inputVertex) {
+        inputVertex.resultGraph = this;
+        Kernel.sendToTransformers(inputVertex);
     }
 
+    public void putEdge(AbstractEdge inputEdge) {
+        inputEdge.resultGraph = this;
+        Kernel.sendToTransformers(inputEdge);
+    }
+    
+    public void commitVertex(AbstractVertex inputVertex) {
+        vertexSet.add(inputVertex);
+    }
+
+    public void commitEdge(AbstractEdge inputEdge) {
+        edgeSet.add(inputEdge);
+    }
+    
     public Set<AbstractVertex> vertexSet() {
         return vertexSet;
     }
@@ -92,18 +102,32 @@ public class Graph implements Serializable {
         Graph resultGraph = new Graph();
         Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
         Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
-        Map<AbstractVertex, Integer> networkMap = new HashMap<AbstractVertex, Integer>();
 
         vertices.addAll(graph1.vertexSet());
         vertices.addAll(graph2.vertexSet());
         edges.addAll(graph1.edgeSet());
         edges.addAll(graph2.edgeSet());
-        networkMap.putAll(graph1.networkMap());
-        networkMap.putAll(graph2.networkMap());
 
         resultGraph.vertexSet().addAll(vertices);
         resultGraph.edgeSet().addAll(edges);
-        resultGraph.networkMap().putAll(networkMap);
+
+        return resultGraph;
+    }
+
+    // This method is used to create a new graph obtained by removing all
+    // elements of the second graph from the first graph given as inputs.
+    public static Graph remove(Graph graph1, Graph graph2) {
+        Graph resultGraph = new Graph();
+        Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
+        Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
+
+        vertices.addAll(graph1.vertexSet());
+        vertices.removeAll(graph2.vertexSet());
+        edges.addAll(graph1.edgeSet());
+        edges.removeAll(graph2.edgeSet());
+
+        resultGraph.vertexSet().addAll(vertices);
+        resultGraph.edgeSet().addAll(edges);
 
         return resultGraph;
     }

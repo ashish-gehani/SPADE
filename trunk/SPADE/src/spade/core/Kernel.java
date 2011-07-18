@@ -52,6 +52,7 @@ public class Kernel {
     private static final String queryPipeInputPath = "../dev/queryPipeIn";
     private static final String controlPipeInputPath = "../dev/controlPipeIn";
     private static final String controlPipeOutputPath = "../dev/controlPipeOut";
+    private static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
     private static final String NO_ARGUMENTS = "no arguments";
     private static final int REMOTE_QUERY_PORT = 9999;
     private static final int BATCH_BUFFER_ELEMENTS = 100;
@@ -63,6 +64,7 @@ public class Kernel {
     private static Set<AbstractReporter> removereporters;
     private static Set<AbstractStorage> removestorages;
     private static List<AbstractFilter> filters;
+    private static List<AbstractFilter> transformers;
     private static Map<AbstractReporter, Buffer> buffers;
     private static Set<AbstractSketch> sketches;
     private static volatile boolean shutdown;
@@ -72,7 +74,8 @@ public class Kernel {
 
         try {
             // Configuring the global logger
-            Handler logFileHandler = new FileHandler("../SPADE-" + System.currentTimeMillis() + ".log");
+            String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
+            Handler logFileHandler = new FileHandler("../log/" + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
         } catch (Exception exception) {
             System.out.println("Error");
@@ -83,6 +86,7 @@ public class Kernel {
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
         removereporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
         removestorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
+        transformers = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
@@ -98,6 +102,11 @@ public class Kernel {
         commitFilter.storages = storages;
         commitFilter.sketches = sketches;
         filters.add(commitFilter);
+        
+        // The final transformer is used to send vertex and edge objects to
+        // their corresponding result Graph.
+        FinalTransformer finalTransformer = new FinalTransformer();
+        transformers.add(finalTransformer);
 
 
         // Initialize the main thread. This thread performs critical provenance-related
@@ -292,6 +301,18 @@ public class Kernel {
 
     }
 
+    // The following two methods are called by the Graph object when adding vertices
+    // and edges to the result graph. Transformers are technically the same as filters
+    // and are used to modify/transform data as it is entered into a Graph object.
+    
+    public static void sendToTransformers(AbstractVertex vertex) {
+        ((AbstractFilter) transformers.get(0)).putVertex(vertex);
+    }
+    
+    public static void sendToTransformers(AbstractEdge edge) {
+        ((AbstractFilter) transformers.get(0)).putEdge(edge);
+    }
+    
     // All command strings are passed to this function which subsequently calls the
     // correct method based on the command. Each command is determined by the first
     // token in the string.
@@ -441,11 +462,51 @@ public class Kernel {
                         resultGraph = Graph.union(resultGraph, remoteGraph);
                     }
                 } else if (tokens[2].equalsIgnoreCase("paths")) {
-                    String srcVertexId = tokens[3];
-                    String dstVertexId = tokens[4];
+                    String source = tokens[3];
+                    String srcHost = source.split(":")[0];
+                    String srcVertedId = source.split(":")[1];
+                    String destination = tokens[4];
+                    String dstHost = destination.split(":")[0];
+                    String dstVertedId = destination.split(":")[1];
                     int maxLength = Integer.parseInt(tokens[5]);
                     try {
-                        resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
+                        if (srcHost.equalsIgnoreCase("localhost") && dstHost.equalsIgnoreCase("localhost")) {
+                            resultGraph = storage.getPaths(source, destination, maxLength);
+                        } else {
+                            Graph srcGraph = null, dstGraph = null;
+
+                            Socket remoteSocket = new Socket(srcHost, REMOTE_QUERY_PORT);
+                            String srcExpression = "query Neo4j lineage " + srcVertedId + " " + maxLength / 2 + " a type:*";
+                            PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+                            BufferedReader remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
+                            ObjectInputStream graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
+                            remoteSocketOut.println(srcExpression);
+                            // Check whether the remote query server returned a graph in response
+                            if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
+                                srcGraph = (Graph) graphInputStream.readObject();
+                            }
+                            graphInputStream.close();
+                            remoteSocketOut.close();
+                            remoteSocketIn.close();
+                            remoteSocket.close();
+
+                            remoteSocket = new Socket(dstHost, REMOTE_QUERY_PORT);
+                            String dstExpression = "query Neo4j lineage " + dstVertedId + " " + maxLength / 2 + " a type:*";
+                            remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+                            remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
+                            graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
+                            remoteSocketOut.println(dstExpression);
+                            // Check whether the remote query server returned a graph in response
+                            if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
+                                dstGraph = (Graph) graphInputStream.readObject();
+                            }
+                            graphInputStream.close();
+                            remoteSocketOut.close();
+                            remoteSocketIn.close();
+                            remoteSocket.close();
+
+                            resultGraph = Graph.union(srcGraph, dstGraph);
+                        }
                     } catch (Exception badQuery) {
                         return null;
                     }
@@ -496,6 +557,10 @@ public class Kernel {
                     resultGraph = (Graph) graphInputStream.readObject();
                 }
             }
+            graphInputStream.close();
+            remoteSocketOut.close();
+            remoteSocketIn.close();
+            remoteSocket.close();
         } catch (Exception exception) {
             Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
         }
@@ -639,6 +704,33 @@ public class Kernel {
                     outputStream.println("Error: Unable to add filter " + classname + " - please check class name and index");
                     return;
                 }
+            } else if (tokens[1].equalsIgnoreCase("transformer")) {
+                String classname = tokens[2];
+                String arguments = tokens[3];
+                try {
+                    // Get the transformer by classname and create a new instance.
+                    AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
+                    // The argument is the index at which the transformer is to be inserted.
+                    int index = Integer.parseInt(arguments);
+                    if (index >= transformers.size()) {
+                        throw new Exception();
+                    }
+                    // Set the next transformer of this newly added transformer.
+                    filter.setNextFilter((AbstractFilter) transformers.get(index));
+                    if (index > 0) {
+                        // If the newly added transformer is not the first in the list, then
+                        // then configure the previous transformer in the list to point to this
+                        // newly added transformer as its next.
+                        ((AbstractFilter) transformers.get(index - 1)).setNextFilter(filter);
+                    }
+                    outputStream.print("Adding transformer " + classname + "... ");
+                    // Add transformer to the list of transformers.
+                    transformers.add(index, filter);
+                    outputStream.println("done");
+                } catch (Exception addFilterException) {
+                    outputStream.println("Error: Unable to add transformer " + classname + " - please check class name and index");
+                    return;
+                }
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 String classname = tokens[2];
                 String storagename = tokens[3];
@@ -669,7 +761,7 @@ public class Kernel {
             }
         } catch (Exception addCommandException) {
             outputStream.println("Usage: add reporter|storage <class name> <initialization arguments>");
-            outputStream.println("       add filter <class name> <index>");
+            outputStream.println("       add filter|transformer <class name> <index>");
             outputStream.println("       add sketch <class name> <storage class name>");
         }
     }
@@ -721,6 +813,22 @@ public class Kernel {
                     // for the last FinalCommitFilter).
                     outputStream.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
                 }
+            } else if (tokens[1].equalsIgnoreCase("transformers")) {
+                if (transformers.size() == 1) {
+                    // The size of the transformers list will always be at least 1 because
+                    // of the FinalTransformer. The user is not made aware of the
+                    // presence of this filter and it is only used for committing
+                    // provenance data to the result Graph. Therefore, there is nothing
+                    // to list if the size of the filters list is 1.
+                    outputStream.println("No transformers added");
+                    return;
+                }
+                outputStream.println((transformers.size() - 1) + " transformer(s) added:");
+                for (int i = 0; i < transformers.size() - 1; i++) {
+                    // Loop through the transformers list, printing their names (except
+                    // for the last FinalTransformer).
+                    outputStream.println("\t" + (i + 1) + ". " + transformers.get(i).getClass().getName().split("\\.")[2]);
+                }
             } else if (tokens[1].equalsIgnoreCase("sketches")) {
                 if (sketches.isEmpty()) {
                     // Nothing to list if the set of sketches is empty.
@@ -736,14 +844,15 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("all")) {
                 listCommand("list reporters", outputStream);
-                listCommand("list filters", outputStream);
                 listCommand("list storages", outputStream);
+                listCommand("list filters", outputStream);
+                listCommand("list transformers", outputStream);
                 listCommand("list sketches", outputStream);
             } else {
                 throw new Exception();
             }
         } catch (Exception listCommandException) {
-            outputStream.println("Usage: list reporters|storages|filters|sketches|all");
+            outputStream.println("Usage: list reporters|storages|filters|transformers|sketches|all");
         }
     }
 
@@ -818,6 +927,23 @@ public class Kernel {
                 }
                 filters.remove(index - 1);
                 outputStream.println("done");
+            } else if (tokens[1].equalsIgnoreCase("transformer")) {
+                // Transformer removal is done by the index number (beginning from 1).
+                int index = Integer.parseInt(tokens[2]);
+                if ((index <= 0) || (index >= transformers.size())) {
+                    outputStream.println("Error: Unable to remove transformer - bad index");
+                    return;
+                }
+                String filterName = transformers.get(index - 1).getClass().getName();
+                outputStream.print("Removing transformer " + filterName.split("\\.")[2] + "... ");
+                if (index > 1) {
+                    // Update the internal links between transformers by calling the setNextFilter
+                    // method on the transformer just before the one being removed. The (index-1)
+                    // check is used because this method is not to be called on the first transformer.
+                    ((AbstractFilter) transformers.get(index - 2)).setNextFilter((AbstractFilter) transformers.get(index));
+                }
+                transformers.remove(index - 1);
+                outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 boolean found = false;
                 for (Iterator iterator = sketches.iterator(); iterator.hasNext();) {
@@ -839,7 +965,7 @@ public class Kernel {
             }
         } catch (Exception removeCommandException) {
             outputStream.println("Usage: remove reporter|storage|sketch <class name>");
-            outputStream.println("       remove filter <index>");
+            outputStream.println("       remove filter|transformer <index>");
         }
     }
 
@@ -889,6 +1015,21 @@ class FinalCommitFilter extends AbstractFilter {
         for (AbstractSketch sketch : sketches) {
             sketch.putEdge(incomingEdge);
         }
+    }
+}
+
+class FinalTransformer extends AbstractFilter {
+
+    // This transformer is the last one in the list so any vertices or edges
+    // received by it need to be passed to the correct graph.
+    @Override
+    public void putVertex(AbstractVertex incomingVertex) {
+        incomingVertex.resultGraph.commitVertex(incomingVertex);
+    }
+
+    @Override
+    public void putEdge(AbstractEdge incomingEdge) {
+        incomingEdge.resultGraph.commitEdge(incomingEdge);
     }
 }
 

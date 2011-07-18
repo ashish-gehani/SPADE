@@ -72,9 +72,9 @@ public class Graphviz extends AbstractStorage {
         try {
             if (vertexSet.add(incomingVertex.hashCode())) {
                 String annotationString = "";
-                for (Map.Entry currentEntry : incomingVertex.getAnnotations().entrySet()) {
-                    String key = (String) currentEntry.getKey();
-                    String value = (String) currentEntry.getValue();
+                for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+                    String key = currentEntry.getKey();
+                    String value = currentEntry.getValue();
                     if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))
                             || (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("commandline"))
                             || (key.equalsIgnoreCase("source_reporter"))) {
@@ -111,9 +111,9 @@ public class Graphviz extends AbstractStorage {
         try {
             if (edgeSet.add(incomingEdge.hashCode())) {
                 String annotationString = "";
-                for (Map.Entry currentEntry : incomingEdge.getAnnotations().entrySet()) {
-                    String key = (String) currentEntry.getKey();
-                    String value = (String) currentEntry.getValue();
+                for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                    String key = currentEntry.getKey();
+                    String value = currentEntry.getValue();
                     if ((key.equalsIgnoreCase("storageId")) || (key.equalsIgnoreCase("type"))
                             || (key.equalsIgnoreCase("source_reporter"))) {
                         continue;

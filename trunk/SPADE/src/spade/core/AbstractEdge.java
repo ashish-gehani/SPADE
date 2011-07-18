@@ -28,6 +28,7 @@ public abstract class AbstractEdge {
     protected Map<String, String> annotations;
     private AbstractVertex sourceVertex;
     private AbstractVertex destinationVertex;
+    public Graph resultGraph;
 
     public final Map<String, String> getAnnotations() {
         return annotations;
@@ -41,8 +42,8 @@ public abstract class AbstractEdge {
         annotations.put(key, value);
     }
 
-    public final void removeAnnotation(String key) {
-        annotations.remove(key);
+    public final String removeAnnotation(String key) {
+        return annotations.remove(key);
     }
 
     public final String getAnnotation(String key) {
@@ -92,5 +93,15 @@ public abstract class AbstractEdge {
         hashCode = seed1 * hashCode + (this.getDestinationVertex() != null ? this.getDestinationVertex().hashCode() : 0);
         hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
         return hashCode;
+    }
+
+    @Override
+    public String toString() {
+        String result = "";
+        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
+            result += currentEntry.getKey() + "|" + currentEntry.getValue();
+        }
+        result = result.substring(0, result.length() - 1);
+        return result;
     }
 }
