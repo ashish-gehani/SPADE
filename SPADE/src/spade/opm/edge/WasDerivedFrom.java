@@ -22,7 +22,6 @@ package spade.opm.edge;
 import spade.core.AbstractEdge;
 import spade.opm.vertex.Artifact;
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 public class WasDerivedFrom extends AbstractEdge {
 
@@ -30,13 +29,6 @@ public class WasDerivedFrom extends AbstractEdge {
         setSourceVertex(sourceArtifact);
         setDestinationVertex(destinationArtifact);
         annotations = new LinkedHashMap<String, String>();
-        addAnnotation("type", "WasDerivedFrom");
-    }
-
-    public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact, Map<String, String> inputAnnotations) {
-        setSourceVertex(sourceArtifact);
-        setDestinationVertex(destinationArtifact);
-        setAnnotations(inputAnnotations);
         addAnnotation("type", "WasDerivedFrom");
     }
 }

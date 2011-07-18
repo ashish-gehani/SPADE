@@ -49,12 +49,14 @@ import org.neo4j.kernel.Traversal;
 public class Neo4j extends AbstractStorage {
 
     private final int TRANSACTION_LIMIT = 1000;
+    private final int HARD_FLUSH_LIMIT = 50;
     private final String ID_STRING = "storageId";
     private GraphDatabaseService graphDb;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
     private Transaction transaction;
     private int transactionCount;
+    private int flushCount;
     private Map<Integer, Long> vertexMap;
     private Set<Integer> edgeSet;
 
@@ -71,6 +73,7 @@ public class Neo4j extends AbstractStorage {
             }
             graphDb = new EmbeddedGraphDatabase(arguments);
             transactionCount = 0;
+            flushCount = 0;
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
             vertexMap = new HashMap<Integer, Long>();
@@ -85,10 +88,18 @@ public class Neo4j extends AbstractStorage {
         transactionCount++;
         if (transactionCount == TRANSACTION_LIMIT) {
             transactionCount = 0;
+            flushCount++;
             try {
                 transaction.success();
                 transaction.finish();
             } catch (Exception exception) {
+            }
+            if (flushCount == HARD_FLUSH_LIMIT) {
+                graphDb.shutdown();
+                graphDb = new EmbeddedGraphDatabase(arguments);
+                vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+                edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+                flushCount = 0;
             }
         }
     }
@@ -123,9 +134,9 @@ public class Neo4j extends AbstractStorage {
             transaction = graphDb.beginTx();
         }
         Node newVertex = graphDb.createNode();
-        for (Map.Entry currentEntry : incomingVertex.getAnnotations().entrySet()) {
-            String key = (String) currentEntry.getKey();
-            String value = (String) currentEntry.getValue();
+        for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+            String key = currentEntry.getKey();
+            String value = currentEntry.getValue();
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
@@ -167,9 +178,9 @@ public class Neo4j extends AbstractStorage {
         Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.hashCode()));
 
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-        for (Map.Entry currentEntry : incomingEdge.getAnnotations().entrySet()) {
-            String key = (String) currentEntry.getKey();
-            String value = (String) currentEntry.getValue();
+        for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+            String key = currentEntry.getKey();
+            String value = currentEntry.getValue();
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
@@ -372,7 +383,7 @@ public class Neo4j extends AbstractStorage {
                     resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
                     // Add network artifacts to the network map of the graph. This is needed
                     // to resolve remote queries
-                    if (otherNode.hasProperty("source port")) {
+                    if (((String) otherNode.getProperty("type")).equalsIgnoreCase("Network")) {
                         resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
                     }
                 }

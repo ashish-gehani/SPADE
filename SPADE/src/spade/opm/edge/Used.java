@@ -23,7 +23,7 @@ import spade.core.AbstractEdge;
 import spade.opm.vertex.Artifact;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
-import java.util.Map;
+import spade.opm.vertex.Network;
 
 public class Used extends AbstractEdge {
 
@@ -34,10 +34,10 @@ public class Used extends AbstractEdge {
         addAnnotation("type", "Used");
     }
 
-    public Used(Process actingProcess, Artifact usedArtifact, Map<String, String> inputAnnotations) {
+    public Used(Process actingProcess, Network usedNetwork) {
         setSourceVertex(actingProcess);
-        setDestinationVertex(usedArtifact);
-        setAnnotations(inputAnnotations);
+        setDestinationVertex(usedNetwork);
+        annotations = new LinkedHashMap<String, String>();
         addAnnotation("type", "Used");
     }
 }

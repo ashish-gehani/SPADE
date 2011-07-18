@@ -126,38 +126,40 @@ public class Pipe extends AbstractReporter {
             }
             // Instantiate object based on the type and associate annotations to it.
             if (type.equalsIgnoreCase("process")) {
-                vertex = new Process(annotations);
+                vertex = new Process();
             } else if (type.equalsIgnoreCase("artifact")) {
-                vertex = new Artifact(annotations);
+                vertex = new Artifact();
             } else if (type.equalsIgnoreCase("agent")) {
-                vertex = new Agent(annotations);
+                vertex = new Agent();
                 // Create edges and also check if the 'from' and 'to' values are valid.
             } else if ((type.equalsIgnoreCase("used")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Artifact)) {
-                    edge = new Used((Process) vertices.get(from), (Artifact) vertices.get(to), annotations);
+                    edge = new Used((Process) vertices.get(from), (Artifact) vertices.get(to));
                 }
             } else if ((type.equalsIgnoreCase("wasgeneratedby")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Artifact) && (vertices.get((to)) instanceof Process)) {
-                    edge = new WasGeneratedBy((Artifact) vertices.get(from), (Process) vertices.get(to), annotations);
+                    edge = new WasGeneratedBy((Artifact) vertices.get(from), (Process) vertices.get(to));
                 }
             } else if ((type.equalsIgnoreCase("wastriggeredby")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Process)) {
-                    edge = new WasTriggeredBy((Process) vertices.get(from), (Process) vertices.get(to), annotations);
+                    edge = new WasTriggeredBy((Process) vertices.get(from), (Process) vertices.get(to));
                 }
             } else if ((type.equalsIgnoreCase("wascontrolledby")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Agent)) {
-                    edge = new WasControlledBy((Process) vertices.get(from), (Agent) vertices.get(to), annotations);
+                    edge = new WasControlledBy((Process) vertices.get(from), (Agent) vertices.get(to));
                 }
             } else if ((type.equalsIgnoreCase("wasderivedfrom")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Artifact) && (vertices.get((to)) instanceof Artifact)) {
-                    edge = new WasDerivedFrom((Artifact) vertices.get(from), (Artifact) vertices.get(to), annotations);
+                    edge = new WasDerivedFrom((Artifact) vertices.get(from), (Artifact) vertices.get(to));
                 }
             }
             // Finally, pass vertex or edge to buffer.
             if ((id != null) && (vertex != null)) {
+                vertex.getAnnotations().putAll(annotations);
                 vertices.put(id, vertex);
                 putVertex(vertex);
             } else if (edge != null) {
+                edge.getAnnotations().putAll(annotations);
                 putEdge(edge);
             }
         } catch (Exception exception) {

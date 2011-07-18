@@ -17,18 +17,21 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-package spade.opm.edge;
+package spade.opm.vertex;
 
-import spade.core.AbstractEdge;
-import spade.opm.vertex.Process;
+import spade.core.AbstractVertex;
+import java.util.Map;
 import java.util.LinkedHashMap;
 
-public class WasTriggeredBy extends AbstractEdge {
+public class Network extends AbstractVertex {
 
-    public WasTriggeredBy(Process triggeredProcess, Process callingProcess) {
-        setSourceVertex(triggeredProcess);
-        setDestinationVertex(callingProcess);
-        annotations = new LinkedHashMap<String, String>();
-        addAnnotation("type", "WasTriggeredBy");
+    public Network(Map<String, String> inputAnnotations) {
+        this.setAnnotations(inputAnnotations);
+        this.addAnnotation("type", "Network");
+    }
+
+    public Network() {
+        this.setAnnotations(new LinkedHashMap<String, String>());
+        this.addAnnotation("type", "Network");
     }
 }

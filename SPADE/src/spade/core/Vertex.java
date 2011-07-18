@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 
 public class Vertex extends AbstractVertex {
-
+    
     // A general-purpose, semantic-agnostic implementation of the Vertex class.
     public Vertex(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);

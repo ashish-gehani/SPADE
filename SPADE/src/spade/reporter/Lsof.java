@@ -33,6 +33,7 @@ import spade.core.AbstractReporter;
 import spade.opm.edge.Used;
 import spade.opm.edge.WasGeneratedBy;
 import spade.opm.vertex.Artifact;
+import spade.opm.vertex.Network;
 
 public class Lsof extends AbstractReporter implements Runnable {
 
@@ -184,14 +185,15 @@ public class Lsof extends AbstractReporter implements Runnable {
             Date currentTime;
 
             spade.opm.vertex.Process processVertex;
-            Artifact networkVertex;
+            Network networkVertex;
             WasGeneratedBy wasGeneratedByEdge;
             Used usedEdge;
 
             // Create process vertex.
             annotations = new LinkedHashMap<String, String>();
             annotations.put("pid", pid);
-            processVertex = new spade.opm.vertex.Process(annotations);
+            processVertex = new spade.opm.vertex.Process();
+            processVertex.getAnnotations().putAll(annotations);
 
             if (!putVertex(processVertex)) {
                 errorStream.println("Buffer did not accept process artifact:" + "\n\t pid" + pid);
@@ -213,7 +215,9 @@ public class Lsof extends AbstractReporter implements Runnable {
             port = endPoint[1];
             annotations.put("destination port", port);
 
-            networkVertex = new Artifact(annotations);
+            networkVertex = new Network();
+            networkVertex.getAnnotations().putAll(annotations);
+            
             if (!putVertex(networkVertex)) {
                 errorStream.println("Buffer did not accept connection artifact:" + "\n\t " + connection);
             }
@@ -223,7 +227,8 @@ public class Lsof extends AbstractReporter implements Runnable {
                 annotations = new LinkedHashMap<String, String>();
                 currentTime = new Date();
                 annotations.put("time", currentTime.toString());
-                usedEdge = new Used(processVertex, networkVertex, annotations);
+                usedEdge = new Used(processVertex, networkVertex);
+                usedEdge.getAnnotations().putAll(annotations);
                 if (!putEdge(usedEdge)) {
                     errorStream.println("Buffer did not accept outgoing "
                             + "connection edge:\n\t pid: " + pid
@@ -239,8 +244,8 @@ public class Lsof extends AbstractReporter implements Runnable {
                 currentTime = new Date();
                 annotations.put("time", currentTime.toString());
                 wasGeneratedByEdge =
-                        new WasGeneratedBy(networkVertex, processVertex,
-                        annotations);
+                        new WasGeneratedBy(networkVertex, processVertex);
+                wasGeneratedByEdge.getAnnotations().putAll(annotations);
                 if (!putEdge(wasGeneratedByEdge)) {
                     errorStream.println("Buffer did not accept incoming "
                             + "connection edge:\n\t pid: " + pid
