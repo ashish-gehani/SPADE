@@ -38,34 +38,19 @@ import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
-import java.util.LinkedList;
-import java.util.List;
 
-/**
- * Implementation of a Bloom-filter, as described here:
- * http://en.wikipedia.org/wiki/Bloom_filter
- *
- * Inspired by the SimpleBloomFilter-class written by Ian Clarke. This
- * implementation provides a more evenly distributed Hash-function by
- * using a proper digest instead of the Java RNG. Many of the changes
- * were proposed in comments in his blog:
- * http://blog.locut.us/2008/01/12/a-decent-stand-alone-java-bloom-filter-implementation/
- *
- * @param <E> Object type that is to be inserted into the Bloom filter, e.g. String or Integer.
- * @author Magnus Skjegstad <magnus@skjegstad.com>
- */
-public class MatrixFilter implements Serializable {
-
-    private List<BloomFilter> filterSet;
-    private int filterSetSize;
-    private double filtersPerElement;
-    private int expectedNumberOfElements; // expected (maximum) number of elements to be added
+class BloomFilter implements Serializable {
+    private BitSet bitset;
+    private int bitSetSize;
+    private double bitsPerElement;
+    private int expectedNumberOfFilterElements; // expected (maximum) number of elements to be added
     private int numberOfAddedElements; // number of elements actually added to the Bloom filter
     private int k; // number of hash functions
+
     static final Charset charset = Charset.forName("UTF-8"); // encoding used for storing hash values as strings
+
     static final String hashName = "MD5"; // MD5 gives good enough accuracy in most circumstances. Change to SHA1 if it's needed
     static final MessageDigest digestFunction;
-
     static { // The digest method is reused between instances
         MessageDigest tmp;
         try {
@@ -77,23 +62,20 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Constructs an empty Bloom filter. The total length of the Bloom filter will be
-     * c*n.
-     *
-     * @param c is the number of bits used per element.
-     * @param n is the expected number of elements the filter will contain.
-     * @param k is the number of hash functions used.
-     */
-    public MatrixFilter(double c, int n, int k) {
-        this.expectedNumberOfElements = n;
-        this.k = k;
-        this.filtersPerElement = c;
-        this.filterSetSize = (int) Math.ceil(c * n);
-        numberOfAddedElements = 0;
-        this.filterSet = new LinkedList<BloomFilter>();
-        for (int i=0; i<this.filterSetSize; i++) {
-            this.filterSet.add(new BloomFilter(c, n, k));
-        }
+      * Constructs an empty Bloom filter. The total length of the Bloom filter will be
+      * c*n.
+      *
+      * @param c is the number of bits used per element.
+      * @param n is the expected number of elements the filter will contain.
+      * @param k is the number of hash functions used.
+      */
+    public BloomFilter(double c, int n, int k) {
+      this.expectedNumberOfFilterElements = n;
+      this.k = k;
+      this.bitsPerElement = c;
+      this.bitSetSize = (int)Math.ceil(c * n);
+      numberOfAddedElements = 0;
+      this.bitset = new BitSet(bitSetSize);
     }
 
     /**
@@ -103,10 +85,10 @@ public class MatrixFilter implements Serializable {
      * @param bitSetSize defines how many bits should be used in total for the filter.
      * @param expectedNumberOElements defines the maximum number of elements the filter is expected to contain.
      */
-    public MatrixFilter(int bitSetSize, int expectedNumberOElements) {
-        this(bitSetSize / (double) expectedNumberOElements,
-                expectedNumberOElements,
-                (int) Math.round((bitSetSize / (double) expectedNumberOElements) * Math.log(2.0)));
+    public BloomFilter(int bitSetSize, int expectedNumberOElements) {
+        this(bitSetSize / (double)expectedNumberOElements,
+             expectedNumberOElements,
+             (int) Math.round((bitSetSize / (double)expectedNumberOElements) * Math.log(2.0)));
     }
 
     /**
@@ -117,10 +99,24 @@ public class MatrixFilter implements Serializable {
      * @param falsePositiveProbability is the desired false positive probability.
      * @param expectedNumberOfElements is the expected number of elements in the Bloom filter.
      */
-    public MatrixFilter(double falsePositiveProbability, int expectedNumberOfElements) {
+    public BloomFilter(double falsePositiveProbability, int expectedNumberOfElements) {
         this(Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2))) / Math.log(2), // c = k / ln(2)
-                expectedNumberOfElements,
-                (int) Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2)))); // k = ceil(-log_2(false prob.))
+             expectedNumberOfElements,
+             (int)Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2)))); // k = ceil(-log_2(false prob.))
+    }
+
+    /**
+     * Construct a new Bloom filter based on existing Bloom filter data.
+     *
+     * @param bitSetSize defines how many bits should be used for the filter.
+     * @param expectedNumberOfFilterElements defines the maximum number of elements the filter is expected to contain.
+     * @param actualNumberOfFilterElements specifies how many elements have been inserted into the <code>filterData</code> BitSet.
+     * @param filterData a BitSet representing an existing Bloom filter.
+     */
+    public BloomFilter(int bitSetSize, int expectedNumberOfFilterElements, int actualNumberOfFilterElements, BitSet filterData) {
+        this(bitSetSize, expectedNumberOfFilterElements);
+        this.bitset = filterData;
+        this.numberOfAddedElements = actualNumberOfFilterElements;
     }
 
     /**
@@ -179,17 +175,17 @@ public class MatrixFilter implements Serializable {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        final MatrixFilter other = (MatrixFilter) obj;
-        if (this.expectedNumberOfElements != other.expectedNumberOfElements) {
+        final BloomFilter other = (BloomFilter) obj;        
+        if (this.expectedNumberOfFilterElements != other.expectedNumberOfFilterElements) {
             return false;
         }
         if (this.k != other.k) {
             return false;
         }
-        if (this.filterSetSize != other.filterSetSize) {
+        if (this.bitSetSize != other.bitSetSize) {
             return false;
         }
-        if (this.filterSet != other.filterSet && (this.filterSet == null || !this.filterSet.equals(other.filterSet))) {
+        if (this.bitset != other.bitset && (this.bitset == null || !this.bitset.equals(other.bitset))) {
             return false;
         }
         return true;
@@ -202,12 +198,13 @@ public class MatrixFilter implements Serializable {
     @Override
     public int hashCode() {
         int hash = 7;
-        hash = 61 * hash + (this.filterSet != null ? this.filterSet.hashCode() : 0);
-        hash = 61 * hash + this.expectedNumberOfElements;
-        hash = 61 * hash + this.filterSetSize;
+        hash = 61 * hash + (this.bitset != null ? this.bitset.hashCode() : 0);
+        hash = 61 * hash + this.expectedNumberOfFilterElements;
+        hash = 61 * hash + this.bitSetSize;
         hash = 61 * hash + this.k;
         return hash;
     }
+
 
     /**
      * Calculates the expected probability of false positives based on
@@ -221,7 +218,7 @@ public class MatrixFilter implements Serializable {
      * @return expected probability of false positives.
      */
     public double expectedFalsePositiveProbability() {
-        return getFalsePositiveProbability(expectedNumberOfElements);
+        return getFalsePositiveProbability(expectedNumberOfFilterElements);
     }
 
     /**
@@ -234,7 +231,7 @@ public class MatrixFilter implements Serializable {
     public double getFalsePositiveProbability(double numberOfElements) {
         // (1 - e^(-k * n / m)) ^ k
         return Math.pow((1 - Math.exp(-k * (double) numberOfElements
-                / (double) filterSetSize)), k);
+                        / (double) bitSetSize)), k);
 
     }
 
@@ -247,6 +244,7 @@ public class MatrixFilter implements Serializable {
     public double getFalsePositiveProbability() {
         return getFalsePositiveProbability(numberOfAddedElements);
     }
+
 
     /**
      * Returns the value chosen for K.<br />
@@ -264,7 +262,7 @@ public class MatrixFilter implements Serializable {
      * Sets all bits to false in the Bloom filter.
      */
     public void clear() {
-        filterSet.clear();
+        bitset.clear();
         numberOfAddedElements = 0;
     }
 
@@ -272,34 +270,17 @@ public class MatrixFilter implements Serializable {
      * Adds an object to the Bloom filter. The output from the object's
      * toString() method is used as input to the hash functions.
      *
-     * @param destinationVertex is an element to register in the Bloom filter.
+     * @param element is an element to register in the Bloom filter.
      */
-    public void add(AbstractVertex destinationVertex, AbstractVertex sourceVertex) {
-        long hash;
-        String valString = destinationVertex.toString();
-        for (int x = 0; x < k; x++) {
-            hash = createHash(valString + Integer.toString(x));
-            hash = hash % (long) filterSetSize;
-            filterSet.get(Math.abs((int) hash)).add(sourceVertex.toString());
-        }
-        numberOfAddedElements++;
-    }
-
-    public BloomFilter get(AbstractVertex vertex) {
-        BloomFilter result = null;
-        long hash;
-        String valString = vertex.toString();
-        for (int x = 0; x < k; x++) {
-            hash = createHash(valString + Integer.toString(x));
-            hash = hash % (long) filterSetSize;
-            BloomFilter tempBloomFilter = filterSet.get(Math.abs((int) hash));
-            if (result == null) {
-                result = tempBloomFilter;
-            } else {
-                result.getBitSet().and(tempBloomFilter.getBitSet());
-            }
-        }
-        return result;
+    public void add(String element) {
+       long hash;
+       String valString = element.toString();
+       for (int x = 0; x < k; x++) {
+           hash = createHash(valString + Integer.toString(x));
+           hash = hash % (long)bitSetSize;
+           bitset.set(Math.abs((int)hash), true);
+       }
+       numberOfAddedElements ++;
     }
 
     /**
@@ -311,16 +292,41 @@ public class MatrixFilter implements Serializable {
      * @return true if the element could have been inserted into the Bloom filter.
      */
     public boolean contains(String element) {
-        long hash;
-        String valString = element.toString();
-        for (int x = 0; x < k; x++) {
-            hash = createHash(valString + Integer.toString(x));
-            hash = hash % (long) filterSetSize;
-            if (!filterSet.get(Math.abs((int) hash)).contains(element)) {
-                return false;
-            }
-        }
-        return true;
+       long hash;
+       String valString = element.toString();
+       for (int x = 0; x < k; x++) {
+           hash = createHash(valString + Integer.toString(x));
+           hash = hash % (long)bitSetSize;
+           if (!bitset.get(Math.abs((int)hash)))
+               return false;
+       }
+       return true;
+    }
+
+    /**
+     * Read a single bit from the Bloom filter.
+     * @param bit the bit to read.
+     * @return true if the bit is set, false if it is not.
+     */
+    public boolean getBit(int bit) {
+        return bitset.get(bit);
+    }
+
+    /**
+     * Set a single bit in the Bloom filter.
+     * @param bit is the bit to set.
+     * @param value If true, the bit is set. If false, the bit is cleared.
+     */
+    public void setBit(int bit, boolean value) {
+        bitset.set(bit, value);
+    }
+
+    /**
+     * Return the bit set used to store the Bloom filter.
+     * @return bit set representing the Bloom filter.
+     */
+    public BitSet getBitSet() {
+        return bitset;
     }
 
     /**
@@ -330,7 +336,7 @@ public class MatrixFilter implements Serializable {
      * @return the size of the bitset used by the Bloom filter.
      */
     public int size() {
-        return this.filterSetSize;
+        return this.bitSetSize;
     }
 
     /**
@@ -350,7 +356,7 @@ public class MatrixFilter implements Serializable {
      * @return expected number of elements.
      */
     public int getExpectedNumberOfElements() {
-        return expectedNumberOfElements;
+        return expectedNumberOfFilterElements;
     }
 
     /**
@@ -360,7 +366,7 @@ public class MatrixFilter implements Serializable {
      * @return expected number of bits per element.
      */
     public double getExpectedBitsPerElement() {
-        return this.filtersPerElement;
+        return this.bitsPerElement;
     }
 
     /**
@@ -370,6 +376,6 @@ public class MatrixFilter implements Serializable {
      * @return number of bits per element.
      */
     public double getBitsPerElement() {
-        return this.filterSetSize / (double) numberOfAddedElements;
+        return this.bitSetSize / (double)numberOfAddedElements;
     }
 }
