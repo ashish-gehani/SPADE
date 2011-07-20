@@ -19,9 +19,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-public abstract class AbstractSketch {
+import java.io.Serializable;
+
+public abstract class AbstractSketch implements Serializable {
 
     public AbstractStorage storage;
+    public MatrixFilter matrixFilter;
 
     // This method is triggered when the sketch receives a vertex.
     public abstract void putVertex(AbstractVertex incomingVertex);

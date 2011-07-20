@@ -39,6 +39,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.BitSet;
 import java.util.Iterator;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
@@ -55,6 +56,7 @@ public class Kernel {
     private static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
     private static final String NO_ARGUMENTS = "no arguments";
     private static final int REMOTE_QUERY_PORT = 9999;
+    private static final int SKETCH_QUERY_PORT = 9998;
     private static final int BATCH_BUFFER_ELEMENTS = 100;
     private static final int MAIN_THREAD_SLEEP_DELAY = 3;
     private static final int COMMAND_THREAD_SLEEP_DELAY = 200;
@@ -67,6 +69,7 @@ public class Kernel {
     private static List<AbstractFilter> transformers;
     private static Map<AbstractReporter, Buffer> buffers;
     private static Set<AbstractSketch> sketches;
+    private static Map<String, AbstractSketch> cachedSketches;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
 
@@ -90,6 +93,7 @@ public class Kernel {
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
+        cachedSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
         shutdown = false;
         flushTransactions = false;
 
@@ -102,7 +106,7 @@ public class Kernel {
         commitFilter.storages = storages;
         commitFilter.sketches = sketches;
         filters.add(commitFilter);
-        
+
         // The final transformer is used to send vertex and edge objects to
         // their corresponding result Graph.
         FinalTransformer finalTransformer = new FinalTransformer();
@@ -267,11 +271,6 @@ public class Kernel {
         };
         new Thread(queryThread, "queryThread").start();
 
-
-        // This thread creates the input and output pipes used for control (and also used
-        // by the control client). The exit value is used to determine if the pipes were
-        // successfully created. The input pipe (to which commands are issued) is read in
-        // a loop and the commands are processed.
         Runnable remoteThread = new Runnable() {
 
             public void run() {
@@ -283,13 +282,11 @@ public class Kernel {
                     String queryLine = clientInputReader.readLine();
                     Graph resultGraph = query(queryLine, false);
                     if (resultGraph == null) {
-                        clientPrintStream.println("null");
-                    } else {
-                        clientPrintStream.println("result");
-                        ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
-                        clientObjectOutputStream.writeObject(resultGraph);
-                        clientObjectOutputStream.close();
+                        resultGraph = new Graph();
                     }
+                    ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+                    clientObjectOutputStream.writeObject(resultGraph);
+                    clientObjectOutputStream.close();
                     clientPrintStream.close();
                     clientInputReader.close();
                 } catch (Exception exception) {
@@ -299,20 +296,42 @@ public class Kernel {
         };
         // new Thread(remoteThread, "remoteThread").start();
 
+        Runnable sketchThread = new Runnable() {
+
+            public void run() {
+                try {
+                    ServerSocket serverSocket = new ServerSocket(SKETCH_QUERY_PORT);
+                    Socket clientSocket = serverSocket.accept();
+                    BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
+                    ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+                    String queryLine = clientInputReader.readLine();
+                    if (queryLine.equals("sketch")) {
+                        clientObjectOutputStream.writeObject(sketches.iterator().next());
+                    }
+                    clientObjectOutputStream.close();
+                    clientPrintStream.close();
+                    clientInputReader.close();
+                } catch (Exception exception) {
+                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                }
+            }
+        };
+        // new Thread(sketchThread, "sketchThread").start();
+
     }
 
     // The following two methods are called by the Graph object when adding vertices
     // and edges to the result graph. Transformers are technically the same as filters
-    // and are used to modify/transform data as it is entered into a Graph object.
-    
+    // and are used to modify/transform data as it is entered into a Graph object.    
     public static void sendToTransformers(AbstractVertex vertex) {
         ((AbstractFilter) transformers.get(0)).putVertex(vertex);
     }
-    
+
     public static void sendToTransformers(AbstractEdge edge) {
         ((AbstractFilter) transformers.get(0)).putEdge(edge);
     }
-    
+
     // All command strings are passed to this function which subsequently calls the
     // correct method based on the command. Each command is determined by the first
     // token in the string.
@@ -384,6 +403,93 @@ public class Kernel {
         } catch (Exception exception) {
             outputStream.println("Usage: config load|save <filename>");
         }
+    }
+
+    public static boolean checkSketchPath(String line) {
+        // line has format "sourceHost:vertexId destinationHost:vertexId"
+        String source = line.split("\\s")[0];
+        String srcHost = source.split(":")[0];
+        String srcVertexId = source.split(":")[1];
+        String destination = line.split("\\s")[1];
+        String dstHost = destination.split(":")[0];
+        String dstVertexId = destination.split(":")[1];
+
+        Set<AbstractVertex> destinationNetworkVertices = new HashSet<AbstractVertex>();
+        Set<AbstractVertex> sourceNetworkVertices = new HashSet<AbstractVertex>();
+
+        try {
+            // Consider path query A/*/B
+            // Connect to host(B) and get all network vertices that connect to B
+            Socket remoteSocket = new Socket(dstHost, REMOTE_QUERY_PORT);
+            String expression = "query Neo4j vertices type:Network";
+            PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+            BufferedReader remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
+            ObjectInputStream graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
+            remoteSocketOut.println(expression);
+            // Check whether the remote query server returned a graph in response
+            Graph tmpGraph = (Graph) graphInputStream.readObject();
+            // Add those network vertices to the destination set that have a path
+            // to the specified vertex
+            for (AbstractVertex currentVertex : tmpGraph.vertexSet()) {
+                expression = "query Neo4j paths " + currentVertex.getAnnotation("storageId") + " " + dstVertexId + " 100";
+                remoteSocketOut.println(expression);
+                Graph currentGraph = (Graph) graphInputStream.readObject();
+                if (!currentGraph.edgeSet().isEmpty()) {
+                    destinationNetworkVertices.add(currentVertex);
+                }
+            }
+
+            // Similarly, populate the source network vertices from the source host
+            graphInputStream.close();
+            remoteSocketOut.close();
+            remoteSocketIn.close();
+            remoteSocket.close();
+
+            remoteSocket = new Socket(srcHost, REMOTE_QUERY_PORT);
+            expression = "query Neo4j vertices type:Network";
+            remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+            remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
+            graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
+            remoteSocketOut.println(expression);
+            // Check whether the remote query server returned a graph in response
+            tmpGraph = (Graph) graphInputStream.readObject();
+            for (AbstractVertex currentVertex : tmpGraph.vertexSet()) {
+                expression = "query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation("storageId") + " 100";
+                remoteSocketOut.println(expression);
+                Graph currentGraph = (Graph) graphInputStream.readObject();
+                if (!currentGraph.edgeSet().isEmpty()) {
+                    sourceNetworkVertices.add(currentVertex);
+                }
+            }
+            graphInputStream.close();
+            remoteSocketOut.close();
+            remoteSocketIn.close();
+            remoteSocket.close();
+
+            BloomFilter resultBloomFilter = null;
+            for (AbstractSketch currentSketch : cachedSketches.values()) {
+                for (AbstractVertex currentBVertex : destinationNetworkVertices) {
+                    if (currentSketch.matrixFilter.contains(currentBVertex.toString())) {
+                        BloomFilter currentBloomFilter = currentSketch.matrixFilter.get(currentBVertex);
+                        if (resultBloomFilter == null) {
+                            resultBloomFilter = currentBloomFilter;
+                        } else {
+                            resultBloomFilter.getBitSet().or(currentBloomFilter.getBitSet());
+                        }
+                    }
+                }
+            }
+
+            for (AbstractVertex currentAVertex : sourceNetworkVertices) {
+                if (resultBloomFilter.contains(currentAVertex.toString())) {
+                    return true;
+                }
+            }
+        } catch (Exception exception) {
+            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+        }
+
+        return false;
     }
 
     // This method is used to call query methods on the desired storage. The
@@ -476,36 +582,34 @@ public class Kernel {
                             Graph srcGraph = null, dstGraph = null;
 
                             Socket remoteSocket = new Socket(srcHost, REMOTE_QUERY_PORT);
-                            String srcExpression = "query Neo4j lineage " + srcVertedId + " " + maxLength / 2 + " a type:*";
+                            String srcExpression = "query Neo4j lineage " + srcVertedId + " " + maxLength + " a type:*";
                             PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
                             BufferedReader remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
                             ObjectInputStream graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
                             remoteSocketOut.println(srcExpression);
+
                             // Check whether the remote query server returned a graph in response
-                            if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
-                                srcGraph = (Graph) graphInputStream.readObject();
-                            }
+                            srcGraph = (Graph) graphInputStream.readObject();
                             graphInputStream.close();
                             remoteSocketOut.close();
                             remoteSocketIn.close();
                             remoteSocket.close();
 
                             remoteSocket = new Socket(dstHost, REMOTE_QUERY_PORT);
-                            String dstExpression = "query Neo4j lineage " + dstVertedId + " " + maxLength / 2 + " a type:*";
+                            String dstExpression = "query Neo4j lineage " + dstVertedId + " " + maxLength + " a type:*";
                             remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
                             remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
                             graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
                             remoteSocketOut.println(dstExpression);
+
                             // Check whether the remote query server returned a graph in response
-                            if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
-                                dstGraph = (Graph) graphInputStream.readObject();
-                            }
+                            dstGraph = (Graph) graphInputStream.readObject();
                             graphInputStream.close();
                             remoteSocketOut.close();
                             remoteSocketIn.close();
                             remoteSocket.close();
 
-                            resultGraph = Graph.union(srcGraph, dstGraph);
+                            resultGraph = Graph.intersection(srcGraph, dstGraph);
                         }
                     } catch (Exception badQuery) {
                         return null;
@@ -541,22 +645,20 @@ public class Kernel {
 
             // Execute remote query for vertices
             remoteSocketOut.println(vertexQueryExpression);
-            // Check whether the remote query server returned a graph in response
-            if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
-                Graph vertexGraph = (Graph) graphInputStream.readObject();
-                // The graph should only have one vertex which is the network vertex.
-                // We use this to get the vertex id
-                int vertexId = Integer.parseInt(vertexGraph.vertexSet().iterator().next().getAnnotation("storageId"));
 
-                // Build the expression for the remote lineage query
-                String lineageQueryExpression = "query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
-                remoteSocketOut.println(lineageQueryExpression);
-                if (remoteSocketIn.readLine().equalsIgnoreCase("result")) {
-                    // The graph object we get as a response is returned as the
-                    // result of this method
-                    resultGraph = (Graph) graphInputStream.readObject();
-                }
-            }
+            // Check whether the remote query server returned a graph in response
+            Graph vertexGraph = (Graph) graphInputStream.readObject();
+            // The graph should only have one vertex which is the network vertex.
+            // We use this to get the vertex id
+            int vertexId = Integer.parseInt(vertexGraph.vertexSet().iterator().next().getAnnotation("storageId"));
+            // Build the expression for the remote lineage query
+            String lineageQueryExpression = "query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
+            remoteSocketOut.println(lineageQueryExpression);
+
+            // The graph object we get as a response is returned as the
+            // result of this method
+            resultGraph = (Graph) graphInputStream.readObject();
+
             graphInputStream.close();
             remoteSocketOut.close();
             remoteSocketIn.close();
