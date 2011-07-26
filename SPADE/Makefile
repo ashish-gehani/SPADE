@@ -32,6 +32,7 @@ skeleton:
 	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/src/;\
 	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/dev/;\
 	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/;\
+	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/log/;\
 	svn update -r $(REVISION) --force --set-depth immediates src/spade/
 
 # Download the utilities.
