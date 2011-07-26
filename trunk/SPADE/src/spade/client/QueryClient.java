@@ -43,6 +43,7 @@ public class QueryClient {
     private static String outputPath;
     private static volatile boolean shutdown;
     private static final String historyFile = "../cfg/query.history";
+    private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
 
     public static void main(String args[]) {
@@ -79,6 +80,9 @@ public class QueryClient {
                             if (outputLine != null) {
                                 outputStream.println(outputLine);
                             }
+                            if (outputLine.equals("")) {
+                                outputStream.print(COMMAND_PROMPT);
+                            }
                         }
                         Thread.sleep(THREAD_SLEEP_DELAY);
                     }
@@ -100,12 +104,12 @@ public class QueryClient {
             ConsoleReader commandReader = new ConsoleReader();
             commandReader.getHistory().setHistoryFile(new File(historyFile));
 
-            List<Completor> argCompletor7 = new LinkedList<Completor>();
-            argCompletor7.add(new SimpleCompletor(new String[]{"query"}));
-            argCompletor7.add(new NullCompletor());
+            List<Completor> argCompletor = new LinkedList<Completor>();
+            argCompletor.add(new SimpleCompletor(new String[]{"query"}));
+            argCompletor.add(new NullCompletor());
 
             List<Completor> completors = new LinkedList<Completor>();
-            completors.add(new ArgumentCompletor(argCompletor7));
+            completors.add(new ArgumentCompletor(argCompletor));
 
             commandReader.addCompletor(new MultiCompletor(completors));
 
