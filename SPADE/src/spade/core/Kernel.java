@@ -39,7 +39,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.BitSet;
+import java.net.InetAddress;
 import java.util.Iterator;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
@@ -61,6 +61,8 @@ public class Kernel {
     private static final int MAIN_THREAD_SLEEP_DELAY = 3;
     private static final int COMMAND_THREAD_SLEEP_DELAY = 200;
     private static final int REMOVE_WAIT_DELAY = 300;
+    private static final int FIRST_TRANSFORMER = 0;
+    private static final int FIRST_FILTER = 0;
     private static Set<AbstractReporter> reporters;
     private static Set<AbstractStorage> storages;
     private static Set<AbstractReporter> removereporters;
@@ -69,7 +71,7 @@ public class Kernel {
     private static List<AbstractFilter> transformers;
     private static Map<AbstractReporter, Buffer> buffers;
     private static Set<AbstractSketch> sketches;
-    private static Map<String, AbstractSketch> cachedSketches;
+    private static Map<String, AbstractSketch> remoteSketches;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
 
@@ -93,7 +95,7 @@ public class Kernel {
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         buffers = Collections.synchronizedMap(new HashMap<AbstractReporter, Buffer>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
-        cachedSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
+        remoteSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
         shutdown = false;
         flushTransactions = false;
 
@@ -256,6 +258,7 @@ public class Kernel {
                                         } else {
                                             showQueryCommands(queryOutputStream);
                                         }
+                                        queryOutputStream.println("");
                                         queryOutputStream.close();
                                     } catch (Exception exception) {
                                     }
@@ -325,11 +328,11 @@ public class Kernel {
     // and edges to the result graph. Transformers are technically the same as filters
     // and are used to modify/transform data as it is entered into a Graph object.    
     public static void sendToTransformers(AbstractVertex vertex) {
-        ((AbstractFilter) transformers.get(0)).putVertex(vertex);
+        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putVertex(vertex);
     }
 
     public static void sendToTransformers(AbstractEdge edge) {
-        ((AbstractFilter) transformers.get(0)).putEdge(edge);
+        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putEdge(edge);
     }
 
     // All command strings are passed to this function which subsequently calls the
@@ -405,7 +408,7 @@ public class Kernel {
         }
     }
 
-    public static boolean checkSketchPath(String line) {
+    public static boolean checkPathInSketch(String line) {
         // line has format "sourceHost:vertexId destinationHost:vertexId"
         String source = line.split("\\s")[0];
         String srcHost = source.split(":")[0];
@@ -467,7 +470,7 @@ public class Kernel {
             remoteSocket.close();
 
             BloomFilter resultBloomFilter = null;
-            for (AbstractSketch currentSketch : cachedSketches.values()) {
+            for (AbstractSketch currentSketch : remoteSketches.values()) {
                 for (AbstractVertex currentBVertex : destinationNetworkVertices) {
                     if (currentSketch.matrixFilter.contains(currentBVertex.toString())) {
                         BloomFilter currentBloomFilter = currentSketch.matrixFilter.get(currentBVertex);
@@ -844,7 +847,7 @@ public class Kernel {
                     for (AbstractStorage storage : storages) {
                         // Search for the given storage in the storages set.
                         if (storage.getClass().getName().equals("spade.storage." + storagename)) {
-                            sketch.storage = storage;
+                            // sketch.storage = storage;
                             found = true;
                         }
                     }

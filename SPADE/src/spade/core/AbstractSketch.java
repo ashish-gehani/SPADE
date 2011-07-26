@@ -23,7 +23,6 @@ import java.io.Serializable;
 
 public abstract class AbstractSketch implements Serializable {
 
-    public AbstractStorage storage;
     public MatrixFilter matrixFilter;
 
     // This method is triggered when the sketch receives a vertex.

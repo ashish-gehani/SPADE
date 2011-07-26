@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -51,6 +53,9 @@ public class Neo4j extends AbstractStorage {
     private final int TRANSACTION_LIMIT = 1000;
     private final int HARD_FLUSH_LIMIT = 50;
     private final String ID_STRING = "storageId";
+    private final String direction_ancestors = "ancestors";
+    private final String direction_descendants = "descendants";
+    private final String direction_both = "both";
     private GraphDatabaseService graphDb;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
@@ -60,7 +65,7 @@ public class Neo4j extends AbstractStorage {
     private Map<Integer, Long> vertexMap;
     private Set<Integer> edgeSet;
 
-    public enum MyRelationshipTypes implements RelationshipType {
+    private enum MyRelationshipTypes implements RelationshipType {
 
         EDGE
     }
@@ -80,6 +85,7 @@ public class Neo4j extends AbstractStorage {
             edgeSet = new HashSet<Integer>();
             return true;
         } catch (Exception exception) {
+            Logger.getLogger(Neo4j.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
@@ -93,6 +99,7 @@ public class Neo4j extends AbstractStorage {
                 transaction.success();
                 transaction.finish();
             } catch (Exception exception) {
+                Logger.getLogger(Neo4j.class.getName()).log(Level.SEVERE, null, exception);
             }
             if (flushCount == HARD_FLUSH_LIMIT) {
                 graphDb.shutdown();
@@ -109,7 +116,6 @@ public class Neo4j extends AbstractStorage {
         if (transaction != null) {
             transaction.success();
             transaction.finish();
-            transaction = graphDb.beginTx();
             transactionCount = 0;
         }
         return true;
@@ -350,11 +356,11 @@ public class Neo4j extends AbstractStorage {
         }
 
         Direction dir = null;
-        if (direction.trim().equalsIgnoreCase("a")) {
+        if (direction_ancestors.startsWith(direction.toLowerCase())) {
             dir = Direction.OUTGOING;
-        } else if (direction.trim().equalsIgnoreCase("d")) {
+        } else if (direction_descendants.startsWith(direction.toLowerCase())) {
             dir = Direction.INCOMING;
-        } else if (direction.trim().equalsIgnoreCase("b")) {
+        } else if (direction_both.startsWith(direction.toLowerCase())) {
             dir = Direction.BOTH;
         } else {
             return null;
