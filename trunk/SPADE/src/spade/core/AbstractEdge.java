@@ -50,6 +50,10 @@ public abstract class AbstractEdge {
         return annotations.get(key);
     }
 
+    public final String type() {
+        return annotations.get("type");
+    }
+
     // The following functions that get and set source and destination vertices
     // are left empty in this abstract class - they are overridden and implemented
     // in derived classes since the source and destination vertex types may be
