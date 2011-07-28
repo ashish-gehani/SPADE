@@ -113,6 +113,19 @@ public class MatrixFilter implements Serializable {
                 expectedNumberOfElements,
                 (int) Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2)))); // k = ceil(-log_2(false prob.))
     }
+    
+    public BloomFilter getAllBloomFilters() {
+        BloomFilter result = null;
+        for (int i=0; i<filterSet.size(); i++) {
+            BloomFilter currentFilter = filterSet.get(i);
+            if (result == null) {
+                result = currentFilter;
+            } else {
+                result.getBitSet().or(currentFilter.getBitSet());
+            }
+        }
+        return result;
+    }
 
     /**
      * Generates a digest based on the contents of a String.
@@ -272,6 +285,17 @@ public class MatrixFilter implements Serializable {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
             filterSet.get(Math.abs((int) hash)).add(sourceVertex.toString());
+        }
+        numberOfAddedElements++;
+    }
+
+    public void updateAncestors(AbstractVertex vertex, BloomFilter ancestorsToAdd) {
+        long hash;
+        String valString = vertex.toString();
+        for (int x = 0; x < k; x++) {
+            hash = createHash(valString + Integer.toString(x));
+            hash = hash % (long) filterSetSize;
+            filterSet.get(Math.abs((int) hash)).getBitSet().or(ancestorsToAdd.getBitSet());
         }
         numberOfAddedElements++;
     }

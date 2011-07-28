@@ -32,7 +32,6 @@ import java.util.LinkedHashMap;
 import spade.core.AbstractReporter;
 import spade.opm.edge.Used;
 import spade.opm.edge.WasGeneratedBy;
-import spade.opm.vertex.Artifact;
 import spade.opm.vertex.Network;
 
 public class Lsof extends AbstractReporter implements Runnable {

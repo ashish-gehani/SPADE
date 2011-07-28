@@ -48,6 +48,10 @@ public abstract class AbstractVertex {
         return annotations.get(key);
     }
 
+    public final String type() {
+        return annotations.get("type");
+    }
+
     @Override
     public boolean equals(Object thatObject) {
         if (this == thatObject) {

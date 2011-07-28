@@ -39,7 +39,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
 
-class BloomFilter implements Serializable {
+public class BloomFilter implements Serializable {
     private BitSet bitset;
     private int bitSetSize;
     private double bitsPerElement;

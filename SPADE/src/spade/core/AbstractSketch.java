@@ -20,10 +20,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.core;
 
 import java.io.Serializable;
+import java.util.Map;
 
 public abstract class AbstractSketch implements Serializable {
 
     public MatrixFilter matrixFilter;
+    public Map<String, Object> objects;
 
     // This method is triggered when the sketch receives a vertex.
     public abstract void putVertex(AbstractVertex incomingVertex);
