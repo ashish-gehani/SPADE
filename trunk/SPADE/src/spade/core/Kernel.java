@@ -39,7 +39,6 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.InetAddress;
 import java.util.Iterator;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
@@ -52,7 +51,7 @@ public class Kernel {
     public static final String SOURCE_REPORTER = "source_reporter";
     public static Map<String, AbstractSketch> remoteSketches;
     public static final int REMOTE_QUERY_PORT = 9999;
-    public static final int SKETCH_QUERY_PORT = 9998;
+    public static final int REMOTE_SKETCH_PORT = 9998;
 
     private static final String configFile = "../cfg/spade.config";
     private static final String queryPipeInputPath = "../dev/queryPipeIn";
@@ -305,7 +304,7 @@ public class Kernel {
 
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(SKETCH_QUERY_PORT);
+                    ServerSocket serverSocket = new ServerSocket(REMOTE_SKETCH_PORT);
                     Socket clientSocket = serverSocket.accept();
                     BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                     PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
@@ -313,17 +312,33 @@ public class Kernel {
                     String queryLine = clientInputReader.readLine();
                     if (queryLine.equals("giveSketch")) {
                         clientObjectOutputStream.writeObject(sketches.iterator().next());
+                        clientObjectOutputStream.writeObject(remoteSketches);
                     } else if (queryLine.equals("pathFragment")) {
                         ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
                         AbstractSketch remoteSketch = (AbstractSketch) sketchInputStream.readObject();
                         clientObjectOutputStream.writeObject(getPathFragment(remoteSketch));
                         sketchInputStream.close();
-                    } else if (queryLine.equals("receiveSketches")) {
+                    /*} else if (queryLine.equals("receiveSketches")) {
                         ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
                         Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) sketchInputStream.readObject();
                         receivedSketches.remove(InetAddress.getLocalHost().getHostAddress());
                         remoteSketches.putAll(receivedSketches);                        
                         sketchInputStream.close();
+                         * 
+                         */
+                    } else if (queryLine.startsWith("notifyRebuildSketches")) {
+                        String tokens[] = queryLine.split("\\s+");
+                        int currentLevel = Integer.parseInt(tokens[1]);
+                        int maxLevel = Integer.parseInt(tokens[2]);
+                        notifyRebuildSketches(currentLevel, maxLevel);
+                    } else if (queryLine.startsWith("propagateSketches")) {
+                        ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
+                        Map<String, AbstractSketch>  receivedSketches = (Map<String, AbstractSketch>) sketchInputStream.readObject();
+                        remoteSketches.putAll(receivedSketches);
+                        String tokens[] = queryLine.split("\\s+");
+                        int currentLevel = Integer.parseInt(tokens[1]);
+                        int maxLevel = Integer.parseInt(tokens[2]);
+                        propagateSketches(currentLevel, maxLevel);
                     }
                     clientObjectOutputStream.close();
                     clientPrintStream.close();
@@ -476,6 +491,49 @@ public class Kernel {
         }
         
         return result;
+    }
+    
+    public static void propagateSketches(int currentLevel, int maxLevel) {
+        if (currentLevel == maxLevel) {
+            return;
+        }
+        currentLevel++;
+        Set<AbstractVertex> upVertices = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").vertexSet();
+        for (AbstractVertex currentVertex : upVertices) {
+            try {
+                String remoteHost = currentVertex.getAnnotation("remote host");
+                Socket remoteSocket = new Socket(remoteHost, REMOTE_SKETCH_PORT);
+                PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+                remoteSocketOut.println("propagateSketches " + currentLevel + " " + maxLevel);
+                ObjectOutputStream remoteSocketObjectOutputStream = new ObjectOutputStream(remoteSocket.getOutputStream());
+                remoteSocketObjectOutputStream.writeObject(remoteSketches);
+                remoteSocketOut.close();
+                remoteSocket.close();
+            } catch (Exception exception) {
+                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+            }
+        }        
+    }
+
+    public static void notifyRebuildSketches(int currentLevel, int maxLevel) {
+        if (currentLevel == 0) {
+            propagateSketches(0, maxLevel);
+            return;
+        }
+        currentLevel--;
+        Set<AbstractVertex> upVertices = storages.iterator().next().getEdges(null, "type:Network", "type:Used").vertexSet();
+        for (AbstractVertex currentVertex : upVertices) {
+            try {
+                String remoteHost = currentVertex.getAnnotation("remote host");
+                Socket remoteSocket = new Socket(remoteHost, REMOTE_SKETCH_PORT);
+                PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+                remoteSocketOut.println("notifyRebuildSketches " + currentLevel + " " + maxLevel);
+                remoteSocketOut.close();
+                remoteSocket.close();
+            } catch (Exception exception) {
+                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+            }
+        }
     }
 
     public static boolean checkPathInSketch(String line) {
@@ -643,7 +701,7 @@ public class Kernel {
 
             for (int i=0; i<hostsToContact.size(); i++) {
                 // Connect to each host and send it B's sketch
-                remoteSocket = new Socket(hostsToContact.get(i), SKETCH_QUERY_PORT);
+                remoteSocket = new Socket(hostsToContact.get(i), REMOTE_SKETCH_PORT);
                 remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
                 ObjectOutputStream remoteSocketObjectOutputStream = new ObjectOutputStream(remoteSocket.getOutputStream());
                 graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
