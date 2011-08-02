@@ -40,6 +40,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.TreeSet;
 
 /*
  * @param <E> Object type that is to be inserted into the Bloom filter, e.g. String or Integer.
@@ -280,18 +281,18 @@ public class MatrixFilter implements Serializable {
      */
     public void add(AbstractVertex destinationVertex, AbstractVertex sourceVertex) {
         long hash;
-        String valString = destinationVertex.toString();
+        String valString = sketchString(destinationVertex);
         for (int x = 0; x < k; x++) {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
-            filterSet.get(Math.abs((int) hash)).add(sourceVertex.toString());
+            filterSet.get(Math.abs((int) hash)).add(sketchString(sourceVertex));
         }
         numberOfAddedElements++;
     }
 
     public void updateAncestors(AbstractVertex vertex, BloomFilter ancestorsToAdd) {
         long hash;
-        String valString = vertex.toString();
+        String valString = sketchString(vertex);
         for (int x = 0; x < k; x++) {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
@@ -303,7 +304,7 @@ public class MatrixFilter implements Serializable {
     public BloomFilter get(AbstractVertex vertex) {
         BloomFilter result = null;
         long hash;
-        String valString = vertex.toString();
+        String valString = sketchString(vertex);
         for (int x = 0; x < k; x++) {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
@@ -386,5 +387,19 @@ public class MatrixFilter implements Serializable {
      */
     public double getBitsPerElement() {
         return this.filterSetSize / (double) numberOfAddedElements;
+    }
+
+    public String sketchString(AbstractVertex vertex) {
+        TreeSet<String> sortedStrings = new TreeSet<String>();
+        sortedStrings.add(vertex.getAnnotation("source host"));
+        sortedStrings.add(vertex.getAnnotation("source port"));
+        sortedStrings.add(vertex.getAnnotation("destination host"));
+        sortedStrings.add(vertex.getAnnotation("destination port"));
+        sortedStrings.add(vertex.getAnnotation("time"));
+        String result = "";
+        for (String currentPart : sortedStrings) {
+            result += currentPart;
+        }
+        return result;
     }
 }
