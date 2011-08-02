@@ -19,9 +19,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public abstract class AbstractEdge {
+public abstract class AbstractEdge implements Serializable  {
 
     // The AbstractEdge class is from which other edge classes (e.g., OPM edges)
     // are derived.

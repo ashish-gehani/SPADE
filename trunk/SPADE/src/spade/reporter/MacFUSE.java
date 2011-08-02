@@ -132,7 +132,7 @@ public class MacFUSE extends AbstractReporter {
                 processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
             }
         } catch (Exception exception) {
-            Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            // Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
             return null;
         }
         return processVertex;
@@ -155,7 +155,7 @@ public class MacFUSE extends AbstractReporter {
                 checkProcessTree(childinfo[0]);
             }
         } catch (Exception exception) {
-            Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            // Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 

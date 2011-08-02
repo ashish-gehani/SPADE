@@ -19,9 +19,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public abstract class AbstractVertex {
+public abstract class AbstractVertex implements Serializable {
 
     // The AbstractVertex class is from which other vertex classes (e.g., OPM
     // vertices) are derived.
