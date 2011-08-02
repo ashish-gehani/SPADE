@@ -52,7 +52,6 @@ public class Kernel {
     public static Map<String, AbstractSketch> remoteSketches;
     public static final int REMOTE_QUERY_PORT = 9999;
     public static final int REMOTE_SKETCH_PORT = 9998;
-
     private static final String configFile = "../cfg/spade.config";
     private static final String queryPipeInputPath = "../dev/queryPipeIn";
     private static final String controlPipeInputPath = "../dev/controlPipeIn";
@@ -72,7 +71,7 @@ public class Kernel {
     private static List<AbstractFilter> filters;
     private static List<AbstractFilter> transformers;
     private static Map<AbstractReporter, Buffer> buffers;
-    private static Set<AbstractSketch> sketches;
+    public static Set<AbstractSketch> sketches;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
 
@@ -280,75 +279,32 @@ public class Kernel {
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(REMOTE_QUERY_PORT);
-                    Socket clientSocket = serverSocket.accept();
-                    BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                    PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
-                    String queryLine = clientInputReader.readLine();
-                    Graph resultGraph = query(queryLine, false);
-                    if (resultGraph == null) {
-                        resultGraph = new Graph();
+                    while (!shutdown) {
+                        QueryConnection thisConnection = new QueryConnection(serverSocket.accept());
+                        thisConnection.start();
                     }
-                    ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
-                    clientObjectOutputStream.writeObject(resultGraph);
-                    clientObjectOutputStream.close();
-                    clientPrintStream.close();
-                    clientInputReader.close();
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
-        // new Thread(remoteThread, "remoteThread").start();
+        new Thread(remoteThread, "remoteThread").start();
 
         Runnable sketchThread = new Runnable() {
 
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(REMOTE_SKETCH_PORT);
-                    Socket clientSocket = serverSocket.accept();
-                    BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                    PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
-                    ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
-                    String queryLine = clientInputReader.readLine();
-                    if (queryLine.equals("giveSketch")) {
-                        clientObjectOutputStream.writeObject(sketches.iterator().next());
-                        clientObjectOutputStream.writeObject(remoteSketches);
-                    } else if (queryLine.equals("pathFragment")) {
-                        ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
-                        AbstractSketch remoteSketch = (AbstractSketch) sketchInputStream.readObject();
-                        clientObjectOutputStream.writeObject(getPathFragment(remoteSketch));
-                        sketchInputStream.close();
-                    /*} else if (queryLine.equals("receiveSketches")) {
-                        ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
-                        Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) sketchInputStream.readObject();
-                        receivedSketches.remove(InetAddress.getLocalHost().getHostAddress());
-                        remoteSketches.putAll(receivedSketches);                        
-                        sketchInputStream.close();
-                         * 
-                         */
-                    } else if (queryLine.startsWith("notifyRebuildSketches")) {
-                        String tokens[] = queryLine.split("\\s+");
-                        int currentLevel = Integer.parseInt(tokens[1]);
-                        int maxLevel = Integer.parseInt(tokens[2]);
-                        notifyRebuildSketches(currentLevel, maxLevel);
-                    } else if (queryLine.startsWith("propagateSketches")) {
-                        ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
-                        Map<String, AbstractSketch>  receivedSketches = (Map<String, AbstractSketch>) sketchInputStream.readObject();
-                        remoteSketches.putAll(receivedSketches);
-                        String tokens[] = queryLine.split("\\s+");
-                        int currentLevel = Integer.parseInt(tokens[1]);
-                        int maxLevel = Integer.parseInt(tokens[2]);
-                        propagateSketches(currentLevel, maxLevel);
+                    while (!shutdown) {
+                        SketchConnection thisConnection = new SketchConnection(serverSocket.accept());
+                        thisConnection.start();
                     }
-                    clientObjectOutputStream.close();
-                    clientPrintStream.close();
-                    clientInputReader.close();
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
-        // new Thread(sketchThread, "sketchThread").start();
+        new Thread(sketchThread, "sketchThread").start();
 
     }
 
@@ -435,18 +391,18 @@ public class Kernel {
             outputStream.println("Usage: config load|save <filename>");
         }
     }
-    
+
     public static Graph getPathFragment(AbstractSketch inputSketch) {
         Graph result = new Graph();
-        
+
         Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
         Set<AbstractVertex> matchingVerticesDown = new HashSet<AbstractVertex>();
         Set<AbstractVertex> matchingVerticesUp = new HashSet<AbstractVertex>();
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
         MatrixFilter myMatrixFilter = inputSketch.matrixFilter;
-        
+
         // Current host's network vertices that match downward
-        for (AbstractVertex currentDestionationVertex : (Set<AbstractVertex>)inputSketch.objects.get("dstVertices")) {
+        for (AbstractVertex currentDestionationVertex : (Set<AbstractVertex>) inputSketch.objects.get("dstVertices")) {
             BloomFilter currentBloomFilter = receivedMatrixFilter.get(currentDestionationVertex);
             for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
                 AbstractVertex tempVertex = new Network();
@@ -457,42 +413,44 @@ public class Kernel {
                 }
             }
         }
-        
+
         // Current host's network vertices that match upward
         for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
             AbstractVertex tempVertex = new Network();
             tempVertex.getAnnotations().putAll(vertexToCheck.getAnnotations());
             tempVertex.removeAnnotation("storageId");
             BloomFilter currentBloomFilter = myMatrixFilter.get(tempVertex);
-            for (AbstractVertex currentSourceVertex : (Set<AbstractVertex>)inputSketch.objects.get("srcVertices")) {
+            for (AbstractVertex currentSourceVertex : (Set<AbstractVertex>) inputSketch.objects.get("srcVertices")) {
                 if (currentBloomFilter.contains(currentSourceVertex.toString())) {
                     matchingVerticesUp.add(vertexToCheck);
                 }
             }
         }
-        
+
         // Network vertices that we're interested in
         Set<AbstractVertex> matchingVertices = new HashSet<AbstractVertex>();
         matchingVertices.addAll(matchingVerticesDown);
         matchingVertices.retainAll(matchingVerticesUp);
-        
+
         // Get all paths between the matching network vertices
         Object vertices[] = matchingVertices.toArray();
-        for (int i=0; i<vertices.length; i++) {
-            for (int j=0; j<vertices.length; j++) {
-                if (j==i) continue;
-                String srcId = ((AbstractVertex)vertices[i]).getAnnotation("storageId");
-                String dstId = ((AbstractVertex)vertices[j]).getAnnotation("storageId");
+        for (int i = 0; i < vertices.length; i++) {
+            for (int j = 0; j < vertices.length; j++) {
+                if (j == i) {
+                    continue;
+                }
+                String srcId = ((AbstractVertex) vertices[i]).getAnnotation("storageId");
+                String dstId = ((AbstractVertex) vertices[j]).getAnnotation("storageId");
                 Graph path = query("query Neo4j paths " + srcId + " " + dstId + " 100", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
                 }
             }
         }
-        
+
         return result;
     }
-    
+
     public static void propagateSketches(int currentLevel, int maxLevel) {
         if (currentLevel == maxLevel) {
             return;
@@ -512,7 +470,7 @@ public class Kernel {
             } catch (Exception exception) {
                 Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
             }
-        }        
+        }
     }
 
     public static void notifyRebuildSketches(int currentLevel, int maxLevel) {
@@ -625,7 +583,7 @@ public class Kernel {
 
     public static Graph getPathInSketch(String line) {
         Graph result = new Graph();
-        
+
         // line has format "sourceHost:vertexId destinationHost:vertexId"
         String source = line.split("\\s")[0];
         String srcHost = source.split(":")[0];
@@ -683,7 +641,7 @@ public class Kernel {
             remoteSocket.close();
 
             List<String> hostsToContact = new LinkedList<String>();
-            
+
             for (Map.Entry<String, AbstractSketch> currentEntry : remoteSketches.entrySet()) {
                 BloomFilter ancestorFilter = currentEntry.getValue().matrixFilter.getAllBloomFilters();
                 for (AbstractVertex currentAVertex : sourceNetworkVertices) {
@@ -691,15 +649,15 @@ public class Kernel {
                         // Send B's sketch to this host to get the path fragment
                         hostsToContact.add(currentEntry.getKey());
                         break;
-                    }           
+                    }
                 }
             }
-            
+
             AbstractSketch mySketch = sketches.iterator().next();
             mySketch.objects.put("srcVertices", sourceNetworkVertices);
             mySketch.objects.put("dstVertices", destinationNetworkVertices);
 
-            for (int i=0; i<hostsToContact.size(); i++) {
+            for (int i = 0; i < hostsToContact.size(); i++) {
                 // Connect to each host and send it B's sketch
                 remoteSocket = new Socket(hostsToContact.get(i), REMOTE_SKETCH_PORT);
                 remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
@@ -723,7 +681,7 @@ public class Kernel {
 
         return result;
     }
-    
+
     // This method is used to call query methods on the desired storage. The
     // transactions are also flushed to ensure that the data in the storages is
     // consistent and updated with all the data received by SPADE up to this point.
@@ -749,6 +707,35 @@ public class Kernel {
                         resultGraph = storage.getVertices(queryExpression.trim());
                     } catch (Exception badQuery) {
                         return null;
+                    }
+                } else if (tokens[2].equalsIgnoreCase("remotevertices")) {
+                    String host = tokens[3];
+                    String queryExpression = "";
+                    for (int i = 4; i < tokens.length; i++) {
+                        queryExpression = queryExpression + tokens[i] + " ";
+                    }
+                    if (host.equalsIgnoreCase("localhost")) {
+                        try {
+                            resultGraph = storage.getVertices(queryExpression.trim());
+                        } catch (Exception badQuery) {
+                            return null;
+                        }
+                    } else {
+                        try {
+                            Socket remoteSocket = new Socket(host, REMOTE_QUERY_PORT);
+                            String srcExpression = "query vertices " + queryExpression;
+                            PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
+                            BufferedReader remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
+                            ObjectInputStream graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
+                            remoteSocketOut.println(srcExpression);
+                            resultGraph = (Graph) graphInputStream.readObject();
+                            graphInputStream.close();
+                            remoteSocketOut.close();
+                            remoteSocketIn.close();
+                            remoteSocket.close();
+                        } catch (Exception badQuery) {
+                            return null;
+                        }
                     }
                 } else if (tokens[2].equalsIgnoreCase("lineage")) {
                     String vertexId = tokens[3];
@@ -807,7 +794,12 @@ public class Kernel {
                         resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
                     } catch (Exception badQuery) {
                         return null;
-                    }                    
+                    }
+                } else if (tokens[2].equalsIgnoreCase("pathinsketch")) {
+                    resultGraph = getPathInSketch(tokens[3] + " " + tokens[4]);
+                } else if (tokens[2].equalsIgnoreCase("rebuildsketches")) {
+                    notifyRebuildSketches(Integer.parseInt(tokens[3]), Integer.parseInt(tokens[4]));
+                    return null;
                 } else if (tokens[2].equalsIgnoreCase("remotepaths")) {
                     String source = tokens[3];
                     String srcHost = source.split(":")[0];
@@ -837,7 +829,7 @@ public class Kernel {
                             remoteSocket.close();
 
                             remoteSocket = new Socket(dstHost, REMOTE_QUERY_PORT);
-                            String dstExpression = "query Neo4j lineage " + dstVertexId + " " + maxLength + " a type:*";
+                            String dstExpression = "query Neo4j lineage " + dstVertexId + " " + maxLength + " d type:*";
                             remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
                             remoteSocketIn = new BufferedReader(new InputStreamReader(remoteSocket.getInputStream()));
                             graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
@@ -1399,4 +1391,81 @@ final class NullStream {
         public void write(int b) {
         }
     });
+}
+
+class QueryConnection extends Thread {
+
+    Socket clientSocket;
+
+    public QueryConnection(Socket socket) {
+        clientSocket = socket;
+    }
+
+    @Override
+    public void run() {
+        try {
+            BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
+            String queryLine = clientInputReader.readLine();
+            Graph resultGraph = Kernel.query(queryLine, false);
+            if (resultGraph == null) {
+                resultGraph = new Graph();
+            }
+            ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+            clientObjectOutputStream.writeObject(resultGraph);
+            clientObjectOutputStream.close();
+            clientPrintStream.close();
+            clientInputReader.close();
+            clientSocket.close();
+        } catch (Exception ex) {
+            Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+}
+
+class SketchConnection extends Thread {
+
+    Socket clientSocket;
+
+    public SketchConnection(Socket socket) {
+        clientSocket = socket;
+    }
+
+    @Override
+    public void run() {
+        try {
+            BufferedReader clientInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            PrintStream clientPrintStream = new PrintStream(clientSocket.getOutputStream());
+            ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+            String queryLine = clientInputReader.readLine();
+            if (queryLine.equals("giveSketch")) {
+                clientObjectOutputStream.writeObject(Kernel.sketches.iterator().next());
+                clientObjectOutputStream.writeObject(Kernel.remoteSketches);
+            } else if (queryLine.equals("pathFragment")) {
+                ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
+                AbstractSketch remoteSketch = (AbstractSketch) sketchInputStream.readObject();
+                clientObjectOutputStream.writeObject(Kernel.getPathFragment(remoteSketch));
+                sketchInputStream.close();
+            } else if (queryLine.startsWith("notifyRebuildSketches")) {
+                String tokens[] = queryLine.split("\\s+");
+                int currentLevel = Integer.parseInt(tokens[1]);
+                int maxLevel = Integer.parseInt(tokens[2]);
+                Kernel.notifyRebuildSketches(currentLevel, maxLevel);
+            } else if (queryLine.startsWith("propagateSketches")) {
+                ObjectInputStream sketchInputStream = new ObjectInputStream(clientSocket.getInputStream());
+                Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) sketchInputStream.readObject();
+                Kernel.remoteSketches.putAll(receivedSketches);
+                String tokens[] = queryLine.split("\\s+");
+                int currentLevel = Integer.parseInt(tokens[1]);
+                int maxLevel = Integer.parseInt(tokens[2]);
+                Kernel.propagateSketches(currentLevel, maxLevel);
+            }
+            clientObjectOutputStream.close();
+            clientPrintStream.close();
+            clientInputReader.close();
+            clientSocket.close();
+        } catch (Exception ex) {
+            Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 }
