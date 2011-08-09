@@ -272,9 +272,9 @@ public class BloomFilter implements Serializable {
      *
      * @param element is an element to register in the Bloom filter.
      */
-    public void add(String element) {
+    public void add(AbstractVertex vertex) {
        long hash;
-       String valString = element.toString();
+       String valString = sketchString(vertex);
        for (int x = 0; x < k; x++) {
            hash = createHash(valString + Integer.toString(x));
            hash = hash % (long)bitSetSize;
@@ -291,9 +291,9 @@ public class BloomFilter implements Serializable {
      * @param element element to check.
      * @return true if the element could have been inserted into the Bloom filter.
      */
-    public boolean contains(String element) {
+    public boolean contains(AbstractVertex vertex) {
        long hash;
-       String valString = element.toString();
+       String valString = sketchString(vertex);
        for (int x = 0; x < k; x++) {
            hash = createHash(valString + Integer.toString(x));
            hash = hash % (long)bitSetSize;
@@ -377,5 +377,17 @@ public class BloomFilter implements Serializable {
      */
     public double getBitsPerElement() {
         return this.bitSetSize / (double)numberOfAddedElements;
+    }
+
+    public String sketchString(AbstractVertex vertex) {
+        String result = "";
+        if ((vertex.getAnnotation("source host")).compareTo(vertex.getAnnotation("destination host")) < 0) {
+            result += vertex.getAnnotation("source host") + vertex.getAnnotation("source port");
+            result += vertex.getAnnotation("destination host") + vertex.getAnnotation("destination port");
+        } else {
+            result += vertex.getAnnotation("destination host") + vertex.getAnnotation("destination port");
+            result += vertex.getAnnotation("source host") + vertex.getAnnotation("source port");
+        }
+        return result;
     }
 }
