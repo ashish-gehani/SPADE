@@ -30,8 +30,7 @@ http://blog.locut.us/2008/01/12/a-decent-stand-alone-java-bloom-filter-implement
 Author: Magnus Skjegstad <magnus@skjegstad.com>
 
 --------------------------------------------------------------------------------
-*/
-
+ */
 package spade.core;
 
 import java.io.Serializable;
@@ -40,7 +39,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.TreeSet;
 
 /*
  * @param <E> Object type that is to be inserted into the Bloom filter, e.g. String or Integer.
@@ -83,7 +81,7 @@ public class MatrixFilter implements Serializable {
         this.filterSetSize = (int) Math.ceil(c * n);
         numberOfAddedElements = 0;
         this.filterSet = new LinkedList<BloomFilter>();
-        for (int i=0; i<this.filterSetSize; i++) {
+        for (int i = 0; i < this.filterSetSize; i++) {
             this.filterSet.add(new BloomFilter(c, n, k));
         }
     }
@@ -114,16 +112,13 @@ public class MatrixFilter implements Serializable {
                 expectedNumberOfElements,
                 (int) Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2)))); // k = ceil(-log_2(false prob.))
     }
-    
+
     public BloomFilter getAllBloomFilters() {
-        BloomFilter result = null;
-        for (int i=0; i<filterSet.size(); i++) {
+        BloomFilter result = new BloomFilter(filtersPerElement, expectedNumberOfElements, k);
+        result.getBitSet().set(0, result.getBitSet().size() - 1, false);
+        for (int i = 0; i < filterSet.size(); i++) {
             BloomFilter currentFilter = filterSet.get(i);
-            if (result == null) {
-                result = currentFilter;
-            } else {
-                result.getBitSet().or(currentFilter.getBitSet());
-            }
+            result.getBitSet().or(currentFilter.getBitSet());
         }
         return result;
     }
@@ -285,7 +280,7 @@ public class MatrixFilter implements Serializable {
         for (int x = 0; x < k; x++) {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
-            filterSet.get(Math.abs((int) hash)).add(sketchString(sourceVertex));
+            filterSet.get(Math.abs((int) hash)).add(sourceVertex);
         }
         numberOfAddedElements++;
     }
@@ -302,18 +297,15 @@ public class MatrixFilter implements Serializable {
     }
 
     public BloomFilter get(AbstractVertex vertex) {
-        BloomFilter result = null;
+        BloomFilter result = new BloomFilter(filtersPerElement, expectedNumberOfElements, k);
+        result.getBitSet().set(0, result.getBitSet().size() - 1, true);
         long hash;
         String valString = sketchString(vertex);
         for (int x = 0; x < k; x++) {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
             BloomFilter tempBloomFilter = filterSet.get(Math.abs((int) hash));
-            if (result == null) {
-                result = tempBloomFilter;
-            } else {
-                result.getBitSet().and(tempBloomFilter.getBitSet());
-            }
+            result.getBitSet().and(tempBloomFilter.getBitSet());
         }
         return result;
     }
@@ -326,13 +318,13 @@ public class MatrixFilter implements Serializable {
      * @param element element to check.
      * @return true if the element could have been inserted into the Bloom filter.
      */
-    public boolean contains(String element) {
+    public boolean contains(AbstractVertex vertex) {
         long hash;
-        String valString = element.toString();
+        String valString = sketchString(vertex);
         for (int x = 0; x < k; x++) {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
-            if (!filterSet.get(Math.abs((int) hash)).contains(element)) {
+            if (!filterSet.get(Math.abs((int) hash)).contains(vertex)) {
                 return false;
             }
         }
@@ -390,15 +382,13 @@ public class MatrixFilter implements Serializable {
     }
 
     public String sketchString(AbstractVertex vertex) {
-        TreeSet<String> sortedStrings = new TreeSet<String>();
-        sortedStrings.add(vertex.getAnnotation("source host"));
-        sortedStrings.add(vertex.getAnnotation("source port"));
-        sortedStrings.add(vertex.getAnnotation("destination host"));
-        sortedStrings.add(vertex.getAnnotation("destination port"));
-        sortedStrings.add(vertex.getAnnotation("time"));
         String result = "";
-        for (String currentPart : sortedStrings) {
-            result += currentPart;
+        if ((vertex.getAnnotation("source host")).compareTo(vertex.getAnnotation("destination host")) < 0) {
+            result += vertex.getAnnotation("source host") + vertex.getAnnotation("source port");
+            result += vertex.getAnnotation("destination host") + vertex.getAnnotation("destination port");
+        } else {
+            result += vertex.getAnnotation("destination host") + vertex.getAnnotation("destination port");
+            result += vertex.getAnnotation("source host") + vertex.getAnnotation("source port");
         }
         return result;
     }

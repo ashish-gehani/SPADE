@@ -19,13 +19,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.sketch;
 
+import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.net.InetAddress;
 import java.util.Map;
 import spade.core.AbstractEdge;
 import spade.core.AbstractSketch;
@@ -57,51 +59,127 @@ public class ConcreteSketch extends AbstractSketch {
                     && incomingEdge.getDestinationVertex().type().equalsIgnoreCase("Network")) {
                 // Connection was created to this host
                 AbstractVertex networkVertex = incomingEdge.getDestinationVertex();
-                String remoteHost = networkVertex.getAnnotation("source host");
-                String storageId = networkVertex.removeAnnotation("stroageId");
+                String remoteHost = networkVertex.getAnnotation("destination host");
+                String localHost = networkVertex.getAnnotation("source host");
                 if (!Kernel.remoteSketches.containsKey(remoteHost)) {
                     // If sketch for remote doesn't exist, fetch it and add it to the local cache
+
+                    ////////////////////////////////////////////////////////////
+                    System.out.println("concreteSketch - Attempting to receive sketches from " + remoteHost);
+                    ////////////////////////////////////////////////////////////
+
                     Socket remoteSocket = new Socket(remoteHost, Kernel.REMOTE_SKETCH_PORT);
-                    String expression = "giveSketch";
+                    OutputStream outStream = remoteSocket.getOutputStream();
+                    InputStream inStream = remoteSocket.getInputStream();
+                    ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);
+                    ObjectInputStream clientObjectInputStream = new ObjectInputStream(inStream);
                     PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
-                    ObjectInputStream graphInputStream = new ObjectInputStream(remoteSocket.getInputStream());
+
+                    String expression = "giveSketch";
                     remoteSocketOut.println(expression);
-                    AbstractSketch tmpSketch = (AbstractSketch) graphInputStream.readObject();
-                    Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) graphInputStream.readObject();
+                    AbstractSketch tmpSketch = (AbstractSketch) clientObjectInputStream.readObject();
+                    Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) clientObjectInputStream.readObject();
                     Kernel.remoteSketches.put(remoteHost, tmpSketch);
-                    receivedSketches.remove(InetAddress.getLocalHost().getHostAddress());
+                    receivedSketches.remove(localHost);
                     Kernel.remoteSketches.putAll(receivedSketches);
+
+                    ////////////////////////////////////////////////////////////
+                    System.out.println("concreteSketch - Received sketches from " + remoteHost);
+                    ////////////////////////////////////////////////////////////
+
+                    remoteSocketOut.println("close");
                     remoteSocketOut.close();
-                    graphInputStream.close();
+                    clientObjectInputStream.close();
+                    clientObjectOutputStream.close();
+                    inStream.close();
+                    outStream.close();
                     remoteSocket.close();
                 }
                 // Update sketch bloom filters
                 BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(networkVertex);
-                Graph descendants = Kernel.query("query Neo4j lineage " + storageId + "d type:* 100", false);
-                for (AbstractVertex currentVertex : descendants.vertexSet()) {
-                    if (currentVertex.type().equalsIgnoreCase("Network")) {
-                        matrixFilter.updateAncestors(currentVertex, newAncestors);
-                    }
+                if (newAncestors != null) {
+                    ////////////////////////////////////////////////////////////
+                    System.out.println("concreteSketch - Found bloomfilter for networkVertex");
+                    ////////////////////////////////////////////////////////////
+                    Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
+                    new Thread(update).start();
                 }
-            /*
             } else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")
                     && incomingEdge.getSourceVertex().type().equalsIgnoreCase("Network")) {
-                // Connection was established by this host
-                AbstractVertex networkVertex = incomingEdge.getDestinationVertex();
-                String remoteHost = networkVertex.getAnnotation("destination host");
-                Socket remoteSocket = new Socket(remoteHost, Kernel.SKETCH_QUERY_PORT);
-                PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
-                ObjectOutputStream remoteSocketObjectOutputStream = new ObjectOutputStream(remoteSocket.getOutputStream());
-                remoteSocketOut.println("receiveSketches");
-                remoteSocketObjectOutputStream.writeObject(Kernel.remoteSketches);
-                remoteSocketObjectOutputStream.close();
-                remoteSocketOut.close();
-                remoteSocket.close();
-             * 
-             */
+                AbstractVertex networkVertex = incomingEdge.getSourceVertex();
+                Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
+                new Thread(update).start();
             }
         } catch (Exception exception) {
             Logger.getLogger(ConcreteSketch.class.getName()).log(Level.SEVERE, null, exception);
+        }
+    }
+}
+
+class updateMatrixThread implements Runnable {
+    
+    private AbstractSketch sketch;
+    private AbstractVertex vertex;
+    private String type;
+
+    public updateMatrixThread(AbstractSketch workingSketch, AbstractVertex networkVertex, String edgeType) {
+        sketch = workingSketch;
+        vertex = networkVertex;
+        type = edgeType;
+    }
+
+    public void run() {
+        String storageId = getStorageId(vertex);
+        if (type.equalsIgnoreCase("Used")) {
+            ////////////////////////////////////////////////////////////
+            System.out.println("concreteSketch - Updating matrixfilter for USED edge for storageId: " + storageId);
+            ////////////////////////////////////////////////////////////
+            String remoteHost = vertex.getAnnotation("destination host");
+            BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(vertex);
+            Graph descendants = Kernel.query("query Neo4j lineage " + storageId + " 20 d null tmp.dot", false);
+            for (AbstractVertex currentVertex : descendants.vertexSet()) {
+                if (currentVertex.type().equalsIgnoreCase("Network")) {
+                    sketch.matrixFilter.updateAncestors(currentVertex, newAncestors);
+                }
+            }
+            ////////////////////////////////////////////////////////////
+            System.out.println("concreteSketch - Updated bloomfilters for USED edge - storageId: " + storageId);
+            ////////////////////////////////////////////////////////////
+        } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
+            ////////////////////////////////////////////////////////////
+            System.out.println("concreteSketch - Updating matrixfilter for WGB edge for storageId: " + storageId);
+            ////////////////////////////////////////////////////////////
+            Graph ancestors = Kernel.query("query Neo4j lineage " + storageId + " 20 a null tmp.dot", false);
+            for (AbstractVertex currentVertex : ancestors.vertexSet()) {
+                if (currentVertex.type().equalsIgnoreCase("Network")) {
+                    sketch.matrixFilter.add(vertex, currentVertex);
+                }
+            }            
+            ////////////////////////////////////////////////////////////
+            System.out.println("concreteSketch - Updated bloomfilters for WGB edge - storageId: " + storageId);
+            ////////////////////////////////////////////////////////////
+        }
+    }
+
+    private String getStorageId(AbstractVertex networkVertex) {
+        try {
+            ////////////////////////////////////////////////////////////
+            System.out.println("concreteSketch - Getting storageId of networkVertex");
+            ////////////////////////////////////////////////////////////
+            String vertexQueryExpression = "query Neo4j vertices";
+            vertexQueryExpression += " source\\ host:" + networkVertex.getAnnotation("source host");
+            vertexQueryExpression += " AND source\\ port:" + networkVertex.getAnnotation("source port");
+            vertexQueryExpression += " AND destination\\ host:" + networkVertex.getAnnotation("destination host");
+            vertexQueryExpression += " AND destination\\ port:" + networkVertex.getAnnotation("destination port");
+            Graph result = Kernel.query(vertexQueryExpression, false);
+            AbstractVertex resultVertex = result.vertexSet().iterator().next();
+            ////////////////////////////////////////////////////////////
+            System.out.println("concreteSketch - Returning storageId: " + resultVertex.getAnnotation("storageId"));
+            ////////////////////////////////////////////////////////////
+            return resultVertex.getAnnotation("storageId");
+        } catch (Exception exception) {
+            Logger.getLogger(ConcreteSketch.class.getName()).log(Level.SEVERE, null, exception);
+            return null;
         }
     }
 }

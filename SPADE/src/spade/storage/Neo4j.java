@@ -146,6 +146,9 @@ public class Neo4j extends AbstractStorage {
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
+            newVertex.setProperty(key, value);
+            vertexIndex.add(newVertex, key, value);
+            /*
             try {
                 Long longValue = Long.parseLong(value);
                 newVertex.setProperty(key, longValue);
@@ -160,9 +163,11 @@ public class Neo4j extends AbstractStorage {
                     vertexIndex.add(newVertex, key, value);
                 }
             }
+             */
         }
         newVertex.setProperty(ID_STRING, newVertex.getId());
-        vertexIndex.add(newVertex, ID_STRING, new ValueContext(newVertex.getId()).indexNumeric());
+        vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+//        vertexIndex.add(newVertex, ID_STRING, new ValueContext(newVertex.getId()).indexNumeric());
         vertexMap.put(incomingVertex.hashCode(), newVertex.getId());
         checkTransactionCount();
         return true;
@@ -190,6 +195,9 @@ public class Neo4j extends AbstractStorage {
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
+            newEdge.setProperty(key, value);
+            edgeIndex.add(newEdge, key, value);
+            /*
             try {
                 Long longValue = Long.parseLong(value);
                 newEdge.setProperty(key, longValue);
@@ -204,9 +212,11 @@ public class Neo4j extends AbstractStorage {
                     edgeIndex.add(newEdge, key, value);
                 }
             }
+             */
         }
         newEdge.setProperty(ID_STRING, newEdge.getId());
-        edgeIndex.add(newEdge, ID_STRING, new ValueContext(newEdge.getId()).indexNumeric());
+        edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+        //edgeIndex.add(newEdge, ID_STRING, new ValueContext(newEdge.getId()).indexNumeric());
 
         checkTransactionCount();
         return true;
@@ -322,7 +332,7 @@ public class Neo4j extends AbstractStorage {
         Node sourceNode = graphDb.getNodeById(Long.parseLong(srcVertexId));
         Node destinationNode = graphDb.getNodeById(Long.parseLong(dstVertexId));
 
-        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.INCOMING), maxLength);
+        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.OUTGOING), maxLength);
 
         for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
             for (Node currentNode : currentPath.nodes()) {
