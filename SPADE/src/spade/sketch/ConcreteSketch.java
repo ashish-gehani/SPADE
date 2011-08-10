@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -73,10 +72,9 @@ public class ConcreteSketch extends AbstractSketch {
                     InputStream inStream = remoteSocket.getInputStream();
                     ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);
                     ObjectInputStream clientObjectInputStream = new ObjectInputStream(inStream);
-                    PrintWriter remoteSocketOut = new PrintWriter(remoteSocket.getOutputStream(), true);
 
-                    String expression = "giveSketch";
-                    remoteSocketOut.println(expression);
+                    clientObjectOutputStream.writeObject("giveSketch");
+                    clientObjectOutputStream.flush();
                     AbstractSketch tmpSketch = (AbstractSketch) clientObjectInputStream.readObject();
                     Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) clientObjectInputStream.readObject();
                     Kernel.remoteSketches.put(remoteHost, tmpSketch);
@@ -87,12 +85,12 @@ public class ConcreteSketch extends AbstractSketch {
                     System.out.println("concreteSketch - Received sketches from " + remoteHost);
                     ////////////////////////////////////////////////////////////
 
-                    remoteSocketOut.println("close");
-                    remoteSocketOut.close();
-                    clientObjectInputStream.close();
+                    clientObjectOutputStream.writeObject("close");
+                    clientObjectOutputStream.flush();
                     clientObjectOutputStream.close();
-                    inStream.close();
+                    clientObjectInputStream.close();
                     outStream.close();
+                    inStream.close();
                     remoteSocket.close();
                 }
                 // Update sketch bloom filters

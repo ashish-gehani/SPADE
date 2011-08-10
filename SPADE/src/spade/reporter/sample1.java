@@ -20,7 +20,7 @@ public class sample1 extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
         Process p1 = new Process();
-        p1.addAnnotation("name", "P1");
+        p1.addAnnotation("pidname", "process1");
         putVertex(p1);
         
         Network n1 = new Network();
@@ -35,7 +35,7 @@ public class sample1 extends AbstractReporter {
         putEdge(wgb);
         
         Artifact a1 = new Artifact();
-        a1.addAnnotation("name", "temp file 1");
+        a1.addAnnotation("filename", "temp file 1");
         putVertex(a1);
         
         WasGeneratedBy wgb2 = new WasGeneratedBy(a1, p1);
