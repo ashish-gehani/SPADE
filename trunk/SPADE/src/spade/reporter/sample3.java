@@ -28,14 +28,14 @@ public class sample3 extends AbstractReporter {
         putVertex(n1);
         
         Process p3 = new Process();
-        p3.addAnnotation("name", "P3");
+        p3.addAnnotation("pidname", "process2");
         putVertex(p3);
         
         Used used = new Used(p3, n1);
         putEdge(used);
 
         Artifact a1 = new Artifact();
-        a1.addAnnotation("name", "temp file 2");
+        a1.addAnnotation("filename", "temp file 2");
         putVertex(a1);
         
         Used used2 = new Used(p3, a1);
