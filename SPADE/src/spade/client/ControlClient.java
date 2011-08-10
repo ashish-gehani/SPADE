@@ -106,12 +106,12 @@ public class ControlClient {
 
             List<Completor> argCompletor1 = new LinkedList<Completor>();
             argCompletor1.add(new SimpleCompletor(new String[]{"add"}));
-            argCompletor1.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
+            argCompletor1.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
             argCompletor1.add(new NullCompletor());
 
             List<Completor> argCompletor2 = new LinkedList<Completor>();
             argCompletor2.add(new SimpleCompletor(new String[]{"remove"}));
-            argCompletor2.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
+            argCompletor2.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
             argCompletor2.add(new NullCompletor());
 
             List<Completor> argCompletor5 = new LinkedList<Completor>();
