@@ -28,7 +28,7 @@ public class sample3 extends AbstractReporter {
         putVertex(n1);
         
         Process p3 = new Process();
-        p3.addAnnotation("pidname", "process2");
+        p3.addAnnotation("pidname", "process3");
         putVertex(p3);
         
         Used used = new Used(p3, n1);
