@@ -38,8 +38,10 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.Iterator;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
@@ -52,6 +54,7 @@ public class Kernel {
     public static Map<String, AbstractSketch> remoteSketches;
     public static final int REMOTE_QUERY_PORT = 60999;
     public static final int REMOTE_SKETCH_PORT = 60998;
+    public static final int TIMEOUT = 5000;
     private static final String configFile = "../cfg/spade.config";
     private static final String queryPipeInputPath = "../dev/queryPipeIn";
     private static final String controlPipeInputPath = "../dev/controlPipeIn";
@@ -573,14 +576,21 @@ public class Kernel {
         System.out.println("rebuildLocalSketch - rebuilding local sketch");
         ////////////////////////////////////////////////////////////////
         query(null, false); // To flush transactions
-        AbstractSketch mySketch = sketches.iterator().next();
-        Set<AbstractEdge> usedEdges = storages.iterator().next().getEdges(null, "type:Network", "type:Used").edgeSet();
-        for (AbstractEdge currentEdge : usedEdges) {
-            mySketch.putEdge(currentEdge);
-        }
-        Set<AbstractEdge> wgbEdges = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").edgeSet();
-        for (AbstractEdge currentEdge : wgbEdges) {
-            mySketch.putEdge(currentEdge);
+        try {
+            AbstractSketch mySketch = sketches.iterator().next();
+            Set<AbstractEdge> usedEdges = storages.iterator().next().getEdges(null, "type:Network", "type:Used").edgeSet();
+            for (AbstractEdge currentEdge : usedEdges) {
+                mySketch.putEdge(currentEdge);
+                Thread.sleep(50);
+            }
+            Thread.sleep(500);
+            Set<AbstractEdge> wgbEdges = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").edgeSet();
+            for (AbstractEdge currentEdge : wgbEdges) {
+                mySketch.putEdge(currentEdge);
+                Thread.sleep(50);
+            }
+        } catch (Exception exception) {
+            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 
@@ -604,34 +614,9 @@ public class Kernel {
             }
             try {
                 String remoteHost = currentVertex.getAnnotation("destination host");
-                Socket remoteSocket = new Socket(remoteHost, REMOTE_SKETCH_PORT);
-                OutputStream outStream = remoteSocket.getOutputStream();
-                InputStream inStream = remoteSocket.getInputStream();
-                ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
-                ObjectInputStream objectInputStream = new ObjectInputStream(inStream);
-
-                ////////////////////////////////////////////////////////////////
-                System.out.println("propagateSketches - propagating to " + remoteHost);
-                ////////////////////////////////////////////////////////////////
-                AbstractSketch mySketch = sketches.iterator().next();
-                String expression = "propagateSketches " + currentLevel + " " + maxLevel;
-                objectOutputStream.writeObject(expression);
-                objectOutputStream.flush();
-                /*
-                objectOutputStream.writeObject(mySketch);
-                objectOutputStream.flush();
-                objectOutputStream.writeObject(remoteSketches);
-                objectOutputStream.flush();
-                 * 
-                 */
-                objectOutputStream.writeObject("close");
-                objectOutputStream.flush();
-
-                objectOutputStream.close();
-                objectInputStream.close();
-                inStream.close();
-                outStream.close();
-                remoteSocket.close();
+                PropagateSketch currentElement = new PropagateSketch(currentLevel, maxLevel, remoteHost);
+                Thread propagateThread = new Thread(currentElement);
+                propagateThread.start();
             } catch (Exception exception) {
                 Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
             }
@@ -661,26 +646,9 @@ public class Kernel {
             }
             try {
                 String remoteHost = currentVertex.getAnnotation("destination host");
-                Socket remoteSocket = new Socket(remoteHost, REMOTE_SKETCH_PORT);
-                OutputStream outStream = remoteSocket.getOutputStream();
-                InputStream inStream = remoteSocket.getInputStream();
-                ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
-                ObjectInputStream objectInputStream = new ObjectInputStream(inStream);
-
-                ////////////////////////////////////////////////////////////////
-                System.out.println("notifyRebuildSketch - notifying " + remoteHost);
-                ////////////////////////////////////////////////////////////////
-                String expression = "notifyRebuildSketches " + currentLevel + " " + maxLevel;
-                objectOutputStream.writeObject(expression);
-                objectOutputStream.flush();
-                objectOutputStream.writeObject("close");
-                objectOutputStream.flush();
-
-                objectOutputStream.close();
-                objectInputStream.close();
-                outStream.close();
-                inStream.close();
-                remoteSocket.close();
+                RebuildSketch currentElement = new RebuildSketch(currentLevel, maxLevel, remoteHost);
+                Thread rebuildThread = new Thread(currentElement);
+                rebuildThread.start();
             } catch (Exception exception) {
                 Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
             }
@@ -803,7 +771,9 @@ public class Kernel {
         Set<AbstractVertex> destinationNetworkVertices = new HashSet<AbstractVertex>();
 
         try {
-            Socket remoteSocket = new Socket(dstHost, REMOTE_QUERY_PORT);
+            SocketAddress sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
+            Socket remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -839,7 +809,9 @@ public class Kernel {
             System.out.println("sketchPaths.1 - received data from " + dstHost);
             ////////////////////////////////////////////////////////////////////
 
-            remoteSocket = new Socket(srcHost, REMOTE_QUERY_PORT);
+            sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
+            remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
             inStream = remoteSocket.getInputStream();
             outStream = remoteSocket.getOutputStream();
             //graphOutputStream = new ObjectOutputStream(outStream);
@@ -897,7 +869,9 @@ public class Kernel {
 
             // Retrieving path ends
             // Retrieve source end
-            remoteSocket = new Socket(srcHost, REMOTE_SKETCH_PORT);
+            sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_SKETCH_PORT);
+            remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
             outStream = remoteSocket.getOutputStream();
             inStream = remoteSocket.getInputStream();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
@@ -922,7 +896,9 @@ public class Kernel {
             ////////////////////////////////////////////////////////////////
 
             // Retrieve destination end
-            remoteSocket = new Socket(dstHost, REMOTE_SKETCH_PORT);
+            sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_SKETCH_PORT);
+            remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
             outStream = remoteSocket.getOutputStream();
             inStream = remoteSocket.getInputStream();
             objectOutputStream = new ObjectOutputStream(outStream);
@@ -951,7 +927,9 @@ public class Kernel {
             ////////////////////////////////////////////////////////////////
             for (int i = 0; i < hostsToContact.size(); i++) {
                 // Connect to each host and send it B's sketch
-                remoteSocket = new Socket(hostsToContact.get(i), REMOTE_SKETCH_PORT);
+                sockaddr = new InetSocketAddress(hostsToContact.get(i), Kernel.REMOTE_SKETCH_PORT);
+                remoteSocket = new Socket();
+                remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
                 outStream = remoteSocket.getOutputStream();
                 inStream = remoteSocket.getInputStream();
                 objectOutputStream = new ObjectOutputStream(outStream);
@@ -1029,7 +1007,9 @@ public class Kernel {
                         queryExpression = queryExpression + tokens[i] + " ";
                     }
                     try {
-                        Socket remoteSocket = new Socket(host, REMOTE_QUERY_PORT);
+                        SocketAddress sockaddr = new InetSocketAddress(host, Kernel.REMOTE_QUERY_PORT);
+                        Socket remoteSocket = new Socket();
+                        remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
                         OutputStream outStream = remoteSocket.getOutputStream();
                         InputStream inStream = remoteSocket.getInputStream();
                         //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -1127,7 +1107,9 @@ public class Kernel {
                         } else {
                             Graph srcGraph = null, dstGraph = null;
 
-                            Socket remoteSocket = new Socket(srcHost, REMOTE_QUERY_PORT);
+                            SocketAddress sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
+                            Socket remoteSocket = new Socket();
+                            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
                             OutputStream outStream = remoteSocket.getOutputStream();
                             InputStream inStream = remoteSocket.getInputStream();
                             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -1146,7 +1128,9 @@ public class Kernel {
                             outStream.close();
                             remoteSocket.close();
 
-                            remoteSocket = new Socket(dstHost, REMOTE_QUERY_PORT);
+                            sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
+                            remoteSocket = new Socket();
+                            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
                             outStream = remoteSocket.getOutputStream();
                             inStream = remoteSocket.getInputStream();
                             //graphOutputStream = new ObjectOutputStream(outStream);
@@ -1219,8 +1203,10 @@ public class Kernel {
         Graph resultGraph = null;
 
         try {
-            // Establish a connection to the remote host                            
-            Socket remoteSocket = new Socket(networkVertex.getAnnotation("destination host"), REMOTE_QUERY_PORT);
+            // Establish a connection to the remote host
+            SocketAddress sockaddr = new InetSocketAddress(networkVertex.getAnnotation("destination host"), Kernel.REMOTE_QUERY_PORT);
+            Socket remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -1852,16 +1838,6 @@ class SketchConnection implements Runnable {
                     int maxLevel = Integer.parseInt(tokens[2]);
                     Kernel.notifyRebuildSketches(currentLevel, maxLevel);
                 } else if (sketchLine.startsWith("propagateSketches")) {
-                    /*
-                    AbstractSketch remoteSketch = (AbstractSketch) clientObjectInputStream.readObject();
-                    String remoteHost = clientSocket.getRemoteSocketAddress().toString();
-                    String localHost = clientSocket.getLocalSocketAddress().toString();
-                    Kernel.remoteSketches.put(remoteHost, remoteSketch);
-                    Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) clientObjectInputStream.readObject();
-                    receivedSketches.remove(localHost);
-                    Kernel.remoteSketches.putAll(receivedSketches);
-                     * 
-                     */
                     String tokens[] = sketchLine.split("\\s+");
                     int currentLevel = Integer.parseInt(tokens[1]);
                     int maxLevel = Integer.parseInt(tokens[2]);
@@ -1880,6 +1856,90 @@ class SketchConnection implements Runnable {
             ////////////////////////////////////////////////////////////////
         } catch (Exception ex) {
             Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+}
+
+class RebuildSketch implements Runnable {
+
+    int currentLevel;
+    int maxLevel;
+    String remoteHost;
+
+    RebuildSketch(int current, int max, String host) {
+        currentLevel = current;
+        maxLevel = max;
+        remoteHost = host;
+    }
+
+    public void run() {
+        try {
+            SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+            Socket remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+            OutputStream outStream = remoteSocket.getOutputStream();
+            InputStream inStream = remoteSocket.getInputStream();
+            ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
+            ObjectInputStream objectInputStream = new ObjectInputStream(inStream);
+
+            ////////////////////////////////////////////////////////////////
+            System.out.println("notifyRebuildSketch - notifying " + remoteHost);
+            ////////////////////////////////////////////////////////////////
+            String expression = "notifyRebuildSketches " + currentLevel + " " + maxLevel;
+            objectOutputStream.writeObject(expression);
+            objectOutputStream.flush();
+            objectOutputStream.writeObject("close");
+            objectOutputStream.flush();
+
+            objectOutputStream.close();
+            objectInputStream.close();
+            outStream.close();
+            inStream.close();
+            remoteSocket.close();
+        } catch (Exception exception) {
+            Logger.getLogger(RebuildSketch.class.getName()).log(Level.SEVERE, null, exception);
+        }
+    }
+}
+
+class PropagateSketch implements Runnable {
+
+    int currentLevel;
+    int maxLevel;
+    String remoteHost;
+
+    PropagateSketch(int current, int max, String host) {
+        currentLevel = current;
+        maxLevel = max;
+        remoteHost = host;
+    }
+
+    public void run() {
+        try {
+            SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+            Socket remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+            OutputStream outStream = remoteSocket.getOutputStream();
+            InputStream inStream = remoteSocket.getInputStream();
+            ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
+            ObjectInputStream objectInputStream = new ObjectInputStream(inStream);
+
+            ////////////////////////////////////////////////////////////////
+            System.out.println("propagateSketches - propagating to " + remoteHost);
+            ////////////////////////////////////////////////////////////////
+            String expression = "propagateSketches " + currentLevel + " " + maxLevel;
+            objectOutputStream.writeObject(expression);
+            objectOutputStream.flush();
+            objectOutputStream.writeObject("close");
+            objectOutputStream.flush();
+
+            objectOutputStream.close();
+            objectInputStream.close();
+            inStream.close();
+            outStream.close();
+            remoteSocket.close();
+        } catch (Exception exception) {
+            Logger.getLogger(PropagateSketch.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 }
