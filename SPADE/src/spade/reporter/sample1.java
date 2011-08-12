@@ -26,7 +26,7 @@ public class sample1 extends AbstractReporter {
         Network n1 = new Network();
         n1.addAnnotation("source host", "planetlab-02.cs.princeton.edu");
         n1.addAnnotation("source port", "22");
-        n1.addAnnotation("destination host", "planetlab-03.cs.princeton.edu");
+        n1.addAnnotation("destination host", "planetlab02.cs.washington.edu");
         n1.addAnnotation("destination port", "22");
         n1.addAnnotation("time", (new Date()).toString());
         putVertex(n1);
