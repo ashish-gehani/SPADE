@@ -43,6 +43,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Iterator;
+import java.util.Vector;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -52,8 +53,8 @@ public class Kernel {
 
     public static final String SOURCE_REPORTER = "source_reporter";
     public static Map<String, AbstractSketch> remoteSketches;
-    public static final int REMOTE_QUERY_PORT = 60999;
-    public static final int REMOTE_SKETCH_PORT = 60998;
+    public static final int REMOTE_QUERY_PORT = 28999;
+    public static final int REMOTE_SKETCH_PORT = 28998;
     public static final int TIMEOUT = 5000;
     private static final String configFile = "../cfg/spade.config";
     private static final String queryPipeInputPath = "../dev/queryPipeIn";
@@ -637,9 +638,16 @@ public class Kernel {
         ////////////////////////////////////////////////////////////////
         System.out.println("notifyRebuildSketch - sending rebuild notifications");
         ////////////////////////////////////////////////////////////////
-        currentLevel--;
         query(null, false); // To flush transactions
         Set<AbstractVertex> upVertices = storages.iterator().next().getEdges(null, "type:Network", "type:Used").vertexSet();
+        if (upVertices.isEmpty()) {
+            ////////////////////////////////////////////////////////////////
+            System.out.println("notifyRebuildSketch - no more notification to send, beginning propagation");
+            ////////////////////////////////////////////////////////////////
+            propagateSketches(currentLevel, maxLevel);
+            return;            
+        }
+        currentLevel--;
         for (AbstractVertex currentVertex : upVertices) {
             if (!currentVertex.type().equalsIgnoreCase("Network")) {
                 continue;
@@ -869,6 +877,15 @@ public class Kernel {
 
             // Retrieving path ends
             // Retrieve source end
+            List<Graph> graphResults = new Vector<Graph>();
+            List<Thread> pathThreads = new LinkedList<Thread>();
+            
+            PathFragment srcFragment = new PathFragment(srcHost, "pathFragment_src", graphResults);
+            Thread srcFragmentThread = new Thread(srcFragment);
+            pathThreads.add(srcFragmentThread);
+            srcFragmentThread.start();
+
+            /*
             sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_SKETCH_PORT);
             remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -892,10 +909,17 @@ public class Kernel {
             remoteSocket.close();
             result = Graph.union(result, tempResultGraph);
             ////////////////////////////////////////////////////////////////
-            System.out.println("sketchPaths.3 - received source path fragment from " + srcHost);
+            System.out.println("sketchPaths.3-1 - received source path fragment from " + srcHost);
             ////////////////////////////////////////////////////////////////
+             * 
+             */
 
             // Retrieve destination end
+            PathFragment dstFragment = new PathFragment(dstHost, "pathFragment_dst", graphResults);
+            Thread dstFragmentThread = new Thread(dstFragment);
+            pathThreads.add(dstFragmentThread);
+            dstFragmentThread.start();
+            /*
             sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_SKETCH_PORT);
             remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -919,14 +943,21 @@ public class Kernel {
             remoteSocket.close();
             result = Graph.union(result, tempResultGraph);
             ////////////////////////////////////////////////////////////////
-            System.out.println("sketchPaths.3 - received end path fragment from " + dstHost);
+            System.out.println("sketchPaths.3-2 - received end path fragment from " + dstHost);
             ////////////////////////////////////////////////////////////////
+             * 
+             */
 
             ////////////////////////////////////////////////////////////////
             System.out.println("sketchPaths.3 - contacting " + hostsToContact.size() + " hosts");
             ////////////////////////////////////////////////////////////////
             for (int i = 0; i < hostsToContact.size(); i++) {
                 // Connect to each host and send it B's sketch
+                PathFragment midFragment = new PathFragment(hostsToContact.get(i), "pathFragment_mid", graphResults);
+                Thread midFragmentThread = new Thread(midFragment);
+                pathThreads.add(midFragmentThread);
+                midFragmentThread.start();
+                /*
                 sockaddr = new InetSocketAddress(hostsToContact.get(i), Kernel.REMOTE_SKETCH_PORT);
                 remoteSocket = new Socket();
                 remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -954,13 +985,27 @@ public class Kernel {
                 // Add this fragment to the result
                 result = Graph.union(result, tempResultGraph);
                 ////////////////////////////////////////////////////////////////
-                System.out.println("sketchPaths.3 - received path fragment from " + hostsToContact.get(i));
+                System.out.println("sketchPaths.3-3 - received path fragment from " + hostsToContact.get(i));
                 ////////////////////////////////////////////////////////////////
+                 * 
+                 */
             }
-
+            
+            for (int i=0; i<pathThreads.size(); i++) {
+                pathThreads.get(i).join();
+            }
+            
+            for (int i=0; i<graphResults.size(); i++) {
+                result = Graph.union(result, graphResults.get(i));
+            }
+            
         } catch (Exception exception) {
             Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
         }
+        
+        ////////////////////////////////////////////////////////////////
+        System.out.println("sketchPaths.4 - finished building path from fragments");
+        ////////////////////////////////////////////////////////////////
 
         transformNetworkBoundaries(result);
         return result;
@@ -1940,6 +1985,51 @@ class PropagateSketch implements Runnable {
             remoteSocket.close();
         } catch (Exception exception) {
             Logger.getLogger(PropagateSketch.class.getName()).log(Level.SEVERE, null, exception);
+        }
+    }
+}
+
+class PathFragment implements Runnable {
+
+    String remoteHost;
+    String pathFragment;
+    List<Graph> graphResults;
+
+    PathFragment(String host, String fragment, List<Graph> results) {
+        remoteHost = host;
+        pathFragment = fragment;
+        graphResults = results;
+    }
+
+    public void run() {
+        try {
+            SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+            Socket remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+            OutputStream outStream = remoteSocket.getOutputStream();
+            InputStream inStream = remoteSocket.getInputStream();
+            ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
+            ObjectInputStream objectInputStream = new ObjectInputStream(inStream);
+            // Send the sketch
+            objectOutputStream.writeObject(pathFragment);
+            objectOutputStream.flush();
+            objectOutputStream.writeObject(Kernel.sketches.iterator().next());
+            objectOutputStream.flush();
+            // Receive the graph fragment
+            Graph tempResultGraph = (Graph) objectInputStream.readObject();
+            objectOutputStream.writeObject("close");
+            objectOutputStream.flush();
+            objectOutputStream.close();
+            objectInputStream.close();
+            inStream.close();
+            outStream.close();
+            remoteSocket.close();
+            ////////////////////////////////////////////////////////////////
+            System.out.println("PathFragment - received path fragment from " + remoteHost);
+            ////////////////////////////////////////////////////////////////
+            graphResults.add(tempResultGraph);
+        } catch (Exception exception) {
+            Logger.getLogger(PathFragment.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 }

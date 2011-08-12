@@ -20,9 +20,9 @@ public class sample3 extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
         Network n1 = new Network();
-        n1.addAnnotation("source host", "planetlab-04.cs.princeton.edu");
+        n1.addAnnotation("source host", "planetlab03.cs.washington.edu");
         n1.addAnnotation("source port", "22");
-        n1.addAnnotation("destination host", "planetlab-03.cs.princeton.edu");
+        n1.addAnnotation("destination host", "planetlab02.cs.washington.edu");
         n1.addAnnotation("destination port", "22");
         n1.addAnnotation("time", (new Date()).toString());
         putVertex(n1);
