@@ -19,6 +19,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.storage;
 
+import static org.neo4j.kernel.Config.ALLOW_STORE_UPGRADE;
+
 import spade.core.AbstractStorage;
 import spade.core.Graph;
 import spade.core.AbstractEdge;
@@ -76,7 +78,7 @@ public class Neo4j extends AbstractStorage {
             if (arguments == null) {
                 return false;
             }
-            graphDb = new EmbeddedGraphDatabase(arguments);
+            graphDb = new EmbeddedGraphDatabase(arguments, MapUtil.stringMap(ALLOW_STORE_UPGRADE, "true"));
             transactionCount = 0;
             flushCount = 0;
             vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
@@ -150,18 +152,18 @@ public class Neo4j extends AbstractStorage {
             vertexIndex.add(newVertex, key, value);
             /*
             try {
-                Long longValue = Long.parseLong(value);
-                newVertex.setProperty(key, longValue);
-                vertexIndex.add(newVertex, key, new ValueContext(longValue).indexNumeric());
+            Long longValue = Long.parseLong(value);
+            newVertex.setProperty(key, longValue);
+            vertexIndex.add(newVertex, key, new ValueContext(longValue).indexNumeric());
             } catch (Exception parseLongException) {
-                try {
-                    Double doubleValue = Double.parseDouble(value);
-                    newVertex.setProperty(key, doubleValue);
-                    vertexIndex.add(newVertex, key, new ValueContext(doubleValue).indexNumeric());
-                } catch (Exception parseDoubleException) {
-                    newVertex.setProperty(key, value);
-                    vertexIndex.add(newVertex, key, value);
-                }
+            try {
+            Double doubleValue = Double.parseDouble(value);
+            newVertex.setProperty(key, doubleValue);
+            vertexIndex.add(newVertex, key, new ValueContext(doubleValue).indexNumeric());
+            } catch (Exception parseDoubleException) {
+            newVertex.setProperty(key, value);
+            vertexIndex.add(newVertex, key, value);
+            }
             }
              */
         }
@@ -199,18 +201,18 @@ public class Neo4j extends AbstractStorage {
             edgeIndex.add(newEdge, key, value);
             /*
             try {
-                Long longValue = Long.parseLong(value);
-                newEdge.setProperty(key, longValue);
-                edgeIndex.add(newEdge, key, new ValueContext(longValue).indexNumeric());
+            Long longValue = Long.parseLong(value);
+            newEdge.setProperty(key, longValue);
+            edgeIndex.add(newEdge, key, new ValueContext(longValue).indexNumeric());
             } catch (Exception parseLongException) {
-                try {
-                    Double doubleValue = Double.parseDouble(value);
-                    newEdge.setProperty(key, doubleValue);
-                    edgeIndex.add(newEdge, key, new ValueContext(doubleValue).indexNumeric());
-                } catch (Exception parseDoubleException) {
-                    newEdge.setProperty(key, value);
-                    edgeIndex.add(newEdge, key, value);
-                }
+            try {
+            Double doubleValue = Double.parseDouble(value);
+            newEdge.setProperty(key, doubleValue);
+            edgeIndex.add(newEdge, key, new ValueContext(doubleValue).indexNumeric());
+            } catch (Exception parseDoubleException) {
+            newEdge.setProperty(key, value);
+            edgeIndex.add(newEdge, key, value);
+            }
             }
              */
         }

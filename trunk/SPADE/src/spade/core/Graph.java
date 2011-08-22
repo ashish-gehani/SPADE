@@ -35,11 +35,13 @@ public class Graph implements Serializable {
     private Set<AbstractVertex> vertexSet;
     private Set<AbstractEdge> edgeSet;
     private Map<AbstractVertex, Integer> networkMap;
+    public boolean transformed;
 
     public Graph() {
         vertexSet = new HashSet<AbstractVertex>();
         edgeSet = new HashSet<AbstractEdge>();
         networkMap = new HashMap<AbstractVertex, Integer>();
+        transformed = false;
     }
 
     public void putNetworkVertex(AbstractVertex inputVertex, int depth) {

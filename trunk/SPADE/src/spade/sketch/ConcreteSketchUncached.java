@@ -38,12 +38,13 @@ import spade.core.MatrixFilter;
 import spade.core.BloomFilter;
 import spade.core.Graph;
 
-public class ConcreteSketch extends AbstractSketch {
+
+public class ConcreteSketchUncached extends AbstractSketch {
 
     private static final double falsePositiveProbability = 0.1;
     private static final int expectedSize = 20;
 
-    public ConcreteSketch() {
+    public ConcreteSketchUncached() {
         matrixFilter = new MatrixFilter(falsePositiveProbability, expectedSize);
         objects = new HashMap<String, Object>();
     }
@@ -62,7 +63,7 @@ public class ConcreteSketch extends AbstractSketch {
                 AbstractVertex networkVertex = incomingEdge.getDestinationVertex();
                 String remoteHost = networkVertex.getAnnotation("destination host");
                 String localHost = networkVertex.getAnnotation("source host");
-                if (!Kernel.remoteSketches.containsKey(remoteHost)) {
+                //if (!Kernel.remoteSketches.containsKey(remoteHost)) {
                     // If sketch for remote doesn't exist, fetch it and add it to the local cache
 
                     ////////////////////////////////////////////////////////////
@@ -96,35 +97,34 @@ public class ConcreteSketch extends AbstractSketch {
                     outStream.close();
                     inStream.close();
                     remoteSocket.close();
-                }
+                //}
                 // Update sketch bloom filters
                 BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(networkVertex);
                 if (newAncestors != null) {
                     ////////////////////////////////////////////////////////////
                     System.out.println("concreteSketch - Found bloomfilter for networkVertex");
                     ////////////////////////////////////////////////////////////
-                    Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
+                    Runnable update = new updateMatrixThreadUncached(this, networkVertex, incomingEdge.type());
                     new Thread(update).start();
                 }
             } else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")
                     && incomingEdge.getSourceVertex().type().equalsIgnoreCase("Network")) {
                 AbstractVertex networkVertex = incomingEdge.getSourceVertex();
-                Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
+                Runnable update = new updateMatrixThreadUncached(this, networkVertex, incomingEdge.type());
                 new Thread(update).start();
             }
         } catch (Exception exception) {
-            Logger.getLogger(ConcreteSketch.class.getName()).log(Level.SEVERE, null, exception);
+            Logger.getLogger(ConcreteSketchUncached.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 }
-
-class updateMatrixThread implements Runnable {
+class updateMatrixThreadUncached implements Runnable {
     
     private AbstractSketch sketch;
     private AbstractVertex vertex;
     private String type;
 
-    public updateMatrixThread(AbstractSketch workingSketch, AbstractVertex networkVertex, String edgeType) {
+    public updateMatrixThreadUncached(AbstractSketch workingSketch, AbstractVertex networkVertex, String edgeType) {
         sketch = workingSketch;
         vertex = networkVertex;
         type = edgeType;
@@ -180,7 +180,7 @@ class updateMatrixThread implements Runnable {
             ////////////////////////////////////////////////////////////
             return resultVertex.getAnnotation("storageId");
         } catch (Exception exception) {
-            Logger.getLogger(ConcreteSketch.class.getName()).log(Level.SEVERE, null, exception);
+            Logger.getLogger(ConcreteSketchUncached.class.getName()).log(Level.SEVERE, null, exception);
             return null;
         }
     }
