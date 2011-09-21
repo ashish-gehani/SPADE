@@ -22,16 +22,26 @@ package spade.core;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+/** This is the buffer class which is used by reporters to send provenance elements to.
+ * 
+ * @author Dawood
+ */
 public class Buffer {
 
-    // The buffer is essentially a queue to which vertices and edges are
-    // added by the reporters and removed by the Kernel.
     private Queue<Object> queue;
 
+    /** Empty constructor for this class.
+     * 
+     */
     public Buffer() {
         queue = new ConcurrentLinkedQueue<Object>();
     }
 
+    /** This method is called by the reporter to send vertices to this buffer.
+     * 
+     * @param incomingVertex The vertex to be received by this buffer.
+     * @return True if the buffer was successfully added to the buffer.
+     */
     public boolean putVertex(AbstractVertex incomingVertex) {
         if (incomingVertex != null) {
             return queue.add(incomingVertex);
@@ -40,6 +50,11 @@ public class Buffer {
         }
     }
 
+    /** This method is called by the reporter to send edges to this buffer.
+     * 
+     * @param incomingEdge The edge to be received by this buffer.
+     * @return True if the edge was successfully added to the buffer.
+     */
     public boolean putEdge(AbstractEdge incomingEdge) {
         if ((incomingEdge != null)
                 && (incomingEdge.getSourceVertex() != null)
@@ -51,10 +66,18 @@ public class Buffer {
         }
     }
 
+    /** This method is used to extract provenance elements from the buffer.
+     * 
+     * @return The provenance element from the head of the queue.
+     */
     public Object getBufferElement() {
         return queue.poll();
     }
 
+    /** This method is used to determine whether the buffer is empty or not.
+     * 
+     * @return True if the buffer is empty.
+     */
     public boolean isEmpty() {
         return queue.isEmpty();
     }

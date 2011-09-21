@@ -23,8 +23,17 @@ import spade.core.AbstractEdge;
 import spade.opm.vertex.Artifact;
 import java.util.LinkedHashMap;
 
+/** WasDerivedFrom edge based on the OPM model.
+ * 
+ * @author Dawood
+ */
 public class WasDerivedFrom extends AbstractEdge {
 
+    /** Constructor for Artifact->Artifact edge
+     * 
+     * @param sourceArtifact Source artifact vertex
+     * @param destinationArtifact Destination artifact vertex
+     */
     public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact) {
         setSourceVertex(sourceArtifact);
         setDestinationVertex(destinationArtifact);

@@ -50,6 +50,10 @@ import org.neo4j.helpers.collection.MapUtil;
 import org.neo4j.index.lucene.ValueContext;
 import org.neo4j.kernel.Traversal;
 
+/** Neo4j storage implementation.
+ * 
+ * @author Dawood
+ */
 public class Neo4j extends AbstractStorage {
 
     private final int TRANSACTION_LIMIT = 1000;

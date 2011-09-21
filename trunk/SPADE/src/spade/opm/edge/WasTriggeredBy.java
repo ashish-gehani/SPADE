@@ -23,8 +23,17 @@ import spade.core.AbstractEdge;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 
+/** WasTriggeredBy edge based on the OPM model.
+ * 
+ * @author Dawood
+ */
 public class WasTriggeredBy extends AbstractEdge {
 
+    /** Constructor for Process->Process edge
+     * 
+     * @param triggeredProcess Triggered process vertex
+     * @param callingProcess Calling process vertex
+     */
     public WasTriggeredBy(Process triggeredProcess, Process callingProcess) {
         setSourceVertex(triggeredProcess);
         setDestinationVertex(callingProcess);

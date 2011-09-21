@@ -23,13 +23,24 @@ import spade.core.AbstractVertex;
 import java.util.Map;
 import java.util.LinkedHashMap;
 
+/** Process vertex based on the OPM model
+ * 
+ * @author Dawood
+ */
 public class Process extends AbstractVertex {
 
+    /** Constructor for this vertex that takes a map of annotations.
+     * 
+     * @param inputAnnotations The map of annotations to be set for this vertex.
+     */
     public Process(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
         this.addAnnotation("type", "Process");
     }
 
+    /** Empty constructor - initializes an empty map for annotations.
+     * 
+     */
     public Process() {
         this.setAnnotations(new LinkedHashMap<String, String>());
         this.addAnnotation("type", "Process");

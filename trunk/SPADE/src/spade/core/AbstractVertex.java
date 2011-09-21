@@ -22,33 +22,68 @@ package spade.core;
 import java.io.Serializable;
 import java.util.Map;
 
+/** This is the class from which other vertex classes (e.g., OPM vertices) are derived.
+ * 
+ * @author Dawood
+ */
 public abstract class AbstractVertex implements Serializable {
 
-    // The AbstractVertex class is from which other vertex classes (e.g., OPM
-    // vertices) are derived.
+    /** A map containing the annotations for this vertex.
+     * 
+     */
     protected Map<String, String> annotations;
+    /**
+     * 
+     */
     public Graph resultGraph;
 
+    /** Returns the map containing the annotations for this vertex.
+     * 
+     * @return The map containing the annotations.
+     */
     public final Map<String, String> getAnnotations() {
         return annotations;
     }
 
+    /** Sets the annotations for this vertex.
+     * 
+     * @param annotations A map that is to be set as annotations for this vertex.
+     */
     public final void setAnnotations(Map<String, String> annotations) {
         this.annotations = annotations;
     }
 
+    /** Adds an annotation.
+     * 
+     * @param key The annotation key.
+     * @param value The annotation value.
+     */
     public final void addAnnotation(String key, String value) {
         annotations.put(key, value);
     }
 
+    /** Removes an annotation.
+     * 
+     * @param key The annotation key to be removed.
+     * @return The annotation that is removed, or null of no such annotation key existed.
+     */
     public final String removeAnnotation(String key) {
         return annotations.remove(key);
     }
 
+    /** Gets an annotation.
+     * 
+     * @param key The annotation key.
+     * @return The value of the annotation corresponding to the key.
+     */
     public final String getAnnotation(String key) {
         return annotations.get(key);
     }
 
+    /** Gets the type of this vertex.
+     * 
+     * @return A string indicating the type of this vertex.
+     */
     public final String type() {
         return annotations.get("type");
     }

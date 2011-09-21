@@ -22,9 +22,17 @@ package spade.core;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/** A general-purpose, semantic-agnostic implementation of the Edge class.
+ * 
+ * @author Dawood
+ */
 public class Edge extends AbstractEdge {
 
-    // A general-purpose, semantic-agnostic implementation of the Edge class.
+    /** Constructor taking only the source and destination vertices.
+     * 
+     * @param sourceVertex Source vertex
+     * @param destinationVertex Destination vertex
+     */
     public Edge(Vertex sourceVertex, Vertex destinationVertex) {
         setSourceVertex(sourceVertex);
         setDestinationVertex(destinationVertex);
@@ -32,6 +40,12 @@ public class Edge extends AbstractEdge {
         addAnnotation("type", "Edge");
     }
 
+    /** Constructor taking the source and destination vertices as well as the map of annotations.
+     * 
+     * @param sourceVertex Source vertex
+     * @param destinationVertex Destination vertex
+     * @param inputAnnotations Map of annotations
+     */
     public Edge(Vertex sourceVertex, Vertex destinationVertex, Map<String, String> inputAnnotations) {
         setSourceVertex(sourceVertex);
         setDestinationVertex(destinationVertex);
