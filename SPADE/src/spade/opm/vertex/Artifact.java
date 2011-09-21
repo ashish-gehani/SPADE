@@ -23,13 +23,24 @@ import spade.core.AbstractVertex;
 import java.util.Map;
 import java.util.LinkedHashMap;
 
+/** Artifact vertex based on the OPM model
+ * 
+ * @author Dawood
+ */
 public class Artifact extends AbstractVertex {
 
+    /** Constructor for this vertex that takes a map of annotations.
+     * 
+     * @param inputAnnotations The map of annotations to be set for this vertex.
+     */
     public Artifact(Map<String, String> inputAnnotations) {
         this.setAnnotations(inputAnnotations);
         this.addAnnotation("type", "Artifact");
     }
 
+    /** Empty constructor - initializes an empty map for annotations.
+     * 
+     */
     public Artifact() {
         this.setAnnotations(new LinkedHashMap<String, String>());
         this.addAnnotation("type", "Artifact");

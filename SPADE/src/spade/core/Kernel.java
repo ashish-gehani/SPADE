@@ -82,7 +82,7 @@ public class Kernel {
     public static void main(String args[]) {
 
         try {
-            // Configuring the global logger
+            // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
             Handler logFileHandler = new FileHandler("../log/" + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
@@ -136,7 +136,8 @@ public class Kernel {
                             // The shutdown process is also partially handled by this thread. On
                             // shutdown, all reporters are marked for removal so that their buffers
                             // are cleanly flushed and no data is lost. When a buffer becomes empty,
-                            // it is removed along with its corresponding reporter.
+                            // it is removed along with its corresponding reporter. When all buffers
+                            // become empty, this thread terminates.
                             for (Iterator iterator = buffers.entrySet().iterator(); iterator.hasNext();) {
                                 Map.Entry currentEntry = (Map.Entry) iterator.next();
                                 Buffer tempBuffer = (Buffer) currentEntry.getValue();
@@ -160,6 +161,8 @@ public class Kernel {
                             flushTransactions = false;
                         }
                         if (!removestorages.isEmpty()) {
+                            // Check if a storage is marked for removal. If it is, shut it down and
+                            // remove it from the list.
                             for (Iterator iterator = removestorages.iterator(); iterator.hasNext();) {
                                 AbstractStorage currentStorage = (AbstractStorage) iterator.next();
                                 currentStorage.shutdown();
@@ -167,6 +170,10 @@ public class Kernel {
                             }
                         }
                         for (Iterator iterator = buffers.entrySet().iterator(); iterator.hasNext();) {
+                            // This loop performs the actual task of committing provenance data to
+                            // the storages. Each reporter is selected and the nested loop is used to
+                            // extract buffer elements in a batch manner for increased efficiency.
+                            // The elements are then passed to the filter list.
                             Map.Entry currentEntry = (Map.Entry) iterator.next();
                             AbstractReporter reporter = (AbstractReporter) currentEntry.getKey();
                             for (int i = 0; i < BATCH_BUFFER_ELEMENTS; i++) {
@@ -206,9 +213,11 @@ public class Kernel {
 
             public void run() {
                 try {
+                    // The control input and output pipes are created.
                     int exitValue1 = Runtime.getRuntime().exec("mkfifo " + controlPipeInputPath).waitFor();
                     int exitValue2 = Runtime.getRuntime().exec("mkfifo " + controlPipeOutputPath).waitFor();
                     if (exitValue1 == 0 && exitValue2 == 0) {
+                        // Verify that the pipe creation was successful and proceed.
                         configCommand("config load " + configFile, NullStream.out);
                         BufferedReader controlInputStream = new BufferedReader(new FileReader(controlPipeInputPath));
                         PrintStream controlOutputStream = new PrintStream(new FileOutputStream(controlPipeOutputPath));
@@ -216,11 +225,14 @@ public class Kernel {
                         System.setOut(controlOutputStream);
                         System.setErr(controlOutputStream);
                         while (true) {
+                            // Commands read from the input stream and executed.
                             if (controlInputStream.ready()) {
                                 String line = controlInputStream.readLine();
                                 if ((line != null) && (executeCommand(line, controlOutputStream) == false)) {
                                     break;
                                 }
+                                // An empty line is printed to let the client know that the
+                                // command output is complete.
                                 controlOutputStream.println("");
                             }
                             Thread.sleep(COMMAND_THREAD_SLEEP_DELAY);
@@ -240,8 +252,10 @@ public class Kernel {
 
             public void run() {
                 try {
+                    // Create the query pipe.
                     int exitValue = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
                     if (exitValue == 0) {
+                        // Verify that the pipe creation was successful and proceed.
                         BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
                         while (!shutdown) {
                             if (queryInputStream.ready()) {
@@ -262,6 +276,8 @@ public class Kernel {
                                         } else {
                                             showQueryCommands(queryOutputStream);
                                         }
+                                        // An empty line is printed to let the client know that the query
+                                        // output is complete.
                                         queryOutputStream.println("");
                                         queryOutputStream.close();
                                     } catch (Exception exception) {
@@ -278,6 +294,9 @@ public class Kernel {
         };
         new Thread(queryThread, "queryThread").start();
 
+        // This thread creates a server socket for remote querying. When a query connection
+        // is established, another new thread is created for that connection object. The
+        // remote query server is therefore a multithreaded server.
         Runnable remoteThread = new Runnable() {
 
             public void run() {
@@ -296,6 +315,9 @@ public class Kernel {
         };
         new Thread(remoteThread, "remoteThread").start();
 
+        // This thread creates a server socket for remote sketches. When a sketch connection
+        // is established, another new thread is created for that connection object. The
+        // remote sketch server is therefore a multithreaded server.
         Runnable sketchThread = new Runnable() {
 
             public void run() {
@@ -369,6 +391,7 @@ public class Kernel {
     public static void configCommand(String line, PrintStream outputStream) {
         String[] tokens = line.split("\\s+");
         try {
+            // Determine whether the command is a load or a save.
             if (tokens[1].equalsIgnoreCase("load")) {
                 BufferedReader configReader = new BufferedReader(new FileReader(tokens[2]));
                 String configLine;
@@ -377,6 +400,7 @@ public class Kernel {
                 }
                 outputStream.println("Finished loading configuration file");
             } else if (tokens[1].equalsIgnoreCase("save")) {
+                // If the command is save, then write the current configuration.
                 outputStream.print("Saving configuration... ");
                 FileWriter configWriter = new FileWriter(tokens[2], false);
                 for (int i = 0; i < filters.size() - 1; i++) {
@@ -404,6 +428,9 @@ public class Kernel {
     }
 
     public static Graph getEndPathFragment(AbstractSketch inputSketch, String end) {
+        // Given a remote sketch, this method returns an ending path fragment from the
+        // local graph database.
+        
         Graph result = new Graph();
 
         String line = (String) inputSketch.objects.get("queryLine");
@@ -415,11 +442,25 @@ public class Kernel {
         ////////////////////////////////////////////////////////////////////
         System.out.println("endPathFragment - generating end path fragment");
         ////////////////////////////////////////////////////////////////////
+        // First, store the local network vertices in a set because they will be
+        // used later.
         Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
         MatrixFilter myMatrixFilter = sketches.iterator().next().matrixFilter;
 
         if (end.equals("src")) {
+            // If a 'src' end is requested, then the following is done to generate the
+            // path fragment:
+            //
+            // 1) For each 'source vertex' in the received sketch, use the matrix filter
+            //    to get the bloom filter containing its ancestors.
+            // 2) For each local network vertex, check if it is contained in this bloom
+            //    filter. If yes, add it to the set of matching vertices.
+            // 3) Finally, get all paths between the source vertex id and each vertex in
+            //    the set of matching vertices.
+            // 4) Each of these paths is union'd to generate the final resulting graph
+            //    fragment.
+            
             // Current host's network vertices that match downward
             Set<AbstractVertex> matchingVerticesUp = new HashSet<AbstractVertex>();
             ////////////////////////////////////////////////////////////////////
@@ -450,6 +491,19 @@ public class Kernel {
                 }
             }
         } else if (end.equals("dst")) {
+            // If a 'dst' end is requested, then the following is done to generate the
+            // path fragment:
+            //
+            // 1) For each local network vertex, use the local matrix filter to get its
+            //    bloom filter.
+            // 2) For each 'destination vertex' in the received sketch, check if it is
+            //    contained in this bloom filter. If yes, add it to the set of matching
+            //    vertices.
+            // 3) Finally, get all paths between the destination vertex id and each vertex
+            //    in the set of matching vertices.
+            // 4) Each of these paths is union'd to generate the final resulting graph
+            //    fragment.
+
             // Current host's network vertices that match upward
             Set<AbstractVertex> matchingVerticesDown = new HashSet<AbstractVertex>();
             ////////////////////////////////////////////////////////////////////
@@ -490,6 +544,22 @@ public class Kernel {
 
     public static Graph getPathFragment(AbstractSketch inputSketch) {
         Graph result = new Graph();
+        // Given a remote sketch, this method is used to generate the path fragment.
+        // The following is done:
+        //
+        // 1) For each 'source vertex' in the received sketch, get its bloom filter.
+        // 2) For each local network vertex, check if it is contained in this bloom
+        //    filter. If yes, add it to the set of upward-matching vertices.
+        // 3) For each local network vertex in the local sketch, get its bloom filter.
+        // 4) For each 'destination vertex' in the received sketch, check if is 
+        //    contained in this bloom filter. If yes, add it to the set of
+        //    downward-matching vertices.
+        // 5) We are only interested in the vertices that lie in both the
+        //    upward-matching and downward-matching since that is indicative of them
+        //    being in the desired path. Therefore, get the intersection of these
+        //    two sets as 'matching vertices'.
+        // 6) Get paths between all pairs of vertices in the set 'matching vertices'
+        //    and union all the paths to get the final path fragment for this host.
 
         ////////////////////////////////////////////////////////////////////
         System.out.println("pathFragment.a - generating path fragment");
@@ -573,6 +643,14 @@ public class Kernel {
     }
 
     public static void rebuildLocalSketch() {
+        // This method is used to rebuild the local sketch. All the 'used' edges
+        // are added to the sketch before the 'wasgeneratedby' edges. This is
+        // because of the pull-based architecture of the sketch which requests
+        // remote sketches on a 'used' edge. The updated bloom filters are then
+        // reflected in subsequent 'wasgeneratedby' edges. The delay (Thread.sleep)
+        // is used to ensure that the remote sketches have been updated on the
+        // incoming 'used' edges.
+        
         ////////////////////////////////////////////////////////////////
         System.out.println("rebuildLocalSketch - rebuilding local sketch");
         ////////////////////////////////////////////////////////////////
@@ -596,7 +674,9 @@ public class Kernel {
     }
 
     public static void propagateSketches(int currentLevel, int maxLevel) {
+        // First, rebuild the local sketch.
         rebuildLocalSketch();
+        // If the maximum propagation level is reached, terminate propagation.
         if (currentLevel == maxLevel) {
             ////////////////////////////////////////////////////////////////
             System.out.println("propagateSketches - reached max level, terminating propagation");
@@ -609,11 +689,14 @@ public class Kernel {
         currentLevel++;
         query(null, false); // To flush transactions
         Set<AbstractVertex> upVertices = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").vertexSet();
+        // Get all outgoing network vertices.
         for (AbstractVertex currentVertex : upVertices) {
             if (!currentVertex.type().equalsIgnoreCase("Network")) {
                 continue;
             }
             try {
+                // Get the remote host of each outgoing network vertex and trigger
+                // the propagateSketch command on that SPADE instance.
                 String remoteHost = currentVertex.getAnnotation("destination host");
                 PropagateSketch currentElement = new PropagateSketch(currentLevel, maxLevel, remoteHost);
                 Thread propagateThread = new Thread(currentElement);
@@ -628,6 +711,7 @@ public class Kernel {
     }
 
     public static void notifyRebuildSketches(int currentLevel, int maxLevel) {
+        // If the last level is reached, stop notifying and begin propagation.
         if (currentLevel == 0) {
             ////////////////////////////////////////////////////////////////
             System.out.println("notifyRebuildSketch - reached level zero, propagating");
@@ -640,6 +724,8 @@ public class Kernel {
         ////////////////////////////////////////////////////////////////
         query(null, false); // To flush transactions
         Set<AbstractVertex> upVertices = storages.iterator().next().getEdges(null, "type:Network", "type:Used").vertexSet();
+        // If there are no incoming network vertices to send notifications to,
+        // stop notifying and begin propagation.
         if (upVertices.isEmpty()) {
             ////////////////////////////////////////////////////////////////
             System.out.println("notifyRebuildSketch - no more notification to send, beginning propagation");
@@ -653,6 +739,8 @@ public class Kernel {
                 continue;
             }
             try {
+                // For each incoming network vertex, get the remote host and send
+                // it the notify command.
                 String remoteHost = currentVertex.getAnnotation("destination host");
                 RebuildSketch currentElement = new RebuildSketch(currentLevel, maxLevel, remoteHost);
                 Thread rebuildThread = new Thread(currentElement);
@@ -667,6 +755,7 @@ public class Kernel {
     }
 
     public static Graph getPathInSketch(String line) {
+        // This method is called when a path query is executed using sketches.
         Graph result = new Graph();
 
         // line has format "sourceHost:vertexId destinationHost:vertexId"
@@ -682,6 +771,7 @@ public class Kernel {
         Set<AbstractVertex> destinationNetworkVertices = new HashSet<AbstractVertex>();
 
         try {
+            // Connect to destination host and get all the destination network vertices
             SocketAddress sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
             Socket remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -720,6 +810,7 @@ public class Kernel {
             System.out.println("sketchPaths.1 - received data from " + dstHost);
             ////////////////////////////////////////////////////////////////////
 
+            // Connect to the source host and get all source network vertices.
             sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
             remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -758,6 +849,13 @@ public class Kernel {
 
 
             List<String> hostsToContact = new LinkedList<String>();
+            
+            // Determine which hosts need to be contacted for the path fragments:
+            // 
+            // 1) For each remote sketch that this host has cached, get a single
+            //    bloom filter containing all the ancestors in that matrix filter.
+            // 2) Check if this bloom filter contains any of the destination
+            //    network vertices. If yes, this host needs to be contacted.
 
             for (Map.Entry<String, AbstractSketch> currentEntry : remoteSketches.entrySet()) {
                 if (currentEntry.getKey().equals(srcHost) || currentEntry.getKey().equals(dstHost)) {
@@ -783,6 +881,8 @@ public class Kernel {
             List<Graph> graphResults = new Vector<Graph>();
             List<Thread> pathThreads = new LinkedList<Thread>();
             
+            // Start threads to get all path fragments in a multi-threaded manner.
+            
             PathFragment srcFragment = new PathFragment(srcHost, "pathFragment_src", graphResults);
             Thread srcFragmentThread = new Thread(srcFragment);
             pathThreads.add(srcFragmentThread);
@@ -805,10 +905,12 @@ public class Kernel {
                 midFragmentThread.start();
             }
             
+            // Wait for all threads to finish getting the results.
             for (int i=0; i<pathThreads.size(); i++) {
                 pathThreads.get(i).join();
             }
             
+            // Union all the results to get the final resulting graph.
             for (int i=0; i<graphResults.size(); i++) {
                 result = Graph.union(result, graphResults.get(i));
             }
@@ -821,6 +923,7 @@ public class Kernel {
         System.out.println("sketchPaths.4 - finished building path from fragments");
         ////////////////////////////////////////////////////////////////
 
+        // Add edges between corresponding network vertices in the resulting graph.
         transformNetworkBoundaries(result);
         return result;
     }
@@ -870,6 +973,7 @@ public class Kernel {
                         queryExpression = queryExpression + tokens[i] + " ";
                     }
                     try {
+                        // Connect to the specified host and query for vertices.
                         SocketAddress sockaddr = new InetSocketAddress(host, Kernel.REMOTE_QUERY_PORT);
                         Socket remoteSocket = new Socket();
                         remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -952,6 +1056,7 @@ public class Kernel {
                         Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, badQuery);
                     }
                 } else if (tokens[2].equalsIgnoreCase("serialize")) {
+                    // Temporary method: Used to determine false positives in the sketches.
                     try {
                         ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("sketches.out"));
                         Map<String, AbstractSketch> tempSketches = new HashMap<String, AbstractSketch>();
@@ -982,6 +1087,7 @@ public class Kernel {
                         } else {
                             Graph srcGraph = null, dstGraph = null;
 
+                            // Connect to source host and get upward lineage
                             SocketAddress sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
                             Socket remoteSocket = new Socket();
                             remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -1003,6 +1109,7 @@ public class Kernel {
                             outStream.close();
                             remoteSocket.close();
 
+                            // Connect to destination host and get downward lineage
                             sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
                             remoteSocket = new Socket();
                             remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
@@ -1024,6 +1131,7 @@ public class Kernel {
                             outStream.close();
                             remoteSocket.close();
 
+                            // The result path is the intersection of the two lineages
                             resultGraph = Graph.intersection(srcGraph, dstGraph);
                         }
                     } catch (Exception badQuery) {
@@ -1628,6 +1736,8 @@ final class NullStream {
 
 class QueryConnection implements Runnable {
 
+    // An object of this class is instantiated when a query connection is made.
+    
     Socket clientSocket;
 
     QueryConnection(Socket socket) {
@@ -1646,6 +1756,7 @@ class QueryConnection implements Runnable {
 
             String queryLine = clientInputReader.readLine();
             while (!queryLine.equalsIgnoreCase("close")) {
+                // Read lines from the querying client until 'close' is called
                 ////////////////////////////////////////////////////////////////
                 System.out.println("Received query line: " + queryLine);
                 ////////////////////////////////////////////////////////////////
@@ -1674,6 +1785,8 @@ class QueryConnection implements Runnable {
 
 class SketchConnection implements Runnable {
 
+    // An object of this class is instantiated when a sketch connection is made.
+    
     Socket clientSocket;
 
     SketchConnection(Socket socket) {
@@ -1692,6 +1805,7 @@ class SketchConnection implements Runnable {
 
             String sketchLine = (String) clientObjectInputStream.readObject();
             while (!sketchLine.equalsIgnoreCase("close")) {
+                // Process sketch commands issued by the client until 'close' is called.
                 ////////////////////////////////////////////////////////////////
                 System.out.println("Received sketch line: " + sketchLine);
                 ////////////////////////////////////////////////////////////////
@@ -1704,14 +1818,17 @@ class SketchConnection implements Runnable {
                     System.out.println("Sent sketches");
                     ////////////////////////////////////////////////////////////////
                 } else if (sketchLine.equals("pathFragment_mid")) {
+                    // Get a non-terminal path fragment
                     AbstractSketch remoteSketch = (AbstractSketch) clientObjectInputStream.readObject();
                     clientObjectOutputStream.writeObject(Kernel.getPathFragment(remoteSketch));
                     clientObjectOutputStream.flush();
                 } else if (sketchLine.equals("pathFragment_src")) {
+                    // Get the source end path fragment
                     AbstractSketch remoteSketch = (AbstractSketch) clientObjectInputStream.readObject();
                     clientObjectOutputStream.writeObject(Kernel.getEndPathFragment(remoteSketch, "src"));
                     clientObjectOutputStream.flush();
                 } else if (sketchLine.equals("pathFragment_dst")) {
+                    // Get the destination end path fragment
                     AbstractSketch remoteSketch = (AbstractSketch) clientObjectInputStream.readObject();
                     clientObjectOutputStream.writeObject(Kernel.getEndPathFragment(remoteSketch, "dst"));
                     clientObjectOutputStream.flush();
@@ -1745,10 +1862,16 @@ class SketchConnection implements Runnable {
 
 class RebuildSketch implements Runnable {
 
+    // An object of this class is instantiated when the rebuildSketches method is
+    // called. This is done so as to allow the rebuild sketch notifications to be
+    // sent in a multi-threaded manner.
+    
     int currentLevel;
     int maxLevel;
     String remoteHost;
 
+    // The constructor is used to store the configuration for this method for 
+    // the current invocation.
     RebuildSketch(int current, int max, String host) {
         currentLevel = current;
         maxLevel = max;
@@ -1787,10 +1910,16 @@ class RebuildSketch implements Runnable {
 
 class PropagateSketch implements Runnable {
 
+    // An object of this class is instantiated when the propagateSketches method is
+    // called. This is done so as to allow the sketch propagation to be performed
+    // in a multi-threaded manner.
+    
     int currentLevel;
     int maxLevel;
     String remoteHost;
 
+    // The constructor is used to store the configuration for this method for 
+    // the current invocation.
     PropagateSketch(int current, int max, String host) {
         currentLevel = current;
         maxLevel = max;
@@ -1829,6 +1958,10 @@ class PropagateSketch implements Runnable {
 
 class PathFragment implements Runnable {
 
+    // An object of this class in instantiated when a path fragment is to be
+    // fetched from a remote SPADE instance. This is done so as to allow all
+    // the path fragments to be fetched in a multi-threaded manner.
+    
     String remoteHost;
     String pathFragment;
     List<Graph> graphResults;

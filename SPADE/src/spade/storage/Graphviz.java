@@ -27,6 +27,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+/** A storage implementation that writes data to a DOT file.
+ * 
+ * @author Dawood
+ */
 public class Graphviz extends AbstractStorage {
 
     private FileWriter outputFile;
