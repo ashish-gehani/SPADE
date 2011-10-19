@@ -20,7 +20,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.core;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Collections;
@@ -53,8 +52,10 @@ public class Kernel {
 
     public static final String SOURCE_REPORTER = "source_reporter";
     public static Map<String, AbstractSketch> remoteSketches;
-    public static final int REMOTE_QUERY_PORT = 28999;
-    public static final int REMOTE_SKETCH_PORT = 28998;
+    public static final int LOCAL_CONTROL_PORT = 19999;
+    public static final int LOCAL_QUERY_PORT = 19998;
+    public static final int REMOTE_QUERY_PORT = 29999;
+    public static final int REMOTE_SKETCH_PORT = 29998;
     public static final int TIMEOUT = 15000;
     private static final String configFile = "../cfg/spade.config";
     private static final String queryPipeInputPath = "../dev/queryPipeIn";
@@ -213,30 +214,13 @@ public class Kernel {
 
             public void run() {
                 try {
-                    // The control input and output pipes are created.
-                    int exitValue1 = Runtime.getRuntime().exec("mkfifo " + controlPipeInputPath).waitFor();
-                    int exitValue2 = Runtime.getRuntime().exec("mkfifo " + controlPipeOutputPath).waitFor();
-                    if (exitValue1 == 0 && exitValue2 == 0) {
-                        // Verify that the pipe creation was successful and proceed.
-                        configCommand("config load " + configFile, NullStream.out);
-                        BufferedReader controlInputStream = new BufferedReader(new FileReader(controlPipeInputPath));
-                        PrintStream controlOutputStream = new PrintStream(new FileOutputStream(controlPipeOutputPath));
-                        System.setIn(new FileInputStream(controlPipeInputPath));
-                        System.setOut(controlOutputStream);
-                        System.setErr(controlOutputStream);
-                        while (true) {
-                            // Commands read from the input stream and executed.
-                            if (controlInputStream.ready()) {
-                                String line = controlInputStream.readLine();
-                                if ((line != null) && (executeCommand(line, controlOutputStream) == false)) {
-                                    break;
-                                }
-                                // An empty line is printed to let the client know that the
-                                // command output is complete.
-                                controlOutputStream.println("");
-                            }
-                            Thread.sleep(COMMAND_THREAD_SLEEP_DELAY);
-                        }
+                    configCommand("config load " + configFile, NullStream.out);
+                    ServerSocket serverSocket = new ServerSocket(LOCAL_CONTROL_PORT);
+                    while (!shutdown) {
+                        Socket controlSocket = serverSocket.accept();
+                        LocalControlConnection thisConnection = new LocalControlConnection(controlSocket);
+                        Thread connectionThread = new Thread(thisConnection);
+                        connectionThread.start();
                     }
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
@@ -252,40 +236,12 @@ public class Kernel {
 
             public void run() {
                 try {
-                    // Create the query pipe.
-                    int exitValue = Runtime.getRuntime().exec("mkfifo " + queryPipeInputPath).waitFor();
-                    if (exitValue == 0) {
-                        // Verify that the pipe creation was successful and proceed.
-                        BufferedReader queryInputStream = new BufferedReader(new FileReader(queryPipeInputPath));
-                        while (!shutdown) {
-                            if (queryInputStream.ready()) {
-                                String line = queryInputStream.readLine();
-                                if (line != null) {
-                                    try {
-                                        String[] queryTokens = line.split("\\s+", 2);
-                                        // Only accept query commands from this pipe
-                                        // The second argument in the query command is used to specify the
-                                        // output for this query (i.e., a file or a pipe). This argument is
-                                        // stripped from the query string and is passed as a separate argument
-                                        // to the queryCommand() as the output stream.
-                                        PrintStream queryOutputStream = new PrintStream(new FileOutputStream(queryTokens[0], false));
-                                        if (queryTokens.length == 1) {
-                                            showQueryCommands(queryOutputStream);
-                                        } else if (queryTokens[1].startsWith("query ")) {
-                                            queryCommand(queryTokens[1], queryOutputStream);
-                                        } else {
-                                            showQueryCommands(queryOutputStream);
-                                        }
-                                        // An empty line is printed to let the client know that the query
-                                        // output is complete.
-                                        queryOutputStream.println("");
-                                        queryOutputStream.close();
-                                    } catch (Exception exception) {
-                                    }
-                                }
-                            }
-                            Thread.sleep(COMMAND_THREAD_SLEEP_DELAY);
-                        }
+                    ServerSocket serverSocket = new ServerSocket(LOCAL_QUERY_PORT);
+                    while (!shutdown) {
+                        Socket querySocket = serverSocket.accept();
+                        LocalQueryConnection thisConnection = new LocalQueryConnection(querySocket);
+                        Thread connectionThread = new Thread(thisConnection);
+                        connectionThread.start();
                     }
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
@@ -2004,3 +1960,101 @@ class PathFragment implements Runnable {
         }
     }
 }
+
+class LocalControlConnection implements Runnable {
+
+    Socket controlSocket;
+
+    LocalControlConnection(Socket socket) {
+        controlSocket = socket;
+    }
+
+    public void run() {
+        try {
+            OutputStream outStream = controlSocket.getOutputStream();
+            InputStream inStream = controlSocket.getInputStream();
+
+            BufferedReader controlInputStream = new BufferedReader(new InputStreamReader(inStream));
+            PrintStream controlOutputStream = new PrintStream(outStream);
+            while (true) {
+                // Commands read from the input stream and executed.
+                if (controlInputStream.ready()) {
+                    String line = controlInputStream.readLine();
+                    if ((line != null) && (Kernel.executeCommand(line, controlOutputStream) == false)) {
+                        break;
+                    }
+                    // An empty line is printed to let the client know that the
+                    // command output is complete.
+                    controlOutputStream.println("");
+                }
+            }
+            controlInputStream.close();
+            controlOutputStream.close();
+                    
+            inStream.close();
+            outStream.close();
+            controlSocket.close();
+        } catch (Exception ex) {
+            Logger.getLogger(LocalControlConnection.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+}
+
+class LocalQueryConnection implements Runnable {
+
+    Socket querySocket;
+
+    LocalQueryConnection(Socket socket) {
+        querySocket = socket;
+    }
+
+    public void run() {
+        try {
+            OutputStream outStream = querySocket.getOutputStream();
+            InputStream inStream = querySocket.getInputStream();
+
+            BufferedReader queryInputStream = new BufferedReader(new InputStreamReader(inStream));
+            PrintStream queryOutputStream = new PrintStream(outStream);
+            while (true) {
+                // Commands read from the input stream and executed.
+                if (queryInputStream.ready()) {
+                    String line = queryInputStream.readLine();
+                    if (line != null) {
+                        try {
+                            String[] queryTokens = line.split("\\s+", 2);
+                            // Only accept query commands from this pipe
+                            // The second argument in the query command is used to specify the
+                            // output for this query (i.e., a file or a pipe). This argument is
+                            // stripped from the query string and is passed as a separate argument
+                            // to the queryCommand() as the output stream.
+                            if (queryTokens.length == 1) {
+                                Kernel.showQueryCommands(queryOutputStream);
+                            } else if (queryTokens[1].startsWith("query ")) {
+                                Kernel.queryCommand(queryTokens[1], queryOutputStream);
+                            } else {
+                                Kernel.showQueryCommands(queryOutputStream);
+                            }
+                            // An empty line is printed to let the client know that the query
+                            // output is complete.
+                            queryOutputStream.println("");
+                            break;
+                        } catch (Exception exception) {
+                        }
+                    }
+                    // An empty line is printed to let the client know that the
+                    // command output is complete.
+                    queryOutputStream.println("");
+                }
+            }
+            queryInputStream.close();
+            queryOutputStream.close();
+                    
+            inStream.close();
+            outStream.close();
+            querySocket.close();
+        } catch (Exception ex) {
+            Logger.getLogger(LocalQueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+}
+
