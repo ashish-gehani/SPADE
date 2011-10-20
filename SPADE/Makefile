@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 351
+REVISION = 358
 
 # 'pkg-config' configuration
 LINUX_PKG_CONFIG_PATH = /usr/lib/pkgconfig
