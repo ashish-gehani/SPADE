@@ -2039,6 +2039,7 @@ class LocalQueryConnection implements Runnable {
                             queryOutputStream.println("");
                             break;
                         } catch (Exception exception) {
+                            Logger.getLogger(LocalQueryConnection.class.getName()).log(Level.SEVERE, null, exception);
                         }
                     }
                     // An empty line is printed to let the client know that the
