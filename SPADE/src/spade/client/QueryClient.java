@@ -21,9 +21,13 @@ package spade.client;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.List;
 import jline.ArgumentCompletor;
@@ -32,6 +36,7 @@ import jline.ConsoleReader;
 import jline.MultiCompletor;
 import jline.NullCompletor;
 import jline.SimpleCompletor;
+import spade.core.Kernel;
 
 public class QueryClient {
 
@@ -39,8 +44,8 @@ public class QueryClient {
     private static PrintStream errorStream;
     private static PrintStream SPADEQueryIn;
     private static BufferedReader SPADEQueryOut;
-    private static String inputPath;
-    private static String outputPath;
+    // private static String inputPath;
+    private static String nullString;
     private static volatile boolean shutdown;
     private static final String historyFile = "../cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
@@ -50,10 +55,12 @@ public class QueryClient {
 
         outputStream = System.out;
         errorStream = System.err;
-        inputPath = args[0];
-        outputPath = args[1];
+        // inputPath = args[0];
+        // outputPath = args[1];
         shutdown = false;
+        nullString = "null";
 
+        /*
         try {
             // Create the output pipe for queries.
             int exitValue = Runtime.getRuntime().exec("mkfifo " + outputPath).waitFor();
@@ -65,13 +72,22 @@ public class QueryClient {
             errorStream.println("Query pipes not ready!");
             System.exit(0);
         }
+         * 
+         */
 
         Runnable outputReader = new Runnable() {
 
             public void run() {
                 try {
-                    // This BufferedReader is connected to the output pipe.
-                    SPADEQueryOut = new BufferedReader(new FileReader(outputPath));
+                    SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
+                    Socket remoteSocket = new Socket();
+                    remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+                    OutputStream outStream = remoteSocket.getOutputStream();
+                    InputStream inStream = remoteSocket.getInputStream();
+                    SPADEQueryOut = new BufferedReader(new InputStreamReader(inStream));
+                    SPADEQueryIn = new PrintStream(outStream);
+
+                    // SPADEQueryOut = new BufferedReader(new FileReader(outputPath));
                     while (!shutdown) {
                         if (SPADEQueryOut.ready()) {
                             // This thread keeps reading from the output pipe and
@@ -113,25 +129,27 @@ public class QueryClient {
 
             commandReader.addCompletor(new MultiCompletor(completors));
 
-            SPADEQueryIn.println(outputPath + " ");
+            SPADEQueryIn.println(nullString + " ");
             while (true) {
                 try {
                     String line = commandReader.readLine();
                     if (line.equalsIgnoreCase("exit")) {
                         // On shutdown, remove the output pipe created earlier.
                         shutdown = true;
-                        Runtime.getRuntime().exec("rm -f " + outputPath).waitFor();
+                        Runtime.getRuntime().exec("rm -f " + nullString).waitFor();
                         break;
                     } else {
                         // The output path is embedded in each query sent to SPADE
                         // as the first token of the query. This is to allow multiple
                         // query clients to work simultaneously with SPADE.
-                        SPADEQueryIn.println(outputPath + " " + line);
+                        SPADEQueryIn.println(nullString + " " + line);
                     }
                 } catch (Exception exception) {
+                    exception.printStackTrace();
                 }
             }
         } catch (Exception exception) {
+            exception.printStackTrace();
         }
     }
 }

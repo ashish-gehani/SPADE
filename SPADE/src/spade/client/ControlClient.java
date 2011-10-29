@@ -21,9 +21,13 @@ package spade.client;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.List;
 import jline.ArgumentCompletor;
@@ -32,6 +36,7 @@ import jline.ConsoleReader;
 import jline.MultiCompletor;
 import jline.NullCompletor;
 import jline.SimpleCompletor;
+import spade.core.Kernel;
 
 public class ControlClient {
 
@@ -39,8 +44,8 @@ public class ControlClient {
     private static PrintStream errorStream;
     private static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
-    private static String inputPath;
-    private static String outputPath;
+    // private static String inputPath;
+    // private static String outputPath;
     private static volatile boolean shutdown;
     private static final String historyFile = "../cfg/control.history";
     private static final String COMMAND_PROMPT = "-> ";
@@ -50,11 +55,12 @@ public class ControlClient {
 
         outputStream = System.out;
         errorStream = System.err;
-        inputPath = args[0];
-        outputPath = args[1];
+        // inputPath = args[0];
+        // outputPath = args[1];
 
         shutdown = false;
 
+        /*
         try {
             // The input stream is to which commands are issued. This pipe is created
             // by the Kernel on startup.
@@ -63,14 +69,22 @@ public class ControlClient {
             outputStream.println("Control pipes not ready!");
             System.exit(0);
         }
+         * 
+         */
 
         Runnable outputReader = new Runnable() {
 
             public void run() {
                 try {
-                    // This BufferedReader is connected to the output of the control
-                    // pipe which is also created by the Kernel on startup.
-                    SPADEControlOut = new BufferedReader(new FileReader(outputPath));
+                    SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
+                    Socket remoteSocket = new Socket();
+                    remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+                    OutputStream outStream = remoteSocket.getOutputStream();
+                    InputStream inStream = remoteSocket.getInputStream();
+                    SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
+                    SPADEControlIn = new PrintStream(outStream);
+            
+                    //SPADEControlOut = new BufferedReader(new FileReader(outputPath));
                     while (!shutdown) {
                         if (SPADEControlOut.ready()) {
                             // This thread keeps reading from the output pipe and
