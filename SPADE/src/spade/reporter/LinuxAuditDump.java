@@ -51,10 +51,12 @@ public class LinuxAuditDump extends AbstractReporter {
     public java.lang.Process socketToPipe;
     private BufferedReader eventReader;
     private final PrintStream errorStream = System.err;
+    private String filePath;
 
     @Override
     public boolean launch(String arguments) {
         OpenCloseSemanticsOn = true;
+        filePath = arguments;
 
         fileNameHasArtifact = new HashMap<String, Artifact>();
         processes = new HashMap<String, Process>();
@@ -64,12 +66,6 @@ public class LinuxAuditDump extends AbstractReporter {
         currentEventType = "";
         unfinishedEvents = new HashMap<Integer, ArrayList<ArrayList<String>>>();
         cachedAgents = new HashSet<Agent>();
-
-        try {
-            eventReader = new BufferedReader(new FileReader(arguments));
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(LinuxAuditDump.class.getName()).log(Level.SEVERE, null, ex);
-        }
 
         try {
             InetAddress addr = InetAddress.getLocalHost();
@@ -98,6 +94,7 @@ public class LinuxAuditDump extends AbstractReporter {
 
                 public void run() {
                     try {
+                        eventReader = new BufferedReader(new FileReader(filePath));
                         String line;
                         while ((line = eventReader.readLine()) != null) {
                             processInputLine(line);
