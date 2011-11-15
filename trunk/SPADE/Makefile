@@ -62,6 +62,7 @@ svn-pipe:
 # Download the LinuxAudit reporter.
 svn-linux-audit:
 	svn update -r $(REVISION) --force src/spade/reporter/LinuxAudit.java
+	svn update -r $(REVISION) --force src/spade/reporter/LinuxAuditDump.java
 	svn update -r $(REVISION) --force src/spade/reporter/spadeLinuxAudit.c
 
 # Download the LinuxFUSE reporter.
@@ -117,6 +118,7 @@ build-pipe:
 build-linux-audit:
 	cd src;\
 	javac -cp '.:../lib/*' spade/reporter/LinuxAudit.java;\
+	javac -cp '.:../lib/*' spade/reporter/LinuxAuditDump.java;\
 	gcc -o spade/reporter/spadeLinuxAudit spade/reporter/spadeLinuxAudit.c;
 
 # Build the LinuxFUSE reporter.
