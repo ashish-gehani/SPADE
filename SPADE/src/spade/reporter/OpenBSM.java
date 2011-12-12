@@ -39,6 +39,10 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/** The OpenBSM reporter.
+ * 
+ * @author dawood
+ */
 public class OpenBSM extends AbstractReporter {
 
     private BufferedReader eventReader;
@@ -209,7 +213,7 @@ public class OpenBSM extends AbstractReporter {
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
             processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
             }
-             * 
+             *
              */
             pushToBuffer(processVertex);
             processVertices.put(pid, processVertex);
@@ -267,7 +271,7 @@ public class OpenBSM extends AbstractReporter {
                 String sessionid = tokenizer.nextToken();
                 String deviceid = tokenizer.nextToken();
                 String machineid = tokenizer.nextToken();
-                 * 
+                 *
                  */
                 eventPID = pid;
                 if ((current_event_id == 2) || ((current_event_id > 71) && (current_event_id < 84))) {
@@ -289,7 +293,7 @@ public class OpenBSM extends AbstractReporter {
                 String process_session_id = tokenizer.nextToken();
                 String process_device_id = tokenizer.nextToken();
                 String process_machine_id = tokenizer.nextToken();
-                 * 
+                 *
                  */
                 break;
 
@@ -313,7 +317,7 @@ public class OpenBSM extends AbstractReporter {
                 String filesystemid = tokenizer.nextToken();
                 String inodeid = tokenizer.nextToken();
                 String filedeviceid = tokenizer.nextToken();
-                 * 
+                 *
                  */
                 if (current_event_id == 42) { // rename
                     tempVertex1 = getFileVertex(currentFilePath, false);
@@ -326,7 +330,7 @@ public class OpenBSM extends AbstractReporter {
                 String arg_number = tokenizer.nextToken();
                 String arg_value = tokenizer.nextToken();
                 String arg_text = tokenizer.nextToken();
-                 * 
+                 *
                  */
                 break;
 
@@ -340,7 +344,7 @@ public class OpenBSM extends AbstractReporter {
             case 40: 						// AUT_TEXT
                 /*
                 String text_string = tokenizer.nextToken();
-                 * 
+                 *
                  */
                 break;
 

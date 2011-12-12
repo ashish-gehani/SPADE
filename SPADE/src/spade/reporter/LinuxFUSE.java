@@ -38,6 +38,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 
+/** The LinuxFUSE reporter.
+ * 
+ * @author Dawood
+ */
 public class LinuxFUSE extends AbstractReporter {
 
     private long boottime;
@@ -49,7 +53,7 @@ public class LinuxFUSE extends AbstractReporter {
 
     // The native launchFUSE method to start FUSE. The argument is the
     // mount point.
-    public native int launchFUSE(String argument);
+    private native int launchFUSE(String argument);
 
     @Override
     public boolean launch(String arguments) {
@@ -163,7 +167,7 @@ public class LinuxFUSE extends AbstractReporter {
         return true;
     }
 
-    public Process createProcessVertex(String pid) {
+    private Process createProcessVertex(String pid) {
         // The process vertex is created using the proc filesystem.
         Process resultVertex = new Process();
         try {
@@ -243,7 +247,7 @@ public class LinuxFUSE extends AbstractReporter {
         return resultVertex;
     }
 
-    public void checkProcessTree(String pid) {
+    private void checkProcessTree(String pid) {
         // Check the process tree to ensure that the given PID exists in it. If not,
         // then add it and recursively check its parents so that this process
         // eventually joins the main process tree.
@@ -267,6 +271,13 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
+    /** Read event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param path Path indicating target file.
+     * @param link An integer used to indicate whether the target was a link or not.
+     */
     public void read(int pid, int iotime, String path, int link) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
@@ -287,6 +298,13 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
+    /** Write event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param path Path indicating target file.
+     * @param link An integer used to indicate whether the target was a link or not.
+     */
     public void write(int pid, int iotime, String path, int link) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
@@ -307,6 +325,12 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
+    /** ReadLink event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param path Path indicating target file.
+     */
     public void readlink(int pid, int iotime, String path) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
@@ -325,6 +349,16 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
+    /** Rename event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param pathfrom The source path.
+     * @param pathto The destination path.
+     * @param link An integer used to indicate whether the target was a link or not.
+     * @param done An intiger used to indicate whether this event was triggered before
+     * or after the rename operation.
+     */
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
         checkProcessTree(Integer.toString(pid));
         pathfrom = sanitizePath(pathfrom);
@@ -369,6 +403,12 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
+    /** Link event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param originalFilePath The original file path.
+     * @param linkPath Path to link to.
+     */
     public void link(int pid, String originalFilePath, String linkPath) {
         checkProcessTree(Integer.toString(pid));
         originalFilePath = sanitizePath(originalFilePath);
@@ -386,6 +426,11 @@ public class LinuxFUSE extends AbstractReporter {
         links.put(linkPath, originalFilePath);
     }
 
+    /** Unlink event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param path The path to unlink.
+     */
     public void unlink(int pid, String path) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);

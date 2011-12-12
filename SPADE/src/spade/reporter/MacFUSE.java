@@ -37,6 +37,10 @@ import java.util.logging.Logger;
 import spade.opm.edge.WasControlledBy;
 import spade.opm.vertex.Agent;
 
+/** The MacFUSE reporter.
+ * 
+ * @author dawood
+ */
 public class MacFUSE extends AbstractReporter {
 
     private HashMap<String, AbstractVertex> localCache;
@@ -45,7 +49,7 @@ public class MacFUSE extends AbstractReporter {
     private String mountPath;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
-    public native int launchFUSE(String argument);
+    private native int launchFUSE(String argument);
 
     @Override
     public boolean launch(String arguments) {
@@ -187,6 +191,13 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
+    /** Read event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param path Path indicating target file.
+     * @param link An integer used to indicate whether the target was a link or not.
+     */
     public void read(int pid, int iotime, String path, int link) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
@@ -207,6 +218,13 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
+    /** Write event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param path Path indicating target file.
+     * @param link An integer used to indicate whether the target was a link or not.
+     */
     public void write(int pid, int iotime, String path, int link) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
@@ -227,6 +245,12 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
+    /** ReadLink event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param path Path indicating target file.
+     */
     public void readlink(int pid, int iotime, String path) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
@@ -245,6 +269,16 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
+    /** Rename event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param iotime IO time of the operation.
+     * @param pathfrom The source path.
+     * @param pathto The destination path.
+     * @param link An integer used to indicate whether the target was a link or not.
+     * @param done An intiger used to indicate whether this event was triggered before
+     * or after the rename operation.
+     */
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
         checkProcessTree(Integer.toString(pid));
         pathfrom = sanitizePath(pathfrom);
@@ -289,6 +323,12 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
+    /** Link event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param originalFilePath The original file path.
+     * @param linkPath Path to link to.
+     */
     public void link(int pid, String originalFilePath, String linkPath) {
         checkProcessTree(Integer.toString(pid));
         originalFilePath = sanitizePath(originalFilePath);
@@ -306,6 +346,11 @@ public class MacFUSE extends AbstractReporter {
         links.put(linkPath, originalFilePath);
     }
 
+    /** Unlink event triggered by FUSE.
+     * 
+     * @param pid PID of the triggering process.
+     * @param path The path to unlink.
+     */
     public void unlink(int pid, String path) {
         checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);

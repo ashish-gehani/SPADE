@@ -78,7 +78,7 @@ public class ControlClient {
                 try {
                     SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
                     Socket remoteSocket = new Socket();
-                    remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+                    remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
                     OutputStream outStream = remoteSocket.getOutputStream();
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
