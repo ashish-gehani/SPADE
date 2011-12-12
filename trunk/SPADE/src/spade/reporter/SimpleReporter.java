@@ -41,58 +41,86 @@ public class SimpleReporter extends AbstractReporter {
     }
 
     private void addSomeData() {
-        // Create a root process vertex and pass it
-        // to the kernel using the putVertex() method
-        Process root = new Process();
-        root.addAnnotation("name", "root process");
-        root.addAnnotation("pid", "10");
-        putVertex(root);
+        Artifact a1 = new Artifact();
+        a1.addAnnotation("filename", "remote_httpd.log");
+        a1.addAnnotation("path", "/var/log/remote_httpd.log");
+        a1.addAnnotation("size", "44182");
+        a1.addAnnotation("lastmodified", "Wed Dec 7 13:48:26 2011");
+        
+        Process p1 = new Process();
+        p1.addAnnotation("pidname", "cat");
+        p1.addAnnotation("pid", "1364");
+        p1.addAnnotation("uid", "501");
+        p1.addAnnotation("starttime", "Fri Dec 9 9:15:02 2011");
+        putVertex(p1);
 
-        // Create a child process vertex
-        Process child = new Process();
-        child.addAnnotation("name", "child process");
-        child.addAnnotation("pid", "32");
-        putVertex(child);
+        Process p2 = new Process();
+        p2.addAnnotation("pidname", "sshd");
+        p2.addAnnotation("pid", "1422");
+        p2.addAnnotation("uid", "501");
+        p2.addAnnotation("starttime", "Fri Dec 9 9:14:57 2011");
+        putVertex(p2);
 
-        // Create an edge between the root and child process
-        // vertices. Edges are directed where the first
-        // argument in the constructor is the source and the
-        // second argument is the destination (e.g., this
-        // edge can be read as "child _WasTriggeredBy_ root")
-        AbstractEdge forkedge = new WasTriggeredBy(child, root);
-        forkedge.addAnnotation("time", "5:56 PM");
-        putEdge(forkedge);
+        Artifact n1 = new Artifact();
+        n1.addAnnotation("local_host", "10.12.0.55");
+        n1.addAnnotation("local_port", "22");
+        n1.addAnnotation("remote_host", "10.12.0.34");
+        n1.addAnnotation("remote_port", "1359");
 
-        Artifact file1 = new Artifact();
-        file1.addAnnotation("filename", "output.tmp");
-        putVertex(file1);
+        Artifact n2 = new Artifact();
+        n2.addAnnotation("local_host", "10.12.0.34");
+        n2.addAnnotation("local_port", "1359");
+        n2.addAnnotation("remote_host", "10.12.0.55");
+        n2.addAnnotation("remote_port", "22");
 
-        Artifact file2 = new Artifact();
-        file2.addAnnotation("filename", "output.o");
-        putVertex(file2);
+        Process p3 = new Process();
+        p3.addAnnotation("pidname", "ssh");
+        p3.addAnnotation("pid", "3106");
+        p3.addAnnotation("uid", "10");
+        p3.addAnnotation("starttime", "Fri Dec 9 9:14:15 2011");
+        putVertex(p3);
 
-        AbstractEdge readedge = new Used(child, file1);
-        readedge.addAnnotation("iotime", "12 ms");
-        putEdge(readedge);
-
-        AbstractEdge writeedge = new WasGeneratedBy(file2, child);
-        writeedge.addAnnotation("iotime", "11 ms");
-        putEdge(writeedge);
-
-        AbstractEdge renameedge = new WasDerivedFrom(file2, file1);
-        putEdge(renameedge);
-
-        Agent user = new Agent();
-        user.addAnnotation("uid", "10");
-        user.addAnnotation("gid", "10");
-        user.addAnnotation("name", "john");
-        putVertex(user);
-
-        WasControlledBy childControlledEdge = new WasControlledBy(child, user);
-        putEdge(childControlledEdge);
-
-        WasControlledBy rootControlledEdge = new WasControlledBy(root, user);
-        putEdge(rootControlledEdge);
+        Process p4 = new Process();
+        p4.addAnnotation("pidname", "tcsh");
+        p4.addAnnotation("pid", "3059");
+        p4.addAnnotation("uid", "10");
+        p4.addAnnotation("starttime", "Fri Dec 9 9:14:11 2011");
+        putVertex(p4);
+        
+        Artifact a2 = new Artifact();
+        a2.addAnnotation("filename", "local_httpd.log");
+        a2.addAnnotation("path", "/tmp/local_httpd.log");
+        a2.addAnnotation("size", "44182");
+        a2.addAnnotation("lastmodified", "Wed Dec 7 13:48:26 2011");
+        
+        
+        WasGeneratedBy wgb1 = new WasGeneratedBy(a2,p4);
+        WasTriggeredBy wtb1 = new WasTriggeredBy(p4,p3);
+        Used used1 = new Used(p3,n2);
+        WasGeneratedBy wgb2 = new WasGeneratedBy(n1,p2);
+        WasTriggeredBy wtb2 = new WasTriggeredBy(p2,p1);
+        Used used2 = new Used(p1,a1);
+        WasDerivedFrom wdf1 = new WasDerivedFrom(n2,n1);
+        WasDerivedFrom wdf2 = new WasDerivedFrom(n1,n2);
+        
+        
+        putVertex(p1);
+        putVertex(p2);
+        putVertex(p3);
+        putVertex(p4);
+        putVertex(n1);
+        putVertex(n2);
+        putVertex(a1);
+        putVertex(a2);
+        
+        putEdge(wgb1);
+        putEdge(wgb2);
+        putEdge(wtb1);
+        putEdge(wtb2);
+        putEdge(wdf1);
+        putEdge(wdf2);
+        putEdge(used1);
+        putEdge(used2);
     }
 
     @Override

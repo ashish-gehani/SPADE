@@ -405,7 +405,13 @@ public class Neo4j extends AbstractStorage {
                     resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
                     // Add network artifacts to the network map of the graph. This is needed
                     // to resolve remote queries
+                    /*
                     if (((String) otherNode.getProperty("type")).equalsIgnoreCase("Network")) {
+                        resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+                    }
+                     * 
+                     */
+                    if (((String) otherNode.getProperty("network")).equalsIgnoreCase("true")) {
                         resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
                     }
                 }

@@ -81,7 +81,7 @@ public class QueryClient {
                 try {
                     SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
                     Socket remoteSocket = new Socket();
-                    remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+                    remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
                     OutputStream outStream = remoteSocket.getOutputStream();
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEQueryOut = new BufferedReader(new InputStreamReader(inStream));

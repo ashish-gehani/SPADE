@@ -58,7 +58,8 @@ public class ConcreteSketchUncached extends AbstractSketch {
     public void putEdge(AbstractEdge incomingEdge) {
         try {
             if (incomingEdge.type().equalsIgnoreCase("Used")
-                    && incomingEdge.getDestinationVertex().type().equalsIgnoreCase("Network")) {
+                    //&& incomingEdge.getDestinationVertex().type().equalsIgnoreCase("Network")) {
+                    && incomingEdge.getDestinationVertex().getAnnotation("network").equalsIgnoreCase("true")) {
                 // Connection was created to this host
                 AbstractVertex networkVertex = incomingEdge.getDestinationVertex();
                 String remoteHost = networkVertex.getAnnotation("destination host");
@@ -72,7 +73,7 @@ public class ConcreteSketchUncached extends AbstractSketch {
 
                     SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
                     Socket remoteSocket = new Socket();
-                    remoteSocket.connect(sockaddr, Kernel.TIMEOUT);
+                    remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
                     OutputStream outStream = remoteSocket.getOutputStream();
                     InputStream inStream = remoteSocket.getInputStream();
                     ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);
@@ -108,7 +109,8 @@ public class ConcreteSketchUncached extends AbstractSketch {
                     new Thread(update).start();
                 }
             } else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")
-                    && incomingEdge.getSourceVertex().type().equalsIgnoreCase("Network")) {
+                    //&& incomingEdge.getSourceVertex().type().equalsIgnoreCase("Network")) {
+                    && incomingEdge.getSourceVertex().getAnnotation("network").equalsIgnoreCase("true")) {
                 AbstractVertex networkVertex = incomingEdge.getSourceVertex();
                 Runnable update = new updateMatrixThreadUncached(this, networkVertex, incomingEdge.type());
                 new Thread(update).start();
@@ -140,7 +142,8 @@ class updateMatrixThreadUncached implements Runnable {
             BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(vertex);
             Graph descendants = Kernel.query("query Neo4j lineage " + storageId + " 20 d null tmp.dot", false);
             for (AbstractVertex currentVertex : descendants.vertexSet()) {
-                if (currentVertex.type().equalsIgnoreCase("Network")) {
+                //if (currentVertex.type().equalsIgnoreCase("Network")) {
+                if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                     sketch.matrixFilter.updateAncestors(currentVertex, newAncestors);
                 }
             }
@@ -153,7 +156,8 @@ class updateMatrixThreadUncached implements Runnable {
             ////////////////////////////////////////////////////////////
             Graph ancestors = Kernel.query("query Neo4j lineage " + storageId + " 20 a null tmp.dot", false);
             for (AbstractVertex currentVertex : ancestors.vertexSet()) {
-                if (currentVertex.type().equalsIgnoreCase("Network")) {
+                //if (currentVertex.type().equalsIgnoreCase("Network")) {
+                if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                     sketch.matrixFilter.add(vertex, currentVertex);
                 }
             }            

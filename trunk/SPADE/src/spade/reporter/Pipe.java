@@ -38,13 +38,16 @@ import spade.opm.vertex.Artifact;
 import spade.opm.vertex.Process;
 import spade.opm.vertex.Agent;
 
+/** Pipe reporter for Linux.
+ * 
+ * @author dawood
+ */
 public class Pipe extends AbstractReporter {
 
     private String pipePath;
     private BufferedReader eventReader;
     private volatile boolean shutdown;
     private HashMap<String, AbstractVertex> vertices;
-
     private final int THREAD_SLEEP_DELAY = 5;
 
     @Override
