@@ -27,7 +27,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/** A storage implementation that writes data to a DOT file.
+/**
+ * A storage implementation that writes data to a DOT file.
  * 
  * @author Dawood
  */

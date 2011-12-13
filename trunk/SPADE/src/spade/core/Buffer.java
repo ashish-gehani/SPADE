@@ -22,7 +22,8 @@ package spade.core;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/** This is the buffer class which is used by reporters to send provenance elements to.
+/**
+ * This is the buffer class which is used by reporters to send provenance elements to.
  * 
  * @author Dawood
  */
@@ -30,14 +31,16 @@ public class Buffer {
 
     private Queue<Object> queue;
 
-    /** Empty constructor for this class.
+    /**
+     * Empty constructor for this class.
      * 
      */
     public Buffer() {
         queue = new ConcurrentLinkedQueue<Object>();
     }
 
-    /** This method is called by the reporter to send vertices to this buffer.
+    /**
+     * This method is called by the reporter to send vertices to this buffer.
      * 
      * @param incomingVertex The vertex to be received by this buffer.
      * @return True if the buffer was successfully added to the buffer.
@@ -50,7 +53,8 @@ public class Buffer {
         }
     }
 
-    /** This method is called by the reporter to send edges to this buffer.
+    /**
+     * This method is called by the reporter to send edges to this buffer.
      * 
      * @param incomingEdge The edge to be received by this buffer.
      * @return True if the edge was successfully added to the buffer.
@@ -66,7 +70,8 @@ public class Buffer {
         }
     }
 
-    /** This method is used to extract provenance elements from the buffer.
+    /**
+     * This method is used to extract provenance elements from the buffer.
      * 
      * @return The provenance element from the head of the queue.
      */
@@ -74,7 +79,8 @@ public class Buffer {
         return queue.poll();
     }
 
-    /** This method is used to determine whether the buffer is empty or not.
+    /**
+     * This method is used to determine whether the buffer is empty or not.
      * 
      * @return True if the buffer is empty.
      */

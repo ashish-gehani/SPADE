@@ -25,13 +25,15 @@ import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 import spade.opm.vertex.Network;
 
-/** Used edge based on the OPM model.
+/**
+ * Used edge based on the OPM model.
  * 
  * @author Dawood
  */
 public class Used extends AbstractEdge {
 
-    /** Constructor for Process->Artifact edge
+    /**
+     * Constructor for Process->Artifact edge
      * 
      * @param actingProcess Process vertex
      * @param usedArtifact Artifact vertex
@@ -43,7 +45,8 @@ public class Used extends AbstractEdge {
         addAnnotation("type", "Used");
     }
 
-    /** Constructor for Process->Network edge
+    /**
+     * Constructor for Process->Network edge
      * 
      * @param actingProcess Process vertex
      * @param usedNetwork Network vertex

@@ -24,13 +24,15 @@ import spade.opm.vertex.Agent;
 import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 
-/** WasControlledBy edge based on the OPM model.
+/**
+ * WasControlledBy edge based on the OPM model.
  * 
  * @author Dawood
  */
 public class WasControlledBy extends AbstractEdge {
 
-    /** Constructor for Process->Agent edge
+    /**
+     * Constructor for Process->Agent edge
      * 
      * @param controlledProcess Process vertex
      * @param controllingAgent Agent vertex

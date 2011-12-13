@@ -37,7 +37,8 @@ import java.util.logging.Logger;
 import spade.opm.edge.WasControlledBy;
 import spade.opm.vertex.Agent;
 
-/** The MacFUSE reporter.
+/**
+ * The MacFUSE reporter.
  * 
  * @author dawood
  */
@@ -191,7 +192,8 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
-    /** Read event triggered by FUSE.
+    /**
+     * Read event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -218,7 +220,8 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
-    /** Write event triggered by FUSE.
+    /**
+     * Write event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -245,7 +248,8 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
-    /** ReadLink event triggered by FUSE.
+    /**
+     * ReadLink event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -269,7 +273,8 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
-    /** Rename event triggered by FUSE.
+    /**
+     * Rename event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -323,7 +328,8 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
-    /** Link event triggered by FUSE.
+    /**
+     * Link event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param originalFilePath The original file path.
@@ -346,7 +352,8 @@ public class MacFUSE extends AbstractReporter {
         links.put(linkPath, originalFilePath);
     }
 
-    /** Unlink event triggered by FUSE.
+    /**
+     * Unlink event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param path The path to unlink.

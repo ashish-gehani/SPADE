@@ -27,7 +27,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** This class is used to represent query responses using sets for edges and vertices.
+/**
+ * This class is used to represent query responses using sets for edges and vertices.
  * 
  * @author Dawood
  */
@@ -42,8 +43,8 @@ public class Graph implements Serializable {
      */
     public boolean transformed;
 
-    /** An empty constructor.
-     * 
+    /**
+     * An empty constructor.
      */
     public Graph() {
         vertexSet = new HashSet<AbstractVertex>();
@@ -52,7 +53,8 @@ public class Graph implements Serializable {
         transformed = false;
     }
 
-    /** This method is used to put the network vertices in the network vertex map.
+    /**
+     * This method is used to put the network vertices in the network vertex map.
      * The network vertex map is used when doing remote querying.
      * 
      * @param inputVertex The network vertex
@@ -62,7 +64,8 @@ public class Graph implements Serializable {
         networkMap.put(inputVertex, depth);
     }
 
-    /** Add a vertex to the graph object. The vertex is sent to the transformers
+    /**
+     * Add a vertex to the graph object. The vertex is sent to the transformers
      * before it is finally committed.
      * 
      * @param inputVertex The vertex to be added
@@ -72,7 +75,8 @@ public class Graph implements Serializable {
         Kernel.sendToTransformers(inputVertex);
     }
 
-    /** Add an edge to the graph object. The edge is sent to the transformers
+    /**
+     * Add an edge to the graph object. The edge is sent to the transformers
      * before it is finally committed.
      * 
      * @param inputEdge The edge to be added
@@ -82,7 +86,8 @@ public class Graph implements Serializable {
         Kernel.sendToTransformers(inputEdge);
     }
     
-    /** Commit a vertex to this graph.
+    /**
+     * Commit a vertex to this graph.
      * 
      * @param inputVertex The vertex to be committed
      */
@@ -90,7 +95,8 @@ public class Graph implements Serializable {
         vertexSet.add(inputVertex);
     }
 
-    /** Commit an edge to this graph.
+    /**
+     * Commit an edge to this graph.
      * 
      * @param inputEdge The edge to be committed
      */
@@ -98,7 +104,8 @@ public class Graph implements Serializable {
         edgeSet.add(inputEdge);
     }
     
-    /** Returns the set containing the vertices.
+    /**
+     * Returns the set containing the vertices.
      * 
      * @return The set containing the vertices.
      */
@@ -106,7 +113,8 @@ public class Graph implements Serializable {
         return vertexSet;
     }
 
-    /** Returns the set containing the edges.
+    /**
+     * Returns the set containing the edges.
      * 
      * @return The set containing edges.
      */
@@ -114,7 +122,8 @@ public class Graph implements Serializable {
         return edgeSet;
     }
 
-    /** Returns the map of network vertices for this graph.
+    /**
+     * Returns the map of network vertices for this graph.
      * 
      * @return The map containing the network vertices and their depth relative to the source vertex.
      */
@@ -122,7 +131,8 @@ public class Graph implements Serializable {
         return networkMap;
     }
 
-    /** This method is used to create a new graph as an intersection of the two
+    /**
+     * This method is used to create a new graph as an intersection of the two
      * given input graphs. This is done simply by using set functions on the
      * vertex and edge sets.
      * 
@@ -146,7 +156,8 @@ public class Graph implements Serializable {
         return resultGraph;
     }
 
-    /** This method is used to create a new graph as a union of the two
+    /**
+     * This method is used to create a new graph as a union of the two
      * given input graphs. This is done simply by using set functions on the
      * vertex and edge sets.
      * 
@@ -170,7 +181,8 @@ public class Graph implements Serializable {
         return resultGraph;
     }
 
-    /** This method is used to create a new graph obtained by removing all
+    /**
+     * This method is used to create a new graph obtained by removing all
      * elements of the second graph from the first graph given as inputs.
      * 
      * @param graph1 Input graph 1 
@@ -193,7 +205,8 @@ public class Graph implements Serializable {
         return resultGraph;
     }
 
-    /** This method is used to export the graph to a DOT file which is useful for visualization.
+    /**
+     * This method is used to export the graph to a DOT file which is useful for visualization.
      * 
      * @param path The path to export the file to.
      */

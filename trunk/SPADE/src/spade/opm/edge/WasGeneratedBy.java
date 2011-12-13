@@ -25,13 +25,15 @@ import spade.opm.vertex.Process;
 import java.util.LinkedHashMap;
 import spade.opm.vertex.Network;
 
-/** WasGeneratedBy edge based on the OPM model.
+/**
+ * WasGeneratedBy edge based on the OPM model.
  * 
  * @author Dawood
  */
 public class WasGeneratedBy extends AbstractEdge {
 
-    /** Constructor for Artifact->Process edge
+    /**
+     * Constructor for Artifact->Process edge
      * 
      * @param generatedArtifact Artifact vertex
      * @param actingProcess Process vertex
@@ -43,7 +45,8 @@ public class WasGeneratedBy extends AbstractEdge {
         addAnnotation("type", "WasGeneratedBy");
     }
 
-    /** Constructor for Network->Process edge
+    /**
+     * Constructor for Network->Process edge
      * 
      * @param generatedNetwork Network vertex
      * @param actingProcess Process vertex

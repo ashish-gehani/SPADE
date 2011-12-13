@@ -39,7 +39,8 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** The OpenBSM reporter.
+/**
+ * The OpenBSM reporter.
  * 
  * @author dawood
  */

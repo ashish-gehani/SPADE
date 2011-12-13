@@ -22,22 +22,24 @@ package spade.core;
 import java.io.Serializable;
 import java.util.Map;
 
-/** This is the class from which other vertex classes (e.g., OPM vertices) are derived.
+/**
+ * This is the class from which other vertex classes (e.g., OPM vertices) are derived.
  * 
  * @author Dawood
  */
 public abstract class AbstractVertex implements Serializable {
 
-    /** A map containing the annotations for this vertex.
-     * 
+    /**
+     * A map containing the annotations for this vertex.
      */
     protected Map<String, String> annotations;
     /**
-     * 
+     * A pointer to the Graph object that this vertex belongs to.
      */
     public Graph resultGraph;
 
-    /** Returns the map containing the annotations for this vertex.
+    /**
+     * Returns the map containing the annotations for this vertex.
      * 
      * @return The map containing the annotations.
      */
@@ -45,7 +47,8 @@ public abstract class AbstractVertex implements Serializable {
         return annotations;
     }
 
-    /** Sets the annotations for this vertex.
+    /**
+     * Sets the annotations for this vertex.
      * 
      * @param annotations A map that is to be set as annotations for this vertex.
      */
@@ -53,7 +56,8 @@ public abstract class AbstractVertex implements Serializable {
         this.annotations = annotations;
     }
 
-    /** Adds an annotation.
+    /**
+     * Adds an annotation.
      * 
      * @param key The annotation key.
      * @param value The annotation value.
@@ -62,7 +66,8 @@ public abstract class AbstractVertex implements Serializable {
         annotations.put(key, value);
     }
 
-    /** Removes an annotation.
+    /**
+     * Removes an annotation.
      * 
      * @param key The annotation key to be removed.
      * @return The annotation that is removed, or null of no such annotation key existed.
@@ -71,7 +76,8 @@ public abstract class AbstractVertex implements Serializable {
         return annotations.remove(key);
     }
 
-    /** Gets an annotation.
+    /**
+     * Gets an annotation.
      * 
      * @param key The annotation key.
      * @return The value of the annotation corresponding to the key.
@@ -80,7 +86,8 @@ public abstract class AbstractVertex implements Serializable {
         return annotations.get(key);
     }
 
-    /** Gets the type of this vertex.
+    /**
+     * Gets the type of this vertex.
      * 
      * @return A string indicating the type of this vertex.
      */
