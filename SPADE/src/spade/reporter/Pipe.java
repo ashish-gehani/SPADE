@@ -38,7 +38,8 @@ import spade.opm.vertex.Artifact;
 import spade.opm.vertex.Process;
 import spade.opm.vertex.Agent;
 
-/** Pipe reporter for Linux.
+/**
+ * Pipe reporter for Linux.
  * 
  * @author dawood
  */

@@ -22,24 +22,26 @@ package spade.core;
 import java.io.Serializable;
 import java.util.Map;
 
-/** This is the class from which other edge classes (e.g., OPM edges) are derived.
+/**
+ * This is the class from which other edge classes (e.g., OPM edges) are derived.
  * 
  * @author Dawood
  */
 public abstract class AbstractEdge implements Serializable  {
 
-    /** A map containing the annotations for this edge.
-     * 
+    /**
+     * A map containing the annotations for this edge.
      */
     protected Map<String, String> annotations;
     private AbstractVertex sourceVertex;
     private AbstractVertex destinationVertex;
     /**
-     * 
+     * A pointer to the Graph object that this edge belongs to.
      */
     public Graph resultGraph;
 
-    /** Returns the map containing the annotations for this edge.
+    /**
+     * Returns the map containing the annotations for this edge.
      * 
      * @return The map containing the annotations.
      */
@@ -47,7 +49,8 @@ public abstract class AbstractEdge implements Serializable  {
         return annotations;
     }
 
-    /** Sets the annotations for this edge.
+    /**
+     * Sets the annotations for this edge.
      * 
      * @param annotations A map that is to be set as annotations for this edge.
      */
@@ -55,7 +58,8 @@ public abstract class AbstractEdge implements Serializable  {
         this.annotations = annotations;
     }
 
-    /** Adds an annotation.
+    /**
+     * Adds an annotation.
      * 
      * @param key The annotation key.
      * @param value The annotation value.
@@ -64,7 +68,8 @@ public abstract class AbstractEdge implements Serializable  {
         annotations.put(key, value);
     }
 
-    /** Removes an annotation.
+    /**
+     * Removes an annotation.
      * 
      * @param key The annotation key to be removed.
      * @return The annotation that is removed, or null of no such annotation key existed.
@@ -73,7 +78,8 @@ public abstract class AbstractEdge implements Serializable  {
         return annotations.remove(key);
     }
 
-    /** Gets an annotation.
+    /**
+     * Gets an annotation.
      * 
      * @param key The annotation key.
      * @return The value of the annotation corresponding to the key.
@@ -82,7 +88,8 @@ public abstract class AbstractEdge implements Serializable  {
         return annotations.get(key);
     }
 
-    /** Gets the type of this edge.
+    /**
+     * Gets the type of this edge.
      * 
      * @return A string indicating the type of this edge.
      */
@@ -94,7 +101,8 @@ public abstract class AbstractEdge implements Serializable  {
     // are left empty in this abstract class - they are overridden and implemented
     // in derived classes since the source and destination vertex types may be
     // specific to those classes.
-    /** Gets the source vertex.
+    /**
+     * Gets the source vertex.
      * 
      * @return The source vertex attached to this edge.
      */
@@ -102,7 +110,8 @@ public abstract class AbstractEdge implements Serializable  {
         return sourceVertex;
     }
 
-    /** Gets the destination vertex.
+    /**
+     * Gets the destination vertex.
      * 
      * @return The destination vertex attached to this edge.
      */
@@ -110,7 +119,8 @@ public abstract class AbstractEdge implements Serializable  {
         return destinationVertex;
     }
 
-    /** Sets the source vertex.
+    /**
+     * Sets the source vertex.
      * 
      * @param sourceVertex The vertex that is to be set as the source for this edge.
      */
@@ -118,7 +128,8 @@ public abstract class AbstractEdge implements Serializable  {
         this.sourceVertex = sourceVertex;
     }
 
-    /** Sets the destination vertex.
+    /**
+     * Sets the destination vertex.
      * 
      * @param destinationVertex The vertex that is to be set as the destination for this edge.
      */

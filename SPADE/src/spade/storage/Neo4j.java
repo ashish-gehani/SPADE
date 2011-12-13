@@ -50,7 +50,8 @@ import org.neo4j.helpers.collection.MapUtil;
 import org.neo4j.index.lucene.ValueContext;
 import org.neo4j.kernel.Traversal;
 
-/** Neo4j storage implementation.
+/**
+ * Neo4j storage implementation.
  * 
  * @author Dawood
  */

@@ -48,38 +48,38 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** The SPADE core
- * 
+/** 
+ * The SPADE core.
  * @author Dawood
  */
 public class Kernel {
 
-    /** A string representing the key for the source reporter annotation added to all elements retrieved from buffers.
-     * 
+    /** 
+     * A string representing the key for the source reporter annotation added to all elements retrieved from buffers.
      */
     public static final String SOURCE_REPORTER = "source_reporter";
-    /** A map used to cache the remote sketches.
-     * 
+    /** 
+     * A map used to cache the remote sketches.
      */
     public static Map<String, AbstractSketch> remoteSketches;
-    /** Port number for local control client.
-     * 
+    /** 
+     * Port number for local control client.
      */
     public static final int LOCAL_CONTROL_PORT = 19999;
-    /** Port number for local query client.
-     * 
+    /** 
+     * Port number for local query client.
      */
     public static final int LOCAL_QUERY_PORT = 19998;
-    /** Port number for remote queries.
-     * 
+    /** 
+     * Port number for remote queries.
      */
     public static final int REMOTE_QUERY_PORT = 29999;
-    /** Port number for remote sketch-related operations.
-     * 
+    /** 
+     * Port number for remote sketch-related operations.
      */
     public static final int REMOTE_SKETCH_PORT = 29998;
-    /** Timeout interval.
-     * 
+    /** 
+     * Timeout interval.
      */
     public static final int CONNECTION_TIMEOUT = 15000;
     private static final String configFile = "../cfg/spade.config";
@@ -101,15 +101,15 @@ public class Kernel {
     private static List<AbstractFilter> filters;
     private static List<AbstractFilter> transformers;
     private static Map<AbstractReporter, Buffer> buffers;
-    /** Set of sketches active on the local SPADE instance.
-     * 
+    /** 
+     * Set of sketches active on the local SPADE instance.
      */
     public static Set<AbstractSketch> sketches;
     private static volatile boolean shutdown;
     private static volatile boolean flushTransactions;
 
-    /** The main initialization function.
-     * 
+    /** 
+     * The main initialization function.
      * @param args
      */
     public static void main(String args[]) {
@@ -330,7 +330,8 @@ public class Kernel {
     // and edges to the result graph. Transformers are technically the same as filters
     // and are used to modify/transform data as it is entered into a Graph object.
 
-    /** Method called by a Graph object to send vertices to transformers before they are
+    /**
+     * Method called by a Graph object to send vertices to transformers before they are
      * finally added to the result.
      * 
      * @param vertex The vertex to be transformed.
@@ -339,7 +340,8 @@ public class Kernel {
         ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putVertex(vertex);
     }
 
-    /** Method called by a Graph object to send edges to transformers before they are
+    /**
+     * Method called by a Graph object to send edges to transformers before they are
      * finally added to the result.
      * 
      * @param edge The edge to be transformed.
@@ -348,7 +350,8 @@ public class Kernel {
         ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putEdge(edge);
     }
 
-    /** All command strings are passed to this function which subsequently calls the
+    /**
+     * All command strings are passed to this function which subsequently calls the
      * correct method based on the command. Each command is determined by the first
      * token in the string.
      * 
@@ -390,7 +393,8 @@ public class Kernel {
         }
     }
 
-    /** The configCommand is used to load or save the current SPADE configuration
+    /**
+     * The configCommand is used to load or save the current SPADE configuration
      * from/to a file.
      * 
      * @param line The configuration command to execute.
@@ -435,7 +439,8 @@ public class Kernel {
         }
     }
 
-    /** Method to retrieve a terminal path fragment from the local SPADE instance
+    /**
+     * Method to retrieve a terminal path fragment from the local SPADE instance
      * given a remote sketch as input.
      * 
      * @param inputSketch The input sketch
@@ -559,7 +564,8 @@ public class Kernel {
         return result;
     }
 
-    /** Method to retrieve a non-terminal path fragment given a remote sketch as input.
+    /**
+     * Method to retrieve a non-terminal path fragment given a remote sketch as input.
      * 
      * @param inputSketch The input sketch.
      * @return A path fragment represented by a Graph object.
@@ -665,7 +671,8 @@ public class Kernel {
         return result;
     }
 
-    /** Method used to rebuild the local sketch.
+    /**
+     * Method used to rebuild the local sketch.
      * 
      */
     public static void rebuildLocalSketch() {
@@ -701,7 +708,8 @@ public class Kernel {
         }
     }
 
-    /** Method used to propagate sketches across the network.
+    /**
+     * Method used to propagate sketches across the network.
      * 
      * @param currentLevel The current level of propagation.
      * @param maxLevel The maximum level at which to propagate.
@@ -745,7 +753,8 @@ public class Kernel {
         ////////////////////////////////////////////////////////////////
     }
 
-    /** Method used to indicate to remote hosts that sketches need to be rebuilt.
+    /**
+     * Method used to indicate to remote hosts that sketches need to be rebuilt.
      * 
      * @param currentLevel Current level of notification.
      * @param maxLevel Maximum level to which notifications are sent.
@@ -796,7 +805,8 @@ public class Kernel {
         ////////////////////////////////////////////////////////////////
     }
 
-    /** This method is called when a path query is executed using sketches.
+    /**
+     * This method is called when a path query is executed using sketches.
      * 
      * @param line A string containing the source and destination host and vertex 
      * IDs. It has the format "sourceHost:vertexId destinationHost:vertexId"
@@ -976,7 +986,8 @@ public class Kernel {
         return result;
     }
 
-    /** This method is used to call query methods on the desired storage. The
+    /**
+     * This method is used to call query methods on the desired storage. The
      * transactions are also flushed to ensure that the data in the storages is
      * consistent and updated with all the data received by SPADE up to this point.
      * 
@@ -1206,7 +1217,8 @@ public class Kernel {
         return resultGraph;
     }
 
-    /** Apply the network vertex transform on the graph since the network vertices
+    /**
+     * Apply the network vertex transform on the graph since the network vertices
      * between a network boundary are symmetric but not identical.
      * 
      * @param graph
@@ -1249,7 +1261,8 @@ public class Kernel {
         }
     }
 
-    /** Method used to get remote lineage of a network vertex.
+    /**
+     * Method used to get remote lineage of a network vertex.
      * 
      * @param networkVertex The input network vertex.
      * @param depth Depth of lineage.
@@ -1314,7 +1327,8 @@ public class Kernel {
         return resultGraph;
     }
 
-    /** Convert a vertex to its string representation.
+    /**
+     * Convert a vertex to its string representation.
      * 
      * @param vertex Input vertex
      * @return String representing the input vertex.
@@ -1330,7 +1344,8 @@ public class Kernel {
         return vertexString;
     }
 
-    /** This method is triggered by the query client and calls the main query method
+    /**
+     * This method is triggered by the query client and calls the main query method
      * to retrieve the result before exporting it to the desired path.
      * 
      * @param line The query expression.
@@ -1364,7 +1379,8 @@ public class Kernel {
         }
     }
 
-    /** Method to display control commands to the output stream. The control and query
+    /**
+     * Method to display control commands to the output stream. The control and query
      * commands are displayed using separate methods since these commands are issued
      * from different clients.
      * 
@@ -1383,7 +1399,8 @@ public class Kernel {
         outputStream.println("       shutdown");
     }
 
-    /** Method to display query commands to the given output stream.
+    /**
+     * Method to display query commands to the given output stream.
      * 
      * @param outputStream The target output stream.
      */
@@ -1395,7 +1412,8 @@ public class Kernel {
         outputStream.println("       exit");
     }
 
-    /** Method to add extensions.
+    /**
+     * Method to add extensions.
      * 
      * @param line The add command issued using the control client.
      * @param outputStream The output stream on which to print the results or any output.
@@ -1527,7 +1545,8 @@ public class Kernel {
         }
     }
 
-    /** Method to list extensions.
+    /**
+     * Method to list extensions.
      * 
      * @param line The list command issued using the control client.
      * @param outputStream The output stream on which to print the results or any output.
@@ -1622,7 +1641,8 @@ public class Kernel {
         }
     }
 
-    /** Method to remove extensions.
+    /**
+     * Method to remove extensions.
      * 
      * @param line The remove command issued using the control client.
      * @param outputStream The output stream on which to print the results or any output.
@@ -1740,8 +1760,8 @@ public class Kernel {
         }
     }
 
-    /** Method to shut down SPADE completely.
-     * 
+    /**
+     * Method to shut down SPADE completely.
      */
     public static void shutdown() {
         for (AbstractStorage storage : storages) {

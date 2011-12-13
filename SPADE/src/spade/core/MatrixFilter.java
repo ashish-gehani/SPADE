@@ -18,16 +18,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 --------------------------------------------------------------------------------
 
-Implementation of a Bloom-filter, as described here:
-http://en.wikipedia.org/wiki/Bloom_filter
-
-Inspired by the SimpleBloomFilter-class written by Ian Clarke. This
-implementation provides a more evenly distributed Hash-function by
-using a proper digest instead of the Java RNG. Many of the changes
-were proposed in comments in his blog:
-http://blog.locut.us/2008/01/12/a-decent-stand-alone-java-bloom-filter-implementation/
-
-Author: Magnus Skjegstad <magnus@skjegstad.com>
+ Based on the Bloom filter implementation by Magnus Skjegstad:
+ http://code.google.com/p/java-bloomfilter/
+ 
+ Author: Magnus Skjegstad <magnus@skjegstad.com>
 
 --------------------------------------------------------------------------------
  */

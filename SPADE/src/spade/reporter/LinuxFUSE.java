@@ -20,12 +20,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package spade.reporter;
 
 import spade.core.AbstractReporter;
+import spade.core.AbstractVertex;
 import spade.opm.edge.WasTriggeredBy;
 import spade.opm.edge.WasGeneratedBy;
 import spade.opm.edge.Used;
 import spade.opm.edge.WasDerivedFrom;
 import spade.opm.vertex.Artifact;
-import spade.core.AbstractVertex;
 import spade.opm.vertex.Process;
 import java.io.BufferedReader;
 import java.io.File;
@@ -38,7 +38,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 
-/** The LinuxFUSE reporter.
+/**
+ * The LinuxFUSE reporter.
  * 
  * @author Dawood
  */
@@ -271,7 +272,8 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
-    /** Read event triggered by FUSE.
+    /**
+     * Read event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -298,7 +300,8 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
-    /** Write event triggered by FUSE.
+    /**
+     * Write event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -325,7 +328,8 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
-    /** ReadLink event triggered by FUSE.
+    /**
+     * ReadLink event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -349,7 +353,8 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
-    /** Rename event triggered by FUSE.
+    /**
+     * Rename event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
@@ -403,7 +408,8 @@ public class LinuxFUSE extends AbstractReporter {
         }
     }
 
-    /** Link event triggered by FUSE.
+    /**
+     * Link event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param originalFilePath The original file path.
@@ -426,7 +432,8 @@ public class LinuxFUSE extends AbstractReporter {
         links.put(linkPath, originalFilePath);
     }
 
-    /** Unlink event triggered by FUSE.
+    /**
+     * Unlink event triggered by FUSE.
      * 
      * @param pid PID of the triggering process.
      * @param path The path to unlink.

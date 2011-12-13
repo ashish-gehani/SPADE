@@ -19,19 +19,21 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-/** This is the base class for reporters.
+/**
+ * This is the base class for reporters.
  * 
  * @author Dawood
  */
 public abstract class AbstractReporter {
 
     private Buffer internalBuffer;
-    /** The arguments that a specific reporter instance is initialized with.
-     * 
+    /**
+     * The arguments that a specific reporter instance is initialized with.
      */
     public String arguments;
 
-    /** This method is called by the Kernel for configuration purposes.
+    /**
+     * This method is called by the Kernel for configuration purposes.
      * 
      * @param buffer The buffer to be set for this reporter.
      */
@@ -39,7 +41,8 @@ public abstract class AbstractReporter {
         internalBuffer = buffer;
     }
 
-    /** Returns the buffer associated with this reporter.
+    /**
+     * Returns the buffer associated with this reporter.
      * 
      * @return The buffer associated with this reporter.
      */
@@ -47,7 +50,8 @@ public abstract class AbstractReporter {
         return internalBuffer;
     }
 
-    /** This method is called by the reporters to send vertices to the buffer.
+    /**
+     * This method is called by the reporters to send vertices to the buffer.
      * 
      * @param vertex The vertex to be sent to the buffer.
      * @return True if the buffer accepted the vertex.
@@ -56,7 +60,8 @@ public abstract class AbstractReporter {
         return internalBuffer.putVertex(vertex);
     }
 
-    /** This method is called by the reporters to send edges to the buffer.
+    /**
+     * This method is called by the reporters to send edges to the buffer.
      * 
      * @param edge The edge to be sent to the buffer.
      * @return True if the buffer accepted the edge.
@@ -65,14 +70,16 @@ public abstract class AbstractReporter {
         return internalBuffer.putEdge(edge);
     }
 
-    /** This method is invoked by the kernel when launching a reporter.
+    /**
+     * This method is invoked by the kernel when launching a reporter.
      * 
      * @param arguments The arguments for this reporter.
      * @return True if the reporter launched successfully.
      */
     public abstract boolean launch(String arguments);
 
-    /** This method is invoked by the kernel when shutting down a reporter.
+    /**
+     * This method is invoked by the kernel when shutting down a reporter.
      * 
      * @return True if the reporter was shut down successfully.
      */

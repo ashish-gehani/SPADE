@@ -23,13 +23,15 @@ import spade.core.AbstractVertex;
 import java.util.Map;
 import java.util.LinkedHashMap;
 
-/** Network vertex
+/**
+ * Network vertex
  * 
  * @author Dawood
  */
 public class Network extends AbstractVertex {
 
-    /** Constructor for this vertex that takes a map of annotations.
+    /**
+     * Constructor for this vertex that takes a map of annotations.
      * 
      * @param inputAnnotations The map of annotations to be set for this vertex.
      */
@@ -38,8 +40,8 @@ public class Network extends AbstractVertex {
         this.addAnnotation("type", "Network");
     }
 
-    /** Empty constructor - initializes an empty map for annotations.
-     * 
+    /**
+     * Empty constructor - initializes an empty map for annotations.
      */
     public Network() {
         this.setAnnotations(new LinkedHashMap<String, String>());

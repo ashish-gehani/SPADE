@@ -22,13 +22,15 @@ package spade.core;
 import java.util.Map;
 import java.util.LinkedHashMap;
 
-/** A general-purpose, semantic-agnostic implementation of the Vertex class.
+/**
+ * A general-purpose, semantic-agnostic implementation of the Vertex class.
  * 
  * @author Dawood
  */
 public class Vertex extends AbstractVertex {
     
-    /** Constructor taking the map of annotations.
+    /**
+     * Constructor taking the map of annotations.
      * 
      * @param inputAnnotations The annotations to be set for this vertex.
      */
@@ -37,8 +39,8 @@ public class Vertex extends AbstractVertex {
         this.addAnnotation("type", "Vertex");
     }
 
-    /** An empty constructor - an empty map is initialized for the annotations.
-     * 
+    /**
+     * An empty constructor - an empty map is initialized for the annotations.
      */
     public Vertex() {
         this.setAnnotations(new LinkedHashMap<String, String>());

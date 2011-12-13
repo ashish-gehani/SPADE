@@ -19,53 +19,59 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-/** This is the base class for storages.
+/**
+ * This is the base class for storages.
  * 
  * @author Dawood
  */
 public abstract class AbstractStorage {
 
-    /** The arguments with which this storage was initialized.
-     * 
+    /**
+     * The arguments with which this storage was initialized.
      */
     public String arguments;
-    /** The number of vertices that this storage instance has successfully received.
-     * 
+    /**
+     * The number of vertices that this storage instance has successfully received.
      */
     public long vertexCount;
-    /** The number of edges that this storage instance has successfully received.
-     * 
+    /**
+     * The number of edges that this storage instance has successfully received.
      */
     public long edgeCount;
 
-    /** This method is invoked by the kernel to initialize the storage.
+    /**
+     * This method is invoked by the kernel to initialize the storage.
      * 
      * @param arguments The arguments with which this storage is to be initialized.
      * @return True if the storage was initialized successfully.
      */
     public abstract boolean initialize(String arguments);
 
-    /** This method is invoked by the kernel to shut down the storage.
+    /**
+     * This method is invoked by the kernel to shut down the storage.
      * 
      * @return True if the storage was shut down successfully.
      */
     public abstract boolean shutdown();
 
-    /** This method is triggered when the storage receives a vertex.
+    /**
+     * This method is triggered when the storage receives a vertex.
      * 
      * @param incomingVertex The vertex received by this storage.
      * @return True if the vertex was processed successfully.
      */
     public abstract boolean putVertex(AbstractVertex incomingVertex);
 
-    /** This method is triggered when the storage receives an edge.
+    /**
+     * This method is triggered when the storage receives an edge.
      * 
      * @param incomingEdge The edge received by this storage.
      * @return True if the edge was processed successfully.
      */
     public abstract boolean putEdge(AbstractEdge incomingEdge);
 
-    /** This method is triggered by the Kernel to flush transactions.
+    /**
+     * This method is triggered by the Kernel to flush transactions.
      * 
      * @return True if the transactions were flushed successfully.
      */
@@ -73,7 +79,8 @@ public abstract class AbstractStorage {
         return true;
     }
 
-    /** Query method that returns a set of vertices based on a given expression.
+    /**
+     * Query method that returns a set of vertices based on a given expression.
      * 
      * @param expression The query expression.
      * @return The result of this query in a graph object.
@@ -82,7 +89,8 @@ public abstract class AbstractStorage {
         return null;
     }
 
-    /** Query method that returns a set of edges given expressions for the edge,
+    /**
+     * Query method that returns a set of edges given expressions for the edge,
      * the source vertex and the destination vertex.
      * 
      * @param sourceExpression The query expression for source vertices.
@@ -94,7 +102,8 @@ public abstract class AbstractStorage {
         return null;
     }
 
-    /** Query method that returns a set of edges given the source and destination vertex identifiers.
+    /**
+     * Query method that returns a set of edges given the source and destination vertex identifiers.
      * 
      * @param srcVertexId The source vertex id.
      * @param dstVertexId The destination vertex id.
@@ -104,7 +113,8 @@ public abstract class AbstractStorage {
         return null;
     }
 
-    /** Query method that returns a graph object containing all paths from the given
+    /**
+     * Query method that returns a graph object containing all paths from the given
      * source vertex to the given destination vertex, contrained by the maxLength
      * argument as the maximum length of the paths.
      * 
@@ -117,7 +127,8 @@ public abstract class AbstractStorage {
         return null;
     }
 
-    /** Query method that returns a graph object containing the lineage of a given
+    /**
+     * Query method that returns a graph object containing the lineage of a given
      * vertex. The controlling parameters for the lineage are depth and direction
      * along with an optional expression for terminating on vertices.
      * 
