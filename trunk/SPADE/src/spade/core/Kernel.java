@@ -82,7 +82,7 @@ public class Kernel {
      * Timeout interval.
      */
     public static final int CONNECTION_TIMEOUT = 15000;
-    private static final String configFile = "../cfg/spade.config";
+    private static final String configFile = "cfg/spade.config";
     private static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
     private static final String NO_ARGUMENTS = "no arguments";
     private static final int BATCH_BUFFER_ELEMENTS = 100;
@@ -114,7 +114,7 @@ public class Kernel {
         try {
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
-            Handler logFileHandler = new FileHandler("../log/" + logFilename + ".log");
+            Handler logFileHandler = new FileHandler("log/" + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
         } catch (Exception exception) {
             System.out.println("Error initializing exception logger");

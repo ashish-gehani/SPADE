@@ -2,16 +2,17 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 367
+REVISION = 368
 
 # 'pkg-config' configuration
-LINUX_PKG_CONFIG_PATH = /usr/lib/pkgconfig
-MAC_PKG_CONFIG_PATH = /usr/local/lib/pkgconfig
 OS_NAME = $(shell uname)
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm build-macfuse
-else
+	OS_CONFIG_PATH = /usr/local/lib/pkgconfig
+endif
+ifeq ($(OS_NAME), Linux)
 	OS_BUILD = build-linuxaudit build-linuxfuse
+	OS_CONFIG_PATH = /usr/lib/pkgconfig
 endif
 
 .PHONY: build
@@ -34,6 +35,7 @@ download:
 
 # Build the SPADE kernel.
 build:
+	@mkdir -p build;
 	@echo 'Building the SPADE Kernel...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java;
 	@echo 'Building clients...'
@@ -60,50 +62,48 @@ build-linuxfuse:
 	@echo 'Building LinuxFUSE reporter for Linux...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxFUSE.java;\
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE;\
-	export PKG_CONFIG_PATH=$(LINUX_PKG_CONFIG_PATH);\
+	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
 	gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(java -classpath build spade.utility.JavaHome)/../include -I$(java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so;\
 
 # Build the OpenBSM reporter.
 build-openbsm:
 	@echo 'Building OpenBSM reporter for Darwin...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/OpenBSM.java;\
-	gcc -o build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c;\
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/OpenBSM.java;
+	gcc -o build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c;
 
 # Build the MacFUSE reporter.
 build-macfuse:
 	@echo 'Building MacFUSE reporter for Darwin...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java;\
-	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE;\
-	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -I/usr/local/include/fuse -Wall -g -D__DARWIN_64_BIT_INO_T=1 -o lib/libMacFUSE.jnilib src/spade/reporter/libMacFUSE.c -lfuse_ino64;\
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java;
+	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE;
+	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -I/usr/local/include/fuse -Wall -g -D__DARWIN_64_BIT_INO_T=1 -o lib/libMacFUSE.jnilib src/spade/reporter/libMacFUSE.c -lfuse_ino64;
 
 # ---------- Running SPADE ----------
 
 # Run the SPADE kernel.
 kernel:
-	@echo 'SPADE Kernel started'
-	@cd src;\
-	java -server -Xmx512M -cp '.:../lib/*' -Djava.library.path=../lib/ spade/core/Kernel;
+	@echo 'Starting the SPADE Kernel...'
+	@java -server -Xmx512M -cp 'build:lib/*' -Djava.library.path=lib spade.core.Kernel &
 
 # Run the control shell.
 control-shell:
-	@cd src;\
-	java -cp '.:../lib/*' spade/client/ControlClient;
+	@java -cp 'build:lib/*' spade.client.ControlClient;
 
 # Run the query shell.
 query-shell:
-	@cd src;\
-	java -cp '.:../lib/*' spade/client/QueryClient;
+	@java -cp 'build:lib/*' spade.client.QueryClient;
 
 # ---------- Removing files ----------
 
 # Remove Java classes and native libraries, executables that we compiled.
 
 clean:
-	rm -rf build;\
-	rm -f src/spade/reporter/spadeLinuxAudit stc/spade/reporter/spadeOpenBSM lib/libLinuxFUSE.so lib/libMacFUSE.jnilib;
+	@echo 'Removing Java classes, native libraries, executables...'
+	@rm -rf build;
+	@rm -f src/spade/reporter/spadeLinuxAudit stc/spade/reporter/spadeOpenBSM lib/libLinuxFUSE.so lib/libMacFUSE.jnilib;
 
 # Remove everything except the Makefile.
 
 download-clean:
-	rm -rf build lib src cfg;
+	@rm -rf build lib src cfg;
 

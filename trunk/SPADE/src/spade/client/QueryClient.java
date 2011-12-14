@@ -47,7 +47,7 @@ public class QueryClient {
     // private static String inputPath;
     private static String nullString;
     private static volatile boolean shutdown;
-    private static final String historyFile = "../cfg/query.history";
+    private static final String historyFile = "cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
 
