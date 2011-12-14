@@ -136,7 +136,6 @@ public class QueryClient {
                     if (line.equalsIgnoreCase("exit")) {
                         // On shutdown, remove the output pipe created earlier.
                         shutdown = true;
-                        Runtime.getRuntime().exec("rm -f " + nullString).waitFor();
                         break;
                     } else {
                         // The output path is embedded in each query sent to SPADE
