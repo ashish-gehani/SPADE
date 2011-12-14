@@ -83,9 +83,6 @@ public class Kernel {
      */
     public static final int CONNECTION_TIMEOUT = 15000;
     private static final String configFile = "../cfg/spade.config";
-    private static final String queryPipeInputPath = "../dev/queryPipeIn";
-    private static final String controlPipeInputPath = "../dev/controlPipeIn";
-    private static final String controlPipeOutputPath = "../dev/controlPipeOut";
     private static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
     private static final String NO_ARGUMENTS = "no arguments";
     private static final int BATCH_BUFFER_ELEMENTS = 100;
@@ -1767,12 +1764,6 @@ public class Kernel {
         for (AbstractStorage storage : storages) {
             // Shut down all storages.
             storage.shutdown();
-        }
-        try {
-            // Remove the control and query pipes.
-            Runtime.getRuntime().exec("rm -f " + controlPipeInputPath + " " + controlPipeOutputPath + " " + queryPipeInputPath).waitFor();
-        } catch (Exception exception) {
-            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
         }
         System.exit(0);
     }
