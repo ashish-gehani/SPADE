@@ -22,13 +22,6 @@ package spade.core;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.LinkedList;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -41,6 +34,13 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.LinkedList;
 import java.util.Iterator;
 import java.util.Vector;
 import java.util.logging.FileHandler;
@@ -82,7 +82,7 @@ public class Kernel {
      * Timeout interval.
      */
     public static final int CONNECTION_TIMEOUT = 15000;
-    private static final String configFile = "cfg/spade.config";
+    private static final String configFile = "../cfg/spade.config";
     private static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
     private static final String NO_ARGUMENTS = "no arguments";
     private static final int BATCH_BUFFER_ELEMENTS = 100;
@@ -110,16 +110,26 @@ public class Kernel {
      * @param args
      */
     public static void main(String args[]) {
-
+        
         try {
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
-            Handler logFileHandler = new FileHandler("log/" + logFilename + ".log");
+            Handler logFileHandler = new FileHandler("../log/" + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
         } catch (Exception exception) {
             System.out.println("Error initializing exception logger");
         }
+        
+        // Register a shutdown hook to terminate gracefully
+        Runtime.getRuntime().addShutdownHook(new Thread() {
 
+            @Override
+            public void run() {
+                System.out.println("Shutting down...");
+                shutdown = true;
+            }
+        });
+        
         // Basic initialization
         reporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
