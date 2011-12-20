@@ -41,11 +41,12 @@ all:
 
 # Download everything.
 download:
-	svn checkout -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/src/
-	svn checkout -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
-	svn checkout -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/jsw/
-	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
-	svn checkout -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
+	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/src/
+	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
+	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/jsw/
+	svn export -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
+	svn export -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
+	svn export -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/run
 
 # ---------- Building SPADE ----------
 
