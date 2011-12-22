@@ -21,6 +21,7 @@ package spade.client;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -44,8 +45,6 @@ public class ControlClient {
     private static PrintStream errorStream;
     private static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
-    // private static String inputPath;
-    // private static String outputPath;
     private static volatile boolean shutdown;
     private static final String historyFile = "cfg/control.history";
     private static final String COMMAND_PROMPT = "-> ";
@@ -55,22 +54,8 @@ public class ControlClient {
 
         outputStream = System.out;
         errorStream = System.err;
-        // inputPath = args[0];
-        // outputPath = args[1];
 
         shutdown = false;
-
-        /*
-        try {
-            // The input stream is to which commands are issued. This pipe is created
-            // by the Kernel on startup.
-            SPADEControlIn = new PrintStream(new FileOutputStream(inputPath));
-        } catch (Exception exception) {
-            outputStream.println("Control pipes not ready!");
-            System.exit(0);
-        }
-         * 
-         */
 
         Runnable outputReader = new Runnable() {
 
@@ -84,7 +69,6 @@ public class ControlClient {
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEControlIn = new PrintStream(outStream);
             
-                    //SPADEControlOut = new BufferedReader(new FileReader(outputPath));
                     while (!shutdown) {
                         if (SPADEControlOut.ready()) {
                             // This thread keeps reading from the output pipe and
@@ -101,7 +85,8 @@ public class ControlClient {
                     }
                     SPADEControlOut.close();
                 } catch (Exception exception) {
-                    exception.printStackTrace(errorStream);
+                    System.out.println("Error connecting to SPADE");
+                    System.exit(-1);
                 }
             }
         };
