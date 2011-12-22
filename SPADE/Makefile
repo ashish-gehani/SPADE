@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 370
+REVISION = 372
 
 # System and architecture-specific configuration
 OS_NAME = $(shell uname)
@@ -10,24 +10,10 @@ OS_ARCH = $(shell uname -m)
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm build-macfuse
 	OS_CONFIG_PATH = /usr/local/lib/pkgconfig
-#	ifeq ($(OS_ARCH), i386)
-#		JSW_BIN = cp -f jsw/bin/wrapper-macosx-universal-32 jsw/wrapper
-#		JSW_LIB = cp -f lib/jsw/libwrapper-macosx-universal-32.jnilib lib/libwrapper.jnilib
-#	else
-#		JSW_BIN = cp -f jsw/bin/wrapper-macosx-universal-64 jsw/wrapper
-#		JSW_LIB = cp -f lib/jsw/libwrapper-macosx-universal-64.jnilib lib/libwrapper.jnilib
-#	endif
 endif
 ifeq ($(OS_NAME), Linux)
 	OS_BUILD = build-linuxaudit build-linuxfuse
 	OS_CONFIG_PATH = /usr/lib/pkgconfig
-#	ifeq ($(OS_ARCH), i386)
-#		JSW_BIN = cp -f jsw/bin/wrapper-linux-x86-32 jsw/wrapper
-#		JSW_LIB = cp -f lib/jsw/libwrapper-linux-x86-32.so lib/libwrapper.so
-#	else
-#		JSW_BIN = cp -f jsw/bin/wrapper-linux-x86-64 jsw/wrapper
-#		JSW_LIB = cp -f lib/jsw/libwrapper-linux-x86-64.so lib/libwrapper.so
-#	endif
 endif
 
 .PHONY: build
@@ -66,10 +52,6 @@ build:
 	@echo 'Building the Lsof reporter...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Lsof.java
 	@make $(OS_BUILD)
-#	@echo 'Copying wrapper binary and libraries...'
-#	$(shell $(JSW_BIN))
-#	$(shell $(JSW_LIB))
-#	$(shell chmod +x jsw/wrapper)
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
@@ -127,5 +109,5 @@ clean:
 
 clean-all:
 	@echo 'Removing everything except Makefile...'
-	@rm -rf build lib src cfg log jsw
+	@rm -rf build lib src cfg log jsw run
 

@@ -23,7 +23,7 @@ APP_NAME="SPADE"
 APP_LONG_NAME="SPADE"
 
 # Wrapper
-WRAPPER_CMD="./jsw/wrapper"
+WRAPPER_CMD="jsw/wrapper"
 WRAPPER_CONF="jsw/wrapper.conf"
 
 # Priority at which to run the wrapper.  See "man nice" for valid priorities.

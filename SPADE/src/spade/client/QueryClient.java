@@ -21,6 +21,7 @@ package spade.client;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -44,7 +45,6 @@ public class QueryClient {
     private static PrintStream errorStream;
     private static PrintStream SPADEQueryIn;
     private static BufferedReader SPADEQueryOut;
-    // private static String inputPath;
     private static String nullString;
     private static volatile boolean shutdown;
     private static final String historyFile = "cfg/query.history";
@@ -55,25 +55,8 @@ public class QueryClient {
 
         outputStream = System.out;
         errorStream = System.err;
-        // inputPath = args[0];
-        // outputPath = args[1];
         shutdown = false;
         nullString = "null";
-
-        /*
-        try {
-            // Create the output pipe for queries.
-            int exitValue = Runtime.getRuntime().exec("mkfifo " + outputPath).waitFor();
-            if (exitValue != 0) {
-                throw new Exception();
-            }
-            SPADEQueryIn = new PrintStream(new FileOutputStream(inputPath));
-        } catch (Exception exception) {
-            errorStream.println("Query pipes not ready!");
-            System.exit(0);
-        }
-         * 
-         */
 
         Runnable outputReader = new Runnable() {
 
@@ -87,7 +70,6 @@ public class QueryClient {
                     SPADEQueryOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEQueryIn = new PrintStream(outStream);
 
-                    // SPADEQueryOut = new BufferedReader(new FileReader(outputPath));
                     while (!shutdown) {
                         if (SPADEQueryOut.ready()) {
                             // This thread keeps reading from the output pipe and
@@ -103,7 +85,8 @@ public class QueryClient {
                         Thread.sleep(THREAD_SLEEP_DELAY);
                     }
                 } catch (Exception exception) {
-                    exception.printStackTrace(errorStream);
+                    System.out.println("Error connecting to SPADE");
+                    System.exit(-1);
                 }
             }
         };
@@ -134,7 +117,6 @@ public class QueryClient {
                 try {
                     String line = commandReader.readLine();
                     if (line.equalsIgnoreCase("exit")) {
-                        // On shutdown, remove the output pipe created earlier.
                         shutdown = true;
                         break;
                     } else {
