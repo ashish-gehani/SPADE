@@ -27,6 +27,29 @@ package spade.core;
 public abstract class AbstractFilter {
 
     private AbstractFilter nextFilter;
+    /**
+     * The arguments that a specific filter instance is initialized with.
+     */
+    public String arguments;
+
+    /**
+     * This method is invoked by the kernel when initializing a filter.
+     * 
+     * @param arguments The arguments for this reporter.
+     * @return True if the reporter launched successfully.
+     */
+    public boolean initialize(String arguments) {
+        return true;
+    }
+
+    /**
+     * This method is invoked by the kernel when shutting down a filter.
+     * 
+     * @return True if the reporter was shut down successfully.
+     */
+    public boolean shutdown() {
+        return true;
+    }
 
     /**
      * This method is used by the Kernel for configuring the filter list.

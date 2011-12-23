@@ -39,7 +39,7 @@ public class Fusion extends AbstractFilter {
     private Map<RuleIdentifier, RuleIdentifier> rules;
     private final String configFile = "../cfg/fusion.config";
     private final String SOURCE_REPORTER = spade.core.Kernel.SOURCE_REPORTER;
-    private final int MAX_LIST_LENGTH = 20;
+    private final int MAX_LIST_LENGTH = 5;
     private String leftReporter;
     private String rightReporter;
     private String FUSED_SOURCE_REPORTER;
@@ -48,7 +48,7 @@ public class Fusion extends AbstractFilter {
         // The left and right lists are used to store provenance elements from the 
         // two reporters respectively. Elements are added and removed using the queue
         // interface but the lists are initialized as LinkedLists to allow for 
-        // traversal and checkingfor matching elements
+        // traversal and checking for matching elements
         leftList = new LinkedList<Object>();
         rightList = new LinkedList<Object>();
 
