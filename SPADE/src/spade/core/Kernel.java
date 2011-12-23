@@ -1396,7 +1396,7 @@ public class Kernel {
     public static void showCommands(PrintStream outputStream) {
         outputStream.println("Available commands:");
         outputStream.println("       add reporter|storage <class name> <initialization arguments>");
-        outputStream.println("       add filter <class name> <index>");
+        outputStream.println("       add filter|transformer <class name> <index> <initialization arguments>");
         outputStream.println("       add sketch <class name> <storage class name>");
         outputStream.println("       remove reporter|storage|sketch <class name>");
         outputStream.println("       remove filter <index>");
@@ -1478,12 +1478,16 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("filter")) {
                 String classname = tokens[2];
-                String arguments = tokens[3];
+                String[] parameters = tokens[3].split("\\s+", 2);
                 try {
+                    int index = Integer.parseInt(parameters[0]);
+                    String arguments = (parameters.length == 1) ? null : parameters[1];                    
                     // Get the filter by classname and create a new instance.
                     AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
+                    // Initialize filter if arguments are provided
+                    filter.initialize(arguments);
+                    filter.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
                     // The argument is the index at which the filter is to be inserted.
-                    int index = Integer.parseInt(arguments);
                     if (index >= filters.size()) {
                         throw new Exception();
                     }
@@ -1505,12 +1509,16 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("transformer")) {
                 String classname = tokens[2];
-                String arguments = tokens[3];
+                String[] parameters = tokens[3].split("\\s+", 2);
                 try {
+                    int index = Integer.parseInt(parameters[0]);
+                    String arguments = (parameters.length == 1) ? null : parameters[1];                    
                     // Get the transformer by classname and create a new instance.
                     AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
+                    // Initialize filter if arguments are provided
+                    filter.initialize(arguments);
+                    filter.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
                     // The argument is the index at which the transformer is to be inserted.
-                    int index = Integer.parseInt(arguments);
                     if (index >= transformers.size()) {
                         throw new Exception();
                     }
@@ -1547,7 +1555,7 @@ public class Kernel {
             }
         } catch (Exception addCommandException) {
             outputStream.println("Usage: add reporter|storage <class name> <initialization arguments>");
-            outputStream.println("       add filter|transformer <class name> <index>");
+            outputStream.println("       add filter|transformer <class name> <index> <initialization arguments>");
             outputStream.println("       add sketch <class name>");
         }
     }
@@ -1603,7 +1611,8 @@ public class Kernel {
                 for (int i = 0; i < filters.size() - 1; i++) {
                     // Loop through the filters list, printing their names (except
                     // for the last FinalCommitFilter).
-                    outputStream.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
+                    String arguments = filters.get(i).arguments;
+                    outputStream.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                 }
             } else if (tokens[1].equalsIgnoreCase("transformers")) {
                 if (transformers.size() == 1) {
@@ -1619,7 +1628,8 @@ public class Kernel {
                 for (int i = 0; i < transformers.size() - 1; i++) {
                     // Loop through the transformers list, printing their names (except
                     // for the last FinalTransformer).
-                    outputStream.println("\t" + (i + 1) + ". " + transformers.get(i).getClass().getName().split("\\.")[2]);
+                    String arguments = transformers.get(i).arguments;
+                    outputStream.println("\t" + (i + 1) + ". " + transformers.get(i).getClass().getName().split("\\.")[2] + " (" + arguments + ")");
                 }
             } else if (tokens[1].equalsIgnoreCase("sketches")) {
                 if (sketches.isEmpty()) {
@@ -1717,6 +1727,7 @@ public class Kernel {
                 }
                 String filterName = filters.get(index - 1).getClass().getName();
                 outputStream.print("Removing filter " + filterName.split("\\.")[2] + "... ");
+                filters.get(index - 1).shutdown();
                 if (index > 1) {
                     // Update the internal links between filters by calling the setNextFilter
                     // method on the filter just before the one being removed. The (index-1)
@@ -1734,6 +1745,7 @@ public class Kernel {
                 }
                 String filterName = transformers.get(index - 1).getClass().getName();
                 outputStream.print("Removing transformer " + filterName.split("\\.")[2] + "... ");
+                transformers.get(index - 1).shutdown();
                 if (index > 1) {
                     // Update the internal links between transformers by calling the setNextFilter
                     // method on the transformer just before the one being removed. The (index-1)
