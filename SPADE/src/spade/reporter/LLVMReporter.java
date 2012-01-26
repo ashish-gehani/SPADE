@@ -27,12 +27,12 @@ import java.util.*;
 import java.util.LinkedHashMap;
 import spade.core.AbstractReporter;
 import spade.core.AbstractEdge;
-import spade.opm.edge.Used;
-import spade.opm.edge.WasTriggeredBy;
-import spade.opm.edge.WasGeneratedBy;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasTriggeredBy;
+import spade.edge.opm.WasGeneratedBy;
 import spade.core.AbstractVertex;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Process;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 import java.util.Stack;
 import java.net.*;
 

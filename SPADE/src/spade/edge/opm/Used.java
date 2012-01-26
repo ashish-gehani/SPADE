@@ -17,29 +17,44 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-package spade.opm.edge;
+package spade.edge.opm;
 
 import spade.core.AbstractEdge;
-import spade.opm.vertex.Process;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 import java.util.LinkedHashMap;
+import spade.vertex.opm.Network;
 
 /**
- * WasTriggeredBy edge based on the OPM model.
+ * Used edge based on the OPM model.
  * 
  * @author Dawood
  */
-public class WasTriggeredBy extends AbstractEdge {
+public class Used extends AbstractEdge {
 
     /**
-     * Constructor for Process->Process edge
+     * Constructor for Process->Artifact edge
      * 
-     * @param triggeredProcess Triggered process vertex
-     * @param callingProcess Calling process vertex
+     * @param actingProcess Process vertex
+     * @param usedArtifact Artifact vertex
      */
-    public WasTriggeredBy(Process triggeredProcess, Process callingProcess) {
-        setSourceVertex(triggeredProcess);
-        setDestinationVertex(callingProcess);
+    public Used(Process actingProcess, Artifact usedArtifact) {
+        setSourceVertex(actingProcess);
+        setDestinationVertex(usedArtifact);
         annotations = new LinkedHashMap<String, String>();
-        addAnnotation("type", "WasTriggeredBy");
+        addAnnotation("type", "Used");
+    }
+
+    /**
+     * Constructor for Process->Network edge
+     * 
+     * @param actingProcess Process vertex
+     * @param usedNetwork Network vertex
+     */
+    public Used(Process actingProcess, Network usedNetwork) {
+        setSourceVertex(actingProcess);
+        setDestinationVertex(usedNetwork);
+        annotations = new LinkedHashMap<String, String>();
+        addAnnotation("type", "Used");
     }
 }

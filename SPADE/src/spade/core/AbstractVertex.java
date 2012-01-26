@@ -115,14 +115,16 @@ public abstract class AbstractVertex implements Serializable {
         hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
         return hashCode;
     }
-    
+
     @Override
     public String toString() {
-        String result = "";
+        StringBuilder result = new StringBuilder();
         for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
-            result += currentEntry.getKey() + "|" + currentEntry.getValue();
+            result.append(currentEntry.getKey());
+            result.append("|");
+            result.append(currentEntry.getValue());
+            result.append("|");
         }
-        result = result.substring(0, result.length() - 1);
-        return result;
+        return result.substring(0, result.length() - 1);
     }
 }

@@ -30,9 +30,9 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 
 import spade.core.AbstractReporter;
-import spade.opm.edge.Used;
-import spade.opm.edge.WasGeneratedBy;
-import spade.opm.vertex.Network;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasGeneratedBy;
+import spade.vertex.opm.Network;
 
 public class Lsof extends AbstractReporter implements Runnable {
 
@@ -183,7 +183,7 @@ public class Lsof extends AbstractReporter implements Runnable {
             boolean endPointMatched = false;
             Date currentTime;
 
-            spade.opm.vertex.Process processVertex;
+            spade.vertex.opm.Process processVertex;
             Network networkVertex;
             WasGeneratedBy wasGeneratedByEdge;
             Used usedEdge;
@@ -191,7 +191,7 @@ public class Lsof extends AbstractReporter implements Runnable {
             // Create process vertex.
             annotations = new LinkedHashMap<String, String>();
             annotations.put("pid", pid);
-            processVertex = new spade.opm.vertex.Process();
+            processVertex = new spade.vertex.opm.Process();
             processVertex.getAnnotations().putAll(annotations);
 
             if (!putVertex(processVertex)) {

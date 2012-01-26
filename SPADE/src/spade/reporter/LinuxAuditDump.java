@@ -31,10 +31,10 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractReporter;
-import spade.opm.edge.*;
-import spade.opm.vertex.Process;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Agent;
+import spade.edge.opm.*;
+import spade.vertex.opm.Process;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Agent;
 
 public class LinuxAuditDump extends AbstractReporter {
 

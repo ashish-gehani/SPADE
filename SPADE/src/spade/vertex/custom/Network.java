@@ -17,30 +17,17 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-package spade.opm.edge;
+package spade.vertex.custom;
 
-import spade.core.AbstractEdge;
-import spade.opm.vertex.Agent;
-import spade.opm.vertex.Process;
-import java.util.LinkedHashMap;
+import spade.vertex.opm.Artifact;
 
 /**
- * WasControlledBy edge based on the OPM model.
- * 
- * @author Dawood
+ *
+ * @author dawood
  */
-public class WasControlledBy extends AbstractEdge {
+public class Network extends Artifact {
 
-    /**
-     * Constructor for Process->Agent edge
-     * 
-     * @param controlledProcess Process vertex
-     * @param controllingAgent Agent vertex
-     */
-    public WasControlledBy(Process controlledProcess, Agent controllingAgent) {
-        setSourceVertex(controlledProcess);
-        setDestinationVertex(controllingAgent);
-        annotations = new LinkedHashMap<String, String>();
-        addAnnotation("type", "WasControlledBy");
+    public Network() {
+        this.addAnnotation("subtype", "network");
     }
 }

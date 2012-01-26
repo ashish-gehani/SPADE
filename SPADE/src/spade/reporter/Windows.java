@@ -25,11 +25,11 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractReporter;
-import spade.opm.edge.Used;
-import spade.opm.edge.WasGeneratedBy;
-import spade.opm.edge.WasTriggeredBy;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Process;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 
 public class Windows extends AbstractReporter {
 

@@ -17,34 +17,17 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-package spade.opm.vertex;
+package spade.vertex.custom;
 
-import spade.core.AbstractVertex;
-import java.util.Map;
-import java.util.LinkedHashMap;
+import spade.vertex.opm.Process;
 
 /**
- * Process vertex based on the OPM model
- * 
- * @author Dawood
+ *
+ * @author dawood
  */
-public class Process extends AbstractVertex {
+public class Function extends Process {
 
-    /**
-     * Constructor for this vertex that takes a map of annotations.
-     * 
-     * @param inputAnnotations The map of annotations to be set for this vertex.
-     */
-    public Process(Map<String, String> inputAnnotations) {
-        this.setAnnotations(inputAnnotations);
-        this.addAnnotation("type", "Process");
-    }
-
-    /**
-     * Empty constructor - initializes an empty map for annotations.
-     */
-    public Process() {
-        this.setAnnotations(new LinkedHashMap<String, String>());
-        this.addAnnotation("type", "Process");
+    public Function() {
+        this.addAnnotation("subtype", "function");
     }
 }
