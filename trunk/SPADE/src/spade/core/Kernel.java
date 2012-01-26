@@ -84,15 +84,16 @@ public class Kernel {
     public static final int CONNECTION_TIMEOUT = 15000;
     private static final String configFile = "../cfg/spade.config";
     private static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
-    private static final String NO_ARGUMENTS = "no arguments";
     private static final int BATCH_BUFFER_ELEMENTS = 100;
     private static final int MAIN_THREAD_SLEEP_DELAY = 3;
-    private static final int COMMAND_THREAD_SLEEP_DELAY = 200;
     private static final int REMOVE_WAIT_DELAY = 300;
     private static final int FIRST_TRANSFORMER = 0;
     private static final int FIRST_FILTER = 0;
     private static Set<AbstractReporter> reporters;
-    private static Set<AbstractStorage> storages;
+    /** 
+     * Set of storages active on the local SPADE instance.
+     */
+    public static Set<AbstractStorage> storages;
     private static Set<AbstractReporter> removereporters;
     private static Set<AbstractStorage> removestorages;
     private static List<AbstractFilter> filters;
@@ -110,7 +111,7 @@ public class Kernel {
      * @param args
      */
     public static void main(String args[]) {
-        
+
         try {
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
@@ -119,7 +120,7 @@ public class Kernel {
         } catch (Exception exception) {
             System.out.println("Error initializing exception logger");
         }
-        
+
         // Register a shutdown hook to terminate gracefully
         Runtime.getRuntime().addShutdownHook(new Thread() {
 
@@ -129,7 +130,7 @@ public class Kernel {
                 shutdown = true;
             }
         });
-        
+
         // Basic initialization
         reporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
@@ -336,7 +337,6 @@ public class Kernel {
     // The following two methods are called by the Graph object when adding vertices
     // and edges to the result graph. Transformers are technically the same as filters
     // and are used to modify/transform data as it is entered into a Graph object.
-
     /**
      * Method called by a Graph object to send vertices to transformers before they are
      * finally added to the result.
@@ -423,18 +423,31 @@ public class Kernel {
                 outputStream.print("Saving configuration... ");
                 FileWriter configWriter = new FileWriter(tokens[2], false);
                 for (int i = 0; i < filters.size() - 1; i++) {
-                    configWriter.write("filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i + "\n");
+                    String arguments = filters.get(i).arguments;
+                    configWriter.write("filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i);
+                    if (arguments != null) {
+                        configWriter.write(" " + arguments);
+                    }
+                    configWriter.write("\n");
                 }
                 for (AbstractSketch sketch : sketches) {
                     configWriter.write("sketch " + sketch.getClass().getName().split("\\.")[2] + "\n");
                 }
                 for (AbstractStorage storage : storages) {
                     String arguments = storage.arguments;
-                    configWriter.write("storage " + storage.getClass().getName().split("\\.")[2] + " " + arguments + "\n");
+                    configWriter.write("storage " + storage.getClass().getName().split("\\.")[2]);
+                    if (arguments != null) {
+                        configWriter.write(" " + arguments);
+                    }
+                    configWriter.write("\n");
                 }
                 for (AbstractReporter reporter : reporters) {
                     String arguments = reporter.arguments;
-                    configWriter.write("reporter " + reporter.getClass().getName().split("\\.")[2] + " " + arguments + "\n");
+                    configWriter.write("reporter " + reporter.getClass().getName().split("\\.")[2]);
+                    if (arguments != null) {
+                        configWriter.write(" " + arguments);
+                    }
+                    configWriter.write("\n");
                 }
                 configWriter.close();
                 outputStream.println("done");
@@ -475,7 +488,7 @@ public class Kernel {
         //Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
         Graph myNetworkVertices = query("query Neo4j vertices network:true", false);
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
-        MatrixFilter myMatrixFilter = sketches.iterator().next().matrixFilter;
+        MatrixFilter myMatrixFilter = Kernel.sketches.iterator().next().matrixFilter;
 
         if (end.equals("src")) {
             // If a 'src' end is requested, then the following is done to generate the
@@ -604,7 +617,7 @@ public class Kernel {
         Set<AbstractVertex> matchingVerticesDown = new HashSet<AbstractVertex>();
         Set<AbstractVertex> matchingVerticesUp = new HashSet<AbstractVertex>();
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
-        MatrixFilter myMatrixFilter = sketches.iterator().next().matrixFilter;
+        MatrixFilter myMatrixFilter = Kernel.sketches.iterator().next().matrixFilter;
 
         // Current host's network vertices that match downward
         ////////////////////////////////////////////////////////////////////
@@ -696,16 +709,16 @@ public class Kernel {
         ////////////////////////////////////////////////////////////////
         query(null, false); // To flush transactions
         try {
-            AbstractSketch mySketch = sketches.iterator().next();
+            AbstractSketch mySketch = Kernel.sketches.iterator().next();
             //Set<AbstractEdge> usedEdges = storages.iterator().next().getEdges(null, "type:Network", "type:Used").edgeSet();
-            Set<AbstractEdge> usedEdges = storages.iterator().next().getEdges(null, "network:true", "type:Used").edgeSet();
+            Set<AbstractEdge> usedEdges = Kernel.storages.iterator().next().getEdges(null, "network:true", "type:Used").edgeSet();
             for (AbstractEdge currentEdge : usedEdges) {
                 mySketch.putEdge(currentEdge);
                 Thread.sleep(200);
             }
             Thread.sleep(2000);
             //Set<AbstractEdge> wgbEdges = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").edgeSet();
-            Set<AbstractEdge> wgbEdges = storages.iterator().next().getEdges("network:true", null, "type:WasGeneratedBy").edgeSet();
+            Set<AbstractEdge> wgbEdges = Kernel.storages.iterator().next().getEdges("network:true", null, "type:WasGeneratedBy").edgeSet();
             for (AbstractEdge currentEdge : wgbEdges) {
                 mySketch.putEdge(currentEdge);
                 Thread.sleep(200);
@@ -737,7 +750,7 @@ public class Kernel {
         currentLevel++;
         query(null, false); // To flush transactions
         //Set<AbstractVertex> upVertices = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").vertexSet();
-        Set<AbstractVertex> upVertices = storages.iterator().next().getEdges("network:true", null, "type:WasGeneratedBy").vertexSet();
+        Set<AbstractVertex> upVertices = Kernel.storages.iterator().next().getEdges("network:true", null, "type:WasGeneratedBy").vertexSet();
         // Get all outgoing network vertices.
         for (AbstractVertex currentVertex : upVertices) {
             //if (!currentVertex.type().equalsIgnoreCase("Network")) {
@@ -780,7 +793,7 @@ public class Kernel {
         ////////////////////////////////////////////////////////////////
         query(null, false); // To flush transactions
         //Set<AbstractVertex> upVertices = storages.iterator().next().getEdges(null, "type:Network", "type:Used").vertexSet();
-        Set<AbstractVertex> upVertices = storages.iterator().next().getEdges(null, "network:true", "type:Used").vertexSet();
+        Set<AbstractVertex> upVertices = Kernel.storages.iterator().next().getEdges(null, "network:true", "type:Used").vertexSet();
         // If there are no incoming network vertices to send notifications to,
         // stop notifying and begin propagation.
         if (upVertices.isEmpty()) {
@@ -936,7 +949,7 @@ public class Kernel {
                 }
             }
 
-            AbstractSketch mySketch = sketches.iterator().next();
+            AbstractSketch mySketch = Kernel.sketches.iterator().next();
             mySketch.objects.put("srcVertices", sourceNetworkVertices);
             mySketch.objects.put("dstVertices", destinationNetworkVertices);
             mySketch.objects.put("queryLine", line);
@@ -1017,11 +1030,11 @@ public class Kernel {
                 Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
             }
         }
-        if ((line == null) || (storages.isEmpty())) {
+        if ((line == null) || (Kernel.storages.isEmpty())) {
             return null;
         }
         String[] tokens = line.split("\\s+");
-        for (AbstractStorage storage : storages) {
+        for (AbstractStorage storage : Kernel.storages) {
             if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
                 ////////////////////////////////////////////////////////////////
                 System.out.println("Executing query line: " + line);
@@ -1133,7 +1146,7 @@ public class Kernel {
                         ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("sketches.out"));
                         Map<String, AbstractSketch> tempSketches = new HashMap<String, AbstractSketch>();
                         tempSketches.putAll(remoteSketches);
-                        tempSketches.put("localhost", sketches.iterator().next());
+                        tempSketches.put("localhost", Kernel.sketches.iterator().next());
                         out.writeObject(tempSketches);
                         out.flush();
                         out.close();
@@ -1443,7 +1456,7 @@ public class Kernel {
                         // On true, the reporter is added to the reporters set and the buffer
                         // is put into a HashMap keyed by the reporter (this is used by the main
                         // SPADE thread to extract buffer elements).
-                        reporter.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
+                        reporter.arguments = arguments;
                         buffers.put(reporter, buffer);
                         reporters.add(reporter);
                         outputStream.println("done");
@@ -1464,7 +1477,7 @@ public class Kernel {
                     if (storage.initialize(arguments)) {
                         // The initialize() method must return true to indicate successful startup.
                         // On true, the storage is added to the storages set.
-                        storage.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
+                        storage.arguments = arguments;
                         storage.vertexCount = 0;
                         storage.edgeCount = 0;
                         storages.add(storage);
@@ -1481,12 +1494,12 @@ public class Kernel {
                 String[] parameters = tokens[3].split("\\s+", 2);
                 try {
                     int index = Integer.parseInt(parameters[0]);
-                    String arguments = (parameters.length == 1) ? null : parameters[1];                    
+                    String arguments = (parameters.length == 1) ? null : parameters[1];
                     // Get the filter by classname and create a new instance.
                     AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
                     // Initialize filter if arguments are provided
                     filter.initialize(arguments);
-                    filter.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
+                    filter.arguments = arguments;
                     // The argument is the index at which the filter is to be inserted.
                     if (index >= filters.size()) {
                         throw new Exception();
@@ -1512,12 +1525,12 @@ public class Kernel {
                 String[] parameters = tokens[3].split("\\s+", 2);
                 try {
                     int index = Integer.parseInt(parameters[0]);
-                    String arguments = (parameters.length == 1) ? null : parameters[1];                    
+                    String arguments = (parameters.length == 1) ? null : parameters[1];
                     // Get the transformer by classname and create a new instance.
                     AbstractFilter filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
                     // Initialize filter if arguments are provided
                     filter.initialize(arguments);
-                    filter.arguments = (arguments == null) ? NO_ARGUMENTS : arguments;
+                    filter.arguments = arguments;
                     // The argument is the index at which the transformer is to be inserted.
                     if (index >= transformers.size()) {
                         throw new Exception();
@@ -1580,7 +1593,11 @@ public class Kernel {
                 for (AbstractReporter reporter : reporters) {
                     // Print the names and arguments of all reporters.
                     String arguments = reporter.arguments;
-                    outputStream.println("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
+                    outputStream.print("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2]);
+                    if (arguments != null) {
+                        outputStream.print(" (" + arguments + ")");
+                    }
+                    outputStream.println();
                     count++;
                 }
             } else if (tokens[1].equalsIgnoreCase("storages")) {
@@ -1594,7 +1611,11 @@ public class Kernel {
                 for (AbstractStorage storage : storages) {
                     // Print the names and arguments of all storages.
                     String arguments = storage.arguments;
-                    outputStream.println("\t" + count + ". " + storage.getClass().getName().split("\\.")[2] + " (" + arguments + ")");
+                    outputStream.print("\t" + count + ". " + storage.getClass().getName().split("\\.")[2]);
+                    if (arguments != null) {
+                        outputStream.print(" (" + arguments + ")");
+                    }
+                    outputStream.println();
                     count++;
                 }
             } else if (tokens[1].equalsIgnoreCase("filters")) {
@@ -1612,7 +1633,11 @@ public class Kernel {
                     // Loop through the filters list, printing their names (except
                     // for the last FinalCommitFilter).
                     String arguments = filters.get(i).arguments;
-                    outputStream.println("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2] + " (" + arguments + ")");
+                    outputStream.print("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
+                    if (arguments != null) {
+                        outputStream.print(" (" + arguments + ")");
+                    }
+                    outputStream.println();
                 }
             } else if (tokens[1].equalsIgnoreCase("transformers")) {
                 if (transformers.size() == 1) {
@@ -1629,7 +1654,11 @@ public class Kernel {
                     // Loop through the transformers list, printing their names (except
                     // for the last FinalTransformer).
                     String arguments = transformers.get(i).arguments;
-                    outputStream.println("\t" + (i + 1) + ". " + transformers.get(i).getClass().getName().split("\\.")[2] + " (" + arguments + ")");
+                    outputStream.print("\t" + (i + 1) + ". " + transformers.get(i).getClass().getName().split("\\.")[2]);
+                    if (arguments != null) {
+                        outputStream.print(" (" + arguments + ")");
+                    }
+                    outputStream.println();
                 }
             } else if (tokens[1].equalsIgnoreCase("sketches")) {
                 if (sketches.isEmpty()) {
@@ -1783,8 +1812,12 @@ public class Kernel {
      * Method to shut down SPADE completely.
      */
     public static void shutdown() {
+        // Shut down filters.
+        for (int i = 0; i < filters.size() - 1; i++) {
+            filters.get(i).shutdown();
+        }
+        // Shut down storages.
         for (AbstractStorage storage : storages) {
-            // Shut down all storages.
             storage.shutdown();
         }
         System.exit(0);

@@ -76,18 +76,25 @@ public class Graphviz extends AbstractStorage {
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
             if (vertexSet.add(incomingVertex.hashCode())) {
-                String annotationString = "";
+                StringBuilder annotationString = new StringBuilder();
                 for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                     String key = currentEntry.getKey();
                     String value = currentEntry.getValue();
-                    if ((key.equalsIgnoreCase("type")) || (key.equalsIgnoreCase("storageId"))
-                            || (key.equalsIgnoreCase("environment")) || (key.equalsIgnoreCase("commandline"))
+                    if ((key.equalsIgnoreCase("storageId"))
+                            || (key.equalsIgnoreCase("type"))
+                            || (key.equalsIgnoreCase("subtype"))
+                            || (key.equalsIgnoreCase("environment"))
+                            || (key.equalsIgnoreCase("commandline"))
+                            || (key.equalsIgnoreCase("path"))
                             || (key.equalsIgnoreCase("source_reporter"))) {
                         continue;
                     }
-                    annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n";
+                    annotationString.append(key.replace("\\", "\\\\"));
+                    annotationString.append(":");
+                    annotationString.append(value.replace("\\", "\\\\"));
+                    annotationString.append("\\n");
                 }
-                annotationString = annotationString.substring(0, annotationString.length() - 2);
+                String vertexString = annotationString.substring(0, annotationString.length() - 2);
                 String shape = "box";
                 String color = "white";
                 String type = incomingVertex.getAnnotation("type");
@@ -101,7 +108,12 @@ public class Graphviz extends AbstractStorage {
                     shape = "ellipse";
                     color = "khaki1";
                 }
-                outputFile.write("\"" + incomingVertex.hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
+                outputFile.write("\""
+                        + incomingVertex.hashCode()
+                        + "\" [label=\"" + vertexString.replace("\"", "'")
+                        + "\" shape=\"" + shape
+                        + "\" fillcolor=\"" + color
+                        + "\"];\n");
                 checkTransactions();
                 return true;
             }
@@ -115,15 +127,20 @@ public class Graphviz extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
             if (edgeSet.add(incomingEdge.hashCode())) {
-                String annotationString = "";
+                StringBuilder annotationString = new StringBuilder();
                 for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
                     String key = currentEntry.getKey();
                     String value = currentEntry.getValue();
-                    if ((key.equalsIgnoreCase("storageId")) || (key.equalsIgnoreCase("type"))
+                    if ((key.equalsIgnoreCase("storageId"))
+                            || (key.equalsIgnoreCase("type"))
+                            || (key.equalsIgnoreCase("subtype"))
                             || (key.equalsIgnoreCase("source_reporter"))) {
                         continue;
                     }
-                    annotationString = annotationString + key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + ", ";
+                    annotationString.append(key.replace("\\", "\\\\"));
+                    annotationString.append(":");
+                    annotationString.append(value.replace("\\", "\\\\"));
+                    annotationString.append("\\n");
                 }
                 String color = "black";
                 String type = incomingEdge.getAnnotation("type");
@@ -138,11 +155,18 @@ public class Graphviz extends AbstractStorage {
                 } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
                     color = "orange";
                 }
-                if (annotationString.length() > 3) {
-                    annotationString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
+                
+                String edgeString = annotationString.toString();
+                if (edgeString.length() > 0) {
+                    edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
                 }
-                String edgeString = "\"" + incomingEdge.getSourceVertex().hashCode() + "\" -> \"" + incomingEdge.getDestinationVertex().hashCode() + "\" [label=\"" + annotationString.replace("\"", "'") + "\" color=\"" + color + "\"];\n";
-                outputFile.write(edgeString);
+                outputFile.write("\""
+                        + incomingEdge.getSourceVertex().hashCode()
+                        + "\" -> \""
+                        + incomingEdge.getDestinationVertex().hashCode()
+                        + "\" [label=\"" + edgeString.replace("\"", "'")
+                        + "\" color=\"" + color
+                        + "\"];\n");
                 checkTransactions();
                 return true;
             }

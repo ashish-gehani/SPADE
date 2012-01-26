@@ -28,15 +28,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractReporter;
 import spade.core.AbstractEdge;
-import spade.opm.edge.Used;
-import spade.opm.edge.WasTriggeredBy;
-import spade.opm.edge.WasGeneratedBy;
-import spade.opm.edge.WasDerivedFrom;
-import spade.opm.edge.WasControlledBy;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasTriggeredBy;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasDerivedFrom;
+import spade.edge.opm.WasControlledBy;
 import spade.core.AbstractVertex;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Process;
-import spade.opm.vertex.Agent;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
+import spade.vertex.opm.Agent;
 
 /**
  * Pipe reporter for Linux.

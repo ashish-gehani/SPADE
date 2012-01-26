@@ -17,13 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
  */
-package spade.opm.edge;
+package spade.edge.opm;
 
 import spade.core.AbstractEdge;
-import spade.opm.vertex.Artifact;
-import spade.opm.vertex.Process;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 import java.util.LinkedHashMap;
-import spade.opm.vertex.Network;
+import spade.vertex.opm.Network;
 
 /**
  * WasGeneratedBy edge based on the OPM model.
