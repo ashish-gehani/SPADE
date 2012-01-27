@@ -115,7 +115,7 @@ public class SQL extends AbstractStorage {
              * 
              */
             Statement columnStatement = dbConnection.createStatement();
-            columnStatement.execute("ALTER TABLE " + table + " ADD IF NOT EXISTS " + column + " BLOB");
+            columnStatement.execute("ALTER TABLE " + table + " ADD IF NOT EXISTS " + column + " VARCHAR");
             return true;
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
@@ -141,15 +141,15 @@ public class SQL extends AbstractStorage {
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
         insertStringBuilder.append(
-                "\"" + incomingVertex.type() + "\", "
-                + "\"" + incomingVertex.hashCode() + "\", ");
+                "'" + incomingVertex.type() + "', "
+                + incomingVertex.hashCode() + ", ");
 
         for (String annotationKey : incomingVertex.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
             }
 
-            insertStringBuilder.append("\"" + incomingVertex.getAnnotation(annotationKey).replace("\"", "'") + "\", ");
+            insertStringBuilder.append("'" + incomingVertex.getAnnotation(annotationKey) + "', ");
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
@@ -188,17 +188,17 @@ public class SQL extends AbstractStorage {
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
         insertStringBuilder.append(
-                "\"" + incomingEdge.type() + "\", "
-                + "\"" + incomingEdge.hashCode() + "\", "
-                + "\"" + fromVertexId + "\", "
-                + "\"" + toVertexId + "\", ");
+                "'" + incomingEdge.type() + "', "
+                + incomingEdge.hashCode() + ", "
+                + fromVertexId + ", "
+                + toVertexId + ", ");
 
         for (String annotationKey : incomingEdge.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
             }
 
-            insertStringBuilder.append("\"" + incomingEdge.getAnnotation(annotationKey).replace("\"", "'") + "\", ");
+            insertStringBuilder.append("'" + incomingEdge.getAnnotation(annotationKey) + "', ");
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
