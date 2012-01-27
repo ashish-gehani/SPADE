@@ -28,6 +28,6 @@ import spade.vertex.opm.Artifact;
 public class Network extends Artifact {
 
     public Network() {
-        this.addAnnotation("subtype", "network");
+        this.addAnnotation("subtype", "Network");
     }
 }

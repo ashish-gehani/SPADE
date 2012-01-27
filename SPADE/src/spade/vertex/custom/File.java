@@ -28,6 +28,6 @@ import spade.vertex.opm.Artifact;
 public class File extends Artifact {
 
     public File() {
-        this.addAnnotation("subtype", "file");
+        this.addAnnotation("subtype", "File");
     }
 }
