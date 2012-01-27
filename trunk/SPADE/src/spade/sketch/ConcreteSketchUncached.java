@@ -37,6 +37,7 @@ import spade.core.Kernel;
 import spade.core.MatrixFilter;
 import spade.core.BloomFilter;
 import spade.core.Graph;
+import spade.core.Query;
 
 
 public class ConcreteSketchUncached extends AbstractSketch {
@@ -140,7 +141,7 @@ class updateMatrixThreadUncached implements Runnable {
             ////////////////////////////////////////////////////////////
             String remoteHost = vertex.getAnnotation("destination host");
             BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(vertex);
-            Graph descendants = Kernel.query("query Neo4j lineage " + storageId + " 20 d null tmp.dot", false);
+            Graph descendants = Query.executeQuery("query Neo4j lineage " + storageId + " 20 d null tmp.dot", false);
             for (AbstractVertex currentVertex : descendants.vertexSet()) {
                 //if (currentVertex.type().equalsIgnoreCase("Network")) {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
@@ -154,7 +155,7 @@ class updateMatrixThreadUncached implements Runnable {
             ////////////////////////////////////////////////////////////
             System.out.println("concreteSketch - Updating matrixfilter for WGB edge for storageId: " + storageId);
             ////////////////////////////////////////////////////////////
-            Graph ancestors = Kernel.query("query Neo4j lineage " + storageId + " 20 a null tmp.dot", false);
+            Graph ancestors = Query.executeQuery("query Neo4j lineage " + storageId + " 20 a null tmp.dot", false);
             for (AbstractVertex currentVertex : ancestors.vertexSet()) {
                 //if (currentVertex.type().equalsIgnoreCase("Network")) {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
@@ -177,7 +178,7 @@ class updateMatrixThreadUncached implements Runnable {
             vertexQueryExpression += " AND source\\ port:" + networkVertex.getAnnotation("source port");
             vertexQueryExpression += " AND destination\\ host:" + networkVertex.getAnnotation("destination host");
             vertexQueryExpression += " AND destination\\ port:" + networkVertex.getAnnotation("destination port");
-            Graph result = Kernel.query(vertexQueryExpression, false);
+            Graph result = Query.executeQuery(vertexQueryExpression, false);
             AbstractVertex resultVertex = result.vertexSet().iterator().next();
             ////////////////////////////////////////////////////////////
             System.out.println("concreteSketch - Returning storageId: " + resultVertex.getAnnotation("storageId"));

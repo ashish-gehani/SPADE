@@ -167,7 +167,7 @@ public abstract class AbstractEdge implements Serializable {
         StringBuilder result = new StringBuilder();
         for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
             result.append(currentEntry.getKey());
-            result.append("|");
+            result.append(":");
             result.append(currentEntry.getValue());
             result.append("|");
         }
