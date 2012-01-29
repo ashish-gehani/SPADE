@@ -46,6 +46,7 @@ import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.index.IndexHits;
+import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.helpers.collection.MapUtil;
 import org.neo4j.index.lucene.ValueContext;
 import org.neo4j.kernel.Traversal;
@@ -84,10 +85,11 @@ public class Neo4j extends AbstractStorage {
                 return false;
             }
             graphDb = new EmbeddedGraphDatabase(arguments, MapUtil.stringMap(ALLOW_STORE_UPGRADE, "true"));
+            IndexManager index = graphDb.index();
             transactionCount = 0;
             flushCount = 0;
-            vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
-            edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap("provider", "lucene", "type", "fulltext"));
+            vertexIndex = graphDb.index().forNodes("vertexIndex", MapUtil.stringMap(index.PROVIDER, "lucene", "type", "fulltext"));
+            edgeIndex = graphDb.index().forRelationships("edgeIndex", MapUtil.stringMap(index.PROVIDER, "lucene", "type", "fulltext"));
             vertexMap = new HashMap<Integer, Long>();
             edgeSet = new HashSet<Integer>();
             return true;
@@ -153,28 +155,23 @@ public class Neo4j extends AbstractStorage {
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
-            newVertex.setProperty(key, value);
-            vertexIndex.add(newVertex, key, value);
-            /*
             try {
-            Long longValue = Long.parseLong(value);
-            newVertex.setProperty(key, longValue);
-            vertexIndex.add(newVertex, key, new ValueContext(longValue).indexNumeric());
-            } catch (Exception parseLongException) {
-            try {
-            Double doubleValue = Double.parseDouble(value);
-            newVertex.setProperty(key, doubleValue);
-            vertexIndex.add(newVertex, key, new ValueContext(doubleValue).indexNumeric());
-            } catch (Exception parseDoubleException) {
-            newVertex.setProperty(key, value);
-            vertexIndex.add(newVertex, key, value);
+                Long longValue = Long.parseLong(value);
+                newVertex.setProperty(key, longValue);
+                vertexIndex.add(newVertex, key, new ValueContext(longValue).indexNumeric());
+            } catch (NumberFormatException parseLongException) {
+                try {
+                    Double doubleValue = Double.parseDouble(value);
+                    newVertex.setProperty(key, doubleValue);
+                    vertexIndex.add(newVertex, key, new ValueContext(doubleValue).indexNumeric());
+                } catch (NumberFormatException parseDoubleException) {
+                    newVertex.setProperty(key, value);
+                    vertexIndex.add(newVertex, key, value);
+                }
             }
-            }
-             */
         }
         newVertex.setProperty(ID_STRING, newVertex.getId());
-        vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-//        vertexIndex.add(newVertex, ID_STRING, new ValueContext(newVertex.getId()).indexNumeric());
+        vertexIndex.add(newVertex, ID_STRING, new ValueContext(newVertex.getId()).indexNumeric());
         vertexMap.put(incomingVertex.hashCode(), newVertex.getId());
         checkTransactionCount();
         return true;
@@ -202,28 +199,23 @@ public class Neo4j extends AbstractStorage {
             if (key.equalsIgnoreCase(ID_STRING)) {
                 continue;
             }
-            newEdge.setProperty(key, value);
-            edgeIndex.add(newEdge, key, value);
-            /*
             try {
-            Long longValue = Long.parseLong(value);
-            newEdge.setProperty(key, longValue);
-            edgeIndex.add(newEdge, key, new ValueContext(longValue).indexNumeric());
+                Long longValue = Long.parseLong(value);
+                newEdge.setProperty(key, longValue);
+                edgeIndex.add(newEdge, key, new ValueContext(longValue).indexNumeric());
             } catch (Exception parseLongException) {
-            try {
-            Double doubleValue = Double.parseDouble(value);
-            newEdge.setProperty(key, doubleValue);
-            edgeIndex.add(newEdge, key, new ValueContext(doubleValue).indexNumeric());
-            } catch (Exception parseDoubleException) {
-            newEdge.setProperty(key, value);
-            edgeIndex.add(newEdge, key, value);
+                try {
+                    Double doubleValue = Double.parseDouble(value);
+                    newEdge.setProperty(key, doubleValue);
+                    edgeIndex.add(newEdge, key, new ValueContext(doubleValue).indexNumeric());
+                } catch (Exception parseDoubleException) {
+                    newEdge.setProperty(key, value);
+                    edgeIndex.add(newEdge, key, value);
+                }
             }
-            }
-             */
         }
         newEdge.setProperty(ID_STRING, newEdge.getId());
-        edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-        //edgeIndex.add(newEdge, ID_STRING, new ValueContext(newEdge.getId()).indexNumeric());
+        edgeIndex.add(newEdge, ID_STRING, new ValueContext(newEdge.getId()).indexNumeric());
 
         checkTransactionCount();
         return true;
@@ -408,7 +400,7 @@ public class Neo4j extends AbstractStorage {
                     // to resolve remote queries
                     /*
                     if (((String) otherNode.getProperty("type")).equalsIgnoreCase("Network")) {
-                        resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+                    resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
                     }
                      * 
                      */

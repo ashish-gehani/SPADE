@@ -85,7 +85,7 @@ public abstract class AbstractEdge implements Serializable {
      * @return The value of the annotation corresponding to the key.
      */
     public final String getAnnotation(String key) {
-        return annotations.get(key);
+        return (annotations.get(key) != null) ? annotations.get(key) : "";
     }
 
     /**

@@ -86,9 +86,9 @@ public class Kernel {
      */
     public static final String portsFile = "../cfg/ports.config";
     /**
-     * Filename pattern for log files.
+     * Date/time pattern for log files.
      */
-    public static final String logFilenamePattern = "SPADE_log_MM.dd.yyyy-H.mm.ss";
+    public static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
     /**
      * Set of reporters active on the local SPADE instance.
      */
@@ -140,7 +140,7 @@ public class Kernel {
         try {
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
-            Handler logFileHandler = new FileHandler("../log/" + logFilename + ".log");
+            Handler logFileHandler = new FileHandler("../log/SPADE_log_" + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
         } catch (Exception exception) {
             System.out.println("Error initializing exception logger");
@@ -1123,13 +1123,12 @@ class LocalQueryConnection implements Runnable {
                                 Kernel.showQueryCommands(queryOutputStream);
                             } else if (queryTokens[1].startsWith("query ")) {
                                 Kernel.queryCommand(queryTokens[1], queryOutputStream);
+                            } else if (queryTokens[1].equalsIgnoreCase("exit")) {
+                                queryOutputStream.println("");
+                                break;
                             } else {
                                 Kernel.showQueryCommands(queryOutputStream);
                             }
-                            // An empty line is printed to let the client know that the query
-                            // output is complete.
-                            queryOutputStream.println("");
-                            break;
                         } catch (Exception exception) {
                             Logger.getLogger(LocalQueryConnection.class.getName()).log(Level.SEVERE, null, exception);
                         }
