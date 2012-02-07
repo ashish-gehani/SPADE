@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 372
+REVISION = 384
 
 # System and architecture-specific configuration
 OS_NAME = $(shell uname)
@@ -29,7 +29,7 @@ all:
 download:
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/src/
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
-	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/jsw/
+	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/bin/
 	svn export -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
 	svn export -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
 	svn export -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/run
@@ -103,11 +103,11 @@ query-shell:
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build
-	@rm -rf src/spade/reporter/spadeLinuxAudit stc/spade/reporter/spadeOpenBSM lib/libLinuxFUSE.* lib/libMacFUSE.*
+	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 
 # Remove everything except the Makefile.
 
 clean-all:
 	@echo 'Removing everything except Makefile...'
-	@rm -rf build lib src cfg log jsw run
+	@rm -rf build lib src cfg log bin run
 

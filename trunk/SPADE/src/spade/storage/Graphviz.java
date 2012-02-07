@@ -26,6 +26,8 @@ import java.io.FileWriter;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -52,9 +54,13 @@ public class Graphviz extends AbstractStorage {
             vertexSet = new HashSet<Integer>();
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
-            outputFile.write("digraph SPADE2Graphviz {\ngraph [rankdir = \"RL\"];\nnode [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\nedge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
+            outputFile.write("digraph SPADE2dot {\n"
+                    + "graph [rankdir = \"RL\"];\n"
+                    + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
+                    + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
             return true;
         } catch (Exception exception) {
+            Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
@@ -68,6 +74,7 @@ public class Graphviz extends AbstractStorage {
                 outputFile = new FileWriter(filePath, true);
                 transaction_count = 0;
             } catch (Exception exception) {
+                Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             }
         }
     }
@@ -105,8 +112,14 @@ public class Graphviz extends AbstractStorage {
                     shape = "box";
                     color = "lightsteelblue1";
                 } else if (type.equalsIgnoreCase("Artifact")) {
-                    shape = "ellipse";
-                    color = "khaki1";
+                    String subtype = incomingVertex.getAnnotation("subtype");
+                    if (subtype.equalsIgnoreCase("file")) {
+                        shape = "ellipse";
+                        color = "khaki1";
+                    } else if (subtype.equalsIgnoreCase("network")) {
+                        shape = "diamond";
+                        color = "palegreen1";
+                    }
                 }
                 outputFile.write("\""
                         + incomingVertex.hashCode()
@@ -119,6 +132,7 @@ public class Graphviz extends AbstractStorage {
             }
             return false;
         } catch (Exception exception) {
+            Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
@@ -155,7 +169,7 @@ public class Graphviz extends AbstractStorage {
                 } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
                     color = "orange";
                 }
-                
+
                 String edgeString = annotationString.toString();
                 if (edgeString.length() > 0) {
                     edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
@@ -172,6 +186,7 @@ public class Graphviz extends AbstractStorage {
             }
             return false;
         } catch (Exception exception) {
+            Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
@@ -183,6 +198,7 @@ public class Graphviz extends AbstractStorage {
             outputFile.close();
             return true;
         } catch (Exception exception) {
+            Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
