@@ -102,31 +102,31 @@ public class ControlClient {
             ConsoleReader commandReader = new ConsoleReader();
             commandReader.getHistory().setHistoryFile(new File(historyFile));
 
-            List<Completor> argCompletor1 = new LinkedList<Completor>();
-            argCompletor1.add(new SimpleCompletor(new String[]{"add"}));
-            argCompletor1.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
-            argCompletor1.add(new NullCompletor());
+            List<Completor> addArguments = new LinkedList<Completor>();
+            addArguments.add(new SimpleCompletor(new String[]{"add"}));
+            addArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
+            addArguments.add(new NullCompletor());
 
-            List<Completor> argCompletor2 = new LinkedList<Completor>();
-            argCompletor2.add(new SimpleCompletor(new String[]{"remove"}));
-            argCompletor2.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
-            argCompletor2.add(new NullCompletor());
+            List<Completor> removeArguments = new LinkedList<Completor>();
+            removeArguments.add(new SimpleCompletor(new String[]{"remove"}));
+            removeArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
+            removeArguments.add(new NullCompletor());
 
-            List<Completor> argCompletor5 = new LinkedList<Completor>();
-            argCompletor5.add(new SimpleCompletor(new String[]{"list"}));
-            argCompletor5.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all"}));
-            argCompletor5.add(new NullCompletor());
+            List<Completor> listArguments = new LinkedList<Completor>();
+            listArguments.add(new SimpleCompletor(new String[]{"list"}));
+            listArguments.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all"}));
+            listArguments.add(new NullCompletor());
 
-            List<Completor> argCompletor7 = new LinkedList<Completor>();
-            argCompletor7.add(new SimpleCompletor(new String[]{"config"}));
-            argCompletor7.add(new SimpleCompletor(new String[]{"load", "save"}));
-            argCompletor7.add(new NullCompletor());
+            List<Completor> configArguments = new LinkedList<Completor>();
+            configArguments.add(new SimpleCompletor(new String[]{"config"}));
+            configArguments.add(new SimpleCompletor(new String[]{"load", "save"}));
+            configArguments.add(new NullCompletor());
 
             List<Completor> completors = new LinkedList<Completor>();
-            completors.add(new ArgumentCompletor(argCompletor1));
-            completors.add(new ArgumentCompletor(argCompletor2));
-            completors.add(new ArgumentCompletor(argCompletor5));
-            completors.add(new ArgumentCompletor(argCompletor7));
+            completors.add(new ArgumentCompletor(addArguments));
+            completors.add(new ArgumentCompletor(removeArguments));
+            completors.add(new ArgumentCompletor(listArguments));
+            completors.add(new ArgumentCompletor(configArguments));
 
             commandReader.addCompletor(new MultiCompletor(completors));
 

@@ -28,8 +28,9 @@ import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 
 /**
- *
- * @author dawood
+ * Basic SQL storage implementation.
+ * 
+ * @author Dawood
  */
 public class SQL extends AbstractStorage {
 
@@ -50,7 +51,7 @@ public class SQL extends AbstractStorage {
 
         try {
             Class.forName("org.h2.Driver");
-            dbConnection = DriverManager.getConnection("jdbc:h2:~/testH2", "sa", "");
+            dbConnection = DriverManager.getConnection("jdbc:h2:" + arguments, "sa", "");
 
             Statement dbStatement = dbConnection.createStatement();
 
@@ -175,7 +176,7 @@ public class SQL extends AbstractStorage {
             insertStringBuilder.append(annotationKey);
             insertStringBuilder.append(", ");
         }
-        
+
         // Eliminate the last 2 characters from the string (", ") and begin adding values
         String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
@@ -215,12 +216,12 @@ public class SQL extends AbstractStorage {
         if (receivedEdges.contains(incomingEdge.hashCode())) {
             return false;
         }
-        
+
         // Retrieve the vertex Ids of the source and destination vertices
         // from the VERTEX table
         int fromVertexId = getVertexId(incomingEdge.getSourceVertex());
         int toVertexId = getVertexId(incomingEdge.getDestinationVertex());
-        
+
         // If either the source or destination vertex do not exist, then return false
         if ((fromVertexId == 0) || (toVertexId == 0)) {
             return false;
