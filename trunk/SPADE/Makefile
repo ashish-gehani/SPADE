@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 384
+REVISION = 385
 
 # System and architecture-specific configuration
 OS_NAME = $(shell uname)
@@ -22,6 +22,12 @@ all:
 	@echo 'Usage:'
 	@echo '      make download     - to download the code'
 	@echo '      make build        - to compile the code'
+	@echo '      make control      - to start the control client'
+	@echo '      make query        - to start the query client'
+	@echo ' '
+	@echo '      make clean        - to remove the compiled code'
+	@echo '      make clean-all    - to remove everything except the makefile'
+	@echo ' '
 
 # ---------- Downloading SPADE ----------
 
@@ -30,8 +36,8 @@ download:
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/src/
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/bin/
-	svn export -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
-	svn export -r $(REVISION) --force --depth empty http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
+	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
+	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
 	svn export -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/run
 
 # ---------- Building SPADE ----------
@@ -88,12 +94,12 @@ kernel:
 	@echo 'Starting the SPADE Kernel...'
 	@java -server -Xmx512M -cp 'build:lib/*' -Djava.library.path=lib spade.core.Kernel &
 
-# Run the control shell.
-control-shell:
+# Start the control client.
+control:
 	@java -cp 'build:lib/*' spade.client.ControlClient
 
-# Run the query shell.
-query-shell:
+# Start the query client.
+query:
 	@java -cp 'build:lib/*' spade.client.QueryClient
 
 # ---------- Removing files ----------
