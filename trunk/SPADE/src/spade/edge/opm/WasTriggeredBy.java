@@ -19,9 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.edge.opm;
 
+import java.util.LinkedHashMap;
 import spade.core.AbstractEdge;
 import spade.vertex.opm.Process;
-import java.util.LinkedHashMap;
 
 /**
  * WasTriggeredBy edge based on the OPM model.

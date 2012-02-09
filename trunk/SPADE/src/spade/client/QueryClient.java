@@ -19,32 +19,21 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.client;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.List;
-import jline.ArgumentCompletor;
-import jline.Completor;
-import jline.ConsoleReader;
-import jline.MultiCompletor;
-import jline.NullCompletor;
-import jline.SimpleCompletor;
+import jline.*;
 import spade.core.Kernel;
 
 public class QueryClient {
 
     private static PrintStream outputStream;
-    private static PrintStream errorStream;
     private static PrintStream SPADEQueryIn;
     private static BufferedReader SPADEQueryOut;
-    private static String nullString;
+    private static final String nullString = "null";
     private static volatile boolean shutdown;
     private static final String historyFile = "cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
@@ -53,9 +42,7 @@ public class QueryClient {
     public static void main(String args[]) {
 
         outputStream = System.out;
-        errorStream = System.err;
         shutdown = false;
-        nullString = "null";
 
         Runnable outputReader = new Runnable() {
 

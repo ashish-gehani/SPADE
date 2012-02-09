@@ -27,17 +27,10 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.Map;
-import spade.core.AbstractEdge;
-import spade.core.AbstractSketch;
-import spade.core.AbstractVertex;
-import spade.core.Kernel;
-import spade.core.MatrixFilter;
-import spade.core.BloomFilter;
-import spade.core.Graph;
-import spade.core.Query;
+import spade.core.*;
 
 
 public class ConcreteSketchUncached extends AbstractSketch {

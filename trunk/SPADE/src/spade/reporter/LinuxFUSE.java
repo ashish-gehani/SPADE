@@ -1,33 +1,24 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2011 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.reporter;
 
-import spade.core.AbstractReporter;
-import spade.core.AbstractVertex;
-import spade.core.AbstractEdge;
-import spade.edge.opm.WasTriggeredBy;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasDerivedFrom;
-import spade.vertex.custom.File;
-import spade.vertex.custom.Program;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.Collections;
@@ -36,10 +27,19 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import spade.core.AbstractEdge;
+import spade.core.AbstractReporter;
+import spade.core.AbstractVertex;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasDerivedFrom;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
+import spade.vertex.custom.File;
+import spade.vertex.custom.Program;
 
 /**
  * The LinuxFUSE reporter.
- * 
+ *
  * @author Dawood
  */
 public class LinuxFUSE extends AbstractReporter {
@@ -60,109 +60,107 @@ public class LinuxFUSE extends AbstractReporter {
         if (arguments == null) {
             return false;
         }
-        // The argument to this reporter is the mount point for FUSE.
-        mountPoint = arguments;
-        localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
-        links = Collections.synchronizedMap(new HashMap<String, String>());
 
         try {
-            // Load the native library.
-            System.loadLibrary("LinuxFUSE");
-        } catch (Exception exception) {
-            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
-            return false;
-        }
+            // The argument to this reporter is the mount point for FUSE.
+            mountPoint = arguments;
+            localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
+            links = Collections.synchronizedMap(new HashMap<String, String>());
 
-        // Create a new directory as the mount point for FUSE.
-        if ((new java.io.File(mountPoint)).exists()) {
-            return false;
-        } else {
-            try {
+            // Create a new directory as the mount point for FUSE.
+            java.io.File mount = new java.io.File(mountPoint);
+            if (mount.exists()) {
+                return false;
+            } else {
                 int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
                 if (exitValue != 0) {
-                    throw new Exception();
+                    return false;
                 }
+            }
+
+            mountPath = (new java.io.File(mountPoint)).getAbsolutePath();
+
+            // Load the native library.
+            System.loadLibrary("LinuxFUSE");
+
+            // Get the system boot time from the proc filesystem.
+            boottime = 0;
+            try {
+                BufferedReader boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
+                String line;
+                while ((line = boottimeReader.readLine()) != null) {
+                    StringTokenizer st = new StringTokenizer(line);
+                    if (st.nextToken().equals("btime")) {
+                        boottime = Long.parseLong(st.nextToken()) * 1000;
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
+                boottimeReader.close();
             } catch (Exception exception) {
                 Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
-                return false;
             }
-        }
 
-        mountPath = (new java.io.File(mountPoint)).getAbsolutePath();
+            // Create an initial root vertex which will be used as the root of the
+            // process tree.
+            Program rootVertex = new Program();
+            rootVertex.addAnnotation("pidname", "System");
+            rootVertex.addAnnotation("pid", "0");
+            rootVertex.addAnnotation("ppid", "0");
+            String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(boottime));
+            String stime = Long.toString(boottime);
+            rootVertex.addAnnotation("boottime_unix", stime);
+            rootVertex.addAnnotation("boottime_simple", stime_readable);
+            localCache.put("0", rootVertex);
+            putVertex(rootVertex);
 
-        // Get the system boot time from the proc filesystem.
-        boottime = 0;
-        try {
-            BufferedReader boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
-            String line;
-            while ((line = boottimeReader.readLine()) != null) {
-                StringTokenizer st = new StringTokenizer(line);
-                if (st.nextToken().equals("btime")) {
-                    boottime = Long.parseLong(st.nextToken()) * 1000;
-                    break;
-                } else {
-                    continue;
+            String path = "/proc";
+            String currentProgram;
+            java.io.File folder = new java.io.File(path);
+            java.io.File[] listOfFiles = folder.listFiles();
+
+            // Build the process tree using the directories under /proc/. Directories
+            // which have a numeric name represent processes.
+            for (int i = 0; i < listOfFiles.length; i++) {
+                if (listOfFiles[i].isDirectory()) {
+
+                    currentProgram = listOfFiles[i].getName();
+                    try {
+                        Integer.parseInt(currentProgram);
+                        Program processVertex = createProgramVertex(currentProgram);
+                        String ppid = (String) processVertex.getAnnotation("ppid");
+                        localCache.put(currentProgram, processVertex);
+                        putVertex(processVertex);
+                        if (Integer.parseInt(ppid) >= 0) {
+                            if (((Program) localCache.get(ppid) != null) && (processVertex != null)) {
+                                WasTriggeredBy triggerEdge = new WasTriggeredBy(processVertex, (Program) localCache.get(ppid));
+                                putEdge(triggerEdge);
+                            }
+                        }
+                    } catch (Exception exception) {
+                        continue;
+                    }
                 }
             }
-            boottimeReader.close();
+
+            Runnable FUSEThread = new Runnable() {
+
+                public void run() {
+                    try {
+                        // Launch FUSE from the native library.
+                        launchFUSE(mountPoint);
+                    } catch (Exception exception) {
+                        Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+                    }
+                }
+            };
+            new Thread(FUSEThread, "FUSEThread").start();
+
         } catch (Exception exception) {
             Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            return false;
         }
-
-        // Create an initial root vertex which will be used as the root of the
-        // process tree.
-        Program rootVertex = new Program();
-        rootVertex.addAnnotation("pidname", "System");
-        rootVertex.addAnnotation("pid", "0");
-        rootVertex.addAnnotation("ppid", "0");
-        String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(boottime));
-        String stime = Long.toString(boottime);
-        rootVertex.addAnnotation("boottime_unix", stime);
-        rootVertex.addAnnotation("boottime_simple", stime_readable);
-        localCache.put("0", rootVertex);
-        putVertex(rootVertex);
-
-        String path = "/proc";
-        String currentProgram;
-        java.io.File folder = new java.io.File(path);
-        java.io.File[] listOfFiles = folder.listFiles();
-
-        // Build the process tree using the directories under /proc/. Directories
-        // which have a numeric name represent processes.
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isDirectory()) {
-
-                currentProgram = listOfFiles[i].getName();
-                try {
-                    Integer.parseInt(currentProgram);
-                    Program processVertex = createProgramVertex(currentProgram);
-                    String ppid = (String) processVertex.getAnnotation("ppid");
-                    localCache.put(currentProgram, processVertex);
-                    putVertex(processVertex);
-                    if (Integer.parseInt(ppid) >= 0) {
-                        if (((Program) localCache.get(ppid) != null) && (processVertex != null)) {
-                            WasTriggeredBy triggerEdge = new WasTriggeredBy(processVertex, (Program) localCache.get(ppid));
-                            putEdge(triggerEdge);
-                        }
-                    }
-                } catch (Exception exception) {
-                    continue;
-                }
-            }
-        }
-
-        Runnable FUSEThread = new Runnable() {
-
-            public void run() {
-                try {
-                    // Launch FUSE from the native library.
-                    launchFUSE(mountPoint);
-                } catch (Exception exception) {
-                    Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
-                }
-            }
-        };
-        new Thread(FUSEThread, "FUSEThread").start();
 
         return true;
     }
@@ -243,6 +241,7 @@ public class LinuxFUSE extends AbstractReporter {
                 resultVertex.addAnnotation("environment", environ);
             }
         } catch (Exception exception) {
+            // Unable to access the environment variables
         }
         return resultVertex;
     }
@@ -263,8 +262,6 @@ public class LinuxFUSE extends AbstractReporter {
                 checkProgramTree(ppid);
                 WasTriggeredBy triggerEdge = new WasTriggeredBy((Program) localCache.get(pid), (Program) localCache.get(ppid));
                 putEdge(triggerEdge);
-            } else {
-                return;
             }
         } catch (Exception exception) {
             Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
@@ -273,11 +270,12 @@ public class LinuxFUSE extends AbstractReporter {
 
     /**
      * Read event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param path Path indicating target file.
-     * @param link An integer used to indicate whether the target was a link or not.
+     * @param link An integer used to indicate whether the target was a link or
+     * not.
      */
     public void read(int pid, int iotime, String path, int link) {
         checkProgramTree(Integer.toString(pid));
@@ -301,11 +299,12 @@ public class LinuxFUSE extends AbstractReporter {
 
     /**
      * Write event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param path Path indicating target file.
-     * @param link An integer used to indicate whether the target was a link or not.
+     * @param link An integer used to indicate whether the target was a link or
+     * not.
      */
     public void write(int pid, int iotime, String path, int link) {
         checkProgramTree(Integer.toString(pid));
@@ -329,7 +328,7 @@ public class LinuxFUSE extends AbstractReporter {
 
     /**
      * ReadLink event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param path Path indicating target file.
@@ -354,14 +353,15 @@ public class LinuxFUSE extends AbstractReporter {
 
     /**
      * Rename event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param pathfrom The source path.
      * @param pathto The destination path.
-     * @param link An integer used to indicate whether the target was a link or not.
-     * @param done An intiger used to indicate whether this event was triggered before
-     * or after the rename operation.
+     * @param link An integer used to indicate whether the target was a link or
+     * not.
+     * @param done An intiger used to indicate whether this event was triggered
+     * before or after the rename operation.
      */
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
         checkProgramTree(Integer.toString(pid));
@@ -409,7 +409,7 @@ public class LinuxFUSE extends AbstractReporter {
 
     /**
      * Link event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param originalFilePath The original file path.
      * @param linkPath Path to link to.
@@ -433,7 +433,7 @@ public class LinuxFUSE extends AbstractReporter {
 
     /**
      * Unlink event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param path The path to unlink.
      */

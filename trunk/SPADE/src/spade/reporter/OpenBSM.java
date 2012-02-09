@@ -19,15 +19,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.reporter;
 
-import spade.core.AbstractReporter;
-import spade.core.AbstractEdge;
-import spade.edge.opm.WasTriggeredBy;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasDerivedFrom;
-import spade.vertex.opm.Artifact;
-import spade.core.AbstractVertex;
-import spade.vertex.opm.Process;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -38,6 +29,15 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import spade.core.AbstractEdge;
+import spade.core.AbstractReporter;
+import spade.core.AbstractVertex;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasDerivedFrom;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 
 /**
  * The OpenBSM reporter.

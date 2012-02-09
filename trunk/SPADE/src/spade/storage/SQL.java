@@ -19,10 +19,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.storage;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.HashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.sql.*;
-import java.util.HashSet;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;

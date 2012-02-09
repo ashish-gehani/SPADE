@@ -39,7 +39,7 @@ public class Fusion extends AbstractFilter {
     private Map<RuleIdentifier, RuleIdentifier> rules;
     private final String configFile = "../cfg/fusion.config";
     private final String SOURCE_REPORTER = spade.core.Kernel.SOURCE_REPORTER;
-    private final int MAX_LIST_LENGTH = 5;
+    private int MAX_LIST_LENGTH = 5;
     private String leftReporter;
     private String rightReporter;
     private String FUSED_SOURCE_REPORTER;
@@ -253,6 +253,16 @@ public class Fusion extends AbstractFilter {
         // Finally, add the fused vertex to the map
         fusedVertices.put(firstVertex, fusedVertex);
         fusedVertices.put(secondVertex, fusedVertex);
+    }
+    
+    @Override
+    public boolean shutdown() {
+        while (MAX_LIST_LENGTH > 0) {
+            checkLists(leftList, rightList, true);
+            checkLists(rightList, leftList, true);            
+            MAX_LIST_LENGTH--;
+        }
+        return true;
     }
 }
 

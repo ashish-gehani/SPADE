@@ -26,17 +26,13 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractReporter;
 import spade.core.AbstractEdge;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasTriggeredBy;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasDerivedFrom;
-import spade.edge.opm.WasControlledBy;
+import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
+import spade.edge.opm.*;
+import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
-import spade.vertex.opm.Agent;
 
 /**
  * Pipe reporter for Linux.

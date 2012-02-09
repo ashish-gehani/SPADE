@@ -1,50 +1,48 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2011 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.reporter;
 
-import spade.core.AbstractReporter;
-import spade.core.AbstractVertex;
-import spade.core.AbstractEdge;
-import spade.edge.opm.WasTriggeredBy;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasDerivedFrom;
-import spade.edge.opm.WasControlledBy;
-import spade.vertex.opm.Agent;
-import spade.vertex.custom.File;
-import spade.vertex.custom.Program;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import spade.core.AbstractEdge;
+import spade.core.AbstractReporter;
+import spade.core.AbstractVertex;
+import spade.edge.opm.*;
+import spade.vertex.custom.File;
+import spade.vertex.custom.Program;
+import spade.vertex.opm.Agent;
 
 /**
  * The MacFUSE reporter.
- * 
+ *
  * @author dawood
  */
 public class MacFUSE extends AbstractReporter {
 
-    private HashMap<String, AbstractVertex> localCache;
-    private HashMap<String, String> links;
+    private Map<String, AbstractVertex> localCache;
+    private Map<String, String> links;
     private String mountPoint;
     private String mountPath;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
@@ -53,45 +51,49 @@ public class MacFUSE extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
-        // The argument to this reporter is the mount point for FUSE.
-        mountPoint = arguments;
-        localCache = new HashMap<String, AbstractVertex>();
-        links = new HashMap<String, String>();
-
-        // Create a new directory as the mount point for FUSE.
-        java.io.File mount = new java.io.File(mountPoint);
-        if (mount.exists()) {
+        if (arguments == null) {
             return false;
-        } else {
-            try {
-                int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
-                if (exitValue != 0) {
-                    throw new Exception();
-                }
-            } catch (Exception exception) {
-                Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
-                return false;
-            }
         }
 
-        mountPath = (new java.io.File(mountPoint)).getAbsolutePath();
+        try {
+            // The argument to this reporter is the mount point for FUSE.
+            mountPoint = arguments;
+            localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
+            links = Collections.synchronizedMap(new HashMap<String, String>());
 
-        // Load the native library.
-        System.loadLibrary("MacFUSE");
-        buildProgramTree();
-
-        Runnable FUSEThread = new Runnable() {
-
-            public void run() {
-                try {
-                    // Launch FUSE from the native library.
-                    launchFUSE(mountPoint);
-                } catch (Exception exception) {
-                    Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            // Create a new directory as the mount point for FUSE.
+            java.io.File mount = new java.io.File(mountPoint);
+            if (mount.exists()) {
+                return false;
+            } else {
+                int exitValue = Runtime.getRuntime().exec("mkdir " + mountPoint).waitFor();
+                if (exitValue != 0) {
+                    return false;
                 }
             }
-        };
-        new Thread(FUSEThread).start();
+
+            mountPath = (new java.io.File(mountPoint)).getAbsolutePath();
+
+            // Load the native library.
+            System.loadLibrary("MacFUSE");
+            buildProgramTree();
+
+            Runnable FUSEThread = new Runnable() {
+
+                public void run() {
+                    try {
+                        // Launch FUSE from the native library.
+                        launchFUSE(mountPoint);
+                    } catch (Exception exception) {
+                        Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+                    }
+                }
+            };
+            new Thread(FUSEThread).start();
+        } catch (Exception exception) {
+            Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            return false;
+        }
 
         return true;
     }
@@ -99,14 +101,13 @@ public class MacFUSE extends AbstractReporter {
     private Program createProgramVertex(String pid) {
         // Create the process vertex and populate annotations with information
         // retrieved using the ps utility.
-        Program processVertex = new Program();
         try {
-            String line = "";
+            String line;
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,user,gid,lstart,sess,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
             line = pidreader.readLine();
-            processVertex = new Program();
+            Program processVertex = new Program();
             String info[] = line.trim().split("\\s+", 12);
             processVertex.addAnnotation("pidname", info[11]);
             processVertex.addAnnotation("pid", pid);
@@ -135,11 +136,11 @@ public class MacFUSE extends AbstractReporter {
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
                 processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
             }
+            return processVertex;
         } catch (Exception exception) {
             // Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
             return null;
         }
-        return processVertex;
     }
 
     private void buildProgramTree() {
@@ -193,11 +194,12 @@ public class MacFUSE extends AbstractReporter {
 
     /**
      * Read event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param path Path indicating target file.
-     * @param link An integer used to indicate whether the target was a link or not.
+     * @param link An integer used to indicate whether the target was a link or
+     * not.
      */
     public void read(int pid, int iotime, String path, int link) {
         checkProgramTree(Integer.toString(pid));
@@ -221,11 +223,12 @@ public class MacFUSE extends AbstractReporter {
 
     /**
      * Write event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param path Path indicating target file.
-     * @param link An integer used to indicate whether the target was a link or not.
+     * @param link An integer used to indicate whether the target was a link or
+     * not.
      */
     public void write(int pid, int iotime, String path, int link) {
         checkProgramTree(Integer.toString(pid));
@@ -249,7 +252,7 @@ public class MacFUSE extends AbstractReporter {
 
     /**
      * ReadLink event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param path Path indicating target file.
@@ -274,14 +277,15 @@ public class MacFUSE extends AbstractReporter {
 
     /**
      * Rename event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param iotime IO time of the operation.
      * @param pathfrom The source path.
      * @param pathto The destination path.
-     * @param link An integer used to indicate whether the target was a link or not.
-     * @param done An intiger used to indicate whether this event was triggered before
-     * or after the rename operation.
+     * @param link An integer used to indicate whether the target was a link or
+     * not.
+     * @param done An intiger used to indicate whether this event was triggered
+     * before or after the rename operation.
      */
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
         checkProgramTree(Integer.toString(pid));
@@ -329,7 +333,7 @@ public class MacFUSE extends AbstractReporter {
 
     /**
      * Link event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param originalFilePath The original file path.
      * @param linkPath Path to link to.
@@ -353,7 +357,7 @@ public class MacFUSE extends AbstractReporter {
 
     /**
      * Unlink event triggered by FUSE.
-     * 
+     *
      * @param pid PID of the triggering process.
      * @param path The path to unlink.
      */

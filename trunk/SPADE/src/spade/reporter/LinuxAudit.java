@@ -25,15 +25,16 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.regex.*;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import spade.core.AbstractReporter;
 import spade.edge.opm.*;
-import spade.vertex.opm.Process;
-import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Agent;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 
 public class LinuxAudit extends AbstractReporter {
 

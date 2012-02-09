@@ -19,8 +19,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.core;
 
-import java.util.Map;
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * A general-purpose, semantic-agnostic implementation of the Vertex class.
