@@ -19,11 +19,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.filter;
 
-import spade.core.AbstractFilter;
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
 import java.util.HashMap;
 import java.util.HashSet;
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
 
 public class CycleAvoidance extends AbstractFilter {
 

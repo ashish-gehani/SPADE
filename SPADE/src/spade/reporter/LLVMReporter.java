@@ -20,21 +20,21 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.reporter;
 
-import java.util.regex.*;
-import java.io.*;
-import java.util.regex.Pattern;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.*;
-import java.util.LinkedHashMap;
-import spade.core.AbstractReporter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import spade.core.AbstractEdge;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasTriggeredBy;
-import spade.edge.opm.WasGeneratedBy;
+import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
-import java.util.Stack;
-import java.net.*;
 
 
 public class LLVMReporter extends AbstractReporter {

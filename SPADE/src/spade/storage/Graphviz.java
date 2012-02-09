@@ -19,15 +19,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.storage;
 
-import spade.core.AbstractStorage;
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
 import java.io.FileWriter;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
 
 /**
  * A storage implementation that writes data to a DOT file.

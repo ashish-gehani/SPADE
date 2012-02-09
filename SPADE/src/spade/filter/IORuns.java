@@ -19,13 +19,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.filter;
 
-import spade.core.AbstractFilter;
-import spade.core.AbstractEdge;
-import spade.opm.edge.WasGeneratedBy;
-import spade.opm.edge.Used;
-import spade.core.AbstractVertex;
 import java.util.HashMap;
 import java.util.HashSet;
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasGeneratedBy;
 
 public class IORuns extends AbstractFilter {
 

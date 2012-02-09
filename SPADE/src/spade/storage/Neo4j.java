@@ -19,14 +19,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.storage;
 
-import static org.neo4j.kernel.Config.ALLOW_STORE_UPGRADE;
-
-import spade.core.AbstractStorage;
-import spade.core.Graph;
-import spade.core.AbstractEdge;
-import spade.core.Edge;
-import spade.core.Vertex;
-import spade.core.AbstractVertex;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,22 +27,18 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.index.Index;
-import org.neo4j.graphdb.index.RelationshipIndex;
-import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
+import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.helpers.collection.MapUtil;
-import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.AbstractGraphDatabase;
+import static org.neo4j.kernel.Config.ALLOW_STORE_UPGRADE;
+import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.Traversal;
 import org.neo4j.server.WrappingNeoServerBootstrapper;
+import spade.core.*;
 
 /**
  * Neo4j storage implementation.
@@ -377,7 +365,7 @@ public class Neo4j extends AbstractStorage {
             queryHits.close();
         }
 
-        Direction dir = null;
+        Direction dir;
         if (direction_ancestors.startsWith(direction.toLowerCase())) {
             dir = Direction.OUTGOING;
         } else if (direction_descendants.startsWith(direction.toLowerCase())) {

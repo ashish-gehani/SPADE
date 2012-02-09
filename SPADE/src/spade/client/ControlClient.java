@@ -19,23 +19,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.client;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.List;
-import jline.ArgumentCompletor;
-import jline.Completor;
-import jline.ConsoleReader;
-import jline.MultiCompletor;
-import jline.NullCompletor;
-import jline.SimpleCompletor;
+import jline.*;
 import spade.core.Kernel;
 
 public class ControlClient {
@@ -138,6 +128,7 @@ public class ControlClient {
                     SPADEControlIn.println("");
                 } else if (line.equalsIgnoreCase("exit")) {
                     shutdown = true;
+                    SPADEControlIn.println("exit");
                     SPADEControlIn.close();
                     break;
                 } else if (line.equalsIgnoreCase("shutdown")) {

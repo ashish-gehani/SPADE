@@ -19,9 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package spade.vertex.opm;
 
-import spade.core.AbstractVertex;
-import java.util.Map;
 import java.util.LinkedHashMap;
+import java.util.Map;
+import spade.core.AbstractVertex;
 
 /**
  * Artifact vertex based on the OPM model
