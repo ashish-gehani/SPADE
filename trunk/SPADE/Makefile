@@ -2,7 +2,10 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 385
+REVISION = 387
+
+# Path to Android SDK platform tools
+ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
 
 # System and architecture-specific configuration
 OS_NAME = $(shell uname)
@@ -20,14 +23,17 @@ endif
 
 all:
 	@echo 'Usage:'
-	@echo '      make download     - to download the code'
-	@echo '      make build        - to compile the code'
-	@echo '      make control      - to start the control client'
-	@echo '      make query        - to start the query client'
+	@echo '      make download           - to download the code'
+	@echo '      make build              - to compile the code'
+	@echo '      make control            - to start the control client'
+	@echo '      make query              - to start the query client'
 	@echo ' '
-	@echo '      make clean        - to remove the compiled code'
-	@echo '      make clean-all    - to remove everything except the makefile'
+	@echo '      make clean              - to remove the compiled code'
+	@echo '      make clean-all          - to remove everything except the makefile'
 	@echo ' '
+	@echo '      make android-build      - to build for android'
+	@echo '      make android-deploy     - to deploy to android emulator'
+	@echo '      make android-kernel     - to launch kernel on emulator'
 
 # ---------- Downloading SPADE ----------
 
@@ -108,12 +114,51 @@ query:
 
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
-	@rm -rf build
+	@rm -rf build android-build android-lib
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 
 # Remove everything except the Makefile.
 
 clean-all:
 	@echo 'Removing everything except Makefile...'
-	@rm -rf build lib src cfg log bin run
+	@rm -rf build android-build android-lib lib src cfg log bin run
+
+# Build for Android
+android-build:
+	@mkdir -p build;
+	@echo 'Building the SPADE Kernel...'
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java
+	@echo 'Building Android control client...'
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/client/AndroidClient.java
+	@echo 'Building the Graphviz storage...'
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
+	@echo 'Building AndroidAudit reporter...'
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/AndroidAudit.java
+	@mkdir -p android-lib;
+	#----------IGNORE @for f in lib/*.jar; do echo "Porting $$f to Android"; $(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/$$(basename $$f) $$f; done
+	#----------IGNORE $(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/jline-0.9.94.jar lib/jline-0.9.94.jar 
+	@echo 'Downloading the Linux Audit binary for Android-ARM...'
+	@wget http://www.cs.indiana.edu/~nhusted/project_source/spadeLinuxAudit-arm -O android-lib/spadeAndroidAudit
+	@mkdir -p android-build;
+	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
+	@cd build; \
+	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
+
+# Deploy to Android
+android-deploy:
+	$(ANDROID_SDK_TOOLS)/adb shell start
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/log"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/cfg"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/android-lib"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/android-build"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /data/audit"
+	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
+	$(ANDROID_SDK_TOOLS)/adb push android-lib/spadeAndroidAudit /data/spadeAndroidAudit
+	$(ANDROID_SDK_TOOLS)/adb shell "chmod 700 /data/spadeAndroidAudit"	
+
+# Launch Android kernel
+android-kernel:
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel";
+
 
