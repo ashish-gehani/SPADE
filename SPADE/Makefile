@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 387
+REVISION = 389
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -147,12 +147,15 @@ android-build:
 # Deploy to Android
 android-deploy:
 	$(ANDROID_SDK_TOOLS)/adb shell start
+	$(ANDROID_SDK_TOOLS)/adb shell "mount -o remount rw /sdcard"
+	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/log"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/cfg"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/android-lib"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /sdcard/spade/android-build"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir -p /data/audit"
+	$(ANDROID_SDK_TOOLS)/adb shell "echo > /sdcard/spade/cfg/spade.config"
 	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
 	$(ANDROID_SDK_TOOLS)/adb push android-lib/spadeAndroidAudit /data/spadeAndroidAudit
 	$(ANDROID_SDK_TOOLS)/adb shell "chmod 700 /data/spadeAndroidAudit"	
@@ -160,5 +163,4 @@ android-deploy:
 # Launch Android kernel
 android-kernel:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel";
-
 

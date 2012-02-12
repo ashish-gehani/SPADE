@@ -89,8 +89,8 @@ public class AndroidAudit extends AbstractReporter {
 
         try {
 
-            Runtime.getRuntime().exec("sudo auditctl -D").waitFor();
-            Runtime.getRuntime().exec("sudo auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
+            Runtime.getRuntime().exec("auditctl -D").waitFor();
+            Runtime.getRuntime().exec("auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
             String[] cmd = {"/system/bin/sh", "-c", "/data/spadeAndroidAudit"};
             java.lang.Process pipeprocess = Runtime.getRuntime().exec(cmd);
             eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
