@@ -30,12 +30,10 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasDerivedFrom;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
+import spade.edge.opm.*;
 import spade.vertex.custom.File;
 import spade.vertex.custom.Program;
+import spade.vertex.opm.Agent;
 
 /**
  * The LinuxFUSE reporter.
@@ -255,9 +253,14 @@ public class LinuxFUSE extends AbstractReporter {
                 return;
             }
             Program processVertex = createProgramVertex(pid);
-            String ppid = (String) processVertex.getAnnotation("ppid");
+            putVertex(processVertex);
+            Agent tempAgent = new Agent();
+            tempAgent.addAnnotation("uid", processVertex.removeAnnotation("uid"));
+            tempAgent.addAnnotation("gid", processVertex.removeAnnotation("gid"));
+            putVertex(tempAgent);
+            putEdge(new WasControlledBy(processVertex, tempAgent));
             localCache.put(pid, processVertex);
-            putVertex((Program) localCache.get(pid));
+            String ppid = (String) processVertex.getAnnotation("ppid");
             if (Integer.parseInt(ppid) >= 0) {
                 checkProgramTree(ppid);
                 WasTriggeredBy triggerEdge = new WasTriggeredBy((Program) localCache.get(pid), (Program) localCache.get(ppid));
