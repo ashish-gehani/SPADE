@@ -21,6 +21,7 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.InetAddress;
@@ -30,6 +31,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.lang.reflect.Method;
 import spade.core.AbstractReporter;
 import spade.edge.opm.*;
 import spade.vertex.opm.Agent;
@@ -38,84 +40,97 @@ import spade.vertex.opm.Process;
 
 public class AndroidAudit extends AbstractReporter {
 
-    private boolean OpenCloseSemanticsOn; //true means open and close will be used to check for reads/writes and actual reads/writes will not be monitored. false means reads/writes will be monitored
-    private int currentAuditId;
-    private String currentEventType;//current event type
-    private String temporaryEventString;//string used as a buffer to hold the current event stream
-    private String hostname;
-    private HashMap<String, Process> processes;//a hash table to hold all the currently running processes that we know of
-    private HashMap<String, Artifact> processFdIsFile;//mapping from process,file decriptior pair to the actual file. this needs to be kept due to lack of information about file in read/write events
-    private HashMap<String, Artifact> fileNameHasArtifact;//mapping from from name to the opm artifact vertex
-    private HashMap<Integer, ArrayList<ArrayList<String>>> unfinishedEvents;//buffer to hold events from the event stream that haven't recieved an EOE(end of event) event yet and are still not finished.
-    private HashSet<Agent> cachedAgents;
-    public java.lang.Process socketToPipe;
-    private BufferedReader eventReader;
-    private final PrintStream errorStream = System.err;
+	private boolean OpenCloseSemanticsOn; //true means open and close will be used to check for reads/writes and actual reads/writes will not be monitored. false means reads/writes will be monitored
+	private int currentAuditId;
 
-    @Override
-    public boolean launch(String arguments) {
-        OpenCloseSemanticsOn = true;
+	private String temporaryEventString;//string used as a buffer to hold the current event stream
+	private String hostname;
+	private HashMap<String, Process> processes;//a hash table to hold all the currently running processes that we know of
+	private HashMap<String, Artifact> processFdIsFile;//mapping from process,file decriptior pair to the actual file. this needs to be kept due to lack of information about file in read/write events
+	private HashMap<String, Artifact> fileNameHasArtifact;//mapping from from name to the opm artifact vertex
+	private HashMap<Integer, ArrayList<HashMap<String, String>>> unfinishedEvents;//buffer to hold events from the event stream that haven't recieved an EOE(end of event) event yet and are still not finished.
+	private HashSet<Agent> cachedAgents;
+	public java.lang.Process socketToPipe;
+	private BufferedReader eventReader;
+	private final PrintStream errorStream = System.err;
 
-        fileNameHasArtifact = new HashMap<String, Artifact>();
-        processes = new HashMap<String, Process>();
-        processFdIsFile = new HashMap<String, Artifact>();
-        currentAuditId = 0;
-        temporaryEventString = "";
-        currentEventType = "";
-        unfinishedEvents = new HashMap<Integer, ArrayList<ArrayList<String>>>();
-        cachedAgents = new HashSet<Agent>();
+	private Logger logger = Logger.getLogger(AndroidAudit.class.getName());
 
-        try {
-            InetAddress addr = InetAddress.getLocalHost();
-            // Get IP Address
-            byte[] ipAddr = addr.getAddress();
-            // Get hostname
-            hostname = addr.getHostName();
+	private HashSet<String> agent_fields = 
+		new HashSet<String> (
+			Arrays.asList("uid,egid,arch,auid,sgid,fsgid,suid,euid,node,fsuid,gid".split("[\\s,]+")));	
+	
+	@Override
+	public boolean launch(String arguments) {
+		OpenCloseSemanticsOn = true;
 
-        } catch (UnknownHostException e) {
-        }
-        startParsing();
+		fileNameHasArtifact = new HashMap<String, Artifact>();
+		processes = new HashMap<String, Process>();
+		processFdIsFile = new HashMap<String, Artifact>();
+		currentAuditId = 0;
+		temporaryEventString = "";
 
-        return true;
-    }
+		unfinishedEvents = new HashMap<Integer, ArrayList<HashMap<String, String>>>();
+		cachedAgents = new HashSet<Agent>();
 
-    @Override
-    public boolean shutdown() {
-        return true;
-    }
+		// Generate syscalls mapping table
+		Matcher m = pattern_key_val.matcher(syscalls_mapping_str);
+		while(m.find())
+			syscalls_mapping.put(Integer.parseInt(m.group(1)),m.group(2));
 
-    //this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
-    public void startParsing() {
 
-        try {
+		// Environment stuff
+		try {
+			InetAddress addr = InetAddress.getLocalHost();
+			// Get IP Address
+			byte[] ipAddr = addr.getAddress();
+			// Get hostname
+			hostname = addr.getHostName();
 
-            Runtime.getRuntime().exec("auditctl -D").waitFor();
-            Runtime.getRuntime().exec("auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
-            String[] cmd = {"/system/bin/sh", "-c", "/data/spadeAndroidAudit"};
-            java.lang.Process pipeprocess = Runtime.getRuntime().exec(cmd);
-            eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
-            eventReader.readLine();
+		} catch (UnknownHostException e) {
+		}
+		startParsing();
 
-            Runnable eventThread = new Runnable() {
+		return true;
+	}
 
-                public void run() {
-                    try {
-                        while (true) {
-                            if (eventReader.ready()) {
-                                String line = eventReader.readLine();
-                                if (line != null) {
-                                    processInputLine(line);
-                                }
-                            }
-                        }
-                    } catch (Exception exception) {
-                        Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
-                    }
-                }
-            };
-            new Thread(eventThread).start();
+	@Override
+	public boolean shutdown() {
+		return true;
+	}
 
-            /*
+	//this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
+	public void startParsing() {
+
+		try {
+
+			Runtime.getRuntime().exec("auditctl -D").waitFor();
+			Runtime.getRuntime().exec("auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
+			String[] cmd = {"/system/bin/sh", "-c", "/data/spadeAndroidAudit"};
+			java.lang.Process pipeprocess = Runtime.getRuntime().exec(cmd);
+			eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
+			eventReader.readLine();
+
+			Runnable eventThread = new Runnable() {
+
+				public void run() {
+					try {
+						while (true) {
+							if (eventReader.ready()) {
+								String line = eventReader.readLine();
+								if (line != null && line.length() != 0) {
+									processInputLine(line);
+								}
+							}
+						}
+					} catch (Exception exception) {
+						logger.log(Level.SEVERE, null, exception);
+					}
+				}
+			};
+			new Thread(eventThread).start();
+
+			/*
             while (true) {
             // this statement reads the line from the file and print it to
             // the console.
@@ -126,848 +141,407 @@ public class AndroidAudit extends AbstractReporter {
             }
 
             }
-             *
-             */
+			 *
+			 */
 
-            // dispose all the resources after using them.
-            //br.close();
-
-
-        } catch (Exception exception) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
-        }
+			// dispose all the resources after using them.
+			//br.close();
 
 
-    }
-
-    private void processInputLine(String inputLine) {
-
-        //just in case we get something empty so that we don't throw an exception
-        if (inputLine.length() == 0) {
-            return;
-        } else {
-
-            //we still need to finish a mini event
-            temporaryEventString = temporaryEventString + inputLine;
-
-            //now check to see if the string contains two types of mini events. If it does we need to package off the first one and make a new item
+		} catch (Exception exception) {
+			Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
+		}
 
 
-            Pattern pattern = Pattern.compile("node=" + hostname + " type=");
-            Matcher matcher = pattern.matcher(temporaryEventString);
+	}
 
-            int countOfSyscalls = 0;
-            int truncateIndexStart;//variables to hold index for start of an event in the event stream
-            int truncateIndexEnd;//variables to hold index for end of an event in the event stream
-
-            truncateIndexStart = truncateIndexEnd = 0;
+	private void processInputLine(String inputLine) {
 
 
-            while (matcher.find()) {
-                countOfSyscalls++;
-                if (countOfSyscalls == 1) {
-                    truncateIndexStart = matcher.start();
-                }
-                if (countOfSyscalls == 2) {
-                    truncateIndexEnd = matcher.start();
-                }
+		//we still need to finish a mini event
+		temporaryEventString = temporaryEventString + inputLine;
+
+		//now check to see if the string contains two types of mini events. If it does we need to package off the first one and make a new item
 
 
-            }
+		Pattern pattern = Pattern.compile("node=([A-Za-z0-9]+) type=");
+		Matcher matcher = pattern.matcher(temporaryEventString);
+
+		int countOfSyscalls = 0;
+		int truncateIndexStart;//variables to hold index for start of an event in the event stream
+		int truncateIndexEnd;//var	iables to hold index for end of an event in the event stream
+
+		truncateIndexStart = truncateIndexEnd = 0;
 
 
-            if (countOfSyscalls > 1) {
-                //there are two mini events in the current string. package off the first one and send it to the state machine (processEvent function)
-                processEvent(temporaryEventString.substring(truncateIndexStart, truncateIndexEnd));
-                temporaryEventString = temporaryEventString.substring(truncateIndexEnd, temporaryEventString.length());
+		while (matcher.find()) {
+			countOfSyscalls++;
+			if (countOfSyscalls == 1) {
+				truncateIndexStart = matcher.start();
+			}
+			if (countOfSyscalls == 2) {
+				truncateIndexEnd = matcher.start();
+			}
+		}
 
-            }
+		if (countOfSyscalls > 1) {
+			//there are two mini events in the current string. package off the first one and send it to the state machine (processEvent function)
+			processEvent(temporaryEventString.substring(truncateIndexStart, truncateIndexEnd));
+			temporaryEventString = temporaryEventString.substring(truncateIndexEnd, temporaryEventString.length());
 
-            if (countOfSyscalls > 2) {
-                //in case we get a huge line with multiple mini events (>2) in it we recursively handle it
-                processInputLine("");	//needs to be rethought. this doesn't work due to the null check
-            }
+		}
+
+		if (countOfSyscalls > 2) {
+			//in case we get a huge line with multiple mini events (>2) in it we recursively handle it
+			processInputLine("");	//needs to be rethought. this doesn't work due to the null check
+		}
 
 
-        }
 
+	}
 
-    }
+	Pattern pattern_key_val = Pattern.compile("((?:\\\\.|[^=\\s]+)*)=(\"(?:\\\\.|[^\"\\\\]+)*\"|(?:\\\\.|[^\\s\"\\\\]+)*)");
+	Pattern pattern_auditid = Pattern.compile("msg=audit\\([^:]+:([0-9]+)\\):");
+	Pattern pattern_timestamp = Pattern.compile("msg=audit\\(([^:])+:[0-9]+\\):");
+	String syscalls_mapping_str = "2=fork 3=read 4=write 5=open 6=close 9=link 10=unlink 11=execve " + 
+		"14=mknod 38=rename 41=dup 42=pipe 63=dup2 83=symlink 92=truncate " + 
+		"93=ftruncate 102=socketcall 120=clone 145=readv 146=writev " + 
+		"190=vfork 252=exit_group";
+	HashMap<Integer, String> syscalls_mapping = new HashMap<Integer, String>(); 
 
-    //the process line event passes discrete events to this functions. we need to recognize type of event (these are actually mini events) and package them
-    /**
-     * This function takes mini-events in the form of a string and identifies them as a starting mini-event or as a continuing mini-event by checking for the audit id of the event that has been passed via the lidAudit system. It adds it to a {@link HashMap} as a new event or as a continuing event.
+	//the process line event passes discrete events to this functions. we need to recognize type of event (these are actually mini events) and package them
+	/**
+	 * This function takes mini-events in the form of a string and identifies them as a starting mini-event or as a continuing mini-event by checking for the audit id of the event that has been passed via the lidAudit system. It adds it to a {@link HashMap} as a new event or as a continuing event.
     If the mini-event is an EOE or end-of-event type of event then it takes the chain of mini-events with the same audit id and passes them all on to processFinishedEvent.
 
     @param  event A string from the processLine function that represent one mini-event from the lid audit system.
-     *
+	 *
 
     @return void
-     *
-     */
-    private void processEvent(String event) {
-        //we have gotten a mini event. Do whatever processing here
-
-        //aims are to identify the type of mini event and event id and take the appropriate actions. we also need audit it. this works like a state machine
-
-
-
-        StringTokenizer st = new StringTokenizer(event);
-        ArrayList<String> fields = new ArrayList<String>();
-
-        while (st.hasMoreTokens()) {
-            fields.add(st.nextToken());
-        }
-        //if you want the node information to be available as well you can add it back here
-        String node = fields.get(0);
-        fields.remove(0);
-        fields.add(node);
-
-        // all the mini event information is nicely stored in an arraylist. now check id of mini event and see if it is a new audit event
-
-        //first of all we need to get the audit id. everything is synchronized based on this. This is stored in the 1st place but we need some
-        //some cleverness to get it out as the format is as follows msg=audit(129392123.321:90) where 90 is audit id.
-
-        String auditString = fields.get(1).substring(0, fields.get(1).length() - 2);
-        StringTokenizer st2 = new StringTokenizer(auditString, ":");
-        ArrayList<String> auditStringParts = new ArrayList<String>();
-        while (st2.hasMoreTokens()) {
-            auditStringParts.add(st2.nextToken());
-        }
-        currentAuditId = Integer.parseInt(auditStringParts.get(1));
-
-        //ok now we have the current auditId. if it is present in the map we chain the mini event. if it is not then we check if it is a needed system call
-        //and if it then we create a new entry in hashmap otherwise we throw it away as it useless
-
-        try {
-
-
-            //////////////////////////////////////////////////////////this part processes all mini events///////////////////////////////////////////////
-
-            String eventType = fields.get(0).substring(5, fields.get(0).length());
-            int eventId = -1;
-            if (eventType.compareTo("SYSCALL") == 0) {
-                eventId = Integer.parseInt(fields.get(3).substring(8, fields.get(3).length()));
-
-                //new syscall means we need to create new unfinished event
-                currentEventType = "";
-                ArrayList<ArrayList<String>> currentEvent;
-
-
-                //////////////////////////////
-                //ADD NEW SYSTEM CALLS HERE///
-                //////////////////////////////////////////////////////////this part processes system calls///////////////////////////////////////////////
-                switch (eventId) {
-
-                    //here we take the appropriate action according to the type of system call that has taken place
-
-                    case 2:
-                        //fork
-                        currentEventType = "fork";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 3:
-                        //read
-
-                        currentEventType = "read";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 4:
-                        //writ
-                        currentEventType = "write";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 5:
-                        //open
-                        currentEventType = "open";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-
-                        break;
-
-                    case 6:
-                        //close
-                        currentEventType = "close";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 9:
-                        //link
-                        currentEventType = "link";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 10:
-                        //unlink
-                        currentEventType = "unlink";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-
-                    case 11:
-                        //execve
-                        currentEventType = "execve";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 14:
-                        //mknod
-                        currentEventType = "mknod";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 38:
-                        //rename
-                        currentEventType = "rename";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 41:
-                        //duplicate(dup)
-                        currentEventType = "dup";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-
-                    case 42:
-                        //pipe
-                        currentEventType = "pipe";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 63:
-                        //duplicate2(dup2)
-                        currentEventType = "dup2";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 83:
-                        //symlink
-                        currentEventType = "symlink";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 92:
-                        //truncate
-                        currentEventType = "truncate";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 93:
-                        //ftruncate
-                        currentEventType = "ftruncate";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 102:
-                        //socketcall
-                        currentEventType = "socketcall";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-
-                    case 120:
-                        //clone
-                        currentEventType = "clone";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 145:
-                        //readv
-                        currentEventType = "readv";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 146:
-                        //writev
-                        currentEventType = "writev";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-
-                    case 190:
-                        //vfork
-                        currentEventType = "vfork";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-                    case 252:
-                        //exitgroup
-                        currentEventType = "exit_group";
-                        currentEvent = new ArrayList<ArrayList<String>>();
-                        currentEvent.add(fields);
-                        //add the new event to the hash map so we can track it now
-                        unfinishedEvents.put(currentAuditId, currentEvent);
-                        break;
-
-
-                    default:
-
-                        break;
-
-                    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-                }
-            } //the mini event is not a system call so it must be a mini event that is related to it or a garbage mini event
-            else {
-                //check to make sure that the mini event is not a garbage event that we should throw away. if not then add it to its appropriate audit
-                //event in the hashmap
-                if (currentEventType != null && unfinishedEvents.containsKey(currentAuditId)) {
-
-                    //we have a useful event which has a trailing system call in the hashmap
-                    //add the events to the appropriate unfinished event in the hash map
-
-                    //now check if the number of mini events in the given event are complete if yes then package it off and send it to process finished events
-
-                    int givenEventNum = Integer.parseInt(unfinishedEvents.get(currentAuditId).get(0).get(3).substring(8, unfinishedEvents.get(currentAuditId).get(0).get(3).length()));
-
-
-                    //if end of audit finish the event
-                    if (fields.get(0).compareTo("type=EOE") == 0) {
-                        processFinishedEvent(unfinishedEvents.get(currentAuditId), givenEventNum);
-                        unfinishedEvents.remove(currentAuditId);
-                    } //otherwise add the mini-event
-                    else {
-
-                        unfinishedEvents.get(currentAuditId).add(fields);
-                    }
-
-
-
-
-                }
-
-            }
-
-        } catch (Exception exception) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
-        }
-
-    }
-
-    //this function gets the finished event from the processEvent (all mini events pertaining to an event are packaged togeter)
-    /**
-     * This function recieves a chain of mini-events that are packaged together and represent one system call. It identifies the type of the system call and passes the event on to the handler for that particular system call.
+	 *
+	 */
+	private void processEvent(String event) {
+
+		//we have gotten a mini event. Do whatever processing here
+
+		//aims are to identify the type of mini event and event id and take the appropriate actions. we also need audit it. this works like a state machine
+
+		// Get the key value pairs and store them in a hash map
+		Matcher m = pattern_key_val.matcher(event);
+		HashMap<String, String> fields = new HashMap<String, String>();
+		while(m.find())
+			fields.put(m.group(1), m.group(2));
+
+		// Get current audit id & timestamp
+		m = pattern_auditid.matcher(fields.get("msg"));
+		currentAuditId = Integer.parseInt(m.group(1));
+		fields.put("auditId", m.group(1));
+		m = pattern_timestamp.matcher(fields.get("msg"));
+		fields.put("time", m.group(1));
+
+		try {
+
+			//////////////////////////////////////////////////////////this part processes all mini events///////////////////////////////////////////////
+
+			String eventType = fields.get("type");
+
+			if (eventType.compareTo("SYSCALL") == 0) {
+
+				int eventId = Integer.parseInt(fields.get("syscall"));;
+
+				if ( syscalls_mapping.containsKey(eventId) ) {
+					// New syscall means we need to create new unfinished event
+					ArrayList<HashMap<String, String>> currentEvent = new ArrayList<HashMap<String, String>>();
+					String currentEventType = syscalls_mapping.get(eventId);
+					currentEvent.add(fields);
+					unfinishedEvents.put(currentAuditId, currentEvent);
+				}
+				else {
+					// TODO: Handle an unseen/unimplemented sys call here
+				}
+
+			} //the mini event is not a system call so it must be a mini event that is related to it or a garbage mini event
+			else {
+				//check to make sure that the mini event is not a garbage event that we should throw away. if not then add it to its appropriate audit
+				//event in the hashmap
+				if (unfinishedEvents.containsKey(currentAuditId)) {
+
+					int givenEventNum = Integer.parseInt(getSyscallEvent(unfinishedEvents.get(currentAuditId)).get("syscall")); // TODO: syscall might be in any event of the array, not just zero				
+					if (fields.get("type").compareTo("EOE") == 0) {
+						//if end of audit finish the event
+						processFinishedEvent(unfinishedEvents.get(currentAuditId), givenEventNum);
+						unfinishedEvents.remove(currentAuditId);
+					} //otherwise add the mini-event
+					else {
+						unfinishedEvents.get(currentAuditId).add(fields);
+					}
+				}
+			}
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+		}
+
+	}
+
+	//this function gets the finished event from the processEvent (all mini events pertaining to an event are packaged togeter)
+	/**
+	 * This function recieves a chain of mini-events that are packaged together and represent one system call. It identifies the type of the system call and passes the event on to the handler for that particular system call.
 
     @param  finishedEvent This is the Arraylist that contains mini-events for one system call.
-     *
+	 *
 
     @param  givenEventNum this is the system call Id for the passed event. This is used to do a decision about which handler the system call should be passed to.
-     *
+	 *
 
     @return void
-     *
-     */
-    private void processFinishedEvent(ArrayList<ArrayList<String>> finishedEvent, int givenEventNum) {
+	 *
+	 */
+	private void processFinishedEvent(ArrayList<HashMap<String, String>> finishedEvent, int givenEventNum) {
 
-        //in this function we will be passed finished events. which means opens will come along with their cwds and paths and so on
-        ///////////////////////////////////////////
-        //ADD NEW CALL HANDLERS HERE (this can later be divied up into seperate functions so that you dont have to check again///////////////
-        ///////////////////////////////////////////
+		//in this function we will be passed finished events. which means opens will come along with their cwds and paths and so on
+		///////////////////////////////////////////
+		//ADD NEW CALL HANDLERS HERE (this can later be divied up into seperate functions so that you dont have to check again///////////////
+		///////////////////////////////////////////
 
-        if (finishedEvent.toString().contains("socketToPipe")) {
-            return;
-        }
+		// TODO: deep check without toString()
+		// TODO: Comment the functionality
+		if (finishedEvent.toString().contains("socketToPipe")) {
+			return;
+		}
 
+		// Take the appropriate action by calling the function
+		// done using reflection: any event type is handled by 
+		// calling a function with "process" as its prefix
+		// e.g. unlink event is handled by processUnlink function
+		String event_str = syscalls_mapping.get(givenEventNum);
+		String str_process_func = "process" + event_str.substring(0,1).toUpperCase() + event_str.substring(1);
 
-        switch (givenEventNum) {
+		try {
+			ArrayList<HashMap<String, String>> obj = new ArrayList<HashMap<String, String>>();
+			Method process = this.getClass().getMethod(str_process_func, obj.getClass());
+			process.invoke(this, finishedEvent);
+		}
+		catch(java.lang.NoSuchMethodException e) {
+			// Ignore if not implemented but log it
+			logger.info("processFinishedEvent: No method to handle event of type " + event_str);
+		}
+		catch(java.lang.IllegalArgumentException e) {
+			// Indicates code level issue
+			Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
+			assert(false); 
+		}
+		catch(Exception e)
+		{
+			// Indicates code level issue
+			Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
+			assert(false);			
+		}
+	}
 
-            //here we take the appropriate action according to the type of system call that has taken place
-
-            case 2:
-                //fork
-                processFork(finishedEvent);
-                break;
-
-            case 3:
-                //read
-                processRead(finishedEvent);
-                break;
-
-            case 4:
-                //write
-                processWrite(finishedEvent);
-                break;
-
-            case 5:
-                //open
-                processOpen(finishedEvent);
-                break;
-
-            case 6:
-                //close
-                processClose(finishedEvent);
-                break;
-
-            case 9:
-                //link
-                processLink(finishedEvent);
-                break;
-
-            case 10:
-                //unlink
-                processUnLink(finishedEvent);
-                break;
-
-            case 11:
-                //execve
-                processExecve(finishedEvent);
-                break;
-
-            case 14:
-                //mknod
-                processMknod(finishedEvent);
-                break;
-
-            case 38:
-                //rename
-                processRename(finishedEvent);
-                break;
-
-            case 41:
-                //duplicate(dup)
-                processDup(finishedEvent);
-                break;
-
-            case 42:
-                //pipe
-                processPipe(finishedEvent);
-                break;
-
-            case 63:
-                //duplicate2(dup2)
-                processDup2(finishedEvent);
-                break;
-
-            case 83:
-                //symlink
-                processSymlink(finishedEvent);
-                break;
-
-            case 92:
-                //truncate
-                processTruncate(finishedEvent);
-                break;
-
-            case 93:
-                //ftruncate
-                processFTruncate(finishedEvent);
-                break;
-
-            case 102:
-                //socketcall
-                processSocketcall(finishedEvent);
-                break;
-
-
-            case 120:
-                //clone
-                processClone(finishedEvent);
-                break;
-
-            case 145:
-                //readv
-                processReadv(finishedEvent);
-                break;
-
-            case 146:
-                //Writev
-                processWritev(finishedEvent);
-                break;
-
-            case 190:
-                //vfork
-                processVFork(finishedEvent);
-                break;
-
-            case 252:
-                //exitgroup
-                processExitGroup(finishedEvent);
-                break;
-
-
-            default:
-
-                break;
-
-        }
-
-    }
-
-    ///////////////////////////////////////////////////////////////////
-    ////////INDIVIDUAL HANDLER FUNCTIONS FOR EACH SYSTEM CALL//////////
-    ///////////////////////////////////////////////////////////////////
-    /**
-     * This function takes a Fork system call and converts it into the appropriate OPM specification objects. It also does house keeping regarding new vertices in the OPM model and keeps track of whether the process vertex generated by this function is a new one of has been seen before. If it generates new OPM vertices or edges these are sent to the filter for further processing.
+	///////////////////////////////////////////////////////////////////
+	////////INDIVIDUAL HANDLER FUNCTIONS FOR EACH SYSTEM CALL//////////
+	///////////////////////////////////////////////////////////////////
+	/**
+	 * This function takes a Fork system call and converts it into the appropriate OPM specification objects. It also does house keeping regarding new vertices in the OPM model and keeps track of whether the process vertex generated by this function is a new one of has been seen before. If it generates new OPM vertices or edges these are sent to the filter for further processing.
 
     @param  inputFork The chain of mini-events representing a fork system call
-     *
+	 *
     @return void
-     *
-     */
-    private void processFork(ArrayList<ArrayList<String>> inputFork) {
-        //process the fork
+	 *
+	 */
+	private void processFork(ArrayList<HashMap<String, String>> eventsChain) {
+		//process the fork
 
+		HashMap<String, String> fields = eventsChain.get(0);
 
-        //check for success
-        String[] success = inputFork.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
+		if( fields.get("success").equals("no") ) {
+			return;
+		}
 
+		//get the annotations for both processes
+		Process cloningProcess = null;
+		HashMap<String, String> processAnnotations = getProcessInformation(fields);
+		HashMap<String, String> processAnnotationsChild = getProcessInformation(fields);
+		HashMap<String, String> agentAnnotations = seperateAgentFromProcess(fields);
+		HashMap<String, String> agentAnnotationsChild = seperateAgentFromProcess(fields);
 
+		// check if the parent process is already there in our table
+		if (processes.containsKey(processAnnotations.get("pid"))) {
+			cloningProcess = processes.get(processAnnotations.get("pid"));
+		} else {
+			cloningProcess = new Process(processAnnotations);
+			processes.put(processAnnotations.get("pid"), cloningProcess);				
+			putVertex(cloningProcess);
+			
+			Agent agent = getAgent(agentAnnotations);
+			if (agent == null) {
+				agent = new Agent(agentAnnotations);
+				putVertex(agent);
+				cachedAgents.add(agent);
+			}
+			WasControlledBy wcb = new WasControlledBy(cloningProcess, agent);
+			putEdge(wcb);
+		}
 
+		// Child Process
+		processAnnotationsChild.put("ppid", processAnnotations.get("pid"));
+		processAnnotationsChild.put("pid", processAnnotations.get("exit"));
 
-        //get the annotations for both processes
-        boolean sendCloningProcess = false;
-        Process cloningProcess;
-        HashMap<String, String> annotations = getProcessInformation(inputFork.get(0));
-        HashMap<String, String> annotationsNew = getProcessInformation(inputFork.get(0));
-        HashMap<String, String> agentAnnotations = seperateAgentFromProcess(annotations);
-        HashMap<String, String> agentAnnotations2 = seperateAgentFromProcess(annotationsNew);
+		Process clonedProcess = new Process(processAnnotationsChild);
+		processes.put(processAnnotationsChild.get("pid"), clonedProcess);
+		putVertex(clonedProcess);
+		WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
+		putEdge(clone);
+	
+		// Get or create child agent
+		Agent agentChild = getAgent(agentAnnotationsChild);
+		if (agentChild == null) {
+			agentChild = new Agent(agentAnnotationsChild);
+			putVertex(agentChild);
+			cachedAgents.add(agentChild);
+		} 
+		WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agentChild);
+		putEdge(wcb2);
 
+	}
 
-
-
-
-        //check if the parent process is already there in our table
-        if (processes.containsKey(annotations.get("pid"))) {
-            //cloning process already in table
-            cloningProcess = processes.get(annotations.get("pid"));
-
-        } else {
-
-            cloningProcess = new Process(annotations);
-            sendCloningProcess = true;
-        }
-
-        //do processing to fix the annotations for child process
-        //move pid to ppid
-        annotationsNew.remove("ppid");
-        annotationsNew.put("ppid", annotations.get("pid"));
-
-        //move exit value to pid as that is child pid
-        annotationsNew.remove("pid");
-        annotationsNew.put("pid", annotations.get("exit"));
-
-
-        Process clonedProcess = new Process(annotationsNew);
-        //create a new process (add it to processes) and a clone edge
-        processes.put(annotationsNew.get("pid"), clonedProcess);
-
-
-
-
-        if (sendCloningProcess == true) {
-            //send the cloning Process and its agent vertex and its wascontrolledby edge
-            Agent agent = getAgent(agentAnnotations);
-            if (agent == null) {
-
-                agent = new Agent(agentAnnotations);
-                putVertex(agent);
-                cachedAgents.add(agent);
-            } else {
-                //agent is already in cache so dont send it. and dont make new vertex.
-            }
-
-            //now send send process
-            putVertex(cloningProcess);
-
-            //now send wcb edge
-            WasControlledBy wcb = new WasControlledBy(cloningProcess, agent);
-            putEdge(wcb);
-
-            processes.put(annotations.get("pid"), cloningProcess);
-        }
-
-        //send cloned Process
-        putVertex(clonedProcess);
-
-        //send cloned Edge
-        //make the cloned edge
-        WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
-        //send edge
-        putEdge(clone);
-
-        //send agent for cloned process here
-        Agent agent2 = getAgent(agentAnnotations2);
-        if (agent2 == null) {
-
-            agent2 = new Agent(agentAnnotations2);
-            putVertex(agent2);
-            cachedAgents.add(agent2);
-        } else {
-            //agent is already in cache so dont send it. and dont make new vertex.
-        }
-
-        //send was controlled by edge for cloned process
-
-        WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agent2);
-        putEdge(wcb2);
-
-    }
-
-    /**
-     * This function takes a Read system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
+	/**
+	 * This function takes a Read system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
 
     @param  inputRead The chain of mini-events representing a read system call
-     *
+	 *
     @return void
-     *
-     */
-    private void processRead(ArrayList<ArrayList<String>> inputRead) {
-        //process the read.
+	 *
+	 */
+	private void processRead(ArrayList<HashMap<String,String>> eventsChain) {
+		//process the read.
 
-        try {
+		try {
+			HashMap<String,String> fields = eventsChain.get(0);
 
-            //get the reading process
-            String[] pid = inputRead.get(0).get(12).split("=");
-            Process readingProcess = processes.get(pid[1]);
+			String pid = fields.get("pid");
+			String fd = fields.get("a0");
 
-            String[] fd = inputRead.get(0).get(6).split("=");
-            String keyPair = pid[1] + "," + fd[1];
+			Process readingProcess = processes.get(pid);
+			Artifact fileRead = processFdIsFile.get(pid + "," + fd);
 
-            //get the read file
-            Artifact fileRead = processFdIsFile.get(keyPair);
+			//make a read edge
 
-            //make a read edge
+			Used readEdge = new Used(readingProcess, fileRead);
 
-            Used readEdge = new Used(readingProcess, fileRead);
-
-
-            //send the file,process and read edge
+			//Do nothing here are we are not doing read monitoring at the moment
+			// TODO: Do we need some action here?
 
 
-            //Do nothing here are we are not doing read monitoring at the moment
+		} catch (Exception e) {
+			// TODO: log here
+			e.printStackTrace();
+		}
 
+	}
 
-
-        } catch (Exception e) {
-        }
-
-    }
-
-    /**
-     * This function takes a write system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
+	/**
+	 * This function takes a write system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
 
     @param  inputWrite The chain of mini-events representing a write system call
-     *
+	 *
     @return void
-     *
-     */
-    private void processWrite(ArrayList<ArrayList<String>> inputWrite) {
-        //process the write
+	 *
+	 */
+	private void processWrite(ArrayList<HashMap<String, String>> eventsChain) {
+		//process the write
 
-        try {
+		try {
+			HashMap<String,String> fields = eventsChain.get(0);
 
-            //get the writting process
-            String[] pid = inputWrite.get(0).get(12).split("=");
-            Process writingProcess = processes.get(pid[1]);
+			String pid = fields.get("pid");
+			String fd = fields.get("a0");
 
-            String[] fd = inputWrite.get(0).get(6).split("=");
-            String keyPair = pid[1] + "," + fd[1];
+			Process writingProcess = processes.get(pid);
+			
+			//get the written file
+			Artifact fileWritten = processFdIsFile.get(pid + "," + fd);
+			if (fileWritten.getAnnotation("version") == null) {
+				fileWritten.addAnnotation("version", "0");
+			} else {
+				int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+				fileWritten.addAnnotation("version", Integer.toString(v++));
+			}
 
-            //get the written file
-            Artifact fileWritten = processFdIsFile.get(keyPair);
-            if (fileWritten.getAnnotation("version") == null) {
-                fileWritten.addAnnotation("version", "0");
-            } else {
-                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-                fileWritten.addAnnotation("version", Integer.toString(v++));
-            }
+			WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
 
+			putVertex(fileWritten);
+			putEdge(writeEdge);
 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
-            WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
-
-
-            //put new vertex for new version of file if ReadWrite bunching not on
-            putVertex(fileWritten);
-
-            //send the edge
-            putEdge(writeEdge);
-
-
-        } catch (Exception e) {
-        }
-
-
-
-
-
-
-    }
-
-    /**
-     * This function takes an open system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing. If OpenCloseSemantics flag is set then this function is used to generate read events and optimize the system by obviating the need for monitoring actual read system calls.
+	/**
+	 * This function takes an open system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing. If OpenCloseSemantics flag is set then this function is used to generate read events and optimize the system by obviating the need for monitoring actual read system calls.
 
     @param  inputOpen The chain of mini-events representing a open system call
-     *
+	 *
     @return void
-     *
-     */
-    //////////////////////////////////////////////////////
-    private void processOpen(ArrayList<ArrayList<String>> inputOpen) {
-        //process the open
+	 *
+	 */
+	//////////////////////////////////////////////////////
+	private void processOpen(ArrayList<HashMap<String, String>> eventsChain) {
 
+		HashMap<String,String> fields = eventsChain.get(0);
 
-        //check for success
-        String[] success = inputOpen.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
+		if (fields.get("success").equals("no")) {
+			return;
+		}
 
-        try {
-            //make a process
-            HashMap<String, String> processAnnotations = new HashMap<String, String>();
+		try {
+			//make a process
 
-            processAnnotations = getProcessInformation(inputOpen.get(0));
+			Process openingProcess = processes.get(fields.get("pid"));
 
-            Process openingProcess = processes.get(processAnnotations.get("pid"));
-            if (!processes.containsKey(processAnnotations.get("pid"))) {
-                return;
-            }
-            Artifact fileOpened;
+			Artifact fileOpened;
 
-            //get the file info
-            HashMap<String, String> fileAnnotations = getFileInformation(inputOpen);
+			//get the file info
+			HashMap<String, String> fileAnnotations = getFileInformation(eventsChain);
 
+			String filePath = fileAnnotations.get("filename");
+			String fd = fields.get("exit");
 
-            //get file path
-            String filePath = "";
-            if (fileAnnotations.get("name").charAt(1) == '/') {
-                //path is absolute
-                if (fileAnnotations.get("name").charAt(0) == '\"') {
-                    filePath = fileAnnotations.get("name").substring(1, fileAnnotations.get("name").length() - 1);
-                } else {
-                    filePath = fileAnnotations.get("name");
-                }
-            } else {
-                //get canonical path for this file
+			//now see if other people have this file open already
+			//if yes fetch pointer to that file and put it in fileOpened reference.
 
+			// TODO: Get or create file artifact
+			if (fileNameHasArtifact.containsKey(filePath)) {
+				fileOpened = fileNameHasArtifact.get(filePath);
+				//add edge from process to file
+				processFdIsFile.put(fields.get("pid") + "," + fd, fileOpened);
+				//file name to artifact edge is already there
+			} //if no then make a new file. This file has never been opened before in this session
+			else {
 
-                if (fileAnnotations.get("name").charAt(0) == '\"') {
-                    File getFilePath = new File(fileAnnotations.get("cwd").substring(1, fileAnnotations.get("cwd").length() - 1) + "/" + fileAnnotations.get("name").substring(1, fileAnnotations.get("name").length() - 1));
-                    filePath = getFilePath.getCanonicalPath();
-                } else {
-                    File getFilePath = new File(fileAnnotations.get("cwd").substring(1, fileAnnotations.get("cwd").length() - 1) + "/" + fileAnnotations.get("name"));
-                    filePath = getFilePath.getCanonicalPath();
+				fileAnnotations.put("fullpath", filePath);
+				fileAnnotations.put("filename", filePath);
+				fileOpened = new Artifact(fileAnnotations);
+				
+				/* ???
+				ArrayList<String> processesThatOpenFiles = new ArrayList<String>();
+				processesThatOpenFiles.add(keyPair);
+				*/
 
-                }
+				//add edge from process to file
+				processFdIsFile.put(fields.get("pid") + "," + fd, fileOpened);
+				
+				
+				// TODO: Confirm this:
+				//putVertex(openingProcess);
 
+				//add edge from file name to file artifact
+				fileNameHasArtifact.put(filePath, fileOpened);
 
+			}
 
-
-            }
-
-            //we have the file path now
-            //get process key
-            String fd = processAnnotations.get("exit");
-            String processKey = processAnnotations.get("pid");
-            String keyPair = processKey + "," + fd;
-
-            boolean fileWasThere = false;
-
-            //now see if other people have this file open already
-            //if yes fetch pointer to that file and put it in fileOpened reference.
-
-            if (fileNameHasArtifact.containsKey(filePath)) {
-
-                fileOpened = fileNameHasArtifact.get(filePath);
-
-                //add edge from process to file
-                processFdIsFile.put(keyPair, fileOpened);
-                fileWasThere = true;
-
-                //file name to artifact edge is already there
-
-            } //if no then make a new file. This file has never been opened before in this session
-            else {
-
-                fileAnnotations.put("fullpath", filePath);
-                fileAnnotations.put("filename", filePath);
-                fileOpened = new Artifact(fileAnnotations);
-                ArrayList<String> processesThatOpenFiles = new ArrayList<String>();
-                processesThatOpenFiles.add(keyPair);
-
-                //add edge from process to file
-                processFdIsFile.put(keyPair, fileOpened);
-                //putVertex(openingProcess);
-
-                //add edge from file name to file artifact
-                fileNameHasArtifact.put(filePath, fileOpened);
-
-
-            }
-
-            /* Kernel values for open flags
+			/* Kernel values for open flags
             O_RDONLY        00000000
             O_WRONLY        00000001
             O_RDWR          00000002
@@ -977,1094 +551,763 @@ public class AndroidAudit extends AbstractReporter {
 
             so we only convert an open to a read only when the last digit of a1 is either 0 or 2. If it is 1 then it was opened for write only
 
-             */
+			 */
+
+			if (OpenCloseSemanticsOn == false) {
+				//no provenance in open call
+			} else {
+				//translate open to read call if needed
+
+				if (fields.get("a1").endsWith("0") || fields.get("a1").endsWith("2")) {
+					//this means file possibly opened for reading. Make and send a read edge along
+					Used u = new Used(openingProcess, fileOpened);
+
+					if (fileOpened.getAnnotation("filename").contains("libAuditPipe")
+							||
+							fileOpened.getAnnotation("filename").contains("libAudit")
+							) {
+						// Prevent self logging
+						return;
+					} else if (openingProcess.getAnnotation("exe").endsWith("eclipse") || openingProcess.getAnnotation("exe").endsWith("java")) {
+						return;
+					}
+
+					putVertex(fileOpened);
+					putEdge(u);
+				}
+			}
+
+		} catch (Exception exception) {
+			Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
+		}
+
+	}
 
-            if (OpenCloseSemanticsOn == false) {
-                //no provenance in open call
-            } else {
-                //translate open to read call if needed
+	//////////////////////////////////////////////////////
+	private void processClose(ArrayList<HashMap<String, String>> eventsChain) {
 
-                if (processAnnotations.get("a1").endsWith("0") || processAnnotations.get("a1").endsWith("2")) {
-                    //this means file possibly opened for reading. Make and send a read edge along
-                    Used u = new Used(openingProcess, fileOpened);
+		HashMap<String, String> fields = eventsChain.get(0);
 
+		if (fields.get("success").equals("no")) {
+			return;
+		}
 
+		//now proceed
+		try {
 
-                    if (fileOpened.getAnnotation("filename").contains("libAuditPipe")) {
-                        return;
-                    } else if (openingProcess.getAnnotation("exe").endsWith("eclipse") || openingProcess.getAnnotation("exe").endsWith("java")) {
-                        return;
-                    }
+			//get the opening process
 
+			String pid = fields.get("pid");
+			Process closingProcess = processes.get(pid);
 
+			String fd = fields.get("exit");
+			String keyPair = pid + "," + fd;
 
+			//get the closed file
+			Artifact fileClosed = processFdIsFile.get(keyPair);
 
+			// delete edge from process to file
+			processFdIsFile.remove(keyPair);
 
-                    putVertex(fileOpened);
-                    putEdge(u);
-                }
-            }
+			// no provenance in close
+			// TODO: Why?
+			// TODO: Dawood, do something here?
+		} 
+		catch (Exception e) {
+			logger.log(Level.SEVERE, null, e);
+		}
+	}
 
+	//////////////////////////////////////////////////////
+	private void processLink(ArrayList<HashMap<String, String>> eventsChain) {
+		// TODO: Implement this
+	}
 
+	//////////////////////////////////////////////////////
+	private void processUnLink(ArrayList<HashMap<String, String>> eventsChain) {
+		// TODO: Implement this
+	}
 
+	//////////////////////////////////////////////////////
+	private void processExecve(ArrayList<HashMap<String, String>> eventsChain) {
+		// TODO: This needs thorough testing
+		
+		//process the execve
 
+		HashMap<String, String> fields = eventsChain.get(0);
 
+		if (fields.get("success").equals("no")) {
+			return;
+		}
+		
+		HashMap<String, String> processAnnotations = getProcessInformation(fields);
+		HashMap<String, String> agentAnnotations = seperateAgentFromProcess(fields);
+		String commandLine = getExecveCommandLine(eventsChain.get(1));;
 
+		//make the edges
+		WasTriggeredBy execve;
+		WasControlledBy wcb;
 
-        } catch (Exception exception) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
-        }
+		processAnnotations.put("commandline", commandLine);
+		processAnnotations.put("cwd", eventsChain.get(2).get("cwd"));
 
-    }
+		// Update the process in table if exists
+		String key = processAnnotations.get("pid");//+processAnnotations.get("exe");
+		if (processes.containsKey(key)) {
 
-    //////////////////////////////////////////////////////
-    private void processClose(ArrayList<ArrayList<String>> inputClose) {
-        //process the close
+			Process oldProcess = processes.get(key);
+			//remove older process
+			processes.remove(key);
+			//add new process
+			Process newProcess = new Process(processAnnotations);
 
-        //check for success
-        String[] success = inputClose.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
+			Agent agent = getAgent(agentAnnotations);
 
-        //now proceed
-        try {
 
-            //get the opening process
+			if (agent == null) {
+				agent = new Agent(agentAnnotations);
+				putVertex(agent);
+				cachedAgents.add(agent);
+			} else {
+				//agent is already in cache so dont send it. and dont make new vertex.
+			}
 
-            String[] pid = inputClose.get(0).get(12).split("=");
-            Process closingProcess = processes.get(pid[1]);
 
-            String[] fd = inputClose.get(0).get(6).split("=");
-            String keyPair = pid[1] + "," + fd[1];
+			//make edges
+			wcb = new WasControlledBy(newProcess, agent);
+			execve = new WasTriggeredBy(newProcess, oldProcess);
 
 
-            //get the closed file
-            Artifact fileClosed = processFdIsFile.get(keyPair);
+			//add process
+			putVertex(newProcess);
 
 
-            //delete edge from process to file
-            processFdIsFile.remove(keyPair);
+			//add both edges
+			putEdge(wcb);
+			putEdge(execve);
 
 
+			//add process to table
+			processes.put(key, newProcess);
 
-            //no provenance in close
 
+			//extra processing to add the file artifact for the binary
+			Artifact binaryFile = new Artifact();
+			HashMap<String, String> binaryAnnotations = new HashMap<String, String>();
+			binaryAnnotations.put("filename", processAnnotations.get("exe"));
+			binaryAnnotations.put("version", "0");
+			binaryAnnotations.put("type", "Artifact");
+			binaryFile.setAnnotations(binaryAnnotations);
+			putVertex(binaryFile);
+			Used u = new Used(oldProcess, binaryFile);
+			putEdge(u);
 
 
-        } catch (Exception e) {
-        }
+		} //process not in table. so been seen the first time. create new process vertex
+		else {
+			Process newProcess = new Process(processAnnotations);
 
+			//send this new process
 
 
+			Agent agent = getAgent(agentAnnotations);
 
-    }
+			if (agent == null) {
+				//don't send vertex
+				agent = new Agent(agentAnnotations);
+				putVertex(agent);
+				cachedAgents.add(agent);
+			} else {
+				//agent is already in cache so dont send it. and dont make new vertex.
+			}
 
-    //////////////////////////////////////////////////////
-    private void processLink(ArrayList<ArrayList<String>> inputLink) {
-        //process the link
-        //Needs to be done
-    }
 
-    //////////////////////////////////////////////////////
-    private void processUnLink(ArrayList<ArrayList<String>> inputUnLink) {
-        //process the unlink
-        //Needs to be done
-    }
+			//make the edge
+			wcb = new WasControlledBy(newProcess, agent);
 
-    //////////////////////////////////////////////////////
-    private void processExecve(ArrayList<ArrayList<String>> inputExecve) {
-        //process the execve
-        HashMap<String, String> processAnnotations = new HashMap<String, String>();
-        HashMap<String, String> agentAnnotations = new HashMap<String, String>();
-        String commandLine = "";
+			//send process
+			putVertex(newProcess);
 
-        //make the edges
-        WasTriggeredBy execve;
-        WasControlledBy wcb;
+			//send agent edge
+			putEdge(wcb);
 
-        processAnnotations = getProcessInformation(inputExecve.get(0));
-        agentAnnotations = seperateAgentFromProcess(processAnnotations);
+			// add to our table
+			processes.put(newProcess.getAnnotation("pid"), newProcess);
 
-        //check it call was successful. if not then return
-        if (processAnnotations.get("success").equals("no")) {
-            return;
-        }
 
-        //else do processing
+		}
 
-        commandLine = getExecveCommandLine(inputExecve.get(1));
 
-        processAnnotations.put("commandline", commandLine);
-        String cwd = inputExecve.get(2).get(2).split("=")[1];
-        processAnnotations.put("cwd", cwd);
 
-        //check if the process is already there in table
-        String key = processAnnotations.get("pid");//+processAnnotations.get("exe");
-        if (processes.containsKey(key)) {
-            //get older process
-            Process oldProcess = processes.get(key);
-            //remove older process
-            processes.remove(key);
-            //add new process
-            Process newProcess = new Process(processAnnotations);
+	}
 
-            Agent agent = getAgent(agentAnnotations);
+	//////////////////////////////////////////////////////
+	private void processMknod(ArrayList<HashMap<String, String>> eventsChain) {
+		// TODO: Implement this?
+	}
 
+	//////////////////////////////////////////////////////(incomplete)
+	private void processRename(ArrayList<HashMap<String, String>> eventsChain) {
 
-            if (agent == null) {
-                agent = new Agent(agentAnnotations);
-                putVertex(agent);
-                cachedAgents.add(agent);
-            } else {
-                //agent is already in cache so dont send it. and dont make new vertex.
-            }
+		HashMap<String, String> fields = eventsChain.get(0);
+		
+		if (fields.get("success").equals("no")) {
+			return;
+		}
 
+		try {
 
-            //make edges
-            wcb = new WasControlledBy(newProcess, agent);
-            execve = new WasTriggeredBy(newProcess, oldProcess);
+			//get the renaming process
 
+			String pid = fields.get("pid");
+			Process renamingProcess = processes.get(pid);
+			Artifact renamedFile;
+			Artifact newFile;
+			WasDerivedFrom renameEdgeFileToFile;
+			WasGeneratedBy renameEdgeProcessToFile;
 
-            //add process
-            putVertex(newProcess);
+			//get the renamed file path name
 
+			//String renamedFilePathname = "";
 
-            //add both edges
-            putEdge(wcb);
-            putEdge(execve);
 
+			String cwd = eventsChain.get(1).get("cwd");
+			String path1 = eventsChain.get(4).get("name");
+			String path2 = eventsChain.get(5).get("name");
 
-            //add process to table
-            processes.put(key, newProcess);
+			// Make paths Canonical
+			if (path1.charAt(0) == '/')
+				path1 = getCanonicalPath(path1);
+			else
+				path1 = getCanonicalPath(cwd + "/" + path1);
 
+			if (path2.charAt(0) == '/')
+				path2 = getCanonicalPath(path2);
+			else
+				path2 = getCanonicalPath(cwd + "/" + path2);
 
-            //extra processing to add the file artifact for the binary
-            Artifact binaryFile = new Artifact();
-            HashMap<String, String> binaryAnnotations = new HashMap<String, String>();
-            binaryAnnotations.put("filename", processAnnotations.get("exe"));
-            binaryAnnotations.put("version", "0");
-            binaryAnnotations.put("type", "Artifact");
-            binaryFile.setAnnotations(binaryAnnotations);
-            putVertex(binaryFile);
-            Used u = new Used(oldProcess, binaryFile);
-            putEdge(u);
+			
+			// TODO: Confirm this: might not be a good idea when files are renamed to and forth back
+			// check if you already have renamed file in file table. if not then huzzah don't do anything
+			if (!fileNameHasArtifact.containsKey(path1)) {
+				//do nothing
+			} else
+			{
+				// get renamed file
+				renamedFile = fileNameHasArtifact.get(path1);
 
+				// make new file Vertex
+				newFile = new Artifact();
+				HashMap<String, String> newFileAnnotations = new HashMap<String, String>();
+				newFileAnnotations.put("fullpath", path2);
+				newFileAnnotations.put("filename", path2);
+				newFileAnnotations.put("type", "Artifact"); 
 
-        } //process not in table. so been seen the first time. create new process vertex
-        else {
-            Process newProcess = new Process(processAnnotations);
+				// copy all the annotations
+				newFileAnnotations.put("cwd", cwd );
+				for(String i: "inode,dev,mode,ouid,ogid,rdev".split(","))
+					newFileAnnotations.put(i, eventsChain.get(5).get(i) ); 
+				
+				newFile.setAnnotations(newFileAnnotations);
 
-            //send this new process
+				//make file to file edge
+				renameEdgeFileToFile = new WasDerivedFrom(newFile, renamedFile);
+				renameEdgeProcessToFile = new WasGeneratedBy(newFile, renamingProcess);
 
+				// TODO: Dawood: Should we delete old file and all its edges?
+				
+				//delete old file and all its edges. also delete that files filepath to file vertex link
+				
+				// TODO: Implement this
+				//putVertex(newFile);
+			}
 
-            Agent agent = getAgent(agentAnnotations);
 
-            if (agent == null) {
-                //don't send vertex
-                agent = new Agent(agentAnnotations);
-                putVertex(agent);
-                cachedAgents.add(agent);
-            } else {
-                //agent is already in cache so dont send it. and dont make new vertex.
-            }
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, null, e);	
+		}
 
 
-            //make the edge
-            wcb = new WasControlledBy(newProcess, agent);
+	}
 
-            //send process
-            putVertex(newProcess);
+	//////////////////////////////////////////////////////
+	private void processDup(ArrayList<HashMap<String, String>> eventsChain) {
+		
+		HashMap<String, String> fields = eventsChain.get(0); 
+		
+		if (fields.get("success").equals("no")) {
+			return;
+		}
 
-            //send agent edge
-            putEdge(wcb);
+		//add a process,fd->filename,version edge in the table
 
-            // add to our table
-            processes.put(newProcess.getAnnotation("pid"), newProcess);
+		String pid = fields.get("pid");
+		String oldFd = fields.get("a0");
+		String newFd = fields.get("a1");
+		String keyPair = pid + "," + oldFd;
+		String newKeyPair = pid + "," + newFd;
+		
+		// TODO: Fix this!
+		if (processFdIsFile.containsKey(keyPair)) {
 
+			Artifact file = processFdIsFile.get(keyPair);
+			//String fullpath = file.getAnnotation("fullpath");
 
-        }
+			//add process to file edge
+			processFdIsFile.put(newKeyPair, file);
 
+			//add file to process edge(not needed)
 
+		}
+		// *** End <todo>
 
-    }
+	}
 
-    //////////////////////////////////////////////////////
-    private void processMknod(ArrayList<ArrayList<String>> inputMknod) {
-        //process the Mknod
-        //dont do this
-    }
+	//////////////////////////////////////////////////////
+	private void processPipe(ArrayList<HashMap<String, String>> eventsChain) {
+		//process the pipe
+		// TODO: Implement this!
+	}
 
-    //////////////////////////////////////////////////////(incomplete)
-    private void processRename(ArrayList<ArrayList<String>> inputRename) {
-        //process the Rename
+	//////////////////////////////////////////////////////
+	private void processDup2(ArrayList<HashMap<String, String>> eventsChain) {
+		
+		HashMap<String, String> fields = eventsChain.get(0); 
 
-        //check for success
-        String[] success = inputRename.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
+		if (fields.get("success").equals("no")) {
+			return;
+		}
 
+		//proceed
 
-        //now proceed
-        try {
+		//add a process,fd->filename,version edge in the table
 
-            //get the renaming process
+		String pid = fields.get("pid");
+		String oldFd = fields.get("a0");
+		String newFd = fields.get("a1");
+		String keyPair = pid + "," + oldFd;
+		String newKeyPair = pid + "," + newFd;
+		
+		// TODO: fix it
+		if (processFdIsFile.containsKey(keyPair)) {
 
-            String[] pid = inputRename.get(0).get(12).split("=");
+			Artifact file = processFdIsFile.get(keyPair);
+			//String fullpath = file.getAnnotation("fullpath");
 
-            Process renamingProcess = processes.get(pid[1]);
-            Artifact renamedFile;
-            Artifact newFile;
-            WasDerivedFrom renameEdgeFileToFile;
-            WasGeneratedBy renameEdgeProcessToFile;
-            //get the renamed file path name
+			//add process to file edge
+			processFdIsFile.put(newKeyPair, file);
 
-            //String renamedFilePathname = "";
+			//add file to process edge(not needed)
+		}
+	}
 
+	//////////////////////////////////////////////////////
+	private void processSymlink(ArrayList<HashMap<String, String>> eventsChain) {
+		//process the Symlink
+		// TODO: Implement this
+	}
 
-            String cwd = inputRename.get(1).get(2).split("=")[1];
-            cwd = cwd.substring(1, cwd.length() - 1);
+	//////////////////////////////////////////////////////
+	private void processTruncate(ArrayList<HashMap<String, String>> eventsChain) {
 
-            String path1 = inputRename.get(4).get(3).split("=")[1];
-            path1 = path1.substring(1, cwd.length() - 1);
+		HashMap<String, String> fields = eventsChain.get(0);
 
-            String path2 = inputRename.get(5).get(3).split("=")[1];
-            path2 = path2.substring(1, cwd.length() - 1);
+		try {
 
-            //get file one canonical path
-            if (path1.charAt(0) == '/') {
-                //path is absolute still needs to be resolved
-                File rename = new File(path1);
-                path1 = rename.getCanonicalPath();
-            } else {
-                File rename = new File(cwd + "/" + path1);
-                path1 = rename.getCanonicalPath();
-            }
+			//get the writing process
+			String pid = fields.get("pid");
+			Process writingProcess = processes.get(pid);
 
-            //get file 2 canonical path
-            if (path2.charAt(0) == '/') {
-                //path is absolute still needs to be resolved
-                File rename = new File(path2);
-                path2 = rename.getCanonicalPath();
-            } else {
-                File rename = new File(cwd + "/" + path2);
-                path2 = rename.getCanonicalPath();
-            }
+			String fd = fields.get("a0"); // TODO: verify that fd is passed
+			String keyPair = pid + "," + fd;
 
-            //check if you already have renamed file in file table. if not then huzzah don't do anything
-            if (!fileNameHasArtifact.containsKey(path1)) {
-                //do nothing
-            } else {
-                //get renamed file
-                renamedFile = fileNameHasArtifact.get(path1);
+			//get the written file
+			Artifact fileWritten = processFdIsFile.get(keyPair);
+			if (fileWritten.getAnnotation("version") == null) {
+				fileWritten.addAnnotation("version", "0");
+			} else {
+				int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+				fileWritten.addAnnotation("version", Integer.toString(v++));
+			}
 
+			//make a read edge
 
-                //make new file Vertex
-                newFile = new Artifact();
-                HashMap<String, String> newFileAnnotations = new HashMap<String, String>();
-                newFileAnnotations.put("fullpath", path2);
-                newFileAnnotations.put("filename", path2);
-                newFileAnnotations.put("type", "Artifact"); 
+			WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
 
-                //copy all the annotations
 
-                String[] cwd2 = inputRename.get(1).get(2).split("=");
-                newFileAnnotations.put(cwd2[0], cwd2[1]);
-                String[] filePath = inputRename.get(2).get(3).split("=");
-                newFileAnnotations.put(filePath[0], filePath[1]);
-                String[] inode = inputRename.get(2).get(4).split("=");
-                newFileAnnotations.put(inode[0], inode[1]);
-                String[] dev = inputRename.get(2).get(5).split("=");
-                newFileAnnotations.put(dev[0], dev[1]);
-                String[] mode = inputRename.get(2).get(6).split("=");
-                newFileAnnotations.put(mode[0], mode[1]);
-                String[] ouid = inputRename.get(2).get(7).split("=");
-                newFileAnnotations.put(ouid[0], ouid[1]);
-                String[] ogid = inputRename.get(2).get(8).split("=");
-                newFileAnnotations.put(ogid[0], ogid[1]);
-                String[] rdev = inputRename.get(2).get(9).split("=");
-                newFileAnnotations.put(rdev[0], rdev[1]);
-                String[] obj = inputRename.get(2).get(10).split("=");
-                newFileAnnotations.put(obj[0], obj[1]);
+			//put new vertex for new version of file if ReadWrite bunching not on
+			putVertex(fileWritten);
 
-                newFile.setAnnotations(newFileAnnotations);
+			//send the edge
+			putEdge(writeEdge);
 
 
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, null, e);	
+		}
+	}
 
-                //make file to file edge
-                renameEdgeFileToFile = new WasDerivedFrom(newFile, renamedFile);
-                renameEdgeProcessToFile = new WasGeneratedBy(newFile, renamingProcess);
+	//////////////////////////////////////////////////////
+	private void processFTruncate(ArrayList<HashMap<String, String>> eventsChain) {
+		
+		HashMap<String, String> fields = eventsChain.get(0);
+		try {
+			//get the writing process
+			String pid = fields.get("pid");
+			Process writingProcess = processes.get(pid);
 
-                //delete old file and all its edges. also delete that files filepath to file vertex link
-                //DO THIS
+			String fd = fields.get("a0");
+			String keyPair = pid + "," + fd;
 
-                //putVertex(newFile);
+			//get the written file
+			Artifact fileWritten = processFdIsFile.get(keyPair);
+			if (fileWritten.getAnnotation("version") == null) {
+				fileWritten.addAnnotation("version", "0");
+			} else {
+				int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+				fileWritten.addAnnotation("version", Integer.toString(v++));
+			}
 
+			//make a read edge
 
+			//WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten,writingProcess);
+			WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
 
 
-            }
+			//put new vertex for new version of file if ReadWrite bunching not on
+			putVertex(fileWritten);
 
+			//send the edge
+			putEdge(writeEdge);
 
-        } catch (Exception e) {
-        }
 
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, null, e);	
+		}
 
-    }
 
-    //////////////////////////////////////////////////////
-    private void processDup(ArrayList<ArrayList<String>> inputDup) {
-        //process the Dup
-        //check for success
-        String[] success = inputDup.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
+	}
 
-        //proceed
+	//////////////////////////////////////////////////////
+	private void processSocketcall(ArrayList<HashMap<String, String>> eventsChain) {
+		// TODO: Implement this
+	}
 
-        //add a process,fd->filename,version edge in the table
+	//////////////////////////////////////////////////////
+	private void processClone(ArrayList<HashMap<String, String>> eventsChain) {
 
-        String[] pid = inputDup.get(0).get(12).split("=");
-        String fd = inputDup.get(0).get(6);
-        String newFd = inputDup.get(0).get(5);
-        String keyPair = pid[1] + "," + fd;
-        String newKeyPair = pid[1] + "," + newFd;
-        if (processFdIsFile.containsKey(keyPair)) {
+		HashMap<String, String> fields = eventsChain.get(0);
+		
+		if (fields.get("success").equals("no")) {
+			return;
+		}
 
-            Artifact file = processFdIsFile.get(keyPair);
-            //String fullpath = file.getAnnotation("fullpath");
+		//String key="";
+		Process cloningProcess;
+		HashMap<String, String> annotations = getProcessInformation(eventsChain.get(0));
+		HashMap<String, String> annotationsNew = getProcessInformation(eventsChain.get(0));
+		HashMap<String, String> agentAnnotations = seperateAgentFromProcess(annotations);
+		HashMap<String, String> agentAnnotations2 = seperateAgentFromProcess(annotationsNew);
 
-            //add process to file edge
-            processFdIsFile.put(newKeyPair, file);
+		if (processes.containsKey(annotations.get("pid"))) {
+			//cloning process already in table
+			cloningProcess = processes.get(annotations.get("pid"));
+		} else {
+			cloningProcess = new Process(annotations);
 
-            //add file to process edge(not needed)
+			//send the cloning Process and its agent vertex and its wascontrolledby edge
+			Agent agent = getAgent(agentAnnotations);
+			if (agent == null) {
 
-        }
+				agent = new Agent(agentAnnotations);
+				putVertex(agent);
+				cachedAgents.add(agent);
+			} else {
+				//agent is already in cache so dont send it. and dont make new vertex.
+			}
 
+			//now send send process
+			putVertex(cloningProcess);
 
-    }
+			//now send wcb edge
+			WasControlledBy wcb = new WasControlledBy(cloningProcess, agent);
+			putEdge(wcb);
 
-    //////////////////////////////////////////////////////
-    private void processPipe(ArrayList<ArrayList<String>> inputPipe) {
-        //process the pipe
-        //Needs to be done
-    }
+			processes.put(annotations.get("pid"), cloningProcess);
 
-    //////////////////////////////////////////////////////
-    private void processDup2(ArrayList<ArrayList<String>> inputDup2) {
-        //process the Dup2
+		}
 
-        //check for success
-        String[] success = inputDup2.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
+		//move pid to ppid
+		annotationsNew.remove("ppid");
+		annotationsNew.put("ppid", annotations.get("pid"));
 
-        //proceed
+		//move exit value to pid as that is child pid
+		annotationsNew.remove("pid");
+		annotationsNew.put("pid", annotations.get("exit"));
 
-        //add a process,fd->filename,version edge in the table
+		Process clonedProcess = new Process(annotationsNew);
+		//create a new process (add it to processes) and a clone edge
+		processes.put(annotationsNew.get("pid"), clonedProcess);
 
-        String[] pid = inputDup2.get(0).get(12).split("=");
-        String fd = inputDup2.get(0).get(6);
-        String newFd = inputDup2.get(0).get(5);
-        String keyPair = pid[1] + "," + fd;
-        String newKeyPair = pid[1] + "," + newFd;
-        if (processFdIsFile.containsKey(keyPair)) {
+		putVertex(clonedProcess);
+		WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
+		putEdge(clone);
 
-            Artifact file = processFdIsFile.get(keyPair);
-            //String fullpath = file.getAnnotation("fullpath");
+		// Agents
+		Agent agent2 = getAgent(agentAnnotations2);
+		if (agent2 == null) {
+			agent2 = new Agent(agentAnnotations2);
+			putVertex(agent2);
+			cachedAgents.add(agent2);
+		} 
 
-            //add process to file edge
-            processFdIsFile.put(newKeyPair, file);
+		WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agent2);
+		putEdge(wcb2);
+	}
 
-            //add file to process edge(not needed)
+	/////////////////////////////////////////////////////////
+	private void processReadv(ArrayList<HashMap<String, String>> eventsChain) {
 
-        }
+		HashMap<String, String> fields = eventsChain.get(0);
+	
+		//get the reading process
+		String pid = fields.get("pid");
+		Process readingProcess = processes.get(pid);
 
+		String fd = fields.get("a0");
+		String keyPair = pid + "," + fd;
 
+		//get the read file
+		Artifact fileRead = processFdIsFile.get(keyPair);
 
-    }
+		//make a read edge
 
-    //////////////////////////////////////////////////////
-    private void processSymlink(ArrayList<ArrayList<String>> inputSymlink) {
-        //process the Symlink
-        //Needs to be done
-    }
+		Used readEdge = new Used(readingProcess, fileRead);
 
-    //////////////////////////////////////////////////////
-    private void processTruncate(ArrayList<ArrayList<String>> inputTruncate) {
-        //process the truncate
+		//send the file,process and read edge
+		
+		// TODO: *sigh* implement this!
 
 
-        try {
+	}
 
-            //get the writting process
-            String[] pid = inputTruncate.get(0).get(12).split("=");
-            Process writingProcess = processes.get(pid[1]);
+	/////////////////////////////////////////////////////////
+	private void processWritev(ArrayList<HashMap<String, String>> eventsChain) {
 
-            String[] fd = inputTruncate.get(0).get(6).split("=");
-            String keyPair = pid[1] + "," + fd[1];
+		HashMap<String, String> fields = eventsChain.get(0);
 
-            //get the written file
-            Artifact fileWritten = processFdIsFile.get(keyPair);
-            if (fileWritten.getAnnotation("version") == null) {
-                fileWritten.addAnnotation("version", "0");
-            } else {
-                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-                fileWritten.addAnnotation("version", Integer.toString(v++));
-            }
+		//get the writting process
+		String pid = fields.get("pid");
+		Process writingProcess = processes.get(pid);
 
-            //make a read edge
+		String fd = fields.get("a0");
+		String keyPair = pid + "," + fd;
 
-            WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
+		//get the written file
+		Artifact fileWritten = processFdIsFile.get(keyPair);
+		if (fileWritten.getAnnotation("version") == null) {
+			fileWritten.addAnnotation("version", "0");
+		} else {
+			int v = Integer.parseInt(fileWritten.getAnnotation("version"));
+			fileWritten.addAnnotation("version", Integer.toString(v++));
+		}
 
+		//make a read edge
 
-            //put new vertex for new version of file if ReadWrite bunching not on
-            putVertex(fileWritten);
+		WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
+		
+		putVertex(fileWritten);
+		putEdge(writeEdge);
+	}
 
-            //send the edge
-            putEdge(writeEdge);
+	//////////////////////////////////////////////////////
+	private void processVFork(ArrayList<HashMap<String, String>> eventsChain) {
+		
+		HashMap<String, String> fields = eventsChain.get(0);
 
+		if( fields.get("success").equals("no") ) {
+			return;
+		}
+		
+		//String key="";
+		boolean sendCloningProcess = false;
+		Process cloningProcess = null;
+		HashMap<String, String> processAnnotations = getProcessInformation(eventsChain.get(0));
+		HashMap<String, String> processAnnotationsChild = getProcessInformation(eventsChain.get(0));
+		HashMap<String, String> agentAnnotations = seperateAgentFromProcess(processAnnotations);
+		HashMap<String, String> agentAnnotationsChild = seperateAgentFromProcess(processAnnotationsChild);
 
-        } catch (Exception e) {
-        }
+		if (processes.containsKey(processAnnotations.get("pid"))) {
+			//cloning process already in table
+			cloningProcess = processes.get(processAnnotations.get("pid"));
+		} else {
+			cloningProcess = new Process(processAnnotations);
+			processes.put(processAnnotations.get("pid"), cloningProcess);
+			putVertex(cloningProcess);
+			
+			//send the cloning Process and its agent vertex and its wascontrolledby edge
+			Agent agent = getAgent(agentAnnotations);
+			if (agent == null) {
+				agent = new Agent(agentAnnotations);
+				putVertex(agent);
+				cachedAgents.add(agent);
+			}
+			WasControlledBy wcb = new WasControlledBy(cloningProcess, agent);
+			putEdge(wcb);
+		}
 
 
+		// Child Process
+		processAnnotationsChild.put("ppid", processAnnotations.get("pid"));
+		processAnnotationsChild.put("pid", processAnnotations.get("exit"));
 
+		Process clonedProcess = new Process(processAnnotationsChild);
+		processes.put(processAnnotationsChild.get("pid"), clonedProcess);
+		putVertex(clonedProcess);
 
+		WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
+		putEdge(clone);
 
+		// Get or create child agent
+		Agent agent2 = getAgent(agentAnnotationsChild);
+		if (agent2 == null) {
 
-    }
+			agent2 = new Agent(agentAnnotationsChild);
+			putVertex(agent2);
+			cachedAgents.add(agent2);
+		}
 
-    //////////////////////////////////////////////////////
-    private void processFTruncate(ArrayList<ArrayList<String>> inputFTruncate) {
-        //process the ftruncate
-        try {
-
-            //get the writting process
-            String[] pid = inputFTruncate.get(0).get(12).split("=");
-            Process writingProcess = processes.get(pid[1]);
-
-            String[] fd = inputFTruncate.get(0).get(6).split("=");
-            String keyPair = pid[1] + "," + fd[1];
-
-            //get the written file
-            Artifact fileWritten = processFdIsFile.get(keyPair);
-            if (fileWritten.getAnnotation("version") == null) {
-                fileWritten.addAnnotation("version", "0");
-            } else {
-                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-                fileWritten.addAnnotation("version", Integer.toString(v++));
-            }
-
-            //make a read edge
-
-            //WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten,writingProcess);
-            WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
-
-
-            //put new vertex for new version of file if ReadWrite bunching not on
-            putVertex(fileWritten);
-
-            //send the edge
-            putEdge(writeEdge);
-
-
-        } catch (Exception e) {
-        }
-
-
-    }
-
-    //////////////////////////////////////////////////////
-    private void processSocketcall(ArrayList<ArrayList<String>> inputSocketcall) {
-        //process the Socketcall
-    }
-
-    //////////////////////////////////////////////////////
-    private void processClone(ArrayList<ArrayList<String>> inputClone) {
-        //process the clone
-
-
-        //check for success
-        String[] success = inputClone.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
-
-
-
-
-        //String key="";
-        boolean sendCloningProcess = false;
-        Process cloningProcess;
-        HashMap<String, String> annotations = getProcessInformation(inputClone.get(0));
-        HashMap<String, String> annotationsNew = getProcessInformation(inputClone.get(0));
-        HashMap<String, String> agentAnnotations = seperateAgentFromProcess(annotations);
-        HashMap<String, String> agentAnnotations2 = seperateAgentFromProcess(annotationsNew);
-
-
-
-
-
-
-        if (processes.containsKey(annotations.get("pid"))) {
-            //cloning process already in table
-            cloningProcess = processes.get(annotations.get("pid"));
-
-        } else {
-
-            cloningProcess = new Process(annotations);
-            sendCloningProcess = true;
-        }
-
-
-        //move pid to ppid
-        annotationsNew.remove("ppid");
-        annotationsNew.put("ppid", annotations.get("pid"));
-
-        //move exit value to pid as that is child pid
-        annotationsNew.remove("pid");
-        annotationsNew.put("pid", annotations.get("exit"));
-
-
-        Process clonedProcess = new Process(annotationsNew);
-        //create a new process (add it to processes) and a clone edge
-        processes.put(annotationsNew.get("pid"), clonedProcess);
-
-
-
-
-        if (sendCloningProcess == true) {
-            //send the cloning Process and its agent vertex and its wascontrolledby edge
-            Agent agent = getAgent(agentAnnotations);
-            if (agent == null) {
-
-                agent = new Agent(agentAnnotations);
-                putVertex(agent);
-                cachedAgents.add(agent);
-            } else {
-                //agent is already in cache so dont send it. and dont make new vertex.
-            }
-
-            //now send send process
-            putVertex(cloningProcess);
-
-            //now send wcb edge
-            WasControlledBy wcb = new WasControlledBy(cloningProcess, agent);
-            putEdge(wcb);
-
-            processes.put(annotations.get("pid"), cloningProcess);
-        }
-
-        //send cloned Process
-        putVertex(clonedProcess);
-
-        //send cloned Edge
-        //make the cloned edge
-        WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
-        //send edge
-        putEdge(clone);
-
-        //send agent for cloned process here
-        Agent agent2 = getAgent(agentAnnotations2);
-        if (agent2 == null) {
-
-            agent2 = new Agent(agentAnnotations2);
-            putVertex(agent2);
-            cachedAgents.add(agent2);
-        } else {
-            //agent is already in cache so dont send it. and dont make new vertex.
-        }
-
-        //send was controlled by edge for cloned process
-
-        WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agent2);
-        putEdge(wcb2);
-
-    }
-
-    /////////////////////////////////////////////////////////
-    private void processReadv(ArrayList<ArrayList<String>> inputReadv) {
-        //process the Readv
-
-
-        try {
-
-            //get the reading process
-            String[] pid = inputReadv.get(0).get(12).split("=");
-            Process readingProcess = processes.get(pid[1]);
-
-            String[] fd = inputReadv.get(0).get(6).split("=");
-            String keyPair = pid[1] + "," + fd[1];
-
-            //get the read file
-            Artifact fileRead = processFdIsFile.get(keyPair);
-
-            //make a read edge
-
-            Used readEdge = new Used(readingProcess, fileRead);
-
-            //send the file,process and read edge
-
-
-
-        } catch (Exception e) {
-        }
-
-    }
-
-    /////////////////////////////////////////////////////////
-    private void processWritev(ArrayList<ArrayList<String>> inputWritev) {
-        //process the Writev
-        try {
-
-            //get the writting process
-            String[] pid = inputWritev.get(0).get(12).split("=");
-            Process writingProcess = processes.get(pid[1]);
-
-            String[] fd = inputWritev.get(0).get(6).split("=");
-            String keyPair = pid[1] + "," + fd[1];
-
-            //get the written file
-            Artifact fileWritten = processFdIsFile.get(keyPair);
-            if (fileWritten.getAnnotation("version") == null) {
-                fileWritten.addAnnotation("version", "0");
-            } else {
-                int v = Integer.parseInt(fileWritten.getAnnotation("version"));
-                fileWritten.addAnnotation("version", Integer.toString(v++));
-            }
-
-            //make a read edge
-
-            WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
-
-
-            //put new vertex for new version of file if ReadWrite bunching not on
-            putVertex(fileWritten);
-
-            //send the edge
-            putEdge(writeEdge);
-
-
-        } catch (Exception e) {
-        }
-
-
-
-
-
-
-
-
-    }
-
-    //////////////////////////////////////////////////////
-    private void processVFork(ArrayList<ArrayList<String>> inputVFork) {
-        //process the vfork
-
-
-        //check for success
-        String[] success = inputVFork.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
-
-
-
-
-        //String key="";
-        boolean sendCloningProcess = false;
-        Process cloningProcess;
-        HashMap<String, String> annotations = getProcessInformation(inputVFork.get(0));
-        HashMap<String, String> annotationsNew = getProcessInformation(inputVFork.get(0));
-        HashMap<String, String> agentAnnotations = seperateAgentFromProcess(annotations);
-        HashMap<String, String> agentAnnotations2 = seperateAgentFromProcess(annotationsNew);
-
-
-
-
-
-
-        if (processes.containsKey(annotations.get("pid"))) {
-            //cloning process already in table
-            cloningProcess = processes.get(annotations.get("pid"));
-
-        } else {
-
-            cloningProcess = new Process(annotations);
-            sendCloningProcess = true;
-        }
-
-
-        //move pid to ppid
-        annotationsNew.remove("ppid");
-        annotationsNew.put("ppid", annotations.get("pid"));
-
-        //move exit value to pid as that is child pid
-        annotationsNew.remove("pid");
-        annotationsNew.put("pid", annotations.get("exit"));
-
-
-        Process clonedProcess = new Process(annotationsNew);
-        //create a new process (add it to processes) and a clone edge
-        processes.put(annotationsNew.get("pid"), clonedProcess);
-
-
-
-
-        if (sendCloningProcess == true) {
-            //send the cloning Process and its agent vertex and its wascontrolledby edge
-            Agent agent = getAgent(agentAnnotations);
-            if (agent == null) {
-
-                agent = new Agent(agentAnnotations);
-                putVertex(agent);
-                cachedAgents.add(agent);
-            } else {
-                //agent is already in cache so dont send it. and dont make new vertex.
-            }
-
-            //now send send process
-            putVertex(cloningProcess);
-
-            //now send wcb edge
-            WasControlledBy wcb = new WasControlledBy(cloningProcess, agent);
-            putEdge(wcb);
-
-            processes.put(annotations.get("pid"), cloningProcess);
-        }
-
-        //send cloned Process
-        putVertex(clonedProcess);
-
-        //send cloned Edge
-        //make the cloned edge
-        WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
-        //send edge
-        putEdge(clone);
-
-        //send agent for cloned process here
-        Agent agent2 = getAgent(agentAnnotations2);
-        if (agent2 == null) {
-
-            agent2 = new Agent(agentAnnotations2);
-            putVertex(agent2);
-            cachedAgents.add(agent2);
-        } else {
-            //agent is already in cache so dont send it. and dont make new vertex.
-        }
-
-        //send was controlled by edge for cloned process
-
-        WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agent2);
-        putEdge(wcb2);
-
-
-    }
-
-    //////////////////////////////////////////////////////
-    private void processExitGroup(ArrayList<ArrayList<String>> inputExitGroup) {
-        //process the exit group;
-
-        //check for success
-        String[] success = inputExitGroup.get(0).get(4).split("=");
-        //if sys call didn't succeed just return. no use logging it
-        if (success[1].equals("no")) {
-            return;
-        }
-
-
-
-
-        HashMap<String, String> processAnnotations = getProcessInformation(inputExitGroup.get(0));
-
-        //remove the process from the existing processes table
-        if (processes.containsKey(processAnnotations.get("pid"))) {
-            processes.remove(processAnnotations.get("pid") + processAnnotations.get("comm"));
-        }
-
-
-        //possibly send information to the kernel that this process has finished
-
-
-    }
-
-    private HashMap<String, String> getProcessInformation(ArrayList<String> listOfVariables) {
-        HashMap<String, String> annotations = new HashMap<String, String>();
-
-
-        //get timestamp and audit id
-        String[] auditIds = listOfVariables.get(1).split("=");
-        String[] timeAndAuditId = auditIds[1].split(":");
-        String timestamp = timeAndAuditId[0];
-        String auditId = timeAndAuditId[1];
-
-        timestamp = timestamp.substring(6, timestamp.length());
-        auditId = auditId.substring(0, auditId.length() - 1);
-
-
-        annotations.put("time", timestamp);
-        annotations.put("auditId", auditId);
-
-        // get architecture
-        String[] architecture = listOfVariables.get(2).split("=");
-        annotations.put(architecture[0], architecture[1]);
-
-        for (int i = 3; i < listOfVariables.size(); i++) {
-            String[] var = listOfVariables.get(i).split("=");
-            annotations.put(var[0], var[1]);
-
-        }
-
-        return annotations;
-    }
-
-    private String getExecveCommandLine(ArrayList<String> inputList) {
-
-        HashMap<String, String> returnMap = new HashMap<String, String>();
-
-        // get num args
-        String[] numArgs = inputList.get(2).split("=");
-        String commandLine = "";
-
-
-
-        for (int i = 1; i <= Integer.parseInt(numArgs[1]); i++) {
-            // get all command line variables
-            String[] arg = inputList.get(2 + i).split("=");
-
-            returnMap.put(arg[0], arg[1]);
-            commandLine = commandLine + arg[1] + " ";
-        }
-
-
-
-        return commandLine;
-
-    }
-
-    private HashMap<String, String> getFileInformation(ArrayList<ArrayList<String>> openEvent) {
-
-        HashMap<String, String> fileAnnotations = new HashMap<String, String>();
-        try {
-            String[] cwd = openEvent.get(1).get(2).split("=");
-            fileAnnotations.put(cwd[0], cwd[1]);
-
-            String[] auditIds = openEvent.get(1).get(1).split("=");
-            String[] timeAndAuditId = auditIds[1].split(":");
-            String timestamp = timeAndAuditId[0];
-            String auditId = timeAndAuditId[1];
-
-            timestamp = timestamp.substring(6, timestamp.length());
-            auditId = auditId.substring(0, auditId.length() - 1);
-
-
-            fileAnnotations.put("time", timestamp);
-            fileAnnotations.put("auditId", auditId);
-
-
-
-
-            //get file path
-            if (openEvent.size() <= 3) {
-                String[] filePath = openEvent.get(2).get(3).split("=");
-                fileAnnotations.put(filePath[0], filePath[1]);
-                String[] inode = openEvent.get(2).get(4).split("=");
-                fileAnnotations.put(inode[0], inode[1]);
-                String[] dev = openEvent.get(2).get(5).split("=");
-                fileAnnotations.put(dev[0], dev[1]);
-                String[] mode = openEvent.get(2).get(6).split("=");
-                fileAnnotations.put(mode[0], mode[1]);
-                String[] ouid = openEvent.get(2).get(7).split("=");
-                fileAnnotations.put(ouid[0], ouid[1]);
-                String[] ogid = openEvent.get(2).get(8).split("=");
-                fileAnnotations.put(ogid[0], ogid[1]);
-                String[] rdev = openEvent.get(2).get(9).split("=");
-                fileAnnotations.put(rdev[0], rdev[1]);
-                String[] obj = openEvent.get(2).get(10).split("=");
-                fileAnnotations.put(obj[0], obj[1]);
-
-            } else {
-                String[] filePath = openEvent.get(3).get(3).split("=");
-                fileAnnotations.put(filePath[0], filePath[1]);
-                String[] inode = openEvent.get(3).get(4).split("=");
-                fileAnnotations.put(inode[0], inode[1]);
-                String[] dev = openEvent.get(3).get(5).split("=");
-                fileAnnotations.put(dev[0], dev[1]);
-                String[] mode = openEvent.get(3).get(6).split("=");
-                fileAnnotations.put(mode[0], mode[1]);
-                String[] ouid = openEvent.get(3).get(7).split("=");
-                fileAnnotations.put(ouid[0], ouid[1]);
-                String[] ogid = openEvent.get(3).get(8).split("=");
-                fileAnnotations.put(ogid[0], ogid[1]);
-                String[] rdev = openEvent.get(3).get(9).split("=");
-                fileAnnotations.put(rdev[0], rdev[1]);
-                String[] obj = openEvent.get(3).get(10).split("=");
-                fileAnnotations.put(obj[0], obj[1]);
-            }
-
-
-
-
-
-            String filePath = "";
-            if (fileAnnotations.get("name").charAt(1) == '/') {
-                //path is absolute
-                if (fileAnnotations.get("name").charAt(0) == '\"') {
-                    filePath = fileAnnotations.get("name").substring(1, fileAnnotations.get("name").length() - 1);
-                } else {
-                    filePath = fileAnnotations.get("name");
-                }
-            } else {
-                //get canonical path
-
-
-                if (fileAnnotations.get("name").charAt(0) == '\"') {
-                    File getFilePath = new File(fileAnnotations.get("cwd").substring(1, fileAnnotations.get("cwd").length() - 1) + "/" + fileAnnotations.get("name").substring(1, fileAnnotations.get("name").length() - 1));
-                    filePath = getFilePath.getCanonicalPath();
-                } else {
-                    File getFilePath = new File(fileAnnotations.get("cwd").substring(1, fileAnnotations.get("cwd").length() - 1) + "/" + fileAnnotations.get("name"));
-                    filePath = getFilePath.getCanonicalPath();
-
-                }
-
-
-
-
-            }
-
-
-
-            fileAnnotations.put("filename", filePath);
-
-
-        } catch (Exception ioe) {
-        }
-
-        return fileAnnotations;
-
-    }
-
-    private HashMap<String, String> seperateAgentFromProcess(HashMap<String, String> processAnnotations) {
-        HashMap<String, String> agentAnnotations = new HashMap<String, String>();
-
-//this to put in agent
-/*
-        | uid
-        | egid
-        | arch
-        | auid
-        | sgid
-        | fsgid
-        | suid
-        | euid
-        | node
-        | fsuid
-        | gid
-         */
-
-        if (processAnnotations.containsKey("uid")) {
-
-            agentAnnotations.put("uid", processAnnotations.get("uid"));
-            processAnnotations.remove("uid");
-        }
-
-        if (processAnnotations.containsKey("egid")) {
-            agentAnnotations.put("egid", processAnnotations.get("egid"));
-            processAnnotations.remove("egid");
-        }
-
-        if (processAnnotations.containsKey("arch")) {
-            agentAnnotations.put("arch", processAnnotations.get("arch"));
-            processAnnotations.remove("arch");
-        }
-
-        if (processAnnotations.containsKey("auid")) {
-            agentAnnotations.put("auid", processAnnotations.get("auid"));
-            processAnnotations.remove("auid");
-        }
-
-        if (processAnnotations.containsKey("sgid")) {
-            agentAnnotations.put("sgid", processAnnotations.get("sgid"));
-            processAnnotations.remove("sgid");
-        }
-
-        if (processAnnotations.containsKey("fsgid")) {
-            agentAnnotations.put("fsgid", processAnnotations.get("fsgid"));
-            processAnnotations.remove("fsgid");
-        }
-
-        if (processAnnotations.containsKey("suid")) {
-            agentAnnotations.put("suid", processAnnotations.get("suid"));
-            processAnnotations.remove("suid");
-        }
-
-        if (processAnnotations.containsKey("euid")) {
-            agentAnnotations.put("euid", processAnnotations.get("euid"));
-            processAnnotations.remove("euid");
-        }
-
-        if (processAnnotations.containsKey("node")) {
-            agentAnnotations.put("node", processAnnotations.get("node"));
-            processAnnotations.remove("node");
-        }
-
-        if (processAnnotations.containsKey("fsuid")) {
-            agentAnnotations.put("fsuid", processAnnotations.get("fsuid"));
-            processAnnotations.remove("fsuid");
-        }
-
-        if (processAnnotations.containsKey("gid")) {
-            agentAnnotations.put("gid", processAnnotations.get("gid"));
-            processAnnotations.remove("gid");
-        }
-
-
-
-
-
-
-        return agentAnnotations;
-    }
-
-    private Agent getAgent(HashMap<String, String> annotations) {
-        Agent fake = null;
-
-        Iterator<Agent> agents = cachedAgents.iterator();
-
-        while (agents.hasNext()) {
-            Agent storedAgent = agents.next();
-            boolean wantedAgent = true;
-            //Iterator<String> storedAgentAnnotations = storedAgent.getAnnotations().keySet().iterator();
-            Iterator<String> passedAgentAnnotations = annotations.keySet().iterator();
-            while (passedAgentAnnotations.hasNext()) {
-                String key = passedAgentAnnotations.next();
-                String value = annotations.get(key);
-
-                if (storedAgent.getAnnotations().containsKey(key) && storedAgent.getAnnotation(key).equals(value)) {
-                } else {
-                    wantedAgent = false;
-                    break;
-                }
-
-
-            }
-
-            if (wantedAgent = true) {
-                return storedAgent;
-            }
-        }
-
-        return fake;
-
-    }
+		WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agent2);
+		putEdge(wcb2);
+	}
+
+	//////////////////////////////////////////////////////
+	private void processExitGroup(ArrayList<HashMap<String, String>> eventsChain) {	
+
+		HashMap<String, String> fields = eventsChain.get(0);
+
+		//remove the process from the existing processes table
+		if (processes.containsKey(fields.get("pid"))) {
+			processes.remove(fields.get("pid") + fields.get("comm")); // TODO: comm?
+		}
+		//possibly send information to the kernel that this process has finished
+	}
+
+
+	private HashMap<String, String> getProcessInformation(HashMap<String, String> fields) {
+		HashMap<String, String> ret = new HashMap<String, String>();
+		
+		for(Map.Entry<String, String> entry: fields.entrySet())
+		{
+			String k = entry.getKey(); 
+			if(!agent_fields.contains(k)) 
+				ret.put(k, entry.getValue());
+		}
+		return ret;
+	}
+
+	private String getExecveCommandLine(HashMap<String, String> fields) {
+
+		int argc = Integer.parseInt(fields.get("argc"));
+		String commandLine = "";
+
+		for (int i = 1; i < argc; ++i) {
+			commandLine += fields.get("a" + Integer.toString(i)) + " ";
+		}
+		return commandLine.trim();
+
+	}
+
+	private HashMap<String, String> getFileInformation(ArrayList<HashMap<String, String>> eventChain) {
+
+		HashMap<String, String> fileAnnotations = new HashMap<String, String>();
+		
+		try {
+
+			fileAnnotations.put("cwd", eventChain.get(1).get("cwd"));
+			fileAnnotations.put("time", eventChain.get(1).get("time"));
+			fileAnnotations.put("auditId", eventChain.get(1).get("auditId"));
+
+			//get file path
+			int index_chain_filename = eventChain.size() - 1;
+			assert(index_chain_filename > 2);
+	
+			HashMap<String, String> fields = eventChain.get(index_chain_filename);
+
+			for(String i: "name,inode,dev,mode,ouid,ogid,rdev".split(","))
+				fileAnnotations.put(i, fields.get(i));
+			
+			// Convert filepath
+			String filename = fileAnnotations.get("name");
+			if (filename.startsWith("\"") && filename.endsWith("\""))
+				filename = filename.substring(1, filename.length() -1 );
+			if (!filename.startsWith("/"))
+			{
+				File getFilePath = new File(fileAnnotations.get("cwd").substring(1, fileAnnotations.get("cwd").length() - 1) + "/" + filename);
+				filename = getFilePath.getCanonicalPath();
+			}
+			fileAnnotations.put("filename", filename);
+
+
+		} catch (Exception ioe) {
+			ioe.printStackTrace();
+		}
+
+		return fileAnnotations;
+
+	}
+
+	// TODO: Rename this
+	private HashMap<String, String> seperateAgentFromProcess(HashMap<String, String> processAnnotations) {
+		HashMap<String, String> agentAnnotations = new HashMap<String, String>();
+		for(String i: agent_fields)
+			agentAnnotations.put(i, processAnnotations.get(i));
+		return agentAnnotations;
+	}
+
+	
+	
+	// TODO: Vertify with Dawood, the criteria of agent lookup
+	private Agent getAgent(HashMap<String, String> annotations) {
+		// TODO: This has O(n) lookup time ... check how it can be reduced
+		for(String field: "uid,auid,suid".split(","))
+			for(Agent agent: cachedAgents)
+				if( agent.getAnnotations().containsKey(field) 
+						&&
+					agent.getAnnotations().get(field).equals( annotations.get(field) ) 
+					)
+					return agent; 
+		return null;
+	}
+	
+	/*
+	 * returns the canonical path
+	 */
+	private String getCanonicalPath(String path) {
+		try {
+			assert(path.startsWith("/"));
+			File f = new File(path);
+			String path1 = f.getCanonicalPath();
+			return path1;
+		}
+		catch (IOException e) {
+			assert(false);
+		}
+		return null;
+	}
+	
+	/**
+	 * Gets the syscall mini-event from the events chain 
+	 * 
+    @param  eventsChain - an array of mini-events
+	 *
+    @return HashMap<String, String>
+	 *
+	 **/
+	private HashMap<String, String> getSyscallEvent(ArrayList<HashMap<String, String>> eventsChain) {
+		for( HashMap<String, String> e: eventsChain)
+			if(e.get("type").equals("SYSCALL"))
+				return e;
+		return null;
+	}
 }
