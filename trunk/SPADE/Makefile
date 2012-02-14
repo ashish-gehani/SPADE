@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 390
+REVISION = 394
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -137,12 +137,12 @@ android-build:
 	@mkdir -p android-lib;
 	#----------IGNORE @for f in lib/*.jar; do echo "Porting $$f to Android"; $(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/$$(basename $$f) $$f; done
 	#----------IGNORE $(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/jline-0.9.94.jar lib/jline-0.9.94.jar 
-	@echo 'Downloading the Linux Audit binary for Android-ARM...'
-	@wget http://www.cs.indiana.edu/~nhusted/project_source/spadeLinuxAudit-arm -O android-lib/spadeAndroidAudit
+	#----------IGNORE @echo 'Downloading the Linux Audit binary for Android-ARM...'
+	#----------IGNORE @wget http://www.cs.indiana.edu/~nhusted/project_source/spadeLinuxAudit-arm -O android-lib/spadeAndroidAudit
 	@mkdir -p android-build;
 	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
 	@cd build; \
-	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
+	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade
 
 # Deploy to Android
 android-deploy:
@@ -156,10 +156,10 @@ android-deploy:
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /data/audit"
 	$(ANDROID_SDK_TOOLS)/adb shell "echo > /sdcard/spade/cfg/spade.config"
 	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
-	$(ANDROID_SDK_TOOLS)/adb push android-lib/spadeAndroidAudit /data/spadeAndroidAudit
-	$(ANDROID_SDK_TOOLS)/adb shell "chmod 700 /data/spadeAndroidAudit"	
+	#----------IGNORE $(ANDROID_SDK_TOOLS)/adb push android-lib/spadeAndroidAudit /data/spadeAndroidAudit
+	#----------IGNORE $(ANDROID_SDK_TOOLS)/adb shell "chmod 700 /data/spadeAndroidAudit"	
 
 # Launch Android kernel
 android-kernel:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel";
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel"
 
