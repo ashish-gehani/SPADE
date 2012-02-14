@@ -40,18 +40,36 @@ import spade.vertex.opm.Process;
 
 public class AndroidAudit extends AbstractReporter {
 
-	private boolean OpenCloseSemanticsOn; //true means open and close will be used to check for reads/writes and actual reads/writes will not be monitored. false means reads/writes will be monitored
-	private int currentAuditId;
+	// True means open and close will be used to check for reads/writes and actual reads/writes will not be monitored. false means reads/writes will be monitored
+	private boolean OpenCloseSemanticsOn = true; 
+	
+	private int currentAuditId = 0;
 
-	private String temporaryEventString;//string used as a buffer to hold the current event stream
+	// String used as a buffer to hold the current event stream
+	private String temporaryEventString = "";
+	
+	// ???
 	private String hostname;
-	private HashMap<String, Process> processes;//a hash table to hold all the currently running processes that we know of
-	private HashMap<String, Artifact> processFdIsFile;//mapping from process,file decriptior pair to the actual file. this needs to be kept due to lack of information about file in read/write events
-	private HashMap<String, Artifact> fileNameHasArtifact;//mapping from from name to the opm artifact vertex
-	private HashMap<Integer, ArrayList<HashMap<String, String>>> unfinishedEvents;//buffer to hold events from the event stream that haven't recieved an EOE(end of event) event yet and are still not finished.
-	private HashSet<Agent> cachedAgents;
+	
+	// Hash tables 
+	
+	// Currently running known processes
+	private HashMap<String, Process> processes = new HashMap<String, Process>();
+	
+	// Mapping from process,file decriptior pair to the actual file. this needs to be kept due to lack of information about file in read/write events
+	private HashMap<String, Artifact> processFdIsFile = new HashMap<String, Artifact>();
+	
+	// Mapping from from name to the opm artifact vertex
+	private HashMap<String, Artifact> fileNameHasArtifact = new HashMap<String, Artifact>();
+	
+	// Buffer to hold events from the event stream that haven't recieved an EOE(end of event) event yet and are still not finished.
+	private HashMap<Integer, ArrayList<HashMap<String, String>>> unfinishedEvents = new HashMap<Integer, ArrayList<HashMap<String, String>>>();	
+	
+	// Agents we've seen
+	private HashSet<Agent> cachedAgents = new HashSet<Agent>();;
+	
 	public java.lang.Process socketToPipe;
-	private BufferedReader eventReader;
+	protected BufferedReader eventReader;
 	private final PrintStream errorStream = System.err;
 
 	private Logger logger = Logger.getLogger(AndroidAudit.class.getName());
@@ -59,25 +77,16 @@ public class AndroidAudit extends AbstractReporter {
 	private HashSet<String> agent_fields = 
 		new HashSet<String> (
 			Arrays.asList("uid,egid,arch,auid,sgid,fsgid,suid,euid,node,fsuid,gid".split("[\\s,]+")));	
-	
-	@Override
-	public boolean launch(String arguments) {
-		OpenCloseSemanticsOn = true;
 
-		fileNameHasArtifact = new HashMap<String, Artifact>();
-		processes = new HashMap<String, Process>();
-		processFdIsFile = new HashMap<String, Artifact>();
-		currentAuditId = 0;
-		temporaryEventString = "";
-
-		unfinishedEvents = new HashMap<Integer, ArrayList<HashMap<String, String>>>();
-		cachedAgents = new HashSet<Agent>();
-
+	public AndroidAudit() {
 		// Generate syscalls mapping table
 		Matcher m = pattern_key_val.matcher(syscalls_mapping_str);
 		while(m.find())
-			syscalls_mapping.put(Integer.parseInt(m.group(1)),m.group(2));
-
+			syscalls_mapping.put(Integer.parseInt(m.group(1)),m.group(2));	
+	}
+	
+	@Override
+	public boolean launch(String arguments) {
 
 		// Environment stuff
 		try {
@@ -88,6 +97,7 @@ public class AndroidAudit extends AbstractReporter {
 			hostname = addr.getHostName();
 
 		} catch (UnknownHostException e) {
+			logger.log(Level.SEVERE, null, e);
 		}
 		startParsing();
 
@@ -149,13 +159,13 @@ public class AndroidAudit extends AbstractReporter {
 
 
 		} catch (Exception exception) {
-			Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
+			logger.log(Level.SEVERE, null, exception);
 		}
 
 
 	}
 
-	private void processInputLine(String inputLine) {
+	protected void processInputLine(String inputLine) {
 
 
 		//we still need to finish a mini event
@@ -164,7 +174,7 @@ public class AndroidAudit extends AbstractReporter {
 		//now check to see if the string contains two types of mini events. If it does we need to package off the first one and make a new item
 
 
-		Pattern pattern = Pattern.compile("node=([A-Za-z0-9]+) type=");
+		Pattern pattern = Pattern.compile("type=");
 		Matcher matcher = pattern.matcher(temporaryEventString);
 
 		int countOfSyscalls = 0;
@@ -201,8 +211,8 @@ public class AndroidAudit extends AbstractReporter {
 	}
 
 	Pattern pattern_key_val = Pattern.compile("((?:\\\\.|[^=\\s]+)*)=(\"(?:\\\\.|[^\"\\\\]+)*\"|(?:\\\\.|[^\\s\"\\\\]+)*)");
-	Pattern pattern_auditid = Pattern.compile("msg=audit\\([^:]+:([0-9]+)\\):");
-	Pattern pattern_timestamp = Pattern.compile("msg=audit\\(([^:])+:[0-9]+\\):");
+	Pattern pattern_auditid = Pattern.compile("audit\\([^:]+:([0-9]+)\\):");
+	Pattern pattern_timestamp = Pattern.compile("audit\\(([^:])+:[0-9]+\\):");
 	String syscalls_mapping_str = "2=fork 3=read 4=write 5=open 6=close 9=link 10=unlink 11=execve " + 
 		"14=mknod 38=rename 41=dup 42=pipe 63=dup2 83=symlink 92=truncate " + 
 		"93=ftruncate 102=socketcall 120=clone 145=readv 146=writev " + 
@@ -222,25 +232,28 @@ public class AndroidAudit extends AbstractReporter {
 	 */
 	private void processEvent(String event) {
 
-		//we have gotten a mini event. Do whatever processing here
-
-		//aims are to identify the type of mini event and event id and take the appropriate actions. we also need audit it. this works like a state machine
-
-		// Get the key value pairs and store them in a hash map
-		Matcher m = pattern_key_val.matcher(event);
-		HashMap<String, String> fields = new HashMap<String, String>();
-		while(m.find())
-			fields.put(m.group(1), m.group(2));
-
-		// Get current audit id & timestamp
-		m = pattern_auditid.matcher(fields.get("msg"));
-		currentAuditId = Integer.parseInt(m.group(1));
-		fields.put("auditId", m.group(1));
-		m = pattern_timestamp.matcher(fields.get("msg"));
-		fields.put("time", m.group(1));
-
 		try {
 
+			// Convert the event into key value pairs and store them in a hash map
+			Matcher m = pattern_key_val.matcher(event);
+			HashMap<String, String> fields = new HashMap<String, String>();
+			while(m.find())
+				fields.put(m.group(1), m.group(2));
+
+			// Get current audit id & timestamp
+			String msg = fields.get("msg");
+			m = pattern_auditid.matcher(fields.get("msg"));
+			if(m.find())
+				fields.put("auditId", m.group(1));
+			else
+				assert(false);
+			
+			m = pattern_timestamp.matcher(fields.get("msg"));
+			if(m.find())
+				fields.put("time", m.group(1));
+			else
+				assert(false);
+			
 			//////////////////////////////////////////////////////////this part processes all mini events///////////////////////////////////////////////
 
 			String eventType = fields.get("type");
@@ -278,6 +291,7 @@ public class AndroidAudit extends AbstractReporter {
 				}
 			}
 		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, "Problem process event: " + event);
 			logger.log(Level.SEVERE, null, exception);
 		}
 
@@ -309,17 +323,133 @@ public class AndroidAudit extends AbstractReporter {
 			return;
 		}
 
-		// Take the appropriate action by calling the function
-		// done using reflection: any event type is handled by 
-		// calling a function with "process" as its prefix
-		// e.g. unlink event is handled by processUnlink function
-		String event_str = syscalls_mapping.get(givenEventNum);
-		String str_process_func = "process" + event_str.substring(0,1).toUpperCase() + event_str.substring(1);
-
 		try {
+			switch (givenEventNum) {
+			// Invoke appropriate handler
+			case 2:
+				//fork
+				processFork(finishedEvent);
+				break;
+
+			case 3:
+				//read
+				processRead(finishedEvent);
+				break;
+
+			case 4:
+				//write
+				processWrite(finishedEvent);
+				break;
+
+			case 5:
+				//open
+				processOpen(finishedEvent);
+				break;
+
+			case 6:
+				//close
+				processClose(finishedEvent);
+				break;
+
+			case 9:
+				//link
+				processLink(finishedEvent);
+				break;
+
+			case 10:
+				//unlink
+				processUnLink(finishedEvent);
+				break;
+
+			case 11:
+				//execve
+				processExecve(finishedEvent);
+				break;
+
+			case 14:
+				//mknod
+				processMknod(finishedEvent);
+				break;
+
+			case 38:
+				//rename
+				processRename(finishedEvent);
+				break;
+
+			case 41:
+				//duplicate(dup)
+				processDup(finishedEvent);
+				break;
+
+			case 42:
+				//pipe
+				processPipe(finishedEvent);
+				break;
+			case 63:
+				//duplicate2(dup2)
+				processDup2(finishedEvent);
+				break;
+			case 83:
+				//symlink
+				processSymlink(finishedEvent);
+				break;
+			case 92:
+				//truncate
+				processTruncate(finishedEvent);
+				break;
+			case 93:
+				//ftruncate
+				processFTruncate(finishedEvent);
+				break;
+			case 102:
+				//socketcall
+				processSocketcall(finishedEvent);
+				break;
+			case 120:
+				//clone
+				processClone(finishedEvent);
+				break;
+			case 145:
+				//readv
+				processReadv(finishedEvent);
+				break;
+			case 146:
+				//Writev
+				processWritev(finishedEvent);
+				break;
+
+			case 190:
+				//vfork
+				processVFork(finishedEvent);
+				break;
+			case 252:
+				//exitgroup
+				processExitGroup(finishedEvent);
+				break;
+			default:
+				break;
+			}
+		}
+		catch(Exception e)
+		{
+			// Indicates code level issue
+			Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
+			assert(false);			
+		}
+		/*
+		try {
+
+			// Take the appropriate action by calling the function
+			// done using reflection: any event type is handled by 
+			// calling a function with "process" as its prefix
+			// e.g. unlink event is handled by processUnlink function
+			String event_str = syscalls_mapping.get(givenEventNum);
+			String str_process_func = "process" + event_str.substring(0,1).toUpperCase() + event_str.substring(1);
+
 			ArrayList<HashMap<String, String>> obj = new ArrayList<HashMap<String, String>>();
 			Method process = this.getClass().getMethod(str_process_func, obj.getClass());
 			process.invoke(this, finishedEvent);
+
 		}
 		catch(java.lang.NoSuchMethodException e) {
 			// Ignore if not implemented but log it
@@ -336,6 +466,7 @@ public class AndroidAudit extends AbstractReporter {
 			Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
 			assert(false);			
 		}
+		 */
 	}
 
 	///////////////////////////////////////////////////////////////////
@@ -733,8 +864,6 @@ public class AndroidAudit extends AbstractReporter {
 
 			// add to our table
 			processes.put(newProcess.getAnnotation("pid"), newProcess);
-
-
 		}
 
 
