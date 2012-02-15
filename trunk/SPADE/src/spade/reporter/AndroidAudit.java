@@ -650,7 +650,13 @@ public class AndroidAudit extends AbstractReporter {
 
                 fileAnnotations.put("fullpath", filePath);
                 fileAnnotations.put("filename", filePath);
-                fileOpened = new Artifact(fileAnnotations);
+                fileOpened = new File();
+                
+                for (Map.Entry<String, String> currentEntry : fileAnnotations.entrySet()) {
+                    String key = currentEntry.getKey();
+                    String value = currentEntry.getValue();
+                    fileOpened.addAnnotation(key, value);
+                }
 
                 /*
                  * ??? ArrayList<String> processesThatOpenFiles = new
@@ -818,11 +824,8 @@ public class AndroidAudit extends AbstractReporter {
 
             //extra processing to add the file artifact for the binary
             Artifact binaryFile = new File();
-            HashMap<String, String> binaryAnnotations = new HashMap<String, String>();
-            binaryAnnotations.put("filename", processAnnotations.get("exe"));
-            binaryAnnotations.put("version", "0");
-            binaryAnnotations.put("type", "Artifact");
-            binaryFile.setAnnotations(binaryAnnotations);
+            binaryFile.addAnnotation("filename", processAnnotations.get("exe"));
+            binaryFile.addAnnotation("version", "0");
             putVertex(binaryFile);
             Used u = new Used(oldProcess, binaryFile);
             putEdge(u);
@@ -922,18 +925,14 @@ public class AndroidAudit extends AbstractReporter {
 
                 // make new file Vertex
                 newFile = new File();
-                HashMap<String, String> newFileAnnotations = new HashMap<String, String>();
-                newFileAnnotations.put("fullpath", path2);
-                newFileAnnotations.put("filename", path2);
-                newFileAnnotations.put("type", "Artifact");
+                newFile.addAnnotation("fullpath", path2);
+                newFile.addAnnotation("filename", path2);
 
                 // copy all the annotations
-                newFileAnnotations.put("cwd", cwd);
+                newFile.addAnnotation("cwd", cwd);
                 for (String i : "inode,dev,mode,ouid,ogid,rdev".split(",")) {
-                    newFileAnnotations.put(i, eventsChain.get(5).get(i));
+                    newFile.addAnnotation(i, eventsChain.get(5).get(i));
                 }
-
-                newFile.setAnnotations(newFileAnnotations);
 
                 //make file to file edge
                 renameEdgeFileToFile = new WasDerivedFrom(newFile, renamedFile);
