@@ -46,7 +46,7 @@ public class AndroidAudit extends AbstractReporter {
     private String temporaryEventString = "";
     // ???
     private String hostname;
-    // Hash tables
+    // Hash tables 
     // Currently running known processes
     private HashMap<String, Process> processes = new HashMap<String, Process>();
     // Mapping from process,file decriptior pair to the actual file. this needs to be kept due to lack of information about file in read/write events
@@ -108,10 +108,34 @@ public class AndroidAudit extends AbstractReporter {
     public void startParsing() {
 
         try {
+            String javaPid = null;
 
             Runtime.getRuntime().exec("auditctl -D").waitFor();
-            Runtime.getRuntime().exec("auditctl -a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork").waitFor();
             Runtime.getRuntime().exec("auditd").waitFor();
+
+            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+            BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+            String line = pidReader.readLine();
+            StringBuilder ignorePids = new StringBuilder();
+            while ((line = pidReader.readLine()) != null) {
+                String details[] = line.split("\\s+");
+                String pid = details[1];
+                String cmdLine = details[8].trim();
+                if ((cmdLine.equalsIgnoreCase("/sbin/adbd"))
+                        || (cmdLine.equalsIgnoreCase("auditd"))
+                        || (cmdLine.equalsIgnoreCase("/system/bin/audispd"))) {
+                    ignorePids.append(" -F pid!=" + pid);
+                } else if (cmdLine.equalsIgnoreCase("dalvikvm")) {
+                    javaPid = pid;
+                }
+            }
+            pidReader.close();
+
+            String rules = "-a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork"
+                    + " -F pid!=" + javaPid + " -F ppid!=" + javaPid
+                    + ignorePids.toString();
+
+            Runtime.getRuntime().exec("auditctl " + rules).waitFor();
             java.lang.Process pipeprocess = Runtime.getRuntime().exec("/system/bin/spade-audit");
             eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
 
@@ -137,11 +161,10 @@ public class AndroidAudit extends AbstractReporter {
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
-
-
     }
 
     protected void processInputLine(String inputLine) {
+
 
         //we still need to finish a mini event
         temporaryEventString = temporaryEventString + inputLine;
@@ -261,7 +284,7 @@ public class AndroidAudit extends AbstractReporter {
                 //event in the hashmap
                 if (unfinishedEvents.containsKey(currentAuditId)) {
 
-                    int givenEventNum = Integer.parseInt(getSyscallEvent(unfinishedEvents.get(currentAuditId)).get("syscall")); // TODO: syscall might be in any event of the array, not just zero
+                    int givenEventNum = Integer.parseInt(getSyscallEvent(unfinishedEvents.get(currentAuditId)).get("syscall")); // TODO: syscall might be in any event of the array, not just zero				
                     if (fields.get("type").compareTo("EOE") == 0) {
                         //if end of audit finish the event
                         processFinishedEvent(unfinishedEvents.get(currentAuditId), givenEventNum);
@@ -555,7 +578,7 @@ public class AndroidAudit extends AbstractReporter {
 
         } catch (Exception e) {
             // TODO: log here
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
+            e.printStackTrace();
         }
 
     }
@@ -597,7 +620,7 @@ public class AndroidAudit extends AbstractReporter {
             putEdge(writeEdge);
 
         } catch (Exception e) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
+            e.printStackTrace();
         }
     }
 
@@ -651,7 +674,7 @@ public class AndroidAudit extends AbstractReporter {
                 fileAnnotations.put("fullpath", filePath);
                 fileAnnotations.put("filename", filePath);
                 fileOpened = new File();
-                
+
                 for (Map.Entry<String, String> currentEntry : fileAnnotations.entrySet()) {
                     String key = currentEntry.getKey();
                     String value = currentEntry.getValue();
@@ -925,13 +948,20 @@ public class AndroidAudit extends AbstractReporter {
 
                 // make new file Vertex
                 newFile = new File();
-                newFile.addAnnotation("fullpath", path2);
-                newFile.addAnnotation("filename", path2);
+                HashMap<String, String> newFileAnnotations = new HashMap<String, String>();
+                newFileAnnotations.put("fullpath", path2);
+                newFileAnnotations.put("filename", path2);
 
                 // copy all the annotations
-                newFile.addAnnotation("cwd", cwd);
+                newFileAnnotations.put("cwd", cwd);
                 for (String i : "inode,dev,mode,ouid,ogid,rdev".split(",")) {
-                    newFile.addAnnotation(i, eventsChain.get(5).get(i));
+                    newFileAnnotations.put(i, eventsChain.get(5).get(i));
+                }
+
+                for (Map.Entry<String, String> currentEntry : newFileAnnotations.entrySet()) {
+                    String key = currentEntry.getKey();
+                    String value = currentEntry.getValue();
+                    newFile.addAnnotation(key, value);
                 }
 
                 //make file to file edge
@@ -1374,7 +1404,7 @@ public class AndroidAudit extends AbstractReporter {
 
 
         } catch (Exception ioe) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, ioe);
+            ioe.printStackTrace();
         }
 
         return fileAnnotations;
