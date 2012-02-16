@@ -28,6 +28,6 @@ import spade.vertex.opm.Process;
 public class Program extends Process {
 
     public Program() {
-        this.addAnnotation("subtype", "Program");
+        addAnnotation("subtype", "Program");
     }
 }

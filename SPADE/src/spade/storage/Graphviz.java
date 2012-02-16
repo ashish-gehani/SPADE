@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2011 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.storage;
 
@@ -31,7 +31,7 @@ import spade.core.AbstractVertex;
 
 /**
  * A storage implementation that writes data to a DOT file.
- * 
+ *
  * @author Dawood
  */
 public class Graphviz extends AbstractStorage {
@@ -87,6 +87,9 @@ public class Graphviz extends AbstractStorage {
                 for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                     String key = currentEntry.getKey();
                     String value = currentEntry.getValue();
+                    if (key == null || value == null) {
+                        continue;
+                    }
                     if ((key.equalsIgnoreCase("storageId"))
                             || (key.equalsIgnoreCase("type"))
                             || (key.equalsIgnoreCase("subtype"))
@@ -145,6 +148,9 @@ public class Graphviz extends AbstractStorage {
                 for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
                     String key = currentEntry.getKey();
                     String value = currentEntry.getValue();
+                    if (key == null || value == null) {
+                        continue;
+                    }
                     if ((key.equalsIgnoreCase("storageId"))
                             || (key.equalsIgnoreCase("type"))
                             || (key.equalsIgnoreCase("subtype"))

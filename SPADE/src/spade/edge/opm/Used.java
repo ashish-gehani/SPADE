@@ -19,7 +19,6 @@
  */
 package spade.edge.opm;
 
-import java.util.LinkedHashMap;
 import spade.core.AbstractEdge;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
@@ -40,7 +39,6 @@ public class Used extends AbstractEdge {
     public Used(Process actingProcess, Artifact usedArtifact) {
         setSourceVertex(actingProcess);
         setDestinationVertex(usedArtifact);
-        annotations = new LinkedHashMap<String, String>();
         addAnnotation("type", "Used");
     }
 }

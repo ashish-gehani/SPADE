@@ -19,7 +19,6 @@
  */
 package spade.edge.opm;
 
-import java.util.LinkedHashMap;
 import spade.core.AbstractEdge;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
@@ -40,7 +39,6 @@ public class WasGeneratedBy extends AbstractEdge {
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess) {
         setSourceVertex(generatedArtifact);
         setDestinationVertex(actingProcess);
-        annotations = new LinkedHashMap<String, String>();
         addAnnotation("type", "WasGeneratedBy");
     }
 }

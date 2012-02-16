@@ -19,6 +19,7 @@
  */
 package spade.core;
 
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -50,7 +51,16 @@ public class Buffer {
         if (incomingVertex == null) {
             return false;
         } else {
-            return queue.add(incomingVertex);
+
+            Vertex newVertex = new Vertex();
+            for (Map.Entry<String, String> currentEntry : incomingVertex.annotations.entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                newVertex.addAnnotation(key, value);
+            }
+
+            return true;
+            //return queue.add(newVertex);
         }
     }
 
@@ -67,7 +77,31 @@ public class Buffer {
                 || (incomingEdge.getSourceVertex().hashCode() == incomingEdge.getDestinationVertex().hashCode())) {
             return false;
         } else {
-            return queue.add(incomingEdge);
+
+            Vertex srcVertex = new Vertex();
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getSourceVertex().annotations.entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                srcVertex.addAnnotation(key, value);
+            }
+
+            Vertex dstVertex = new Vertex();
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getDestinationVertex().annotations.entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                dstVertex.addAnnotation(key, value);
+            }
+
+            Edge newEdge = new Edge(srcVertex, dstVertex);
+            for (Map.Entry<String, String> currentEntry : incomingEdge.annotations.entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                newEdge.addAnnotation(key, value);
+            }
+
+            queue.add(srcVertex);
+            queue.add(dstVertex);
+            return queue.add(newEdge);
         }
     }
 
