@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2010 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2010 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.reporter;
 
@@ -116,16 +116,12 @@ public class LinuxAudit extends AbstractReporter {
             new Thread(eventThread).start();
 
             /*
-            while (true) {
-            // this statement reads the line from the file and print it to
-            // the console.
-            String inputLine = br.readLine();
-            if (inputLine != null) {
-            //System.out.println(inputLine);
-            processInputLine(inputLine);
-            }
-
-            }
+             * while (true) { // this statement reads the line from the file and
+             * print it to // the console. String inputLine = br.readLine(); if
+             * (inputLine != null) { //System.out.println(inputLine);
+             * processInputLine(inputLine); }
+             *
+             * }
              *
              */
 
@@ -196,13 +192,19 @@ public class LinuxAudit extends AbstractReporter {
 
     //the process line event passes discrete events to this functions. we need to recognize type of event (these are actually mini events) and package them
     /**
-     * This function takes mini-events in the form of a string and identifies them as a starting mini-event or as a continuing mini-event by checking for the audit id of the event that has been passed via the lidAudit system. It adds it to a {@link HashMap} as a new event or as a continuing event.
-    If the mini-event is an EOE or end-of-event type of event then it takes the chain of mini-events with the same audit id and passes them all on to processFinishedEvent.
-
-    @param  event A string from the processLine function that represent one mini-event from the lid audit system.
+     * This function takes mini-events in the form of a string and identifies
+     * them as a starting mini-event or as a continuing mini-event by checking
+     * for the audit id of the event that has been passed via the lidAudit
+     * system. It adds it to a {@link HashMap} as a new event or as a continuing
+     * event. If the mini-event is an EOE or end-of-event type of event then it
+     * takes the chain of mini-events with the same audit id and passes them all
+     * on to processFinishedEvent.
      *
-
-    @return void
+     * @param event A string from the processLine function that represent one
+     * mini-event from the lid audit system.
+     *
+     *
+     * @return void
      *
      */
     private void processEvent(String event) {
@@ -512,15 +514,20 @@ public class LinuxAudit extends AbstractReporter {
 
     //this function gets the finished event from the processEvent (all mini events pertaining to an event are packaged togeter)
     /**
-     * This function recieves a chain of mini-events that are packaged together and represent one system call. It identifies the type of the system call and passes the event on to the handler for that particular system call.
-
-    @param  finishedEvent This is the Arraylist that contains mini-events for one system call.
+     * This function recieves a chain of mini-events that are packaged together
+     * and represent one system call. It identifies the type of the system call
+     * and passes the event on to the handler for that particular system call.
      *
-
-    @param  givenEventNum this is the system call Id for the passed event. This is used to do a decision about which handler the system call should be passed to.
+     * @param finishedEvent This is the Arraylist that contains mini-events for
+     * one system call.
      *
-
-    @return void
+     *
+     * @param givenEventNum this is the system call Id for the passed event.
+     * This is used to do a decision about which handler the system call should
+     * be passed to.
+     *
+     *
+     * @return void
      *
      */
     private void processFinishedEvent(ArrayList<ArrayList<String>> finishedEvent, int givenEventNum) {
@@ -663,11 +670,16 @@ public class LinuxAudit extends AbstractReporter {
     ////////INDIVIDUAL HANDLER FUNCTIONS FOR EACH SYSTEM CALL//////////
     ///////////////////////////////////////////////////////////////////
     /**
-     * This function takes a Fork system call and converts it into the appropriate OPM specification objects. It also does house keeping regarding new vertices in the OPM model and keeps track of whether the process vertex generated by this function is a new one of has been seen before. If it generates new OPM vertices or edges these are sent to the filter for further processing.
-
-    @param  inputFork The chain of mini-events representing a fork system call
+     * This function takes a Fork system call and converts it into the
+     * appropriate OPM specification objects. It also does house keeping
+     * regarding new vertices in the OPM model and keeps track of whether the
+     * process vertex generated by this function is a new one of has been seen
+     * before. If it generates new OPM vertices or edges these are sent to the
+     * filter for further processing.
      *
-    @return void
+     * @param inputFork The chain of mini-events representing a fork system call
+     *
+     * @return void
      *
      */
     private void processFork(ArrayList<ArrayList<String>> inputFork) {
@@ -703,7 +715,8 @@ public class LinuxAudit extends AbstractReporter {
 
         } else {
 
-            cloningProcess = new Process(annotations);
+            cloningProcess = new Process();
+            cloningProcess.addAnnotations(annotations);
             sendCloningProcess = true;
         }
 
@@ -717,7 +730,8 @@ public class LinuxAudit extends AbstractReporter {
         annotationsNew.put("pid", annotations.get("exit"));
 
 
-        Process clonedProcess = new Process(annotationsNew);
+        Process clonedProcess = new Process();
+        clonedProcess.addAnnotations(annotationsNew);
         //create a new process (add it to processes) and a clone edge
         processes.put(annotationsNew.get("pid"), clonedProcess);
 
@@ -729,7 +743,8 @@ public class LinuxAudit extends AbstractReporter {
             Agent agent = getAgent(agentAnnotations);
             if (agent == null) {
 
-                agent = new Agent(agentAnnotations);
+                agent = new Agent();
+                agent.addAnnotations(agentAnnotations);
                 putVertex(agent);
                 cachedAgents.add(agent);
             } else {
@@ -759,7 +774,8 @@ public class LinuxAudit extends AbstractReporter {
         Agent agent2 = getAgent(agentAnnotations2);
         if (agent2 == null) {
 
-            agent2 = new Agent(agentAnnotations2);
+            agent2 = new Agent();
+            agent2.addAnnotations(agentAnnotations2);
             putVertex(agent2);
             cachedAgents.add(agent2);
         } else {
@@ -774,11 +790,13 @@ public class LinuxAudit extends AbstractReporter {
     }
 
     /**
-     * This function takes a Read system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
-
-    @param  inputRead The chain of mini-events representing a read system call
+     * This function takes a Read system call and converts it into the
+     * appropriate OPM specification objects. If it generates new OPM vertices
+     * or edges these are sent to the filter for further processing.
      *
-    @return void
+     * @param inputRead The chain of mini-events representing a read system call
+     *
+     * @return void
      *
      */
     private void processRead(ArrayList<ArrayList<String>> inputRead) {
@@ -814,11 +832,14 @@ public class LinuxAudit extends AbstractReporter {
     }
 
     /**
-     * This function takes a write system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing.
-
-    @param  inputWrite The chain of mini-events representing a write system call
+     * This function takes a write system call and converts it into the
+     * appropriate OPM specification objects. If it generates new OPM vertices
+     * or edges these are sent to the filter for further processing.
      *
-    @return void
+     * @param inputWrite The chain of mini-events representing a write system
+     * call
+     *
+     * @return void
      *
      */
     private void processWrite(ArrayList<ArrayList<String>> inputWrite) {
@@ -865,11 +886,16 @@ public class LinuxAudit extends AbstractReporter {
     }
 
     /**
-     * This function takes an open system call and converts it into the appropriate OPM specification objects. If it generates new OPM vertices or edges these are sent to the filter for further processing. If OpenCloseSemantics flag is set then this function is used to generate read events and optimize the system by obviating the need for monitoring actual read system calls.
-
-    @param  inputOpen The chain of mini-events representing a open system call
+     * This function takes an open system call and converts it into the
+     * appropriate OPM specification objects. If it generates new OPM vertices
+     * or edges these are sent to the filter for further processing. If
+     * OpenCloseSemantics flag is set then this function is used to generate
+     * read events and optimize the system by obviating the need for monitoring
+     * actual read system calls.
      *
-    @return void
+     * @param inputOpen The chain of mini-events representing a open system call
+     *
+     * @return void
      *
      */
     //////////////////////////////////////////////////////
@@ -953,7 +979,9 @@ public class LinuxAudit extends AbstractReporter {
 
                 fileAnnotations.put("fullpath", filePath);
                 fileAnnotations.put("filename", filePath);
-                fileOpened = new Artifact(fileAnnotations);
+                fileOpened = new Artifact();
+                fileOpened.addAnnotations(fileAnnotations);
+
                 ArrayList<String> processesThatOpenFiles = new ArrayList<String>();
                 processesThatOpenFiles.add(keyPair);
 
@@ -967,16 +995,16 @@ public class LinuxAudit extends AbstractReporter {
 
             }
 
-            /* Kernel values for open flags
-            O_RDONLY        00000000
-            O_WRONLY        00000001
-            O_RDWR          00000002
-
-            system call looks like open(file path, flags, mode)
-            so we get flags in a1 parameter from lib audit
-
-            so we only convert an open to a read only when the last digit of a1 is either 0 or 2. If it is 1 then it was opened for write only
-
+            /*
+             * Kernel values for open flags O_RDONLY 00000000 O_WRONLY 00000001
+             * O_RDWR 00000002
+             *
+             * system call looks like open(file path, flags, mode) so we get
+             * flags in a1 parameter from lib audit
+             *
+             * so we only convert an open to a read only when the last digit of
+             * a1 is either 0 or 2. If it is 1 then it was opened for write only
+             *
              */
 
             if (OpenCloseSemanticsOn == false) {
@@ -1108,13 +1136,15 @@ public class LinuxAudit extends AbstractReporter {
             //remove older process
             processes.remove(key);
             //add new process
-            Process newProcess = new Process(processAnnotations);
+            Process newProcess = new Process();
+            newProcess.addAnnotations(processAnnotations);
 
             Agent agent = getAgent(agentAnnotations);
 
 
             if (agent == null) {
-                agent = new Agent(agentAnnotations);
+                agent = new Agent();
+                agent.addAnnotations(agentAnnotations);
                 putVertex(agent);
                 cachedAgents.add(agent);
             } else {
@@ -1146,7 +1176,7 @@ public class LinuxAudit extends AbstractReporter {
             binaryAnnotations.put("filename", processAnnotations.get("exe"));
             binaryAnnotations.put("version", "0");
             binaryAnnotations.put("type", "Artifact");
-            binaryFile.setAnnotations(binaryAnnotations);
+            binaryFile.addAnnotations(binaryAnnotations);
             putVertex(binaryFile);
             Used u = new Used(oldProcess, binaryFile);
             putEdge(u);
@@ -1154,7 +1184,8 @@ public class LinuxAudit extends AbstractReporter {
 
         } //process not in table. so been seen the first time. create new process vertex
         else {
-            Process newProcess = new Process(processAnnotations);
+            Process newProcess = new Process();
+            newProcess.addAnnotations(processAnnotations);
 
             //send this new process
 
@@ -1163,7 +1194,8 @@ public class LinuxAudit extends AbstractReporter {
 
             if (agent == null) {
                 //don't send vertex
-                agent = new Agent(agentAnnotations);
+                agent = new Agent();
+                agent.addAnnotations(agentAnnotations);
                 putVertex(agent);
                 cachedAgents.add(agent);
             } else {
@@ -1267,7 +1299,7 @@ public class LinuxAudit extends AbstractReporter {
                 HashMap<String, String> newFileAnnotations = new HashMap<String, String>();
                 newFileAnnotations.put("fullpath", path2);
                 newFileAnnotations.put("filename", path2);
-                newFileAnnotations.put("type", "Artifact"); 
+                newFileAnnotations.put("type", "Artifact");
 
                 //copy all the annotations
 
@@ -1290,7 +1322,7 @@ public class LinuxAudit extends AbstractReporter {
                 String[] obj = inputRename.get(2).get(10).split("=");
                 newFileAnnotations.put(obj[0], obj[1]);
 
-                newFile.setAnnotations(newFileAnnotations);
+                newFile.addAnnotations(newFileAnnotations);
 
 
 
@@ -1521,7 +1553,8 @@ public class LinuxAudit extends AbstractReporter {
 
         } else {
 
-            cloningProcess = new Process(annotations);
+            cloningProcess = new Process();
+            cloningProcess.addAnnotations(annotations);
             sendCloningProcess = true;
         }
 
@@ -1535,7 +1568,8 @@ public class LinuxAudit extends AbstractReporter {
         annotationsNew.put("pid", annotations.get("exit"));
 
 
-        Process clonedProcess = new Process(annotationsNew);
+        Process clonedProcess = new Process();
+        clonedProcess.addAnnotations(annotationsNew);
         //create a new process (add it to processes) and a clone edge
         processes.put(annotationsNew.get("pid"), clonedProcess);
 
@@ -1547,7 +1581,8 @@ public class LinuxAudit extends AbstractReporter {
             Agent agent = getAgent(agentAnnotations);
             if (agent == null) {
 
-                agent = new Agent(agentAnnotations);
+                agent = new Agent();
+                agent.addAnnotations(agentAnnotations);
                 putVertex(agent);
                 cachedAgents.add(agent);
             } else {
@@ -1577,7 +1612,8 @@ public class LinuxAudit extends AbstractReporter {
         Agent agent2 = getAgent(agentAnnotations2);
         if (agent2 == null) {
 
-            agent2 = new Agent(agentAnnotations2);
+            agent2 = new Agent();
+            agent2.addAnnotations(agentAnnotations2);
             putVertex(agent2);
             cachedAgents.add(agent2);
         } else {
@@ -1700,7 +1736,8 @@ public class LinuxAudit extends AbstractReporter {
 
         } else {
 
-            cloningProcess = new Process(annotations);
+            cloningProcess = new Process();
+            cloningProcess.addAnnotations(annotations);
             sendCloningProcess = true;
         }
 
@@ -1714,7 +1751,8 @@ public class LinuxAudit extends AbstractReporter {
         annotationsNew.put("pid", annotations.get("exit"));
 
 
-        Process clonedProcess = new Process(annotationsNew);
+        Process clonedProcess = new Process();
+        clonedProcess.addAnnotations(annotationsNew);
         //create a new process (add it to processes) and a clone edge
         processes.put(annotationsNew.get("pid"), clonedProcess);
 
@@ -1726,7 +1764,8 @@ public class LinuxAudit extends AbstractReporter {
             Agent agent = getAgent(agentAnnotations);
             if (agent == null) {
 
-                agent = new Agent(agentAnnotations);
+                agent = new Agent();
+                agent.addAnnotations(agentAnnotations);
                 putVertex(agent);
                 cachedAgents.add(agent);
             } else {
@@ -1756,7 +1795,8 @@ public class LinuxAudit extends AbstractReporter {
         Agent agent2 = getAgent(agentAnnotations2);
         if (agent2 == null) {
 
-            agent2 = new Agent(agentAnnotations2);
+            agent2 = new Agent();
+            agent2.addAnnotations(agentAnnotations2);
             putVertex(agent2);
             cachedAgents.add(agent2);
         } else {
@@ -1959,17 +1999,8 @@ public class LinuxAudit extends AbstractReporter {
 
 //this to put in agent
 /*
-        | uid
-        | egid
-        | arch
-        | auid
-        | sgid
-        | fsgid
-        | suid
-        | euid
-        | node
-        | fsuid
-        | gid
+         * | uid | egid | arch | auid | sgid | fsgid | suid | euid | node |
+         * fsuid | gid
          */
 
         if (processAnnotations.containsKey("uid")) {

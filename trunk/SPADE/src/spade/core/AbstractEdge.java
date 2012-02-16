@@ -1,30 +1,32 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2011 SRI International
 
-This program is free software: you can redistribute it and/or  
-modify it under the terms of the GNU General Public License as  
-published by the Free Software Foundation, either version 3 of the  
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or  
+ modify it under the terms of the GNU General Public License as  
+ published by the Free Software Foundation, either version 3 of the  
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,  
-but WITHOUT ANY WARRANTY; without even the implied warranty of  
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU  
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,  
+ but WITHOUT ANY WARRANTY; without even the implied warranty of  
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU  
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License  
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License  
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.core;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
- * This is the class from which other edge classes (e.g., OPM edges) are derived.
- * 
+ * This is the class from which other edge classes (e.g., OPM edges) are
+ * derived.
+ *
  * @author Dawood
  */
 public abstract class AbstractEdge implements Serializable {
@@ -32,7 +34,7 @@ public abstract class AbstractEdge implements Serializable {
     /**
      * A map containing the annotations for this edge.
      */
-    protected Map<String, String> annotations;
+    protected Map<String, String> annotations = new HashMap<String, String>();
     private AbstractVertex sourceVertex;
     private AbstractVertex destinationVertex;
     /**
@@ -42,7 +44,7 @@ public abstract class AbstractEdge implements Serializable {
 
     /**
      * Returns the map containing the annotations for this edge.
-     * 
+     *
      * @return The map containing the annotations.
      */
     public final Map<String, String> getAnnotations() {
@@ -50,17 +52,8 @@ public abstract class AbstractEdge implements Serializable {
     }
 
     /**
-     * Sets the annotations for this edge.
-     * 
-     * @param annotations A map that is to be set as annotations for this edge.
-     */
-    public final void setAnnotations(Map<String, String> annotations) {
-        this.annotations = annotations;
-    }
-
-    /**
      * Adds an annotation.
-     * 
+     *
      * @param key The annotation key.
      * @param value The annotation value.
      */
@@ -69,10 +62,27 @@ public abstract class AbstractEdge implements Serializable {
     }
 
     /**
+     * Adds a map of annotation.
+     *
+     * @param newAnnotations New annotations to be added.
+     */
+    public final void addAnnotations(Map<String, String> newAnnotations) {
+        for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet()) {
+            String key = currentEntry.getKey();
+            String value = currentEntry.getValue();
+            if (key.equalsIgnoreCase("type")) {
+                continue;
+            }
+            addAnnotation(key, value);
+        }
+    }
+
+    /**
      * Removes an annotation.
-     * 
+     *
      * @param key The annotation key to be removed.
-     * @return The annotation that is removed, or null of no such annotation key existed.
+     * @return The annotation that is removed, or null of no such annotation key
+     * existed.
      */
     public final String removeAnnotation(String key) {
         return annotations.remove(key);
@@ -80,17 +90,17 @@ public abstract class AbstractEdge implements Serializable {
 
     /**
      * Gets an annotation.
-     * 
+     *
      * @param key The annotation key.
      * @return The value of the annotation corresponding to the key.
      */
     public final String getAnnotation(String key) {
-        return (annotations.get(key) != null) ? annotations.get(key) : "";
+        return annotations.get(key);
     }
 
     /**
      * Gets the type of this edge.
-     * 
+     *
      * @return A string indicating the type of this edge.
      */
     public final String type() {
@@ -103,7 +113,7 @@ public abstract class AbstractEdge implements Serializable {
     // specific to those classes.
     /**
      * Gets the source vertex.
-     * 
+     *
      * @return The source vertex attached to this edge.
      */
     public final AbstractVertex getSourceVertex() {
@@ -112,7 +122,7 @@ public abstract class AbstractEdge implements Serializable {
 
     /**
      * Gets the destination vertex.
-     * 
+     *
      * @return The destination vertex attached to this edge.
      */
     public final AbstractVertex getDestinationVertex() {
@@ -121,8 +131,9 @@ public abstract class AbstractEdge implements Serializable {
 
     /**
      * Sets the source vertex.
-     * 
-     * @param sourceVertex The vertex that is to be set as the source for this edge.
+     *
+     * @param sourceVertex The vertex that is to be set as the source for this
+     * edge.
      */
     public final void setSourceVertex(AbstractVertex sourceVertex) {
         this.sourceVertex = sourceVertex;
@@ -130,8 +141,9 @@ public abstract class AbstractEdge implements Serializable {
 
     /**
      * Sets the destination vertex.
-     * 
-     * @param destinationVertex The vertex that is to be set as the destination for this edge.
+     *
+     * @param destinationVertex The vertex that is to be set as the destination
+     * for this edge.
      */
     public final void setDestinationVertex(AbstractVertex destinationVertex) {
         this.destinationVertex = destinationVertex;
@@ -153,12 +165,12 @@ public abstract class AbstractEdge implements Serializable {
 
     @Override
     public int hashCode() {
-        final int seed1 = 53;
-        final int seed2 = 7;
-        int hashCode = seed2;
-        hashCode = seed1 * hashCode + (this.getSourceVertex() != null ? this.getSourceVertex().hashCode() : 0);
-        hashCode = seed1 * hashCode + (this.getDestinationVertex() != null ? this.getDestinationVertex().hashCode() : 0);
-        hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
+        final int seed1 = 5;
+        final int seed2 = 97;
+        int hashCode = seed1;
+        hashCode = seed2 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
+        hashCode = seed2 * hashCode + (this.sourceVertex != null ? this.sourceVertex.hashCode() : 0);
+        hashCode = seed2 * hashCode + (this.destinationVertex != null ? this.destinationVertex.hashCode() : 0);
         return hashCode;
     }
 

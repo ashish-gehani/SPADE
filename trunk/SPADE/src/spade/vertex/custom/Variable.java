@@ -28,6 +28,6 @@ import spade.vertex.opm.Artifact;
 public class Variable extends Artifact {
 
     public Variable() {
-        this.addAnnotation("subtype", "Variable");
+        addAnnotation("subtype", "Variable");
     }
 }
