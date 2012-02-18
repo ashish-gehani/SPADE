@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 396
+REVISION = 398
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -69,7 +69,6 @@ build:
 build-linuxaudit:
 	@echo 'Building the LinuxAudit reporter...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxAudit.java
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxAuditDump.java
 	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
 
 # Build the LinuxFUSE reporter.
@@ -97,8 +96,9 @@ build-macfuse:
 
 # Run the SPADE kernel.
 kernel:
-	@echo 'Starting the SPADE Kernel...'
-	@java -server -Xmx512M -cp 'build:lib/*' -Djava.library.path=lib spade.core.Kernel &
+	@echo 'SPADE 2.0 Kernel'
+	@cd bin;\
+	java -server -Xmx512M -cp '../build:../lib/*' -Djava.library.path=../lib spade.core.Kernel 
 
 # Start the control client.
 control:

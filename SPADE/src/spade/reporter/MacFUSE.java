@@ -21,7 +21,7 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.Collections;
+import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -45,6 +45,7 @@ public class MacFUSE extends AbstractReporter {
     private Map<String, String> links;
     private String mountPoint;
     private String mountPath;
+    private String myPID;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     private native int launchFUSE(String argument);
@@ -58,8 +59,12 @@ public class MacFUSE extends AbstractReporter {
         try {
             // The argument to this reporter is the mount point for FUSE.
             mountPoint = arguments;
-            localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
-            links = Collections.synchronizedMap(new HashMap<String, String>());
+
+            // Map for caching vertices
+            localCache = new HashMap<String, AbstractVertex>();
+
+            // Map for resolving links to paths
+            links = new HashMap<String, String>();
 
             // Create a new directory as the mount point for FUSE.
             java.io.File mount = new java.io.File(mountPoint);
@@ -73,10 +78,37 @@ public class MacFUSE extends AbstractReporter {
             }
 
             mountPath = (new java.io.File(mountPoint)).getAbsolutePath();
+            myPID = ManagementFactory.getRuntimeMXBean().getName().split("@")[0].trim();
 
             // Load the native library.
             System.loadLibrary("MacFUSE");
-            buildProgramTree();
+
+            // Create an initial root vertex which will be used as the root of the
+            // process tree.
+            Program rootVertex = new Program();
+            rootVertex.addAnnotation("pidname", "System");
+            rootVertex.addAnnotation("pid", "0");
+            rootVertex.addAnnotation("ppid", "0");
+            localCache.put("0", rootVertex);
+            putVertex(rootVertex);
+
+            // Recursively build the initial process tree using the ps utility.
+            try {
+                java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
+                BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+                pidreader.readLine();
+                while (true) {
+                    String line = pidreader.readLine().trim();
+                    String childinfo[] = line.split("\\s+", 3);
+                    if (childinfo[1].equals(myPID)) {
+                        // Break when we encounter the ps utility itself.
+                        break;
+                    }
+                    checkProgramTree(childinfo[0]);
+                }
+            } catch (Exception exception) {
+                // Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            }
 
             Runnable FUSEThread = new Runnable() {
 
@@ -89,7 +121,7 @@ public class MacFUSE extends AbstractReporter {
                     }
                 }
             };
-            new Thread(FUSEThread).start();
+            new Thread(FUSEThread, "MacFUSE-Thread").start();
         } catch (Exception exception) {
             Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
             return false;
@@ -105,10 +137,17 @@ public class MacFUSE extends AbstractReporter {
             String line;
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,user,gid,lstart,sess,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+            pidreader.readLine();
             line = pidreader.readLine();
-            line = pidreader.readLine();
+            if (line == null) {
+                return null;
+            }
             Program processVertex = new Program();
             String info[] = line.trim().split("\\s+", 12);
+            if (info[1].equals(myPID)) {
+                // Return null if this was our own child process.
+                return null;
+            }
             processVertex.addAnnotation("pidname", info[11]);
             processVertex.addAnnotation("pid", pid);
             processVertex.addAnnotation("ppid", info[1]);
@@ -124,14 +163,14 @@ public class MacFUSE extends AbstractReporter {
             processVertex.addAnnotation("gid", info[4]);
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
+            pidreader.readLine();
             line = pidreader.readLine();
             if (line != null) {
                 processVertex.addAnnotation("commandline", line);
             }
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
+            pidreader.readLine();
             line = pidreader.readLine();
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
                 processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
@@ -143,52 +182,34 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
-    private void buildProgramTree() {
-        // Recursively build the process tree using the ps utility.
-        try {
-            String line = "";
-            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
-            BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
-            while (true) {
-                line = pidreader.readLine().trim();
-                String childinfo[] = line.split("\\s+", 3);
-                if (childinfo[2].equals("ps")) {
-                    // Break when we encounter the ps utility itself.
-                    break;
-                }
-                checkProgramTree(childinfo[0]);
-            }
-        } catch (Exception exception) {
-            // Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
-        }
-    }
-
     private void checkProgramTree(String pid) {
-        // Check the process tree to ensure that the given PID exists in it. If not,
-        // then add it and recursively check its parents so that this process
+        // Check the process tree to ensure that the given PID exists in it. If,
+        // not, add it and recursively check its parents so that this process
         // eventually joins the main process tree.
-        while (true) {
+        try {
             if (localCache.containsKey(pid)) {
                 return;
             }
-            Program tempProgram = createProgramVertex(pid);
-            Agent tempAgent = new Agent();
-            tempAgent.addAnnotation("user", tempProgram.removeAnnotation("user"));
-            tempAgent.addAnnotation("uid", tempProgram.removeAnnotation("uid"));
-            tempAgent.addAnnotation("gid", tempProgram.removeAnnotation("gid"));
-            putVertex(tempProgram);
-            putVertex(tempAgent);
-            putEdge(new WasControlledBy(tempProgram, tempAgent));
-            localCache.put(pid, tempProgram);
-            String ppid = tempProgram.getAnnotation("ppid");
-            if (Integer.parseInt(ppid) > 0) {
+            Program thisProcess = createProgramVertex(pid);
+            if (thisProcess == null) {
+                return;
+            }
+            Agent thisAgent = new Agent();
+            thisAgent.addAnnotation("user", thisProcess.removeAnnotation("user"));
+            thisAgent.addAnnotation("uid", thisProcess.removeAnnotation("uid"));
+            thisAgent.addAnnotation("gid", thisProcess.removeAnnotation("gid"));
+            putVertex(thisProcess);
+            putVertex(thisAgent);
+            putEdge(new WasControlledBy(thisProcess, thisAgent));
+            localCache.put(pid, thisProcess);
+            String ppid = thisProcess.getAnnotation("ppid");
+            if (Integer.parseInt(ppid) >= 0) {
                 checkProgramTree(ppid);
                 WasTriggeredBy tempEdge = new WasTriggeredBy((Program) localCache.get(pid), (Program) localCache.get(ppid));
                 putEdge(tempEdge);
-            } else {
-                return;
             }
+        } catch (Exception exception) {
+            Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 
@@ -203,12 +224,12 @@ public class MacFUSE extends AbstractReporter {
      */
     public void read(int pid, int iotime, String path, int link) {
         checkProgramTree(Integer.toString(pid));
-        path = sanitizePath(path);
+        String newPath = sanitizePath(path);
         long now = System.currentTimeMillis();
         // Create file artifact depending on whether this is a link or not.
         // Link artifacts are created differently to avoid recursion that may
         // cause FUSE to crash.
-        File fileVertex = (link == 1) ? createLinkVertex(path) : createFileVertex(path);
+        File fileVertex = (link == 1) ? createLinkVertex(newPath) : createFileVertex(newPath);
         putVertex(fileVertex);
         AbstractEdge edge = new Used((Program) localCache.get(Integer.toString(pid)), fileVertex);
         edge.addAnnotation("iotime", Integer.toString(iotime));
@@ -216,8 +237,8 @@ public class MacFUSE extends AbstractReporter {
         putEdge(edge);
         // If the given path represents a link, then perform the same operation on the
         // artifact to which the link points.
-        if (link == 1 && links.containsKey(path)) {
-            read(pid, iotime, links.get(path), 0);
+        if (link == 1 && links.containsKey(newPath)) {
+            read(pid, iotime, links.get(newPath), 0);
         }
     }
 
@@ -389,10 +410,10 @@ public class MacFUSE extends AbstractReporter {
     }
 
     private String sanitizePath(String path) {
-        // Sanitize path to avoid recursion inside FUSE which can cause the
-        // reporter to crash.
+        // Sanitize path to by removing the FUSE mount path from the beginning so
+        // as to avoid entering infinite recursion.
         if (path.startsWith(mountPath)) {
-            path = path.substring(mountPath.length());
+            return path.substring(mountPath.length());
         }
         return path;
     }

@@ -148,7 +148,7 @@ public class Kernel {
 
             @Override
             public void run() {
-                System.out.println("Shutting down...");
+                System.out.println("Shutting down SPADE...");
                 shutdown = true;
             }
         });
@@ -262,7 +262,7 @@ public class Kernel {
                 }
             }
         };
-        new Thread(mainThread, "mainThread").start();
+        new Thread(mainThread, "mainSPADE-Thread").start();
 
 
         // This thread creates the input and output pipes used for control (and also used
@@ -286,7 +286,7 @@ public class Kernel {
                 }
             }
         };
-        new Thread(controlThread, "controlThread").start();
+        new Thread(controlThread, "controlSocket-Thread").start();
 
 
         // Construct the query pipe. The exit value is used to determine if the
@@ -307,7 +307,7 @@ public class Kernel {
                 }
             }
         };
-        new Thread(queryThread, "queryThread").start();
+        new Thread(queryThread, "querySocket-Thread").start();
 
         // This thread creates a server socket for remote querying. When a query connection
         // is established, another new thread is created for that connection object. The
@@ -328,7 +328,7 @@ public class Kernel {
                 }
             }
         };
-        new Thread(remoteThread, "remoteThread").start();
+        new Thread(remoteThread, "remoteQuery-Thread").start();
 
         // This thread creates a server socket for remote sketches. When a sketch connection
         // is established, another new thread is created for that connection object. The
@@ -349,7 +349,7 @@ public class Kernel {
                 }
             }
         };
-        new Thread(sketchThread, "sketchThread").start();
+        new Thread(sketchThread, "remoteSketch-Thread").start();
 
     }
 

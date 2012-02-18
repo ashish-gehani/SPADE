@@ -21,6 +21,7 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.lang.management.ManagementFactory;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,6 +48,7 @@ public class LinuxFUSE extends AbstractReporter {
     private Map<String, String> links;
     private String mountPoint;
     private String mountPath;
+    private String myPID;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     // The native launchFUSE method to start FUSE. The argument is the
@@ -77,6 +79,7 @@ public class LinuxFUSE extends AbstractReporter {
             }
 
             mountPath = (new java.io.File(mountPoint)).getAbsolutePath();
+            myPID = ManagementFactory.getRuntimeMXBean().getName().split("@")[0].trim();
 
             // Load the native library.
             System.loadLibrary("LinuxFUSE");
@@ -153,7 +156,7 @@ public class LinuxFUSE extends AbstractReporter {
                     }
                 }
             };
-            new Thread(FUSEThread, "FUSEThread").start();
+            new Thread(FUSEThread, "LinuxFUSE-Thread").start();
 
         } catch (Exception exception) {
             Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
@@ -206,6 +209,11 @@ public class LinuxFUSE extends AbstractReporter {
             st3.nextToken();
             String ppid = st3.nextToken("").trim();
 
+            if (ppid.equals(myPID)) {
+                // Return null if this was our own child process.
+                return null;
+            }
+
             StringTokenizer st5 = new StringTokenizer(uidline);
             st5.nextToken();
             String uid = st5.nextToken().trim();
@@ -253,14 +261,17 @@ public class LinuxFUSE extends AbstractReporter {
                 return;
             }
             Program processVertex = createProgramVertex(pid);
-            putVertex(processVertex);
+            if (processVertex == null) {
+                return;
+            }
             Agent tempAgent = new Agent();
             tempAgent.addAnnotation("uid", processVertex.removeAnnotation("uid"));
             tempAgent.addAnnotation("gid", processVertex.removeAnnotation("gid"));
+            putVertex(processVertex);
             putVertex(tempAgent);
             putEdge(new WasControlledBy(processVertex, tempAgent));
             localCache.put(pid, processVertex);
-            String ppid = (String) processVertex.getAnnotation("ppid");
+            String ppid = processVertex.getAnnotation("ppid");
             if (Integer.parseInt(ppid) >= 0) {
                 checkProgramTree(ppid);
                 WasTriggeredBy triggerEdge = new WasTriggeredBy((Program) localCache.get(pid), (Program) localCache.get(ppid));
