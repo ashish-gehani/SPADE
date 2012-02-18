@@ -86,7 +86,7 @@ public class Pipe extends AbstractReporter {
                         }
                     }
                 };
-                new Thread(eventThread).start();
+                new Thread(eventThread, "PipeReporter-Thread").start();
                 return true;
             } catch (Exception exception) {
                 Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);

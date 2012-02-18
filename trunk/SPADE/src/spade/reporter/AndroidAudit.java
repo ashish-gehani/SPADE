@@ -19,10 +19,7 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -74,6 +71,8 @@ public class AndroidAudit extends AbstractReporter {
             + "93=ftruncate 102=socketcall 120=clone 145=readv 146=writev "
             + "190=vfork 252=exit_group";
     private HashMap<Integer, String> syscalls_mapping = new HashMap<Integer, String>();
+    private long boottime;
+    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     public AndroidAudit() {
         // Generate syscalls mapping table
@@ -85,6 +84,64 @@ public class AndroidAudit extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
+        boottime = 0;
+        try {
+            BufferedReader boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
+            String line;
+            while ((line = boottimeReader.readLine()) != null) {
+                StringTokenizer st = new StringTokenizer(line);
+                if (st.nextToken().equals("btime")) {
+                    boottime = Long.parseLong(st.nextToken()) * 1000;
+                    break;
+                } else {
+                    continue;
+                }
+            }
+            boottimeReader.close();
+        } catch (Exception exception) {
+            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
+        }
+        // Create an initial root vertex which will be used as the root of the
+        // process tree.
+        Process rootVertex = new Process();
+        rootVertex.addAnnotation("pidname", "System");
+        rootVertex.addAnnotation("pid", "0");
+        rootVertex.addAnnotation("ppid", "0");
+        String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(boottime));
+        String stime = Long.toString(boottime);
+        rootVertex.addAnnotation("boottime_unix", stime);
+        rootVertex.addAnnotation("boottime_simple", stime_readable);
+        processes.put("0", rootVertex);
+        putVertex(rootVertex);
+
+        String path = "/proc";
+        String currentProgram;
+        java.io.File folder = new java.io.File(path);
+        java.io.File[] listOfFiles = folder.listFiles();
+
+        // Build the process tree using the directories under /proc/. Directories
+        // which have a numeric name represent processes.
+        for (int i = 0; i < listOfFiles.length; i++) {
+            if (listOfFiles[i].isDirectory()) {
+
+                currentProgram = listOfFiles[i].getName();
+                try {
+                    Integer.parseInt(currentProgram);
+                    Process processVertex = createProgramVertex(currentProgram);
+                    String ppid = (String) processVertex.getAnnotation("ppid");
+                    processes.put(currentProgram, processVertex);
+                    putVertex(processVertex);
+                    if (Integer.parseInt(ppid) >= 0) {
+                        if (((Process) processes.get(ppid) != null) && (processVertex != null)) {
+                            WasTriggeredBy triggerEdge = new WasTriggeredBy(processVertex, (Process) processes.get(ppid));
+                            putEdge(triggerEdge);
+                        }
+                    }
+                } catch (Exception exception) {
+                    continue;
+                }
+            }
+        }
 
         // Environment stuff
         try {
@@ -140,7 +197,7 @@ public class AndroidAudit extends AbstractReporter {
             }
             pidReader.close();
 
-            String rules = "-a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork"
+            String rules = "-a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork -S ioctl"
                     + " -F success=1 -F pid!=" + javaPid + " -F ppid!=" + javaPid
                     + ignorePids.toString();
 
@@ -390,6 +447,9 @@ public class AndroidAudit extends AbstractReporter {
                     //pipe
                     processPipe(finishedEvent);
                     break;
+                case 54:
+                    processWrite(finishedEvent);
+                    break;
                 case 63:
                     //duplicate2(dup2)
                     processDup2(finishedEvent);
@@ -508,15 +568,15 @@ public class AndroidAudit extends AbstractReporter {
         processAnnotationsChild.put("ppid", processAnnotations.get("pid"));
         processAnnotationsChild.put("pid", processAnnotations.get("exit"));
 
-        Process clonedProcess = new Process();
-        for (Map.Entry<String, String> currentEntry : processAnnotationsChild.entrySet()) {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            if (key.equalsIgnoreCase("type")) {
-                continue;
-            }
-            clonedProcess.addAnnotation(key, value);
-        }
+        Process clonedProcess = createProgramVertex(processAnnotationsChild.get("pid"));
+        /*
+         * new Process(); for (Map.Entry<String, String> currentEntry :
+         * processAnnotationsChild.entrySet()) { String key =
+         * currentEntry.getKey(); String value = currentEntry.getValue(); if
+         * (key.equalsIgnoreCase("type")) { continue; }
+         * clonedProcess.addAnnotation(key, value); }
+         *
+         */
 
         processes.put(processAnnotationsChild.get("pid"), clonedProcess);
         putVertex(clonedProcess);
@@ -805,15 +865,15 @@ public class AndroidAudit extends AbstractReporter {
             //remove older process
             processes.remove(pid);
             //add new process
-            Process newProcess = new Process();
-            for (Map.Entry<String, String> currentEntry : processAnnotations.entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase("type")) {
-                    continue;
-                }
-                newProcess.addAnnotation(key, value);
-            }
+            Process newProcess = createProgramVertex(pid);
+            /*
+             * new Process(); for (Map.Entry<String, String> currentEntry :
+             * processAnnotations.entrySet()) { String key =
+             * currentEntry.getKey(); String value = currentEntry.getValue(); if
+             * (key.equalsIgnoreCase("type")) { continue; }
+             * newProcess.addAnnotation(key, value); }
+             *
+             */
             putVertex(newProcess);
             putVertex(oldProcess);
 
@@ -846,15 +906,15 @@ public class AndroidAudit extends AbstractReporter {
 
         } //process not in table. so been seen the first time. create new process vertex
         else {
-            Process newProcess = new Process();
-            for (Map.Entry<String, String> currentEntry : processAnnotations.entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase("type")) {
-                    continue;
-                }
-                newProcess.addAnnotation(key, value);
-            }
+            Process newProcess = createProgramVertex(processAnnotations.get("pid"));
+            /*
+             * Process newProcess = new Process(); for (Map.Entry<String,
+             * String> currentEntry : processAnnotations.entrySet()) { String
+             * key = currentEntry.getKey(); String value =
+             * currentEntry.getValue(); if (key.equalsIgnoreCase("type")) {
+             * continue; } newProcess.addAnnotation(key, value); }
+             *
+             */
             putVertex(newProcess);
 
             //send this new process
@@ -1158,15 +1218,15 @@ public class AndroidAudit extends AbstractReporter {
         annotationsNew.remove("pid");
         annotationsNew.put("pid", annotations.get("exit"));
 
-        Process clonedProcess = new Process();
-        for (Map.Entry<String, String> currentEntry : annotationsNew.entrySet()) {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            if (key.equalsIgnoreCase("type")) {
-                continue;
-            }
-            clonedProcess.addAnnotation(key, value);
-        }
+        Process clonedProcess = createProgramVertex(annotationsNew.get("pid"));
+        /*
+         * Process clonedProcess = new Process(); for (Map.Entry<String, String>
+         * currentEntry : annotationsNew.entrySet()) { String key =
+         * currentEntry.getKey(); String value = currentEntry.getValue(); if
+         * (key.equalsIgnoreCase("type")) { continue; }
+         * clonedProcess.addAnnotation(key, value); }
+         *
+         */
         //create a new process (add it to processes) and a clone edge
         processes.put(annotationsNew.get("pid"), clonedProcess);
 
@@ -1201,15 +1261,15 @@ public class AndroidAudit extends AbstractReporter {
             //cloning process already in table
             cloningProcess = processes.get(annotations.get("pid"));
         } else {
-            cloningProcess = new Process();
-            for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase("type")) {
-                    continue;
-                }
-                cloningProcess.addAnnotation(key, value);
-            }
+            cloningProcess = createProgramVertex(annotations.get("pid"));
+            /*
+             * cloningProcess = new Process(); for (Map.Entry<String, String>
+             * currentEntry : annotations.entrySet()) { String key =
+             * currentEntry.getKey(); String value = currentEntry.getValue(); if
+             * (key.equalsIgnoreCase("type")) { continue; }
+             * cloningProcess.addAnnotation(key, value); }
+             *
+             */
 
             //send the cloning Process and its agent vertex and its wascontrolledby edge
 
@@ -1308,15 +1368,15 @@ public class AndroidAudit extends AbstractReporter {
             //cloning process already in table
             cloningProcess = processes.get(processAnnotations.get("pid"));
         } else {
-            cloningProcess = new Process();
-            for (Map.Entry<String, String> currentEntry : processAnnotations.entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase("type")) {
-                    continue;
-                }
-                cloningProcess.addAnnotation(key, value);
-            }
+            cloningProcess = createProgramVertex(processAnnotations.get("pid"));
+            /*
+             * cloningProcess = new Process(); for (Map.Entry<String, String>
+             * currentEntry : processAnnotations.entrySet()) { String key =
+             * currentEntry.getKey(); String value = currentEntry.getValue(); if
+             * (key.equalsIgnoreCase("type")) { continue; }
+             * cloningProcess.addAnnotation(key, value); }
+             *
+             */
 
             processes.put(processAnnotations.get("pid"), cloningProcess);
 
@@ -1336,15 +1396,15 @@ public class AndroidAudit extends AbstractReporter {
         processAnnotationsChild.put("ppid", processAnnotations.get("pid"));
         processAnnotationsChild.put("pid", processAnnotations.get("exit"));
 
-        Process clonedProcess = new Process();
-        for (Map.Entry<String, String> currentEntry : processAnnotationsChild.entrySet()) {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            if (key.equalsIgnoreCase("type")) {
-                continue;
-            }
-            clonedProcess.addAnnotation(key, value);
-        }
+        Process clonedProcess = createProgramVertex(processAnnotationsChild.get("pid"));
+        /*
+         * Process clonedProcess = new Process(); for (Map.Entry<String, String>
+         * currentEntry : processAnnotationsChild.entrySet()) { String key =
+         * currentEntry.getKey(); String value = currentEntry.getValue(); if
+         * (key.equalsIgnoreCase("type")) { continue; }
+         * clonedProcess.addAnnotation(key, value); }
+         *
+         */
 
         processes.put(processAnnotationsChild.get("pid"), clonedProcess);
         putVertex(clonedProcess);
@@ -1527,5 +1587,86 @@ public class AndroidAudit extends AbstractReporter {
             }
         }
         return null;
+    }
+
+    private Process createProgramVertex(String pid) {
+        // The process vertex is created using the proc filesystem.
+        Process resultVertex = new Process();
+        try {
+            BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
+            String nameline = procReader.readLine();
+            procReader.readLine();
+            String tgidline = procReader.readLine();
+            procReader.readLine();
+            String ppidline = procReader.readLine();
+            String tracerpidline = procReader.readLine();
+            String uidline = procReader.readLine();
+            String gidline = procReader.readLine();
+            procReader.close();
+
+            BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
+            String statline = statReader.readLine();
+            statReader.close();
+
+            BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
+            String cmdline = cmdlineReader.readLine();
+            cmdlineReader.close();
+            if (cmdline == null) {
+                cmdline = "";
+            } else {
+                cmdline = cmdline.replace("\0", " ");
+                cmdline = cmdline.replace("\"", "'");
+            }
+
+            String stats[] = statline.split("\\s+");
+            long elapsedtime = Long.parseLong(stats[21]) * 10;
+            long starttime = boottime + elapsedtime;
+            String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(starttime));
+            String stime = Long.toString(starttime);
+
+            StringTokenizer st1 = new StringTokenizer(nameline);
+            st1.nextToken();
+            String name = st1.nextToken();
+
+            StringTokenizer st3 = new StringTokenizer(ppidline);
+            st3.nextToken();
+            String ppid = st3.nextToken("").trim();
+
+            StringTokenizer st5 = new StringTokenizer(uidline);
+            st5.nextToken();
+            String uid = st5.nextToken().trim();
+
+            StringTokenizer st6 = new StringTokenizer(gidline);
+            st6.nextToken();
+            String gid = st6.nextToken().trim();
+
+            resultVertex.addAnnotation("pidname", name);
+            resultVertex.addAnnotation("pid", pid);
+            resultVertex.addAnnotation("ppid", ppid);
+            resultVertex.addAnnotation("uid", uid);
+            resultVertex.addAnnotation("gid", gid);
+            resultVertex.addAnnotation("starttime_unix", stime);
+            resultVertex.addAnnotation("starttime_simple", stime_readable);
+            resultVertex.addAnnotation("group", stats[4]);
+            resultVertex.addAnnotation("sessionid", stats[5]);
+            resultVertex.addAnnotation("commandline", cmdline);
+        } catch (Exception exception) {
+            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
+            return null;
+        }
+
+//        try {
+//            BufferedReader environReader = new BufferedReader(new FileReader("/proc/" + pid + "/environ"));
+//            String environ = environReader.readLine();
+//            environReader.close();
+//            if (environ != null) {
+//                environ = environ.replace("\0", ", ");
+//                environ = environ.replace("\"", "'");
+//                resultVertex.addAnnotation("environment", environ);
+//            }
+//        } catch (Exception exception) {
+//            // Unable to access the environment variables
+//        }
+        return resultVertex;
     }
 }

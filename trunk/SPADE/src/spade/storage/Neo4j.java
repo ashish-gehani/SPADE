@@ -62,7 +62,7 @@ public class Neo4j extends AbstractStorage {
     // and descendants
     private final String direction_both = "both";
     private GraphDatabaseService graphDb;
-//    private WrappingNeoServerBootstrapper webServer;
+    private WrappingNeoServerBootstrapper webServer;
     private IndexManager index;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
@@ -87,7 +87,7 @@ public class Neo4j extends AbstractStorage {
             // if it already exists and is an older version
             graphDb = new EmbeddedGraphDatabase(arguments, MapUtil.stringMap(ALLOW_STORE_UPGRADE, "true"));
             // Initialize the web server for the embedded database
-//            webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
+            webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
             index = graphDb.index();
             transactionCount = 0;
             flushCount = 0;
@@ -99,7 +99,7 @@ public class Neo4j extends AbstractStorage {
             vertexMap = new HashMap<Integer, Long>();
             edgeSet = new HashSet<Integer>();
             // Start the web server
-//            webServer.start();
+            webServer.start();
             return true;
         } catch (Exception exception) {
             Logger.getLogger(Neo4j.class.getName()).log(Level.SEVERE, null, exception);
@@ -122,10 +122,10 @@ public class Neo4j extends AbstractStorage {
             flushCount++;
             // If hard flush limit is reached, restart the database
             if (flushCount == HARD_FLUSH_LIMIT) {
-//                webServer.stop();
+                webServer.stop();
                 graphDb.shutdown();
                 graphDb = new EmbeddedGraphDatabase(arguments);
-//                webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
+                webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
                 vertexIndex = index.forNodes("vertexIndex");
                 edgeIndex = index.forRelationships("edgeIndex");
                 flushCount = 0;
@@ -152,7 +152,7 @@ public class Neo4j extends AbstractStorage {
             transaction.success();
             transaction.finish();
         }
-//        webServer.stop();
+        webServer.stop();
         graphDb.shutdown();
         return true;
     }

@@ -95,7 +95,6 @@ public class Graphviz extends AbstractStorage {
                             || (key.equalsIgnoreCase("subtype"))
                             || (key.equalsIgnoreCase("environment"))
                             || (key.equalsIgnoreCase("commandline"))
-                            || (key.equalsIgnoreCase("path"))
                             || (key.equalsIgnoreCase("source_reporter"))) {
                         continue;
                     }

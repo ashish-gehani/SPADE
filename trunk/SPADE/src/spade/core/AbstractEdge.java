@@ -20,7 +20,7 @@
 package spade.core;
 
 import java.io.Serializable;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -34,7 +34,7 @@ public abstract class AbstractEdge implements Serializable {
     /**
      * A map containing the annotations for this edge.
      */
-    protected Map<String, String> annotations = new HashMap<String, String>();
+    protected Map<String, String> annotations = new LinkedHashMap<String, String>();
     private AbstractVertex sourceVertex;
     private AbstractVertex destinationVertex;
     /**
@@ -58,6 +58,9 @@ public abstract class AbstractEdge implements Serializable {
      * @param value The annotation value.
      */
     public final void addAnnotation(String key, String value) {
+        if (key == null || value == null) {
+            return;
+        }
         annotations.put(key, value);
     }
 
@@ -70,9 +73,6 @@ public abstract class AbstractEdge implements Serializable {
         for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet()) {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            if (key.equalsIgnoreCase("type")) {
-                continue;
-            }
             addAnnotation(key, value);
         }
     }

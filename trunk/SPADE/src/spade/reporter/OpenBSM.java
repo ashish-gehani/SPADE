@@ -54,7 +54,7 @@ public class OpenBSM extends AbstractReporter {
     private int current_event_id;
     private String currentEventTime;
     private String currentFilePath;
-    private String javaPID;
+    private String myPID;
     private String nativePID;
     private String eventPID;
     private volatile boolean shutdown;
@@ -72,7 +72,7 @@ public class OpenBSM extends AbstractReporter {
 
         // Get the PID of SPADE (i.e., the current JavaVM) so that events generated
         // by it can be ignored.
-        javaPID = ManagementFactory.getRuntimeMXBean().getName().split("@")[0].trim();
+        myPID = ManagementFactory.getRuntimeMXBean().getName().split("@")[0].trim();
 
         try {
             // Launch the utility to start reading from the auditpipe.
@@ -108,7 +108,7 @@ public class OpenBSM extends AbstractReporter {
                     }
                 }
             };
-            new Thread(eventProcessor, "OpenBSMeventProcessor").start();
+            new Thread(eventProcessor, "OpenBSM-Thread").start();
 
         } catch (Exception exception) {
             Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
@@ -276,7 +276,7 @@ public class OpenBSM extends AbstractReporter {
                  */
                 eventPID = pid;
                 if ((current_event_id == 2) || ((current_event_id > 71) && (current_event_id < 84))) {
-                    tempVertex1 = ((pid.equals(javaPID)) || (pid.equals(nativePID))) ? null : getProcessVertex(pid);
+                    tempVertex1 = ((pid.equals(myPID)) || (pid.equals(nativePID))) ? null : getProcessVertex(pid);
                 }
                 break;
 
