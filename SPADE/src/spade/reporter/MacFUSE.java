@@ -22,6 +22,7 @@ package spade.reporter;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -41,19 +42,45 @@ import spade.vertex.opm.Agent;
  */
 public class MacFUSE extends AbstractReporter {
 
+    // Cache for storing vertices.
     private Map<String, AbstractVertex> localCache;
+    // Map for resolving links.
     private Map<String, String> links;
+    // The mount point is the argument given to this reporter on launch(). Can
+    // be absolute or relative.
     private String mountPoint;
+    // The mount path is the absolute path to the mount point.
     private String mountPath;
+    // This is the PID of the JVM running SPADE and is used to ignore self-generated
+    // provenance.
     private String myPID;
+    // The local host address to be added to process vertices.
+    private String localHostAddress;
+    // The local host name to be added to process vertices.
+    private String localHostName;
+    // Set this boolean to true to refresh the hostAddress and hostName values
+    // everytime a new process vertex is created.
+    private boolean refreshHost = false;
+    // Date pattern used to generate human-readable time-value annotations.
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
+    // The native launchFUSE method to start FUSE. The argument is the
+    // mount point.
     private native int launchFUSE(String argument);
 
     @Override
     public boolean launch(String arguments) {
         if (arguments == null) {
             return false;
+        }
+
+        try {
+            localHostAddress = InetAddress.getLocalHost().getHostAddress();
+            localHostName = InetAddress.getLocalHost().getHostName();
+        } catch (Exception ex) {
+            localHostAddress = null;
+            localHostName = null;
+            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
         }
 
         try {
@@ -148,6 +175,7 @@ public class MacFUSE extends AbstractReporter {
                 // Return null if this was our own child process.
                 return null;
             }
+
             processVertex.addAnnotation("pidname", info[11]);
             processVertex.addAnnotation("pid", pid);
             processVertex.addAnnotation("ppid", info[1]);
@@ -161,6 +189,7 @@ public class MacFUSE extends AbstractReporter {
             processVertex.addAnnotation("uid", info[2]);
             processVertex.addAnnotation("user", info[3]);
             processVertex.addAnnotation("gid", info[4]);
+
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             pidreader.readLine();
@@ -168,6 +197,7 @@ public class MacFUSE extends AbstractReporter {
             if (line != null) {
                 processVertex.addAnnotation("commandline", line);
             }
+
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             pidreader.readLine();
@@ -175,6 +205,20 @@ public class MacFUSE extends AbstractReporter {
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
                 processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
             }
+
+            if (refreshHost) {
+                try {
+                    localHostAddress = InetAddress.getLocalHost().getHostAddress();
+                    localHostName = InetAddress.getLocalHost().getHostName();
+                } catch (Exception ex) {
+                    localHostAddress = null;
+                    localHostName = null;
+                    Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
+                }
+            }
+            processVertex.addAnnotation("hostname", localHostName);
+            processVertex.addAnnotation("hostaddress", localHostAddress);
+
             return processVertex;
         } catch (Exception exception) {
             // Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);

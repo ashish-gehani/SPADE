@@ -22,6 +22,7 @@ package spade.reporter;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,12 +44,29 @@ import spade.vertex.opm.Agent;
  */
 public class LinuxFUSE extends AbstractReporter {
 
+    // Boot time in unix time. This is used to calculate the starting time of
+    // processes.
     private long boottime;
+    // Cache for storing vertices.
     private Map<String, AbstractVertex> localCache;
+    // Map for resolving links.
     private Map<String, String> links;
+    // The mount point is the argument given to this reporter on launch(). Can
+    // be absolute or relative.
     private String mountPoint;
+    // The mount path is the absolute path to the mount point.
     private String mountPath;
+    // This is the PID of the JVM running SPADE and is used to ignore self-generated
+    // provenance.
     private String myPID;
+    // The local host address to be added to process vertices.
+    private String localHostAddress;
+    // The local host name to be added to process vertices.
+    private String localHostName;
+    // Set this boolean to true to refresh the hostAddress and hostName values
+    // everytime a new process vertex is created.
+    private boolean refreshHost = false;
+    // Date pattern used to generate human-readable time-value annotations.
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     // The native launchFUSE method to start FUSE. The argument is the
@@ -59,6 +77,15 @@ public class LinuxFUSE extends AbstractReporter {
     public boolean launch(String arguments) {
         if (arguments == null) {
             return false;
+        }
+
+        try {
+            localHostAddress = InetAddress.getLocalHost().getHostAddress();
+            localHostName = InetAddress.getLocalHost().getHostName();
+        } catch (Exception ex) {
+            localHostAddress = null;
+            localHostName = null;
+            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
         }
 
         try {
@@ -222,6 +249,17 @@ public class LinuxFUSE extends AbstractReporter {
             st6.nextToken();
             String gid = st6.nextToken().trim();
 
+            if (refreshHost) {
+                try {
+                    localHostAddress = InetAddress.getLocalHost().getHostAddress();
+                    localHostName = InetAddress.getLocalHost().getHostName();
+                } catch (Exception ex) {
+                    localHostAddress = null;
+                    localHostName = null;
+                    Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
+                }
+            }
+
             resultVertex.addAnnotation("pidname", name);
             resultVertex.addAnnotation("pid", pid);
             resultVertex.addAnnotation("ppid", ppid);
@@ -232,6 +270,8 @@ public class LinuxFUSE extends AbstractReporter {
             resultVertex.addAnnotation("group", stats[4]);
             resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
+            resultVertex.addAnnotation("hostname", localHostName);
+            resultVertex.addAnnotation("hostaddress", localHostAddress);
         } catch (Exception exception) {
             Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
             return null;
