@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -87,10 +88,10 @@ public class MacFUSE extends AbstractReporter {
             mountPoint = arguments;
 
             // Map for caching vertices
-            localCache = new HashMap<String, AbstractVertex>();
+            localCache = Collections.synchronizedMap(new HashMap<String, AbstractVertex>());
 
             // Map for resolving links to paths
-            links = new HashMap<String, String>();
+            links = Collections.synchronizedMap(new HashMap<String, String>());
 
             // Create a new directory as the mount point for FUSE.
             java.io.File mount = new java.io.File(mountPoint);
@@ -347,7 +348,7 @@ public class MacFUSE extends AbstractReporter {
      * @param pathto The destination path.
      * @param link An integer used to indicate whether the target was a link or
      * not.
-     * @param done An intiger used to indicate whether this event was triggered
+     * @param done An integer used to indicate whether this event was triggered
      * before or after the rename operation.
      */
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {

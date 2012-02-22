@@ -156,6 +156,14 @@ public class Kernel {
             @Override
             public void run() {
                 if (!shutdown) {
+                    // Shut down server sockets.
+                    for (ServerSocket socket : serverSockets) {
+                        try {
+                            socket.close();
+                        } catch (IOException ex) {
+                            Logger.getLogger(Kernel.class.getName()).log(Level.WARNING, null, ex);
+                        }
+                    }
                     // Save current configuration.
                     configCommand("config save " + configFile, NullStream.out);
                     // Shut down all reporters.

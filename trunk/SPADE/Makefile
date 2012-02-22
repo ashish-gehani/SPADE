@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 400
+REVISION = 401
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -52,43 +52,44 @@ download:
 build:
 	@mkdir -p build;
 	@echo 'Building the SPADE Kernel...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java
 	@echo 'Building clients...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/client/*.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/client/*.java
 	@echo 'Building utilities...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/utility/*.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/utility/*.java
 	@echo 'Building storage...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/*.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/*.java
 	@echo 'Building the Pipe reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Pipe.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Pipe.java
 	@echo 'Building the Lsof reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Lsof.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Lsof.java
 	@make $(OS_BUILD)
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
 	@echo 'Building the LinuxAudit reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxAudit.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxAudit.java
 	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
 	@echo 'Building the LinuxFUSE reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxFUSE.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
 gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
+	@echo 'IMPORTANT: For the LinuxFUSE reporter to work correctly, please enable "user_allow_other" in /etc/fuse.conf'
 
 # Build the OpenBSM reporter.
 build-openbsm:
 	@echo 'Building the OpenBSM reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/OpenBSM.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/OpenBSM.java
 	gcc -o build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
 
 # Build the MacFUSE reporter.
 build-macfuse:
 	@echo 'Building the MacFUSE reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -I/usr/local/include/fuse -Wall -g -D__DARWIN_64_BIT_INO_T=1 -o lib/libMacFUSE.jnilib src/spade/reporter/libMacFUSE.c -lfuse_ino64
 
