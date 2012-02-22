@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.*;
@@ -340,7 +339,7 @@ public class LinuxFUSE extends AbstractReporter {
         // cause FUSE to crash.
         File fileVertex = (link == 1) ? createLinkVertex(path) : createFileVertex(path);
         putVertex(fileVertex);
-        AbstractEdge edge = new Used((Program) localCache.get(Integer.toString(pid)), fileVertex);
+        Used edge = new Used((Program) localCache.get(Integer.toString(pid)), fileVertex);
         edge.addAnnotation("iotime", Integer.toString(iotime));
         edge.addAnnotation("endtime", Long.toString(now));
         putEdge(edge);
@@ -369,7 +368,7 @@ public class LinuxFUSE extends AbstractReporter {
         // cause FUSE to crash.
         File fileVertex = (link == 1) ? createLinkVertex(path) : createFileVertex(path);
         putVertex(fileVertex);
-        AbstractEdge edge = new WasGeneratedBy(fileVertex, (Program) localCache.get(Integer.toString(pid)));
+        WasGeneratedBy edge = new WasGeneratedBy(fileVertex, (Program) localCache.get(Integer.toString(pid)));
         edge.addAnnotation("iotime", Integer.toString(iotime));
         edge.addAnnotation("endtime", Long.toString(now));
         putEdge(edge);

@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 399
+REVISION = 400
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -31,9 +31,9 @@ all:
 	@echo '      make clean              - to remove the compiled code'
 	@echo '      make clean-all          - to remove everything except the makefile'
 	@echo ' '
-	@echo '      make android-build      - to build for android'
-	@echo '      make android-deploy     - to deploy to android emulator'
-	@echo '      make android-kernel     - to launch kernel on emulator'
+	@#echo '      make android-build      - to build for android'
+	@#echo '      make android-deploy     - to deploy to android emulator'
+	@#echo '      make android-kernel     - to launch kernel on emulator'
 
 # ---------- Downloading SPADE ----------
 
@@ -76,8 +76,8 @@ build-linuxfuse:
 	@echo 'Building the LinuxFUSE reporter...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
-	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH)
-	gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
+	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
+gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
 
 # Build the OpenBSM reporter.
 build-openbsm:

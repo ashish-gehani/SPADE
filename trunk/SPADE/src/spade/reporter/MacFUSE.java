@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.*;
@@ -134,7 +133,7 @@ public class MacFUSE extends AbstractReporter {
                     checkProgramTree(childinfo[0]);
                 }
             } catch (Exception exception) {
-                // Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+                Logger.getLogger(MacFUSE.class.getName()).log(Level.WARNING, null, exception);
             }
 
             Runnable FUSEThread = new Runnable() {
@@ -161,6 +160,7 @@ public class MacFUSE extends AbstractReporter {
         // Create the process vertex and populate annotations with information
         // retrieved using the ps utility.
         try {
+            Program processVertex = new Program();
             String line;
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,user,gid,lstart,sess,comm");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
@@ -169,7 +169,6 @@ public class MacFUSE extends AbstractReporter {
             if (line == null) {
                 return null;
             }
-            Program processVertex = new Program();
             String info[] = line.trim().split("\\s+", 12);
             if (info[1].equals(myPID)) {
                 // Return null if this was our own child process.
@@ -188,7 +187,7 @@ public class MacFUSE extends AbstractReporter {
             processVertex.addAnnotation("sessionid", info[10]);
             processVertex.addAnnotation("uid", info[2]);
             processVertex.addAnnotation("user", info[3]);
-            processVertex.addAnnotation("gid", info[4]);
+            processVertex.addAnnotation("groupid", info[4]);
 
             pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
@@ -241,7 +240,6 @@ public class MacFUSE extends AbstractReporter {
             Agent thisAgent = new Agent();
             thisAgent.addAnnotation("user", thisProcess.removeAnnotation("user"));
             thisAgent.addAnnotation("uid", thisProcess.removeAnnotation("uid"));
-            thisAgent.addAnnotation("gid", thisProcess.removeAnnotation("gid"));
             putVertex(thisProcess);
             putVertex(thisAgent);
             putEdge(new WasControlledBy(thisProcess, thisAgent));
@@ -253,7 +251,7 @@ public class MacFUSE extends AbstractReporter {
                 putEdge(tempEdge);
             }
         } catch (Exception exception) {
-            Logger.getLogger(MacFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            Logger.getLogger(MacFUSE.class.getName()).log(Level.WARNING, null, exception);
         }
     }
 
@@ -275,7 +273,7 @@ public class MacFUSE extends AbstractReporter {
         // cause FUSE to crash.
         File fileVertex = (link == 1) ? createLinkVertex(newPath) : createFileVertex(newPath);
         putVertex(fileVertex);
-        AbstractEdge edge = new Used((Program) localCache.get(Integer.toString(pid)), fileVertex);
+        Used edge = new Used((Program) localCache.get(Integer.toString(pid)), fileVertex);
         edge.addAnnotation("iotime", Integer.toString(iotime));
         edge.addAnnotation("endtime", Long.toString(now));
         putEdge(edge);
@@ -304,7 +302,7 @@ public class MacFUSE extends AbstractReporter {
         // cause FUSE to crash.
         File fileVertex = (link == 1) ? createLinkVertex(path) : createFileVertex(path);
         putVertex(fileVertex);
-        AbstractEdge edge = new WasGeneratedBy(fileVertex, (Program) localCache.get(Integer.toString(pid)));
+        WasGeneratedBy edge = new WasGeneratedBy(fileVertex, (Program) localCache.get(Integer.toString(pid)));
         edge.addAnnotation("iotime", Integer.toString(iotime));
         edge.addAnnotation("endtime", Long.toString(now));
         putEdge(edge);
