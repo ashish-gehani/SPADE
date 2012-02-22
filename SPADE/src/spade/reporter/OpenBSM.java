@@ -59,6 +59,7 @@ public class OpenBSM extends AbstractReporter {
     private String eventPID;
     private volatile boolean shutdown;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
+    private final String binaryPath = "../build/spade/reporter/spadeOpenBSM";
     private final int THREAD_SLEEP_DELAY = 5;
 
     @Override
@@ -76,7 +77,7 @@ public class OpenBSM extends AbstractReporter {
 
         try {
             // Launch the utility to start reading from the auditpipe.
-            String[] cmd = {"/bin/sh", "-c", "sudo ./spade/reporter/spadeOpenBSM"};
+            String[] cmd = {"/bin/sh", "-c", "sudo " + binaryPath};
             nativeProcess = Runtime.getRuntime().exec(cmd);
             Field pidField = nativeProcess.getClass().getDeclaredField("pid");
             pidField.setAccessible(true);
