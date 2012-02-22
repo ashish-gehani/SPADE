@@ -22,6 +22,7 @@ package spade.core;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.*;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
@@ -74,7 +75,11 @@ public class Kernel {
      */
     public static final String portsFile = "../cfg/ports.config";
     /**
-     * Date/time pattern for log files.
+     * Path to log files including the prefix.
+     */
+    public static final String logPathAndPrefix = "../log/SPADE_log_";
+    /**
+     * Date/time suffix pattern for log files.
      */
     public static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
     /**
@@ -108,6 +113,8 @@ public class Kernel {
      * the storages.
      */
     public static volatile boolean flushTransactions;
+    private static Thread mainThread;
+    private static List<ServerSocket> serverSockets;
     private static Set<AbstractReporter> removereporters;
     private static Set<AbstractStorage> removestorages;
     private static final int BATCH_BUFFER_ELEMENTS = 100;
@@ -137,7 +144,7 @@ public class Kernel {
         try {
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
-            Handler logFileHandler = new FileHandler("../log/SPADE_log_" + logFilename + ".log");
+            Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
         } catch (Exception exception) {
             System.out.println("Error initializing exception logger");
@@ -148,8 +155,41 @@ public class Kernel {
 
             @Override
             public void run() {
-                System.out.println("Shutting down SPADE...");
-                shutdown = true;
+                if (!shutdown) {
+                    // Save current configuration.
+                    configCommand("config save " + configFile, NullStream.out);
+                    // Shut down all reporters.
+                    for (AbstractReporter reporter : reporters) {
+                        reporter.shutdown();
+                    }
+                    // Wait for main thread to consume all provenance data.
+                    while (true) {
+                        for (Iterator reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
+                            AbstractReporter currentReporter = (AbstractReporter) reporterIterator.next();
+                            Buffer currentBuffer = currentReporter.getBuffer();
+                            if (currentBuffer.isEmpty()) {
+                                reporterIterator.remove();
+                            }
+                        }
+                        if (reporters.isEmpty()) {
+                            break;
+                        }
+                        try {
+                            Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(Kernel.class.getName()).log(Level.WARNING, null, ex);
+                        }
+                    }
+                    // Shut down filters.
+                    for (int i = 0; i < filters.size() - 1; i++) {
+                        filters.get(i).shutdown();
+                    }
+                    // Shut down storages.
+                    for (AbstractStorage storage : storages) {
+                        storage.shutdown();
+                    }
+                }
+                // Terminate SPADE
             }
         });
 
@@ -162,6 +202,8 @@ public class Kernel {
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
         remoteSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
+        serverSockets = Collections.synchronizedList(new LinkedList<ServerSocket>());
+
         shutdown = false;
         flushTransactions = false;
 
@@ -189,7 +231,7 @@ public class Kernel {
         // the control commands and also when shutting down). This is done by ensuring that
         // once a reporter is marked for removal, the provenance objects from its buffer are
         // completely flushed.
-        Runnable mainThread = new Runnable() {
+        Runnable mainRunnable = new Runnable() {
 
             public void run() {
                 try {
@@ -262,95 +304,115 @@ public class Kernel {
                 }
             }
         };
-        new Thread(mainThread, "mainSPADE-Thread").start();
+        mainThread = new Thread(mainRunnable, "mainSPADE-Thread");
+        mainThread.start();
 
 
         // This thread creates the input and output pipes used for control (and also used
         // by the control client). The exit value is used to determine if the pipes were
         // successfully created. The input pipe (to which commands are issued) is read in
         // a loop and the commands are processed.
-        Runnable controlThread = new Runnable() {
+        Runnable controlRunnable = new Runnable() {
 
             public void run() {
                 try {
-                    configCommand("config load " + configFile, NullStream.out);
                     ServerSocket serverSocket = new ServerSocket(LOCAL_CONTROL_PORT);
+                    serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket controlSocket = serverSocket.accept();
                         LocalControlConnection thisConnection = new LocalControlConnection(controlSocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
                     }
+                } catch (SocketException exception) {
+                    // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
-        new Thread(controlThread, "controlSocket-Thread").start();
+        Thread controlThread = new Thread(controlRunnable, "controlSocket-Thread");
+        controlThread.start();
 
 
         // Construct the query pipe. The exit value is used to determine if the
         // query pipe was successfully created.
-        Runnable queryThread = new Runnable() {
+        Runnable queryRunnable = new Runnable() {
 
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(LOCAL_QUERY_PORT);
+                    serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket querySocket = serverSocket.accept();
                         LocalQueryConnection thisConnection = new LocalQueryConnection(querySocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
                     }
+                } catch (SocketException exception) {
+                    // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
-        new Thread(queryThread, "querySocket-Thread").start();
+        Thread queryThread = new Thread(queryRunnable, "querySocket-Thread");
+        queryThread.start();
+
 
         // This thread creates a server socket for remote querying. When a query connection
         // is established, another new thread is created for that connection object. The
         // remote query server is therefore a multithreaded server.
-        Runnable remoteThread = new Runnable() {
+        Runnable remoteRunnable = new Runnable() {
 
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(REMOTE_QUERY_PORT);
+                    serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
                         QueryConnection thisConnection = new QueryConnection(clientSocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
                     }
+                } catch (SocketException exception) {
+                    // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
-        new Thread(remoteThread, "remoteQuery-Thread").start();
+        Thread remoteThread = new Thread(remoteRunnable, "remoteQuery-Thread");
+        remoteThread.start();
+
 
         // This thread creates a server socket for remote sketches. When a sketch connection
         // is established, another new thread is created for that connection object. The
         // remote sketch server is therefore a multithreaded server.
-        Runnable sketchThread = new Runnable() {
+        Runnable sketchRunnable = new Runnable() {
 
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(REMOTE_SKETCH_PORT);
+                    serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
                         SketchConnection thisConnection = new SketchConnection(clientSocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
                     }
+                } catch (SocketException exception) {
+                    // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
                     Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
                 }
             }
         };
-        new Thread(sketchThread, "remoteSketch-Thread").start();
+        Thread sketchThread = new Thread(sketchRunnable, "remoteSketch-Thread");
+        sketchThread.start();
 
+        // Load the SPADE configuration from the default config file.
+        configCommand("config load " + configFile, NullStream.out);
     }
 
     // Check the port configuration file to assign port numbers
@@ -369,7 +431,7 @@ public class Kernel {
             // Create HashMap to store key/value pairs from the configuration files
             HashMap<String, Integer> configValues = new HashMap<String, Integer>();
             BufferedReader fileReader = new BufferedReader(new FileReader(portsFile));
-            String line = null;
+            String line;
             while ((line = fileReader.readLine()) != null) {
                 String[] tokens = line.split("=");
                 String key = tokens[0].trim().toUpperCase();
@@ -425,7 +487,7 @@ public class Kernel {
         if (command.equalsIgnoreCase("shutdown")) {
             // On shutdown, save the current configuration in the default configuration
             // file.
-            configCommand("config save " + configFile, outputStream);
+            configCommand("config save " + configFile, NullStream.out);
             for (AbstractReporter reporter : reporters) {
                 // Shut down all reporters. After
                 // this, their buffers are flushed and then the storages are shut down.
@@ -1045,6 +1107,14 @@ public class Kernel {
         // Shut down storages.
         for (AbstractStorage storage : storages) {
             storage.shutdown();
+        }
+        // Shut down server sockets.
+        for (ServerSocket socket : serverSockets) {
+            try {
+                socket.close();
+            } catch (IOException ex) {
+                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
         System.exit(0);
     }

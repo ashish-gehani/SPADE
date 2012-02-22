@@ -881,14 +881,13 @@ JNIEXPORT jint JNICALL Java_spade_reporter_MacFUSE_launchFUSE(JNIEnv *e, jobject
     linkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "link", "(ILjava/lang/String;Ljava/lang/String;)V");
     unlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "unlink", "(ILjava/lang/String;)V");
 
-    int argc = 6;
-    char *argv[6];
+    int argc = 5;
+    char *argv[5];
     argv[0] = "libMacFUSE";
     argv[1] = "-f";
     argv[2] = "-s";
     argv[3] = (char*)(*env)->GetStringUTFChars(env, mountPoint, NULL);
-    argv[4] = "-omodules=threadid:subdir,subdir=/";
-    argv[5] = "-oallow_other,native_xattr,volname=SPADE-MacFUSE";
+    argv[4] = "-oallow_other,jail_symlinks,volname=SPADE-MacFUSE";
 
     umask(0);
     return fuse_main(argc, argv, &spade_oper, NULL);
