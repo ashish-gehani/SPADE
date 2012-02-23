@@ -77,7 +77,7 @@ build-linuxfuse:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-gcc -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
+gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
 	@echo 'IMPORTANT: For the LinuxFUSE reporter to work correctly, please enable "user_allow_other" in /etc/fuse.conf'
 
 # Build the OpenBSM reporter.
