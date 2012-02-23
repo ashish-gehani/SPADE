@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 401
+REVISION = 403
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -78,7 +78,9 @@ build-linuxfuse:
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
 gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
-	@echo 'IMPORTANT: For the LinuxFUSE reporter to work correctly, please enable "user_allow_other" in /etc/fuse.conf'
+	@echo ''
+	@echo 'IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
+	@echo ''
 
 # Build the OpenBSM reporter.
 build-openbsm:

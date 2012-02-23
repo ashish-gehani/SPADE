@@ -1,26 +1,25 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2011 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.reporter;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
@@ -29,27 +28,26 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
-import spade.vertex.opm.Artifact;
-import spade.vertex.opm.Process;
+import spade.vertex.custom.File;
+import spade.vertex.custom.Program;
 
 /**
  * The OpenBSM reporter.
- * 
+ *
  * @author dawood
  */
 public class OpenBSM extends AbstractReporter {
 
     private BufferedReader eventReader;
     private java.lang.Process nativeProcess;
-    private Map<String, AbstractVertex> processVertices;
-    private Map<String, AbstractVertex> fileVertices;
+    private Map<String, Program> processVertices;
+    private Map<String, File> fileVertices;
     private AbstractVertex tempVertex1, tempVertex2;
     private int current_event_id;
     private String currentEventTime;
@@ -65,8 +63,8 @@ public class OpenBSM extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
         // The argument to the launch method is unused.
-        processVertices = new HashMap<String, AbstractVertex>();
-        fileVertices = new HashMap<String, AbstractVertex>();
+        processVertices = new HashMap<String, Program>();
+        fileVertices = new HashMap<String, File>();
 
         shutdown = false;
         buildProcessTree();
@@ -77,8 +75,8 @@ public class OpenBSM extends AbstractReporter {
 
         try {
             // Launch the utility to start reading from the auditpipe.
-            String[] cmd = {"/bin/sh", "-c", "sudo " + binaryPath};
-            nativeProcess = Runtime.getRuntime().exec(cmd);
+            // String[] cmd = {"/bin/sh", "-c", "sudo " + binaryPath};
+            nativeProcess = Runtime.getRuntime().exec(binaryPath);
             Field pidField = nativeProcess.getClass().getDeclaredField("pid");
             pidField.setAccessible(true);
             nativePID = Integer.toString((Integer) pidField.get(nativeProcess));
@@ -102,8 +100,8 @@ public class OpenBSM extends AbstractReporter {
                         // necessary because the process was started in super-user mode
                         // and can therefore only be killed in super-user mode.
                         nativeProcess.destroy();
-                        String[] killcmd = {"/bin/sh", "-c", "sudo kill " + nativePID};
-                        Runtime.getRuntime().exec(killcmd);
+                        //String[] killcmd = {"/bin/sh", "-c", "sudo kill " + nativePID};
+                        Runtime.getRuntime().exec("kill " + nativePID);
                     } catch (Exception exception) {
                         Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
                     }
@@ -127,10 +125,9 @@ public class OpenBSM extends AbstractReporter {
     private void buildProcessTree() {
         // Build the process tree using the ps utility.
         try {
-            String line = "";
-            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid,ppid,comm");
+            String line;
+            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -Aco pid=,ppid=,comm=");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
             while (true) {
                 line = pidreader.readLine().trim();
                 String childinfo[] = line.split("\\s+", 3);
@@ -144,90 +141,99 @@ public class OpenBSM extends AbstractReporter {
         }
     }
 
-    private Artifact getFileVertex(String path, boolean refresh) {
+    private File getFileVertex(String path, boolean refresh) {
         // Create a file artifact.
         // The refresh flag is used for caching purposes - a new file vertex is
         // created if the event modified the file (i.e., write, truncate, rename, etc)
         // but the cached one is used in case of read.
         if ((!refresh) && (fileVertices.containsKey(path))) {
-            return (Artifact) fileVertices.get(path);
+            return fileVertices.get(path);
         }
-        Artifact fileArtifact = new Artifact();
+        File fileArtifact = new File();
         fileArtifact.addAnnotation("path", path);
-        File file = new File(path);
         String[] filename = path.split("/");
         if (filename.length > 0) {
             fileArtifact.addAnnotation("filename", filename[filename.length - 1]);
         }
-        if ((file.lastModified() != 0L) && (file.length() != 0L)) {
-            long lastmodified = file.lastModified();
-            String filesize = Long.toString(file.length());
-            fileArtifact.addAnnotation("lastmodified_unix", Long.toString(lastmodified));
-            fileArtifact.addAnnotation("lastmodified_simple", new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(lastmodified)));
-            fileArtifact.addAnnotation("size", filesize);
+        try {
+            java.io.File file = new java.io.File(path);
+            if ((file.lastModified() != 0L) && (file.length() != 0L)) {
+                long lastmodified = file.lastModified();
+                String filesize = Long.toString(file.length());
+                fileArtifact.addAnnotation("lastmodified_unix", Long.toString(lastmodified));
+                fileArtifact.addAnnotation("lastmodified_simple", new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(lastmodified)));
+                fileArtifact.addAnnotation("size", filesize);
+            }
+        } catch (Exception exception) {
+            // Ignore
         }
         fileVertices.put(path, fileArtifact);
         return fileArtifact;
     }
 
-    private Process getProcessVertex(String pid) {
+    private Program getProcessVertex(String pid) {
         // Use the ps utility to create a process vertex and add it to the current
         // process tree. This is done recursively on the parent process to ensure
         // completeness of the process tree.
         if (processVertices.containsKey(pid)) {
-            return (Process) processVertices.get(pid);
+            return processVertices.get(pid);
         }
         try {
+            Program processVertex = new Program();
             String line;
-            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,gid,lstart,sess,comm");
+            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid=,ppid=,uid=,user=,gid=,lstart=,sess=,comm=");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
             line = pidreader.readLine();
             if (line == null) {
                 return null;
             }
-            Process processVertex = new Process();
-            String info[] = line.trim().split("\\s+", 11);
-            String pidname = info[10];
+            String info[] = line.trim().split("\\s+", 12);
             String ppid = info[1];
-            processVertex.addAnnotation("pidname", pidname);
+            if (ppid.equals(myPID)) {
+                // Return null if this was our own child process.
+                return null;
+            }
+
+            processVertex.addAnnotation("pidname", info[11]);
             processVertex.addAnnotation("pid", pid);
-            processVertex.addAnnotation("ppid", ppid);
-            String timestring = info[4] + " " + info[5] + " " + info[6] + " " + info[7] + " " + info[8];
-            String starttime = Long.toString(new java.text.SimpleDateFormat("EEE MMM d HH:mm:ss yyyy").parse(timestring).getTime());
-            processVertex.addAnnotation("starttime_unix", starttime);
-            processVertex.addAnnotation("starttime_simple", timestring);
-            processVertex.addAnnotation("sessionid", info[9]);
+            processVertex.addAnnotation("ppid", info[1]);
+            String timestring = info[5] + " " + info[6] + " " + info[7] + " " + info[8] + " " + info[9];
+            Long unixtime = new java.text.SimpleDateFormat(simpleDatePattern).parse(timestring).getTime();
+            String starttime_unix = Long.toString(unixtime);
+            String starttime_simple = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(unixtime));
+            processVertex.addAnnotation("starttime_unix", starttime_unix);
+            processVertex.addAnnotation("starttime_simple", starttime_simple);
+            processVertex.addAnnotation("sessionid", info[10]);
             processVertex.addAnnotation("uid", info[2]);
-            processVertex.addAnnotation("gid", info[3]);
-            /*
-            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
+            processVertex.addAnnotation("user", info[3]);
+            processVertex.addAnnotation("groupid", info[4]);
+
+            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command=");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
             line = pidreader.readLine();
             if (line != null) {
-            processVertex.addAnnotation("commandline", line);
+                processVertex.addAnnotation("commandline", line);
             }
-            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command");
+
+            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command=");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
-            line = pidreader.readLine();
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
-            processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
+                processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
             }
-             *
-             */
-            pushToBuffer(processVertex);
+
+            putVertex(processVertex);
             processVertices.put(pid, processVertex);
             if (Integer.parseInt(ppid) > 0) {
-                Process parentVertex = getProcessVertex(ppid);
+                Program parentVertex = getProcessVertex(ppid);
                 if (parentVertex != null) {
-                    pushToBuffer(parentVertex);
-                    pushToBuffer(new WasTriggeredBy(processVertex, parentVertex));
+                    putVertex(parentVertex);
+                    putEdge(new WasTriggeredBy(processVertex, parentVertex));
                 }
             }
             return processVertex;
         } catch (Exception exception) {
+            Logger.getLogger(OpenBSM.class.getName()).log(Level.WARNING, null, exception);
             return null;
         }
     }
@@ -269,15 +275,13 @@ public class OpenBSM extends AbstractReporter {
                 String uid = tokenizer.nextToken();
                 String gid = tokenizer.nextToken();
                 String pid = tokenizer.nextToken();
-                /*
                 String sessionid = tokenizer.nextToken();
                 String deviceid = tokenizer.nextToken();
                 String machineid = tokenizer.nextToken();
-                 *
-                 */
+
                 eventPID = pid;
                 if ((current_event_id == 2) || ((current_event_id > 71) && (current_event_id < 84))) {
-                    tempVertex1 = ((pid.equals(myPID)) || (pid.equals(nativePID))) ? null : getProcessVertex(pid);
+                    tempVertex1 = ((eventPID.equals(myPID)) || (eventPID.equals(nativePID))) ? null : getProcessVertex(pid);
                 }
                 break;
 
@@ -286,15 +290,15 @@ public class OpenBSM extends AbstractReporter {
             case 119:						// AUT_PROCESS64
             case 125:						// AUT_PROCESS64_EX
                 /*
-                String process_user_audit_id = tokenizer.nextToken();
-                String process_euid = tokenizer.nextToken();
-                String process_egid = tokenizer.nextToken();
-                String process_uid = tokenizer.nextToken();
-                String process_gid = tokenizer.nextToken();
-                String process_pid = tokenizer.nextToken();
-                String process_session_id = tokenizer.nextToken();
-                String process_device_id = tokenizer.nextToken();
-                String process_machine_id = tokenizer.nextToken();
+                 * String process_user_audit_id = tokenizer.nextToken(); String
+                 * process_euid = tokenizer.nextToken(); String process_egid =
+                 * tokenizer.nextToken(); String process_uid =
+                 * tokenizer.nextToken(); String process_gid =
+                 * tokenizer.nextToken(); String process_pid =
+                 * tokenizer.nextToken(); String process_session_id =
+                 * tokenizer.nextToken(); String process_device_id =
+                 * tokenizer.nextToken(); String process_machine_id =
+                 * tokenizer.nextToken();
                  *
                  */
                 break;
@@ -313,12 +317,12 @@ public class OpenBSM extends AbstractReporter {
             case 62:						// AUT_ATTR32
             case 115:						// AUT_ATTR64
                 /*
-                String file_access_mode = tokenizer.nextToken();
-                String owneruid = tokenizer.nextToken();
-                String ownergid = tokenizer.nextToken();
-                String filesystemid = tokenizer.nextToken();
-                String inodeid = tokenizer.nextToken();
-                String filedeviceid = tokenizer.nextToken();
+                 * String file_access_mode = tokenizer.nextToken(); String
+                 * owneruid = tokenizer.nextToken(); String ownergid =
+                 * tokenizer.nextToken(); String filesystemid =
+                 * tokenizer.nextToken(); String inodeid =
+                 * tokenizer.nextToken(); String filedeviceid =
+                 * tokenizer.nextToken();
                  *
                  */
                 if (current_event_id == 42) { // rename
@@ -329,9 +333,9 @@ public class OpenBSM extends AbstractReporter {
             case 45:						// AUT_ARG32
             case 113:						// AUT_ARG64
                 /*
-                String arg_number = tokenizer.nextToken();
-                String arg_value = tokenizer.nextToken();
-                String arg_text = tokenizer.nextToken();
+                 * String arg_number = tokenizer.nextToken(); String arg_value =
+                 * tokenizer.nextToken(); String arg_text =
+                 * tokenizer.nextToken();
                  *
                  */
                 break;
@@ -345,7 +349,7 @@ public class OpenBSM extends AbstractReporter {
 
             case 40: 						// AUT_TEXT
                 /*
-                String text_string = tokenizer.nextToken();
+                 * String text_string = tokenizer.nextToken();
                  *
                  */
                 break;
@@ -355,34 +359,44 @@ public class OpenBSM extends AbstractReporter {
                     if (current_event_id == 72) { // read only
                         tempVertex2 = getFileVertex(currentFilePath, false);
                         if (tempVertex2 != null) {
-                            pushToBuffer(tempVertex1);
-                            pushToBuffer(tempVertex2);
-                            pushToBuffer(new Used((Process) tempVertex1, (Artifact) tempVertex2));
+                            putVertex(tempVertex1);
+                            putVertex(tempVertex2);
+                            Used usedEdge = new Used((Program) tempVertex1, (File) tempVertex2);
+                            usedEdge.addAnnotation("time", currentEventTime);
+                            putEdge(usedEdge);
                         }
                     } else if ((current_event_id > 72) && (current_event_id < 84)) { // read,write,create
                         tempVertex2 = getFileVertex(currentFilePath, true);
                         if (tempVertex2 != null) {
-                            pushToBuffer(tempVertex1);
-                            pushToBuffer(tempVertex2);
-                            pushToBuffer(new WasGeneratedBy((Artifact) tempVertex2, (Process) tempVertex1));
+                            putVertex(tempVertex1);
+                            putVertex(tempVertex2);
+                            WasGeneratedBy generatedEdge = new WasGeneratedBy((File) tempVertex2, (Program) tempVertex1);
+                            generatedEdge.addAnnotation("time", currentEventTime);
+                            putEdge(generatedEdge);
                         }
                     } else if (current_event_id == 2) { // fork
                         if (tempVertex2 != null) {
-                            pushToBuffer(tempVertex1);
-                            pushToBuffer(tempVertex2);
-                            pushToBuffer(new WasTriggeredBy((Process) tempVertex2, (Process) tempVertex1));
+                            putVertex(tempVertex1);
+                            putVertex(tempVertex2);
+                            WasTriggeredBy triggeredEdge = new WasTriggeredBy((Program) tempVertex2, (Program) tempVertex1);
+                            putEdge(triggeredEdge);
                         }
                     } else if (current_event_id == 42) { // rename
-                        AbstractVertex procVertex = getProcessVertex(eventPID);
+                        Program procVertex = getProcessVertex(eventPID);
                         if ((tempVertex2 != null) && (procVertex != null)) {
-                            pushToBuffer(procVertex);
-                            pushToBuffer(tempVertex1);
-                            pushToBuffer(tempVertex2);
-                            pushToBuffer(new Used((Process) procVertex, (Artifact) tempVertex1));
-                            pushToBuffer(new WasGeneratedBy((Artifact) tempVertex2, (Process) procVertex));
-                            AbstractEdge renameEdge = new WasDerivedFrom((Artifact) tempVertex2, (Artifact) tempVertex1);
+                            putVertex(procVertex);
+                            putVertex(tempVertex1);
+                            putVertex(tempVertex2);
+                            Used usedEdge = new Used(procVertex, (File) tempVertex1);
+                            usedEdge.addAnnotation("time", currentEventTime);
+                            putEdge(usedEdge);
+                            WasGeneratedBy generatedEdge = new WasGeneratedBy((File) tempVertex2, procVertex);
+                            generatedEdge.addAnnotation("time", currentEventTime);
+                            putEdge(generatedEdge);
+                            WasDerivedFrom renameEdge = new WasDerivedFrom((File) tempVertex2, (File) tempVertex1);
                             renameEdge.addAnnotation("operation", "rename");
-                            pushToBuffer(renameEdge);
+                            renameEdge.addAnnotation("time", currentEventTime);
+                            putEdge(renameEdge);
                         }
                     } else if ((current_event_id == 1) || (current_event_id == 15)) { // exit, kill
                         processVertices.remove(eventPID);
@@ -424,15 +438,6 @@ public class OpenBSM extends AbstractReporter {
             default:
                 break;
 
-        }
-    }
-
-    private void pushToBuffer(Object incomingObject) {
-        // This method is used to push provenance objects to the reporter's buffer.
-        if (incomingObject instanceof AbstractVertex) {
-            putVertex((AbstractVertex) incomingObject);
-        } else if (incomingObject instanceof AbstractEdge) {
-            putEdge((AbstractEdge) incomingObject);
         }
     }
 }

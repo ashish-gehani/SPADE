@@ -62,11 +62,11 @@ public class Fusion extends AbstractFilter {
         rules = new HashMap<RuleIdentifier, RuleIdentifier>();
 
         // Read and process the configuration file. Currently, the file syntax is:
-        // - BEGIN FILE -
+        // -- BEGIN FILE --
         // <1st reporter>
         // <2nd reporter>
         // <1st reporter>.<annotation>=<2nd reporter>.<annotation>
-        // - EOF -
+        // -- EOF --
         try {
             BufferedReader configReader = new BufferedReader(new FileReader(configFile));
             leftReporter = configReader.readLine();
@@ -84,7 +84,7 @@ public class Fusion extends AbstractFilter {
         }
 
     }
-
+    
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
         // The 'compare' boolean flag is used to determine whether the lists needed

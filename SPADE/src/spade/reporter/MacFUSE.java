@@ -163,9 +163,8 @@ public class MacFUSE extends AbstractReporter {
         try {
             Program processVertex = new Program();
             String line;
-            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid,ppid,uid,user,gid,lstart,sess,comm");
+            java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid=,ppid=,uid=,user=,gid=,lstart=,sess=,comm=");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            pidreader.readLine();
             line = pidreader.readLine();
             if (line == null) {
                 return null;
@@ -190,17 +189,15 @@ public class MacFUSE extends AbstractReporter {
             processVertex.addAnnotation("user", info[3]);
             processVertex.addAnnotation("groupid", info[4]);
 
-            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command");
+            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command=");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            pidreader.readLine();
             line = pidreader.readLine();
             if (line != null) {
                 processVertex.addAnnotation("commandline", line);
             }
 
-            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command");
+            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command=");
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            pidreader.readLine();
             line = pidreader.readLine();
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
                 processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
