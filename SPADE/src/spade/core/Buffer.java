@@ -21,6 +21,10 @@ package spade.core;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.logging.Logger;
+import java.util.logging.Level;
+
+import spade.reporter.AndroidAudit;
 
 /**
  * This is the buffer class which is used by reporters to send provenance
@@ -64,7 +68,14 @@ public class Buffer {
         if ((incomingEdge == null)
                 || (incomingEdge.getSourceVertex() == null)
                 || (incomingEdge.getDestinationVertex() == null)
-                || (incomingEdge.getSourceVertex().hashCode() == incomingEdge.getDestinationVertex().hashCode())) {
+                // Thread unsafe: || (incomingEdge.getSourceVertex().hashCode() == incomingEdge.getDestinationVertex().hashCode())) {
+                || (incomingEdge.getSourceVertex() == incomingEdge.getDestinationVertex())) {
+        	if (incomingEdge.getSourceVertex() == null)
+        		Logger.getLogger(Buffer.class.getName()).log(Level.WARNING, "Not putting edge. Source is null");
+        	if (incomingEdge.getDestinationVertex() == null)
+        		Logger.getLogger(Buffer.class.getName()).log(Level.WARNING, "Not putting edge. Dest is null");
+        	else
+        		Logger.getLogger(Buffer.class.getName()).log(Level.WARNING, "Not putting edge. Two are equal: " + incomingEdge.toString());
             return false;
         } else {
             return queue.add(incomingEdge);

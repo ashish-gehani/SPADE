@@ -36,6 +36,9 @@ import spade.vertex.opm.Process;
 
 public class AndroidAudit extends AbstractReporter {
 
+	// Controls debugging. Spawns a process for dump
+	private boolean DEBUG_DUMP_LOG = true;
+	
     // True means open and close will be used to check for reads/writes and actual reads/writes will not be monitored. false means reads/writes will be monitored
     private boolean OpenCloseSemanticsOn = true;
     private int currentAuditId = 0;
@@ -58,9 +61,13 @@ public class AndroidAudit extends AbstractReporter {
     protected BufferedReader eventReader;
     private final PrintStream errorStream = System.err;
     private static final Logger logger = Logger.getLogger(AndroidAudit.class.getName());
-    private HashSet<String> agent_fields =
+    private HashSet<String> agentFields =
             new HashSet<String>(
             Arrays.asList("uid,egid,arch,auid,sgid,fsgid,suid,euid,node,fsuid,gid".split("[\\s,]+")));
+    private HashSet<String> processFields =
+    		new HashSet<String>(
+    		Arrays.asList("auditId,comm,exe,pid,ppid,pidname,starttime_unix,starttime_simple".split("[\\s,]+")));
+
     private volatile boolean shutdown = false;
     private Pattern pattern_event_start = Pattern.compile("node=([A-Za-z0-9]+) type=");
     private Pattern pattern_key_val = Pattern.compile("((?:\\\\.|[^=\\s]+)*)=(\"(?:\\\\.|[^\"\\\\]+)*\"|(?:\\\\.|[^\\s\"\\\\]+)*)");
@@ -127,23 +134,39 @@ public class AndroidAudit extends AbstractReporter {
                 currentProgram = listOfFiles[i].getName();
                 try {
                     Integer.parseInt(currentProgram);
+                    // logger.log(Level.INFO, "Recording Init PID: \t" + currentProgram);
                     Process processVertex = createProgramVertex(currentProgram);
-                    String ppid = (String) processVertex.getAnnotation("ppid");
+                    processVertex.addAnnotation("misc", "Pre-start process");
                     processes.put(currentProgram, processVertex);
                     putVertex(processVertex);
-                    if (Integer.parseInt(ppid) >= 0) {
-                        if (((Process) processes.get(ppid) != null) && (processVertex != null)) {
-                            WasTriggeredBy triggerEdge = new WasTriggeredBy(processVertex, (Process) processes.get(ppid));
-                            putEdge(triggerEdge);
-                        }
-                    }
-                } catch (Exception exception) {
+                } catch (java.lang.NumberFormatException exception) { 
+                	continue;
+            	} catch (Exception exception) {
+                	// logger.log(Level.INFO, null, exception);
                     continue;
                 }
             }
         }
+        
+        // Making edges for initial PIDs and PPIDs
+        for (Map.Entry<String, Process> entry : processes.entrySet()) {
+        	String pid = entry.getKey();
+        	Process process = entry.getValue();
+        	String ppid = (String) process.getAnnotation("ppid");
+        	
+            if (Integer.parseInt(ppid) >= 0) {
+                if (((Process) processes.get(ppid) != null) ) {
+                    WasTriggeredBy triggerEdge = new WasTriggeredBy(process, (Process) processes.get(ppid));
+                    // logger.log(Level.INFO, "Adding Edge: " + ppid + " -> " + pid );
+                    putEdge(triggerEdge);
+                }
+                else {
+                	logger.log(Level.WARNING, "Parent of : " + pid + " = " + ppid + "not found!");
+                }
+            }
+        }
 
-        // Environment stuff
+        // Environment variables
         try {
             InetAddress addr = InetAddress.getLocalHost();
             // Get IP Address
@@ -154,6 +177,7 @@ public class AndroidAudit extends AbstractReporter {
         } catch (UnknownHostException e) {
             logger.log(Level.SEVERE, null, e);
         }
+        
         startParsing();
 
         return true;
@@ -170,6 +194,9 @@ public class AndroidAudit extends AbstractReporter {
         return true;
     }
 
+    protected java.lang.Process pipeprocess;
+	String DEBUG_DUMP_FILE = "/sdcard/spade.log";
+    
     //this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
     public void startParsing() {
 
@@ -195,6 +222,8 @@ public class AndroidAudit extends AbstractReporter {
                     javaPid = pid;
                 }
             }
+            logger.log(Level.INFO, "SPADE Android's PID: " + javaPid);
+            
             pidReader.close();
 
             String rules = "-a exit,always -S clone -S execve -S exit_group -S open -S write -S close -S fork -S ioctl"
@@ -202,19 +231,28 @@ public class AndroidAudit extends AbstractReporter {
                     + ignorePids.toString();
 
             Runtime.getRuntime().exec("auditctl " + rules).waitFor();
-            java.lang.Process pipeprocess = Runtime.getRuntime().exec("/system/bin/spade-audit");
-            eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
+            
+        	// TODO: Remove self provenance
+        	pipeprocess = Runtime.getRuntime().exec("/system/bin/spade-audit");
+        	eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
 
             Runnable eventThread = new Runnable() {
 
                 public void run() {
                     try {
+                    	
+                    	BufferedWriter dumpWriter = null;
+                    	if (DEBUG_DUMP_LOG)
+                    		dumpWriter = new BufferedWriter(new FileWriter(DEBUG_DUMP_FILE));
+                    	
                         while (!shutdown) {
                             if (eventReader.ready()) {
                                 String line = eventReader.readLine();
                                 if (line != null && line.length() != 0) {
                                     processInputLine(line);
                                 }
+                                if(DEBUG_DUMP_LOG)
+                                	dumpWriter.write(line+System.getProperty("line.separator"));
                             }
                         }
                     } catch (Exception exception) {
@@ -378,13 +416,10 @@ public class AndroidAudit extends AbstractReporter {
      */
     private void processFinishedEvent(ArrayList<HashMap<String, String>> finishedEvent, int givenEventNum) {
 
-        //in this function we will be passed finished events. which means opens will come along with their cwds and paths and so on
-        ///////////////////////////////////////////
-        //ADD NEW CALL HANDLERS HERE (this can later be divied up into seperate functions so that you dont have to check again///////////////
-        ///////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////
+        // ADD NEW CALL HANDLERS HERE 
+        ////////////////////////////////////////////////////////////////
 
-        // TODO: deep check without toString()
-        // TODO: Comment the functionality
         try {
             switch (givenEventNum) {
                 // Invoke appropriate handler
@@ -448,6 +483,7 @@ public class AndroidAudit extends AbstractReporter {
                     processPipe(finishedEvent);
                     break;
                 case 54:
+                	// TODO: Process ioctl
                     processWrite(finishedEvent);
                     break;
                 case 63:
@@ -499,34 +535,6 @@ public class AndroidAudit extends AbstractReporter {
             Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
             assert (false);
         }
-        /*
-         * try {
-         *
-         * // Take the appropriate action by calling the function // done using
-         * reflection: any event type is handled by // calling a function with
-         * "process" as its prefix // e.g. unlink event is handled by
-         * processUnlink function String event_str =
-         * syscalls_mapping.get(givenEventNum); String str_process_func =
-         * "process" + event_str.substring(0,1).toUpperCase() +
-         * event_str.substring(1);
-         *
-         * ArrayList<HashMap<String, String>> obj = new
-         * ArrayList<HashMap<String, String>>(); Method process =
-         * this.getClass().getMethod(str_process_func, obj.getClass());
-         * process.invoke(this, finishedEvent);
-         *
-         * }
-         * catch(java.lang.NoSuchMethodException e) { // Ignore if not
-         * implemented but log it logger.info("processFinishedEvent: No method
-         * to handle event of type " + event_str); }
-         * catch(java.lang.IllegalArgumentException e) { // Indicates code level
-         * issue
-         * Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE,
-         * null, e); assert(false); } catch(Exception e) { // Indicates code
-         * level issue
-         * Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE,
-         * null, e); assert(false); }
-         */
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -556,43 +564,30 @@ public class AndroidAudit extends AbstractReporter {
 
         //get the annotations for both processes
         Process cloningProcess = null;
-        HashMap<String, String> processAnnotations = getProcessInformation(fields);
-        HashMap<String, String> processAnnotationsChild = getProcessInformation(fields);
-        HashMap<String, String> agentAnnotations = seperateAgentFromProcess(fields);
-        HashMap<String, String> agentAnnotationsChild = seperateAgentFromProcess(fields);
+        HashMap<String, String> processAnnotations = getProcessInformationFromFields(fields);
+        HashMap<String, String> processAnnotationsChild = getProcessInformationFromFields(fields);
+        HashMap<String, String> agentAnnotations = getAgentAnnotationsFromFields(fields);
+        HashMap<String, String> agentAnnotationsChild = getAgentAnnotationsFromFields(fields);
 
         // check if the parent process is already there in our table
         cloningProcess = getOrCreateProcess(processAnnotations.get("pid"), processAnnotations, agentAnnotations);
-
+        
         // Child Process
         processAnnotationsChild.put("ppid", processAnnotations.get("pid"));
         processAnnotationsChild.put("pid", processAnnotations.get("exit"));
 
-        Process clonedProcess = createProgramVertex(processAnnotationsChild.get("pid"));
-        /*
-         * new Process(); for (Map.Entry<String, String> currentEntry :
-         * processAnnotationsChild.entrySet()) { String key =
-         * currentEntry.getKey(); String value = currentEntry.getValue(); if
-         * (key.equalsIgnoreCase("type")) { continue; }
-         * clonedProcess.addAnnotation(key, value); }
-         *
-         */
-
-        processes.put(processAnnotationsChild.get("pid"), clonedProcess);
-        putVertex(clonedProcess);
-        putVertex(cloningProcess);
+        Process clonedProcess = getOrCreateProcess(processAnnotationsChild.get("pid"), processAnnotationsChild, processAnnotationsChild);
+        
         WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
         putEdge(clone);
 
-        // Get or create child agent
+        // TODO: Uncomment when agent info needed
         /*
-         * Agent agentChild = getOrCreateAgent(agentAnnotationsChild); if
-         * (agentChild == null) { agentChild = new Agent(agentAnnotationsChild);
-         * putVertex(agentChild); cachedAgents.add(agentChild); }
-         * WasControlledBy wcb2 = new WasControlledBy(clonedProcess,
-         * agentChild); putEdge(wcb2);
-         *
-         */
+        * // Get or create child agent
+        * Agent agentChild = getOrCreateAgent(agentAnnotationsChild);
+		* WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agentChild);
+        * putEdge(wcb2);
+		*/
 
     }
 
@@ -653,12 +648,11 @@ public class AndroidAudit extends AbstractReporter {
             String pid = fields.get("pid");
             String fd = fields.get("a0");
 
-            Process writingProcess = getOrCreateProcess(pid, fields, null);
             Artifact fileWritten = processFdIsFile.get(pid + "," + fd);
             if (fileWritten == null) {
-                return;
-            }
-
+	            return;
+	        }
+            
             if (fileWritten.getAnnotation("version") == null) {
                 fileWritten.addAnnotation("version", "0");
             } else {
@@ -666,14 +660,14 @@ public class AndroidAudit extends AbstractReporter {
                 fileWritten.addAnnotation("version", Integer.toString(v++));
             }
 
+            Process writingProcess = getOrCreateProcess(pid, fields, null);
             WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
 
             putVertex(fileWritten);
-            putVertex(writingProcess);
             putEdge(writeEdge);
 
         } catch (Exception e) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, e);
+        	logger.log(Level.SEVERE, null, e);
         }
     }
 
@@ -694,36 +688,25 @@ public class AndroidAudit extends AbstractReporter {
     private void processOpen(ArrayList<HashMap<String, String>> eventsChain) {
 
         HashMap<String, String> fields = eventsChain.get(0);
-
-
+        
+        
         if (fields.get("success").equals("no")) {
             return;
         }
 
         try {
             Process openingProcess = getOrCreateProcess(fields.get("pid"), fields, null);
-
-            Artifact fileOpened;
-
-            //get the file info
-
+            
             HashMap<String, String> fileAnnotations = getFileInformation(eventsChain);
 
+            // Get or create the Artifact object of the file opened
+            Artifact fileOpened;
             String filePath = fileAnnotations.get("filename");
             String fd = fields.get("exit");
-
-            //now see if other people have this file open already
-            //if yes fetch pointer to that file and put it in fileOpened reference.
-
-            // TODO: Get or create file artifact
-            if (fileNameHasArtifact.containsKey(filePath)) {
+            if (fileNameHasArtifact.containsKey(filePath)) {            	
                 fileOpened = fileNameHasArtifact.get(filePath);
-                //add edge from process to file
-                processFdIsFile.put(fields.get("pid") + "," + fd, fileOpened);
-                //file name to artifact edge is already there
-            } //if no then make a new file. This file has never been opened before in this session
+            } 
             else {
-
                 fileAnnotations.put("fullpath", filePath);
                 fileAnnotations.put("filename", filePath);
                 fileOpened = new File();
@@ -736,24 +719,10 @@ public class AndroidAudit extends AbstractReporter {
                     }
                     fileOpened.addAnnotation(key, value);
                 }
-
-                /*
-                 * ??? ArrayList<String> processesThatOpenFiles = new
-                 * ArrayList<String>(); processesThatOpenFiles.add(keyPair);
-                 */
-
-                //add edge from process to file
-                processFdIsFile.put(fields.get("pid") + "," + fd, fileOpened);
-
-
-                // TODO: Confirm this:
-                //putVertex(openingProcess);
-
-                //add edge from file name to file artifact
                 fileNameHasArtifact.put(filePath, fileOpened);
-
             }
-
+            processFdIsFile.put(fields.get("pid") + "," + fd, fileOpened);
+            
             /*
              * Kernel values for open flags O_RDONLY 00000000 O_WRONLY 00000001
              * O_RDWR 00000002
@@ -766,15 +735,15 @@ public class AndroidAudit extends AbstractReporter {
              *
              */
 
+            // Add an edge from process to file
             if (OpenCloseSemanticsOn == false) {
                 //no provenance in open call
             } else {
                 //translate open to read call if needed
 
                 if (fields.get("a1").endsWith("0") || fields.get("a1").endsWith("2")) {
-                    //this means file possibly opened for reading. Make and send a read edge along
+                    // this means file possibly opened for reading. Make and send a read edge along
                     Used u = new Used(openingProcess, fileOpened);
-                    putVertex(openingProcess);
                     putVertex(fileOpened);
                     putEdge(u);
                 }
@@ -810,10 +779,10 @@ public class AndroidAudit extends AbstractReporter {
             Artifact fileClosed = null;
             // delete edge from process to file
             if (processFdIsFile.containsKey(keyPair)) {
-                fileClosed = processFdIsFile.get(keyPair);
-                processFdIsFile.remove(keyPair);
-            } else {
-                // TODO: Log here
+            	fileClosed = processFdIsFile.get(keyPair);
+            	processFdIsFile.remove(keyPair);
+            } else { 
+            	// TODO: Log here
             }
 
             // no provenance in close
@@ -846,8 +815,8 @@ public class AndroidAudit extends AbstractReporter {
             return;
         }
 
-        HashMap<String, String> processAnnotations = getProcessInformation(fields);
-        HashMap<String, String> agentAnnotations = seperateAgentFromProcess(fields);
+        HashMap<String, String> processAnnotations = getProcessInformationFromFields(fields);
+        HashMap<String, String> agentAnnotations = getAgentAnnotationsFromFields(fields);
         String commandLine = getExecveCommandLine(eventsChain.get(1));
 
         // Make the edges
@@ -858,44 +827,18 @@ public class AndroidAudit extends AbstractReporter {
         processAnnotations.put("cwd", eventsChain.get(2).get("cwd"));
 
         // Update the process in table if exists
-        String pid = processAnnotations.get("pid");//+processAnnotations.get("exe");
+        String pid = processAnnotations.get("pid");
         if (processes.containsKey(pid)) {
-
-            Process oldProcess = getOrCreateProcess(pid, processAnnotations, null);
-            //remove older process
+        	// Get and remove older process
+            Process oldProcess = processes.get(pid);
             processes.remove(pid);
-            //add new process
-            Process newProcess = createProgramVertex(pid);
-            /*
-             * new Process(); for (Map.Entry<String, String> currentEntry :
-             * processAnnotations.entrySet()) { String key =
-             * currentEntry.getKey(); String value = currentEntry.getValue(); if
-             * (key.equalsIgnoreCase("type")) { continue; }
-             * newProcess.addAnnotation(key, value); }
-             *
-             */
-            putVertex(newProcess);
-            putVertex(oldProcess);
+            Process newProcess = getOrCreateProcess(pid, processAnnotations, agentAnnotations);
 
-            /*
-             * Agent agent = getOrCreateAgent(agentAnnotations); if (agent ==
-             * null) { agent = new Agent(agentAnnotations); putVertex(agent);
-             * cachedAgents.add(agent); } else { //agent is already in cache so
-             * dont send it. and dont make new vertex. } wcb = new
-             * WasControlledBy(newProcess, agent); putEdge(wcb);
-             *
-             */
-
-
-            //make edges
+            // Relationship between previous and new
             execve = new WasTriggeredBy(newProcess, oldProcess);
             putEdge(execve);
 
-            //add process to table
-            processes.put(pid, newProcess);
-
-
-            //extra processing to add the file artifact for the binary
+            // Add the file artifact for the binary
             Artifact binaryFile = new File();
             binaryFile.addAnnotation("filename", processAnnotations.get("exe"));
             binaryFile.addAnnotation("version", "0");
@@ -903,41 +846,10 @@ public class AndroidAudit extends AbstractReporter {
             Used u = new Used(oldProcess, binaryFile);
             putEdge(u);
 
-
         } //process not in table. so been seen the first time. create new process vertex
         else {
-            Process newProcess = createProgramVertex(processAnnotations.get("pid"));
-            /*
-             * Process newProcess = new Process(); for (Map.Entry<String,
-             * String> currentEntry : processAnnotations.entrySet()) { String
-             * key = currentEntry.getKey(); String value =
-             * currentEntry.getValue(); if (key.equalsIgnoreCase("type")) {
-             * continue; } newProcess.addAnnotation(key, value); }
-             *
-             */
-            putVertex(newProcess);
-
-            //send this new process
-
-
-            /*
-             * Agent agent = getOrCreateAgent(agentAnnotations);
-             *
-             * if (agent == null) { //don't send vertex agent = new
-             * Agent(agentAnnotations); putVertex(agent);
-             * cachedAgents.add(agent); } else { //agent is already in cache so
-             * dont send it. and dont make new vertex. }
-             *
-             * wcb = new WasControlledBy(newProcess, agent); putEdge(wcb);
-             *
-             */
-
-            // add to our table
-            processes.put(newProcess.getAnnotation("pid"), newProcess);
+        	Process newProcess = getOrCreateProcess(pid, processAnnotations, agentAnnotations);
         }
-
-
-
     }
 
     //////////////////////////////////////////////////////
@@ -1007,18 +919,14 @@ public class AndroidAudit extends AbstractReporter {
                     newFile.addAnnotation(i, eventsChain.get(5).get(i));
                 }
 
+                // TODO: Dawood: Should we delete old file and all its edges?
+                // delete old file and all its edges. also delete that files filepath to file vertex link
+                
                 //make file to file edge
+                putVertex(newFile);
                 renameEdgeFileToFile = new WasDerivedFrom(newFile, renamedFile);
                 renameEdgeProcessToFile = new WasGeneratedBy(newFile, renamingProcess);
-
-                // TODO: Dawood: Should we delete old file and all its edges?
-
-                //delete old file and all its edges. also delete that files filepath to file vertex link
-
-                // TODO: Implement this
-                //putVertex(newFile);
             }
-
 
         } catch (Exception e) {
             logger.log(Level.SEVERE, null, e);
@@ -1075,9 +983,9 @@ public class AndroidAudit extends AbstractReporter {
             return;
         }
 
-        //proceed
+        // proceed
 
-        //add a process,fd->filename,version edge in the table
+        // add a process,fd->filename,version edge in the table
 
         String pid = fields.get("pid");
         String oldFd = fields.get("a0");
@@ -1134,7 +1042,7 @@ public class AndroidAudit extends AbstractReporter {
 
             //put new vertex for new version of file if ReadWrite bunching not on
             putVertex(fileWritten);
-            putVertex(writingProcess);
+            putVertex(writingProcess); //:::
 
             //send the edge
             putEdge(writeEdge);
@@ -1150,33 +1058,23 @@ public class AndroidAudit extends AbstractReporter {
 
         HashMap<String, String> fields = eventsChain.get(0);
         try {
-            //get the writing process
+            // Writing process
             String pid = fields.get("pid");
             Process writingProcess = getOrCreateProcess(pid, fields, null);
 
             String fd = fields.get("a0");
             String keyPair = pid + "," + fd;
 
-            //get the written file
+            // Written file
             Artifact fileWritten = processFdIsFile.get(keyPair);
             if (fileWritten.getAnnotation("version") == null) {
                 fileWritten.addAnnotation("version", "0");
             } else {
                 int v = Integer.parseInt(fileWritten.getAnnotation("version"));
                 fileWritten.addAnnotation("version", Integer.toString(v++));
-            }
-
-            //make a read edge
-
-            //WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten,writingProcess);
-            WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
-
-
-            //put new vertex for new version of file if ReadWrite bunching not on
+            } 
             putVertex(fileWritten);
-            putVertex(writingProcess);
-
-            //send the edge
+            WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
             putEdge(writeEdge);
 
 
@@ -1201,99 +1099,76 @@ public class AndroidAudit extends AbstractReporter {
             return;
         }
 
-        //String key="";
         Process cloningProcess;
-        HashMap<String, String> annotations = getProcessInformation(fields);
-        HashMap<String, String> annotationsNew = getProcessInformation(fields);
-        HashMap<String, String> agentAnnotations = seperateAgentFromProcess(fields);
-        HashMap<String, String> agentAnnotations2 = seperateAgentFromProcess(fields);
+        HashMap<String, String> annotations = getProcessInformationFromFields(fields);
+        HashMap<String, String> annotationsNew = getProcessInformationFromFields(fields);
+        HashMap<String, String> agentAnnotations = getAgentAnnotationsFromFields(fields);
+        HashMap<String, String> agentAnnotationsNew = getAgentAnnotationsFromFields(fields);
 
         cloningProcess = getOrCreateProcess(fields.get("pid"), annotations, agentAnnotations);
-
-        //move pid to ppid
-        annotationsNew.remove("ppid");
+        
+        // Change PID into PPID for child and the exit value
         annotationsNew.put("ppid", annotations.get("pid"));
-
-        //move exit value to pid as that is child pid
-        annotationsNew.remove("pid");
         annotationsNew.put("pid", annotations.get("exit"));
 
-        Process clonedProcess = createProgramVertex(annotationsNew.get("pid"));
-        /*
-         * Process clonedProcess = new Process(); for (Map.Entry<String, String>
-         * currentEntry : annotationsNew.entrySet()) { String key =
-         * currentEntry.getKey(); String value = currentEntry.getValue(); if
-         * (key.equalsIgnoreCase("type")) { continue; }
-         * clonedProcess.addAnnotation(key, value); }
-         *
-         */
-        //create a new process (add it to processes) and a clone edge
-        processes.put(annotationsNew.get("pid"), clonedProcess);
-
-        putVertex(clonedProcess);
-        putVertex(cloningProcess);
+		Process clonedProcess = getOrCreateProcess(annotationsNew.get("pid"), annotationsNew, agentAnnotationsNew);
+		
         WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
         putEdge(clone);
-
-        /*
-         * // Agents Agent agent2 = getOrCreateAgent(agentAnnotations2); if
-         * (agent2 == null) { agent2 = new Agent(agentAnnotations2);
-         * putVertex(agent2); cachedAgents.add(agent2); }
-         *
-         * WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agent2);
-         * putEdge(wcb2);
-         *
-         */
     }
 
-    /**
-     * @param annotations - process annotations
-     * @param agentAnnotations, can be null which automatically extracts from
+	/**
+	 * @param annotations - process annotations
+	 * @param agentAnnotations, can be null which automatically extracts from
      * process annotations
-     * @return
-     */
-    private Process getOrCreateProcess(String pid, HashMap<String, String> annotations,
-            HashMap<String, String> agentAnnotations) {
-
-
-        Process cloningProcess;
-        if (processes.containsKey(annotations.get("pid"))) {
-            //cloning process already in table
-            cloningProcess = processes.get(annotations.get("pid"));
+	 * @return
+	 */
+	private Process getOrCreateProcess(String pid, HashMap<String, String> annotations,
+			HashMap<String, String> agentAnnotations) {
+		
+		Process process;
+		
+		assert (pid.equals(annotations.get("pid")) );
+		
+		if (processes.containsKey(pid)) {
+            // Cloning process already in table
+            process = processes.get(pid);
         } else {
-            cloningProcess = createProgramVertex(annotations.get("pid"));
-            /*
-             * cloningProcess = new Process(); for (Map.Entry<String, String>
-             * currentEntry : annotations.entrySet()) { String key =
-             * currentEntry.getKey(); String value = currentEntry.getValue(); if
-             * (key.equalsIgnoreCase("type")) { continue; }
-             * cloningProcess.addAnnotation(key, value); }
-             *
-             */
-
-            //send the cloning Process and its agent vertex and its wascontrolledby edge
-
-            /*
-             * if (agentAnnotations == null) { agentAnnotations =
-             * seperateAgentFromProcess(annotations); } Agent agent =
-             * getOrCreateAgent(agentAnnotations);
-             *
-             * //now send send process putVertex(cloningProcess);
-             *
-             * //now send wcb edge WasControlledBy wcb = new
-             * WasControlledBy(cloningProcess, agent); putEdge(wcb);
-             *
-             */
-
-            processes.put(annotations.get("pid"), cloningProcess);
-
+            process = createProgramVertex(pid);
+            
+            if(process == null)
+            {
+            	// In case createProgramVertex Failed!
+            	process.addAnnotation("misc", "Probably Short Lived Process");
+            	process = new Process();
+            }
+            
+            // Merge annotations, without overwriting those of createProgramVertex
+            for (Map.Entry<String, String> entry : annotations.entrySet()) {
+            	if( processFields.contains(entry.getKey()) && ! process.getAnnotations().containsKey(entry.getKey()))
+            		process.addAnnotation(entry.getKey(), entry.getValue());
+            }
+            
+            putVertex(process);
+            processes.put(pid, process);
+            
+            /***
+            // Agent Info
+    		if (agentAnnotations == null)
+    			agentAnnotations = seperateAgentFromProcess(annotations);
+    		Agent agent = getOrCreateAgent(agentAnnotations);
+            WasControlledBy wcb = new WasControlledBy(cloningProcess, agent);
+            putEdge(wcb);
+			***/
         }
-        return cloningProcess;
-    }
+		return process;
+	}
 
     /////////////////////////////////////////////////////////
     private void processReadv(ArrayList<HashMap<String, String>> eventsChain) {
 
+        // TODO: Complete the implementation
+    	
         HashMap<String, String> fields = eventsChain.get(0);
 
         //get the reading process
@@ -1312,14 +1187,13 @@ public class AndroidAudit extends AbstractReporter {
 
         //send the file,process and read edge
 
-        // TODO: *sigh* implement this!
-
-
     }
 
     /////////////////////////////////////////////////////////
     private void processWritev(ArrayList<HashMap<String, String>> eventsChain) {
 
+    	// TODO: Rewrite
+    	
         HashMap<String, String> fields = eventsChain.get(0);
 
         //get the writting process
@@ -1343,7 +1217,7 @@ public class AndroidAudit extends AbstractReporter {
         WasGeneratedBy writeEdge = new WasGeneratedBy(fileWritten, writingProcess);
 
         putVertex(fileWritten);
-        putVertex(writingProcess);
+        putVertex(writingProcess); 
         putEdge(writeEdge);
     }
 
@@ -1359,72 +1233,28 @@ public class AndroidAudit extends AbstractReporter {
         //String key="";
         boolean sendCloningProcess = false;
         Process cloningProcess = null;
-        HashMap<String, String> processAnnotations = getProcessInformation(eventsChain.get(0));
-        HashMap<String, String> processAnnotationsChild = getProcessInformation(eventsChain.get(0));
-        HashMap<String, String> agentAnnotations = seperateAgentFromProcess(processAnnotations);
-        HashMap<String, String> agentAnnotationsChild = seperateAgentFromProcess(processAnnotationsChild);
+        HashMap<String, String> processAnnotations = getProcessInformationFromFields(eventsChain.get(0));
+        HashMap<String, String> processAnnotationsCloned = getProcessInformationFromFields(eventsChain.get(0));
+        HashMap<String, String> agentAnnotations = getAgentAnnotationsFromFields(processAnnotations);
+        HashMap<String, String> agentAnnotationsCloned = getAgentAnnotationsFromFields(processAnnotationsCloned);
 
-        if (processes.containsKey(processAnnotations.get("pid"))) {
-            //cloning process already in table
+        // Cloning Process
+        String cloningPid = processAnnotations.get("pid");
+        if (processes.containsKey(cloningPid)) {
             cloningProcess = processes.get(processAnnotations.get("pid"));
         } else {
-            cloningProcess = createProgramVertex(processAnnotations.get("pid"));
-            /*
-             * cloningProcess = new Process(); for (Map.Entry<String, String>
-             * currentEntry : processAnnotations.entrySet()) { String key =
-             * currentEntry.getKey(); String value = currentEntry.getValue(); if
-             * (key.equalsIgnoreCase("type")) { continue; }
-             * cloningProcess.addAnnotation(key, value); }
-             *
-             */
-
-            processes.put(processAnnotations.get("pid"), cloningProcess);
-
-            /*
-             * //send the cloning Process and its agent vertex and its
-             * wascontrolledby edge Agent agent =
-             * getOrCreateAgent(agentAnnotations); if (agent == null) { agent =
-             * new Agent(agentAnnotations); putVertex(agent);
-             * cachedAgents.add(agent); } WasControlledBy wcb = new
-             * WasControlledBy(cloningProcess, agent); putEdge(wcb);
-             *
-             */
+        	cloningProcess = getOrCreateProcess(cloningPid, processAnnotations, agentAnnotations);
         }
 
-
         // Child Process
-        processAnnotationsChild.put("ppid", processAnnotations.get("pid"));
-        processAnnotationsChild.put("pid", processAnnotations.get("exit"));
+        processAnnotationsCloned.put("ppid", processAnnotations.get("pid"));
+        processAnnotationsCloned.put("pid", processAnnotations.get("exit"));
+        String clonedPid = processAnnotationsCloned.get("pid");
 
-        Process clonedProcess = createProgramVertex(processAnnotationsChild.get("pid"));
-        /*
-         * Process clonedProcess = new Process(); for (Map.Entry<String, String>
-         * currentEntry : processAnnotationsChild.entrySet()) { String key =
-         * currentEntry.getKey(); String value = currentEntry.getValue(); if
-         * (key.equalsIgnoreCase("type")) { continue; }
-         * clonedProcess.addAnnotation(key, value); }
-         *
-         */
-
-        processes.put(processAnnotationsChild.get("pid"), clonedProcess);
-        putVertex(clonedProcess);
-        putVertex(cloningProcess);
+        Process clonedProcess = getOrCreateProcess(clonedPid, processAnnotationsCloned, agentAnnotationsCloned); 
 
         WasTriggeredBy clone = new WasTriggeredBy(clonedProcess, cloningProcess);
         putEdge(clone);
-
-        // Get or create child agent
-        /*
-         * Agent agent2 = getOrCreateAgent(agentAnnotationsChild); if (agent2 ==
-         * null) {
-         *
-         * agent2 = new Agent(agentAnnotationsChild); putVertex(agent2);
-         * cachedAgents.add(agent2); }
-         *
-         * WasControlledBy wcb2 = new WasControlledBy(clonedProcess, agent2);
-         * putEdge(wcb2);
-         *
-         */
     }
 
     //////////////////////////////////////////////////////
@@ -1439,12 +1269,12 @@ public class AndroidAudit extends AbstractReporter {
         //possibly send information to the kernel that this process has finished
     }
 
-    private HashMap<String, String> getProcessInformation(HashMap<String, String> fields) {
+    private HashMap<String, String> getProcessInformationFromFields(HashMap<String, String> fields) {
         HashMap<String, String> ret = new HashMap<String, String>();
 
         for (Map.Entry<String, String> entry : fields.entrySet()) {
             String k = entry.getKey();
-            if (!agent_fields.contains(k)) {
+            if (!agentFields.contains(k)) {
                 ret.put(k, entry.getValue());
             }
         }
@@ -1511,7 +1341,7 @@ public class AndroidAudit extends AbstractReporter {
             }
 
         } catch (Exception ioe) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, ioe);
+            logger.log(Level.SEVERE, eventChain.get(1).toString(), ioe);
         }
 
         return fileAnnotations;
@@ -1519,9 +1349,9 @@ public class AndroidAudit extends AbstractReporter {
     }
 
     // TODO: Rename this
-    private HashMap<String, String> seperateAgentFromProcess(HashMap<String, String> processAnnotations) {
+    private HashMap<String, String> getAgentAnnotationsFromFields(HashMap<String, String> processAnnotations) {
         HashMap<String, String> agentAnnotations = new HashMap<String, String>();
-        for (String i : agent_fields) {
+        for (String i : agentFields) {
             String field_val = processAnnotations.get(i);
             if (field_val != null) {
                 agentAnnotations.put(i, field_val);
@@ -1550,7 +1380,7 @@ public class AndroidAudit extends AbstractReporter {
             }
             agent.addAnnotation(key, value);
         }
-
+        
         putVertex(agent);
         cachedAgents.add(agent);
         return agent;
@@ -1589,7 +1419,7 @@ public class AndroidAudit extends AbstractReporter {
         return null;
     }
 
-    private Process createProgramVertex(String pid) {
+    protected Process createProgramVertex(String pid) {
         // The process vertex is created using the proc filesystem.
         Process resultVertex = new Process();
         try {
