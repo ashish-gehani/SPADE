@@ -33,22 +33,27 @@ For example, to query the `Neo4j` graph database for all vertices that have the 
 
 {{{
 -> query Neo4j vertices date:02-15-1564
-[vertexId:1024        type:Artifact        date:02-15-1564        event:Galileo born]
+[vertexId:1024|type:Artifact|date:02-15-1564|event:Galileo born]
 }}}
 
-In the case of `Neo4j`, the expressions can use the full [http://lucene.apache.org/java/3_0_1/queryparsersyntax.html Lucene query syntax], including wildcards, lexicographic ranges, Boolean operators, fuzzy matching, and proximity searches. 
+In the case of `Neo4j`, the expressions can use the full [http://lucene.apache.org/core/old_versioned_docs/versions/3_5_0/queryparsersyntax.html Lucene query syntax], including wildcards, lexicographic ranges, Boolean operators, fuzzy matching, and proximity searches. 
 
 ----
 
 ===Retrieving lineage===
 
-The `lineage` class of queries is used find the ancestors or descendants of a specific provenance vertex. The third argument is the `vertexId` used by the storage system. The fourth argument is the maximum number of levels of the graph that should be returned. 
-The fifth argument is either `ancestors` or `descendants` to indicate whether to return the vertices from which the specified one was derived or the vertices which used the specified vertex. The sixth argument is the name of a file in which the response to the query will be stored in [http://www.graphviz.org Graphviz] format.
+The `lineage` class of queries is used find the ancestors or descendants of a specific provenance vertex.
+
+ # The third argument is the `vertexId` used by the storage system.
+ # The fourth argument is the maximum number of levels of the graph that should be returned. 
+ # The fifth argument is either `ancestors` or `descendants` to indicate whether to return the vertices from which the specified one was derived or the vertices which used the specified vertex.
+ # The sixth argument is the expression on which the lineage should terminate or `null` if no expression is to be used.
+ # The seventh argument is the name of a file in which the response to the query will be stored in [http://www.graphviz.org Graphviz] format.
 
 For example, if the Neo4j database contained *Artifact* vertices with the dates of birth of people and *WasDerivedFrom* edges from children to parents, this query could be used to find Galileo's parents:
 
 {{{
--> query lineage 1024 1 ancestors /tmp/Galileo_parents.dot
+-> query lineage 1024 1 ancestors null /tmp/Galileo_parents.dot
 }}}
 
 ----
