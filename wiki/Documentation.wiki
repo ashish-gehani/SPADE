@@ -9,8 +9,8 @@
    * [OpenBSM On Mac OS X using OpenBSM]
    * [LinuxAudit On Linux using LinuxAudit]
   * Reporting filesystem provenance
-   * On Mac OS X using MacFUSE
-   * On Linux using FUSE
+   * [MacFUSE On Mac OS X using MacFUSE]
+   * [LinuxFUSE On Linux using FUSE]
   * [Pipe Writing provenance to a pipe]
   * [ReporterAPI Programmatically reporting provenance]
  * [Querying Querying the provenance of data]
