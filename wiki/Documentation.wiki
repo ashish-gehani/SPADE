@@ -3,6 +3,7 @@
  * [Installation Steps to download, compile, and run SPADE]
  * [Storage Adding persistent metadata storage]
   * [Neo4j Using the Neo4j storage]
+  * [SQL Using the H2 SQL storage]
   * [Graphviz Creating Graphviz output]
  * [Reporting Reporting the history of a computation]
   * Reporting operating system provenance
