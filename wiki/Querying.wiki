@@ -53,7 +53,17 @@ The `lineage` class of queries is used find the ancestors or descendants of a sp
 For example, if the Neo4j database contained *Artifact* vertices with the dates of birth of people and *WasDerivedFrom* edges from children to parents, this query could be used to find Galileo's parents:
 
 {{{
--> query lineage 1024 1 ancestors null /tmp/Galileo_parents.dot
+-> query Neo4j lineage 1024 1 ancestors null /tmp/Galileo_parents.dot
+}}}
+
+----
+
+===Finding paths between vertices===
+
+The `paths` class of queries lets the user find all paths between two vertices. The third argument is the source vertex identifier and the fourth argument is the destination vertex identifier. The maximum path length is specified in the fifth argument. For example, to find paths from vertex 2 to vertex 5 having a maximum length of 10, the following query could be used:
+
+{{{
+-> query Neo4j paths 2 5 10 /tmp/paths.dot
 }}}
 
 ----
