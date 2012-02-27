@@ -12,4 +12,6 @@ We provide additional reporters for collecting operating system level or filesys
 
 To learn more about these reporters, see the submenu items on the left.
 
+----
+
 Note that the `Reporter` class is loaded by and runs as part of the *SPADE* kernel. Hence implementing such a class requires handling the inter-process communication with the source from which the provenance is being collected.
