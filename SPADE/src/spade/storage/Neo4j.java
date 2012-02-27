@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2011 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.storage;
 
@@ -48,10 +48,10 @@ import spade.core.*;
 public class Neo4j extends AbstractStorage {
 
     // Number of transactions to buffer before committing to database
-    private final int TRANSACTION_LIMIT = 1000;
+    private final int TRANSACTION_LIMIT = 50;
     // Number of transaction flushes before the database is shutdown and
     // restarted
-    private final int HARD_FLUSH_LIMIT = 50;
+    private final int HARD_FLUSH_LIMIT = 10000;
     // Identifying annotation to add to each edge/vertex
     private final String ID_STRING = "storageId";
     // String to match for when specifying direction for ancestors
@@ -397,8 +397,12 @@ public class Neo4j extends AbstractStorage {
                     resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
                     // Add network artifacts to the network map of the graph. This is needed
                     // to resolve remote queries
-                    if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("Network")) {
-                        resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+                    try {
+                        if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("Network")) {
+                            resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+                        }
+                    } catch (Exception exception) {
+                        // Ignore
                     }
                 }
             }

@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 403
+REVISION = 441
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -70,6 +70,11 @@ build-linuxaudit:
 	@echo 'Building the LinuxAudit reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxAudit.java
 	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
+	@echo ''
+	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
+	@echo '----->            sudo chown root build/spade/reporter/spadeLinuxAudit'
+	@echo '----->            sudo chmod ug+s build/spade/reporter/spadeLinuxAudit'
+	@echo ''
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
@@ -79,7 +84,7 @@ build-linuxfuse:
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
 gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
 	@echo ''
-	@echo 'IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
+	@echo '-----> IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
 	@echo ''
 
 # Build the OpenBSM reporter.
@@ -87,6 +92,11 @@ build-openbsm:
 	@echo 'Building the OpenBSM reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/OpenBSM.java
 	gcc -o build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
+	@echo ''
+	@echo '-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:'
+	@echo '----->            sudo chown root build/spade/reporter/spadeOpenBSM'
+	@echo '----->            sudo chmod ug+s build/spade/reporter/spadeOpenBSM'
+	@echo ''
 
 # Build the MacFUSE reporter.
 build-macfuse:

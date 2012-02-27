@@ -26,7 +26,6 @@ import java.net.SocketAddress;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import spade.core.Kernel;
 import spade.reporter.AndroidAudit;
 import spade.vertex.opm.Process;
@@ -42,7 +41,7 @@ public class AndroidClient {
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
-    
+
     public static void main(String args[]) {
 
         outputStream = System.out;
@@ -115,7 +114,7 @@ public class AndroidClient {
             exception.printStackTrace(errorStream);
         }
     }
-    
+
     protected Process createProgramVertex(String pid) {
         // The process vertex is created using the proc filesystem.
         Process resultVertex = new Process();
@@ -196,7 +195,4 @@ public class AndroidClient {
 //        }
         return resultVertex;
     }
-
-    
-    
 }

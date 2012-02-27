@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2011 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.core;
 
@@ -33,16 +33,17 @@ import java.util.logging.Logger;
  */
 public class Query {
 
-    private static final int WAIT_FLUSH_TRANSACTIONS = 10;
+    private static final int WAIT_FOR_FLUSH = 10;
 
     /**
      * This method is used to call query methods on the desired storage. The
      * transactions are also flushed to ensure that the data in the storages is
-     * consistent and updated with all the data received by SPADE up to this point.
+     * consistent and updated with all the data received by SPADE up to this
+     * point.
      *
      * @param line The query string.
-     * @param resolveRemote A boolean used to indicate whether or not remote edges
-     * need to be resolved.
+     * @param resolveRemote A boolean used to indicate whether or not remote
+     * edges need to be resolved.
      * @return The result represented by a Graph object.
      */
     public static Graph executeQuery(String line, boolean resolveRemote) {
@@ -54,7 +55,7 @@ public class Query {
         while (Kernel.flushTransactions) {
             try {
                 // wait for other thread to flush transactions
-                Thread.sleep(WAIT_FLUSH_TRANSACTIONS);
+                Thread.sleep(WAIT_FOR_FLUSH);
             } catch (Exception exception) {
                 Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
             }
@@ -271,8 +272,8 @@ public class Query {
      * given a remote sketch as input.
      *
      * @param inputSketch The input sketch
-     * @param end A string indicating whether this is the source terminal or destination
-     * terminal fragment.
+     * @param end A string indicating whether this is the source terminal or
+     * destination terminal fragment.
      * @return A path fragment represented by a Graph object.
      */
     public static Graph getEndPathFragment(AbstractSketch inputSketch, String end) {
@@ -392,7 +393,8 @@ public class Query {
     }
 
     /**
-     * Method to retrieve a non-terminal path fragment given a remote sketch as input.
+     * Method to retrieve a non-terminal path fragment given a remote sketch as
+     * input.
      *
      * @param inputSketch The input sketch.
      * @return A path fragment represented by a Graph object.
@@ -635,8 +637,9 @@ public class Query {
     /**
      * This method is called when a path query is executed using sketches.
      *
-     * @param line A string containing the source and destination host and vertex
-     * IDs. It has the format "sourceHost:vertexId destinationHost:vertexId"
+     * @param line A string containing the source and destination host and
+     * vertex IDs. It has the format "sourceHost:vertexId
+     * destinationHost:vertexId"
      * @return The result of this path query represented by a Graph object.
      */
     public static Graph getPathInSketch(String line) {
@@ -814,46 +817,50 @@ public class Query {
     }
 
     /**
-     * Apply the network vertex transform on the graph since the network vertices
-     * between a network boundary are symmetric but not identical.
+     * Apply the network vertex transform on the graph since the network
+     * vertices between a network boundary are symmetric but not identical.
      *
      * @param graph
      */
     public static void transformNetworkBoundaries(Graph graph) {
-        if (graph.transformed) {
-            return;
-        } else {
-            graph.transformed = true;
-        }
-
-        List<AbstractVertex> networkVertices = new LinkedList<AbstractVertex>();
-        for (AbstractVertex currentVertex : graph.vertexSet()) {
-            //if (currentVertex.type().equalsIgnoreCase("Network")) {
-            if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
-                networkVertices.add(currentVertex);
+        try {
+            if (graph.transformed) {
+                return;
+            } else {
+                graph.transformed = true;
             }
-        }
 
-        for (int i = 0; i < networkVertices.size(); i++) {
-            AbstractVertex vertex1 = networkVertices.get(i);
-            String source_host = vertex1.getAnnotation("source host");
-            String source_port = vertex1.getAnnotation("source port");
-            String destination_host = vertex1.getAnnotation("destination host");
-            String destination_port = vertex1.getAnnotation("destination port");
-            for (int j = 0; j < networkVertices.size(); j++) {
-                AbstractVertex vertex2 = networkVertices.get(j);
-                if ((vertex2.getAnnotation("source host").equals(destination_host))
-                        && (vertex2.getAnnotation("source port").equals(destination_port))
-                        && (vertex2.getAnnotation("destination host").equals(source_host))
-                        && (vertex2.getAnnotation("destination port").equals(source_port))) {
-                    Edge newEdge1 = new Edge((Vertex) vertex1, (Vertex) vertex2);
-                    newEdge1.addAnnotation("type", "Network Boundary");
-                    graph.putEdge(newEdge1);
-                    Edge newEdge2 = new Edge((Vertex) vertex2, (Vertex) vertex1);
-                    newEdge2.addAnnotation("type", "Network Boundary");
-                    graph.putEdge(newEdge2);
+            List<AbstractVertex> networkVertices = new LinkedList<AbstractVertex>();
+            for (AbstractVertex currentVertex : graph.vertexSet()) {
+                //if (currentVertex.type().equalsIgnoreCase("Network")) {
+                if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
+                    networkVertices.add(currentVertex);
                 }
             }
+
+            for (int i = 0; i < networkVertices.size(); i++) {
+                AbstractVertex vertex1 = networkVertices.get(i);
+                String source_host = vertex1.getAnnotation("source host");
+                String source_port = vertex1.getAnnotation("source port");
+                String destination_host = vertex1.getAnnotation("destination host");
+                String destination_port = vertex1.getAnnotation("destination port");
+                for (int j = 0; j < networkVertices.size(); j++) {
+                    AbstractVertex vertex2 = networkVertices.get(j);
+                    if ((vertex2.getAnnotation("source host").equals(destination_host))
+                            && (vertex2.getAnnotation("source port").equals(destination_port))
+                            && (vertex2.getAnnotation("destination host").equals(source_host))
+                            && (vertex2.getAnnotation("destination port").equals(source_port))) {
+                        Edge newEdge1 = new Edge((Vertex) vertex1, (Vertex) vertex2);
+                        newEdge1.addAnnotation("type", "Network Boundary");
+                        graph.putEdge(newEdge1);
+                        Edge newEdge2 = new Edge((Vertex) vertex2, (Vertex) vertex1);
+                        newEdge2.addAnnotation("type", "Network Boundary");
+                        graph.putEdge(newEdge2);
+                    }
+                }
+            }
+        } catch (Exception exception) {
+            Logger.getLogger(Query.class.getName()).log(Level.WARNING, null, exception);
         }
     }
 
