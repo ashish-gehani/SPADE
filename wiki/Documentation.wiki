@@ -6,11 +6,11 @@
   * [Graphviz Creating Graphviz output]
  * [Reporting Reporting the history of a computation]
   * Reporting operating system provenance
-   * [OpenBSM On Mac OS X]
-   * On Linux
+   * [OpenBSM On Mac OS X using OpenBSM]
+   * [LinuxAudit On Linux using LinuxAudit]
   * Reporting filesystem provenance
-   * On Mac OS X
-   * On Linux
+   * On Mac OS X using MacFUSE
+   * On Linux using FUSE
   * [Pipe Writing provenance to a pipe]
   * [ReporterAPI Programmatically reporting provenance]
  * [Querying Querying the provenance of data]
