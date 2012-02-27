@@ -60,7 +60,7 @@ Note that the [http://eprints.ecs.soton.ac.uk/21449/ Open Provenance Model (OPM)
 
 ----
 
-The *SPADE* shell's `query` command with the `vertices` option can be used to get a list of all the process vertices:
+The query shell with the `vertices` option can be used to get a list of all the process vertices:
 
 {{{
 -> query Neo4j vertices type:Process
