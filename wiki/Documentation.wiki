@@ -3,6 +3,7 @@
  * [Architecture Overview of SPADE's architecture]
  * [Installation Steps to download, compile, and run SPADE]
  * [Storage Adding persistent metadata storage]
+  * [Neo4j Using the Neo4j storage]
  * [Reporting Reporting the history of a computation]
   * [Pipe Writing provenance to a pipe]
   * [ReporterAPI Programmatically reporting provenance]
