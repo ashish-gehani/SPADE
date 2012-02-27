@@ -18,4 +18,4 @@ To use this reporter, the argument must specify the path where the FUSE filesyst
 Adding reporter MacFUSE... done
 }}}
 
-Provided that no file or directory already exists at /tmp/mountPoint, the above line will mount the FUSE filesystem at /tmp/mountPoint. Any filesystem events that occur in this subtree will be monitored by SPADE and their provenance recorded.
+Provided that no file or directory already exists at `/tmp/mountPoint`, the above line will mount the FUSE filesystem at `/tmp/mountPoint`. Any filesystem events that occur in this subtree will be monitored by SPADE and their provenance recorded.
