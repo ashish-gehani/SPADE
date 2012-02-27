@@ -10,6 +10,10 @@ Note that `->` at the beginning of a line indicates that the command is to be ex
 
 ----
 
+To compile SPADE, the Java Development Kit (JDK) is required. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
+
+----
+
 Download the *SPADE* `Makefile`:
 
 {{{
@@ -20,7 +24,7 @@ This will create a `SPADE` directory with a `Makefile` in it.
 
 ----
 
-Change to the new directory and download the *SPADE* sources:
+Using terminal or shell, navigate to the new directory and download the *SPADE* sources:
 
 {{{
 cd SPADE
