@@ -75,7 +75,6 @@ public class OpenBSM extends AbstractReporter {
 
         try {
             // Launch the utility to start reading from the auditpipe.
-            // String[] cmd = {"/bin/sh", "-c", "sudo " + binaryPath};
             nativeProcess = Runtime.getRuntime().exec(binaryPath);
             Field pidField = nativeProcess.getClass().getDeclaredField("pid");
             pidField.setAccessible(true);
@@ -96,11 +95,8 @@ public class OpenBSM extends AbstractReporter {
                             }
                             Thread.sleep(THREAD_SLEEP_DELAY);
                         }
-                        // Get the pid of the process and kill it using sudo. This is
-                        // necessary because the process was started in super-user mode
-                        // and can therefore only be killed in super-user mode.
+                        // Get the pid of the process and kill it.
                         nativeProcess.destroy();
-                        //String[] killcmd = {"/bin/sh", "-c", "sudo kill " + nativePID};
                         Runtime.getRuntime().exec("kill " + nativePID);
                     } catch (Exception exception) {
                         Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
@@ -208,18 +204,22 @@ public class OpenBSM extends AbstractReporter {
             processVertex.addAnnotation("user", info[3]);
             processVertex.addAnnotation("groupid", info[4]);
 
-            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command=");
-            pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
-            if (line != null) {
-                processVertex.addAnnotation("commandline", line);
-            }
+            try {
+                pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command=");
+                pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+                line = pidreader.readLine();
+                if (line != null) {
+                    processVertex.addAnnotation("commandline", line);
+                }
 
-            pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command=");
-            pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            line = pidreader.readLine();
-            if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
-                processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
+                pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command=");
+                pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+                line = pidreader.readLine();
+                if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
+                    processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()).trim());
+                }
+            } catch (Exception exception) {
+                // Ignore
             }
 
             putVertex(processVertex);

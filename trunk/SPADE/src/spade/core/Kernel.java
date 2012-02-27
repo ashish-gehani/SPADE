@@ -658,6 +658,7 @@ public class Kernel {
         outputStream.println("       query <class name> vertices <expression>");
         outputStream.println("       query <class name> lineage <vertex id> <depth> <direction> <terminating expression> <output file>");
         outputStream.println("       query <class name> paths <source vertex id> <destination vertex id> <max length> <output file>");
+//        outputStream.println("       query <class name> remotepaths <source host:vertex id> <destination host:vertex id> <max length> <output file>");
         outputStream.println("       exit");
     }
 

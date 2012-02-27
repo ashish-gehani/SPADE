@@ -22,6 +22,7 @@ package spade.core;
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 /**
  * This is the class from which other vertex classes (e.g., OPM vertices) are
  * derived.

@@ -200,7 +200,7 @@ public class MacFUSE extends AbstractReporter {
             pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
             line = pidreader.readLine();
             if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
-                processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()));
+                processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()).trim());
             }
 
             if (refreshHost) {
