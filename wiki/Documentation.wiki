@@ -1,5 +1,4 @@
 #labels Featured
-#sidebar TableOfContents
  * [Architecture Overview of SPADE's architecture]
  * [Installation Steps to download, compile, and run SPADE]
  * [Storage Adding persistent metadata storage]
