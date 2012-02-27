@@ -1,13 +1,44 @@
 #sidebar Documentation
 
-= Introduction =
+=_Using filters_=
 
-Add your content here.
+We provide a set of filters to manipulate provenance data before it is committed to storage. They are described below:
 
+----
 
-= Details =
+===Fusion===
 
-Add your content here.  Format your content with:
-  * Text in *bold* or _italic_
-  * Headings, paragraphs, and lists
-  * Automatic links to other wiki pages
+The Fusion filter can be used to merge vertices from related provenance streams. The configuration for this filter is stored in `cfg/fusion.config` and has the following format:
+
+{{{
+-- BEGIN FILE --
+<1st reporter>
+<2nd reporter>
+<1st reporter>.<annotation>=<2nd reporter>.<annotation>
+...
+-- END FILE --
+}}}
+
+To merge the two streams, the names of both reporters must be specified on the first two lines of the config file.
+
+Next, rules can be specified on which to merge annotations. These rules are specified as `<1st reporter>.<annotation>=<2nd reporter>.<annotation>`.
+
+The Fusion filter will check to see if the merge rules satisfy the incoming vertices. If vertices are found that match the criteria, they are fused into a single vertex.
+
+----
+
+===IORuns===
+
+Since reads and writes in an OS are typically chunked, a single read event to extract data from a file can result in multiple read operations happening in the underlying OS. This can result in a high volume of provenance data, especially when reading/writing large files. The IORuns filter can be used to aggregate consecutive edges of the same I/O operation (i.e., either read or write) into a single edge.
+
+----
+
+===CycleAvoidance===
+
+This filter tracks the ancestors of a file and creates a new version each time a new ancestor is encountered.
+
+----
+
+===GraphFinesse===
+
+This filter tracks the entire lineage graph of a file and creates a new version if a new edge would have created a cycle.
