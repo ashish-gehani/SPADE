@@ -64,8 +64,8 @@ The *SPADE* shell's `query` command with the `vertices` option can be used to ge
 
 {{{
 -> query Neo4j vertices type:Process
-[vertexId:2        type:Process        pid:32        name:child process]
-[vertexId:1        type:Process        pid:10        name:root process]
+[vertexId:2|type:Process|pid:32|name:child process]
+[vertexId:1|type:Process|pid:10|name:root process]
 Done
 }}}
 
@@ -74,7 +74,7 @@ Done
 The graph of the provenance of the `root process` (which has a `vertexId` of `1` as can be seen from the above query) can be retrieved with:
 
 {{{
--> query Neo4j lineage 1 10 ancestors /tmp/ancestors.dot
+-> query Neo4j lineage 1 10 ancestors null /tmp/ancestors.dot
 Done
 }}}
 
@@ -91,7 +91,7 @@ http://data-provenance.googlecode.com/svn/wiki/img/QueryExampleAncestors.gif
 Similarly, the graph in which the same vertex is part of the provenance can be retrieved with:
 
 {{{
--> query Neo4j lineage 1 10 descendants /tmp/descendants.dot
+-> query Neo4j lineage 1 10 descendants null /tmp/descendants.dot
 Done
 }}}
 
