@@ -8,7 +8,7 @@ To help a user start sending provenance information to *SPADE* with minimal effo
 
 It is also possible to report provenance information through a programming interface instead of the `Pipe` reporter.
 
-Furthermore, we provide reporters for collecting operating system level or filesystem level provenance on both Mac OS X and Linux.
+We provide additional reporters for collecting operating system level or filesystem level provenance on both Mac OS X and Linux.
 
 To learn more about these reporters, see the submenu items on the left.
 
