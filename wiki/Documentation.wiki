@@ -13,5 +13,6 @@
    * [LinuxFUSE On Linux using FUSE]
   * [Pipe Writing provenance to a pipe]
   * [ReporterAPI Programmatically reporting provenance]
+ * [Filters Using filters]
  * [Querying Querying the provenance of data]
   * [QueryExample Example illustrating provenance querying]
