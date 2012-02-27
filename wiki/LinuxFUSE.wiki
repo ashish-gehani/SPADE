@@ -11,7 +11,7 @@ yum install fuse fuse-devel fuse-libs
 
 ----
 
-The LinuxFUSE reporter is built automatically when the 'make build' command is issued. Before this reporter can be used, the option *user_allow_other* must be enabled in the file `/etc/fuse.conf`.
+The LinuxFUSE reporter is built automatically when the 'make build' command is issued. Before this reporter can be used, the option *user_allow_other* _must_ be enabled in the file `/etc/fuse.conf`.
 
 ----
 
