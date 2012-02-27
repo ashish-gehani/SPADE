@@ -6,16 +6,7 @@ To help a user start sending provenance information to *SPADE* with minimal effo
 
 ----
 
-To download and build the `Pipe` reporter, use:
-
-{{{
-make svn-pipe
-make build-pipe
-}}}
-
-----
-
-Add the `Pipe` reporter with a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the *SPADE* shell (after starting it with `make start-spade`):
+The `Pipe` reporter is compiled along with SPADE. This reporter takes a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the *SPADE* control shell (after SPADE has been started):
 
 {{{
 -> add reporter Pipe /tmp/spade_pipe
