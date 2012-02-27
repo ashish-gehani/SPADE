@@ -13,7 +13,7 @@ yum install audit audit-libs
 
 The LinuxAudit reporter is built automatically when the `make build` command is issued.
 
-Before this reporter can be used, the following commands must be executed in terminal inside the SPADE directory to allow access to the audit stream:
+Before this reporter can be used, the following commands must be executed in terminal inside the SPADE directory to allow access to the audit stream. These commands only need to be executed once after compiling SPADE:
 
 {{{
 sudo chown root build/spade/reporter/spadeLinuxAudit
