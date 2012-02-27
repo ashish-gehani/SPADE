@@ -29,42 +29,26 @@ make download
 
 ----
 
-Compile the *SPADE* code:
+Compile the *SPADE* code using:
 
 {{{
-make linux
+make build
 }}}
-
-to build the code on Linux.
-
-{{{
-make mac
-}}}
-
-to build the code on Mac OS X.
-
-{{{
-make windows
-}}}
-
-to build the code on Windows.
 
 ----
 
 To start the *SPADE* server, use:
 
 {{{
-make kernel &
+./SPADE start
 }}}
-
-(& puts the server in the background.)
 
 ----
 
 To start the *SPADE* control shell, use:
 
 {{{
-make control-shell
+make control
 }}}
 
 The following will appear:
@@ -100,7 +84,7 @@ No storage added
 -> list filters
 No filters added
 
--> list filters
+-> list sketches
 No sketches added
 }}}
 
@@ -111,7 +95,7 @@ No sketches added
 To stop the *SPADE* control shell, use the `exit` command:
 
 {{{
-->exit
+-> exit
 }}}
 
 ----
@@ -119,5 +103,5 @@ To stop the *SPADE* control shell, use the `exit` command:
 To stop the *SPADE* server, use the `shutdown` command:
 
 {{{
-->shutdown
+-> shutdown
 }}}
