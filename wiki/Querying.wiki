@@ -4,7 +4,9 @@
 
 *SPADE* supports two classes of queries. Both types are invoked with the `query` command in the *SPADE* shell. The first argument specifies the storage system that is to be queried. The second argument is either `vertices` or `lineage`. The query client is started by using the following command:
 
-`make query`
+{{{
+make query
+}}}
 
 ===Finding provenance vertices===
 
