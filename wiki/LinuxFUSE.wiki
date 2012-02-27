@@ -1,0 +1,25 @@
+#sidebar Documentation
+
+=_Reporting filesystem provenance on Linux_=
+
+===Requirements:===
+ * FUSE (http://fuse.sourceforge.net/)
+ * On Fedora, FUSE can be installed by issuing the following command:
+{{{
+yum install fuse fuse-devel fuse-libs
+}}}
+
+----
+
+The LinuxFUSE reporter is built automatically when the 'make build' command is issued. Before this reporter can be used, the option *user_allow_other* must be enabled in the file `/etc/fuse.conf`.
+
+----
+
+To use this reporter, the argument must specify the path where the FUSE filesystem will be mounted:
+
+{{{
+-> add reporter LinuxFUSE /tmp/mountPoint
+Adding reporter LinuxFUSE... done
+}}}
+
+Provided that no file or directory already exists at `/tmp/mountPoint`, the above line will mount the FUSE filesystem at `/tmp/mountPoint`. Any filesystem events that occur in this subtree will be monitored by SPADE and their provenance recorded.
