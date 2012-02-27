@@ -66,7 +66,7 @@ The *SPADE* shell's `query` command with the `vertices` option can be used to ge
 -> query Neo4j vertices type:Process
 [vertexId:2|type:Process|pid:32|name:child process]
 [vertexId:1|type:Process|pid:10|name:root process]
-Done
+2 vertices found
 }}}
 
 ----
@@ -75,7 +75,7 @@ The graph of the provenance of the `root process` (which has a `vertexId` of `1`
 
 {{{
 -> query Neo4j lineage 1 10 ancestors null /tmp/ancestors.dot
-Done
+Exported graph to /tmp/ancestors.dot
 }}}
 
 The second argument (`Neo4j`) is the name of the storage system to query. The fourth argument (`1`) is the vertex. The fifth argument (`10`) is the maximum number of levels of the graph to report. (In this example, there is only one level of ancestry provenance available, though.) The seventh argument is the name of the file in which to store the response to the query.
@@ -92,7 +92,7 @@ Similarly, the graph in which the same vertex is part of the provenance can be r
 
 {{{
 -> query Neo4j lineage 1 10 descendants null /tmp/descendants.dot
-Done
+Exported graph to /tmp/descendants.dot
 }}}
 
 When rendered, it looks like this:
