@@ -1,15 +1,10 @@
 #labels Featured
+#sidebar TableOfContents
  * [Architecture Overview of SPADE's architecture]
-
  * [Installation Steps to download, compile, and run SPADE]
-
  * [Storage Adding persistent metadata storage]
-
  * [Reporting Reporting the history of a computation]
   * [Pipe Writing provenance to a pipe]
   * [ReporterAPI Programmatically reporting provenance]
-
  * [Querying Querying the provenance of data]
   * [QueryExample Example illustrating provenance querying]
-
- (Note that later pages assume you have read the earlier ones.)
