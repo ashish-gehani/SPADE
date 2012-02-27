@@ -8,6 +8,8 @@
 make query
 }}}
 
+----
+
 ===Finding provenance vertices===
 
 The `vertices` class of queries lets the user find all the provenance vertices that have specific properties. The properties are framed as a query expression that can be evaluated by the storage system. The third argument is the expression to be matched.
