@@ -1,0 +1,26 @@
+#sidebar Documentation
+
+=_Reporting operating system provenance on Mac OS X_=
+
+===Requirements:===
+ * Common Criteria Tools for Mac OS X (https://ssl.apple.com/support/security/commoncriteria/)
+
+----
+
+The OpenBSM reporter is built automatically when the `make build` command is issued.
+
+Before this reporter can be used, the following commands must be executed in terminal inside the SPADE directory to allow access to the OpenBSM audit stream:
+
+{{{
+sudo chown root build/spade/reporter/spadeOpenBSM
+sudo chmod ug+s build/spade/reporter/spadeOpenBSM
+}}}
+
+----
+
+The argument is unused when starting this reporter:
+
+{{{
+-> add reporter OpenBSM
+Adding reporter OpenBSM... done
+}}}
