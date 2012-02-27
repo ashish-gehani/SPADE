@@ -8,6 +8,17 @@
 make query
 }}}
 
+The following will appear:
+
+{{{
+SPADE 2.0 Query Client
+
+Available commands:
+       query <class name> vertices <expression>
+       query <class name> lineage <vertex id> <depth> <direction> <terminating expression> <output file>
+       query <class name> paths <source vertex id> <destination vertex id> <max length> <output file>
+       exit
+}}}
 ----
 
 ===Finding provenance vertices===
