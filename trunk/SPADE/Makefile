@@ -44,7 +44,7 @@ download:
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/bin/
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
-	svn export -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/run
+	svn export -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/SPADE
 
 # ---------- Building SPADE ----------
 
