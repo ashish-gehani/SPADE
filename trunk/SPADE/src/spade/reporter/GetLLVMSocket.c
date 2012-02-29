@@ -10,9 +10,9 @@
 
 int LLVMSocket = 5000;
 int sock = -1;
-FILE* socket = NULL;
+FILE* socket_fp = NULL;
 
-int GetLLVMSocket()
+FILE* GetLLVMSocket()
 {
 	if(sock == -1)
 	{
@@ -37,7 +37,7 @@ int GetLLVMSocket()
 			perror("Unable to connect from LLVM instrumented program to SPADE");
 			exit(1);
 		}
-		socket = fdopen(sock, "r+");
+		socket_fp = fdopen(sock, "r+");
 	}
-	return (int)socket;
+	return socket_fp;
 }

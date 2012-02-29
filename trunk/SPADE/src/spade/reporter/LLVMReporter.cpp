@@ -193,9 +193,10 @@ namespace {
 				// Setting up argument types for fprintf and syscall
 				Type *CharTy = Type::getInt8PtrTy(M.getContext());
 				Type *IntTy = Type::getInt32Ty(M.getContext());
+                                Type *GenericPtr = Type::getInt8PtrTy(M.getContext());
 				
 				std::vector<Type*> args;
-				args.push_back(IntTy);
+				args.push_back(GenericPtr);
 				args.push_back(CharTy);
 				
 				//Getting handle for fprintf
@@ -211,7 +212,7 @@ namespace {
 
 				//Getting handle for SPADEPipe
 				//This is used for getting a handle to the socket to SPADE
-				MTy = FunctionType::get(IntTy, false);
+				MTy = FunctionType::get(GenericPtr, false);
 				SPADESocketFunc = (Function*)M.getOrInsertFunction("GetLLVMSocket", MTy);
 				return false;
 			}
