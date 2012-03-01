@@ -17,3 +17,7 @@ Storage can be added and removed while the *SPADE* kernel is running. For exampl
 -> remove storage Neo4j
 Shutting down storage Neo4j... done
 }}}
+
+----
+
+[*Neoclipse* http://neo4j.org/download_v1/] is a visual graph database tool that can be used to view and browse Neo4j databases. 
