@@ -13,8 +13,8 @@
   * Collecting the provenance of data in part of the filesystem
    * [MacFUSE On Mac OS X]
    * [LinuxFUSE On Linux]
-  * [ReporterAPI Programmatically reporting provenance]
   * [Pipe Collecting provenance from an external application]
+  * [ReporterAPI SPADE's provenance reporting API]
  * [Filters Filtering provenance]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
