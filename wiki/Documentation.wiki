@@ -1,6 +1,7 @@
 #labels Featured
  * [Architecture Overview of SPADE's architecture]
  * [Installation Steps to download, compile, and run SPADE]
+  * [ControlClient Using the SPADE Control Client]
  * [Storage Adding persistent metadata storage]
   * [Neo4j Using the Neo4j storage]
   * [SQL Using the H2 SQL storage]
