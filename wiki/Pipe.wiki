@@ -2,7 +2,7 @@
 
 =_Writing provenance to a pipe_=
 
-To help a user start sending provenance information to *SPADE* with minimal effort, we have implemented a `Pipe` reporter. It creates a named pipe in the filesystem, to which a user can send provenance information in a simple language that we describe below.
+To let a user (or external application) start sending provenance information to *SPADE* with minimal effort, we have implemented a `Pipe` reporter. It creates a named pipe in the filesystem, to which a user (or external application) can send provenance information in a simple language that we describe below.
 
 ----
 
