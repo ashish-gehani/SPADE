@@ -1,11 +1,11 @@
 #sidebar Documentation
 
-=_Using the SPADE Query Client_=
+=_Querying the SPADE server_=
 
-*SPADE* supports three classes of queries. These are invoked with the `query` command in the *SPADE* query client. The first argument specifies the storage system that is to be queried. The second argument is the query class (i.e., `vertices`, `lineage` or `paths`). The query client is started by using the following command in the `/bin` directory:
+*SPADE* supports three classes of queries. These are invoked with the `query` command in the *SPADE* query client. The first argument specifies the storage system that is to be queried. The second argument is the query class (i.e., `vertices`, `lineage` or `paths`). The query client is started with the following command:
 
 {{{
-./query
+./SPADE/bin/query
 }}}
 
 The following will appear:
@@ -25,7 +25,7 @@ Available commands:
 
 ===Finding provenance vertices===
 
-The `vertices` class of queries lets the user find all the provenance vertices that have specific properties. The properties are framed as a query expression that can be evaluated by the storage system. The third argument is the expression to be matched.
+The `vertices` class of queries finds all the provenance vertices that have specific properties. The properties are framed as a query expression that can be evaluated by the storage system. The third argument is the expression to be matched.
 
 ----
 
