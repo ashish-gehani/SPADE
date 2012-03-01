@@ -6,15 +6,15 @@
   * [Neo4j Using the Neo4j graph database]
   * [SQL Using the H2 SQL database]
   * [Graphviz Creating Graphviz output]
- * [Reporting Reporting the history of a computation]
-  * Reporting operating system provenance
-   * [OpenBSM On Mac OS X using OpenBSM]
-   * [LinuxAudit On Linux using LinuxAudit]
-  * Reporting filesystem provenance
-   * [MacFUSE On Mac OS X using MacFUSE]
-   * [LinuxFUSE On Linux using FUSE]
-  * [Pipe Writing provenance to a pipe]
+ * [Reporting Collecting data provenance]
+  * Collecting operating system provenance
+   * [OpenBSM On Mac OS X (using OpenBSM)]
+   * [LinuxAudit On Linux (using LinuxAudit)]
+  * Collecting filesystem provenance
+   * [MacFUSE On Mac OS X (using MacFUSE)]
+   * [LinuxFUSE On Linux (using FUSE)]
   * [ReporterAPI Programmatically reporting provenance]
- * [Filters Using filters]
+  * [Pipe Writing provenance to a pipe]
+ * [Filters Filtering provenance]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
