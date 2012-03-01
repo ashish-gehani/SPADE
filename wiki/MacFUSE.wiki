@@ -9,7 +9,7 @@ It may be preferable to only collect provenance about a limited part of the file
 
 ----
 
-The MacFUSE reporter is built automatically when the 'make' command is issued.
+The MacFUSE reporter is built automatically with 'make' in the root *SPADE* directory.
 
 ----
 
