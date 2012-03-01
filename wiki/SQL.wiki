@@ -2,7 +2,7 @@
 
 =_Using the H2 SQL storage_=
 
-The H2 SQL storage can be added to SPADE using the control shell. Note that a single argument must be provided. This is the location in the filesystem where the database is to be created if it does not exist, or where it is to be retrieved from if it has previously been created. In the example below `/tmp/sql/spade.db` is the location of the database:
+The H2 SQL storage can be added to SPADE using the control client. Note that a single argument must be provided. This is the location in the filesystem where the database is to be created if it does not exist, or where it is to be retrieved from if it has previously been created. In the example below `/tmp/sql/spade.db` is the location of the database:
 
 {{{
 -> add storage SQL /tmp/sql/spade.db
