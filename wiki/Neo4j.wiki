@@ -22,4 +22,9 @@ Shutting down storage Neo4j... done
 
 ===Using Neoclipse===
 
-[http://neo4j.org/download_v1/ Neoclipse] is a visual graph database tool that can be used to view and browse Neo4j databases. 
+[http://neo4j.org/download_v1/ Neoclipse] is a visual graph database tool that can be used to view and browse Neo4j databases. _Please note that since *SPADE* uses Neo4j version 1.5, you must download Neoclipse 1.5 that matches your operating system setup._
+
+A database can be viewed in Neoclipse only if it is not currently open or attached to SPADE. The following steps describe how to view a Neo4j database:
+  # Go to Preferences (on the Mac version of Neoclipse, this corresponds to the first button on the top toolbar).
+  # In the section "Neo4j", select the database location and exit preferences.
+  # Click on the "Start/Connect" button (on the Mac version of Neoclipse, this is the first button on the second toolbar).
