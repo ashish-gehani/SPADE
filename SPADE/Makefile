@@ -18,9 +18,11 @@ endif
 
 .PHONY: build
 
-all:
+all:	build
+
+help:
 	@echo 'Usage:'
-	@echo '      make build              - to compile the code'
+	@echo '      make                    - to compile the code'
 	@echo '      make clean              - to remove the compiled code'
 	@echo ' '
 	@#echo '      make clean-all          - to remove everything except the makefile'
