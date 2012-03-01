@@ -20,6 +20,14 @@ Shutting down storage Neo4j... done
 
 ----
 
+===Using the Neo4j Web Administration===
+
+Neo4j provides a web administration that allows users to monitor the server and browse data. When the Neo4j storage is added to *SPADE* using the `add storage` command in the control client, this tool is accessible by visiting the following URL: http://localhost:7474/.
+
+Detailed documentation describing this web interface and how it can be used to browse data is available [http://docs.neo4j.org/chunked/stable/tools-webadmin.html here].
+
+----
+
 ===Using Neoclipse===
 
 [http://neo4j.org/download_v1/ Neoclipse] is a visual graph database tool that can be used to view and browse Neo4j databases. _Please note that since *SPADE* uses Neo4j version 1.5, you must download Neoclipse 1.5 that matches your operating system setup._
