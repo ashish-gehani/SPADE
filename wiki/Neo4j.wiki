@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Using the Neo4j storage_=
+=_Using the Neo4j graph database_=
 
 The Neo4j storage can be added to SPADE using the control client. Note that a single argument must be provided. This is the location in the filesystem where the database is to be created if it does not exist, or where it is to be retrieved from if it has previously been created. In the example below `/tmp/spade.db` is the location of the database:
 
@@ -20,9 +20,9 @@ Shutting down storage Neo4j... done
 
 ----
 
-===Using the Neo4j Web Administration===
+===Using the Neo4j Web interface===
 
-Neo4j provides a web administration that allows users to monitor the server and browse data. When the Neo4j storage is added to *SPADE* using the `add storage` command in the control client, this tool is accessible by visiting the following URL: http://localhost:7474/.
+Neo4j provides a Web-based administrative interface that allows users to monitor the server and browse data. When the Neo4j storage is added to *SPADE* using the `add storage` command in the control client, the Web interface becomes accessible at the URL: http://localhost:7474/.
 
 Detailed documentation describing this web interface and how it can be used to browse data is available [http://docs.neo4j.org/chunked/stable/tools-webadmin.html here].
 
@@ -30,9 +30,10 @@ Detailed documentation describing this web interface and how it can be used to b
 
 ===Using Neoclipse===
 
-[http://neo4j.org/download_v1/ Neoclipse] is a visual graph database tool that can be used to view and browse Neo4j databases. _Please note that since *SPADE* uses Neo4j version 1.5, you must download Neoclipse 1.5 that matches your operating system setup._
+The [http://neo4j.org/download_v1/ Neoclipse] tool that can be used navigate and inspect the *SPADE* Neo4j database. _Note:_ *SPADE* uses Neo4j version 1.5 and a corresponding version of Neoclipse must be used.
 
-A database can be viewed in Neoclipse only if it is not currently open or attached to SPADE. The following steps describe how to view a Neo4j database:
-  # Go to Preferences (on the Mac version of Neoclipse, this corresponds to the first button on the top toolbar).
-  # In the section "Neo4j", select the database location and exit preferences.
-  # Click on the "Start/Connect" button (on the Mac version of Neoclipse, this is the first button on the second toolbar).
+A database can be viewed in Neoclipse only if it is not currently being used by *SPADE*. To view a *SPADE* Neo4j database:
+
+  # Go to Preferences (which is the first button on the top toolbar of Neoclipse on a Mac).
+  # In the section "Neo4j", select the database location and exit Preferences.
+  # Click on the "Start/Connect" button (which is the first button on the second toolbar of Neoclipse on a Mac).
