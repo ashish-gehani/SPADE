@@ -1,9 +1,6 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2011 SRI International.
 
-# Last stable Subversion revision.
-REVISION = 461
-
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
 
@@ -23,25 +20,13 @@ endif
 
 all:
 	@echo 'Usage:'
-	@echo '      make download           - to download the code'
 	@echo '      make build              - to compile the code'
-	@echo ' '
 	@echo '      make clean              - to remove the compiled code'
-	@echo '      make clean-all          - to remove everything except the makefile'
 	@echo ' '
+	@#echo '      make clean-all          - to remove everything except the makefile'
 	@#echo '      make android-build      - to build for android'
 	@#echo '      make android-deploy     - to deploy to android emulator'
 	@#echo '      make android-kernel     - to launch kernel on emulator'
-
-# ---------- Downloading SPADE ----------
-
-# Download everything.
-download:
-	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/src/
-	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
-	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/bin/
-	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
-	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
 
 # ---------- Building SPADE ----------
 
@@ -108,14 +93,10 @@ build-macfuse:
 
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
-	@rm -rf build android-build android-lib
+	@rm -rf build
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 
-# Remove everything except the Makefile.
-
-clean-all:
-	@echo 'Removing everything except Makefile...'
-	@rm -rf build android-build android-lib lib src cfg log bin run
+# ---------- Android-related rules [EXPERIMENTAL] ----------
 
 # Build for Android
 android-build:
