@@ -1,8 +1,8 @@
 #labels Featured
  * [Architecture Overview of SPADE's architecture]
  * [Installation Steps to download, compile, and run SPADE]
-  * [ControlClient Using the SPADE Control Client]
-  * [QueryClient Using the SPADE Query Client]
+  * [ControlClient Controlling the SPADE server]
+  * [QueryClient Querying SPADE]
    * [QueryExample Example illustrating provenance querying]
  * [Storage Adding persistent metadata storage]
   * [Neo4j Using the Neo4j storage]
