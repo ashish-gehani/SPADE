@@ -6,7 +6,7 @@ To help a user start sending provenance information to *SPADE* with minimal effo
 
 ----
 
-The `Pipe` reporter is compiled along with SPADE. This reporter takes a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the *SPADE* control shell (after SPADE has been started):
+The `Pipe` reporter is compiled along with SPADE. This reporter takes a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the *SPADE* control client (after SPADE has been started):
 
 {{{
 -> add reporter Pipe /tmp/spade_pipe
