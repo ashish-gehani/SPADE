@@ -3,8 +3,8 @@
  * [Installation Steps to download, compile, and run SPADE]
   * [ControlClient Controlling the SPADE server]
  * [Storage Adding a data store]
-  * [Neo4j Using the Neo4j storage]
-  * [SQL Using the H2 SQL storage]
+  * [Neo4j Using the Neo4j graph database]
+  * [SQL Using the H2 SQL database]
   * [Graphviz Creating Graphviz output]
  * [Reporting Reporting the history of a computation]
   * Reporting operating system provenance
