@@ -10,9 +10,13 @@ Note that `->` at the beginning of a line indicates that the command is to be ex
 
 ----
 
+===Requirements===
+
 To compile SPADE, the Java Development Kit (JDK) is required. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
 ----
+
+===Downloading and compiling===
 
 Download the *SPADE* `Makefile`:
 
@@ -40,6 +44,8 @@ make build
 }}}
 
 ----
+
+===Starting the SPADE server===
 
 To start the *SPADE* server, go to directory `/bin` and use:
 
