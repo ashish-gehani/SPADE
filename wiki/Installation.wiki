@@ -32,7 +32,7 @@ To compile the *SPADE* code, navigate to this newly created directory and use th
 
 {{{
 cd SPADE
-make build
+make
 }}}
 
 ----
