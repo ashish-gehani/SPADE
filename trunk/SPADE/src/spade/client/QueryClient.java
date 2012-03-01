@@ -35,7 +35,7 @@ public class QueryClient {
     private static BufferedReader SPADEQueryOut;
     private static final String nullString = "null";
     private static volatile boolean shutdown;
-    private static final String historyFile = "cfg/query.history";
+    private static final String historyFile = "../cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
 
