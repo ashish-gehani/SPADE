@@ -5,7 +5,7 @@
 To start the client used to configure the *SPADE* server, execute the following command:
 
 {{{
-bin/control
+SPADE/bin/control
 }}}
 
 The following will appear:
