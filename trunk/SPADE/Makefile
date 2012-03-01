@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 459
+REVISION = 460
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
@@ -25,8 +25,6 @@ all:
 	@echo 'Usage:'
 	@echo '      make download           - to download the code'
 	@echo '      make build              - to compile the code'
-	@echo '      make control            - to start the control client'
-	@echo '      make query              - to start the query client'
 	@echo ' '
 	@echo '      make clean              - to remove the compiled code'
 	@echo '      make clean-all          - to remove everything except the makefile'
@@ -40,11 +38,10 @@ all:
 # Download everything.
 download:
 	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/src/
-	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
-	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/bin/
-	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
-	svn export -r $(REVISION) --force --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
-	svn export -r $(REVISION) --force http://data-provenance.googlecode.com/svn/trunk/SPADE/SPADE
+	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/lib/
+	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/bin/
+	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/cfg/
+	svn export -r $(REVISION) --depth infinity http://data-provenance.googlecode.com/svn/trunk/SPADE/log/
 
 # ---------- Building SPADE ----------
 
@@ -104,22 +101,6 @@ build-macfuse:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -I/usr/local/include/fuse -Wall -g -D__DARWIN_64_BIT_INO_T=1 -o lib/libMacFUSE.jnilib src/spade/reporter/libMacFUSE.c -lfuse_ino64
-
-# ---------- Running SPADE ----------
-
-# Run the SPADE kernel.
-kernel:
-	@echo 'SPADE 2.0 Kernel'
-	@cd bin;\
-	java -server -Xmx512M -cp '../build:../lib/*' -Djava.library.path=../lib spade.core.Kernel 
-
-# Start the control client.
-control:
-	@java -cp 'build:lib/*' spade.client.ControlClient
-
-# Start the query client.
-query:
-	@java -cp 'build:lib/*' spade.client.QueryClient
 
 # ---------- Removing files ----------
 
