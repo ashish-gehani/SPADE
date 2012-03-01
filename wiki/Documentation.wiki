@@ -7,10 +7,10 @@
   * [SQL Storing provenance in a SQL database]
   * [Graphviz Creating Graphviz output]
  * [Reporting Collecting data provenance]
-  * Collecting operating system provenance]
+  * Collecting operating system provenance
    * [OpenBSM Collecting system-wide provenance on Mac OS X]
    * [LinuxAudit Collecting system-wide provenance on Linux]
-  * Collecting the provenance of data in part of the filesystem]
+  * Collecting the provenance of data in part of the filesystem
    * [MacFUSE On Mac OS X]
    * [LinuxFUSE On Linux]
   * [ReporterAPI Programmatically reporting provenance]
