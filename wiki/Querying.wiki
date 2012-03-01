@@ -1,11 +1,11 @@
 #sidebar Documentation
 
-=_Querying the provenance of data_=
+=_Using the SPADE Query Client_=
 
-*SPADE* supports three classes of queries. These are invoked with the `query` command in the *SPADE* query shell. The first argument specifies the storage system that is to be queried. The second argument is the query class (i.e., `vertices`, `lineage` or `paths`). The query client is started by using the following command:
+*SPADE* supports three classes of queries. These are invoked with the `query` command in the *SPADE* query client. The first argument specifies the storage system that is to be queried. The second argument is the query class (i.e., `vertices`, `lineage` or `paths`). The query client is started by using the following command in the `/bin` directory:
 
 {{{
-make query
+./query
 }}}
 
 The following will appear:
