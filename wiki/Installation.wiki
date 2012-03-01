@@ -21,7 +21,7 @@ To compile *SPADE*, the Java Development Kit (JDK) is required. This can be down
 To download *SPADE*, use the following command:
 
 {{{
-svn checkout -r 484 https://data-provenance.googlecode.com/svn/trunk/SPADE/
+svn checkout -r 521 https://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 
 This will create a `SPADE` directory and download all the necessary files in it.
