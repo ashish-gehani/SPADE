@@ -2,7 +2,7 @@
 # Copyright (C) 2011 SRI International.
 
 # Last stable Subversion revision.
-REVISION = 458
+REVISION = 459
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
