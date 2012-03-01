@@ -20,4 +20,6 @@ Shutting down storage Neo4j... done
 
 ----
 
-[http://neo4j.org/download_v1/ *Neoclipse*] is a visual graph database tool that can be used to view and browse Neo4j databases. 
+===Using Neoclipse===
+
+[http://neo4j.org/download_v1/ Neoclipse] is a visual graph database tool that can be used to view and browse Neo4j databases. 
