@@ -1,6 +1,8 @@
 #sidebar Documentation
 
-=_Reporting filesystem provenance on Linux_=
+=_Limiting filesystem provenance collection on Mac OS X_=
+
+It may be preferable to only collect provenance about a limited part of the filesystem (that a target application is using, for example). Additionally, collecting fine-grained provenance, including I/O time, can impose significant overhead when done across the entire operating system. This reporter allows provenance collection to be limited to a subtree (/tmp/mountPoint in the example below) of the filesystem._=
 
 ===Requirements:===
  * FUSE (http://fuse.sourceforge.net/)
@@ -11,7 +13,7 @@ yum install fuse fuse-devel fuse-libs
 
 ----
 
-The LinuxFUSE reporter is built automatically when the 'make build' command is issued. Before this reporter can be used, the option *user_allow_other* _must_ be enabled in the file `/etc/fuse.conf`.
+The LinuxFUSE reporter is built automatically with 'make' in the root SPADE directory. Before this reporter can be used, the option *user_allow_other* _must_ be enabled in the file `/etc/fuse.conf`.
 
 ----
 
