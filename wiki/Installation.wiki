@@ -6,7 +6,7 @@
 
 Since *SPADE* is under active development, the instructions below describe how to download, compile, and run the latest stable version of the code. Other versions can be used by adjusting the revision number in the `Makefile`.
 
-Note that `->` at the beginning of a line indicates that the command is to be executed in the *SPADE* shell. Other commands are to be used in a Unix shell (such as `/bin/tcsh`).
+Note that `->` at the beginning of a line indicates that the command is to be executed in the *SPADE* client. Other commands are to be used in a Unix shell (such as `/bin/tcsh`).
 
 ----
 
@@ -41,71 +41,34 @@ make build
 
 ----
 
-To start the *SPADE* server, use:
+To start the *SPADE* server, go to directory `/bin` and use:
 
 {{{
-./SPADE start
+./server start
+}}}
+
+This will start the *SPADE* server as a background process and the terminal can be safely exited. Note that the server allows multiple startup options. To start as a foreground process in the terminal, use the following:
+
+{{{
+./server console
+}}}
+
+*SPADE* can also be installed as a service to be started every time the system is booted. However, installing this service can only be done by a super-user. To install *SPADE* as a service, use this command:
+
+{{{
+sudo ./server install
+}}}
+
+To uninstall the *SPADE* service, use:
+
+{{{
+sudo ./server remove
+}}}
+
+To see whether *SPADE* is currently running or not, use the following command:
+
+{{{
+./server status
 }}}
 
 ----
-
-To start the *SPADE* control shell, use:
-
-{{{
-make control
-}}}
-
-The following will appear:
-
-{{{
-SPADE 2.0 Control Client
-
-Available commands:
-       add reporter|storage <class name> <initialization arguments>
-       add filter <class name> <index>
-       add sketch <class name> <storage class name>
-       remove reporter|storage|sketch <class name>
-       remove filter <index>
-       list reporters|storages|filters|sketches|all
-       config load|save <filename>
-       exit
-       shutdown
-
--> 
-}}}
-
-----
-
-At the outset, no reporters, storage, filters, or sketches are present. This can be seen with the *SPADE* control shell's `list` command:
-
-{{{
--> list reporters
-No reporters added
-
--> list storages
-No storage added
-
--> list filters
-No filters added
-
--> list sketches
-No sketches added
-}}}
-
-(You will see how reporters, storages, filters, and sketches can be added in subsequent steps.)
-
-----
-
-To stop the *SPADE* control shell, use the `exit` command:
-
-{{{
--> exit
-}}}
-
-----
-
-To stop the *SPADE* server, use the `shutdown` command:
-
-{{{
--> shutdown
-}}}
