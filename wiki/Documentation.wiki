@@ -6,7 +6,7 @@
   * [Neo4j Storing provenance in a graph database]
   * [SQL Storing provenance in a SQL database]
   * [Graphviz Creating Graphviz output]
- * [Reporting Collecting data provenance]
+ * [Reporting Collecting provenance]
   * Collecting operating system provenance
    * [OpenBSM Collecting system-wide provenance on Mac OS X]
    * [LinuxAudit Collecting system-wide provenance on Linux]
