@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Querying the SPADE server_=
+=_Querying SPADE_=
 
 *SPADE* supports three classes of queries. These are invoked with the `query` command in the *SPADE* query client. The first argument specifies the storage system that is to be queried. The second argument is the query class (i.e., `vertices`, `lineage` or `paths`). The query client is started with the following command:
 
