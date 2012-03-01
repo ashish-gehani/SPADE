@@ -1,8 +1,8 @@
 #sidebar Documentation
 
-=_Using the Neo4j graph database_=
+=_Storing provenance in a graph database_=
 
-The Neo4j storage can be added to SPADE using the control client. Note that a single argument must be provided. This is the location in the filesystem where the database is to be created if it does not exist, or where it is to be retrieved from if it has previously been created. In the example below `/tmp/spade.db` is the location of the database:
+Storage in the Neo4j graph database can be activated using the *SPADE* control client. A single argument must be provided. This is the location in the filesystem where the database is to be created if it does not exist, or where it is to be retrieved from if it has previously been created. In the example below `/tmp/spade.graph_db` is the location of the database:
 
 {{{
 -> add storage Neo4j /tmp/spade.graph_db
