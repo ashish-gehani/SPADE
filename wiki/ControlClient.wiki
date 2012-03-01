@@ -1,11 +1,11 @@
 #sidebar Documentation
 
-=_Controlling the SPADE Server_=
+=_Controlling the SPADE server_=
 
-To start the *SPADE* control client, go to directory `/bin` using terminal and execute the following command:
+To start the client used to configure the *SPADE* server, execute the following command:
 
 {{{
-./control
+bin/control
 }}}
 
 The following will appear:
@@ -55,7 +55,7 @@ To exit the client, use the `exit` command:
 
 ----
 
-To stop the *SPADE* server completely, use the `shutdown` command:
+To stop the *SPADE* server, use the `shutdown` command:
 
 {{{
 -> shutdown
