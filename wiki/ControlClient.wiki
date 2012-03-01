@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Using the SPADE Control Client_=
+=_Controlling the SPADE Server_=
 
 To start the *SPADE* control client, go to directory `/bin` using terminal and execute the following command:
 
