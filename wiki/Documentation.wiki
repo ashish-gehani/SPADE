@@ -7,10 +7,10 @@
   * [SQL Storing provenance in a SQL database]
   * [Graphviz Creating Graphviz output]
  * [Reporting Collecting provenance]
-  * Collecting operating system provenance
-   * [OpenBSM Collecting system-wide provenance on Mac OS X]
-   * [LinuxAudit Collecting system-wide provenance on Linux]
-  * Collecting the provenance of data in part of the filesystem
+  * Collecting provenance across the operating system
+   * [OpenBSM On Mac OS X]
+   * [LinuxAudit On Linux]
+  * Limiting collection to a part of the filesystem
    * [MacFUSE On Mac OS X]
    * [LinuxFUSE On Linux]
   * [Pipe Collecting provenance from an external application]
