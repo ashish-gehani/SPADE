@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Reporting operating system provenance on Mac OS X_=
+=_Collecting system-wide provenance on Mac OS X_=
 
 ===Requirements:===
  * Common Criteria Tools for Mac OS X (https://ssl.apple.com/support/security/commoncriteria/)
