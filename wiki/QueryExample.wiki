@@ -2,11 +2,11 @@
 
 =_Example illustrating provenance querying_=
 
-The example below illustrates the use of the *SPADE* shell's `query` command.
+The example below illustrates the use of the query client.
 
 ----
 
-After *SPADE* has been activated (with `make start-spade`), add the `Neo4j` storage and `Pipe` reporter:
+After the *SPADE* server has been started, add the `Neo4j` storage and `Pipe` reporter using the control client:
 
 {{{
 -> add storage Neo4j /tmp/spade_database
@@ -18,7 +18,7 @@ Adding reporter Pipe... done
 
 ----
 
-To create the provenance metadata needed for the example, add the following vertices and edges:
+To create the provenance metadata needed for the example, use the following commands in terminal or shell to add the vertices and edges:
 
 {{{
 echo type:Process id:1 name:root\\ process pid:10 >> /tmp/spade_pipe 
@@ -60,7 +60,7 @@ Note that the [http://eprints.ecs.soton.ac.uk/21449/ Open Provenance Model (OPM)
 
 ----
 
-The query shell with the `vertices` option can be used to get a list of all the process vertices:
+From the query client, the query command with the `vertices` option can be used to get a list of all the process vertices:
 
 {{{
 -> query Neo4j vertices type:Process
