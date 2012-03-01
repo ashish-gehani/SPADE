@@ -69,15 +69,15 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static final String configFile = "../cfg/spade.config";
+    public static final String configFile = "../../cfg/spade.config";
     /**
      * Path to configuration file for port numbers.
      */
-    public static final String portsFile = "../cfg/ports.config";
+    public static final String portsFile = "../../cfg/ports.config";
     /**
      * Path to log files including the prefix.
      */
-    public static final String logPathAndPrefix = "../log/SPADE_log_";
+    public static final String logPathAndPrefix = "../../log/SPADE_";
     /**
      * Date/time suffix pattern for log files.
      */
