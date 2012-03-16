@@ -1,0 +1,17 @@
+all:  LLVMReporter.dylib  llvmReporterLib.o ${TARGET}
+
+LLVMReporter.dylib: LLVMReporter.cpp
+	g++ LLVMReporter.cpp -shared -o LLVMReporter.so ${CXX_FLAGS}
+
+llvmReporterLib.o:  llvmReporterLib.c
+	gcc -g -static llvmReporterLib.c -c -o llvmReporterLib.o
+
+
+${TARGET}: ${TARGET}.c llvmReporterLib.o
+	${CLANG} -c  -fPIC -emit-llvm ${TARGET}.c -o ${TARGET}.bc
+	opt -load ./LLVMReporter.so  -provenance ${TARGET}.bc -o ${TARGET}.bc
+	llc -relocation-model=pic ${TARGET}.bc -o ${TARGET}.s
+	gcc -g  -fPIC close.c -c -o close.o
+	gcc -g  ${TARGET}.s -c -o ${TARGET}.o
+	gcc -g 	${TARGET}.o close.o  -shared -o ${TARGET}.so
+	gcc ./${TARGET}.so llvmReporterLib.o -o ${TARGET}
