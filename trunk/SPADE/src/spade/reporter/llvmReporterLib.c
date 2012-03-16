@@ -30,7 +30,6 @@ int llvm_close(int fd){
   if((sock != -1) && (sock == fd)){
     return 0;
   } else {
-    //don't close stderr
     return close(fd); 
   }
 }
