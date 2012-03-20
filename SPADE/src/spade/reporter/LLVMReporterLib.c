@@ -19,7 +19,7 @@
 int LLVMSocket = 5000;
 
 /* turn this on to use independently of the spade server; reporting goes to stderr */
-#define _IANS_DEBUGGING  1
+#define _IANS_DEBUGGING  0
 
 #if _IANS_DEBUGGING == 1
 int sock = STDERR_FILENO;
@@ -34,6 +34,7 @@ unsigned long LLVMReporter_getThreadId(){
 #if defined(_LLVMREPORTER_MACOSX)
   //look at pthread.h for this stuff; it's unique to a mac
   //N.B. on my(all?) macs the value of pthread_self() is always the same for the main thread (regardless of which pid it has)
+  //hence the extra yards...
   __uint64_t  tid;
   pthread_t self = pthread_self();
   pthread_threadid_np(self, &tid);
