@@ -1,22 +1,22 @@
 CLANG++   = $(shell which clang++)
 
-CLANG_FLAGS   = -cc1 -triple x86_64-apple-macosx10.6.8 -emit-obj -mrelax-all -disable-free  ${C_FLAGS}
+CLANG_FLAGS   =  -cc1 -triple x86_64-apple-macosx10.6.8 -emit-obj -mrelax-all -disable-free  ${C_FLAGS}
 CLANG++_FLAGS = ${CXX_FLAGS} -m64 -Wl,-flat_namespace -Wl,-undefined,suppress  -dynamiclib -mmacosx-version-min=10.6
 
-all:  LLVMReporter.dylib  llvmReporterLib.o ${TARGET}
+all:  LLVMReporter.dylib  LLVMReporterLib.o ${TARGET}
 
 LLVMReporter.dylib: LLVMReporter.cpp
 	${CLANG} ${CLANG_FLAGS} -g  -o LLVMReporter.o -x c++ LLVMReporter.cpp
 	${CLANG++} ${CLANG++_FLAGS} -o LLVMReporter.dylib LLVMReporter.o
 
-llvmReporterLib.o:  llvmReporterLib.c
-	${CLANG} -g -static llvmReporterLib.c -c -o llvmReporterLib.o
+LLVMReporterLib.o:  LLVMReporterLib.c
+	${CLANG} -static ${REPLIB_OSFLAG} LLVMReporterLib.c -c -o LLVMReporterLib.o
 
 
-${TARGET}: ${TARGET}.c llvmReporterLib.o
+${TARGET}: ${TARGET}.c LLVMReporterLib.o
 	${CLANG} -c -emit-llvm ${TARGET}.c -o ${TARGET}.bc
 	opt -load LLVMReporter.dylib  -provenance ${TARGET}.bc -o ${TARGET}.bc
 	llc ${TARGET}.bc -o ${TARGET}.s
-	${CLANG} -g close.c -c -o close.o
-	${CLANG} -g ${TARGET}.s close.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress  -o ${TARGET}.dylib
-	${CLANG} -g llvmReporterLib.o ${TARGET}.dylib  -o ${TARGET}
+	${CLANG} close.c -c -o close.o
+	${CLANG} ${TARGET}.s close.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress  -o ${TARGET}.dylib
+	${CLANG} LLVMReporterLib.o ${TARGET}.dylib  -o ${TARGET}

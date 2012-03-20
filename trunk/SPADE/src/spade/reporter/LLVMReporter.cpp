@@ -1,16 +1,14 @@
 /* Written against the LLVM 3.0 release.
  * Based on TraceValues pass of LLVM 1.x
  * 
- * 
+ *  
  * Usage:
  * gcc llvmReporterLib.c -c -o llvmReporterLib.o
  * g++ LLVMReporter.cpp -shared -o LLVMReporter.so -I$(LLVM_INCLUDE_DIR) -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS
  * (On Ubuntu 12.04 LLVM_INCLUDE_DIR = /usr/lib/llvm-3.0/include)
- * 
- * clang -c -emit-llvm foo.c -o foo.bc
- * opt -load LLVMReporter.so -provenance foo.bc -o foo.bc
- * llc foo.bc -o foo.s
- * gcc foo.s llvmReporterLib.o -o foo
+ *
+ * "make" on either Mac or Linux; bug reports to Ian.Mason@SRI.com
+ *
  */
 
 #include "llvm/Constants.h"
@@ -27,7 +25,6 @@
 #include "llvm/Assembly/Writer.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/IRBuilder.h"
-#include <sys/syscall.h>
 #include <sstream>
 
 using namespace llvm;
@@ -62,18 +59,18 @@ namespace {
                                      Instruction *InsertBefore,
                                      std::string Message,
                                      Function *Printf,
-                                     Function *SysCall,
-                                     Function *SPADESocketFunc
+                                     Function *SPADESocketFunc,
+                                     Function *SPADEThreadIdFunc
                                      ) {
     Module *Mod = BB->getParent()->getParent(); //BasicBlock is a child of Function which is a child of Module
     //Insert function to get SocketHandle
     CallInst* socketHandle = CallInst::Create((Value*) SPADESocketFunc, Twine("SocketHandle"), &(*InsertBefore)); //gets the fd for the socket to SPADE
     socketHandle->setTailCall();
     
-    //Insert function to get Thread ID
-    CallInst* tid;
-    tid = CallInst::Create((Value*)SysCall, GetTid, Twine("syscall"), &(*InsertBefore));
-    tid->setTailCall();
+
+    //Insert function to get Thread Identifier
+    CallInst* threadHandle = CallInst::Create((Value*) SPADEThreadIdFunc, Twine("ThreadHandle"), &(*InsertBefore)); //gets the fd for the getThreadId SPADE library fn
+    threadHandle->setTailCall();
     
     //Message is the string argument to fprintf. GEP is used for getting the handle to Message.
     GlobalVariable *fmtVal;
@@ -84,7 +81,8 @@ namespace {
     std::vector<Value*> PrintArgs;
     PrintArgs.push_back(socketHandle);
     PrintArgs.push_back(GEP);
-    PrintArgs.push_back(tid);
+    PrintArgs.push_back(threadHandle);
+
     for(unsigned i  = 0 ; i < PrintArgsIn.size(); i++)
     {
       PrintArgs.push_back(PrintArgsIn[i]);
@@ -97,8 +95,8 @@ namespace {
   static inline void FunctionEntry(
                                    Function &F,
                                    Function *Printf,
-                                   Function *SysCall,
-                                   Function *SPADESocketFunc
+                                   Function *SPADESocketFunc,
+                                   Function *SPADEThreadIdFunc
                                    ){
     BasicBlock &BB = F.getEntryBlock();
     Instruction *InsertPos = BB.begin();
@@ -109,7 +107,7 @@ namespace {
     raw_string_ostream strStream(printString);
     //Prints the function name to strStream
     WriteAsOperand(strStream, &F, false, BB.getParent()->getParent());
-    printString = "%d E: " + strStream.str(); //%d is for Thread ID, E is for Function Entry
+    printString = "%lu E: " + strStream.str(); //WAS  %d  now is %lu is for Thread ID, E is for Function Entry
     
     unsigned ArgNo = 0;
     
@@ -141,14 +139,14 @@ namespace {
       }
     }
     printString = printString + "\n";
-    InsertPrintInstruction(PrintArgs, &BB, InsertPos, printString, Printf, SysCall, SPADESocketFunc);
+    InsertPrintInstruction(PrintArgs, &BB, InsertPos, printString, Printf, SPADESocketFunc, SPADEThreadIdFunc);
   }
   
   static inline void FunctionExit(
                                   BasicBlock *BB,
                                   Function *Printf,
-                                  Function *SysCall,
-                                  Function *SPADESocketFunc
+                                  Function *SPADESocketFunc,
+                                  Function *SPADEThreadIdFunc
                                   ){
     ReturnInst *Ret = (ReturnInst*)(BB->getTerminator());
     
@@ -160,7 +158,7 @@ namespace {
     //Prints the function name to strStream
     WriteAsOperand(strStream, BB->getParent(), false, BB->getParent()->getParent()); //BasicBlock is a child of Function which is a child of Module
     
-    printString = "%d L: " + strStream.str(); //%d is for Thread ID, L is for Function Leave
+    printString = "%lu L: " + strStream.str(); //WAS %d NOW IS %lu is for Thread ID, L is for Function Leave
     
     std::vector<Value*> PrintArgs;
     if(!BB->getParent()->getReturnType()->isVoidTy())
@@ -188,29 +186,30 @@ namespace {
       PrintArgs.push_back(Ret->getReturnValue());
     }
     printString = printString + "\n";
-    InsertPrintInstruction(PrintArgs, BB, Ret, printString , Printf, SysCall, SPADESocketFunc);
+    InsertPrintInstruction(PrintArgs, BB, Ret, printString , Printf, SPADESocketFunc, SPADEThreadIdFunc);
   }
   
   class InsertMetadataCode : public FunctionPass
   {
   protected:
     Function* PrintfFunc;
-    Function* SysCallFunc;
     Function* SPADESocketFunc;
+    Function* SPADEThreadIdFunc;
   public:
     static char ID; // Pass identification, replacement for typeid
     InsertMetadataCode() : FunctionPass(ID) {}
     bool doInitialization(Module &M)
     {
-      // Setting up argument types for fprintf and syscall
+      // Setting up argument types for fprintf
       Type *CharTy = Type::getInt8PtrTy(M.getContext());
 
+      //Ian says FILE* can't be considered a 32 but int on a 64 bit machine.
+      //This is for FILE*
       Type *GenericPtr = Type::getInt8PtrTy(M.getContext());
       
-      //Ian says FILE* can't be considered a 32 but int on a 64 bit machine.
-      //looking into making it a PtrTy rather than a int variant.      
-      //      Type *IntTy = Type::getInt32Ty(M.getContext());
-            Type *IntTy = Type::getInt64Ty(M.getContext());
+      //64 bit rather than 32?
+      //Type *IntTy = Type::getInt32Ty(M.getContext());
+      Type *IntTy = Type::getInt64Ty(M.getContext());
       
       std::vector<Type*> args;
       args.push_back(GenericPtr); //IAM was IntTy
@@ -219,18 +218,16 @@ namespace {
       //Getting handle for fprintf
       FunctionType *MTy = FunctionType::get(IntTy,ArrayRef<Type*>(args), true);
       PrintfFunc = (Function*)M.getOrInsertFunction("fprintf", MTy);
-      
-      //Getting handle for syscall
-      MTy = FunctionType::get(IntTy, IntTy, false);
-      SysCallFunc = (Function*)M.getOrInsertFunction("syscall", MTy);
-      
-      //Setting syscall argument for getThreadID
-      GetTid = ConstantInt::get(IntTy, SYS_gettid, true);
-      
-      //Getting handle for SPADEPipe
+
+      //Getting handle for SPADEThreadIdFunc
+      //This is used for getting a handle to the OS dependent LLVM_getThreadId() function
+      MTy = FunctionType::get(IntTy, false);  
+      SPADEThreadIdFunc = (Function*)M.getOrInsertFunction("LLVMReporter_getThreadId", MTy);
+
+      //Getting handle for SPADESocketFunc
       //This is used for getting a handle to the socket to SPADE
       MTy = FunctionType::get(GenericPtr, false);  //IAM was IntTy
-      SPADESocketFunc = (Function*)M.getOrInsertFunction("GetLLVMSocket", MTy);
+      SPADESocketFunc = (Function*)M.getOrInsertFunction("LLVMReporter_getSocket", MTy);
       return false;
     }
     
@@ -240,12 +237,12 @@ namespace {
       std::vector<BasicBlock*> exitBlocks;
       
       //FunctionEntry inserts Provenance instrumentation at the start of every function
-      FunctionEntry(F, PrintfFunc, SysCallFunc, SPADESocketFunc);
+      FunctionEntry(F, PrintfFunc, SPADESocketFunc, SPADEThreadIdFunc);
       
       //FunctionExit inserts Provenance instrumentation on the end of every function
       for (Function::iterator BB = F.begin(); BB != F.end(); ++BB) {
         if (isa<ReturnInst>(BB->getTerminator()))
-          FunctionExit(BB, PrintfFunc, SysCallFunc, SPADESocketFunc);
+          FunctionExit(BB, PrintfFunc, SPADESocketFunc, SPADEThreadIdFunc);
       }
       return true;
     }
