@@ -7,12 +7,13 @@ CLANG     = $(shell which clang)
 
 TARGET = nweb
 
-
 ifeq (Darwin, $(findstring Darwin, ${OS}))
+REPLIB_OSFLAG  =  -D_LLVMREPORTER_MACOSX 
 include Makefile.macosx
 endif
 
 ifeq (Linux, $(findstring Linux, ${OS}))
+REPLIB_OSFLAG  =  -D_LLVMREPORTER_LINUX
 include Makefile.linux
 endif
 
