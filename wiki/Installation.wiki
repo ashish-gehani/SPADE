@@ -37,7 +37,7 @@ make
 
 ----
 
-===Starting the SPADE server===
+===Operating the SPADE server===
 
 To start the *SPADE* server, use:
 
