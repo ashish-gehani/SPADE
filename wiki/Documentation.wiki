@@ -14,7 +14,7 @@
    * [MacFUSE On Mac OS X]
    * [LinuxFUSE On Linux]
   * [Pipe Collecting provenance from an external application]
-  * [ReporterAPI SPADE's provenance reporting API]
+  * [ReporterAPI Using SPADE's provenance reporting API]
  * [Filters Filtering provenance]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
