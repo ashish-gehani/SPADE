@@ -3,6 +3,9 @@
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
+LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
+
+# TARGET = src/spade/reporter/nweb
 
 # System and architecture-specific configuration
 OS_NAME = $(shell uname)
@@ -10,10 +13,14 @@ OS_ARCH = $(shell uname -m)
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm build-macfuse
 	OS_CONFIG_PATH = /usr/local/lib/pkgconfig
+	REPLIB_OSFLAG = -D_LLVMREPORTER_MACOSX 
+	LLVM_RULE = build-mac-llvm
 endif
 ifeq ($(OS_NAME), Linux)
 	OS_BUILD = build-linuxaudit build-linuxfuse
 	OS_CONFIG_PATH = /usr/lib/pkgconfig
+	REPLIB_OSFLAG = -D_LLVMREPORTER_LINUX
+	LLVM_RULE = build-linux-llvm
 endif
 
 .PHONY: build
@@ -43,6 +50,8 @@ build:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/utility/*.java
 	@echo 'Building storage...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/*.java
+	@echo 'Building filters...'
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/*.java
 	@echo 'Building the Pipe reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Pipe.java
 	@echo 'Building the Lsof reporter...'
@@ -88,6 +97,37 @@ build-macfuse:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -I/usr/local/include/fuse -Wall -g -D__DARWIN_64_BIT_INO_T=1 -o lib/libMacFUSE.jnilib src/spade/reporter/libMacFUSE.c -lfuse_ino64
+
+llvm:
+	@make $(LLVM_RULE)
+
+build-mac-llvm:
+	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
+	$(eval C_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cflags))
+	$(eval CLANG_FLAGS = -cc1 -triple x86_64-apple-macosx10.6.8 -emit-obj -mrelax-all -disable-free ${C_FLAGS})
+	$(eval CLANG++_FLAGS = ${CXX_FLAGS} -m64 -Wl,-flat_namespace -Wl,-undefined,suppress -dynamiclib -mmacosx-version-min=10.6)
+	$(LLVM_PATH)/bin/clang ${CLANG_FLAGS} -g -o src/spade/reporter/LLVMReporter.o -x c++ src/spade/reporter/LLVMReporter.cpp
+	$(LLVM_PATH)/bin/clang ${CLANG++_FLAGS} -o lib/LLVMReporter.dylib src/spade/reporter/LLVMReporter.o
+	$(LLVM_PATH)/bin/clang -static ${REPLIB_OSFLAG} src/spade/reporter/LLVMReporterLib.c -c -o src/spade/reporter/LLVMReporterLib.o
+	$(LLVM_PATH)/bin/clang -c -emit-llvm ${TARGET}.c -o ${TARGET}.bc
+	$(LLVM_PATH)/bin/opt -load lib/LLVMReporter.dylib -provenance ${TARGET}.bc -o ${TARGET}.bc
+	$(LLVM_PATH)/bin/llc ${TARGET}.bc -o ${TARGET}.s
+	$(LLVM_PATH)/bin/clang src/spade/reporter/close.c -c -o src/spade/reporter/close.o
+	$(LLVM_PATH)/bin/clang ${TARGET}.s src/spade/reporter/close.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress -o ${TARGET}.dylib
+	$(LLVM_PATH)/bin/clang src/spade/reporter/LLVMReporterLib.o ${TARGET}.dylib -o ${TARGET}
+
+build-linux-llvm:
+	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
+	g++ src/spade/reporter/LLVMReporter.cpp -shared -o lib/LLVMReporter.so $(CXX_FLAGS)
+	gcc -static ${REPLIB_OSFLAG} src/spade/reporter/LLVMReporterLib.c -c -o src/spade/reporter/LLVMReporterLib.o
+	$(LLVM_PATH)/bin/clang -c -fPIC -emit-llvm ${TARGET}.c -o ${TARGET}.bc
+	$(LLVM_PATH)/bin/opt -load lib/LLVMReporter.so -provenance ${TARGET}.bc -o ${TARGET}.bc
+	$(LLVM_PATH)/bin/llc -relocation-model=pic ${TARGET}.bc -o ${TARGET}.s
+	gcc -fPIC src/spade/reporter/close.c -c -o src/spade/reporter/close.o
+	gcc ${TARGET}.s -c -o ${TARGET}.o
+	gcc ${TARGET}.o src/spade/reporter/close.o -shared -o ${TARGET}.so
+	gcc ${TARGET}.so src/spade/reporter/LLVMReporterLib.o -o ${TARGET}
+
 
 # ---------- Removing files ----------
 
