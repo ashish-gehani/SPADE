@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2011 SRI International
+ Copyright (C) 2012 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -32,7 +32,7 @@ import java.util.logging.Logger;
 /**
  * The SPADE core.
  *
- * @author Dawood
+ * @author Dawood Tariq
  */
 public class Kernel {
 
@@ -41,6 +41,10 @@ public class Kernel {
      * all elements retrieved from buffers.
      */
     public static final String SOURCE_REPORTER = "source_reporter";
+    /**
+     * A string representing the unique identifier for provenance elements.
+     */
+    public static final String UNIQUE_ID = "unique_id";
     /**
      * A map used to cache the remote sketches.
      */
@@ -69,15 +73,15 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static final String configFile = "../../cfg/spade.config";
+    public static final String configFile = "../cfg/spade.config";
     /**
      * Path to configuration file for port numbers.
      */
-    public static final String portsFile = "../../cfg/ports.config";
+    public static final String portsFile = "../cfg/ports.config";
     /**
      * Path to log files including the prefix.
      */
-    public static final String logPathAndPrefix = "../../log/SPADE_";
+    public static final String logPathAndPrefix = "../log/SPADE_";
     /**
      * Date/time suffix pattern for log files.
      */
@@ -123,11 +127,14 @@ public class Kernel {
     private static final int FIRST_TRANSFORMER = 0;
     private static final int FIRST_FILTER = 0;
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
-    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> <index> <initialization arguments>";
+    //private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> <index> <initialization arguments>";
+    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter <class name> <index> <initialization arguments>";
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
-    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <index>";
-    private static final String LIST_STRING = "list reporters|storages|filters|transformers|sketches|all";
+    //private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <index>";
+    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter <index>";
+    //private static final String LIST_STRING = "list reporters|storages|filters|transformers|sketches|all";
+    private static final String LIST_STRING = "list reporters|storages|filters|sketches|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
@@ -291,11 +298,15 @@ public class Kernel {
                                 Object bufferelement = buffer.getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
                                     AbstractVertex tempVertex = (AbstractVertex) bufferelement;
+                                    int hash = tempVertex.hashCode();
                                     tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
+                                    tempVertex.addAnnotation(UNIQUE_ID, Integer.toString(hash));
                                     filters.get(FIRST_FILTER).putVertex(tempVertex);
                                 } else if (bufferelement instanceof AbstractEdge) {
                                     AbstractEdge tempEdge = (AbstractEdge) bufferelement;
+                                    int hash = tempEdge.hashCode();
                                     tempEdge.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
+                                    tempEdge.addAnnotation(UNIQUE_ID, Integer.toString(hash));
                                     filters.get(FIRST_FILTER).putEdge(tempEdge);
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
@@ -748,7 +759,7 @@ public class Kernel {
             String classname = tokens[2];
             String[] parameters = tokens[3].split("\\s+", 2);
             outputStream.print("Adding filter " + classname + "... ");
-            int index = 0;
+            int index;
             try {
                 index = Integer.parseInt(parameters[0]);
             } catch (NumberFormatException numberFormatException) {
@@ -793,7 +804,7 @@ public class Kernel {
             String classname = tokens[2];
             String[] parameters = tokens[3].split("\\s+", 2);
             outputStream.print("Adding transformer " + classname + "... ");
-            int index = 0;
+            int index;
             try {
                 index = Integer.parseInt(parameters[0]);
             } catch (NumberFormatException numberFormatException) {
@@ -965,7 +976,7 @@ public class Kernel {
             listCommand("list reporters", outputStream);
             listCommand("list storages", outputStream);
             listCommand("list filters", outputStream);
-            listCommand("list transformers", outputStream);
+            //listCommand("list transformers", outputStream);
             listCommand("list sketches", outputStream);
         } else {
             outputStream.println("Usage:");

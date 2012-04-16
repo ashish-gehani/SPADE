@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2011 SRI International
+ Copyright (C) 2012 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -39,7 +39,7 @@ import spade.vertex.opm.Agent;
 /**
  * The LinuxFUSE reporter.
  *
- * @author Dawood
+ * @author Dawood Tariq
  */
 public class LinuxFUSE extends AbstractReporter {
 
@@ -86,7 +86,7 @@ public class LinuxFUSE extends AbstractReporter {
             localHostName = null;
             Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
         }
-        
+
         try {
             BufferedReader confReader = new BufferedReader(new FileReader("/etc/fuse.conf"));
             String line;

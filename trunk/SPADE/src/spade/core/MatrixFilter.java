@@ -1,29 +1,29 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2012 SRI International
 
-This program is free software: you can redistribute it and/or  
-modify it under the terms of the GNU General Public License as  
-published by the Free Software Foundation, either version 3 of the  
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or  
+ modify it under the terms of the GNU General Public License as  
+ published by the Free Software Foundation, either version 3 of the  
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,  
-but WITHOUT ANY WARRANTY; without even the implied warranty of  
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU  
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,  
+ but WITHOUT ANY WARRANTY; without even the implied warranty of  
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU  
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License  
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+ You should have received a copy of the GNU General Public License  
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
---------------------------------------------------------------------------------
+ --------------------------------------------------------------------------------
 
  Based on the Bloom filter implementation by Magnus Skjegstad:
  http://code.google.com/p/java-bloomfilter/
  
  Author: Magnus Skjegstad <magnus@skjegstad.com>
 
---------------------------------------------------------------------------------
+ --------------------------------------------------------------------------------
  */
 package spade.core;
 
@@ -35,8 +35,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 /*
- * @param <E> Object type that is to be inserted into the Bloom filter, e.g. String or Integer.
- * @author Magnus Skjegstad <magnus@skjegstad.com>
+ * @param <E> Object type that is to be inserted into the Bloom filter, e.g.
+ * String or Integer. @author Magnus Skjegstad <magnus@skjegstad.com>
  */
 public class MatrixFilter implements Serializable {
 
@@ -61,8 +61,8 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Constructs an empty Bloom filter. The total length of the Bloom filter will be
-     * c*n.
+     * Constructs an empty Bloom filter. The total length of the Bloom filter
+     * will be c*n.
      *
      * @param c is the number of bits used per element.
      * @param n is the expected number of elements the filter will contain.
@@ -81,11 +81,14 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Constructs an empty Bloom filter. The optimal number of hash functions (k) is estimated from the total size of the Bloom
-     * and the number of expected elements.
+     * Constructs an empty Bloom filter. The optimal number of hash functions
+     * (k) is estimated from the total size of the Bloom and the number of
+     * expected elements.
      *
-     * @param bitSetSize defines how many bits should be used in total for the filter.
-     * @param expectedNumberOElements defines the maximum number of elements the filter is expected to contain.
+     * @param bitSetSize defines how many bits should be used in total for the
+     * filter.
+     * @param expectedNumberOElements defines the maximum number of elements the
+     * filter is expected to contain.
      */
     public MatrixFilter(int bitSetSize, int expectedNumberOElements) {
         this(bitSetSize / (double) expectedNumberOElements,
@@ -94,12 +97,14 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Constructs an empty Bloom filter with a given false positive probability. The number of bits per
-     * element and the number of hash functions is estimated
-     * to match the false positive probability.
+     * Constructs an empty Bloom filter with a given false positive probability.
+     * The number of bits per element and the number of hash functions is
+     * estimated to match the false positive probability.
      *
-     * @param falsePositiveProbability is the desired false positive probability.
-     * @param expectedNumberOfElements is the expected number of elements in the Bloom filter.
+     * @param falsePositiveProbability is the desired false positive
+     * probability.
+     * @param expectedNumberOfElements is the expected number of elements in the
+     * Bloom filter.
      */
     public MatrixFilter(double falsePositiveProbability, int expectedNumberOfElements) {
         this(Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2))) / Math.log(2), // c = k / ln(2)
@@ -131,7 +136,8 @@ public class MatrixFilter implements Serializable {
     /**
      * Generates a digest based on the contents of a String.
      *
-     * @param val specifies the input data. The encoding is expected to be UTF-8.
+     * @param val specifies the input data. The encoding is expected to be
+     * UTF-8.
      * @return digest as long.
      */
     public static long createHash(String val) {
@@ -191,6 +197,7 @@ public class MatrixFilter implements Serializable {
 
     /**
      * Calculates a hash code for this class.
+     *
      * @return hash code representing the contents of an instance of this class.
      */
     @Override
@@ -204,13 +211,13 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Calculates the expected probability of false positives based on
-     * the number of expected filter elements and the size of the Bloom filter.
-     * <br /><br />
-     * The value returned by this method is the <i>expected</i> rate of false
-     * positives, assuming the number of inserted elements equals the number of
-     * expected elements. If the number of elements in the Bloom filter is less
-     * than the expected value, the true probability of false positives will be lower.
+     * Calculates the expected probability of false positives based on the
+     * number of expected filter elements and the size of the Bloom filter. <br
+     * /><br /> The value returned by this method is the <i>expected</i> rate of
+     * false positives, assuming the number of inserted elements equals the
+     * number of expected elements. If the number of elements in the Bloom
+     * filter is less than the expected value, the true probability of false
+     * positives will be lower.
      *
      * @return expected probability of false positives.
      */
@@ -219,8 +226,8 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Calculate the probability of a false positive given the specified
-     * number of inserted elements.
+     * Calculate the probability of a false positive given the specified number
+     * of inserted elements.
      *
      * @param numberOfElements number of inserted elements.
      * @return probability of a false positive.
@@ -233,8 +240,9 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Get the current probability of a false positive. The probability is calculated from
-     * the size of the Bloom filter and the current number of elements added to it.
+     * Get the current probability of a false positive. The probability is
+     * calculated from the size of the Bloom filter and the current number of
+     * elements added to it.
      *
      * @return probability of false positives.
      */
@@ -243,10 +251,9 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Returns the value chosen for K.<br />
-     * <br />
-     * K is the optimal number of hash functions based on the size
-     * of the Bloom filter and the expected number of inserted elements.
+     * Returns the value chosen for K.<br /> <br /> K is the optimal number of
+     * hash functions based on the size of the Bloom filter and the expected
+     * number of inserted elements.
      *
      * @return optimal k.
      */
@@ -305,12 +312,13 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Returns true if the element could have been inserted into the Bloom filter.
-     * Use getFalsePositiveProbability() to calculate the probability of this
-     * being correct.
+     * Returns true if the element could have been inserted into the Bloom
+     * filter. Use getFalsePositiveProbability() to calculate the probability of
+     * this being correct.
      *
      * @param element element to check.
-     * @return true if the element could have been inserted into the Bloom filter.
+     * @return true if the element could have been inserted into the Bloom
+     * filter.
      */
     public boolean contains(AbstractVertex vertex) {
         long hash;
@@ -336,8 +344,8 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Returns the number of elements added to the Bloom filter after it
-     * was constructed or after clear() was called.
+     * Returns the number of elements added to the Bloom filter after it was
+     * constructed or after clear() was called.
      *
      * @return number of elements added to the Bloom filter.
      */
@@ -356,8 +364,9 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Get expected number of bits per element when the Bloom filter is full. This value is set by the constructor
-     * when the Bloom filter is created. See also getBitsPerElement().
+     * Get expected number of bits per element when the Bloom filter is full.
+     * This value is set by the constructor when the Bloom filter is created.
+     * See also getBitsPerElement().
      *
      * @return expected number of bits per element.
      */
@@ -366,8 +375,9 @@ public class MatrixFilter implements Serializable {
     }
 
     /**
-     * Get actual number of bits per element based on the number of elements that have currently been inserted and the length
-     * of the Bloom filter. See also getExpectedBitsPerElement().
+     * Get actual number of bits per element based on the number of elements
+     * that have currently been inserted and the length of the Bloom filter. See
+     * also getExpectedBitsPerElement().
      *
      * @return number of bits per element.
      */

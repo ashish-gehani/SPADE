@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2011 SRI International
+ Copyright (C) 2012 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -28,11 +28,12 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
+import spade.core.Kernel;
 
 /**
  * A storage implementation that writes data to a DOT file.
  *
- * @author Dawood
+ * @author Dawood Tariq
  */
 public class Graphviz extends AbstractStorage {
 
@@ -95,7 +96,8 @@ public class Graphviz extends AbstractStorage {
                             || (key.equalsIgnoreCase("subtype"))
                             || (key.equalsIgnoreCase("environment"))
                             || (key.equalsIgnoreCase("commandline"))
-                            || (key.equalsIgnoreCase("source_reporter"))) {
+                            || (key.equalsIgnoreCase(Kernel.UNIQUE_ID))
+                            || (key.equalsIgnoreCase(Kernel.SOURCE_REPORTER))) {
                         continue;
                     }
                     annotationString.append(key.replace("\\", "\\\\"));
@@ -114,13 +116,16 @@ public class Graphviz extends AbstractStorage {
                     shape = "box";
                     color = "lightsteelblue1";
                 } else if (type.equalsIgnoreCase("Artifact")) {
-                    String subtype = incomingVertex.getAnnotation("subtype");
-                    if (subtype.equalsIgnoreCase("file")) {
-                        shape = "ellipse";
-                        color = "khaki1";
-                    } else if (subtype.equalsIgnoreCase("network")) {
-                        shape = "diamond";
-                        color = "palegreen1";
+                    shape = "ellipse";
+                    color = "khaki1";
+                    try {
+                        String subtype = incomingVertex.getAnnotation("subtype");
+                        if (subtype.equalsIgnoreCase("network")) {
+                            shape = "diamond";
+                            color = "palegreen1";
+                        }
+                    } catch (Exception exception) {
+                        // Ignore
                     }
                 }
                 outputFile.write("\""

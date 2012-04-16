@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2012 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.storage;
 
@@ -32,8 +32,8 @@ import spade.core.AbstractVertex;
 
 /**
  * Basic SQL storage implementation.
- * 
- * @author Dawood
+ *
+ * @author Dawood Tariq
  */
 public class SQL extends AbstractStorage {
 
@@ -52,9 +52,17 @@ public class SQL extends AbstractStorage {
         receivedVertices = new HashSet<Integer>();
         receivedEdges = new HashSet<Integer>();
 
+        // Arguments consist of 4 space-separated tokens: 'driver URL username password'
+
         try {
-            Class.forName("org.h2.Driver");
-            dbConnection = DriverManager.getConnection("jdbc:h2:" + arguments, "sa", "");
+            String[] tokens = arguments.split("\\s+");
+            String driver = tokens[0];
+            String databaseURL = tokens[0];
+            String username = tokens[0];
+            String password = tokens[0];
+
+            Class.forName(driver);
+            dbConnection = DriverManager.getConnection(databaseURL, username, password);
 
             Statement dbStatement = dbConnection.createStatement();
 
@@ -79,16 +87,13 @@ public class SQL extends AbstractStorage {
             // For performance optimization, create and store procedure to add
             // columns to tables since this method will be called frequently
             // ---- PROCEDURES UNSUPPORTED IN H2 ----
-            /*
-            String procedureStatement = "DROP PROCEDURE IF EXISTS addColumn;\n"
-            + "CREATE PROCEDURE addColumn(IN myTable VARCHAR(16), IN myColumn VARCHAR(64))\n"
-            + "BEGIN\n"
-            + "   SET @newStatement = CONCAT('ALTER TABLE ', myTable, ' ADD COLUMN ', myColumn, ' BLOB');\n"
-            + "   PREPARE STMT FROM @newStatement;\n"
-            + "   EXECUTE STMT;\n"
-            + "END;";
-            dbStatement.execute(procedureStatement);
-             */
+//            String procedureStatement = "DROP PROCEDURE IF EXISTS addColumn;\n"
+//                    + "CREATE PROCEDURE addColumn(IN myTable VARCHAR(16), IN myColumn VARCHAR(64))\n"
+//                    + "BEGIN\n"
+//                    + " SET @newStatement = CONCAT('ALTER TABLE ', myTable, ' ADD COLUMN ', myColumn, ' BLOB');\n"
+//                    + " PREPARE STMT FROM @newStatement;\n"
+//                    + " EXECUTE STMT;\n" + "END;";
+//            dbStatement.execute(procedureStatement);
 
             dbStatement.close();
             return true;
@@ -133,14 +138,11 @@ public class SQL extends AbstractStorage {
 
         try {
             // ---- PROCEDURES UNSUPPORTED IN H2 ----            
-            /*
-            CallableStatement callStatement = dbConnection.prepareCall("{CALL addColumn(?, ?)}");
-            callStatement.setString(1, table);
-            callStatement.setString(2, column);
-            callStatement.execute();
-            callStatement.close();
-             * 
-             */
+//            CallableStatement callStatement = dbConnection.prepareCall("{CALL addColumn(?, ?)}");
+//            callStatement.setString(1, table);
+//            callStatement.setString(2, column);
+//            callStatement.execute();
+//            callStatement.close();
             // Add column of type VARCHAR
             Statement columnStatement = dbConnection.createStatement();
             columnStatement.execute("ALTER TABLE " + table + " ADD IF NOT EXISTS " + column + " VARCHAR");
