@@ -6,7 +6,7 @@ Copyright (C) 2001-2007  Miklos Szeredi <miklos@szeredi.hu>
 
 --------------------------------------------------------------------------------
 SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+Copyright (C) 2012 SRI International
 
 This program is free software: you can redistribute it and/or
 modify it under the terms of the GNU General Public License as
@@ -560,7 +560,7 @@ JNIEXPORT jint JNICALL Java_spade_reporter_LinuxFUSE_launchFUSE(JNIEnv *e, jobje
     argv[0] = "libLinuxFUSE";
     argv[1] = "-f";
     argv[2] = "-s";
-    argv[3] = (char*)(*env)->GetStringUTFChars(env, mountPoint, NULL);
+    argv[3] = (char*) (*env)->GetStringUTFChars(env, mountPoint, NULL);
     argv[4] = "-oallow_other";
 
     umask(0);

@@ -1,7 +1,7 @@
 /*
 --------------------------------------------------------------------------------
 SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+Copyright (C) 2012 SRI International
 
 This program is free software: you can redistribute it and/or
 modify it under the terms of the GNU General Public License as
@@ -16,7 +16,7 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
-*/
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,124 +27,124 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/ioctl.h>
 #include <security/audit/audit_ioctl.h>
 
-int main(int argc, char** argv){
+int main(int argc, char** argv) {
 
-	// User configurable section starts here
+    // User configurable section starts here
 
-	FILE* output = stdout;
-	FILE* errors = stderr;
-	char* delimiter = ",";
-	int raw = 1; // Convert raw to string
-	int shortForm = 0; // Use long form
-	char* auditPipe = "/dev/auditpipe";
-	u_int dataFlow = 0x00000001 | 0x00000002 | 0x00000010 | 0x00000020 | 0x00000080 | 0x40000000;
-								// Class defined in /etc/security/audit_class
-								// Events in class defined in /etc/security/audit_event
-	
-	// User configurable section ends here
+    FILE* output = stdout;
+    FILE* errors = stderr;
+    char* delimiter = ",";
+    int raw = 1; // Convert raw to string
+    int shortForm = 0; // Use long form
+    char* auditPipe = "/dev/auditpipe";
+    u_int dataFlow = 0x00000001 | 0x00000002 | 0x00000010 | 0x00000020 | 0x00000080 | 0x40000000;
+    // Class defined in /etc/security/audit_class
+    // Events in class defined in /etc/security/audit_event
 
-	// Open the audit trail
+    // User configurable section ends here
 
-	FILE* auditFile;
-	int auditFileDescriptor;
+    // Open the audit trail
 
-	auditFile = fopen(auditPipe, "r");
-	if(auditFile == NULL){
-		fprintf(stderr, "Unable to open audit pipe: %s\n", auditPipe);
-		perror("Error ");
-		exit(1);
-	}
-	auditFileDescriptor = fileno(auditFile);
+    FILE* auditFile;
+    int auditFileDescriptor;
 
-	// Configure the audit pipe
-	
-	int ioctlReturn;
+    auditFile = fopen(auditPipe, "r");
+    if (auditFile == NULL) {
+        fprintf(stderr, "Unable to open audit pipe: %s\n", auditPipe);
+        perror("Error ");
+        exit(1);
+    }
+    auditFileDescriptor = fileno(auditFile);
 
-	int mode = AUDITPIPE_PRESELECT_MODE_LOCAL;
-	ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_PRESELECT_MODE, &mode);
-	if(ioctlReturn == -1){
-		fprintf(stderr, "Unable to set the audit pipe mode to local.\n");
-		perror("Error ");
-	}
+    // Configure the audit pipe
 
-	int queueLength;
-	ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_GET_QLIMIT_MAX, &queueLength);
-	if(ioctlReturn == -1){
-		fprintf(stderr, "Unable to get the maximum queue length of the audit pipe.\n");
-		perror("Error ");
-	}
+    int ioctlReturn;
 
-	ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_QLIMIT, &queueLength);
-	if(ioctlReturn == -1){
-		fprintf(stderr, "Unable to set the queue length of the audit pipe.\n");
-		perror("Error ");
-	}
-	
-	u_int attributableEventsMask = dataFlow;
-	ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_PRESELECT_FLAGS, &attributableEventsMask);
-	if(ioctlReturn == -1){
-		fprintf(stderr, "Unable to set the attributable events preselection mask.\n");
-		perror("Error ");
-	}
-	
-	u_int nonAttributableEventsMask = dataFlow;
-	ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_PRESELECT_NAFLAGS, &nonAttributableEventsMask);
-	if(ioctlReturn == -1){
-		fprintf(stderr, "Unable to set the non-attributable events preselection mask.\n");
-		perror("Error ");
-	}
-	
-	// fprintf(output, "Provenance collection has started.\n");
-	// Start processing audit records
+    int mode = AUDITPIPE_PRESELECT_MODE_LOCAL;
+    ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_PRESELECT_MODE, &mode);
+    if (ioctlReturn == -1) {
+        fprintf(stderr, "Unable to set the audit pipe mode to local.\n");
+        perror("Error ");
+    }
 
-	u_char* buffer;
-	int remainingRecords = 1;
-	int recordLength;
-	int recordBalance;
-	int processedLength;
-	int tokenCount;
-	int fetchToken;
-	tokenstr_t token;
-	
-	while(remainingRecords){
+    int queueLength;
+    ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_GET_QLIMIT_MAX, &queueLength);
+    if (ioctlReturn == -1) {
+        fprintf(stderr, "Unable to get the maximum queue length of the audit pipe.\n");
+        perror("Error ");
+    }
 
-		// Read an audit record
-		// Note: au_read_rec() man page incorrectly states return
-		//	value is 0 on success (rather than number of bytes
-		//	read in record)
-		recordLength = au_read_rec(auditFile, &buffer);
-		if(recordLength == -1){
-			remainingRecords = 0;
-			break;
-		}
+    ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_QLIMIT, &queueLength);
+    if (ioctlReturn == -1) {
+        fprintf(stderr, "Unable to set the queue length of the audit pipe.\n");
+        perror("Error ");
+    }
 
-		recordBalance = recordLength;
-		processedLength = 0;
-		tokenCount = 0;
-		
-		while(recordBalance){
+    u_int attributableEventsMask = dataFlow;
+    ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_PRESELECT_FLAGS, &attributableEventsMask);
+    if (ioctlReturn == -1) {
+        fprintf(stderr, "Unable to set the attributable events preselection mask.\n");
+        perror("Error ");
+    }
 
-			// Extract a token from the record
-			fetchToken = au_fetch_tok(&token, buffer + processedLength, recordBalance);
+    u_int nonAttributableEventsMask = dataFlow;
+    ioctlReturn = ioctl(auditFileDescriptor, AUDITPIPE_SET_PRESELECT_NAFLAGS, &nonAttributableEventsMask);
+    if (ioctlReturn == -1) {
+        fprintf(stderr, "Unable to set the non-attributable events preselection mask.\n");
+        perror("Error ");
+    }
 
-			if(fetchToken == -1){
-				// fprintf(errors, "Error fetching token.\n");
-				break;
-			}
+    // fprintf(output, "Provenance collection has started.\n");
+    // Start processing audit records
 
-			// Print the long form of the token as a string
-			au_print_tok(output, &token, delimiter, raw, shortForm);		
-			fprintf(output, "\n");
+    u_char* buffer;
+    int remainingRecords = 1;
+    int recordLength;
+    int recordBalance;
+    int processedLength;
+    int tokenCount;
+    int fetchToken;
+    tokenstr_t token;
 
-			tokenCount++;			
-			processedLength += token.len;
-			recordBalance -= token.len;
-		}
-		
-		free(buffer);
-		// fprintf(output, "\n");
-	}
+    while (remainingRecords) {
 
-	fclose(auditFile);
-	fprintf(output, "Provenance collection has ended.\n");
+        // Read an audit record
+        // Note: au_read_rec() man page incorrectly states return
+        //	value is 0 on success (rather than number of bytes
+        //	read in record)
+        recordLength = au_read_rec(auditFile, &buffer);
+        if (recordLength == -1) {
+            remainingRecords = 0;
+            break;
+        }
+
+        recordBalance = recordLength;
+        processedLength = 0;
+        tokenCount = 0;
+
+        while (recordBalance) {
+
+            // Extract a token from the record
+            fetchToken = au_fetch_tok(&token, buffer + processedLength, recordBalance);
+
+            if (fetchToken == -1) {
+                // fprintf(errors, "Error fetching token.\n");
+                break;
+            }
+
+            // Print the long form of the token as a string
+            au_print_tok(output, &token, delimiter, raw, shortForm);
+            fprintf(output, "\n");
+
+            tokenCount++;
+            processedLength += token.len;
+            recordBalance -= token.len;
+        }
+
+        free(buffer);
+        // fprintf(output, "\n");
+    }
+
+    fclose(auditFile);
+    fprintf(output, "Provenance collection has ended.\n");
 }

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2011 SRI International
+ Copyright (C) 2012 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -29,7 +29,7 @@ import java.util.logging.Logger;
 
 /**
  *
- * @author dawood
+ * @author Dawood Tariq
  */
 public class Query {
 

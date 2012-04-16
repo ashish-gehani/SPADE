@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2012 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.sketch;
 
@@ -52,7 +52,7 @@ public class ConcreteSketch extends AbstractSketch {
         try {
             if (incomingEdge.type().equalsIgnoreCase("Used")
                     && incomingEdge.getDestinationVertex().getAnnotation("network").equalsIgnoreCase("true")) {
-                    //&& incomingEdge.getDestinationVertex().type().equalsIgnoreCase("Network")) {
+                //&& incomingEdge.getDestinationVertex().type().equalsIgnoreCase("Network")) {
                 // Connection was created to this host
                 AbstractVertex networkVertex = incomingEdge.getDestinationVertex();
                 String remoteHost = networkVertex.getAnnotation("destination host");
@@ -115,7 +115,7 @@ public class ConcreteSketch extends AbstractSketch {
 }
 
 class updateMatrixThread implements Runnable {
-    
+
     private AbstractSketch sketch;
     private AbstractVertex vertex;
     private String type;
@@ -154,7 +154,7 @@ class updateMatrixThread implements Runnable {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                     sketch.matrixFilter.add(vertex, currentVertex);
                 }
-            }            
+            }
             ////////////////////////////////////////////////////////////
             System.out.println("concreteSketch - Updated bloomfilters for WGB edge - storageId: " + storageId);
             ////////////////////////////////////////////////////////////

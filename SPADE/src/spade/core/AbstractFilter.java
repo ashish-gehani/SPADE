@@ -1,28 +1,28 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2012 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.core;
 
 /**
  * This is the base class for filters.
- * 
- * @author Dawood
+ *
+ * @author Dawood Tariq
  */
 public abstract class AbstractFilter {
 
@@ -34,7 +34,7 @@ public abstract class AbstractFilter {
 
     /**
      * This method is invoked by the kernel when initializing a filter.
-     * 
+     *
      * @param arguments The arguments for this reporter.
      * @return True if the reporter launched successfully.
      */
@@ -44,7 +44,7 @@ public abstract class AbstractFilter {
 
     /**
      * This method is invoked by the kernel when shutting down a filter.
-     * 
+     *
      * @return True if the reporter was shut down successfully.
      */
     public boolean shutdown() {
@@ -53,7 +53,7 @@ public abstract class AbstractFilter {
 
     /**
      * This method is used by the Kernel for configuring the filter list.
-     * 
+     *
      * @param next The next filter to which elements are passed.
      */
     public final void setNextFilter(AbstractFilter next) {
@@ -62,7 +62,7 @@ public abstract class AbstractFilter {
 
     /**
      * This method is called by the filters to send elements to the next filter.
-     * 
+     *
      * @param vertex The vertex to be sent to the next filter.
      */
     public final void putInNextFilter(AbstractVertex vertex) {
@@ -71,7 +71,7 @@ public abstract class AbstractFilter {
 
     /**
      * This method is called by the filters to send elements to the next filter.
-     * 
+     *
      * @param edge The edge to be sent to the next filter.
      */
     public final void putInNextFilter(AbstractEdge edge) {
@@ -80,14 +80,14 @@ public abstract class AbstractFilter {
 
     /**
      * This method is called when the filter receives a vertex.
-     * 
+     *
      * @param incomingVertex The vertex received by this filter.
      */
     public abstract void putVertex(AbstractVertex incomingVertex);
 
     /**
      * This method is called when the filter receives an edge.
-     * 
+     *
      * @param incomingEdge The edge received by this filter.
      */
     public abstract void putEdge(AbstractEdge incomingEdge);

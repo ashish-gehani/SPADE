@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2011 SRI International
+ Copyright (C) 2012 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -43,7 +43,7 @@ import spade.core.*;
 /**
  * Neo4j storage implementation.
  *
- * @author Dawood
+ * @author Dawood Tariq
  */
 public class Neo4j extends AbstractStorage {
 

@@ -1,7 +1,7 @@
 /*
 --------------------------------------------------------------------------------
 SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+Copyright (C) 2012 SRI International
 
 This program is free software: you can redistribute it and/or
 modify it under the terms of the GNU General Public License as
@@ -16,7 +16,7 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
-*/
+ */
 
 #include <AvailabilityMacros.h>
 
@@ -45,10 +45,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #include <jni.h>
 
 #if defined(_POSIX_C_SOURCE)
-typedef unsigned char  u_char;
+typedef unsigned char u_char;
 typedef unsigned short u_short;
-typedef unsigned int   u_int;
-typedef unsigned long  u_long;
+typedef unsigned int u_int;
+typedef unsigned long u_long;
 #endif
 
 #define G_PREFIX                       "org"
@@ -76,8 +76,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *pvt) {
 }
 
 static int
-spade_getattr(const char *path, struct stat *stbuf)
-{
+spade_getattr(const char *path, struct stat *stbuf) {
     int res;
 
     res = lstat(path, stbuf);
@@ -90,11 +89,10 @@ spade_getattr(const char *path, struct stat *stbuf)
 
 static int
 spade_fgetattr(const char *path, struct stat *stbuf,
-                  struct fuse_file_info *fi)
-{
+        struct fuse_file_info *fi) {
     int res;
 
-    (void)path;
+    (void) path;
 
     res = fstat(fi->fh, stbuf);
     if (res == -1) {
@@ -105,8 +103,7 @@ spade_fgetattr(const char *path, struct stat *stbuf,
 }
 
 static int
-spade_readlink(const char *path, char *buf, size_t size)
-{
+spade_readlink(const char *path, char *buf, size_t size) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
 
@@ -141,11 +138,10 @@ struct spade_dirp {
 };
 
 static int
-spade_opendir(const char *path, struct fuse_file_info *fi)
-{
+spade_opendir(const char *path, struct fuse_file_info *fi) {
     int res;
 
-    struct spade_dirp *d = malloc(sizeof(struct spade_dirp));
+    struct spade_dirp *d = malloc(sizeof (struct spade_dirp));
     if (d == NULL) {
         return -ENOMEM;
     }
@@ -160,24 +156,22 @@ spade_opendir(const char *path, struct fuse_file_info *fi)
     d->offset = 0;
     d->entry = NULL;
 
-    fi->fh = (unsigned long)d;
+    fi->fh = (unsigned long) d;
 
     return 0;
 }
 
 static inline struct spade_dirp *
-get_dirp(struct fuse_file_info *fi)
-{
-    return (struct spade_dirp *)(uintptr_t)fi->fh;
+get_dirp(struct fuse_file_info *fi) {
+    return (struct spade_dirp *) (uintptr_t) fi->fh;
 }
 
 static int
 spade_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                 off_t offset, struct fuse_file_info *fi)
-{
+        off_t offset, struct fuse_file_info *fi) {
     struct spade_dirp *d = get_dirp(fi);
 
-    (void)path;
+    (void) path;
 
     if (offset != d->offset) {
         seekdir(d->dp, offset);
@@ -196,7 +190,7 @@ spade_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
             }
         }
 
-        memset(&st, 0, sizeof(st));
+        memset(&st, 0, sizeof (st));
         st.st_ino = d->entry->d_ino;
         st.st_mode = d->entry->d_type << 12;
         nextoff = telldir(d->dp);
@@ -212,11 +206,10 @@ spade_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 }
 
 static int
-spade_releasedir(const char *path, struct fuse_file_info *fi)
-{
+spade_releasedir(const char *path, struct fuse_file_info *fi) {
     struct spade_dirp *d = get_dirp(fi);
 
-    (void)path;
+    (void) path;
 
     closedir(d->dp);
     free(d);
@@ -225,8 +218,7 @@ spade_releasedir(const char *path, struct fuse_file_info *fi)
 }
 
 static int
-spade_mknod(const char *path, mode_t mode, dev_t rdev)
-{
+spade_mknod(const char *path, mode_t mode, dev_t rdev) {
     int res;
 
     if (S_ISFIFO(mode)) {
@@ -243,8 +235,7 @@ spade_mknod(const char *path, mode_t mode, dev_t rdev)
 }
 
 static int
-spade_mkdir(const char *path, mode_t mode)
-{
+spade_mkdir(const char *path, mode_t mode) {
     int res;
 
     res = mkdir(path, mode);
@@ -256,8 +247,7 @@ spade_mkdir(const char *path, mode_t mode)
 }
 
 static int
-spade_unlink(const char *path)
-{
+spade_unlink(const char *path) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
 
@@ -274,8 +264,7 @@ spade_unlink(const char *path)
 }
 
 static int
-spade_rmdir(const char *path)
-{
+spade_rmdir(const char *path) {
     int res;
 
     res = rmdir(path);
@@ -287,8 +276,7 @@ spade_rmdir(const char *path)
 }
 
 static int
-spade_symlink(const char *from, const char *to)
-{
+spade_symlink(const char *from, const char *to) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpathOriginal = (*env)->NewStringUTF(env, from);
     jstring jpathLink = (*env)->NewStringUTF(env, to);
@@ -306,8 +294,7 @@ spade_symlink(const char *from, const char *to)
 }
 
 static int
-spade_rename(const char *from, const char *to)
-{
+spade_rename(const char *from, const char *to) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpathOld = (*env)->NewStringUTF(env, from);
     jstring jpathNew = (*env)->NewStringUTF(env, to);
@@ -346,8 +333,7 @@ spade_rename(const char *from, const char *to)
 }
 
 static int
-spade_exchange(const char *path1, const char *path2, unsigned long options)
-{
+spade_exchange(const char *path1, const char *path2, unsigned long options) {
     int res;
 
     res = exchangedata(path1, path2, options);
@@ -359,8 +345,7 @@ spade_exchange(const char *path1, const char *path2, unsigned long options)
 }
 
 static int
-spade_link(const char *from, const char *to)
-{
+spade_link(const char *from, const char *to) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpathOriginal = (*env)->NewStringUTF(env, from);
     jstring jpathLink = (*env)->NewStringUTF(env, to);
@@ -379,8 +364,7 @@ spade_link(const char *from, const char *to)
 
 static int
 spade_fsetattr_x(const char *path, struct setattr_x *attr,
-                    struct fuse_file_info *fi)
-{
+        struct fuse_file_info *fi) {
     int res;
     uid_t uid = -1;
     gid_t gid = -1;
@@ -446,7 +430,7 @@ spade_fsetattr_x(const char *path, struct setattr_x *attr,
         attributes.volattr = 0;
 
         res = setattrlist(path, &attributes, &attr->crtime,
-                  sizeof(struct timespec), FSOPT_NOFOLLOW);
+                sizeof (struct timespec), FSOPT_NOFOLLOW);
 
         if (res == -1) {
             return -errno;
@@ -465,7 +449,7 @@ spade_fsetattr_x(const char *path, struct setattr_x *attr,
         attributes.volattr = 0;
 
         res = setattrlist(path, &attributes, &attr->chgtime,
-                  sizeof(struct timespec), FSOPT_NOFOLLOW);
+                sizeof (struct timespec), FSOPT_NOFOLLOW);
 
         if (res == -1) {
             return -errno;
@@ -484,7 +468,7 @@ spade_fsetattr_x(const char *path, struct setattr_x *attr,
         attributes.volattr = 0;
 
         res = setattrlist(path, &attributes, &attr->bkuptime,
-                  sizeof(struct timespec), FSOPT_NOFOLLOW);
+                sizeof (struct timespec), FSOPT_NOFOLLOW);
 
         if (res == -1) {
             return -errno;
@@ -502,58 +486,53 @@ spade_fsetattr_x(const char *path, struct setattr_x *attr,
 }
 
 static int
-spade_setattr_x(const char *path, struct setattr_x *attr)
-{
-    return spade_fsetattr_x(path, attr, (struct fuse_file_info *)0);
+spade_setattr_x(const char *path, struct setattr_x *attr) {
+    return spade_fsetattr_x(path, attr, (struct fuse_file_info *) 0);
 }
 
 static int
 spade_getxtimes(const char *path, struct timespec *bkuptime,
-                   struct timespec *crtime)
-{
+        struct timespec *crtime) {
     int res = 0;
     struct attrlist attributes;
 
     attributes.bitmapcount = ATTR_BIT_MAP_COUNT;
-    attributes.reserved    = 0;
-    attributes.commonattr  = 0;
-    attributes.dirattr     = 0;
-    attributes.fileattr    = 0;
-    attributes.forkattr    = 0;
-    attributes.volattr     = 0;
-
-
+    attributes.reserved = 0;
+    attributes.commonattr = 0;
+    attributes.dirattr = 0;
+    attributes.fileattr = 0;
+    attributes.forkattr = 0;
+    attributes.volattr = 0;
 
     struct xtimeattrbuf {
         uint32_t size;
         struct timespec xtime;
-    } __attribute__ ((packed));
+    } __attribute__((packed));
 
 
     struct xtimeattrbuf buf;
 
     attributes.commonattr = ATTR_CMN_BKUPTIME;
-    res = getattrlist(path, &attributes, &buf, sizeof(buf), FSOPT_NOFOLLOW);
+    res = getattrlist(path, &attributes, &buf, sizeof (buf), FSOPT_NOFOLLOW);
     if (res == 0) {
-        (void)memcpy(bkuptime, &(buf.xtime), sizeof(struct timespec));
+        (void) memcpy(bkuptime, &(buf.xtime), sizeof (struct timespec));
     } else {
-        (void)memset(bkuptime, 0, sizeof(struct timespec));
+        (void) memset(bkuptime, 0, sizeof (struct timespec));
     }
 
     attributes.commonattr = ATTR_CMN_CRTIME;
-    res = getattrlist(path, &attributes, &buf, sizeof(buf), FSOPT_NOFOLLOW);
+    res = getattrlist(path, &attributes, &buf, sizeof (buf), FSOPT_NOFOLLOW);
     if (res == 0) {
-        (void)memcpy(crtime, &(buf.xtime), sizeof(struct timespec));
+        (void) memcpy(crtime, &(buf.xtime), sizeof (struct timespec));
     } else {
-        (void)memset(crtime, 0, sizeof(struct timespec));
+        (void) memset(crtime, 0, sizeof (struct timespec));
     }
 
     return 0;
 }
 
 static int
-spade_create(const char *path, mode_t mode, struct fuse_file_info *fi)
-{
+spade_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
     int fd;
 
     fd = open(path, fi->flags, mode);
@@ -566,8 +545,7 @@ spade_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 }
 
 static int
-spade_open(const char *path, struct fuse_file_info *fi)
-{
+spade_open(const char *path, struct fuse_file_info *fi) {
     int fd;
 
     fd = open(path, fi->flags);
@@ -581,8 +559,7 @@ spade_open(const char *path, struct fuse_file_info *fi)
 
 static int
 spade_read(const char *path, char *buf, size_t size, off_t offset,
-              struct fuse_file_info *fi)
-{
+        struct fuse_file_info *fi) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
 
@@ -601,7 +578,7 @@ spade_read(const char *path, char *buf, size_t size, off_t offset,
     long seconds, useconds, mtime;
     gettimeofday(&starttime, NULL);
 
-    (void)path;
+    (void) path;
     res = pread(fi->fh, buf, size, offset);
     if (res == -1) {
         res = -errno;
@@ -620,8 +597,7 @@ spade_read(const char *path, char *buf, size_t size, off_t offset,
 
 static int
 spade_write(const char *path, const char *buf, size_t size,
-               off_t offset, struct fuse_file_info *fi)
-{
+        off_t offset, struct fuse_file_info *fi) {
     (*jvm)->AttachCurrentThread(jvm, (void**) &env, NULL);
     jstring jpath = (*env)->NewStringUTF(env, path);
 
@@ -640,7 +616,7 @@ spade_write(const char *path, const char *buf, size_t size,
     long seconds, useconds, mtime;
     gettimeofday(&starttime, NULL);
 
-    (void)path;
+    (void) path;
     res = pwrite(fi->fh, buf, size, offset);
     if (res == -1) {
         res = -errno;
@@ -658,8 +634,7 @@ spade_write(const char *path, const char *buf, size_t size,
 }
 
 static int
-spade_statfs(const char *path, struct statvfs *stbuf)
-{
+spade_statfs(const char *path, struct statvfs *stbuf) {
     int res;
 
     res = statvfs(path, stbuf);
@@ -671,11 +646,10 @@ spade_statfs(const char *path, struct statvfs *stbuf)
 }
 
 static int
-spade_flush(const char *path, struct fuse_file_info *fi)
-{
+spade_flush(const char *path, struct fuse_file_info *fi) {
     int res;
 
-    (void)path;
+    (void) path;
 
     res = close(dup(fi->fh));
     if (res == -1) {
@@ -686,9 +660,8 @@ spade_flush(const char *path, struct fuse_file_info *fi)
 }
 
 static int
-spade_release(const char *path, struct fuse_file_info *fi)
-{
-    (void)path;
+spade_release(const char *path, struct fuse_file_info *fi) {
+    (void) path;
 
     close(fi->fh);
 
@@ -696,13 +669,12 @@ spade_release(const char *path, struct fuse_file_info *fi)
 }
 
 static int
-spade_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
-{
+spade_fsync(const char *path, int isdatasync, struct fuse_file_info *fi) {
     int res;
 
-    (void)path;
+    (void) path;
 
-    (void)isdatasync;
+    (void) isdatasync;
 
     res = fsync(fi->fh);
     if (res == -1) {
@@ -714,11 +686,10 @@ spade_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
 
 static int
 spade_setxattr(const char *path, const char *name, const char *value,
-                  size_t size, int flags, uint32_t position)
-{
+        size_t size, int flags, uint32_t position) {
     int res;
 
-    if (!strncmp(name, XATTR_APPLE_PREFIX, sizeof(XATTR_APPLE_PREFIX) - 1)) {
+    if (!strncmp(name, XATTR_APPLE_PREFIX, sizeof (XATTR_APPLE_PREFIX) - 1)) {
         flags &= ~(XATTR_NOSECURITY);
     }
 
@@ -726,8 +697,8 @@ spade_setxattr(const char *path, const char *name, const char *value,
 
         char new_name[MAXPATHLEN];
 
-        memcpy(new_name, A_KAUTH_FILESEC_XATTR, sizeof(A_KAUTH_FILESEC_XATTR));
-        memcpy(new_name, G_PREFIX, sizeof(G_PREFIX) - 1);
+        memcpy(new_name, A_KAUTH_FILESEC_XATTR, sizeof (A_KAUTH_FILESEC_XATTR));
+        memcpy(new_name, G_PREFIX, sizeof (G_PREFIX) - 1);
 
         res = setxattr(path, new_name, value, size, position, flags);
 
@@ -744,16 +715,15 @@ spade_setxattr(const char *path, const char *name, const char *value,
 
 static int
 spade_getxattr(const char *path, const char *name, char *value, size_t size,
-                  uint32_t position)
-{
+        uint32_t position) {
     int res;
 
     if (strcmp(name, A_KAUTH_FILESEC_XATTR) == 0) {
 
         char new_name[MAXPATHLEN];
 
-        memcpy(new_name, A_KAUTH_FILESEC_XATTR, sizeof(A_KAUTH_FILESEC_XATTR));
-        memcpy(new_name, G_PREFIX, sizeof(G_PREFIX) - 1);
+        memcpy(new_name, A_KAUTH_FILESEC_XATTR, sizeof (A_KAUTH_FILESEC_XATTR));
+        memcpy(new_name, G_PREFIX, sizeof (G_PREFIX) - 1);
 
         res = getxattr(path, new_name, value, size, position, XATTR_NOFOLLOW);
 
@@ -769,14 +739,13 @@ spade_getxattr(const char *path, const char *name, char *value, size_t size,
 }
 
 static int
-spade_listxattr(const char *path, char *list, size_t size)
-{
+spade_listxattr(const char *path, char *list, size_t size) {
     ssize_t res = listxattr(path, list, size, XATTR_NOFOLLOW);
     if (res > 0) {
         if (list) {
             size_t len = 0;
             char *curr = list;
-            do { 
+            do {
                 size_t thislen = strlen(curr) + 1;
                 if (strcmp(curr, G_KAUTH_FILESEC_XATTR) == 0) {
                     memmove(curr, curr + thislen, res - len - thislen);
@@ -797,16 +766,15 @@ spade_listxattr(const char *path, char *list, size_t size)
 }
 
 static int
-spade_removexattr(const char *path, const char *name)
-{
+spade_removexattr(const char *path, const char *name) {
     int res;
 
     if (strcmp(name, A_KAUTH_FILESEC_XATTR) == 0) {
 
         char new_name[MAXPATHLEN];
 
-        memcpy(new_name, A_KAUTH_FILESEC_XATTR, sizeof(A_KAUTH_FILESEC_XATTR));
-        memcpy(new_name, G_PREFIX, sizeof(G_PREFIX) - 1);
+        memcpy(new_name, A_KAUTH_FILESEC_XATTR, sizeof (A_KAUTH_FILESEC_XATTR));
+        memcpy(new_name, G_PREFIX, sizeof (G_PREFIX) - 1);
 
         res = removexattr(path, new_name, XATTR_NOFOLLOW);
 
@@ -822,8 +790,7 @@ spade_removexattr(const char *path, const char *name)
 }
 
 void *
-spade_init(struct fuse_conn_info *conn)
-{
+spade_init(struct fuse_conn_info *conn) {
     FUSE_ENABLE_SETVOLNAME(conn);
     FUSE_ENABLE_XTIMES(conn);
 
@@ -831,42 +798,41 @@ spade_init(struct fuse_conn_info *conn)
 }
 
 void
-spade_destroy(void *userdata)
-{
+spade_destroy(void *userdata) {
 }
 
 static struct fuse_operations spade_oper = {
-    .init        = spade_init,
-    .destroy     = spade_destroy,
-    .getattr     = spade_getattr,
-    .fgetattr    = spade_fgetattr,
-    .readlink    = spade_readlink,
-    .opendir     = spade_opendir,
-    .readdir     = spade_readdir,
-    .releasedir  = spade_releasedir,
-    .mknod       = spade_mknod,
-    .mkdir       = spade_mkdir,
-    .symlink     = spade_symlink,
-    .unlink      = spade_unlink,
-    .rmdir       = spade_rmdir,
-    .rename      = spade_rename,
-    .link        = spade_link,
-    .create      = spade_create,
-    .open        = spade_open,
-    .read        = spade_read,
-    .write       = spade_write,
-    .statfs      = spade_statfs,
-    .flush       = spade_flush,
-    .release     = spade_release,
-    .fsync       = spade_fsync,
-    .setxattr    = spade_setxattr,
-    .getxattr    = spade_getxattr,
-    .listxattr   = spade_listxattr,
+    .init = spade_init,
+    .destroy = spade_destroy,
+    .getattr = spade_getattr,
+    .fgetattr = spade_fgetattr,
+    .readlink = spade_readlink,
+    .opendir = spade_opendir,
+    .readdir = spade_readdir,
+    .releasedir = spade_releasedir,
+    .mknod = spade_mknod,
+    .mkdir = spade_mkdir,
+    .symlink = spade_symlink,
+    .unlink = spade_unlink,
+    .rmdir = spade_rmdir,
+    .rename = spade_rename,
+    .link = spade_link,
+    .create = spade_create,
+    .open = spade_open,
+    .read = spade_read,
+    .write = spade_write,
+    .statfs = spade_statfs,
+    .flush = spade_flush,
+    .release = spade_release,
+    .fsync = spade_fsync,
+    .setxattr = spade_setxattr,
+    .getxattr = spade_getxattr,
+    .listxattr = spade_listxattr,
     .removexattr = spade_removexattr,
-    .exchange    = spade_exchange,
-    .getxtimes   = spade_getxtimes,
-    .setattr_x   = spade_setattr_x,
-    .fsetattr_x  = spade_fsetattr_x,
+    .exchange = spade_exchange,
+    .getxtimes = spade_getxtimes,
+    .setattr_x = spade_setattr_x,
+    .fsetattr_x = spade_fsetattr_x,
 };
 
 JNIEXPORT jint JNICALL Java_spade_reporter_MacFUSE_launchFUSE(JNIEnv *e, jobject o, jstring mountPoint) {
@@ -886,7 +852,7 @@ JNIEXPORT jint JNICALL Java_spade_reporter_MacFUSE_launchFUSE(JNIEnv *e, jobject
     argv[0] = "libMacFUSE";
     argv[1] = "-f";
     argv[2] = "-s";
-    argv[3] = (char*)(*env)->GetStringUTFChars(env, mountPoint, NULL);
+    argv[3] = (char*) (*env)->GetStringUTFChars(env, mountPoint, NULL);
     argv[4] = "-oallow_other,volname=SPADE-MacFUSE";
 
     umask(0);

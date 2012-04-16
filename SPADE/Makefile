@@ -23,7 +23,7 @@ ifeq ($(OS_NAME), Linux)
 	LLVM_RULE = build-linux-llvm
 endif
 
-.PHONY: build
+.PHONY: build android-build
 
 all:	build
 
@@ -150,12 +150,7 @@ android-build:
 	@echo 'Building the Graphviz storage...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
 	@echo 'Building AndroidAudit reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/AndroidAudit*.java
-	@mkdir -p android-lib;
-	#----------IGNORE @for f in lib/*.jar; do echo "Porting $$f to Android"; $(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/$$(basename $$f) $$f; done
-	#----------IGNORE $(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/jline-0.9.94.jar lib/jline-0.9.94.jar 
-	#----------IGNORE @echo 'Downloading the Linux Audit binary for Android-ARM...'
-	#----------IGNORE @wget http://www.cs.indiana.edu/~nhusted/project_source/spadeLinuxAudit-arm -O android-lib/spadeAndroidAudit
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/AndroidAudit.java
 	@mkdir -p android-build;
 	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
 	@cd build; \
@@ -168,13 +163,10 @@ android-deploy:
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/log"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/cfg"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /data/audit"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"storage Graphviz /data/audit/output.dot\\nreporter AndroidAuditOld\" > /sdcard/spade/cfg/spade.config"
-	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
-	#----------IGNORE $(ANDROID_SDK_TOOLS)/adb push android-lib/spadeAndroidAudit /data/spadeAndroidAudit
-	#----------IGNORE $(ANDROID_SDK_TOOLS)/adb shell "chmod 700 /data/spadeAndroidAudit"	
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/output"
+	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"storage Graphviz /sdcard/spade/output/output.dot\\nreporter AndroidAudit\" > /sdcard/spade/cfg/spade.config"
+	@for f in "android-build"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
 
 # Launch Android kernel
 android-kernel:

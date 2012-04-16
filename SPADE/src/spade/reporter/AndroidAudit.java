@@ -20,8 +20,6 @@
 package spade.reporter;
 
 import java.io.*;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,14 +35,14 @@ import spade.vertex.opm.Process;
 public class AndroidAudit extends AbstractReporter {
 
     // Controls debugging. Spawns a process for dump
-    private boolean DEBUG_DUMP_LOG = true;
+    private boolean DEBUG_DUMP_LOG = false;
+    protected java.lang.Process pipeprocess;
+    String DEBUG_DUMP_FILE = "/sdcard/spade.log";
     // True means open and close will be used to check for reads/writes and actual reads/writes will not be monitored. false means reads/writes will be monitored
     private boolean OpenCloseSemanticsOn = true;
     private int currentAuditId = 0;
     // String used as a buffer to hold the current event stream
     private String temporaryEventString = "";
-    // ???
-    private String hostname;
     // Hash tables
     // Currently running known processes
     private HashMap<String, Process> processes = new HashMap<String, Process>();
@@ -58,7 +56,6 @@ public class AndroidAudit extends AbstractReporter {
     private HashSet<Agent> cachedAgents = new HashSet<Agent>();
     public java.lang.Process socketToPipe;
     protected BufferedReader eventReader;
-    private final PrintStream errorStream = System.err;
     private static final Logger logger = Logger.getLogger(AndroidAudit.class.getName());
     private HashSet<String> agentFields =
             new HashSet<String>(
@@ -134,7 +131,7 @@ public class AndroidAudit extends AbstractReporter {
                     Integer.parseInt(currentProgram);
                     // logger.log(Level.INFO, "Recording Init PID: \t" + currentProgram);
                     Process processVertex = createProgramVertex(currentProgram);
-                    processVertex.addAnnotation("misc", "Pre-start process");
+                    //processVertex.addAnnotation("misc", "Pre-start process");
                     processes.put(currentProgram, processVertex);
                     putVertex(processVertex);
                 } catch (java.lang.NumberFormatException exception) {
@@ -164,39 +161,6 @@ public class AndroidAudit extends AbstractReporter {
             }
         }
 
-        // Environment variables
-        try {
-            InetAddress addr = InetAddress.getLocalHost();
-            // Get IP Address
-            byte[] ipAddr = addr.getAddress();
-            // Get hostname
-            hostname = addr.getHostName();
-
-        } catch (UnknownHostException e) {
-            logger.log(Level.SEVERE, null, e);
-        }
-
-        startParsing();
-
-        return true;
-    }
-
-    @Override
-    public boolean shutdown() {
-        shutdown = true;
-        try {
-            Runtime.getRuntime().exec("auditctl -D").waitFor();
-        } catch (Exception ex) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return true;
-    }
-    protected java.lang.Process pipeprocess;
-    String DEBUG_DUMP_FILE = "/sdcard/spade.log";
-
-    //this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
-    public void startParsing() {
-
         try {
             String javaPid = null;
 
@@ -223,15 +187,46 @@ public class AndroidAudit extends AbstractReporter {
 
             pidReader.close();
 
+            /*
+             * String rules = "-a exit,always -S clone -S execve -S exit_group
+             * -S open -S write " + "-S mkdir -S mkdirat -S mknod -S chmod -S
+             * fchmod -S fchmodat " + "-S chown -S fchown32 -S fchownat -S
+             * lchown32 " + "-S close -S fork -S ioctl -S unlink -S link -S
+             * setuid -S symlink -S unlinkat -S setuid32 -S setreuid32 -S
+             * setresuid32 " + " -F success=1 -F pid!=" + javaPid + " -F ppid!="
+             * + javaPid + ignorePids.toString();
+             */
+
             String rules = "-a exit,always -S clone -S execve -S exit_group -S open -S write "
-                    + "-S mkdir -S mkdirat -S mknod -S chmod -S fchmod -S fchmodat"
-                    + "-S chown -S fchown32 -S fchownat -S lchown32"
-                    + "-S close -S fork -S ioctl -S unlink -S link -S setuid -S symlink -S unlinkat -S setuid32 -S setreuid32 -S setresuid32"
-                    + " -F success=1 -F pid!=" + javaPid + " -F ppid!=" + javaPid
-                    + ignorePids.toString();
+                    + "-S mkdir -S mkdirat -S mknod -S chmod -S fchmod -S fchmodat "
+                    + "-S chown -S fchown32 -S fchownat -S lchown32 "
+                    + "-S close -S fork -S ioctl -S unlink -S link -S setuid -S symlink -S unlinkat -S setuid32 -S setreuid32 -S setresuid32 "
+                    + " -F success=1";
 
             Runtime.getRuntime().exec("auditctl " + rules).waitFor();
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+        }
 
+        startParsing();
+        return true;
+    }
+
+    @Override
+    public boolean shutdown() {
+        shutdown = true;
+        try {
+            Runtime.getRuntime().exec("auditctl -D");
+        } catch (Exception ex) {
+            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return true;
+    }
+
+    //this is currently the way to supply lines to the processLine function. This will be replaced with the socket code
+    public void startParsing() {
+
+        try {
             // TODO: Remove self provenance
             pipeprocess = Runtime.getRuntime().exec("/system/bin/spade-audit");
             eventReader = new BufferedReader(new InputStreamReader(pipeprocess.getInputStream()));
@@ -257,6 +252,7 @@ public class AndroidAudit extends AbstractReporter {
                                 }
                             }
                         }
+                        eventReader.close();
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
                     }
@@ -284,7 +280,6 @@ public class AndroidAudit extends AbstractReporter {
 
         truncateIndexStart = truncateIndexEnd = 0;
 
-
         while (matcher.find()) {
             countOfSyscalls++;
             if (countOfSyscalls == 1) {
@@ -299,7 +294,6 @@ public class AndroidAudit extends AbstractReporter {
             //there are two mini events in the current string. package off the first one and send it to the state machine (processEvent function)
             processEvent(temporaryEventString.substring(truncateIndexStart, truncateIndexEnd));
             temporaryEventString = temporaryEventString.substring(truncateIndexEnd, temporaryEventString.length());
-
         }
 
         if (countOfSyscalls > 2) {
@@ -415,7 +409,7 @@ public class AndroidAudit extends AbstractReporter {
     private void processFinishedEvent(ArrayList<HashMap<String, String>> finishedEvent, int givenEventNum) {
 
         ////////////////////////////////////////////////////////////////
-        // ADD NEW CALL HANDLERS HERE 
+        // ADD NEW CALL HANDLERS HERE
         ////////////////////////////////////////////////////////////////
 
         try {
@@ -594,7 +588,7 @@ public class AndroidAudit extends AbstractReporter {
         }
 
         //get the annotations for both processes
-        Process cloningProcess = null;
+        Process cloningProcess;
         HashMap<String, String> processAnnotations = getProcessInformationFromFields(fields);
         HashMap<String, String> processAnnotationsChild = getProcessInformationFromFields(fields);
         HashMap<String, String> agentAnnotations = getAgentAnnotationsFromFields(fields);
@@ -647,6 +641,7 @@ public class AndroidAudit extends AbstractReporter {
             //make a read edge
 
             Used readEdge = new Used(readingProcess, fileRead);
+            putEdge(readEdge);
 
             //Do nothing here are we are not doing read monitoring at the moment
             // TODO: Do we need some action here?
@@ -1062,6 +1057,8 @@ public class AndroidAudit extends AbstractReporter {
                 putVertex(newFile);
                 renameEdgeFileToFile = new WasDerivedFrom(newFile, renamedFile);
                 renameEdgeProcessToFile = new WasGeneratedBy(newFile, renamingProcess);
+                putEdge(renameEdgeFileToFile);
+                putEdge(renameEdgeProcessToFile);
             }
 
         } catch (Exception e) {
@@ -1090,7 +1087,7 @@ public class AndroidAudit extends AbstractReporter {
 
             if (processFdIsFile.containsKey(keyPair)) {
                 Artifact file = processFdIsFile.get(keyPair);
-                //add process to file edge           
+                //add process to file edge
                 processFdIsFile.put(newKeyPair, file);
                 //add file to process edge(not needed)
             } else {
@@ -1111,7 +1108,7 @@ public class AndroidAudit extends AbstractReporter {
         }
 
         //get the annotations
-        Process settingProcess = null;
+        Process settingProcess;
         HashMap<String, String> processAnnotations = getProcessInformationFromFields(fields);
         HashMap<String, String> agentAnnotations = getAgentAnnotationsFromFields(fields);
 
@@ -1268,7 +1265,7 @@ public class AndroidAudit extends AbstractReporter {
             Artifact fileWritten = processFdIsFile.get(pid + "," + fd);
             if (fileWritten == null) {
                 String fd_exec_str = "ls -l /proc/" + pid + "/fd/" + fd;
-                java.lang.Process fdChecker = Runtime.getRuntime().exec("fd_exec_str");
+                java.lang.Process fdChecker = Runtime.getRuntime().exec(fd_exec_str);
                 BufferedReader fdReader = new BufferedReader(new InputStreamReader(fdChecker.getInputStream()));
                 String details[] = fdReader.readLine().split("\\s+");
                 String filePath = details[details.length - 1];
@@ -1288,7 +1285,7 @@ public class AndroidAudit extends AbstractReporter {
             putEdge(writeEdge);
 
         } catch (Exception e) {
-            logger.log(Level.SEVERE, null, e);
+            //logger.log(Level.SEVERE, null, e);
         }
     }
 
@@ -1323,7 +1320,6 @@ public class AndroidAudit extends AbstractReporter {
 
             //put new vertex for new version of file if ReadWrite bunching not on
             putVertex(fileWritten);
-            putVertex(writingProcess);
 
             //send the edge
             putEdge(writeEdge);
@@ -1444,7 +1440,7 @@ public class AndroidAudit extends AbstractReporter {
 
     }
 
-    /////////////////////////////////////////////////////  
+    /////////////////////////////////////////////////////
     private void processMount(ArrayList<HashMap<String, String>> eventsChain) {
         /*
          * Warning: It may not work well always as Sometimes audit is not giving
@@ -1489,7 +1485,7 @@ public class AndroidAudit extends AbstractReporter {
         }
     }
 
-    /////////////////////////////////////////////////////  
+    /////////////////////////////////////////////////////
     private void processChmod(ArrayList<HashMap<String, String>> eventsChain) {
         /*
          * Processes chmod, fchmod, fchmodat
@@ -1558,28 +1554,29 @@ public class AndroidAudit extends AbstractReporter {
 
             if (process == null) {
                 // In case createProgramVertex Failed!
-                process.addAnnotation("misc", "Probably Short Lived Process");
+                if (annotations == null) {
+                    return null;
+                }
+                //process.addAnnotation("misc", "Probably Short Lived Process");
                 process = new Process();
-            }
-
-            // Merge annotations, without overwriting those of createProgramVertex
-            for (Map.Entry<String, String> entry : annotations.entrySet()) {
-                if (processFields.contains(entry.getKey()) && !process.getAnnotations().containsKey(entry.getKey())) {
-                    process.addAnnotation(entry.getKey(), entry.getValue());
+                for (Map.Entry<String, String> entry : annotations.entrySet()) {
+                    if (processFields.contains(entry.getKey()) && !process.getAnnotations().containsKey(entry.getKey())) {
+                        process.addAnnotation(entry.getKey(), entry.getValue());
+                    }
                 }
             }
 
             putVertex(process);
             processes.put(pid, process);
-
-            /**
-             * *
-             * // Agent Info if (agentAnnotations == null) agentAnnotations =
-             * seperateAgentFromProcess(annotations); Agent agent =
-             * getOrCreateAgent(agentAnnotations); WasControlledBy wcb = new
-             * WasControlledBy(cloningProcess, agent); putEdge(wcb);
-			**
-             */
+            try {
+                String ppid = process.getAnnotation("ppid");
+                Process parent = getOrCreateProcess(ppid, null, null);
+                if (parent != null) {
+                    WasTriggeredBy wtb = new WasTriggeredBy(process, parent);
+                    putEdge(wtb);
+                }
+            } catch (Exception exception) {
+            }
         }
         return process;
     }
@@ -1604,6 +1601,9 @@ public class AndroidAudit extends AbstractReporter {
         //make a read edge
 
         Used readEdge = new Used(readingProcess, fileRead);
+        putVertex(fileRead);
+        putVertex(readingProcess);
+        putEdge(readEdge);
 
         //send the file,process and read edge
 
@@ -1651,9 +1651,7 @@ public class AndroidAudit extends AbstractReporter {
             return;
         }
 
-        //String key="";
-        boolean sendCloningProcess = false;
-        Process cloningProcess = null;
+        Process cloningProcess;
         HashMap<String, String> processAnnotations = getProcessInformationFromFields(eventsChain.get(0));
         HashMap<String, String> processAnnotationsCloned = getProcessInformationFromFields(eventsChain.get(0));
         HashMap<String, String> agentAnnotations = getAgentAnnotationsFromFields(processAnnotations);
@@ -1918,7 +1916,7 @@ public class AndroidAudit extends AbstractReporter {
             resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
         } catch (Exception exception) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
+            //Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
             return null;
         }
 

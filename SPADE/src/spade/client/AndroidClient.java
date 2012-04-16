@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2011 SRI International
+ Copyright (C) 2012 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -23,13 +23,12 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.util.StringTokenizer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import spade.core.Kernel;
-import spade.reporter.AndroidAudit;
-import spade.vertex.opm.Process;
 
+/**
+ *
+ * @author dawood
+ */
 public class AndroidClient {
 
     private static PrintStream outputStream;
@@ -42,6 +41,10 @@ public class AndroidClient {
     private static final int THREAD_SLEEP_DELAY = 10;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
+    /**
+     *
+     * @param args
+     */
     public static void main(String args[]) {
 
         outputStream = System.out;
@@ -113,86 +116,5 @@ public class AndroidClient {
         } catch (Exception exception) {
             exception.printStackTrace(errorStream);
         }
-    }
-
-    protected Process createProgramVertex(String pid) {
-        // The process vertex is created using the proc filesystem.
-        Process resultVertex = new Process();
-        try {
-            BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
-            String nameline = procReader.readLine();
-            procReader.readLine();
-            String tgidline = procReader.readLine();
-            procReader.readLine();
-            String ppidline = procReader.readLine();
-            String tracerpidline = procReader.readLine();
-            String uidline = procReader.readLine();
-            String gidline = procReader.readLine();
-            procReader.close();
-
-            BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
-            String statline = statReader.readLine();
-            statReader.close();
-
-            BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
-            String cmdline = cmdlineReader.readLine();
-            cmdlineReader.close();
-            if (cmdline == null) {
-                cmdline = "";
-            } else {
-                cmdline = cmdline.replace("\0", " ");
-                cmdline = cmdline.replace("\"", "'");
-            }
-
-            String stats[] = statline.split("\\s+");
-            long elapsedtime = Long.parseLong(stats[21]) * 10;
-            long starttime = 0 + elapsedtime;
-            String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(starttime));
-            String stime = Long.toString(starttime);
-
-            StringTokenizer st1 = new StringTokenizer(nameline);
-            st1.nextToken();
-            String name = st1.nextToken();
-
-            StringTokenizer st3 = new StringTokenizer(ppidline);
-            st3.nextToken();
-            String ppid = st3.nextToken("").trim();
-
-            StringTokenizer st5 = new StringTokenizer(uidline);
-            st5.nextToken();
-            String uid = st5.nextToken().trim();
-
-            StringTokenizer st6 = new StringTokenizer(gidline);
-            st6.nextToken();
-            String gid = st6.nextToken().trim();
-
-            resultVertex.addAnnotation("pidname", name);
-            resultVertex.addAnnotation("pid", pid);
-            resultVertex.addAnnotation("ppid", ppid);
-            resultVertex.addAnnotation("uid", uid);
-            resultVertex.addAnnotation("gid", gid);
-            resultVertex.addAnnotation("starttime_unix", stime);
-            resultVertex.addAnnotation("starttime_simple", stime_readable);
-            resultVertex.addAnnotation("group", stats[4]);
-            resultVertex.addAnnotation("sessionid", stats[5]);
-            resultVertex.addAnnotation("commandline", cmdline);
-        } catch (Exception exception) {
-            Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
-            return null;
-        }
-
-//        try {
-//            BufferedReader environReader = new BufferedReader(new FileReader("/proc/" + pid + "/environ"));
-//            String environ = environReader.readLine();
-//            environReader.close();
-//            if (environ != null) {
-//                environ = environ.replace("\0", ", ");
-//                environ = environ.replace("\"", "'");
-//                resultVertex.addAnnotation("environment", environ);
-//            }
-//        } catch (Exception exception) {
-//            // Unable to access the environment variables
-//        }
-        return resultVertex;
     }
 }

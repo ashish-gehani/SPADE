@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2012 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.sketch;
 
@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.*;
-
 
 public class ConcreteSketchUncached extends AbstractSketch {
 
@@ -59,39 +58,39 @@ public class ConcreteSketchUncached extends AbstractSketch {
                 String remoteHost = networkVertex.getAnnotation("destination host");
                 String localHost = networkVertex.getAnnotation("source host");
                 //if (!Kernel.remoteSketches.containsKey(remoteHost)) {
-                    // If sketch for remote doesn't exist, fetch it and add it to the local cache
+                // If sketch for remote doesn't exist, fetch it and add it to the local cache
 
-                    ////////////////////////////////////////////////////////////
-                    System.out.println("concreteSketch - Attempting to receive sketches from " + remoteHost);
-                    ////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////
+                System.out.println("concreteSketch - Attempting to receive sketches from " + remoteHost);
+                ////////////////////////////////////////////////////////////
 
-                    SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
-                    Socket remoteSocket = new Socket();
-                    remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                    OutputStream outStream = remoteSocket.getOutputStream();
-                    InputStream inStream = remoteSocket.getInputStream();
-                    ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);
-                    ObjectInputStream clientObjectInputStream = new ObjectInputStream(inStream);
+                SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+                Socket remoteSocket = new Socket();
+                remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+                OutputStream outStream = remoteSocket.getOutputStream();
+                InputStream inStream = remoteSocket.getInputStream();
+                ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);
+                ObjectInputStream clientObjectInputStream = new ObjectInputStream(inStream);
 
-                    clientObjectOutputStream.writeObject("giveSketch");
-                    clientObjectOutputStream.flush();
-                    AbstractSketch tmpSketch = (AbstractSketch) clientObjectInputStream.readObject();
-                    Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) clientObjectInputStream.readObject();
-                    Kernel.remoteSketches.put(remoteHost, tmpSketch);
-                    receivedSketches.remove(localHost);
-                    Kernel.remoteSketches.putAll(receivedSketches);
+                clientObjectOutputStream.writeObject("giveSketch");
+                clientObjectOutputStream.flush();
+                AbstractSketch tmpSketch = (AbstractSketch) clientObjectInputStream.readObject();
+                Map<String, AbstractSketch> receivedSketches = (Map<String, AbstractSketch>) clientObjectInputStream.readObject();
+                Kernel.remoteSketches.put(remoteHost, tmpSketch);
+                receivedSketches.remove(localHost);
+                Kernel.remoteSketches.putAll(receivedSketches);
 
-                    ////////////////////////////////////////////////////////////
-                    System.out.println("concreteSketch - Received sketches from " + remoteHost);
-                    ////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////
+                System.out.println("concreteSketch - Received sketches from " + remoteHost);
+                ////////////////////////////////////////////////////////////
 
-                    clientObjectOutputStream.writeObject("close");
-                    clientObjectOutputStream.flush();
-                    clientObjectOutputStream.close();
-                    clientObjectInputStream.close();
-                    outStream.close();
-                    inStream.close();
-                    remoteSocket.close();
+                clientObjectOutputStream.writeObject("close");
+                clientObjectOutputStream.flush();
+                clientObjectOutputStream.close();
+                clientObjectInputStream.close();
+                outStream.close();
+                inStream.close();
+                remoteSocket.close();
                 //}
                 // Update sketch bloom filters
                 BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(networkVertex);
@@ -114,8 +113,9 @@ public class ConcreteSketchUncached extends AbstractSketch {
         }
     }
 }
+
 class updateMatrixThreadUncached implements Runnable {
-    
+
     private AbstractSketch sketch;
     private AbstractVertex vertex;
     private String type;
@@ -154,7 +154,7 @@ class updateMatrixThreadUncached implements Runnable {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                     sketch.matrixFilter.add(vertex, currentVertex);
                 }
-            }            
+            }
             ////////////////////////////////////////////////////////////
             System.out.println("concreteSketch - Updated bloomfilters for WGB edge - storageId: " + storageId);
             ////////////////////////////////////////////////////////////

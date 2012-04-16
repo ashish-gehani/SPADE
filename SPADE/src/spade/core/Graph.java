@@ -1,21 +1,21 @@
 /*
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2011 SRI International
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2012 SRI International
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
  */
 package spade.core;
 
@@ -28,18 +28,20 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * This class is used to represent query responses using sets for edges and vertices.
- * 
- * @author Dawood
+ * This class is used to represent query responses using sets for edges and
+ * vertices.
+ *
+ * @author Dawood Tariq
  */
 public class Graph implements Serializable {
 
     private Set<AbstractVertex> vertexSet;
     private Set<AbstractEdge> edgeSet;
     private Map<AbstractVertex, Integer> networkMap;
-    /** For query results spanning multiple hosts, this is used to indicate whether
-     * the network boundaries have been properly transformed.
-     * 
+    /**
+     * For query results spanning multiple hosts, this is used to indicate
+     * whether the network boundaries have been properly transformed.
+     *
      */
     public boolean transformed;
 
@@ -54,9 +56,9 @@ public class Graph implements Serializable {
     }
 
     /**
-     * This method is used to put the network vertices in the network vertex map.
-     * The network vertex map is used when doing remote querying.
-     * 
+     * This method is used to put the network vertices in the network vertex
+     * map. The network vertex map is used when doing remote querying.
+     *
      * @param inputVertex The network vertex
      * @param depth The depth of this vertex from the source vertex
      */
@@ -67,7 +69,7 @@ public class Graph implements Serializable {
     /**
      * Add a vertex to the graph object. The vertex is sent to the transformers
      * before it is finally committed.
-     * 
+     *
      * @param inputVertex The vertex to be added
      */
     public void putVertex(AbstractVertex inputVertex) {
@@ -78,17 +80,17 @@ public class Graph implements Serializable {
     /**
      * Add an edge to the graph object. The edge is sent to the transformers
      * before it is finally committed.
-     * 
+     *
      * @param inputEdge The edge to be added
      */
     public void putEdge(AbstractEdge inputEdge) {
         inputEdge.resultGraph = this;
         Kernel.sendToTransformers(inputEdge);
     }
-    
+
     /**
      * Commit a vertex to this graph.
-     * 
+     *
      * @param inputVertex The vertex to be committed
      */
     public void commitVertex(AbstractVertex inputVertex) {
@@ -97,16 +99,16 @@ public class Graph implements Serializable {
 
     /**
      * Commit an edge to this graph.
-     * 
+     *
      * @param inputEdge The edge to be committed
      */
     public void commitEdge(AbstractEdge inputEdge) {
         edgeSet.add(inputEdge);
     }
-    
+
     /**
      * Returns the set containing the vertices.
-     * 
+     *
      * @return The set containing the vertices.
      */
     public Set<AbstractVertex> vertexSet() {
@@ -115,7 +117,7 @@ public class Graph implements Serializable {
 
     /**
      * Returns the set containing the edges.
-     * 
+     *
      * @return The set containing edges.
      */
     public Set<AbstractEdge> edgeSet() {
@@ -124,8 +126,9 @@ public class Graph implements Serializable {
 
     /**
      * Returns the map of network vertices for this graph.
-     * 
-     * @return The map containing the network vertices and their depth relative to the source vertex.
+     *
+     * @return The map containing the network vertices and their depth relative
+     * to the source vertex.
      */
     public Map<AbstractVertex, Integer> networkMap() {
         return networkMap;
@@ -135,8 +138,8 @@ public class Graph implements Serializable {
      * This method is used to create a new graph as an intersection of the two
      * given input graphs. This is done simply by using set functions on the
      * vertex and edge sets.
-     * 
-     * @param graph1 Input graph 1 
+     *
+     * @param graph1 Input graph 1
      * @param graph2 Input graph 2
      * @return The result graph
      */
@@ -157,11 +160,11 @@ public class Graph implements Serializable {
     }
 
     /**
-     * This method is used to create a new graph as a union of the two
-     * given input graphs. This is done simply by using set functions on the
-     * vertex and edge sets.
-     * 
-     * @param graph1 Input graph 1 
+     * This method is used to create a new graph as a union of the two given
+     * input graphs. This is done simply by using set functions on the vertex
+     * and edge sets.
+     *
+     * @param graph1 Input graph 1
      * @param graph2 Input graph 2
      * @return The result graph
      */
@@ -184,8 +187,8 @@ public class Graph implements Serializable {
     /**
      * This method is used to create a new graph obtained by removing all
      * elements of the second graph from the first graph given as inputs.
-     * 
-     * @param graph1 Input graph 1 
+     *
+     * @param graph1 Input graph 1
      * @param graph2 Input graph 2
      * @return The result graph
      */
@@ -206,8 +209,9 @@ public class Graph implements Serializable {
     }
 
     /**
-     * This method is used to export the graph to a DOT file which is useful for visualization.
-     * 
+     * This method is used to export the graph to a DOT file which is useful for
+     * visualization.
+     *
      * @param path The path to export the file to.
      */
     public void exportDOT(String path) {
