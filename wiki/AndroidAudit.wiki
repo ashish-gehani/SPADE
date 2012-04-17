@@ -1,4 +1,4 @@
-#summary Describes steps for deploying SPADE on the Android emulator.
+#summary Describes steps for deploying SPADE on the Android emulator. [Experimental]
 
 === Requirements ===
   # JDK for building SPADE
