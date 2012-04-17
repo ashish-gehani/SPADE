@@ -1,4 +1,4 @@
-#summary One-sentence summary of this page.
+#summary Describes steps for deploying SPADE on the Android emulator.
 
 === Requirements ===
   # JDK for building SPADE
