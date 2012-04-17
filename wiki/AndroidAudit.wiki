@@ -1,0 +1,22 @@
+#summary One-sentence summary of this page.
+
+=== Requirements ===
+  # JDK for building SPADE
+  # Android SDK for working with the emulator, available here: http://developer.android.com/sdk/index.html.
+
+=== Setting up the emulator ===
+  # Download Nathaniel's Android ARM emulator with audit enabled from http://www.cs.indiana.edu/~nhusted/project_source/AndroIDSEmulator-GB.tar.gz
+  # Use ./start.sh to launch the emulator
+
+=== Setting up SPADE ===
+  # Download SPADE using the following command: `svn checkout -r 538 https://data-provenance.googlecode.com/svn/trunk/SPADE/`
+  # Edit the Makefile and change the path on line 5 to point to your `android-sdk/platform-tools` directory
+  # Use `make android-build` to build SPADE.
+  # Use `make android-deploy` to deploy SPADE to the emulator. (The emulator must already be running for this rule to execute successfully.)
+  # Use `make android-kernel` to launch SPADE on the emulator. (From this point on, all activity recorded by the Audit reporter will be stored in `/mnt/sdcard/spade/output/ouput.dot`)
+
+=== To stop auditing and retrieve the results ===
+  # Use the `adb` utility (located in `android-sdk/platform-tools`) to start a remote shell in the emulator: `adb shell`
+  # Navigate to `/mnt/sdcard/spade/android-build` and execute: `/system/bin/sh control.sh`. This will launch the Android control client for SPADE.
+  # Execute the following command in the control client to completely terminate SPADE: `shutdown`
+  # Exit from the remote shell and use the following command to pull the Graphviz output of the auditing session: `adb pull /mnt/sdcard/spade/output/output.dot`
