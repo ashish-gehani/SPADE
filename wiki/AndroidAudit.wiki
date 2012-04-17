@@ -6,6 +6,8 @@
 
 === Setting up the emulator ===
   # Download Nathaniel's Android ARM emulator with audit enabled from http://www.cs.indiana.edu/~nhusted/project_source/AndroIDSEmulator-GB.tar.gz
+  # Use the `mksdcard` utility from the `android-sdk/tools` directory to create an SD card image with the following command: `mksdcard 32M sdcard.img`
+  # Copy `sdcard.img` to the directory where the Android emulator from step (1) is extracted.
   # Use `./start.sh` to launch the emulator
 
 === Setting up SPADE ===
