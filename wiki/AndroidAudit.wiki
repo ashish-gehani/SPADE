@@ -6,7 +6,7 @@
 
 === Setting up the emulator ===
   # Download Nathaniel's Android ARM emulator with audit enabled from http://www.cs.indiana.edu/~nhusted/project_source/AndroIDSEmulator-GB.tar.gz
-  # Use ./start.sh to launch the emulator
+  # Use `./start.sh` to launch the emulator
 
 === Setting up SPADE ===
   # Download SPADE using the following command: `svn checkout -r 538 https://data-provenance.googlecode.com/svn/trunk/SPADE/`
