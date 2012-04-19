@@ -1761,7 +1761,7 @@ public class AndroidAudit extends AbstractReporter {
             }
 
         } catch (Exception ioe) {
-            logger.log(Level.SEVERE, eventChain.get(1).toString(), ioe);
+            logger.log(Level.SEVERE, null, ioe);
         }
 
         return fileAnnotations;

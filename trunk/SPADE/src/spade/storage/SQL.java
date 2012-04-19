@@ -44,6 +44,7 @@ public class SQL extends AbstractStorage {
     private HashSet<Integer> receivedEdges;
     private final String VERTEX_TABLE = "VERTEX";
     private final String EDGE_TABLE = "EDGE";
+    private final boolean ENABLE_SANITAZATION = true;
 
     @Override
     public boolean initialize(String arguments) {
@@ -57,9 +58,11 @@ public class SQL extends AbstractStorage {
         try {
             String[] tokens = arguments.split("\\s+");
             String driver = tokens[0];
-            String databaseURL = tokens[0];
-            String username = tokens[0];
-            String password = tokens[0];
+            String databaseURL = tokens[1];
+            String username = tokens[2];
+            String password = tokens[3];
+            username = (username.equalsIgnoreCase("null")) ? "" : username;
+            password = (password.equalsIgnoreCase("null")) ? "" : password;
 
             Class.forName(driver);
             dbConnection = DriverManager.getConnection(databaseURL, username, password);
@@ -128,6 +131,13 @@ public class SQL extends AbstractStorage {
         }
     }
 
+    private String sanitizeColumn(String column) {
+        if (ENABLE_SANITAZATION) {
+            column = column.replaceAll("[^a-zA-Z0-9]+", "");
+        }
+        return column;
+    }
+
     private boolean addColumn(String table, String column) {
         // If this column has already been added before for this table, then return
         if ((table.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column)) {
@@ -137,7 +147,7 @@ public class SQL extends AbstractStorage {
         }
 
         try {
-            // ---- PROCEDURES UNSUPPORTED IN H2 ----            
+            // ---- PROCEDURES UNSUPPORTED IN H2 ----
 //            CallableStatement callStatement = dbConnection.prepareCall("{CALL addColumn(?, ?)}");
 //            callStatement.setString(1, table);
 //            callStatement.setString(2, column);
@@ -145,7 +155,7 @@ public class SQL extends AbstractStorage {
 //            callStatement.close();
             // Add column of type VARCHAR
             Statement columnStatement = dbConnection.createStatement();
-            columnStatement.execute("ALTER TABLE " + table + " ADD IF NOT EXISTS " + column + " VARCHAR");
+            columnStatement.execute("ALTER TABLE " + table + " ADD IF NOT EXISTS `" + column + "` VARCHAR");
 
             if (table.equalsIgnoreCase(VERTEX_TABLE)) {
                 vertexAnnotations.add(column);
@@ -168,18 +178,22 @@ public class SQL extends AbstractStorage {
         }
 
         // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + VERTEX_TABLE + " (type, hash, ");
+        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + VERTEX_TABLE + " (`type`, `hash`, ");
         for (String annotationKey : incomingVertex.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
             }
 
+            // Sanitize column name to remove special characters
+            String newAnnotationKey = sanitizeColumn(annotationKey);
+
             // As the annotation keys are being iterated, add them as new columns
             // to the table if they do not already exist
-            addColumn(VERTEX_TABLE, annotationKey);
+            addColumn(VERTEX_TABLE, newAnnotationKey);
 
-            insertStringBuilder.append(annotationKey);
-            insertStringBuilder.append(", ");
+            insertStringBuilder.append("`");
+            insertStringBuilder.append(newAnnotationKey);
+            insertStringBuilder.append("`, ");
         }
 
         // Eliminate the last 2 characters from the string (", ") and begin adding values
@@ -187,9 +201,11 @@ public class SQL extends AbstractStorage {
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
         // Add the type and hash code
-        insertStringBuilder.append(
-                "'" + incomingVertex.type() + "', "
-                + incomingVertex.hashCode() + ", ");
+        insertStringBuilder.append("'");
+        insertStringBuilder.append(incomingVertex.type());
+        insertStringBuilder.append("', ");
+        insertStringBuilder.append(incomingVertex.hashCode());
+        insertStringBuilder.append(", ");
 
         // Add the annotation values
         for (String annotationKey : incomingVertex.getAnnotations().keySet()) {
@@ -197,7 +213,12 @@ public class SQL extends AbstractStorage {
                 continue;
             }
 
-            insertStringBuilder.append("'" + incomingVertex.getAnnotation(annotationKey) + "', ");
+            String value = (ENABLE_SANITAZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"")
+                    : incomingVertex.getAnnotation(annotationKey);
+
+            insertStringBuilder.append("'");
+            insertStringBuilder.append(value);
+            insertStringBuilder.append("', ");
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
@@ -233,17 +254,21 @@ public class SQL extends AbstractStorage {
         }
 
         // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (type, hash, fromVertexId, toVertexId, ");
+        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (`type`, `hash`, `fromVertexId`, `toVertexId`, ");
         for (String annotationKey : incomingEdge.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
             }
+            // Sanitize column name to remove special characters
+            String newAnnotationKey = sanitizeColumn(annotationKey);
+
             // As the annotation keys are being iterated, add them as new columns
             // to the table if they do not already exist
-            addColumn(EDGE_TABLE, annotationKey);
+            addColumn(EDGE_TABLE, newAnnotationKey);
 
-            insertStringBuilder.append(annotationKey);
-            insertStringBuilder.append(", ");
+            insertStringBuilder.append("`");
+            insertStringBuilder.append(newAnnotationKey);
+            insertStringBuilder.append("`, ");
         }
 
         // Eliminate the last 2 characters from the string (", ") and begin adding values
@@ -251,11 +276,15 @@ public class SQL extends AbstractStorage {
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
         // Add the type, hash code, and source and destination vertex Ids
-        insertStringBuilder.append(
-                "'" + incomingEdge.type() + "', "
-                + incomingEdge.hashCode() + ", "
-                + fromVertexId + ", "
-                + toVertexId + ", ");
+        insertStringBuilder.append("'");
+        insertStringBuilder.append(incomingEdge.type());
+        insertStringBuilder.append("', ");
+        insertStringBuilder.append(incomingEdge.hashCode());
+        insertStringBuilder.append(", ");
+        insertStringBuilder.append(fromVertexId);
+        insertStringBuilder.append(", ");
+        insertStringBuilder.append(toVertexId);
+        insertStringBuilder.append(", ");
 
         // Add the annotation values
         for (String annotationKey : incomingEdge.getAnnotations().keySet()) {
@@ -263,7 +292,12 @@ public class SQL extends AbstractStorage {
                 continue;
             }
 
-            insertStringBuilder.append("'" + incomingEdge.getAnnotation(annotationKey) + "', ");
+            String value = (ENABLE_SANITAZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"")
+                    : incomingEdge.getAnnotation(annotationKey);
+
+            insertStringBuilder.append("'");
+            insertStringBuilder.append(value);
+            insertStringBuilder.append("', ");
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
