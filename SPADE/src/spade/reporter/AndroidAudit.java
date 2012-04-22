@@ -31,7 +31,6 @@ import spade.vertex.custom.File;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
-import sun.org.mozilla.javascript.JavaScriptException;
 
 public class AndroidAudit extends AbstractReporter {
 
