@@ -31,6 +31,7 @@ import spade.vertex.custom.File;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+import sun.org.mozilla.javascript.JavaScriptException;
 
 public class AndroidAudit extends AbstractReporter {
 
@@ -1256,18 +1257,25 @@ public class AndroidAudit extends AbstractReporter {
             return;
         }
 
+        String fd_exec_str = null;
+        String readline = null;
+        
         try {
             String fd = fields.get("a0");
+            Integer int_fd = Integer.parseInt(fd, 16);
+            String fd_dec = int_fd.toString();
+            
             String pid = fields.get("pid");
             Process process = getOrCreateProcess(pid, fields, null);
 
             // Assumption: same file descriptor won't be assigned to another file
-            Artifact fileWritten = processFdIsFile.get(pid + "," + fd);
-            if (fileWritten == null) {
-                String fd_exec_str = "ls -l /proc/" + pid + "/fd/" + fd;
+            Artifact fileWritten = processFdIsFile.get(pid + "," + fd); 
+            if (fileWritten == null) {           	
+                fd_exec_str = "ls -l /proc/" + pid + "/fd/" + fd_dec;
                 java.lang.Process fdChecker = Runtime.getRuntime().exec(fd_exec_str);
                 BufferedReader fdReader = new BufferedReader(new InputStreamReader(fdChecker.getInputStream()));
-                String details[] = fdReader.readLine().split("\\s+");
+                readline = fdReader.readLine();
+                String details[] = readline.split("\\s+");
                 String filePath = details[details.length - 1];
 
                 fileWritten = new File();
@@ -1285,7 +1293,7 @@ public class AndroidAudit extends AbstractReporter {
             putEdge(writeEdge);
 
         } catch (Exception e) {
-            //logger.log(Level.SEVERE, null, e);
+       		logger.log(Level.SEVERE, readline, e);
         }
     }
 
@@ -1717,7 +1725,7 @@ public class AndroidAudit extends AbstractReporter {
 
         HashMap<String, String> fileAnnotations = new HashMap<String, String>();
         fileAnnotations.put("auditId", eventChain.get(0).get("auditId"));
-
+        
         try {
 
             String cwd = eventChain.get(1).get("cwd");
@@ -1761,7 +1769,10 @@ public class AndroidAudit extends AbstractReporter {
             }
 
         } catch (Exception ioe) {
-            logger.log(Level.SEVERE, null, ioe);
+        	if (eventChain == null)
+        		logger.log(Level.SEVERE, null, ioe);
+        	else
+        		logger.log(Level.SEVERE, eventChain.toString(), ioe);
         }
 
         return fileAnnotations;
@@ -1915,8 +1926,15 @@ public class AndroidAudit extends AbstractReporter {
             resultVertex.addAnnotation("group", stats[4]);
             resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
-        } catch (Exception exception) {
-            //Logger.getLogger(AndroidAudit.class.getName()).log(Level.SEVERE, null, exception);
+        }
+        catch (IOException exception) {
+        	// Happens due to race condition; 
+        	// process may have died and its information may have been lost
+        	// before we'd read it. In that case, we'll just move on
+        	return null;
+        }
+        catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
             return null;
         }
 
