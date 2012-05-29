@@ -67,6 +67,7 @@ public class LinuxFUSE extends AbstractReporter {
     private boolean refreshHost = false;
     // Date pattern used to generate human-readable time-value annotations.
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
+    private static final Logger logger = Logger.getLogger(LinuxFUSE.class.getName());
 
     // The native launchFUSE method to start FUSE. The argument is the
     // mount point.
@@ -84,7 +85,7 @@ public class LinuxFUSE extends AbstractReporter {
         } catch (Exception ex) {
             localHostAddress = null;
             localHostName = null;
-            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
+            logger.log(Level.WARNING, null, ex);
         }
 
         try {
@@ -104,7 +105,7 @@ public class LinuxFUSE extends AbstractReporter {
             }
         } catch (Exception ex) {
             // File /etc/fuse.conf does not exist or is configured incorrectly.
-            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
+            logger.log(Level.WARNING, null, ex);
             return false;
         }
 
@@ -147,7 +148,7 @@ public class LinuxFUSE extends AbstractReporter {
                 }
                 boottimeReader.close();
             } catch (Exception exception) {
-                Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, exception);
             }
 
             // Create an initial root vertex which will be used as the root of the
@@ -178,8 +179,13 @@ public class LinuxFUSE extends AbstractReporter {
                         Integer.parseInt(currentProgram);
                         Program processVertex = createProgramVertex(currentProgram);
                         String ppid = (String) processVertex.getAnnotation("ppid");
-                        localCache.put(currentProgram, processVertex);
+                        Agent tempAgent = new Agent();
+                        tempAgent.addAnnotation("uid", processVertex.removeAnnotation("uid"));
+                        tempAgent.addAnnotation("gid", processVertex.removeAnnotation("gid"));
                         putVertex(processVertex);
+                        putVertex(tempAgent);
+                        putEdge(new WasControlledBy(processVertex, tempAgent));
+                        localCache.put(currentProgram, processVertex);
                         if (Integer.parseInt(ppid) >= 0) {
                             if (((Program) localCache.get(ppid) != null) && (processVertex != null)) {
                                 WasTriggeredBy triggerEdge = new WasTriggeredBy(processVertex, (Program) localCache.get(ppid));
@@ -199,14 +205,14 @@ public class LinuxFUSE extends AbstractReporter {
                         // Launch FUSE from the native library.
                         launchFUSE(mountPoint);
                     } catch (Exception exception) {
-                        Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+                        logger.log(Level.SEVERE, null, exception);
                     }
                 }
             };
             new Thread(FUSEThread, "LinuxFUSE-Thread").start();
 
         } catch (Exception exception) {
-            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
             return false;
         }
 
@@ -276,7 +282,7 @@ public class LinuxFUSE extends AbstractReporter {
                 } catch (Exception ex) {
                     localHostAddress = null;
                     localHostName = null;
-                    Logger.getLogger(LinuxFUSE.class.getName()).log(Level.WARNING, null, ex);
+                    logger.log(Level.WARNING, null, ex);
                 }
             }
 
@@ -293,7 +299,7 @@ public class LinuxFUSE extends AbstractReporter {
             resultVertex.addAnnotation("hostname", localHostName);
             resultVertex.addAnnotation("hostaddress", localHostAddress);
         } catch (Exception exception) {
-            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
             return null;
         }
 
@@ -338,7 +344,7 @@ public class LinuxFUSE extends AbstractReporter {
                 putEdge(triggerEdge);
             }
         } catch (Exception exception) {
-            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
         }
     }
 
@@ -434,7 +440,7 @@ public class LinuxFUSE extends AbstractReporter {
      * @param pathto The destination path.
      * @param link An integer used to indicate whether the target was a link or
      * not.
-     * @param done An intiger used to indicate whether this event was triggered
+     * @param done An integer used to indicate whether this event was triggered
      * before or after the rename operation.
      */
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
@@ -555,7 +561,7 @@ public class LinuxFUSE extends AbstractReporter {
             Runtime.getRuntime().exec("rm -r " + mountPoint).waitFor();
             return true;
         } catch (Exception exception) {
-            Logger.getLogger(LinuxFUSE.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
             return false;
         }
     }

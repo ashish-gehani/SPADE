@@ -36,6 +36,7 @@ public class ConcreteSketchUncached extends AbstractSketch {
 
     private static final double falsePositiveProbability = 0.1;
     private static final int expectedSize = 20;
+    private static final Logger logger = Logger.getLogger(ConcreteSketchUncached.class.getName());
 
     public ConcreteSketchUncached() {
         matrixFilter = new MatrixFilter(falsePositiveProbability, expectedSize);
@@ -44,7 +45,6 @@ public class ConcreteSketchUncached extends AbstractSketch {
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-        return;
     }
 
     @Override
@@ -61,7 +61,7 @@ public class ConcreteSketchUncached extends AbstractSketch {
                 // If sketch for remote doesn't exist, fetch it and add it to the local cache
 
                 ////////////////////////////////////////////////////////////
-                System.out.println("concreteSketch - Attempting to receive sketches from " + remoteHost);
+                logger.log(Level.INFO, "concreteSketch - Attempting to receive sketches from {0}", remoteHost);
                 ////////////////////////////////////////////////////////////
 
                 SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
@@ -81,7 +81,7 @@ public class ConcreteSketchUncached extends AbstractSketch {
                 Kernel.remoteSketches.putAll(receivedSketches);
 
                 ////////////////////////////////////////////////////////////
-                System.out.println("concreteSketch - Received sketches from " + remoteHost);
+                logger.log(Level.INFO, "concreteSketch - Received sketches from {0}", remoteHost);
                 ////////////////////////////////////////////////////////////
 
                 clientObjectOutputStream.writeObject("close");
@@ -96,7 +96,7 @@ public class ConcreteSketchUncached extends AbstractSketch {
                 BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(networkVertex);
                 if (newAncestors != null) {
                     ////////////////////////////////////////////////////////////
-                    System.out.println("concreteSketch - Found bloomfilter for networkVertex");
+                    logger.log(Level.INFO, "concreteSketch - Found bloomfilter for networkVertex");
                     ////////////////////////////////////////////////////////////
                     Runnable update = new updateMatrixThreadUncached(this, networkVertex, incomingEdge.type());
                     new Thread(update).start();
@@ -119,6 +119,7 @@ class updateMatrixThreadUncached implements Runnable {
     private AbstractSketch sketch;
     private AbstractVertex vertex;
     private String type;
+    private static final Logger logger = Logger.getLogger(updateMatrixThreadUncached.class.getName());
 
     public updateMatrixThreadUncached(AbstractSketch workingSketch, AbstractVertex networkVertex, String edgeType) {
         sketch = workingSketch;
@@ -130,7 +131,7 @@ class updateMatrixThreadUncached implements Runnable {
         String storageId = getStorageId(vertex);
         if (type.equalsIgnoreCase("Used")) {
             ////////////////////////////////////////////////////////////
-            System.out.println("concreteSketch - Updating matrixfilter for USED edge for storageId: " + storageId);
+            logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for USED edge for storageId: {0}", storageId);
             ////////////////////////////////////////////////////////////
             String remoteHost = vertex.getAnnotation("destination host");
             BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(vertex);
@@ -142,11 +143,11 @@ class updateMatrixThreadUncached implements Runnable {
                 }
             }
             ////////////////////////////////////////////////////////////
-            System.out.println("concreteSketch - Updated bloomfilters for USED edge - storageId: " + storageId);
+            logger.log(Level.INFO, "concreteSketch - Updated bloomfilters for USED edge - storageId: {0}", storageId);
             ////////////////////////////////////////////////////////////
         } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
             ////////////////////////////////////////////////////////////
-            System.out.println("concreteSketch - Updating matrixfilter for WGB edge for storageId: " + storageId);
+            logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for WGB edge for storageId: {0}", storageId);
             ////////////////////////////////////////////////////////////
             Graph ancestors = Query.executeQuery("query Neo4j lineage " + storageId + " 20 a null tmp.dot", false);
             for (AbstractVertex currentVertex : ancestors.vertexSet()) {
@@ -156,7 +157,7 @@ class updateMatrixThreadUncached implements Runnable {
                 }
             }
             ////////////////////////////////////////////////////////////
-            System.out.println("concreteSketch - Updated bloomfilters for WGB edge - storageId: " + storageId);
+            logger.log(Level.INFO, "concreteSketch - Updated bloomfilters for WGB edge - storageId: {0}", storageId);
             ////////////////////////////////////////////////////////////
         }
     }
@@ -164,7 +165,7 @@ class updateMatrixThreadUncached implements Runnable {
     private String getStorageId(AbstractVertex networkVertex) {
         try {
             ////////////////////////////////////////////////////////////
-            System.out.println("concreteSketch - Getting storageId of networkVertex");
+            logger.log(Level.INFO, "concreteSketch - Getting storageId of networkVertex");
             ////////////////////////////////////////////////////////////
             String vertexQueryExpression = "query Neo4j vertices";
             vertexQueryExpression += " source\\ host:" + networkVertex.getAnnotation("source host");
@@ -174,9 +175,9 @@ class updateMatrixThreadUncached implements Runnable {
             Graph result = Query.executeQuery(vertexQueryExpression, false);
             AbstractVertex resultVertex = result.vertexSet().iterator().next();
             ////////////////////////////////////////////////////////////
-            System.out.println("concreteSketch - Returning storageId: " + resultVertex.getAnnotation("storageId"));
+            logger.log(Level.INFO, "concreteSketch - Returning storageId: {0}", resultVertex.getAnnotation(Query.STORAGE_ID_STRING));
             ////////////////////////////////////////////////////////////
-            return resultVertex.getAnnotation("storageId");
+            return resultVertex.getAnnotation(Query.STORAGE_ID_STRING);
         } catch (Exception exception) {
             Logger.getLogger(ConcreteSketchUncached.class.getName()).log(Level.SEVERE, null, exception);
             return null;

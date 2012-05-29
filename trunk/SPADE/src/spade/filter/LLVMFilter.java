@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2011 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -31,7 +31,6 @@ import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -43,18 +42,25 @@ public class LLVMFilter extends AbstractFilter {
     public LLVMFilter() {
         try {
             artifacts = new HashMap<String, Integer>();
-            /*
-             * FIX PATH
-             */
-            BufferedReader br = new BufferedReader(new FileReader("/home/maisem/Desktop/callgraph.dot"));
-            String s;
-            Pattern nodeDef = Pattern.compile("([^ \t]+) .*label=\"[{]?([^{}]*)[}]?\".*;"); // Format for node definition in DOT file
-            Pattern edgeDef = Pattern.compile("([^ \t]+) -> ([^ \t]+);"); // Format for edge definition in DOT file
             methodsToMonitor = new HashSet<String>();
+        } catch (Exception e) {
+            // ADD Exception Handling
+        }
+    }
+
+    @Override
+    public boolean initialize(String arguments) {
+        try {
             HashMap<String, String> nodes = new HashMap<String, String>(); // HashMap of id vs name for nodes
             HashMap<String, String> nodesRev = new HashMap<String, String>(); // HashMap of name vs id for nodes
             HashMap<String, HashSet<String>> edges = new HashMap<String, HashSet<String>>(); // HashMap of HashSet of incoming edges for every node
             LinkedList<String> queue = new LinkedList<String>();
+
+            String[] tokens = arguments.split("\\s+");
+            BufferedReader br = new BufferedReader(new FileReader(tokens[0]));
+            String s;
+            Pattern nodeDef = Pattern.compile("([^ \t]+) .*label=\"[{]?([^{}]*)[}]?\".*;"); // Format for node definition in DOT file
+            Pattern edgeDef = Pattern.compile("([^ \t]+) -> ([^ \t]+);"); // Format for edge definition in DOT file
             while ((s = br.readLine()) != null) {
                 Matcher node = nodeDef.matcher(s);
                 Matcher edge = edgeDef.matcher(s);
@@ -71,10 +77,12 @@ public class LLVMFilter extends AbstractFilter {
                 }
             }
             br.close();
-            /*
-             * FIX LIST OF FUNCTIONS
-             */
-            queue.add(nodes.get("cat"));
+
+            String traceFunctions[] = tokens[1].split("\\s+");
+            for (int i = 0; i < traceFunctions.length; i++) {
+                queue.add(nodes.get(traceFunctions[i]));
+            }
+
             while (queue.size() != 0) //Breadth First Search
             {
                 String name = queue.removeFirst();
@@ -86,15 +94,16 @@ public class LLVMFilter extends AbstractFilter {
                     }
                 }
             }
-        } catch (Exception e) {
-            // ADD Exception Handling
+            return true;
+        } catch (Exception exception) {
+            return false;
         }
     }
 
     @Override
     public void putVertex(AbstractVertex incoming) {
         if (incoming instanceof Process) {
-            if (methodsToMonitor.contains(incoming.getAnnotation("Name"))) {
+            if (methodsToMonitor.contains(incoming.getAnnotation("FunctionName"))) {
                 putInNextFilter(incoming);
             }
         } else {
@@ -109,7 +118,7 @@ public class LLVMFilter extends AbstractFilter {
             Artifact artifact = (Artifact) incoming.getDestinationVertex();
             Process process = (Process) incoming.getSourceVertex();
             String ArgID = artifact.getAnnotation("ID");
-            if (methodsToMonitor.contains(process.getAnnotation("Name"))) {
+            if (methodsToMonitor.contains(process.getAnnotation("FunctionName"))) {
                 if (artifacts.containsKey(ArgID)) // Every Artifact is used at most twice
                 {
                     if (artifacts.get(ArgID) == 1) // Every Artifact is used at most twice
@@ -124,11 +133,12 @@ public class LLVMFilter extends AbstractFilter {
             } else {
                 artifacts.remove(ArgID);  // If we do not want to monitor the Artifact remove it from the HashMap
             }
+
         } else if (incoming instanceof WasGeneratedBy) {
             Process process = (Process) incoming.getDestinationVertex();
             Artifact artifact = (Artifact) incoming.getSourceVertex();
             String ArgID = artifact.getAnnotation("ID");
-            if (methodsToMonitor.contains(process.getAnnotation("Name"))) {
+            if (methodsToMonitor.contains(process.getAnnotation("FunctionName"))) {
                 if (artifacts.containsKey(ArgID)) {
                     if (artifacts.get(ArgID) == 1) {
                         artifacts.put(ArgID, artifacts.get(ArgID) + 1);
@@ -141,11 +151,12 @@ public class LLVMFilter extends AbstractFilter {
             } else {
                 artifacts.remove(ArgID);
             }
-        } else if (incoming instanceof WasTriggeredBy) {
+        } else // WasTriggeredBy
+        {
             AbstractVertex source = incoming.getSourceVertex();
             AbstractVertex destination = incoming.getDestinationVertex();
-            if (methodsToMonitor.contains(source.getAnnotation("Name"))) {
-                if (methodsToMonitor.contains(destination.getAnnotation("Name"))) {
+            if (methodsToMonitor.contains(source.getAnnotation("FunctionName"))) {
+                if (methodsToMonitor.contains(destination.getAnnotation("FunctionName"))) {
                     putInNextFilter(incoming);
                 }
             }

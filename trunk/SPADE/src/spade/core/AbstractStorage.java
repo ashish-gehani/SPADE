@@ -119,7 +119,7 @@ public abstract class AbstractStorage {
 
     /**
      * Query method that returns a graph object containing all paths from the
-     * given source vertex to the given destination vertex, contrained by the
+     * given source vertex to the given destination vertex, constrained by the
      * maxLength argument as the maximum length of the paths.
      *
      * @param srcVertexId The source vertex id.

@@ -57,7 +57,7 @@ public class OpenBSM extends AbstractReporter {
     private String eventPID;
     private volatile boolean shutdown;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
-    private final String binaryPath = "../build/spade/reporter/spadeOpenBSM";
+    private final String binaryPath = "../../build/spade/reporter/spadeOpenBSM";
     private final int THREAD_SLEEP_DELAY = 5;
 
     @Override
@@ -227,7 +227,6 @@ public class OpenBSM extends AbstractReporter {
             if (Integer.parseInt(ppid) > 0) {
                 Program parentVertex = getProcessVertex(ppid);
                 if (parentVertex != null) {
-                    putVertex(parentVertex);
                     putEdge(new WasTriggeredBy(processVertex, parentVertex));
                 }
             }

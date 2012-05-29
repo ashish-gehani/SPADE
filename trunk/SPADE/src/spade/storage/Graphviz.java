@@ -25,10 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Kernel;
+import spade.core.*;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -91,7 +88,7 @@ public class Graphviz extends AbstractStorage {
                     if (key == null || value == null) {
                         continue;
                     }
-                    if ((key.equalsIgnoreCase("storageId"))
+                    if ((key.equalsIgnoreCase(Query.STORAGE_ID_STRING))
                             || (key.equalsIgnoreCase("type"))
                             || (key.equalsIgnoreCase("subtype"))
                             || (key.equalsIgnoreCase("environment"))
@@ -155,10 +152,11 @@ public class Graphviz extends AbstractStorage {
                     if (key == null || value == null) {
                         continue;
                     }
-                    if ((key.equalsIgnoreCase("storageId"))
+                    if ((key.equalsIgnoreCase(Query.STORAGE_ID_STRING))
                             || (key.equalsIgnoreCase("type"))
                             || (key.equalsIgnoreCase("subtype"))
-                            || (key.equalsIgnoreCase("source_reporter"))) {
+                            || (key.equalsIgnoreCase(Kernel.UNIQUE_ID))
+                            || (key.equalsIgnoreCase(Kernel.SOURCE_REPORTER))) {
                         continue;
                     }
                     annotationString.append(key.replace("\\", "\\\\"));

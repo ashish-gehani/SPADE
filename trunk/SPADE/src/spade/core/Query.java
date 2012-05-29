@@ -34,6 +34,16 @@ import java.util.logging.Logger;
 public class Query {
 
     private static final int WAIT_FOR_FLUSH = 10;
+    private static final Logger logger = Logger.getLogger(Query.class.getName());
+    protected static final boolean DEBUG_OUTPUT = false;
+    public static final String STORAGE_ID_STRING = "storageId";
+    // String to match for when specifying direction for ancestors
+    public static final String DIRECTION_ANCESTORS = "ancestors";
+    // String to match for when specifying direction for descendants
+    public static final String DIRECTION_DESCENDANTS = "descendants";
+    // String to match for when specifying direction for both ancestors
+    // and descendants
+    public static final String DIRECTION_BOTH = "both";
 
     /**
      * This method is used to call query methods on the desired storage. The
@@ -57,214 +67,239 @@ public class Query {
                 // wait for other thread to flush transactions
                 Thread.sleep(WAIT_FOR_FLUSH);
             } catch (Exception exception) {
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, exception);
             }
         }
         if ((line == null) || (Kernel.storages.isEmpty())) {
             return null;
         }
-        String[] tokens = line.split("\\s+");
-        for (AbstractStorage storage : Kernel.storages) {
-            if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
-                ////////////////////////////////////////////////////////////////
-                System.out.println("Executing query line: " + line);
-                ////////////////////////////////////////////////////////////////
-                // Determine the type of query and call the corresponding method
-                begintime = System.currentTimeMillis();
-                if (tokens[2].equalsIgnoreCase("vertices")) {
-                    String queryExpression = "";
-                    for (int i = 3; i < tokens.length; i++) {
-                        queryExpression = queryExpression + tokens[i] + " ";
-                    }
-                    try {
-                        resultGraph = storage.getVertices(queryExpression.trim());
-                    } catch (Exception badQuery) {
-                        Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, badQuery);
-                    }
-                } else if (tokens[2].equalsIgnoreCase("remotevertices")) {
-                    String host = tokens[3];
-                    String queryExpression = "";
-                    for (int i = 4; i < tokens.length; i++) {
-                        queryExpression = queryExpression + tokens[i] + " ";
-                    }
-                    try {
-                        // Connect to the specified host and query for vertices.
-                        SocketAddress sockaddr = new InetSocketAddress(host, Kernel.REMOTE_QUERY_PORT);
-                        Socket remoteSocket = new Socket();
-                        remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                        OutputStream outStream = remoteSocket.getOutputStream();
-                        InputStream inStream = remoteSocket.getInputStream();
-                        //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
-                        ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
-                        PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
+        try {
+            String[] tokens = line.split("\\s+", 4);
+            for (AbstractStorage storage : Kernel.storages) {
+                if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
 
-                        String srcExpression = "query Neo4j vertices " + queryExpression;
-                        remoteSocketOut.println(srcExpression);
-                        resultGraph = (Graph) graphInputStream.readObject();
+                    if (DEBUG_OUTPUT) {
+                        logger.log(Level.INFO, "Executing query line: {0}", line);
+                    }
 
-                        remoteSocketOut.println("close");
-                        graphInputStream.close();
-                        //graphOutputStream.close();
-                        remoteSocketOut.close();
-                        inStream.close();
-                        outStream.close();
-                        remoteSocket.close();
-                    } catch (Exception badQuery) {
-                        Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, badQuery);
-                    }
-                } else if (tokens[2].equalsIgnoreCase("lineage")) {
-                    String vertexId = tokens[3];
-                    int depth = Integer.parseInt(tokens[4]);
-                    String direction = tokens[5];
-                    String terminatingExpression = "";
-                    for (int i = 6; i < tokens.length - 1; i++) {
-                        terminatingExpression = terminatingExpression + tokens[i] + " ";
-                    }
-                    try {
-                        resultGraph = storage.getLineage(vertexId, depth, direction, terminatingExpression.trim());
-                    } catch (Exception badQuery) {
-                        Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, badQuery);
-                    }
-                    if (resolveRemote) {
-                        // Perform the remote queries here. A temporary remoteGraph is
-                        // created to store the results of the remote queries and then
-                        // added to the final resultGraph
-                        Graph remoteGraph = new Graph();
-                        // Get the map of network vertexes of our current graph
-                        Map<AbstractVertex, Integer> currentNetworkMap = resultGraph.networkMap();
-                        // Perform remote queries until the network map is exhausted
-                        while (!currentNetworkMap.isEmpty()) {
-                            // Perform remote query on current network vertex and union
-                            // the result with the remoteGraph. This also adds the network
-                            // vertexes to the remoteGraph as well, so that deeper level
-                            // network queries are resolved iteratively
-                            for (Map.Entry currentEntry : currentNetworkMap.entrySet()) {
-                                AbstractVertex networkVertex = (AbstractVertex) currentEntry.getKey();
-                                int currentDepth = (Integer) currentEntry.getValue();
-                                // Execute remote query
-                                Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction, terminatingExpression.trim());
-                                // Update the depth values of all network artifacts in the
-                                // remote network map to reflect current level of iteration
-                                for (Map.Entry currentNetworkEntry : tempRemoteGraph.networkMap().entrySet()) {
-                                    AbstractVertex tempNetworkVertex = (AbstractVertex) currentNetworkEntry.getKey();
-                                    int updatedDepth = currentDepth + (Integer) currentNetworkEntry.getValue();
-                                    tempRemoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
-                                }
-                                // Add the lineage of the current network node to the
-                                // overall result
-                                remoteGraph = Graph.union(remoteGraph, tempRemoteGraph);
-                            }
-                            currentNetworkMap.clear();
-                            // Set the networkMap to network vertexes of the newly
-                            // create remoteGraph
-                            currentNetworkMap = remoteGraph.networkMap();
+                    // Determine the type of query and call the corresponding method
+                    begintime = System.currentTimeMillis();
+                    if (tokens[2].equalsIgnoreCase("vertices")) {
+                        resultGraph = queryVertices(tokens[3], storage);
+                    } else if (tokens[2].equalsIgnoreCase("remotevertices")) {
+                        resultGraph = queryRemoteVertices(tokens[3], storage);
+                    } else if (tokens[2].equalsIgnoreCase("lineage")) {
+                        resultGraph = queryLineage(tokens[3], storage, resolveRemote);
+                        if (resolveRemote) {
+                            transformNetworkBoundaries(resultGraph);
                         }
-                        resultGraph = Graph.union(resultGraph, remoteGraph);
+                    } else if (tokens[2].equalsIgnoreCase("paths")) {
+                        resultGraph = queryPaths(tokens[3], storage);
+                    } else if (tokens[2].equalsIgnoreCase("sketchpaths")) {
+                        resultGraph = getPathInSketch(tokens[3] + " " + tokens[4]);
+                        transformNetworkBoundaries(resultGraph);
+                    } else if (tokens[2].equalsIgnoreCase("rebuildsketches")) {
+                        notifyRebuildSketches(Integer.parseInt(tokens[3]), Integer.parseInt(tokens[3]));
+                        return null;
+                    } else if (tokens[2].equalsIgnoreCase("remotepaths")) {
+                        resultGraph = queryRemotePaths(tokens[3], storage);
+                        transformNetworkBoundaries(resultGraph);
+                    } else {
+                        return null;
                     }
-                } else if (tokens[2].equalsIgnoreCase("paths")) {
-                    String srcVertexId = tokens[3];
-                    String dstVertexId = tokens[4];
-                    int maxLength = Integer.parseInt(tokens[5]);
-                    try {
-                        resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
-                    } catch (Exception badQuery) {
-                        Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, badQuery);
-                    }
-                } else if (tokens[2].equalsIgnoreCase("serialize")) {
-                    // Temporary method: Used to determine false positives in the sketches.
-                    try {
-                        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("sketches.out"));
-                        Map<String, AbstractSketch> tempSketches = new HashMap<String, AbstractSketch>();
-                        tempSketches.putAll(Kernel.remoteSketches);
-                        tempSketches.put("localhost", Kernel.sketches.iterator().next());
-                        out.writeObject(tempSketches);
-                        out.flush();
-                        out.close();
-                    } catch (Exception ex) {
-                        Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                } else if (tokens[2].equalsIgnoreCase("sketchpaths")) {
-                    resultGraph = getPathInSketch(tokens[3] + " " + tokens[4]);
-                } else if (tokens[2].equalsIgnoreCase("rebuildsketches")) {
-                    notifyRebuildSketches(Integer.parseInt(tokens[3]), Integer.parseInt(tokens[3]));
-                    return null;
-                } else if (tokens[2].equalsIgnoreCase("remotepaths")) {
-                    String source = tokens[3];
-                    String srcHost = source.split(":")[0];
-                    String srcVertexId = source.split(":")[1];
-                    String destination = tokens[4];
-                    String dstHost = destination.split(":")[0];
-                    String dstVertexId = destination.split(":")[1];
-                    int maxLength = Integer.parseInt(tokens[5]);
-                    try {
-                        if (srcHost.equalsIgnoreCase("localhost") && dstHost.equalsIgnoreCase("localhost")) {
-                            resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
-                        } else {
-                            Graph srcGraph = null, dstGraph = null;
-
-                            // Connect to source host and get upward lineage
-                            SocketAddress sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
-                            Socket remoteSocket = new Socket();
-                            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                            OutputStream outStream = remoteSocket.getOutputStream();
-                            InputStream inStream = remoteSocket.getInputStream();
-                            //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
-                            ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
-                            PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
-
-                            String srcExpression = "query Neo4j lineage " + srcVertexId + " " + maxLength + " a null tmp.dot";
-                            remoteSocketOut.println(srcExpression);
-                            srcGraph = (Graph) graphInputStream.readObject();
-
-                            remoteSocketOut.println("close");
-                            graphInputStream.close();
-                            //graphOutputStream.close();
-                            remoteSocketOut.close();
-                            inStream.close();
-                            outStream.close();
-                            remoteSocket.close();
-
-                            // Connect to destination host and get downward lineage
-                            sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
-                            remoteSocket = new Socket();
-                            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                            outStream = remoteSocket.getOutputStream();
-                            inStream = remoteSocket.getInputStream();
-                            //graphOutputStream = new ObjectOutputStream(outStream);
-                            graphInputStream = new ObjectInputStream(inStream);
-                            remoteSocketOut = new PrintWriter(outStream, true);
-
-                            String dstExpression = "query Neo4j lineage " + dstVertexId + " " + maxLength + " d null tmp.dot";
-                            remoteSocketOut.println(dstExpression);
-                            dstGraph = (Graph) graphInputStream.readObject();
-
-                            remoteSocketOut.println("close");
-                            graphInputStream.close();
-                            //graphOutputStream.close();
-                            remoteSocketOut.close();
-                            inStream.close();
-                            outStream.close();
-                            remoteSocket.close();
-
-                            // The result path is the intersection of the two lineages
-                            resultGraph = Graph.intersection(srcGraph, dstGraph);
-                        }
-                    } catch (Exception badQuery) {
-                        Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, badQuery);
-                    }
-                } else {
-                    return null;
                 }
             }
+        } catch (Exception badQuery) {
+            logger.log(Level.SEVERE, null, badQuery);
+            return null;
         }
-        transformNetworkBoundaries(resultGraph);
         endtime = System.currentTimeMillis();
         long elapsedtime = endtime - begintime;
-        ////////////////////////////////////////////////////////////////
-        System.out.println("Time taken for (" + line + "): " + elapsedtime);
-        ////////////////////////////////////////////////////////////////
-        // If the graph is incomplete, perform the necessary remote queries
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "Time taken for query \"({0})\": {1}", new Object[]{line, elapsedtime});
+        }
+
         return resultGraph;
+    }
+
+    private static Graph queryVertices(String queryLine, AbstractStorage storage) {
+        try {
+            Graph resultGraph = storage.getVertices(queryLine);
+            return resultGraph;
+        } catch (Exception badQuery) {
+            logger.log(Level.SEVERE, null, badQuery);
+            return null;
+        }
+    }
+
+    private static Graph queryRemoteVertices(String queryLine, AbstractStorage storage) {
+        try {
+            String[] tokens = queryLine.split("\\s+", 2);
+            String host = tokens[0];
+            String queryExpression = tokens[1];
+            // Connect to the specified host and query for vertices.
+            SocketAddress sockaddr = new InetSocketAddress(host, Kernel.REMOTE_QUERY_PORT);
+            Socket remoteSocket = new Socket();
+            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+            OutputStream outStream = remoteSocket.getOutputStream();
+            InputStream inStream = remoteSocket.getInputStream();
+            //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
+            ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
+            PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
+
+            String srcExpression = "query Neo4j vertices " + queryExpression;
+            remoteSocketOut.println(srcExpression);
+            Graph resultGraph = (Graph) graphInputStream.readObject();
+
+            remoteSocketOut.println("close");
+            graphInputStream.close();
+            //graphOutputStream.close();
+            remoteSocketOut.close();
+            inStream.close();
+            outStream.close();
+            remoteSocket.close();
+            return resultGraph;
+        } catch (Exception badQuery) {
+            logger.log(Level.SEVERE, null, badQuery);
+            return null;
+        }
+    }
+
+    private static Graph queryLineage(String queryLine, AbstractStorage storage, boolean resolveRemote) {
+        Graph resultGraph;
+        try {
+            String[] tokens = queryLine.split("\\s+", 4);
+            String vertexId = tokens[0];
+            int depth = Integer.parseInt(tokens[1]);
+            String direction = tokens[2];
+            String terminatingExpression = tokens[3];
+            resultGraph = storage.getLineage(vertexId, depth, direction, terminatingExpression);
+            if (resolveRemote) {
+                // Perform the remote queries here. A temporary remoteGraph is
+                // created to store the results of the remote queries and then
+                // added to the final resultGraph
+                Graph remoteGraph = new Graph();
+                // Get the map of network vertexes of our current graph
+                Map<AbstractVertex, Integer> currentNetworkMap = resultGraph.networkMap();
+                // Perform remote queries until the network map is exhausted
+                while (!currentNetworkMap.isEmpty()) {
+                    // Perform remote query on current network vertex and union
+                    // the result with the remoteGraph. This also adds the network
+                    // vertexes to the remoteGraph as well, so that deeper level
+                    // network queries are resolved iteratively
+                    for (Map.Entry currentEntry : currentNetworkMap.entrySet()) {
+                        AbstractVertex networkVertex = (AbstractVertex) currentEntry.getKey();
+                        int currentDepth = (Integer) currentEntry.getValue();
+                        // Execute remote query
+                        Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction, terminatingExpression);
+                        // Update the depth values of all network artifacts in the
+                        // remote network map to reflect current level of iteration
+                        for (Map.Entry currentNetworkEntry : tempRemoteGraph.networkMap().entrySet()) {
+                            AbstractVertex tempNetworkVertex = (AbstractVertex) currentNetworkEntry.getKey();
+                            int updatedDepth = currentDepth + (Integer) currentNetworkEntry.getValue();
+                            tempRemoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
+                        }
+                        // Add the lineage of the current network node to the
+                        // overall result
+                        remoteGraph = Graph.union(remoteGraph, tempRemoteGraph);
+                    }
+                    currentNetworkMap.clear();
+                    // Set the networkMap to network vertexes of the newly
+                    // create remoteGraph
+                    currentNetworkMap = remoteGraph.networkMap();
+                }
+                resultGraph = Graph.union(resultGraph, remoteGraph);
+            }
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+            return null;
+        }
+        return resultGraph;
+    }
+
+    private static Graph queryPaths(String queryLine, AbstractStorage storage) {
+        try {
+            String[] tokens = queryLine.split("\\s+");
+            String srcVertexId = tokens[0];
+            String dstVertexId = tokens[1];
+            int maxLength = Integer.parseInt(tokens[2]);
+            Graph resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
+            return resultGraph;
+        } catch (Exception badQuery) {
+            logger.log(Level.SEVERE, null, badQuery);
+            return null;
+        }
+    }
+
+    private static Graph queryRemotePaths(String queryLine, AbstractStorage storage) {
+        try {
+            String[] tokens = queryLine.split("\\s+");
+            String source = tokens[0];
+            String srcHost = source.split(":")[0];
+            String srcVertexId = source.split(":")[1];
+            String destination = tokens[1];
+            String dstHost = destination.split(":")[0];
+            String dstVertexId = destination.split(":")[1];
+            int maxLength = Integer.parseInt(tokens[2]);
+            if (srcHost.equalsIgnoreCase("localhost") && dstHost.equalsIgnoreCase("localhost")) {
+                String newQueryLine = srcVertexId + dstVertexId + maxLength;
+                return queryPaths(newQueryLine, storage);
+            } else {
+                Graph srcGraph, dstGraph;
+
+                // Connect to source host and get upward lineage
+                SocketAddress sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
+                Socket remoteSocket = new Socket();
+                remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+                OutputStream outStream = remoteSocket.getOutputStream();
+                InputStream inStream = remoteSocket.getInputStream();
+                //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
+                ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
+                PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
+
+                String srcExpression = "query Neo4j lineage " + srcVertexId + " " + maxLength + " ancestors null";
+                remoteSocketOut.println(srcExpression);
+                srcGraph = (Graph) graphInputStream.readObject();
+
+                remoteSocketOut.println("close");
+                graphInputStream.close();
+                //graphOutputStream.close();
+                remoteSocketOut.close();
+                inStream.close();
+                outStream.close();
+                remoteSocket.close();
+
+                // Connect to destination host and get downward lineage
+                sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
+                remoteSocket = new Socket();
+                remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+                outStream = remoteSocket.getOutputStream();
+                inStream = remoteSocket.getInputStream();
+                //graphOutputStream = new ObjectOutputStream(outStream);
+                graphInputStream = new ObjectInputStream(inStream);
+                remoteSocketOut = new PrintWriter(outStream, true);
+
+                String dstExpression = "query Neo4j lineage " + dstVertexId + " " + maxLength + " descendants null";
+                remoteSocketOut.println(dstExpression);
+                dstGraph = (Graph) graphInputStream.readObject();
+
+                remoteSocketOut.println("close");
+                graphInputStream.close();
+                //graphOutputStream.close();
+                remoteSocketOut.close();
+                inStream.close();
+                outStream.close();
+                remoteSocket.close();
+
+                // The result path is the intersection of the two lineages
+                Graph resultGraph = Graph.intersection(srcGraph, dstGraph);
+                return resultGraph;
+            }
+        } catch (Exception badQuery) {
+            logger.log(Level.SEVERE, null, badQuery);
+            return null;
+        }
     }
 
     /**
@@ -288,9 +323,10 @@ public class Query {
         String destination = line.split("\\s")[1];
         String dstVertexId = destination.split(":")[1];
 
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("endPathFragment - generating end path fragment");
-        ////////////////////////////////////////////////////////////////////
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "endPathFragment - generating end path fragment");
+        }
+
         // First, store the local network vertices in a set because they will be
         // used later.
         //Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
@@ -313,9 +349,11 @@ public class Query {
 
             // Current host's network vertices that match downward
             Set<AbstractVertex> matchingVerticesUp = new HashSet<AbstractVertex>();
-            ////////////////////////////////////////////////////////////////////
-            System.out.println("endPathFragment - checking " + ((Set<AbstractVertex>) inputSketch.objects.get("srcVertices")).size() + " srcVertices");
-            ////////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "endPathFragment - checking {0} srcVertices", ((Set<AbstractVertex>) inputSketch.objects.get("srcVertices")).size());
+            }
+
             for (AbstractVertex sourceVertex : (Set<AbstractVertex>) inputSketch.objects.get("srcVertices")) {
                 BloomFilter currentBloomFilter = receivedMatrixFilter.get(sourceVertex);
                 for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
@@ -327,17 +365,21 @@ public class Query {
 
             // Get all paths between the matching network vertices and the required vertex id
             Object vertices[] = matchingVerticesUp.toArray();
-            ////////////////////////////////////////////////////////////////////
-            System.out.println("endPathFragment - generating up paths between " + vertices.length + " matched vertices");
-            ////////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "endPathFragment - generating up paths between {0} matched vertices", vertices.length);
+            }
+
             for (int i = 0; i < vertices.length; i++) {
-                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation("storageId");
+                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(Query.STORAGE_ID_STRING);
                 Graph path = executeQuery("query Neo4j paths " + srcVertexId + " " + vertexId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
-                    ////////////////////////////////////////////////////////////////////
-                    System.out.println("endPathFragment - added path to result fragment");
-                    ////////////////////////////////////////////////////////////////////
+
+                    if (DEBUG_OUTPUT) {
+                        logger.log(Level.INFO, "endPathFragment - added path to result fragment");
+                    }
+
                 }
             }
         } else if (end.equals("dst")) {
@@ -356,9 +398,11 @@ public class Query {
 
             // Current host's network vertices that match upward
             Set<AbstractVertex> matchingVerticesDown = new HashSet<AbstractVertex>();
-            ////////////////////////////////////////////////////////////////////
-            System.out.println("endPathFragment - checking " + ((Set<AbstractVertex>) inputSketch.objects.get("dstVertices")).size() + " dstVertices");
-            ////////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "endPathFragment - checking {0} dstVertices", ((Set<AbstractVertex>) inputSketch.objects.get("dstVertices")).size());
+            }
+
             for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
                 BloomFilter currentBloomFilter = myMatrixFilter.get(vertexToCheck);
                 for (AbstractVertex destinationVertex : (Set<AbstractVertex>) inputSketch.objects.get("dstVertices")) {
@@ -370,24 +414,28 @@ public class Query {
 
             // Get all paths between the matching network vertices and the required vertex id
             Object vertices[] = matchingVerticesDown.toArray();
-            ////////////////////////////////////////////////////////////////////
-            System.out.println("endPathFragment - generating down paths between " + vertices.length + " matched vertices");
-            ////////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "endPathFragment - generating down paths between {0} matched vertices", vertices.length);
+            }
+
             for (int i = 0; i < vertices.length; i++) {
-                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation("storageId");
+                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(Query.STORAGE_ID_STRING);
                 Graph path = executeQuery("query Neo4j paths " + vertexId + " " + dstVertexId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
-                    ////////////////////////////////////////////////////////////////////
-                    System.out.println("endPathFragment - added path to result fragment");
-                    ////////////////////////////////////////////////////////////////////
+
+                    if (DEBUG_OUTPUT) {
+                        logger.log(Level.INFO, "endPathFragment - added path to result fragment");
+                    }
+
                 }
             }
         }
 
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("endPathFragment - returning " + end + " end fragment");
-        ////////////////////////////////////////////////////////////////////
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "endPathFragment - returning {0} end fragment", end);
+        }
 
         return result;
     }
@@ -418,9 +466,10 @@ public class Query {
         // 6) Get paths between all pairs of vertices in the set 'matching vertices'
         //    and union all the paths to get the final path fragment for this host.
 
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.a - generating path fragment");
-        ////////////////////////////////////////////////////////////////////
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.a - generating path fragment");
+        }
+
         //Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
         Graph myNetworkVertices = executeQuery("query Neo4j vertices network:true", false);
         Set<AbstractVertex> matchingVerticesDown = new HashSet<AbstractVertex>();
@@ -429,9 +478,11 @@ public class Query {
         MatrixFilter myMatrixFilter = Kernel.sketches.iterator().next().matrixFilter;
 
         // Current host's network vertices that match downward
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.b - checking " + ((Set<AbstractVertex>) inputSketch.objects.get("srcVertices")).size() + " srcVertices");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.b - checking {0} srcVertices", ((Set<AbstractVertex>) inputSketch.objects.get("srcVertices")).size());
+        }
+
         for (AbstractVertex sourceVertex : (Set<AbstractVertex>) inputSketch.objects.get("srcVertices")) {
             BloomFilter currentBloomFilter = receivedMatrixFilter.get(sourceVertex);
             for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
@@ -440,14 +491,17 @@ public class Query {
                 }
             }
         }
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.c - added downward vertices");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.c - added downward vertices");
+        }
 
         // Current host's network vertices that match upward
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.d - checking " + ((Set<AbstractVertex>) inputSketch.objects.get("dstVertices")).size() + " dstVertices");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.d - checking {0} dstVertices", ((Set<AbstractVertex>) inputSketch.objects.get("dstVertices")).size());
+        }
+
         for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
             BloomFilter currentBloomFilter = myMatrixFilter.get(vertexToCheck);
             for (AbstractVertex destinationVertex : (Set<AbstractVertex>) inputSketch.objects.get("dstVertices")) {
@@ -456,46 +510,57 @@ public class Query {
                 }
             }
         }
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.e - added upward vertices");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.e - added upward vertices");
+        }
 
         // Network vertices that we're interested in
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.f - " + matchingVerticesDown.size() + " in down vertices");
-        System.out.println("pathFragment.g - " + matchingVerticesUp.size() + " in up vertices");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.f - {0} in down vertices", matchingVerticesDown.size());
+        }
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.g - {0} in up vertices", matchingVerticesUp.size());
+        }
+
         Set<AbstractVertex> matchingVertices = new HashSet<AbstractVertex>();
         matchingVertices.addAll(matchingVerticesDown);
         matchingVertices.retainAll(matchingVerticesUp);
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.h - " + matchingVertices.size() + " total matching vertices");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.h - {0} total matching vertices", matchingVertices.size());
+        }
 
         // Get all paths between the matching network vertices
         Object vertices[] = matchingVertices.toArray();
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.i - generating paths between " + vertices.length + " matched vertices");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.i - generating paths between {0} matched vertices", vertices.length);
+        }
+
         for (int i = 0; i < vertices.length; i++) {
             for (int j = 0; j < vertices.length; j++) {
                 if (j == i) {
                     continue;
                 }
-                String srcId = ((AbstractVertex) vertices[i]).getAnnotation("storageId");
-                String dstId = ((AbstractVertex) vertices[j]).getAnnotation("storageId");
+                String srcId = ((AbstractVertex) vertices[i]).getAnnotation(Query.STORAGE_ID_STRING);
+                String dstId = ((AbstractVertex) vertices[j]).getAnnotation(Query.STORAGE_ID_STRING);
                 Graph path = executeQuery("query Neo4j paths " + srcId + " " + dstId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
-                    ////////////////////////////////////////////////////////////////////
-                    System.out.println("pathFragment.j - added path to result fragment");
-                    ////////////////////////////////////////////////////////////////////
+
+                    if (DEBUG_OUTPUT) {
+                        logger.log(Level.INFO, "pathFragment.j - added path to result fragment");
+                    }
+
                 }
             }
         }
-        ////////////////////////////////////////////////////////////////////
-        System.out.println("pathFragment.k - returning fragment");
-        ////////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "pathFragment.k - returning fragment");
+        }
 
         return result;
     }
@@ -513,9 +578,10 @@ public class Query {
         // is used to ensure that the remote sketches have been updated on the
         // incoming 'used' edges.
 
-        ////////////////////////////////////////////////////////////////
-        System.out.println("rebuildLocalSketch - rebuilding local sketch");
-        ////////////////////////////////////////////////////////////////
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "rebuildLocalSketch - rebuilding local sketch");
+        }
+
         executeQuery(null, false); // To flush transactions
         try {
             AbstractSketch mySketch = Kernel.sketches.iterator().next();
@@ -533,7 +599,7 @@ public class Query {
                 Thread.sleep(200);
             }
         } catch (Exception exception) {
-            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
         }
     }
 
@@ -548,14 +614,18 @@ public class Query {
         rebuildLocalSketch();
         // If the maximum propagation level is reached, terminate propagation.
         if (currentLevel == maxLevel) {
-            ////////////////////////////////////////////////////////////////
-            System.out.println("propagateSketches - reached max level, terminating propagation");
-            ////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "propagateSketches - reached max level, terminating propagation");
+            }
+
             return;
         }
-        ////////////////////////////////////////////////////////////////
-        System.out.println("propagateSketches - propagating sketches");
-        ////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "propagateSketches - propagating sketches");
+        }
+
         currentLevel++;
         executeQuery(null, false); // To flush transactions
         //Set<AbstractVertex> upVertices = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").vertexSet();
@@ -574,12 +644,14 @@ public class Query {
                 Thread propagateThread = new Thread(currentElement);
                 propagateThread.start();
             } catch (Exception exception) {
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, exception);
             }
         }
-        ////////////////////////////////////////////////////////////////
-        System.out.println("propagateSketches - finished propagation");
-        ////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "propagateSketches - finished propagation");
+        }
+
     }
 
     /**
@@ -591,24 +663,30 @@ public class Query {
     public static void notifyRebuildSketches(int currentLevel, int maxLevel) {
         // If the last level is reached, stop notifying and begin propagation.
         if (currentLevel == 0) {
-            ////////////////////////////////////////////////////////////////
-            System.out.println("notifyRebuildSketch - reached level zero, propagating");
-            ////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "notifyRebuildSketch - reached level zero, propagating");
+            }
+
             propagateSketches(0, maxLevel);
             return;
         }
-        ////////////////////////////////////////////////////////////////
-        System.out.println("notifyRebuildSketch - sending rebuild notifications");
-        ////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "notifyRebuildSketch - sending rebuild notifications");
+        }
+
         executeQuery(null, false); // To flush transactions
         //Set<AbstractVertex> upVertices = storages.iterator().next().getEdges(null, "type:Network", "type:Used").vertexSet();
         Set<AbstractVertex> upVertices = Kernel.storages.iterator().next().getEdges(null, "network:true", "type:Used").vertexSet();
         // If there are no incoming network vertices to send notifications to,
         // stop notifying and begin propagation.
         if (upVertices.isEmpty()) {
-            ////////////////////////////////////////////////////////////////
-            System.out.println("notifyRebuildSketch - no more notification to send, beginning propagation");
-            ////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "notifyRebuildSketch - no more notification to send, beginning propagation");
+            }
+
             propagateSketches(currentLevel, maxLevel);
             return;
         }
@@ -626,12 +704,14 @@ public class Query {
                 Thread rebuildThread = new Thread(currentElement);
                 rebuildThread.start();
             } catch (Exception exception) {
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, exception);
             }
         }
-        ////////////////////////////////////////////////////////////////
-        System.out.println("notifyRebuildSketch - finished sending rebuild notifications");
-        ////////////////////////////////////////////////////////////////
+
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "notifyRebuildSketch - finished sending rebuild notifications");
+        }
+
     }
 
     /**
@@ -675,14 +755,16 @@ public class Query {
             // Add those network vertices to the destination set that have a path
             // to the specified vertex
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet()) {
-                expression = "query Neo4j paths " + currentVertex.getAnnotation("storageId") + " " + dstVertexId + " 20";
+                expression = "query Neo4j paths " + currentVertex.getAnnotation(Query.STORAGE_ID_STRING) + " " + dstVertexId + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty()) {
                     destinationNetworkVertices.add(currentVertex);
-                    ////////////////////////////////////////////////////////////////////
-                    System.out.println("sketchPaths.1 - added vertex " + currentVertex.getAnnotation("storageId") + "to dstSet");
-                    ////////////////////////////////////////////////////////////////////
+
+                    if (DEBUG_OUTPUT) {
+                        logger.log(Level.INFO, "sketchPaths.1 - added vertex {0} to dstSet", currentVertex.getAnnotation(Query.STORAGE_ID_STRING));
+                    }
+
                 }
             }
 
@@ -693,9 +775,10 @@ public class Query {
             inStream.close();
             outStream.close();
             remoteSocket.close();
-            ////////////////////////////////////////////////////////////////////
-            System.out.println("sketchPaths.1 - received data from " + dstHost);
-            ////////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "sketchPaths.1 - received data from {0}", dstHost);
+            }
 
             // Connect to the source host and get all source network vertices.
             sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
@@ -713,14 +796,16 @@ public class Query {
             // Check whether the remote query server returned a graph in response
             tempResultGraph = (Graph) graphInputStream.readObject();
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet()) {
-                expression = "query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation("storageId") + " 20";
+                expression = "query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation(Query.STORAGE_ID_STRING) + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty()) {
                     sourceNetworkVertices.add(currentVertex);
-                    ////////////////////////////////////////////////////////////////////
-                    System.out.println("sketchPaths.1 - added vertex " + currentVertex.getAnnotation("storageId") + "to srcSet");
-                    ////////////////////////////////////////////////////////////////////
+
+                    if (DEBUG_OUTPUT) {
+                        logger.log(Level.INFO, "sketchPaths.1 - added vertex {0} to srcSet", currentVertex.getAnnotation(Query.STORAGE_ID_STRING));
+                    }
+
                 }
             }
 
@@ -731,9 +816,10 @@ public class Query {
             inStream.close();
             outStream.close();
             remoteSocket.close();
-            ////////////////////////////////////////////////////////////////////
-            System.out.println("sketchPaths.2 - received data from " + srcHost);
-            ////////////////////////////////////////////////////////////////////
+
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "sketchPaths.2 - received data from {0}", srcHost);
+            }
 
 
             List<String> hostsToContact = new LinkedList<String>();
@@ -782,9 +868,10 @@ public class Query {
             pathThreads.add(dstFragmentThread);
             dstFragmentThread.start();
 
-            ////////////////////////////////////////////////////////////////
-            System.out.println("sketchPaths.3 - contacting " + hostsToContact.size() + " hosts");
-            ////////////////////////////////////////////////////////////////
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "sketchPaths.3 - contacting {0} hosts", hostsToContact.size());
+            }
+
             for (int i = 0; i < hostsToContact.size(); i++) {
                 // Connect to each host and send it B's sketch
                 PathFragment midFragment = new PathFragment(hostsToContact.get(i), "pathFragment_mid", graphResults);
@@ -804,12 +891,12 @@ public class Query {
             }
 
         } catch (Exception exception) {
-            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
         }
 
-        ////////////////////////////////////////////////////////////////
-        System.out.println("sketchPaths.4 - finished building path from fragments");
-        ////////////////////////////////////////////////////////////////
+        if (DEBUG_OUTPUT) {
+            logger.log(Level.INFO, "sketchPaths.4 - finished building path from fragments");
+        }
 
         // Add edges between corresponding network vertices in the resulting graph.
         transformNetworkBoundaries(result);
@@ -822,7 +909,7 @@ public class Query {
      *
      * @param graph
      */
-    public static void transformNetworkBoundaries(Graph graph) {
+    private static void transformNetworkBoundaries(Graph graph) {
         try {
             if (graph.transformed) {
                 return;
@@ -873,7 +960,7 @@ public class Query {
      * @param terminatingExpression The terminating expression.
      * @return The result represented by a Graph object.
      */
-    public static Graph queryNetworkVertex(AbstractVertex networkVertex, int depth, String direction, String terminatingExpression) {
+    private static Graph queryNetworkVertex(AbstractVertex networkVertex, int depth, String direction, String terminatingExpression) {
         Graph resultGraph = null;
 
         try {
@@ -897,19 +984,20 @@ public class Query {
             vertexQueryExpression += " AND destination\\ port:" + networkVertex.getAnnotation("source port");
 
             // Execute remote query for vertices
-            System.out.println("Sending query expression...");
-            System.out.println(vertexQueryExpression);
+            if (DEBUG_OUTPUT) {
+                logger.log(Level.INFO, "Sending query expression: {0}", vertexQueryExpression);
+            }
             remoteSocketOut.println(vertexQueryExpression);
             // Check whether the remote query server returned a graph in response
             Graph vertexGraph = (Graph) graphInputStream.readObject();
             // The graph should only have one vertex which is the network vertex.
             // We use this to get the vertex id
             AbstractVertex targetVertex = vertexGraph.vertexSet().iterator().next();
-            String targetVertexId = targetVertex.getAnnotation("storageId");
+            String targetVertexId = targetVertex.getAnnotation(Query.STORAGE_ID_STRING);
             int vertexId = Integer.parseInt(targetVertexId);
 
             // Build the expression for the remote lineage query
-            String lineageQueryExpression = "query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression + " tmp.dot";
+            String lineageQueryExpression = "query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
             remoteSocketOut.println(lineageQueryExpression);
 
             // The graph object we get as a response is returned as the
@@ -924,7 +1012,7 @@ public class Query {
             outStream.close();
             remoteSocket.close();
         } catch (Exception exception) {
-            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
         }
 
         return resultGraph;
@@ -942,9 +1030,11 @@ class QueryConnection implements Runnable {
 
     public void run() {
         try {
-            ////////////////////////////////////////////////////////////////
-            System.out.println("Query socket opened");
-            ////////////////////////////////////////////////////////////////
+
+            if (Query.DEBUG_OUTPUT) {
+                Logger.getLogger(QueryConnection.class.getName()).log(Level.INFO, "Query socket opened");
+            }
+
             OutputStream outStream = clientSocket.getOutputStream();
             InputStream inStream = clientSocket.getInputStream();
             ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);
@@ -953,9 +1043,11 @@ class QueryConnection implements Runnable {
             String queryLine = clientInputReader.readLine();
             while (!queryLine.equalsIgnoreCase("close")) {
                 // Read lines from the querying client until 'close' is called
-                ////////////////////////////////////////////////////////////////
-                System.out.println("Received query line: " + queryLine);
-                ////////////////////////////////////////////////////////////////
+
+                if (Query.DEBUG_OUTPUT) {
+                    Logger.getLogger(QueryConnection.class.getName()).log(Level.INFO, "Received query line: {0}", queryLine);
+                }
+
                 Graph resultGraph = Query.executeQuery(queryLine, true);
                 if (resultGraph == null) {
                     resultGraph = new Graph();
@@ -970,9 +1062,11 @@ class QueryConnection implements Runnable {
             inStream.close();
             outStream.close();
             clientSocket.close();
-            ////////////////////////////////////////////////////////////////
-            System.out.println("Query socket closed");
-            ////////////////////////////////////////////////////////////////
+
+            if (Query.DEBUG_OUTPUT) {
+                Logger.getLogger(QueryConnection.class.getName()).log(Level.INFO, "Query socket closed");
+            }
+
         } catch (Exception ex) {
             Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -990,9 +1084,11 @@ class SketchConnection implements Runnable {
 
     public void run() {
         try {
-            ////////////////////////////////////////////////////////////////
-            System.out.println("Sketch socket opened");
-            ////////////////////////////////////////////////////////////////
+
+            if (Query.DEBUG_OUTPUT) {
+                Logger.getLogger(SketchConnection.class.getName()).log(Level.INFO, "Sketch socket opened");
+            }
+
             InputStream inStream = clientSocket.getInputStream();
             OutputStream outStream = clientSocket.getOutputStream();
             ObjectInputStream clientObjectInputStream = new ObjectInputStream(inStream);
@@ -1001,17 +1097,19 @@ class SketchConnection implements Runnable {
             String sketchLine = (String) clientObjectInputStream.readObject();
             while (!sketchLine.equalsIgnoreCase("close")) {
                 // Process sketch commands issued by the client until 'close' is called.
-                ////////////////////////////////////////////////////////////////
-                System.out.println("Received sketch line: " + sketchLine);
-                ////////////////////////////////////////////////////////////////
+
+                if (Query.DEBUG_OUTPUT) {
+                    Logger.getLogger(SketchConnection.class.getName()).log(Level.INFO, "Received sketch line: {0}", sketchLine);
+                }
+
                 if (sketchLine.equals("giveSketch")) {
                     clientObjectOutputStream.writeObject(Kernel.sketches.iterator().next());
                     clientObjectOutputStream.flush();
                     clientObjectOutputStream.writeObject(Kernel.remoteSketches);
                     clientObjectOutputStream.flush();
-                    ////////////////////////////////////////////////////////////////
-                    System.out.println("Sent sketches");
-                    ////////////////////////////////////////////////////////////////
+
+                    Logger.getLogger(SketchConnection.class.getName()).log(Level.INFO, "Sent sketches");
+
                 } else if (sketchLine.equals("pathFragment_mid")) {
                     // Get a non-terminal path fragment
                     AbstractSketch remoteSketch = (AbstractSketch) clientObjectInputStream.readObject();
@@ -1046,9 +1144,11 @@ class SketchConnection implements Runnable {
             inStream.close();
             outStream.close();
             clientSocket.close();
-            ////////////////////////////////////////////////////////////////
-            System.out.println("Sketch socket closed");
-            ////////////////////////////////////////////////////////////////
+
+            if (Query.DEBUG_OUTPUT) {
+                Logger.getLogger(SketchConnection.class.getName()).log(Level.INFO, "Sketch socket closed");
+            }
+
         } catch (Exception ex) {
             Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -1082,9 +1182,10 @@ class RebuildSketch implements Runnable {
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
             ObjectInputStream objectInputStream = new ObjectInputStream(inStream);
 
-            ////////////////////////////////////////////////////////////////
-            System.out.println("notifyRebuildSketch - notifying " + remoteHost);
-            ////////////////////////////////////////////////////////////////
+            if (Query.DEBUG_OUTPUT) {
+                Logger.getLogger(RebuildSketch.class.getName()).log(Level.INFO, "notifyRebuildSketch - notifying {0}", remoteHost);
+            }
+
             String expression = "notifyRebuildSketches " + currentLevel + " " + maxLevel;
             objectOutputStream.writeObject(expression);
             objectOutputStream.flush();
@@ -1129,9 +1230,10 @@ class PropagateSketch implements Runnable {
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
             ObjectInputStream objectInputStream = new ObjectInputStream(inStream);
 
-            ////////////////////////////////////////////////////////////////
-            System.out.println("propagateSketches - propagating to " + remoteHost);
-            ////////////////////////////////////////////////////////////////
+            if (Query.DEBUG_OUTPUT) {
+                Logger.getLogger(PropagateSketch.class.getName()).log(Level.INFO, "propagateSketches - propagating to {0}", remoteHost);
+            }
+
             String expression = "propagateSketches " + currentLevel + " " + maxLevel;
             objectOutputStream.writeObject(expression);
             objectOutputStream.flush();
@@ -1187,9 +1289,11 @@ class PathFragment implements Runnable {
             inStream.close();
             outStream.close();
             remoteSocket.close();
-            ////////////////////////////////////////////////////////////////
-            System.out.println("PathFragment - received path fragment from " + remoteHost);
-            ////////////////////////////////////////////////////////////////
+
+            if (Query.DEBUG_OUTPUT) {
+                Logger.getLogger(PathFragment.class.getName()).log(Level.INFO, "PathFragment - received path fragment from {0}", remoteHost);
+            }
+
             graphResults.add(tempResultGraph);
         } catch (Exception exception) {
             Logger.getLogger(PathFragment.class.getName()).log(Level.SEVERE, null, exception);

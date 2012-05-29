@@ -56,6 +56,8 @@ build:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Pipe.java
 	@echo 'Building the Lsof reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Lsof.java
+	@echo 'Building the LLVM reporter...'
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LLVM.java
 	@make $(OS_BUILD)
 
 # Build the LinuxAudit reporter.
@@ -112,8 +114,8 @@ build-mac-llvm:
 	$(LLVM_PATH)/bin/clang -c -emit-llvm ${TARGET}.c -o ${TARGET}.bc
 	$(LLVM_PATH)/bin/opt -load lib/LLVMReporter.dylib -provenance ${TARGET}.bc -o ${TARGET}.bc
 	$(LLVM_PATH)/bin/llc ${TARGET}.bc -o ${TARGET}.s
-	$(LLVM_PATH)/bin/clang src/spade/reporter/close.c -c -o src/spade/reporter/close.o
-	$(LLVM_PATH)/bin/clang ${TARGET}.s src/spade/reporter/close.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress -o ${TARGET}.dylib
+	$(LLVM_PATH)/bin/clang src/spade/reporter/LLVMclose.c -c -o src/spade/reporter/LLVMclose.o
+	$(LLVM_PATH)/bin/clang ${TARGET}.s src/spade/reporter/LLVMclose.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress -o ${TARGET}.dylib
 	$(LLVM_PATH)/bin/clang src/spade/reporter/LLVMReporterLib.o ${TARGET}.dylib -o ${TARGET}
 
 build-linux-llvm:
@@ -123,9 +125,9 @@ build-linux-llvm:
 	$(LLVM_PATH)/bin/clang -c -fPIC -emit-llvm ${TARGET}.c -o ${TARGET}.bc
 	$(LLVM_PATH)/bin/opt -load lib/LLVMReporter.so -provenance ${TARGET}.bc -o ${TARGET}.bc
 	$(LLVM_PATH)/bin/llc -relocation-model=pic ${TARGET}.bc -o ${TARGET}.s
-	gcc -fPIC src/spade/reporter/close.c -c -o src/spade/reporter/close.o
+	gcc -fPIC src/spade/reporter/LLVMclose.c -c -o src/spade/reporter/LLVMclose.o
 	gcc ${TARGET}.s -c -o ${TARGET}.o
-	gcc ${TARGET}.o src/spade/reporter/close.o -shared -o ${TARGET}.so
+	gcc ${TARGET}.o src/spade/reporter/LLVMclose.o -shared -o ${TARGET}.so
 	gcc ${TARGET}.so src/spade/reporter/LLVMReporterLib.o -o ${TARGET}
 
 

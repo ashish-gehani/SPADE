@@ -123,10 +123,7 @@ public class ControlClient {
             SPADEControlIn.println("");
             while (true) {
                 String line = commandReader.readLine();
-                if (line.split("\\s")[0].equalsIgnoreCase("query")) {
-                    // Do not allow query commands from this control shell.
-                    SPADEControlIn.println("");
-                } else if (line.equalsIgnoreCase("exit")) {
+                if (line.equalsIgnoreCase("exit")) {
                     shutdown = true;
                     SPADEControlIn.println("exit");
                     SPADEControlIn.close();

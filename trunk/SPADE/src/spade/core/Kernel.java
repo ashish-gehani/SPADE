@@ -28,6 +28,8 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The SPADE core.
@@ -73,15 +75,15 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static final String configFile = "../cfg/spade.config";
+    public static final String configFile = "../../cfg/spade.config";
     /**
      * Path to configuration file for port numbers.
      */
-    public static final String portsFile = "../cfg/ports.config";
+    public static final String portsFile = "../../cfg/ports.config";
     /**
      * Path to log files including the prefix.
      */
-    public static final String logPathAndPrefix = "../log/SPADE_";
+    public static final String logPathAndPrefix = "../../log/SPADE_";
     /**
      * Date/time suffix pattern for log files.
      */
@@ -138,6 +140,11 @@ public class Kernel {
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
+    private static final String QUERY_VERTEX_STRING = "query <class name> vertices <expression>";
+    private static final String QUERY_LINEAGE_STRING = "query <class name> lineage <vertex id> <depth> <direction> <terminating expression>";
+    private static final String QUERY_PATHS_STRING = "query <class name> paths <source vertex id> <destination vertex id> <max length>";
+    private static final String QUERY_REMOTEPATHS_STRING = "query <class name> remotepaths <source host:vertex id> <destination host:vertex id> <max length>";
+    private static final Logger logger = Logger.getLogger(Kernel.class.getName());
 
     /**
      * The main initialization function.
@@ -154,7 +161,7 @@ public class Kernel {
             Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
         } catch (Exception exception) {
-            System.out.println("Error initializing exception logger");
+            System.err.println("Error initializing exception logger");
         }
 
         // Register a shutdown hook to terminate gracefully
@@ -168,7 +175,7 @@ public class Kernel {
                         try {
                             socket.close();
                         } catch (IOException ex) {
-                            Logger.getLogger(Kernel.class.getName()).log(Level.WARNING, null, ex);
+                            logger.log(Level.WARNING, null, ex);
                         }
                     }
                     // Save current configuration.
@@ -192,7 +199,7 @@ public class Kernel {
                         try {
                             Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Kernel.class.getName()).log(Level.WARNING, null, ex);
+                            logger.log(Level.WARNING, null, ex);
                         }
                     }
                     // Shut down filters.
@@ -319,13 +326,12 @@ public class Kernel {
                         Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
                     }
                 } catch (Exception exception) {
-                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                    logger.log(Level.SEVERE, null, exception);
                 }
             }
         };
         mainThread = new Thread(mainRunnable, "mainSPADE-Thread");
         mainThread.start();
-
 
         // This thread creates the input and output pipes used for control (and also used
         // by the control client). The exit value is used to determine if the pipes were
@@ -346,7 +352,7 @@ public class Kernel {
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
-                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                    logger.log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -354,8 +360,6 @@ public class Kernel {
         controlThread.start();
 
 
-        // Construct the query pipe. The exit value is used to determine if the
-        // query pipe was successfully created.
         Runnable queryRunnable = new Runnable() {
 
             public void run() {
@@ -371,7 +375,7 @@ public class Kernel {
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
-                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                    logger.log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -397,7 +401,7 @@ public class Kernel {
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
-                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                    logger.log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -423,7 +427,7 @@ public class Kernel {
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
                 } catch (Exception exception) {
-                    Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                    logger.log(Level.SEVERE, null, exception);
                 }
             }
         };
@@ -434,7 +438,6 @@ public class Kernel {
         configCommand("config load " + configFile, NullStream.out);
     }
 
-    // Check the port configuration file to assign port numbers
     /**
      * Checks the port configuration file to assign port numbers.
      */
@@ -465,7 +468,7 @@ public class Kernel {
             REMOTE_SKETCH_PORT = configValues.get("REMOTE_SKETCH_PORT");
             CONNECTION_TIMEOUT = configValues.get("CONNECTION_TIMEOUT");
         } catch (Exception ex) {
-            Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+            logger.log(Level.SEVERE, null, ex);
         }
     }
 
@@ -502,8 +505,7 @@ public class Kernel {
      * output.
      */
     public static void executeCommand(String line, PrintStream outputStream) {
-        String command = line.split("\\s+")[0];
-        if (command.equalsIgnoreCase("shutdown")) {
+        if (line.startsWith("shutdown")) {
             // On shutdown, save the current configuration in the default configuration
             // file.
             configCommand("config save " + configFile, NullStream.out);
@@ -513,18 +515,16 @@ public class Kernel {
                 reporter.shutdown();
             }
             shutdown = true;
-        } else if (command.equalsIgnoreCase("add")) {
+        } else if (line.startsWith("add")) {
             addCommand(line, outputStream);
-        } else if (command.equalsIgnoreCase("list")) {
+        } else if (line.startsWith("list")) {
             listCommand(line, outputStream);
-        } else if (command.equalsIgnoreCase("remove")) {
+        } else if (line.startsWith("remove")) {
             removeCommand(line, outputStream);
-        } else if (command.equalsIgnoreCase("query")) {
-            queryCommand(line, outputStream);
-        } else if (command.equalsIgnoreCase("config")) {
+        } else if (line.startsWith("config")) {
             configCommand(line, outputStream);
         } else {
-            displayControlCommands(outputStream);
+            outputStream.println(getControlCommands());
         }
     }
 
@@ -554,7 +554,7 @@ public class Kernel {
                 }
             } catch (Exception exception) {
                 outputStream.println("error! Unable to open configuration file for reading");
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, exception);
                 return;
             }
             outputStream.println("done");
@@ -593,7 +593,7 @@ public class Kernel {
                 configWriter.close();
             } catch (Exception exception) {
                 outputStream.println("error! Unable to open configuration file for writing");
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, exception);
                 return;
             }
             outputStream.println("done");
@@ -611,32 +611,9 @@ public class Kernel {
      * @param outputStream The output stream on which to print the result or any
      * output.
      */
-    public static void queryCommand(String line, PrintStream outputStream) {
+    public static Graph queryCommand(String line) {
         Graph resultGraph = Query.executeQuery(line, false);
-        if (resultGraph != null) {
-            String[] tokens = line.split("\\s+");
-            String outputFile = tokens[tokens.length - 1];
-            if ((tokens[2].equalsIgnoreCase("vertices")) || (tokens[2].equalsIgnoreCase("remotevertices"))) {
-                for (AbstractVertex tempVertex : resultGraph.vertexSet()) {
-                    outputStream.println("[" + tempVertex.toString() + "]");
-                }
-                outputStream.println(resultGraph.vertexSet().size() + " vertices found");
-            } else if (tokens[2].equalsIgnoreCase("lineage")) {
-                resultGraph.exportDOT(outputFile);
-                outputStream.println("Exported graph to " + outputFile);
-            } else if (tokens[2].equalsIgnoreCase("paths")) {
-                resultGraph.exportDOT(outputFile);
-                outputStream.println("Exported graph to " + outputFile);
-            } else if (tokens[2].equalsIgnoreCase("remotepaths")) {
-                resultGraph.exportDOT(outputFile);
-                outputStream.println("Exported graph to " + outputFile);
-            } else if (tokens[2].equalsIgnoreCase("sketchpaths")) {
-                resultGraph.exportDOT(outputFile);
-                outputStream.println("Exported graph to " + outputFile);
-            }
-        } else {
-            outputStream.println("Error: Please check query expression");
-        }
+        return resultGraph;
     }
 
     /**
@@ -646,17 +623,19 @@ public class Kernel {
      *
      * @param outputStream
      */
-    public static void displayControlCommands(PrintStream outputStream) {
-        outputStream.println("Available commands:");
-        outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
-        outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
-        outputStream.println("\t" + ADD_SKETCH_STRING);
-        outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING);
-        outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
-        outputStream.println("\t" + LIST_STRING);
-        outputStream.println("\t" + CONFIG_STRING);
-        outputStream.println("\t" + EXIT_STRING);
-        outputStream.println("\t" + SHUTDOWN_STRING);
+    public static String getControlCommands() {
+        StringBuilder string = new StringBuilder();
+        string.append("Available commands:\n");
+        string.append("\t" + ADD_REPORTER_STORAGE_STRING + "\n");
+        string.append("\t" + ADD_FILTER_TRANSFORMER_STRING + "\n");
+        string.append("\t" + ADD_SKETCH_STRING + "\n");
+        string.append("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING + "\n");
+        string.append("\t" + REMOVE_FILTER_TRANSFORMER_STRING + "\n");
+        string.append("\t" + LIST_STRING + "\n");
+        string.append("\t" + CONFIG_STRING + "\n");
+        string.append("\t" + EXIT_STRING + "\n");
+        string.append("\t" + SHUTDOWN_STRING);
+        return string.toString();
     }
 
     /**
@@ -664,13 +643,14 @@ public class Kernel {
      *
      * @param outputStream The target output stream.
      */
-    public static void displayQueryCommands(PrintStream outputStream) {
-        outputStream.println("Available commands:");
-        outputStream.println("       query <class name> vertices <expression>");
-        outputStream.println("       query <class name> lineage <vertex id> <depth> <direction> <terminating expression> <output file>");
-        outputStream.println("       query <class name> paths <source vertex id> <destination vertex id> <max length> <output file>");
-//        outputStream.println("       query <class name> remotepaths <source host:vertex id> <destination host:vertex id> <max length> <output file>");
-        outputStream.println("       exit");
+    public static String getQueryCommands() {
+        StringBuilder string = new StringBuilder();
+        string.append("Available commands:\n");
+        string.append("\t" + QUERY_VERTEX_STRING + "\n");
+        string.append("\t" + QUERY_LINEAGE_STRING + "\n");
+        string.append("\t" + QUERY_PATHS_STRING + "\n");
+        string.append("\t" + EXIT_STRING);
+        return string.toString();
     }
 
     /**
@@ -704,7 +684,7 @@ public class Kernel {
                 reporter = (AbstractReporter) Class.forName("spade.reporter." + classname).newInstance();
             } catch (Exception ex) {
                 outputStream.println("error: Unable to find/load class");
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+                logger.log(Level.SEVERE, null, ex);
                 return;
             }
             // Create a new buffer and allocate it to this reporter.
@@ -736,7 +716,7 @@ public class Kernel {
                 storage = (AbstractStorage) Class.forName("spade.storage." + classname).newInstance();
             } catch (Exception ex) {
                 outputStream.println("error: Unable to find/load class");
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+                logger.log(Level.SEVERE, null, ex);
                 return;
             }
             if (storage.initialize(arguments)) {
@@ -763,7 +743,7 @@ public class Kernel {
             try {
                 index = Integer.parseInt(parameters[0]);
             } catch (NumberFormatException numberFormatException) {
-                outputStream.println("error: Index must be a number!");
+                outputStream.println("error: Index must be a number");
                 return;
             }
             String arguments = (parameters.length == 1) ? null : parameters[1];
@@ -773,7 +753,7 @@ public class Kernel {
                 filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
             } catch (Exception ex) {
                 outputStream.println("error: Unable to find/load class");
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+                logger.log(Level.SEVERE, null, ex);
                 return;
             }
             // Initialize filter if arguments are provided
@@ -781,7 +761,7 @@ public class Kernel {
             filter.arguments = arguments;
             // The argument is the index at which the filter is to be inserted.
             if (index >= filters.size()) {
-                outputStream.println("error: Invalid index!");
+                outputStream.println("error: Invalid index");
                 return;
             }
             // Set the next filter of this newly added filter.
@@ -808,7 +788,7 @@ public class Kernel {
             try {
                 index = Integer.parseInt(parameters[0]);
             } catch (NumberFormatException numberFormatException) {
-                outputStream.println("error: Index must be a number!");
+                outputStream.println("error: Index must be a number");
                 return;
             }
             String arguments = (parameters.length == 1) ? null : parameters[1];
@@ -818,7 +798,7 @@ public class Kernel {
                 filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
             } catch (Exception ex) {
                 outputStream.println("error: Unable to find/load class");
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+                logger.log(Level.SEVERE, null, ex);
                 return;
             }
             // Initialize filter if arguments are provided
@@ -826,7 +806,7 @@ public class Kernel {
             filter.arguments = arguments;
             // The argument is the index at which the transformer is to be inserted.
             if (index >= transformers.size()) {
-                outputStream.println("error: Invalid index!");
+                outputStream.println("error: Invalid index");
                 return;
             }
             // Set the next transformer of this newly added transformer.
@@ -854,7 +834,7 @@ public class Kernel {
                 sketch = (AbstractSketch) Class.forName("spade.sketch." + classname).newInstance();
             } catch (Exception ex) {
                 outputStream.println("error: Unable to find/load class");
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+                logger.log(Level.SEVERE, null, ex);
                 return;
             }
             sketches.add(sketch);
@@ -1112,7 +1092,7 @@ public class Kernel {
             outputStream.println("Usage:");
             outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING);
             outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
-            Logger.getLogger(Kernel.class.getName()).log(Level.WARNING, null, removeCommandException);
+            logger.log(Level.WARNING, null, removeCommandException);
         }
     }
 
@@ -1133,7 +1113,7 @@ public class Kernel {
             try {
                 socket.close();
             } catch (IOException ex) {
-                Logger.getLogger(Kernel.class.getName()).log(Level.SEVERE, null, ex);
+                logger.log(Level.SEVERE, null, ex);
             }
         }
         System.exit(0);
@@ -1233,7 +1213,7 @@ class LocalControlConnection implements Runnable {
                 // Commands read from the input stream and executed.
                 if (controlInputStream.ready()) {
                     String line = controlInputStream.readLine();
-                    if ((line == null) || line.equalsIgnoreCase("exit")) {
+                    if (line.equalsIgnoreCase("exit")) {
                         break;
                     }
                     Kernel.executeCommand(line, controlOutputStream);
@@ -1266,38 +1246,25 @@ class LocalQueryConnection implements Runnable {
         try {
             OutputStream outStream = querySocket.getOutputStream();
             InputStream inStream = querySocket.getInputStream();
-
+            ObjectOutputStream queryOutputStream = new ObjectOutputStream(outStream);
             BufferedReader queryInputStream = new BufferedReader(new InputStreamReader(inStream));
-            PrintStream queryOutputStream = new PrintStream(outStream);
+
             while (!Kernel.shutdown) {
                 // Commands read from the input stream and executed.
                 if (queryInputStream.ready()) {
                     String line = queryInputStream.readLine();
-                    if (line != null) {
-                        try {
-                            String[] queryTokens = line.split("\\s+", 2);
-                            // Only accept query commands from this pipe
-                            // The second argument in the query command is used to specify the
-                            // output for this query (i.e., a file or a pipe). This argument is
-                            // stripped from the query string and is passed as a separate argument
-                            // to the queryCommand() as the output stream.
-                            if (queryTokens.length == 1) {
-                                Kernel.displayQueryCommands(queryOutputStream);
-                            } else if (queryTokens[1].startsWith("query ")) {
-                                Kernel.queryCommand(queryTokens[1], queryOutputStream);
-                            } else if (queryTokens[1].equalsIgnoreCase("exit")) {
-                                queryOutputStream.println("");
-                                break;
-                            } else {
-                                Kernel.displayQueryCommands(queryOutputStream);
-                            }
-                        } catch (Exception exception) {
-                            Logger.getLogger(LocalQueryConnection.class.getName()).log(Level.SEVERE, null, exception);
+                    System.out.println("Received line: " + line);
+                    if (line.equalsIgnoreCase("exit")) {
+                        break;
+                    } else {
+                        Graph resultGraph = Query.executeQuery(line, false);
+                        if (resultGraph != null) {
+                            queryOutputStream.writeObject("graph");
+                            queryOutputStream.writeObject(resultGraph);
+                        } else {
+                            queryOutputStream.writeObject(Kernel.getQueryCommands());
                         }
                     }
-                    // An empty line is printed to let the client know that the
-                    // command output is complete.
-                    queryOutputStream.println("");
                 }
             }
             queryInputStream.close();
