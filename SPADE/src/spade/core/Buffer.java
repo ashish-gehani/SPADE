@@ -33,6 +33,7 @@ import java.util.logging.Logger;
 public class Buffer {
 
     private Queue<Object> queue;
+    private static final Logger logger = Logger.getLogger(Buffer.class.getName());
 
     /**
      * Empty constructor for this class.
@@ -69,12 +70,12 @@ public class Buffer {
                 // Thread unsafe: || (incomingEdge.getSourceVertex().hashCode() == incomingEdge.getDestinationVertex().hashCode())) {
                 || (incomingEdge.getSourceVertex() == incomingEdge.getDestinationVertex())) {
             if (incomingEdge.getSourceVertex() == null) {
-                Logger.getLogger(Buffer.class.getName()).log(Level.WARNING, "Not putting edge. Source is null");
+                logger.log(Level.WARNING, "Not putting edge. Source is null");
             }
             if (incomingEdge.getDestinationVertex() == null) {
-                Logger.getLogger(Buffer.class.getName()).log(Level.WARNING, "Not putting edge. Dest is null");
+                logger.log(Level.WARNING, "Not putting edge. Dest is null");
             } else {
-                Logger.getLogger(Buffer.class.getName()).log(Level.WARNING, "Not putting edge. End vertices are equal");
+                logger.log(Level.WARNING, "Not putting edge. End vertices are equal");
             }
             return false;
         } else {

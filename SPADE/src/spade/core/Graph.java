@@ -19,13 +19,35 @@
  */
 package spade.core;
 
+import java.io.FileWriter;
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.queryParser.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.RAMDirectory;
+import org.apache.lucene.util.Version;
+import org.gephi.data.attributes.api.AttributeColumn;
+import org.gephi.data.attributes.api.AttributeController;
+import org.gephi.data.attributes.api.AttributeModel;
+import org.gephi.graph.api.DirectedGraph;
+import org.gephi.graph.api.GraphController;
+import org.gephi.graph.api.GraphModel;
+import org.gephi.graph.api.Node;
+import org.gephi.project.api.ProjectController;
+import org.gephi.statistics.plugin.*;
+import org.gephi.statistics.spi.Statistics;
+import org.openide.util.Lookup;
 
 /**
  * This class is used to represent query responses using sets for edges and
@@ -33,26 +55,56 @@ import java.util.logging.Logger;
  *
  * @author Dawood Tariq
  */
-public class Graph implements Serializable {
+public class Graph extends AbstractStorage implements Serializable {
 
+    private static final Logger logger = Logger.getLogger(Graph.class.getName());
+    private static final int MAX_QUERY_RESULTS = 1000;
+    private static final int MAX_INTERNAL_QUERY_RESULTS = 100;
+    private static final String INTERNAL_HASH_KEY = "INTERNAL_HASH_KEY";
+    private static final String INTERNAL_SRC_VERTEX_HASH_KEY = "INTERNAL_SRC_VERTEX_HASH_KEY";
+    private static final String INTERNAL_DST_VERTEX_HASH_KEY = "INTERNAL_DST_VERTEX_HASH_KEY";
     private Set<AbstractVertex> vertexSet;
+    private Map<Integer, AbstractVertex> vertexHashes;
     private Set<AbstractEdge> edgeSet;
+    private Map<Integer, AbstractEdge> edgeHashes;
     private Map<AbstractVertex, Integer> networkMap;
+    /**
+     *
+     */
+    public Map<String, String> graphInfo;
     /**
      * For query results spanning multiple hosts, this is used to indicate
      * whether the network boundaries have been properly transformed.
-     *
      */
-    public boolean transformed;
+    public boolean transformed = false;
+    private Directory vertexIndex;
+    private Directory edgeIndex;
+    private transient IndexWriter vertexIndexWriter;
+    private transient IndexWriter edgeIndexWriter;
 
     /**
      * An empty constructor.
      */
     public Graph() {
         vertexSet = new HashSet<AbstractVertex>();
+        vertexHashes = new HashMap<Integer, AbstractVertex>();
         edgeSet = new HashSet<AbstractEdge>();
+        edgeHashes = new HashMap<Integer, AbstractEdge>();
         networkMap = new HashMap<AbstractVertex, Integer>();
-        transformed = false;
+        graphInfo = new HashMap<String, String>();
+
+        // Lucene initialization
+        try {
+            StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_35);
+            IndexWriterConfig vertexConfig = new IndexWriterConfig(Version.LUCENE_35, analyzer);
+            IndexWriterConfig edgeConfig = new IndexWriterConfig(Version.LUCENE_35, analyzer);
+            vertexIndex = new RAMDirectory();
+            edgeIndex = new RAMDirectory();
+            vertexIndexWriter = new IndexWriter(vertexIndex, vertexConfig);
+            edgeIndexWriter = new IndexWriter(edgeIndex, edgeConfig);
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+        }
     }
 
     /**
@@ -72,9 +124,10 @@ public class Graph implements Serializable {
      *
      * @param inputVertex The vertex to be added
      */
-    public void putVertex(AbstractVertex inputVertex) {
+    public boolean putVertex(AbstractVertex inputVertex) {
         inputVertex.resultGraph = this;
         Kernel.sendToTransformers(inputVertex);
+        return true;
     }
 
     /**
@@ -83,9 +136,10 @@ public class Graph implements Serializable {
      *
      * @param inputEdge The edge to be added
      */
-    public void putEdge(AbstractEdge inputEdge) {
+    public boolean putEdge(AbstractEdge inputEdge) {
         inputEdge.resultGraph = this;
         Kernel.sendToTransformers(inputEdge);
+        return true;
     }
 
     /**
@@ -95,6 +149,22 @@ public class Graph implements Serializable {
      */
     public void commitVertex(AbstractVertex inputVertex) {
         vertexSet.add(inputVertex);
+        vertexHashes.put(inputVertex.hashCode(), inputVertex);
+
+        // Add vertex to Lucene index
+        try {
+            Document doc = new Document();
+            for (Map.Entry<String, String> currentEntry : inputVertex.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
+            }
+            doc.add(new Field(INTERNAL_HASH_KEY, Integer.toString(inputVertex.hashCode()), Field.Store.YES, Field.Index.ANALYZED));
+            vertexIndexWriter.addDocument(doc);
+            vertexIndexWriter.commit();
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+        }
     }
 
     /**
@@ -104,6 +174,24 @@ public class Graph implements Serializable {
      */
     public void commitEdge(AbstractEdge inputEdge) {
         edgeSet.add(inputEdge);
+        edgeHashes.put(inputEdge.hashCode(), inputEdge);
+
+        // Add edge to Lucene index
+        try {
+            Document doc = new Document();
+            for (Map.Entry<String, String> currentEntry : inputEdge.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
+            }
+            doc.add(new Field(INTERNAL_HASH_KEY, Integer.toString(inputEdge.hashCode()), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(INTERNAL_SRC_VERTEX_HASH_KEY, Integer.toString(inputEdge.getSourceVertex().hashCode()), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(INTERNAL_DST_VERTEX_HASH_KEY, Integer.toString(inputEdge.getDestinationVertex().hashCode()), Field.Store.YES, Field.Index.ANALYZED));
+            edgeIndexWriter.addDocument(doc);
+            edgeIndexWriter.commit();
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+        }
     }
 
     /**
@@ -153,8 +241,12 @@ public class Graph implements Serializable {
         edges.addAll(graph1.edgeSet());
         edges.retainAll(graph2.edgeSet());
 
-        resultGraph.vertexSet().addAll(vertices);
-        resultGraph.edgeSet().addAll(edges);
+        for (AbstractVertex vertex : vertices) {
+            resultGraph.commitVertex(vertex);
+        }
+        for (AbstractEdge edge : edges) {
+            resultGraph.commitEdge(edge);
+        }
 
         return resultGraph;
     }
@@ -178,8 +270,12 @@ public class Graph implements Serializable {
         edges.addAll(graph1.edgeSet());
         edges.addAll(graph2.edgeSet());
 
-        resultGraph.vertexSet().addAll(vertices);
-        resultGraph.edgeSet().addAll(edges);
+        for (AbstractVertex vertex : vertices) {
+            resultGraph.commitVertex(vertex);
+        }
+        for (AbstractEdge edge : edges) {
+            resultGraph.commitEdge(edge);
+        }
 
         return resultGraph;
     }
@@ -202,8 +298,12 @@ public class Graph implements Serializable {
         edges.addAll(graph1.edgeSet());
         edges.removeAll(graph2.edgeSet());
 
-        resultGraph.vertexSet().addAll(vertices);
-        resultGraph.edgeSet().addAll(edges);
+        for (AbstractVertex vertex : vertices) {
+            resultGraph.commitVertex(vertex);
+        }
+        for (AbstractEdge edge : edges) {
+            resultGraph.commitEdge(edge);
+        }
 
         return resultGraph;
     }
@@ -226,7 +326,358 @@ public class Graph implements Serializable {
             }
             outputStorage.shutdown();
         } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+        }
+    }
+
+    /**
+     *
+     */
+    public void showDetails() {
+        // Gephi initialization
+        ProjectController pc = Lookup.getDefault().lookup(ProjectController.class);
+        pc.newProject();
+        GraphModel graphModel = Lookup.getDefault().lookup(GraphController.class).getModel();
+        DirectedGraph directedGraph = graphModel.getDirectedGraph();
+
+        for (AbstractVertex vertex : vertexSet) {
+            // Add information to Gephi graph model
+            Node newNode = graphModel.factory().newNode(vertex.getAnnotation(Query.STORAGE_ID_STRING));
+            newNode.getNodeData().setLabel(vertex.toString());
+            directedGraph.addNode(newNode);
+        }
+
+        for (AbstractEdge edge : edgeSet) {
+            // Add information to Gephi graph model
+            Node src = directedGraph.getNode(edge.getSourceVertex().getAnnotation(Query.STORAGE_ID_STRING));
+            Node dst = directedGraph.getNode(edge.getDestinationVertex().getAnnotation(Query.STORAGE_ID_STRING));
+            directedGraph.addEdge(src, dst);
+        }
+
+        AttributeModel attributeModel = Lookup.getDefault().lookup(AttributeController.class).getModel();
+        ArrayList<Statistics> stats = new ArrayList<Statistics>();
+
+        Statistics degreeStat = new Degree();
+        Statistics densityStat = new GraphDensity();
+        Statistics distanceStat = new GraphDistance();
+        Statistics clusteringStat = new ClusteringCoefficient();
+        Statistics componentStat = new ConnectedComponents();
+        Statistics eigenvectorStat = new EigenvectorCentrality();
+        Statistics hitStat = new Hits();
+        Statistics modularityStat = new Modularity();
+        Statistics rankStat = new PageRank();
+
+        stats.add(degreeStat);
+        stats.add(densityStat);
+        stats.add(distanceStat);
+        stats.add(clusteringStat);
+        stats.add(componentStat);
+        stats.add(eigenvectorStat);
+        stats.add(hitStat);
+        stats.add(modularityStat);
+        stats.add(rankStat);
+
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < stats.size(); i++) {
+            Statistics thisStat = stats.get(i);
+            thisStat.execute(graphModel, attributeModel);
+            String reportString = thisStat.getReport().replace("<br />", "<br>").replace("<hr>", "").replaceAll(">\\s+<", "><").replace("<br><h2>", "<h2>");
+            reportString = "<hr>" + reportString.substring(12, reportString.length() - 14) + "<br>\n";
+            output.append(reportString);
+        }
+
+        degreeStat.execute(graphModel, attributeModel);
+        densityStat.execute(graphModel, attributeModel);
+        distanceStat.execute(graphModel, attributeModel);
+        clusteringStat.execute(graphModel, attributeModel);
+        componentStat.execute(graphModel, attributeModel);
+        eigenvectorStat.execute(graphModel, attributeModel);
+        hitStat.execute(graphModel, attributeModel);
+        modularityStat.execute(graphModel, attributeModel);
+
+        AttributeColumn col = attributeModel.getNodeTable().getColumn(GraphDistance.BETWEENNESS);
+        for (Node n : directedGraph.getNodes()) {
+            Double centrality = (Double) n.getNodeData().getAttributes().getValue(col.getIndex());
+            System.out.println(centrality);
+        }
+        
+        try {
+            FileWriter outputFile = new FileWriter("test.html", false);
+            outputFile.write("<HTML><HEAD><TITLE>SPADE Graph Report</TITLE></HEAD><BODY>");
+            outputFile.write(output.toString());
+            outputFile.write("</BODY></HTML>");
+            outputFile.close();
+
+            Runtime.getRuntime().exec("open test.html");
+        } catch (Exception exception) {
             Logger.getLogger(Graph.class.getName()).log(Level.SEVERE, null, exception);
+        }
+    }
+
+    @Override
+    public boolean initialize(String arguments) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public boolean shutdown() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public Graph getVertices(String expression) {
+        try {
+            StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_35);
+            QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
+            org.apache.lucene.search.Query query = queryParser.parse(expression);
+            IndexReader reader = IndexReader.open(vertexIndex);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_QUERY_RESULTS, true);
+            searcher.search(query, collector);
+            ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+            Graph resultGraph = new Graph();
+            for (int i = 0; i < hits.length; ++i) {
+                int docId = hits[i].doc;
+                Document foundDoc = searcher.doc(docId);
+                int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
+                resultGraph.commitVertex(vertexHashes.get(hash));
+            }
+
+            searcher.close();
+            return resultGraph;
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Graph getPaths(String srcVertexId, String dstVertexId, int maxLength) {
+        StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_35);
+        QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
+        // The algorithm for this method is as follows:
+        //
+        // 1) Create two sets of vertices and edges, each for storing the lineage
+        //    of source and destination vertices.
+        // 2) Use the lucene index to look up the hash value of the source vertex.
+        // 3) Find edges that have the source vertex hash determined in (2).
+        // 4) Iteratively repeat (2) and (3) maxLength times.
+        // 5) (2), (3), and (4) are used to determine the lineage of the source
+        //    vertex.
+        // 6) Repeat (5) to determine the lineage of the destination vertex.
+        // 7) Check that the source lineage contains the destination vertex and
+        //    that the destination lineage contains the source vertex.
+        // 8) If (7) is true, find the intersecting vertex and edge set of the two
+        //    lineages and add them to the final result graph.
+        try {
+            Set<AbstractVertex> srcVertexSet = new HashSet<AbstractVertex>();
+            Set<AbstractVertex> dstVertexSet = new HashSet<AbstractVertex>();
+            Set<AbstractEdge> srcEdgeSet = new HashSet<AbstractEdge>();
+            Set<AbstractEdge> dstEdgeSet = new HashSet<AbstractEdge>();
+
+            IndexReader reader = IndexReader.open(edgeIndex);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_INTERNAL_QUERY_RESULTS, true);
+
+            int srcHash = getHashFromId(srcVertexId);
+            Set<Integer> tempSet = new HashSet<Integer>();
+            tempSet.add(srcHash);
+            for (int i = 0; i <= maxLength; i++) {
+                Set<Integer> newTempSet = new HashSet<Integer>();
+                for (Integer currentVertexHash : tempSet) {
+                    srcVertexSet.add(vertexHashes.get(currentVertexHash));
+
+                    org.apache.lucene.search.Query query = queryParser.parse(INTERNAL_SRC_VERTEX_HASH_KEY + ":" + currentVertexHash);
+                    searcher.search(query, collector);
+                    ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+                    for (int j = 0; j < hits.length; ++j) {
+                        int docId = hits[j].doc;
+                        Document foundDoc = searcher.doc(docId);
+                        int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
+                        srcEdgeSet.add(edgeHashes.get(hash));
+                        newTempSet.add(edgeHashes.get(hash).getDestinationVertex().hashCode());
+                    }
+                    searcher.close();
+                }
+                if (newTempSet.isEmpty()) {
+                    break;
+                }
+                tempSet = newTempSet;
+            }
+
+            int dstHash = getHashFromId(srcVertexId);
+            tempSet = new HashSet<Integer>();
+            tempSet.add(dstHash);
+            for (int i = 0; i <= maxLength; i++) {
+                Set<Integer> newTempSet = new HashSet<Integer>();
+                for (Integer currentVertexHash : tempSet) {
+                    dstVertexSet.add(vertexHashes.get(currentVertexHash));
+
+                    org.apache.lucene.search.Query query = queryParser.parse(INTERNAL_DST_VERTEX_HASH_KEY + ":" + currentVertexHash);
+                    searcher.search(query, collector);
+                    ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+                    for (int j = 0; j < hits.length; ++j) {
+                        int docId = hits[j].doc;
+                        Document foundDoc = searcher.doc(docId);
+                        int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
+                        dstEdgeSet.add(edgeHashes.get(hash));
+                        newTempSet.add(edgeHashes.get(hash).getSourceVertex().hashCode());
+                    }
+                    searcher.close();
+                }
+                if (newTempSet.isEmpty()) {
+                    break;
+                }
+                tempSet = newTempSet;
+            }
+
+            Graph resultGraph = new Graph();
+            if (srcVertexSet.contains(vertexHashes.get(dstHash)) && dstVertexSet.contains(vertexHashes.get(srcHash))) {
+                Set<AbstractVertex> vertexResultSet = srcVertexSet;
+                vertexResultSet.retainAll(dstVertexSet);
+                Set<AbstractEdge> edgeResultSet = srcEdgeSet;
+                edgeResultSet.retainAll(dstEdgeSet);
+                for (AbstractVertex vertex : vertexResultSet) {
+                    resultGraph.commitVertex(vertex);
+                }
+                for (AbstractEdge edge : edgeResultSet) {
+                    resultGraph.commitEdge(edge);
+                }
+            }
+            return resultGraph;
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
+        try {
+            StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_35);
+            QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
+
+            if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
+                terminatingExpression = null;
+            }
+
+            Set<Integer> terminatingSet;
+            if (terminatingExpression != null) {
+                terminatingSet = new HashSet<Integer>();
+                org.apache.lucene.search.Query query = queryParser.parse(terminatingExpression);
+                IndexReader reader = IndexReader.open(vertexIndex);
+                IndexSearcher searcher = new IndexSearcher(reader);
+                TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_INTERNAL_QUERY_RESULTS, true);
+                searcher.search(query, collector);
+                ScoreDoc[] hits = collector.topDocs().scoreDocs;
+                for (int i = 0; i < hits.length; ++i) {
+                    int docId = hits[i].doc;
+                    Document foundDoc = searcher.doc(docId);
+                    int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
+                    terminatingSet.add(hash);
+                }
+                searcher.close();
+            }
+
+            IndexReader reader = IndexReader.open(edgeIndex);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(MAX_INTERNAL_QUERY_RESULTS, true);
+
+            Graph resultGraph = new Graph();
+            int vertexHash = getHashFromId(vertexId);
+            Set<Integer> tempSet = new HashSet<Integer>();
+            Set<Integer> tempEdgeSet = new HashSet<Integer>();
+            Set<Integer> doneSet = new HashSet<Integer>();
+            tempSet.add(vertexHash);
+            for (int i = 0; i <= depth; i++) {
+                Set<Integer> newTempSet = new HashSet<Integer>();
+                Set<Integer> newTempEdgeSet = new HashSet<Integer>();
+                for (Integer currentVertexHash : tempSet) {
+                    resultGraph.commitVertex(vertexHashes.get(currentVertexHash));
+                    doneSet.add(currentVertexHash);
+
+                    String queryString;
+                    if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+                        queryString = INTERNAL_SRC_VERTEX_HASH_KEY + ":" + currentVertexHash;
+                    } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+                        queryString = INTERNAL_DST_VERTEX_HASH_KEY + ":" + currentVertexHash;
+                    } else if (Query.DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
+                        queryString = INTERNAL_SRC_VERTEX_HASH_KEY + ":" + currentVertexHash
+                                + " OR " + INTERNAL_DST_VERTEX_HASH_KEY + ":" + currentVertexHash;
+                    } else {
+                        return null;
+                    }
+                    org.apache.lucene.search.Query query = queryParser.parse(queryString);
+                    searcher.search(query, collector);
+                    ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+                    for (int j = 0; j < hits.length; ++j) {
+                        int docId = hits[j].doc;
+                        Document foundDoc = searcher.doc(docId);
+                        int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
+                        newTempEdgeSet.add(hash);
+                        AbstractEdge tempEdge = edgeHashes.get(hash);
+                        if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+                            int newHash = tempEdge.getDestinationVertex().hashCode();
+                            if (!doneSet.contains(newHash)) {
+                                newTempSet.add(newHash);
+                            }
+                        } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+                            int newHash = tempEdge.getSourceVertex().hashCode();
+                            if (!doneSet.contains(newHash)) {
+                                newTempSet.add(newHash);
+                            }
+                        } else if (Query.DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
+                            int newHash1 = tempEdge.getSourceVertex().hashCode();
+                            if (!doneSet.contains(newHash1)) {
+                                newTempSet.add(newHash1);
+                            }
+                            int newHash2 = tempEdge.getDestinationVertex().hashCode();
+                            if (!doneSet.contains(newHash2)) {
+                                newTempSet.add(newHash2);
+                            }
+                        } else {
+                            return null;
+                        }
+                    }
+                    searcher.close();
+                }
+                for (int edgeHash : tempEdgeSet) {
+                    resultGraph.commitEdge(edgeHashes.get(edgeHash));
+                }
+                tempEdgeSet = newTempEdgeSet;
+
+                if (newTempSet.isEmpty()) {
+                    break;
+                }
+                tempSet = newTempSet;
+            }
+
+            return resultGraph;
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+            return null;
+        }
+    }
+
+    private int getHashFromId(String vertexId) throws Exception {
+        try {
+            StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_35);
+            QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
+            org.apache.lucene.search.Query query = queryParser.parse(Query.STORAGE_ID_STRING + ":" + vertexId);
+            IndexReader reader = IndexReader.open(vertexIndex);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(1, true);
+            searcher.search(query, collector);
+            Document foundDoc = searcher.doc(collector.topDocs().scoreDocs[0].doc);
+            int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
+            searcher.close();
+            return hash;
+        } catch (Exception exception) {
+            throw exception;
         }
     }
 }

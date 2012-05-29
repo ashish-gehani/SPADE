@@ -19,6 +19,7 @@
  */
 package spade.storage;
 
+import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -53,14 +54,7 @@ public class Neo4j extends AbstractStorage {
     // restarted
     private final int HARD_FLUSH_LIMIT = 10000;
     // Identifying annotation to add to each edge/vertex
-    private final String ID_STRING = "storageId";
-    // String to match for when specifying direction for ancestors
-    private final String direction_ancestors = "ancestors";
-    // String to match for when specifying direction for descendants
-    private final String direction_descendants = "descendants";
-    // String to match for when specifying direction for both ancestors
-    // and descendants
-    private final String direction_both = "both";
+    private final String ID_STRING = Query.STORAGE_ID_STRING;
     private GraphDatabaseService graphDb;
     private WrappingNeoServerBootstrapper webServer;
     private IndexManager index;
@@ -71,6 +65,18 @@ public class Neo4j extends AbstractStorage {
     private int flushCount;
     private Map<Integer, Long> vertexMap;
     private Set<Integer> edgeSet;
+    private final String BENCHMARK_DUMP = "benchmark.txt";
+    private final boolean BENCHMARK = true;
+    private FileWriter BENCHMARK_WRITER;
+    private long processCount = 0;
+    private long artifactCount = 0;
+    private long agentCount = 0;
+    private long usedCount = 0;
+    private long wgbCount = 0;
+    private long wtbCount = 0;
+    private long wdfCount = 0;
+    private long wcbCount = 0;
+    private volatile boolean shutdown = false;
 
     private enum MyRelationshipTypes implements RelationshipType {
 
@@ -100,6 +106,41 @@ public class Neo4j extends AbstractStorage {
             edgeSet = new HashSet<Integer>();
             // Start the web server
             webServer.start();
+
+            if (BENCHMARK) {
+                BENCHMARK_WRITER = new FileWriter(BENCHMARK_DUMP, false);
+                BENCHMARK_WRITER.write("time, process, artifact, agent, used, wgb, wtb, wdf, wcb\n");
+                Runnable mainRunnable = new Runnable() {
+
+                    public void run() {
+                        while (!shutdown) {
+                            String stats = System.currentTimeMillis() + ", "
+                                    + processCount + ", "
+                                    + artifactCount + ", "
+                                    + agentCount + ", "
+                                    + usedCount + ", "
+                                    + wgbCount + ", "
+                                    + wtbCount + ", "
+                                    + wdfCount + ", "
+                                    + wcbCount + "\n";
+                            try {
+                                BENCHMARK_WRITER.write(stats);
+                                BENCHMARK_WRITER.flush();
+                                Thread.sleep(1000);
+                            } catch (Exception e) {
+                            }
+                        }
+                        try {
+                            BENCHMARK_WRITER.close();
+                        } catch (Exception e) {
+                        }
+                    }
+                };
+                Thread benchThread = new Thread(mainRunnable, "Neo4j-BENCH-Thread");
+                benchThread.start();
+
+            }
+
             return true;
         } catch (Exception exception) {
             Logger.getLogger(Neo4j.class.getName()).log(Level.SEVERE, null, exception);
@@ -154,6 +195,7 @@ public class Neo4j extends AbstractStorage {
         }
         webServer.stop();
         graphDb.shutdown();
+        shutdown = true;
         return true;
     }
 
@@ -179,6 +221,19 @@ public class Neo4j extends AbstractStorage {
         vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
         vertexMap.put(incomingVertex.hashCode(), newVertex.getId());
         checkTransactionCount();
+
+        // BEGIN BENCHMARKING CODE
+        if (BENCHMARK) {
+            if (incomingVertex.type().equalsIgnoreCase("Process")) {
+                processCount++;
+            } else if (incomingVertex.type().equalsIgnoreCase("Artifact")) {
+                artifactCount++;
+            } else if (incomingVertex.type().equalsIgnoreCase("Agent")) {
+                agentCount++;
+            }
+        }
+        // END BENCHMARKING CODE
+
         return true;
     }
 
@@ -210,6 +265,23 @@ public class Neo4j extends AbstractStorage {
         newEdge.setProperty(ID_STRING, newEdge.getId());
         edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
         checkTransactionCount();
+
+        // BEGIN BENCHMARKING CODE
+        if (BENCHMARK) {
+            if (incomingEdge.type().equalsIgnoreCase("Used")) {
+                usedCount++;
+            } else if (incomingEdge.type().equalsIgnoreCase("WasTriggeredBy")) {
+                wtbCount++;
+            } else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")) {
+                wgbCount++;
+            } else if (incomingEdge.type().equalsIgnoreCase("WasControlledBy")) {
+                wcbCount++;
+            } else if (incomingEdge.type().equalsIgnoreCase("WasDerivedFrom")) {
+                wdfCount++;
+            }
+        }
+        // END BENCHMARKING CODE
+
         return true;
     }
 
@@ -364,11 +436,11 @@ public class Neo4j extends AbstractStorage {
         }
 
         Direction dir;
-        if (direction_ancestors.startsWith(direction.toLowerCase())) {
+        if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
             dir = Direction.OUTGOING;
-        } else if (direction_descendants.startsWith(direction.toLowerCase())) {
+        } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
             dir = Direction.INCOMING;
-        } else if (direction_both.startsWith(direction.toLowerCase())) {
+        } else if (Query.DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
             dir = Direction.BOTH;
         } else {
             return null;
@@ -383,7 +455,7 @@ public class Neo4j extends AbstractStorage {
                 break;
             }
             doneSet.addAll(tempSet);
-            Set<Node> tempSet2 = new HashSet<Node>();
+            Set<Node> newTempSet = new HashSet<Node>();
             for (Node tempNode : tempSet) {
                 for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
                     Node otherNode = nodeRelationship.getOtherNode(tempNode);
@@ -391,7 +463,7 @@ public class Neo4j extends AbstractStorage {
                         continue;
                     }
                     if (!doneSet.contains(otherNode)) {
-                        tempSet2.add(otherNode);
+                        newTempSet.add(otherNode);
                     }
                     resultGraph.putVertex(convertNodeToVertex(otherNode));
                     resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
@@ -407,7 +479,7 @@ public class Neo4j extends AbstractStorage {
                 }
             }
             tempSet.clear();
-            tempSet.addAll(tempSet2);
+            tempSet.addAll(newTempSet);
             depth--;
             currentDepth++;
         }

@@ -38,13 +38,13 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
-public class LLVMReporter extends AbstractReporter {
+public class LLVM extends AbstractReporter {
 
     public static volatile boolean shutdown;
     public Map<String, Stack> functionStackMap; // Each Stack holds the function call stack for a thread.
     ServerSocket Server;
     public static final int THREAD_SLEEP_DELAY = 500;
-    public static LLVMReporter Reporter = null;
+    public static LLVM Reporter = null;
     public final int SocketNumber = 5000;
 
     @Override
@@ -104,14 +104,14 @@ class EventHandler implements Runnable {
     public void run() {
         try {
             BufferedReader inFromClient = new BufferedReader(new InputStreamReader(threadSocket.getInputStream()));
-            while (!LLVMReporter.shutdown) {
+            while (!LLVM.shutdown) {
                 if (inFromClient.ready()) {
                     String line = inFromClient.readLine();
                     if (line != null) {
                         parseEvent(line);
                     }
                 }
-                Thread.sleep(LLVMReporter.THREAD_SLEEP_DELAY); // Reduce busy waiting load
+                Thread.sleep(LLVM.THREAD_SLEEP_DELAY); // Reduce busy waiting load
             }
             inFromClient.close();
         } catch (Exception exception) {
@@ -134,8 +134,8 @@ class EventHandler implements Runnable {
                 tid = line.substring(0, index);
 
                 // if the functionStackMap does not contain a stack for that thread, create a new stack.
-                if (!LLVMReporter.Reporter.functionStackMap.containsKey(tid)) {
-                    LLVMReporter.Reporter.functionStackMap.put(tid, new Stack());
+                if (!LLVM.Reporter.functionStackMap.containsKey(tid)) {
+                    LLVM.Reporter.functionStackMap.put(tid, new Stack());
                 }
                 //Gets EventType - Entry or Exit
                 line = line.substring(index + 1);
@@ -159,11 +159,11 @@ class EventHandler implements Runnable {
 
                     function = new Process();
                     // process id is a combination of functionName, functionId, and thread ID
-                    function.addAnnotation("pid", functionName + "." + FunctionId + "." + tid);
-                    function.addAnnotation("name", functionName);
-                    function.addAnnotation("tid", tid);
+                    function.addAnnotation("FunctionID", functionName + "." + FunctionId + "." + tid);
+                    function.addAnnotation("FunctionName", functionName);
+                    function.addAnnotation("ThreadID", tid);
 
-                    LLVMReporter.Reporter.putVertex(function);
+                    LLVM.Reporter.putVertex(function);
                     while (items.find()) {
                         argument = new Artifact();
 
@@ -180,20 +180,20 @@ class EventHandler implements Runnable {
                         String ArgVal = items.group(4);
                         argument.addAnnotation("ArgVal", ArgVal);
 
-                        LLVMReporter.Reporter.putVertex(argument);
+                        LLVM.Reporter.putVertex(argument);
 
-                        if (!LLVMReporter.Reporter.functionStackMap.get(tid).empty()) {
-                            edge = new WasGeneratedBy((Artifact) argument, (Process) LLVMReporter.Reporter.functionStackMap.get(tid).peek());
-                            LLVMReporter.Reporter.putEdge(edge);
+                        if (!LLVM.Reporter.functionStackMap.get(tid).empty()) {
+                            edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
+                            LLVM.Reporter.putEdge(edge);
                         }
                         edge = new Used((Process) function, (Artifact) argument);
-                        LLVMReporter.Reporter.putEdge(edge);
+                        LLVM.Reporter.putEdge(edge);
                     }
-                    if (!LLVMReporter.Reporter.functionStackMap.get(tid).empty()) {
-                        edge = new WasTriggeredBy((Process) function, (Process) LLVMReporter.Reporter.functionStackMap.get(tid).peek());
-                        LLVMReporter.Reporter.putEdge(edge);
+                    if (!LLVM.Reporter.functionStackMap.get(tid).empty()) {
+                        edge = new WasTriggeredBy((Process) function, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
+                        LLVM.Reporter.putEdge(edge);
                     }
-                    LLVMReporter.Reporter.functionStackMap.get(tid).push(function);
+                    LLVM.Reporter.functionStackMap.get(tid).push(function);
                     FunctionId++;
                 } else // in case of EventType being Return
                 {
@@ -208,11 +208,11 @@ class EventHandler implements Runnable {
                         String RetVal = items.group(3);
                         argument.addAnnotation("ReturnVal", RetVal);
 
-                        LLVMReporter.Reporter.putVertex(argument);
-                        edge = new WasGeneratedBy((Artifact) argument, (Process) LLVMReporter.Reporter.functionStackMap.get(tid).peek());
-                        LLVMReporter.Reporter.putEdge(edge);
+                        LLVM.Reporter.putVertex(argument);
+                        edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
+                        LLVM.Reporter.putEdge(edge);
                     }
-                    LLVMReporter.Reporter.functionStackMap.get(tid).pop();
+                    LLVM.Reporter.functionStackMap.get(tid).pop();
                 }
 
             }
