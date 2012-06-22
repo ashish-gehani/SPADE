@@ -19,75 +19,118 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasGeneratedBy;
+import spade.vertex.opm.Artifact;
 
 public class IORuns extends AbstractFilter {
 
-    private HashMap<Integer, HashSet<Integer>> writes;
-    private HashMap<Integer, HashSet<Integer>> reads;
+    private final int BUFFER_SIZE = 2000;
+//    private final String processKey = "pid";
+    private final String artifactKey = "location";
+    private Map<String, HashSet<String>> writes;
+    private Map<String, HashSet<String>> reads;
+    private Queue<AbstractVertex> vertexBuffer;
+//    private Map<String, AbstractVertex> vertexMap;
 
     public IORuns() {
-        writes = new HashMap<Integer, HashSet<Integer>>();
-        reads = new HashMap<Integer, HashSet<Integer>>();
+        writes = new HashMap<String, HashSet<String>>();
+        reads = new HashMap<String, HashSet<String>>();
+        vertexBuffer = new LinkedList<AbstractVertex>();
+//        vertexMap = new HashMap<String, AbstractVertex>();
     }
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-        putInNextFilter(incomingVertex);
+        if (incomingVertex instanceof Artifact) {
+            vertexBuffer.add(incomingVertex);
+//            vertexMap.put(incomingVertex.getAnnotation(artifactKey), incomingVertex);
+//        } else if (incomingVertex instanceof Process) {
+//            vertexMap.put(Integer.toString(incomingVertex.hashCode()), incomingVertex);
+        } else {
+            putInNextFilter(incomingVertex);
+            return;
+        }
+        if (vertexBuffer.size() > BUFFER_SIZE) {
+            AbstractVertex removed = vertexBuffer.remove();
+//            if (removed instanceof Artifact) {
+//                vertexMap.remove(removed.getAnnotation(artifactKey));
+//            } else if (removed instanceof Process) {
+//                vertexMap.remove(Integer.toString(removed.hashCode()));
+//            }
+        }
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
         if (incomingEdge instanceof Used) {
             Used usedEdge = (Used) incomingEdge;
-            int fileVertexHash = usedEdge.getDestinationVertex().hashCode();
-            int processVertexHash = usedEdge.getSourceVertex().hashCode();
-            if (reads.containsKey(fileVertexHash) == false) {
-                HashSet<Integer> tempSet = new HashSet<Integer>();
+            String fileVertexHash = usedEdge.getDestinationVertex().getAnnotation(artifactKey);
+            String processVertexHash = Integer.toString(usedEdge.getSourceVertex().hashCode());
+            if (!reads.containsKey(fileVertexHash)) {
+                HashSet<String> tempSet = new HashSet<String>();
                 tempSet.add(processVertexHash);
                 reads.put(fileVertexHash, tempSet);
             } else {
-                HashSet<Integer> tempSet = reads.get(fileVertexHash);
+                HashSet<String> tempSet = reads.get(fileVertexHash);
                 if (tempSet.contains(processVertexHash)) {
+                    vertexBuffer.remove(usedEdge.getDestinationVertex());
                     return;
                 } else {
                     tempSet.add(processVertexHash);
                 }
             }
+//            vertexBuffer.remove(usedEdge.getSourceVertex());
+            vertexBuffer.remove(usedEdge.getDestinationVertex());
+//            putInNextFilter(usedEdge.getSourceVertex());
+            putInNextFilter(usedEdge.getDestinationVertex());
             putInNextFilter(usedEdge);
             if (writes.containsKey(fileVertexHash)) {
-                HashSet<Integer> tempSet = writes.get(fileVertexHash);
+                HashSet<String> tempSet = writes.get(fileVertexHash);
                 tempSet.remove(processVertexHash);
             }
         } else if (incomingEdge instanceof WasGeneratedBy) {
             WasGeneratedBy wgb = (WasGeneratedBy) incomingEdge;
-            int fileVertexHash = wgb.getSourceVertex().hashCode();
-            int processVertexHash = wgb.getDestinationVertex().hashCode();
-            if (writes.containsKey(fileVertexHash) == false) {
-                HashSet<Integer> tempSet = new HashSet<Integer>();
+            String fileVertexHash = wgb.getSourceVertex().getAnnotation(artifactKey);
+            String processVertexHash = Integer.toString(wgb.getDestinationVertex().hashCode());
+            if (!writes.containsKey(fileVertexHash)) {
+                HashSet<String> tempSet = new HashSet<String>();
                 tempSet.add(processVertexHash);
                 writes.put(fileVertexHash, tempSet);
             } else {
-                HashSet<Integer> tempSet = writes.get(fileVertexHash);
+                HashSet<String> tempSet = writes.get(fileVertexHash);
                 if (tempSet.contains(processVertexHash)) {
+                    vertexBuffer.remove(wgb.getSourceVertex());
                     return;
                 } else {
                     tempSet.add(processVertexHash);
                 }
             }
+            vertexBuffer.remove(wgb.getSourceVertex());
+//            vertexBuffer.remove(wgb.getDestinationVertex());
+            putInNextFilter(wgb.getSourceVertex());
+//            putInNextFilter(wgb.getDestinationVertex());
             putInNextFilter(wgb);
             if (reads.containsKey(fileVertexHash)) {
-                HashSet<Integer> tempSet = reads.get(fileVertexHash);
+                HashSet<String> tempSet = reads.get(fileVertexHash);
                 tempSet.remove(processVertexHash);
             }
         } else {
+//            vertexBuffer.remove(incomingEdge.getSourceVertex());
+//            vertexBuffer.remove(incomingEdge.getDestinationVertex());
+//            putInNextFilter(incomingEdge.getSourceVertex());
+//            putInNextFilter(incomingEdge.getDestinationVertex());
             putInNextFilter(incomingEdge);
         }
+    }
+
+    @Override
+    public boolean shutdown() {
+
+        return true;
     }
 }

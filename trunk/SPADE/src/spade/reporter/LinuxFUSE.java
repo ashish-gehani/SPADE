@@ -303,18 +303,18 @@ public class LinuxFUSE extends AbstractReporter {
             return null;
         }
 
-        try {
-            BufferedReader environReader = new BufferedReader(new FileReader("/proc/" + pid + "/environ"));
-            String environ = environReader.readLine();
-            environReader.close();
-            if (environ != null) {
-                environ = environ.replace("\0", ", ");
-                environ = environ.replace("\"", "'");
-                resultVertex.addAnnotation("environment", environ);
-            }
-        } catch (Exception exception) {
-            // Unable to access the environment variables
-        }
+//        try {
+//            BufferedReader environReader = new BufferedReader(new FileReader("/proc/" + pid + "/environ"));
+//            String environ = environReader.readLine();
+//            environReader.close();
+//            if (environ != null) {
+//                environ = environ.replace("\0", ", ");
+//                environ = environ.replace("\"", "'");
+//                resultVertex.addAnnotation("environment", environ);
+//            }
+//        } catch (Exception exception) {
+//            // Unable to access the environment variables
+//        }
         return resultVertex;
     }
 

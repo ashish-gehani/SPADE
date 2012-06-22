@@ -66,17 +66,7 @@ public class Buffer {
     public boolean putEdge(AbstractEdge incomingEdge) {
         if ((incomingEdge == null)
                 || (incomingEdge.getSourceVertex() == null)
-                || (incomingEdge.getDestinationVertex() == null)
-                // Thread unsafe: || (incomingEdge.getSourceVertex().hashCode() == incomingEdge.getDestinationVertex().hashCode())) {
-                || (incomingEdge.getSourceVertex() == incomingEdge.getDestinationVertex())) {
-            if (incomingEdge.getSourceVertex() == null) {
-                logger.log(Level.WARNING, "Not putting edge. Source is null");
-            }
-            if (incomingEdge.getDestinationVertex() == null) {
-                logger.log(Level.WARNING, "Not putting edge. Dest is null");
-            } else {
-                logger.log(Level.WARNING, "Not putting edge. End vertices are equal");
-            }
+                || (incomingEdge.getDestinationVertex() == null)) {
             return false;
         } else {
             return queue.add(incomingEdge);

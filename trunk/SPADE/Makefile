@@ -56,8 +56,8 @@ build:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Pipe.java
 	@echo 'Building the Lsof reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Lsof.java
-	@echo 'Building the LLVM reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LLVM.java
+	@#echo 'Building the LLVM reporter...'
+	@#javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LLVM.java
 	@make $(OS_BUILD)
 
 # Build the LinuxAudit reporter.
@@ -77,7 +77,7 @@ build-linuxfuse:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
+	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
 	@echo ''
 	@echo '-----> IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
 	@echo ''
@@ -98,7 +98,7 @@ build-macfuse:
 	@echo 'Building the MacFUSE reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
-	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers -D__FreeBSD__=10 -D_FILE_OFFSET_BITS=64 -I/usr/local/include/fuse -Wall -g -D__DARWIN_64_BIT_INO_T=1 -o lib/libMacFUSE.jnilib src/spade/reporter/libMacFUSE.c -lfuse_ino64
+	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers `pkg-config fuse --cflags --libs` src/spade/reporter/libMacFUSE.c -o lib/libMacFUSE.jnilib
 
 llvm:
 	@make $(LLVM_RULE)

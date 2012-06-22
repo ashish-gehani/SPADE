@@ -39,7 +39,6 @@ public class AndroidClient {
     private static volatile boolean shutdown;
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
-    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 
     /**
      *
