@@ -20,9 +20,7 @@
 package spade.storage;
 
 import java.io.FileWriter;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.*;
@@ -35,12 +33,12 @@ import spade.core.*;
 public class Graphviz extends AbstractStorage {
 
     private FileWriter outputFile;
-    private Set<Integer> edgeSet;
-    private Set<Integer> vertexSet;
+//    private Set<Integer> edgeSet;
+//    private Set<Integer> vertexSet;
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
     private String filePath;
-
+    
     @Override
     public boolean initialize(String arguments) {
         try {
@@ -48,8 +46,8 @@ public class Graphviz extends AbstractStorage {
                 return false;
             }
             filePath = arguments;
-            edgeSet = new HashSet<Integer>();
-            vertexSet = new HashSet<Integer>();
+//            edgeSet = new HashSet<Integer>();
+//            vertexSet = new HashSet<Integer>();
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
             outputFile.write("digraph SPADE2dot {\n"
@@ -80,7 +78,7 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
-            if (vertexSet.add(incomingVertex.hashCode())) {
+//            if (vertexSet.add(incomingVertex.hashCode())) {
                 StringBuilder annotationString = new StringBuilder();
                 for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                     String key = currentEntry.getKey();
@@ -92,7 +90,7 @@ public class Graphviz extends AbstractStorage {
                             || (key.equalsIgnoreCase("type"))
                             || (key.equalsIgnoreCase("subtype"))
                             || (key.equalsIgnoreCase("environment"))
-                            || (key.equalsIgnoreCase("commandline"))
+//                            || (key.equalsIgnoreCase("commandline"))
                             || (key.equalsIgnoreCase(Kernel.UNIQUE_ID))
                             || (key.equalsIgnoreCase(Kernel.SOURCE_REPORTER))) {
                         continue;
@@ -125,16 +123,18 @@ public class Graphviz extends AbstractStorage {
                         // Ignore
                     }
                 }
+                
+                String key = incomingVertex.toString().replace('\"', '\'');
                 outputFile.write("\""
-                        + incomingVertex.hashCode()
+                        + key
                         + "\" [label=\"" + vertexString.replace("\"", "'")
                         + "\" shape=\"" + shape
                         + "\" fillcolor=\"" + color
                         + "\"];\n");
                 checkTransactions();
                 return true;
-            }
-            return false;
+//            }
+//            return false;
         } catch (Exception exception) {
             Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;
@@ -144,7 +144,7 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
-            if (edgeSet.add(incomingEdge.hashCode())) {
+//            if (edgeSet.add(incomingEdge.hashCode())) {
                 StringBuilder annotationString = new StringBuilder();
                 for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
                     String key = currentEntry.getKey();
@@ -182,17 +182,21 @@ public class Graphviz extends AbstractStorage {
                 if (edgeString.length() > 0) {
                     edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
                 }
+                
+                String srckey = incomingEdge.getSourceVertex().toString().replace('\"', '\'');
+                String dstkey = incomingEdge.getDestinationVertex().toString().replace('\"', '\'');
+
                 outputFile.write("\""
-                        + incomingEdge.getSourceVertex().hashCode()
+                        + srckey
                         + "\" -> \""
-                        + incomingEdge.getDestinationVertex().hashCode()
+                        + dstkey
                         + "\" [label=\"" + edgeString.replace("\"", "'")
                         + "\" color=\"" + color
                         + "\"];\n");
                 checkTransactions();
                 return true;
-            }
-            return false;
+//            }
+//            return false;
         } catch (Exception exception) {
             Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;

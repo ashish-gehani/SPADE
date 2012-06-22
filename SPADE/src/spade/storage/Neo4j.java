@@ -34,7 +34,6 @@ import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.helpers.collection.MapUtil;
-import org.neo4j.kernel.AbstractGraphDatabase;
 import static org.neo4j.kernel.Config.ALLOW_STORE_UPGRADE;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.Traversal;
@@ -66,7 +65,7 @@ public class Neo4j extends AbstractStorage {
     private Map<Integer, Long> vertexMap;
     private Set<Integer> edgeSet;
     private final String BENCHMARK_DUMP = "benchmark.txt";
-    private final boolean BENCHMARK = true;
+    private final boolean BENCHMARK = false;
     private FileWriter BENCHMARK_WRITER;
     private long processCount = 0;
     private long artifactCount = 0;
@@ -93,7 +92,7 @@ public class Neo4j extends AbstractStorage {
             // if it already exists and is an older version
             graphDb = new EmbeddedGraphDatabase(arguments, MapUtil.stringMap(ALLOW_STORE_UPGRADE, "true"));
             // Initialize the web server for the embedded database
-            webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
+//            webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
             index = graphDb.index();
             transactionCount = 0;
             flushCount = 0;
@@ -105,7 +104,7 @@ public class Neo4j extends AbstractStorage {
             vertexMap = new HashMap<Integer, Long>();
             edgeSet = new HashSet<Integer>();
             // Start the web server
-            webServer.start();
+//            webServer.start();
 
             if (BENCHMARK) {
                 BENCHMARK_WRITER = new FileWriter(BENCHMARK_DUMP, false);
@@ -163,10 +162,10 @@ public class Neo4j extends AbstractStorage {
             flushCount++;
             // If hard flush limit is reached, restart the database
             if (flushCount == HARD_FLUSH_LIMIT) {
-                webServer.stop();
+//                webServer.stop();
                 graphDb.shutdown();
                 graphDb = new EmbeddedGraphDatabase(arguments);
-                webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
+//                webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
                 vertexIndex = index.forNodes("vertexIndex");
                 edgeIndex = index.forRelationships("edgeIndex");
                 flushCount = 0;
@@ -193,7 +192,7 @@ public class Neo4j extends AbstractStorage {
             transaction.success();
             transaction.finish();
         }
-        webServer.stop();
+//        webServer.stop();
         graphDb.shutdown();
         shutdown = true;
         return true;
