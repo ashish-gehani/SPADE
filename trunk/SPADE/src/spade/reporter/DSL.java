@@ -39,7 +39,7 @@ import spade.vertex.opm.Process;
  *
  * @author Dawood Tariq
  */
-public class Pipe extends AbstractReporter {
+public class DSL extends AbstractReporter {
 
     private String pipePath;
     private BufferedReader eventReader;
@@ -82,14 +82,14 @@ public class Pipe extends AbstractReporter {
                             }
                             eventReader.close();
                         } catch (Exception exception) {
-                            Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
+                            Logger.getLogger(DSL.class.getName()).log(Level.SEVERE, null, exception);
                         }
                     }
                 };
                 new Thread(eventThread, "PipeReporter-Thread").start();
                 return true;
             } catch (Exception exception) {
-                Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
+                Logger.getLogger(DSL.class.getName()).log(Level.SEVERE, null, exception);
                 return false;
             }
         }
@@ -163,7 +163,7 @@ public class Pipe extends AbstractReporter {
                 putEdge(edge);
             }
         } catch (Exception exception) {
-            Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
+            Logger.getLogger(DSL.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 
@@ -187,7 +187,7 @@ public class Pipe extends AbstractReporter {
             Runtime.getRuntime().exec("rm -f " + pipePath).waitFor();
             return true;
         } catch (Exception exception) {
-            Logger.getLogger(Pipe.class.getName()).log(Level.SEVERE, null, exception);
+            Logger.getLogger(DSL.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
