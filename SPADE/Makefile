@@ -108,27 +108,27 @@ build-mac-llvm:
 	$(eval C_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cflags))
 	$(eval CLANG_FLAGS = -cc1 -triple x86_64-apple-macosx10.6.8 -emit-obj -mrelax-all -disable-free ${C_FLAGS})
 	$(eval CLANG++_FLAGS = ${CXX_FLAGS} -m64 -Wl,-flat_namespace -Wl,-undefined,suppress -dynamiclib -mmacosx-version-min=10.6)
-	$(LLVM_PATH)/bin/clang ${CLANG_FLAGS} -g -o src/spade/reporter/LLVMReporter.o -x c++ src/spade/reporter/LLVMReporter.cpp
-	$(LLVM_PATH)/bin/clang ${CLANG++_FLAGS} -o lib/LLVMReporter.dylib src/spade/reporter/LLVMReporter.o
-	$(LLVM_PATH)/bin/clang -static ${REPLIB_OSFLAG} src/spade/reporter/LLVMReporterLib.c -c -o src/spade/reporter/LLVMReporterLib.o
+	$(LLVM_PATH)/bin/clang ${CLANG_FLAGS} -g -o src/spade/reporter/LLVMTracer.o -x c++ src/spade/reporter/LLVMTracer.cpp
+	$(LLVM_PATH)/bin/clang ${CLANG++_FLAGS} -o lib/LLVMTracer.dylib src/spade/reporter/LLVMTracer.o
+	$(LLVM_PATH)/bin/clang -static ${REPLIB_OSFLAG} src/spade/reporter/LLVMBridge.c -c -o src/spade/reporter/LLVMBridge.o
 	$(LLVM_PATH)/bin/clang -c -emit-llvm ${TARGET}.c -o ${TARGET}.bc
-	$(LLVM_PATH)/bin/opt -load lib/LLVMReporter.dylib -provenance ${TARGET}.bc -o ${TARGET}.bc
+	$(LLVM_PATH)/bin/opt -load lib/LLVMTracer.dylib -provenance ${TARGET}.bc -o ${TARGET}.bc
 	$(LLVM_PATH)/bin/llc ${TARGET}.bc -o ${TARGET}.s
 	$(LLVM_PATH)/bin/clang src/spade/reporter/LLVMclose.c -c -o src/spade/reporter/LLVMclose.o
 	$(LLVM_PATH)/bin/clang ${TARGET}.s src/spade/reporter/LLVMclose.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress -o ${TARGET}.dylib
-	$(LLVM_PATH)/bin/clang src/spade/reporter/LLVMReporterLib.o ${TARGET}.dylib -o ${TARGET}
+	$(LLVM_PATH)/bin/clang src/spade/reporter/LLVMBridge.o ${TARGET}.dylib -o ${TARGET}
 
 build-linux-llvm:
 	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
-	g++ src/spade/reporter/LLVMReporter.cpp -shared -o lib/LLVMReporter.so $(CXX_FLAGS)
-	gcc -static ${REPLIB_OSFLAG} src/spade/reporter/LLVMReporterLib.c -c -o src/spade/reporter/LLVMReporterLib.o
+	g++ src/spade/reporter/LLVMTracer.cpp -shared -o lib/LLVMTracer.so $(CXX_FLAGS)
+	gcc -static ${REPLIB_OSFLAG} src/spade/reporter/LLVMBridge.c -c -o src/spade/reporter/LLVMBridge.o
 	$(LLVM_PATH)/bin/clang -c -fPIC -emit-llvm ${TARGET}.c -o ${TARGET}.bc
-	$(LLVM_PATH)/bin/opt -load lib/LLVMReporter.so -provenance ${TARGET}.bc -o ${TARGET}.bc
+	$(LLVM_PATH)/bin/opt -load lib/LLVMTracer.so -provenance ${TARGET}.bc -o ${TARGET}.bc
 	$(LLVM_PATH)/bin/llc -relocation-model=pic ${TARGET}.bc -o ${TARGET}.s
 	gcc -fPIC src/spade/reporter/LLVMclose.c -c -o src/spade/reporter/LLVMclose.o
 	gcc ${TARGET}.s -c -o ${TARGET}.o
 	gcc ${TARGET}.o src/spade/reporter/LLVMclose.o -shared -o ${TARGET}.so
-	gcc ${TARGET}.so src/spade/reporter/LLVMReporterLib.o -o ${TARGET}
+	gcc ${TARGET}.so src/spade/reporter/LLVMBridge.o -o ${TARGET}
 
 
 # ---------- Removing files ----------
