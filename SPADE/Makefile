@@ -186,5 +186,4 @@ install:
 	cp -R bin $(DESTDIR)/bin
 	cp -R lib $(DESTDIR)/lib
 	cp -R cfg $(DESTDIR)/cfg
-	mkdir -p $(DESTDIR)/log
-
+	cp -R log $(DESTDIR)/log
