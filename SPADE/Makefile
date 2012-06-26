@@ -183,8 +183,8 @@ android-kernel:
 
 install:
 	cp -R build $(DESTDIR)/build
-	cp -R bin/* $(DESTDIR)/bin
-	cp -R lib/* $(DESTDIR)/lib
+	cp -R bin $(DESTDIR)/bin
+	cp -R lib $(DESTDIR)/lib
 	cp -R cfg $(DESTDIR)/cfg
 	cp -R log $(DESTDIR)/log
 
