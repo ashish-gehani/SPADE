@@ -182,8 +182,5 @@ android-kernel:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp 'android-spade.jar:../android-lib/h2-dex.jar' spade.core.Kernel"
 
 install:
-<<<<<<< .mine
 	install -c bin/control $(DESTDIR)/bin
-=======
-  install -c bin/control $(DESTDIR)/bin
->>>>>>> .r567
+
