@@ -155,14 +155,15 @@ android-build:
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
 	@echo 'Building the SQL storage...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/SQL.java
-	@echo 'Building AndroidAudit reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/AndroidAudit.java
+	@echo 'Building Audit reporter...'
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Audit.java
 	@mkdir -p android-build;
-	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
+	@mkdir -p android-build/bin;
+	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
 	@mkdir -p android-lib;
 	$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar 
 	@cd build; \
-	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
+	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
 
 # Deploy to Android
 android-deploy:
@@ -172,14 +173,15 @@ android-deploy:
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/log"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/cfg"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build/bin"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/output"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"storage SQL org.h2.Driver jdbc:h2:/sdcard/spade/output/h2spade sa null\\nstorage Graphviz /sdcard/spade/output/output.dot\\nreporter AndroidAudit\" > /sdcard/spade/cfg/spade.config"
+	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"storage SQL org.h2.Driver jdbc:h2:/sdcard/spade/output/h2spade sa null\\nstorage Graphviz /sdcard/spade/output/graph.dot\\nreporter Audit\" > /sdcard/spade/cfg/spade.config"
 	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
 
 # Launch Android kernel
 android-kernel:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp 'android-spade.jar:../android-lib/h2-dex.jar' spade.core.Kernel"
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar:../../android-lib/h2-dex.jar' spade.core.Kernel"
 
 install:
 	cp -R build $(DESTDIR)/
