@@ -52,6 +52,8 @@ build:
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/*.java
 	@echo 'Building filters...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/*.java
+	@echo 'Building the DOT reporter...'
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/DOT.java
 	@echo 'Building the Pipe reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/DSL.java
 	@echo 'Building the Lsof reporter...'
