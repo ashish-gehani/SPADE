@@ -178,7 +178,7 @@ android-deploy:
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build/bin"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/output"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"storage SQL org.h2.Driver jdbc:h2:/sdcard/spade/output/h2spade sa null\\nstorage Graphviz /sdcard/spade/output/graph.dot\\nreporter Audit\" > /sdcard/spade/cfg/spade.config"
+	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/output/graph.dot\\nreporter Audit\" > /sdcard/spade/cfg/spade.config"
 	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
 
 # Launch Android kernel
