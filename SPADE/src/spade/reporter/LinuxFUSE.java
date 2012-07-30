@@ -293,8 +293,6 @@ public class LinuxFUSE extends AbstractReporter {
             resultVertex.addAnnotation("gid", gid);
             resultVertex.addAnnotation("starttime_unix", stime);
             resultVertex.addAnnotation("starttime_simple", stime_readable);
-            resultVertex.addAnnotation("group", stats[4]);
-            resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
             resultVertex.addAnnotation("hostname", localHostName);
             resultVertex.addAnnotation("hostaddress", localHostAddress);

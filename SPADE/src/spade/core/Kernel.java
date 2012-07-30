@@ -28,8 +28,6 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * The SPADE core.
@@ -185,16 +183,13 @@ public class Kernel {
                         reporter.shutdown();
                     }
                     // Wait for main thread to consume all provenance data.
-                    while (true) {
+                    while (!reporters.isEmpty()) {
                         for (Iterator reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
                             AbstractReporter currentReporter = (AbstractReporter) reporterIterator.next();
                             Buffer currentBuffer = currentReporter.getBuffer();
                             if (currentBuffer.isEmpty()) {
                                 reporterIterator.remove();
                             }
-                        }
-                        if (reporters.isEmpty()) {
-                            break;
                         }
                         try {
                             Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
