@@ -245,8 +245,8 @@ public class Audit extends AbstractReporter {
             String auditRules = "-a exit,always -S fork -S vfork -S execve -S open -S close "
                     + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink "
                     + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-                    + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod "
-                    + "-F success=1" + ignorePids.toString();
+                    + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
+                    + "-S pipe2 -F success=1" + ignorePids.toString();
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
             logger.log(Level.INFO, "configuring audit rules: {0}", auditRules);
@@ -340,6 +340,11 @@ public class Audit extends AbstractReporter {
                     while (key_value_matcher.find()) {
                         eventBuffer.get(eventId).put("execve_" + key_value_matcher.group(1), key_value_matcher.group(2));
                     }
+                } else if (type.equals("FD_PAIR")) {
+                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                    while (key_value_matcher.find()) {
+                        eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                    }
                 } else {
                     logger.log(Level.WARNING, "unknown type {0} for message: {1}", new Object[]{type, line});
                 }
@@ -410,6 +415,12 @@ public class Audit extends AbstractReporter {
                     processRename(eventData);
                     break;
 
+                case 42: // pipe()
+                case 331: // pipe2()
+                case 359: // pipe2()
+                    processPipe(eventData);
+                    break;
+
                 case 41: // dup()
                 case 63: // dup2()
                     processDup(eventData);
@@ -467,8 +478,8 @@ public class Audit extends AbstractReporter {
             // Unable to retrieve process information from proc; generate vertex
             // based on audit information
             newProcess = new Process();
-            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"),eventData.get("euid"),eventData.get("suid"),eventData.get("fsuid"));
-            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"),eventData.get("egid"),eventData.get("sgid"),eventData.get("fsgid"));
+            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
+            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
             newProcess.addAnnotation("pid", newPID);
             newProcess.addAnnotation("ppid", oldPID);
             newProcess.addAnnotation("uid", uid);
@@ -503,8 +514,8 @@ public class Audit extends AbstractReporter {
             // Unable to retrieve process information from proc; generate vertex
             // based on audit information
             newProcess = new Process();
-            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"),eventData.get("euid"),eventData.get("suid"),eventData.get("fsuid"));
-            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"),eventData.get("egid"),eventData.get("sgid"),eventData.get("fsgid"));
+            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
+            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
             newProcess.addAnnotation("pid", pid);
             newProcess.addAnnotation("ppid", ppid);
             newProcess.addAnnotation("uid", uid);
@@ -822,6 +833,23 @@ public class Audit extends AbstractReporter {
         wgb.addAnnotation("mode", mode);
         wgb.addAnnotation("time", time);
         putEdge(wgb);
+    }
+
+    private void processPipe(Map<String, String> eventData) {
+        // pipe() receives the following message(s):
+        // - SYSCALL
+        // - FD_PAIR
+        // - EOE
+        String pid = eventData.get("pid");
+        if (!checkProcessTree(pid)) {
+            logger.log(Level.WARNING, "pipe(): pid {0} does not exist in cached processes", pid);
+            return;
+        }
+        String fd0 = eventData.get("fd0");
+        String fd1 = eventData.get("fd1");
+        String location = "pipe:[" + fd0 + "-" + fd1 + "]";
+        addDescriptor(pid, fd0, location);
+        addDescriptor(pid, fd1, location);
     }
 
     private String joinPaths(String path1, String path2) {
