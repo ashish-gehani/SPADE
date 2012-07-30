@@ -46,6 +46,8 @@ public class Audit extends AbstractReporter {
     private BufferedReader eventReader;
     private volatile boolean shutdown = false;
     private long boottime = 0;
+    private int binderTransaction = 0;
+    private long THREAD_SLEEP_DELAY = 100;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private final String AUDIT_EXEC_PATH = "spade-audit";
     // Process map based on <pid, vertex> pairs
@@ -71,9 +73,11 @@ public class Audit extends AbstractReporter {
     // Group 1: item number
     // Group 2: name
     private static Pattern pattern_path = Pattern.compile("item=([0-9]*)\\s*name=\"*((?<=\")[^\"]*(?=\"))\"*");
+    // Binder transaction log pattern
+    private static Pattern binder_transaction = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
     ////////////////////////////////////////////////////////////////////////////
     // List of processes to ignore
-    private final String ignoreProcesses = AUDIT_EXEC_PATH + " auditd kauditd /sbin/adbd /system/bin/qemud dalvikvm";
+    private final String ignoreProcesses = AUDIT_EXEC_PATH + " auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
 
     private enum SYSCALL {
 
@@ -154,7 +158,6 @@ public class Audit extends AbstractReporter {
             Runtime.getRuntime().exec("auditctl -D").waitFor();
 
             Runnable eventProcessor = new Runnable() {
-
                 public void run() {
                     try {
                         java.lang.Process straceProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
@@ -187,6 +190,37 @@ public class Audit extends AbstractReporter {
             };
             new Thread(eventProcessor, "androidAudit-Thread").start();
 
+            Runnable transactionProcessor = new Runnable() {
+                public void run() {
+                    try {
+                        BufferedReader transactionReader = new BufferedReader(new FileReader("/proc/binder/transaction_log"));
+                        String line;
+                        while (!shutdown) {
+                            while ((line = transactionReader.readLine()) != null) {
+                                Matcher transactionMatcher = binder_transaction.matcher(line);
+                                if (transactionMatcher.find()) {
+                                    int id = Integer.parseInt(transactionMatcher.group(1));
+                                    String type = transactionMatcher.group(2);
+                                    String frompid = transactionMatcher.group(3);
+                                    String topid = transactionMatcher.group(4);
+                                    if (id > binderTransaction) {
+                                        WasTriggeredBy transaction = new WasTriggeredBy(processes.get(topid), processes.get(frompid));
+                                        transaction.addAnnotation("operation", "binder-" + type);
+                                        putEdge(transaction);
+                                        binderTransaction = id;
+                                    }
+                                }
+                            }
+                            Thread.sleep(THREAD_SLEEP_DELAY);
+                        }
+                        transactionReader.close();
+                    } catch (Exception exception) {
+                        logger.log(Level.SEVERE, null, exception);
+                    }
+                }
+            };
+            new Thread(transactionProcessor, "androidBinder-Thread").start();
+
             // Determine pids of processes that are to be ignored. These are appended
             // to the audit rule.
             Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
@@ -197,9 +231,10 @@ public class Audit extends AbstractReporter {
             StringBuilder ignorePids = new StringBuilder();
             while ((line = pidReader.readLine()) != null) {
                 String details[] = line.split("\\s+");
+                String user = details[0];
                 String pid = details[1];
                 String name = details[8].trim();
-                if (ignoreProcessSet.contains(name)) {
+                if (user.equals("root") && ignoreProcessSet.contains(name)) {
                     ignorePids.append(" -F pid!=").append(pid);
                     ignorePids.append(" -F ppid!=").append(pid);
                     logger.log(Level.INFO, "ignoring process {0} with pid {1}", new Object[]{name, pid});
@@ -215,11 +250,12 @@ public class Audit extends AbstractReporter {
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
             logger.log(Level.INFO, "configuring audit rules: {0}", auditRules);
-            return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
+
+        return true;
     }
 
     private Map<String, String> getFileDescriptors(String pid) {
@@ -431,8 +467,12 @@ public class Audit extends AbstractReporter {
             // Unable to retrieve process information from proc; generate vertex
             // based on audit information
             newProcess = new Process();
+            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"),eventData.get("euid"),eventData.get("suid"),eventData.get("fsuid"));
+            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"),eventData.get("egid"),eventData.get("sgid"),eventData.get("fsgid"));
             newProcess.addAnnotation("pid", newPID);
             newProcess.addAnnotation("ppid", oldPID);
+            newProcess.addAnnotation("uid", uid);
+            newProcess.addAnnotation("gid", gid);
         }
         processes.put(newPID, newProcess);
         putVertex(newProcess);
@@ -463,8 +503,12 @@ public class Audit extends AbstractReporter {
             // Unable to retrieve process information from proc; generate vertex
             // based on audit information
             newProcess = new Process();
+            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"),eventData.get("euid"),eventData.get("suid"),eventData.get("fsuid"));
+            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"),eventData.get("egid"),eventData.get("sgid"),eventData.get("fsgid"));
             newProcess.addAnnotation("pid", pid);
             newProcess.addAnnotation("ppid", ppid);
+            newProcess.addAnnotation("uid", uid);
+            newProcess.addAnnotation("gid", gid);
             int argc = Integer.parseInt(eventData.get("execve_argc"));
             String commandline = "";
             for (int i = 0; i < argc; i++) {
@@ -582,7 +626,6 @@ public class Audit extends AbstractReporter {
         } else {
             logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
-
     }
 
     private void processIoctl(Map<String, String> eventData) {
@@ -855,8 +898,6 @@ public class Audit extends AbstractReporter {
             resultVertex.addAnnotation("gid", gid);
             resultVertex.addAnnotation("starttime_unix", stime);
             resultVertex.addAnnotation("starttime_simple", stime_readable);
-            resultVertex.addAnnotation("group", stats[4]);
-            resultVertex.addAnnotation("sessionid", stats[5]);
             resultVertex.addAnnotation("commandline", cmdline);
             return resultVertex;
         } catch (Exception exception) {

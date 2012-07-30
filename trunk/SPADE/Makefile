@@ -159,6 +159,8 @@ android-build:
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/SQL.java
 	@echo 'Building Audit reporter...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Audit.java
+	@echo 'Building filters...'
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/*.java
 	@mkdir -p android-build;
 	@mkdir -p android-build/bin;
 	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
