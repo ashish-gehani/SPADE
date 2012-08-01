@@ -44,12 +44,12 @@ public class Strace extends AbstractReporter {
     volatile boolean shutdown = false;
     final boolean DEBUG_INFO = false;
     static final Logger logger = Logger.getLogger(Strace.class.getName());
-//    final Pattern eventPattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+([\\d]+:[\\d]+:[\\d]+\\.[\\d]+)\\s+(\\w+)\\((.*)\\)\\s+=\\s+(\\-?[0-9]+).*");
-//    final Pattern eventIncompletePattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+(.*) <unfinished \\.\\.\\.>");
-//    final Pattern eventCompletorPattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+.*<... \\w+ resumed> (.*)");
-    final Pattern eventPattern = Pattern.compile("([0-9]+)\\s+([\\d]+:[\\d]+:[\\d]+\\.[\\d]+)\\s+(\\w+)\\((.*)\\)\\s+=\\s+(\\-?[0-9]+).*");
-    final Pattern eventIncompletePattern = Pattern.compile("([0-9]+)\\s+(.*) <unfinished \\.\\.\\.>");
-    final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
+    final Pattern eventPattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+([\\d]+:[\\d]+:[\\d]+\\.[\\d]+)\\s+(\\w+)\\((.*)\\)\\s+=\\s+(\\-?[0-9]+).*");
+    final Pattern eventIncompletePattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+(.*) <unfinished \\.\\.\\.>");
+    final Pattern eventCompletorPattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+.*<... \\w+ resumed> (.*)");
+//    final Pattern eventPattern = Pattern.compile("([0-9]+)\\s+([\\d]+:[\\d]+:[\\d]+\\.[\\d]+)\\s+(\\w+)\\((.*)\\)\\s+=\\s+(\\-?[0-9]+).*");
+//    final Pattern eventIncompletePattern = Pattern.compile("([0-9]+)\\s+(.*) <unfinished \\.\\.\\.>");
+//    final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
     Map<String, String> incompleteEvents = new HashMap<String, String>();
     Map<String, Map<String, String>> fileDescriptors = new HashMap<String, Map<String, String>>();
     Map<String, Integer> fileVersions = new HashMap<String, Integer>();
@@ -128,12 +128,12 @@ public class Strace extends AbstractReporter {
                         String straceCmdLine = "strace -e fork,read,write,open,close,link,unlink,execve,mknod,rename,dup,pipe,dup2,symlink,truncate,ftruncate,";
                         straceCmdLine += "socketcall,clone,vfork,setreuid32,setresuid32,setuid32,chmod,fchmod,";
                         straceCmdLine += "ioctl,pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,socket,connect,accept,chmod,fchmod";
-                        straceCmdLine += " -f -tt -s 200 -p " + mainPID + " -o tmp.txt";
+                        straceCmdLine += " -f -tt -s 200 -p " + mainPID;
 
                         java.lang.Process straceProcess = Runtime.getRuntime().exec(straceCmdLine);
-//                        reader = new BufferedReader(new InputStreamReader(straceProcess.getInputStream()));
+                        reader = new BufferedReader(new InputStreamReader(straceProcess.getInputStream()));
                         Thread.sleep(1000);
-                        reader = new BufferedReader(new FileReader("tmp.txt"));
+//                        reader = new BufferedReader(new FileReader("tmp.txt"));
 
                         while (!shutdown) {
                             String line = reader.readLine();
