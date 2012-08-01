@@ -48,6 +48,7 @@ public class Audit extends AbstractReporter {
     private long boottime = 0;
     private int binderTransaction = 0;
     private long THREAD_SLEEP_DELAY = 100;
+    private boolean USE_PROCFS = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private final String AUDIT_EXEC_PATH = "spade-audit";
     // Process map based on <pid, vertex> pairs
@@ -133,7 +134,7 @@ public class Audit extends AbstractReporter {
                     // Parse the current directory name to make sure it is numeric. If not,
                     // ignore and continue.
                     Integer.parseInt(currentPID);
-                    Process processVertex = createProcessVertex(currentPID);
+                    Process processVertex = createProcessFromProc(currentPID);
                     processes.put(currentPID, processVertex);
                     Process parentVertex = processes.get(processVertex.getAnnotation("ppid"));
                     putVertex(processVertex);
@@ -469,28 +470,30 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String oldPID = eventData.get("pid");
         String newPID = eventData.get("exit");
-        if (!checkProcessTree(oldPID)) {
-            logger.log(Level.WARNING, "{0}(): pid {1} does not exist in cached processes", new Object[]{syscall.name().toLowerCase(), oldPID});
-            return;
-        }
-        Process newProcess = createProcessVertex(newPID);
-        if (newProcess == null) {
-            // Unable to retrieve process information from proc; generate vertex
-            // based on audit information
-            newProcess = new Process();
-            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
-            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
-            newProcess.addAnnotation("pid", newPID);
-            newProcess.addAnnotation("ppid", oldPID);
-            newProcess.addAnnotation("uid", uid);
-            newProcess.addAnnotation("gid", gid);
-        }
+        checkProcessVertex(eventData, true, false);
+
+        Process newProcess = new Process();
+        String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
+        String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
+        newProcess.addAnnotation("pid", newPID);
+        newProcess.addAnnotation("ppid", oldPID);
+        newProcess.addAnnotation("uid", uid);
+        newProcess.addAnnotation("gid", gid);
+
         processes.put(newPID, newProcess);
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(oldPID));
         wtb.addAnnotation("operation", syscall.name().toLowerCase());
         wtb.addAnnotation("time", time);
         putEdge(wtb);
+        // Copy file descriptors from old process to new one
+        if (fileDescriptors.containsKey(oldPID)) {
+            Map<String, String> newfds = new HashMap<String, String>();
+            for (Map.Entry<String, String> entry : fileDescriptors.get(oldPID).entrySet()) {
+                newfds.put(entry.getKey(), entry.getValue());
+            }
+            fileDescriptors.put(newPID, newfds);
+        }
     }
 
     private void processExecve(Map<String, String> eventData) {
@@ -503,23 +506,12 @@ public class Audit extends AbstractReporter {
         // - PATH
         // - EOE
         String pid = eventData.get("pid");
-        String ppid = eventData.get("ppid");
         String time = eventData.get("time");
-        if (!processes.containsKey(pid)) {
-            logger.log(Level.WARNING, "execve(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
-        Process newProcess = createProcessVertex(pid);
-        if (newProcess == null) {
-            // Unable to retrieve process information from proc; generate vertex
+
+        Process newProcess = checkProcessVertex(eventData, false, true);
+        if (!newProcess.getAnnotations().containsKey("commandline")) {
+            // Unable to retrieve complete process information; generate vertex
             // based on audit information
-            newProcess = new Process();
-            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
-            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
-            newProcess.addAnnotation("pid", pid);
-            newProcess.addAnnotation("ppid", ppid);
-            newProcess.addAnnotation("uid", uid);
-            newProcess.addAnnotation("gid", gid);
             int argc = Integer.parseInt(eventData.get("execve_argc"));
             String commandline = "";
             for (int i = 0; i < argc; i++) {
@@ -547,10 +539,7 @@ public class Audit extends AbstractReporter {
         String cwd = eventData.get("cwd");
         String path = eventData.get("path0");
         String fd = eventData.get("exit");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "open(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
 
         if (!path.startsWith("/")) {
             path = joinPaths(cwd, path);
@@ -564,10 +553,8 @@ public class Audit extends AbstractReporter {
         // - EOE
         String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "close(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         removeDescriptor(pid, fd);
     }
@@ -578,10 +565,8 @@ public class Audit extends AbstractReporter {
         // - EOE
         String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "read(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         String time = eventData.get("time");
 
@@ -601,7 +586,7 @@ public class Audit extends AbstractReporter {
             used.addAnnotation("time", time);
             putEdge(used);
         } else {
-            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -610,10 +595,8 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "write(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String hexFD = eventData.get("a0");
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         String time = eventData.get("time");
@@ -635,7 +618,7 @@ public class Audit extends AbstractReporter {
             wgb.addAnnotation("time", time);
             putEdge(wgb);
         } else {
-            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -644,10 +627,8 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "ioctl(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String hexFD = eventData.get("a0");
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         String time = eventData.get("time");
@@ -662,7 +643,7 @@ public class Audit extends AbstractReporter {
             wgb.addAnnotation("time", time);
             putEdge(wgb);
         } else {
-            logger.log(Level.WARNING, "ioctl(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//            logger.log(Level.WARNING, "ioctl(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -671,10 +652,8 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "dup(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String hexFD = eventData.get("a0");
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         String newFD = eventData.get("exit");
@@ -691,11 +670,8 @@ public class Audit extends AbstractReporter {
         // - EOE
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "setuid(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
-        Process newProcess = createProcessVertex(pid);
+        checkProcessVertex(eventData, true, false);
+        Process newProcess = checkProcessVertex(eventData, false, false);
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(pid));
         wtb.addAnnotation("operation", "setuid");
@@ -717,10 +693,8 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "rename(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String srcpath = joinPaths(cwd, eventData.get("path2"));
         String dstpath = joinPaths(cwd, eventData.get("path3"));
 
@@ -763,10 +737,8 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "link(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String srcpath = joinPaths(cwd, eventData.get("path0"));
         String dstpath = joinPaths(cwd, eventData.get("path2"));
 
@@ -805,10 +777,8 @@ public class Audit extends AbstractReporter {
         // - EOE
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "chmod(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         // mode is in hex format in <a1>
         String mode = Integer.toOctalString(Integer.parseInt(eventData.get("a1"), 16));
         // if syscall is chmod, then path is <path0> relative to <cwd>
@@ -841,10 +811,8 @@ public class Audit extends AbstractReporter {
         // - FD_PAIR
         // - EOE
         String pid = eventData.get("pid");
-        if (!checkProcessTree(pid)) {
-            logger.log(Level.WARNING, "pipe(): pid {0} does not exist in cached processes", pid);
-            return;
-        }
+        checkProcessVertex(eventData, true, false);
+
         String fd0 = eventData.get("fd0");
         String fd1 = eventData.get("fd1");
         String location = "pipe:[" + fd0 + "-" + fd1 + "]";
@@ -880,80 +848,91 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    private Process createProcessVertex(String pid) {
-        // Check if this pid exists in the /proc/ filesystem
-        if (!(new java.io.File("/proc/" + pid).exists())) {
-            return null;
+    private Process checkProcessVertex(Map<String, String> eventData, boolean link, boolean refresh) {
+        String pid = eventData.get("pid");
+        if (processes.containsKey(pid) && !refresh) {
+            return processes.get(pid);
         }
-        // The process vertex is created using the proc filesystem.
-        try {
-            Process resultVertex = new Process();
-            BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
-            String nameline = procReader.readLine();
-            procReader.readLine();
-            procReader.readLine();
-            procReader.readLine();
-            String ppidline = procReader.readLine();
-            procReader.readLine();
-            String uidline = procReader.readLine();
-            String gidline = procReader.readLine();
-            procReader.close();
-
-            BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
-            String statline = statReader.readLine();
-            statReader.close();
-
-            BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
-            String cmdline = cmdlineReader.readLine();
-            cmdlineReader.close();
-
-            String stats[] = statline.split("\\s+");
-            long elapsedtime = Long.parseLong(stats[21]) * 10;
-            long starttime = boottime + elapsedtime;
-            String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(starttime));
-            String stime = Long.toString(starttime);
-
-            String name = nameline.split("\\s+")[1];
-            String ppid = ppidline.split("\\s+")[1];
-            String uid = uidline.split("\\s+", 2)[1];
-            String gid = gidline.split("\\s+", 2)[1];
-            cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
-
-            resultVertex.addAnnotation("name", name);
-            resultVertex.addAnnotation("pid", pid);
-            resultVertex.addAnnotation("ppid", ppid);
-            resultVertex.addAnnotation("uid", uid);
-            resultVertex.addAnnotation("gid", gid);
-            resultVertex.addAnnotation("starttime_unix", stime);
-            resultVertex.addAnnotation("starttime_simple", stime_readable);
-            resultVertex.addAnnotation("commandline", cmdline);
-            return resultVertex;
-        } catch (Exception exception) {
-            logger.log(Level.WARNING, "unable to create process vertex for pid " + pid + " from /proc/", exception);
-            return null;
+        Process resultProcess = USE_PROCFS ? createProcessFromProc(pid) : null;
+        if (resultProcess == null) {
+            resultProcess = new Process();
+            String ppid = eventData.get("ppid");
+            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
+            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
+            resultProcess.addAnnotation("name", eventData.get("comm"));
+            resultProcess.addAnnotation("pid", pid);
+            resultProcess.addAnnotation("ppid", ppid);
+            resultProcess.addAnnotation("uid", uid);
+            resultProcess.addAnnotation("gid", gid);
         }
+        if (link == true) {
+            Map<String, String> fds = getFileDescriptors(pid);
+            if (fds != null) {
+                fileDescriptors.put(pid, fds);
+            }
+            putVertex(resultProcess);
+            processes.put(pid, resultProcess);
+            String ppid = resultProcess.getAnnotation("ppid");
+            if (processes.containsKey(ppid)) {
+                WasTriggeredBy wtb = new WasTriggeredBy(resultProcess, processes.get(ppid));
+                putEdge(wtb);
+            }
+        }
+        return resultProcess;
     }
 
-    private boolean checkProcessTree(String pid) {
-        if (processes.containsKey(pid)) {
-            return true;
+    private Process createProcessFromProc(String pid) {
+        // Check if this pid exists in the /proc/ filesystem
+        if ((new java.io.File("/proc/" + pid).exists())) {
+            // The process vertex is created using the proc filesystem.
+            try {
+                Process newProcess = new Process();
+                BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
+                String nameline = procReader.readLine();
+                procReader.readLine();
+                procReader.readLine();
+                procReader.readLine();
+                String ppidline = procReader.readLine();
+                procReader.readLine();
+                String uidline = procReader.readLine();
+                String gidline = procReader.readLine();
+                procReader.close();
+
+                BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
+                String statline = statReader.readLine();
+                statReader.close();
+
+                BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
+                String cmdline = cmdlineReader.readLine();
+                cmdlineReader.close();
+
+                String stats[] = statline.split("\\s+");
+                long elapsedtime = Long.parseLong(stats[21]) * 10;
+                long starttime = boottime + elapsedtime;
+                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(starttime));
+                String stime = Long.toString(starttime);
+
+                String name = nameline.split("\\s+")[1];
+                String ppid = ppidline.split("\\s+")[1];
+                String uid = uidline.split("\\s+", 2)[1];
+                String gid = gidline.split("\\s+", 2)[1];
+                cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
+
+                newProcess.addAnnotation("name", name);
+                newProcess.addAnnotation("pid", pid);
+                newProcess.addAnnotation("ppid", ppid);
+                newProcess.addAnnotation("uid", uid);
+                newProcess.addAnnotation("gid", gid);
+                newProcess.addAnnotation("starttime_unix", stime);
+                newProcess.addAnnotation("starttime_simple", stime_readable);
+                newProcess.addAnnotation("commandline", cmdline);
+                return newProcess;
+            } catch (Exception exception) {
+                logger.log(Level.WARNING, "unable to create process vertex for pid " + pid + " from /proc/", exception);
+                return null;
+            }
+        } else {
+            return null;
         }
-        Process newProcess = createProcessVertex(pid);
-        if (newProcess == null) {
-            return false;
-        }
-        processes.put(pid, newProcess);
-        // Get existing file descriptors for this process
-        Map<String, String> descriptors = getFileDescriptors(pid);
-        if (descriptors != null) {
-            fileDescriptors.put(pid, descriptors);
-        }
-        putVertex(newProcess);
-        String ppid = newProcess.getAnnotation("ppid");
-        if ((Integer.parseInt(ppid) > 0) && checkProcessTree(ppid)) {
-            WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(ppid));
-            putEdge(wtb);
-        }
-        return true;
     }
 }
