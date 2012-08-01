@@ -159,6 +159,8 @@ android-build:
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/SQL.java
 	@echo 'Building Audit reporter...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Audit.java
+	@echo 'Building strace reporter...'
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Strace.java
 	@echo 'Building filters...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/*.java
 	@mkdir -p android-build;
@@ -180,7 +182,7 @@ android-deploy:
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build/bin"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/output"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/output/graph.dot\\nreporter Audit\" > /sdcard/spade/cfg/spade.config"
+	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/output/graph.dot\\nreporter Strace\" > /sdcard/spade/cfg/spade.config"
 	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
 
 # Launch Android kernel

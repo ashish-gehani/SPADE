@@ -63,7 +63,25 @@ public class Strace extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
         if (arguments == null) {
-            return false;
+            // Attach to zygote
+            try {
+                java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+                BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+                pidReader.readLine();
+                String line;
+                while ((line = pidReader.readLine()) != null) {
+                    String details[] = line.split("\\s+");
+                    String pid = details[1];
+                    String name = details[8].trim();
+                    if (name.equals("zygote")) {
+                        mainPID = pid;
+                    }
+                }
+                pidReader.close();
+            } catch (Exception exception) {
+                logger.log(Level.SEVERE, null, exception);
+                return false;
+            }
         }
         mainPID = arguments;
         try {
@@ -105,7 +123,6 @@ public class Strace extends AbstractReporter {
             }
 
             Runnable eventProcessor = new Runnable() {
-
                 public void run() {
                     try {
                         String straceCmdLine = "strace -e fork,read,write,open,close,link,unlink,execve,mknod,rename,dup,pipe,dup2,symlink,truncate,ftruncate,";
@@ -151,10 +168,10 @@ public class Strace extends AbstractReporter {
                 BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
                 String nameline = procReader.readLine();
                 procReader.readLine();
-                String tgidline = procReader.readLine();
+                procReader.readLine();
                 procReader.readLine();
                 String ppidline = procReader.readLine();
-                String tracerpidline = procReader.readLine();
+                procReader.readLine();
                 String uidline = procReader.readLine();
                 String gidline = procReader.readLine();
                 procReader.close();
@@ -166,12 +183,6 @@ public class Strace extends AbstractReporter {
                 BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
                 String cmdline = cmdlineReader.readLine();
                 cmdlineReader.close();
-                if (cmdline == null) {
-                    cmdline = "";
-                } else {
-                    cmdline = cmdline.replace("\0", " ");
-                    cmdline = cmdline.replace("\"", "'");
-                }
 
                 String stats[] = statline.split("\\s+");
                 long elapsedtime = Long.parseLong(stats[21]) * 10;
@@ -179,36 +190,20 @@ public class Strace extends AbstractReporter {
                 String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(starttime));
                 String stime = Long.toString(starttime);
 
-                StringTokenizer st1 = new StringTokenizer(nameline);
-                st1.nextToken();
-                String name = st1.nextToken();
+                String name = nameline.split("\\s+")[1];
+                String ppid = ppidline.split("\\s+")[1];
+                String uid = uidline.split("\\s+", 2)[1];
+                String gid = gidline.split("\\s+", 2)[1];
+                cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
 
-                StringTokenizer st3 = new StringTokenizer(ppidline);
-                st3.nextToken();
-                String ppid = st3.nextToken("").trim();
-
-                StringTokenizer st5 = new StringTokenizer(uidline);
-                st5.nextToken();
-                String uid = st5.nextToken().trim();
-
-                StringTokenizer st6 = new StringTokenizer(gidline);
-                st6.nextToken();
-                String gid = st6.nextToken().trim();
-
-                File exeFile = new File("/proc/" + pid + "/exe");
-                String exePath = exeFile.getCanonicalPath();
-
-                process.addAnnotation("pidname", name);
+                process.addAnnotation("name", name);
                 process.addAnnotation("pid", pid);
                 process.addAnnotation("ppid", ppid);
                 process.addAnnotation("uid", uid);
                 process.addAnnotation("gid", gid);
                 process.addAnnotation("starttime_unix", stime);
                 process.addAnnotation("starttime_simple", stime_readable);
-                process.addAnnotation("group", stats[4]);
-                process.addAnnotation("sessionid", stats[5]);
-                process.addAnnotation("commandline", cmdline.trim());
-                process.addAnnotation("exepath", exePath);
+                process.addAnnotation("commandline", cmdline);
             } catch (Exception exception) {
                 logger.log(Level.SEVERE, null, exception);
                 return;
