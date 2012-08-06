@@ -164,7 +164,6 @@ public class Kernel {
 
         // Register a shutdown hook to terminate gracefully
         Runtime.getRuntime().addShutdownHook(new Thread() {
-
             @Override
             public void run() {
                 if (!shutdown) {
@@ -249,7 +248,6 @@ public class Kernel {
         // once a reporter is marked for removal, the provenance objects from its buffer are
         // completely flushed.
         Runnable mainRunnable = new Runnable() {
-
             public void run() {
                 try {
                     while (true) {
@@ -333,7 +331,6 @@ public class Kernel {
         // successfully created. The input pipe (to which commands are issued) is read in
         // a loop and the commands are processed.
         Runnable controlRunnable = new Runnable() {
-
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(LOCAL_CONTROL_PORT);
@@ -356,7 +353,6 @@ public class Kernel {
 
 
         Runnable queryRunnable = new Runnable() {
-
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(LOCAL_QUERY_PORT);
@@ -382,7 +378,6 @@ public class Kernel {
         // is established, another new thread is created for that connection object. The
         // remote query server is therefore a multithreaded server.
         Runnable remoteRunnable = new Runnable() {
-
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(REMOTE_QUERY_PORT);
@@ -408,7 +403,6 @@ public class Kernel {
         // is established, another new thread is created for that connection object. The
         // remote sketch server is therefore a multithreaded server.
         Runnable sketchRunnable = new Runnable() {
-
             public void run() {
                 try {
                     ServerSocket serverSocket = new ServerSocket(REMOTE_SKETCH_PORT);
@@ -1167,7 +1161,6 @@ class FinalTransformer extends AbstractFilter {
 final class NullStream {
 
     public final static PrintStream out = new PrintStream(new OutputStream() {
-
         @Override
         public void close() {
         }
