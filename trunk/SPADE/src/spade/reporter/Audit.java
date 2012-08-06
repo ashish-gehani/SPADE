@@ -59,7 +59,6 @@ public class Audit extends AbstractReporter {
     private Map<String, Map<String, String>> eventBuffer = new HashMap<String, Map<String, String>>();
     // File version map based on <path, version> pairs
     private Map<String, Integer> fileVersions = new HashMap<String, Integer>();
-    static final Logger logger = Logger.getLogger(Audit.class.getName());
     ////////////////////////////////////////////////////////////////////////////
     // Group 1: key
     // Group 2: value
@@ -79,6 +78,7 @@ public class Audit extends AbstractReporter {
     ////////////////////////////////////////////////////////////////////////////
     // List of processes to ignore
     private final String ignoreProcesses = AUDIT_EXEC_PATH + " auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
+    static final Logger logger = Logger.getLogger(Audit.class.getName());
 
     private enum SYSCALL {
 
