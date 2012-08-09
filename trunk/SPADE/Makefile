@@ -153,6 +153,7 @@ android-build:
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java
 	@echo 'Building Android control client...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/client/AndroidClient.java
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/client/AndroidShutdown.java
 	@echo 'Building the Graphviz storage...'
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
 	@echo 'Building the SQL storage...'
@@ -188,6 +189,10 @@ android-deploy:
 # Launch Android kernel
 android-kernel:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar:../../android-lib/h2-dex.jar' spade.core.Kernel"
+
+# Shut down SPADE on Android
+android-shutdown:
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar:../../android-lib/h2-dex.jar' spade.client.AndroidShutdown"
 
 install:
 	cp -R build $(DESTDIR)/
