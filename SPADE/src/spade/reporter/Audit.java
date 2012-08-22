@@ -165,8 +165,6 @@ public class Audit extends AbstractReporter {
 
         try {
             // Start auditd and clear existing rules.
-            Runtime.getRuntime().exec("auditd").waitFor();
-            Runtime.getRuntime().exec("auditctl -D").waitFor();
             Runtime.getRuntime().exec("auditctl -D").waitFor();
 
             Runnable eventProcessor = new Runnable() {
@@ -203,7 +201,6 @@ public class Audit extends AbstractReporter {
             new Thread(eventProcessor, "Audit-Thread").start();
 
             if (ANDROID_PLATFORM) {
-
                 Runnable transactionProcessor = new Runnable() {
                     public void run() {
                         try {
@@ -306,7 +303,6 @@ public class Audit extends AbstractReporter {
         // Stop the event reader and clear all audit rules.
         shutdown = true;
         try {
-            Runtime.getRuntime().exec("auditctl -D").waitFor();
             Runtime.getRuntime().exec("auditctl -D").waitFor();
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);

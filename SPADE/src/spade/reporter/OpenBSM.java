@@ -34,8 +34,8 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
-import spade.vertex.custom.File;
-import spade.vertex.custom.Program;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 
 /**
  * The OpenBSM reporter.
@@ -46,8 +46,8 @@ public class OpenBSM extends AbstractReporter {
 
     private BufferedReader eventReader;
     private java.lang.Process nativeProcess;
-    private Map<String, Program> processVertices;
-    private Map<String, File> fileVertices;
+    private Map<String, Process> processVertices;
+    private Map<String, Artifact> fileVertices;
     private AbstractVertex tempVertex1, tempVertex2;
     private int current_event_id;
     private String currentEventTime;
@@ -63,8 +63,8 @@ public class OpenBSM extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
         // The argument to the launch method is unused.
-        processVertices = new HashMap<String, Program>();
-        fileVertices = new HashMap<String, File>();
+        processVertices = new HashMap<String, Process>();
+        fileVertices = new HashMap<String, Artifact>();
 
         shutdown = false;
         buildProcessTree();
@@ -137,7 +137,7 @@ public class OpenBSM extends AbstractReporter {
         }
     }
 
-    private File getFileVertex(String path, boolean refresh) {
+    private Artifact getFileVertex(String path, boolean refresh) {
         // Create a file artifact.
         // The refresh flag is used for caching purposes - a new file vertex is
         // created if the event modified the file (i.e., write, truncate, rename, etc)
@@ -145,7 +145,7 @@ public class OpenBSM extends AbstractReporter {
         if ((!refresh) && (fileVertices.containsKey(path))) {
             return fileVertices.get(path);
         }
-        File fileArtifact = new File();
+        Artifact fileArtifact = new Artifact();
         fileArtifact.addAnnotation("path", path);
         String[] filename = path.split("/");
         if (filename.length > 0) {
@@ -163,11 +163,12 @@ public class OpenBSM extends AbstractReporter {
         } catch (Exception exception) {
             // Ignore
         }
+        putVertex(fileArtifact);
         fileVertices.put(path, fileArtifact);
         return fileArtifact;
     }
 
-    private Program getProcessVertex(String pid) {
+    private Process getProcessVertex(String pid) {
         // Use the ps utility to create a process vertex and add it to the current
         // process tree. This is done recursively on the parent process to ensure
         // completeness of the process tree.
@@ -175,7 +176,7 @@ public class OpenBSM extends AbstractReporter {
             return processVertices.get(pid);
         }
         try {
-            Program processVertex = new Program();
+            Process processVertex = new Process();
             String line;
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid=,ppid=,uid=,user=,gid=,lstart=,sess=,comm=");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
@@ -199,25 +200,24 @@ public class OpenBSM extends AbstractReporter {
             String starttime_simple = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(unixtime));
             processVertex.addAnnotation("starttime_unix", starttime_unix);
             processVertex.addAnnotation("starttime_simple", starttime_simple);
-            processVertex.addAnnotation("sessionid", info[10]);
             processVertex.addAnnotation("uid", info[2]);
             processVertex.addAnnotation("user", info[3]);
             processVertex.addAnnotation("groupid", info[4]);
 
             try {
-                pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command=");
-                pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-                line = pidreader.readLine();
-                if (line != null) {
-                    processVertex.addAnnotation("commandline", line);
-                }
-
-                pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command=");
-                pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-                line = pidreader.readLine();
-                if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
-                    processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()).trim());
-                }
+//                pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -o command=");
+//                pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+//                line = pidreader.readLine();
+//                if (line != null) {
+//                    processVertex.addAnnotation("commandline", line);
+//                }
+//
+//                pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -Eo command=");
+//                pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+//                line = pidreader.readLine();
+//                if ((line != null) && (line.length() > processVertex.getAnnotation("commandline").length())) {
+//                    processVertex.addAnnotation("environment", line.substring(processVertex.getAnnotation("commandline").length()).trim());
+//                }
             } catch (Exception exception) {
                 // Ignore
             }
@@ -225,7 +225,7 @@ public class OpenBSM extends AbstractReporter {
             putVertex(processVertex);
             processVertices.put(pid, processVertex);
             if (Integer.parseInt(ppid) > 0) {
-                Program parentVertex = getProcessVertex(ppid);
+                Process parentVertex = getProcessVertex(ppid);
                 if (parentVertex != null) {
                     putEdge(new WasTriggeredBy(processVertex, parentVertex));
                 }
@@ -358,41 +358,41 @@ public class OpenBSM extends AbstractReporter {
                     if (current_event_id == 72) { // read only
                         tempVertex2 = getFileVertex(currentFilePath, false);
                         if (tempVertex2 != null) {
-                            putVertex(tempVertex1);
-                            putVertex(tempVertex2);
-                            Used usedEdge = new Used((Program) tempVertex1, (File) tempVertex2);
+//                            putVertex(tempVertex1);
+//                            putVertex(tempVertex2);
+                            Used usedEdge = new Used((Process) tempVertex1, (Artifact) tempVertex2);
                             usedEdge.addAnnotation("time", currentEventTime);
                             putEdge(usedEdge);
                         }
                     } else if ((current_event_id > 72) && (current_event_id < 84)) { // read,write,create
                         tempVertex2 = getFileVertex(currentFilePath, true);
                         if (tempVertex2 != null) {
-                            putVertex(tempVertex1);
-                            putVertex(tempVertex2);
-                            WasGeneratedBy generatedEdge = new WasGeneratedBy((File) tempVertex2, (Program) tempVertex1);
+//                            putVertex(tempVertex1);
+//                            putVertex(tempVertex2);
+                            WasGeneratedBy generatedEdge = new WasGeneratedBy((Artifact) tempVertex2, (Process) tempVertex1);
                             generatedEdge.addAnnotation("time", currentEventTime);
                             putEdge(generatedEdge);
                         }
                     } else if (current_event_id == 2) { // fork
                         if (tempVertex2 != null) {
-                            putVertex(tempVertex1);
-                            putVertex(tempVertex2);
-                            WasTriggeredBy triggeredEdge = new WasTriggeredBy((Program) tempVertex2, (Program) tempVertex1);
+//                            putVertex(tempVertex1);
+//                            putVertex(tempVertex2);
+                            WasTriggeredBy triggeredEdge = new WasTriggeredBy((Process) tempVertex2, (Process) tempVertex1);
                             putEdge(triggeredEdge);
                         }
                     } else if (current_event_id == 42) { // rename
-                        Program procVertex = getProcessVertex(eventPID);
+                        Process procVertex = getProcessVertex(eventPID);
                         if ((tempVertex2 != null) && (procVertex != null)) {
-                            putVertex(procVertex);
-                            putVertex(tempVertex1);
-                            putVertex(tempVertex2);
-                            Used usedEdge = new Used(procVertex, (File) tempVertex1);
+//                            putVertex(procVertex);
+//                            putVertex(tempVertex1);
+//                            putVertex(tempVertex2);
+                            Used usedEdge = new Used(procVertex, (Artifact) tempVertex1);
                             usedEdge.addAnnotation("time", currentEventTime);
                             putEdge(usedEdge);
-                            WasGeneratedBy generatedEdge = new WasGeneratedBy((File) tempVertex2, procVertex);
+                            WasGeneratedBy generatedEdge = new WasGeneratedBy((Artifact) tempVertex2, procVertex);
                             generatedEdge.addAnnotation("time", currentEventTime);
                             putEdge(generatedEdge);
-                            WasDerivedFrom renameEdge = new WasDerivedFrom((File) tempVertex2, (File) tempVertex1);
+                            WasDerivedFrom renameEdge = new WasDerivedFrom((Artifact) tempVertex2, (Artifact) tempVertex1);
                             renameEdge.addAnnotation("operation", "rename");
                             renameEdge.addAnnotation("time", currentEventTime);
                             putEdge(renameEdge);
