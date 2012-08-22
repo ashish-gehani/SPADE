@@ -64,7 +64,7 @@ build:
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
-	@echo 'Building the LinuxAudit reporter...'
+	@echo 'Building the Audit reporter...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Audit.java
 	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
 	@echo ''
@@ -168,7 +168,7 @@ android-build:
 	@mkdir -p android-build/bin;
 	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
 	@mkdir -p android-lib;
-	$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar 
+	@#$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar 
 	@cd build; \
 	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
 
@@ -188,11 +188,11 @@ android-deploy:
 
 # Launch Android kernel
 android-kernel:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar:../../android-lib/h2-dex.jar' spade.core.Kernel"
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.core.Kernel"
 
 # Shut down SPADE on Android
 android-shutdown:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar:../../android-lib/h2-dex.jar' spade.client.AndroidShutdown"
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.client.AndroidShutdown"
 
 install:
 	cp -R build $(DESTDIR)/

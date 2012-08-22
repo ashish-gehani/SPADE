@@ -31,9 +31,9 @@ import java.util.logging.Logger;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.*;
-import spade.vertex.custom.File;
-import spade.vertex.custom.Program;
 import spade.vertex.opm.Agent;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
 
 /**
  * The MacFUSE reporter.
@@ -112,7 +112,7 @@ public class MacFUSE extends AbstractReporter {
 
             // Create an initial root vertex which will be used as the root of the
             // process tree.
-            Program rootVertex = new Program();
+            Process rootVertex = new Process();
             rootVertex.addAnnotation("pidname", "System");
             rootVertex.addAnnotation("pid", "0");
             rootVertex.addAnnotation("ppid", "0");
@@ -131,7 +131,7 @@ public class MacFUSE extends AbstractReporter {
                         // Break when we encounter the ps utility itself.
                         break;
                     }
-                    checkProgramTree(childinfo[0]);
+                    checkProcessTree(childinfo[0]);
                 }
             } catch (Exception exception) {
                 Logger.getLogger(MacFUSE.class.getName()).log(Level.WARNING, null, exception);
@@ -157,11 +157,11 @@ public class MacFUSE extends AbstractReporter {
         return true;
     }
 
-    private Program createProgramVertex(String pid) {
+    private Process createProcessVertex(String pid) {
         // Create the process vertex and populate annotations with information
         // retrieved using the ps utility.
         try {
-            Program processVertex = new Program();
+            Process processVertex = new Process();
             String line;
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ps -p " + pid + " -co pid=,ppid=,uid=,user=,gid=,lstart=,sess=,comm=");
             BufferedReader pidreader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
@@ -223,7 +223,7 @@ public class MacFUSE extends AbstractReporter {
         }
     }
 
-    private void checkProgramTree(String pid) {
+    private void checkProcessTree(String pid) {
         // Check the process tree to ensure that the given PID exists in it. If,
         // not, add it and recursively check its parents so that this process
         // eventually joins the main process tree.
@@ -231,7 +231,7 @@ public class MacFUSE extends AbstractReporter {
             if (localCache.containsKey(pid)) {
                 return;
             }
-            Program thisProcess = createProgramVertex(pid);
+            Process thisProcess = createProcessVertex(pid);
             if (thisProcess == null) {
                 return;
             }
@@ -244,8 +244,8 @@ public class MacFUSE extends AbstractReporter {
             localCache.put(pid, thisProcess);
             String ppid = thisProcess.getAnnotation("ppid");
             if (Integer.parseInt(ppid) >= 0) {
-                checkProgramTree(ppid);
-                WasTriggeredBy tempEdge = new WasTriggeredBy((Program) localCache.get(pid), (Program) localCache.get(ppid));
+                checkProcessTree(ppid);
+                WasTriggeredBy tempEdge = new WasTriggeredBy((Process) localCache.get(pid), (Process) localCache.get(ppid));
                 putEdge(tempEdge);
             }
         } catch (Exception exception) {
@@ -263,15 +263,15 @@ public class MacFUSE extends AbstractReporter {
      * not.
      */
     public void read(int pid, int iotime, String path, int link) {
-        checkProgramTree(Integer.toString(pid));
+        checkProcessTree(Integer.toString(pid));
         String newPath = sanitizePath(path);
         long now = System.currentTimeMillis();
         // Create file artifact depending on whether this is a link or not.
         // Link artifacts are created differently to avoid recursion that may
         // cause FUSE to crash.
-        File fileVertex = (link == 1) ? createLinkVertex(newPath) : createFileVertex(newPath);
+        Artifact fileVertex = (link == 1) ? createLinkVertex(newPath) : createFileVertex(newPath);
         putVertex(fileVertex);
-        Used edge = new Used((Program) localCache.get(Integer.toString(pid)), fileVertex);
+        Used edge = new Used((Process) localCache.get(Integer.toString(pid)), fileVertex);
         edge.addAnnotation("iotime", Integer.toString(iotime));
         edge.addAnnotation("endtime", Long.toString(now));
         putEdge(edge);
@@ -292,15 +292,15 @@ public class MacFUSE extends AbstractReporter {
      * not.
      */
     public void write(int pid, int iotime, String path, int link) {
-        checkProgramTree(Integer.toString(pid));
+        checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
         long now = System.currentTimeMillis();
         // Create file artifact depending on whether this is a link or not.
         // Link artifacts are created differently to avoid recursion that may
         // cause FUSE to crash.
-        File fileVertex = (link == 1) ? createLinkVertex(path) : createFileVertex(path);
+        Artifact fileVertex = (link == 1) ? createLinkVertex(path) : createFileVertex(path);
         putVertex(fileVertex);
-        WasGeneratedBy edge = new WasGeneratedBy(fileVertex, (Program) localCache.get(Integer.toString(pid)));
+        WasGeneratedBy edge = new WasGeneratedBy(fileVertex, (Process) localCache.get(Integer.toString(pid)));
         edge.addAnnotation("iotime", Integer.toString(iotime));
         edge.addAnnotation("endtime", Long.toString(now));
         putEdge(edge);
@@ -319,13 +319,13 @@ public class MacFUSE extends AbstractReporter {
      * @param path Path indicating target file.
      */
     public void readlink(int pid, int iotime, String path) {
-        checkProgramTree(Integer.toString(pid));
+        checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
         // Create the file artifact and populate the annotations with file information.
         long now = System.currentTimeMillis();
-        File linkFile = createLinkVertex(path);
+        Artifact linkFile = createLinkVertex(path);
         putVertex(linkFile);
-        Used edge = new Used((Program) localCache.get(Integer.toString(pid)), linkFile);
+        Used edge = new Used((Process) localCache.get(Integer.toString(pid)), linkFile);
         edge.addAnnotation("endtime", Long.toString(now));
         edge.addAnnotation("operation", "readlink");
         putEdge(edge);
@@ -349,7 +349,7 @@ public class MacFUSE extends AbstractReporter {
      * before or after the rename operation.
      */
     public void rename(int pid, int iotime, String pathfrom, String pathto, int link, int done) {
-        checkProgramTree(Integer.toString(pid));
+        checkProcessTree(Integer.toString(pid));
         pathfrom = sanitizePath(pathfrom);
         pathto = sanitizePath(pathto);
         long now = System.currentTimeMillis();
@@ -362,23 +362,23 @@ public class MacFUSE extends AbstractReporter {
             // Create file artifact depending on whether this is a link or not.
             // Link artifacts are created differently to avoid recursion that may
             // cause FUSE to crash.
-            File fileVertex = (link == 1) ? createLinkVertex(pathfrom) : createFileVertex(pathfrom);
+            Artifact fileVertex = (link == 1) ? createLinkVertex(pathfrom) : createFileVertex(pathfrom);
             putVertex(fileVertex);
             // Put the file artifact in the localCache to be removed on post-rename.
             localCache.put(pathfrom, fileVertex);
-            Used edge = new Used((Program) localCache.get(Integer.toString(pid)), fileVertex);
+            Used edge = new Used((Process) localCache.get(Integer.toString(pid)), fileVertex);
             edge.addAnnotation("endtime", Long.toString(now));
             putEdge(edge);
         } else {
             // Create file artifact depending on whether this is a link or not.
             // Link artifacts are created differently to avoid recursion that may
             // cause FUSE to crash.
-            File fileVertex = (link == 1 ? createLinkVertex(pathto) : createFileVertex(pathto));
+            Artifact fileVertex = (link == 1 ? createLinkVertex(pathto) : createFileVertex(pathto));
             putVertex(fileVertex);
-            WasGeneratedBy writeEdge = new WasGeneratedBy(fileVertex, (Program) localCache.get(Integer.toString(pid)));
+            WasGeneratedBy writeEdge = new WasGeneratedBy(fileVertex, (Process) localCache.get(Integer.toString(pid)));
             writeEdge.addAnnotation("endtime", Long.toString(now));
             putEdge(writeEdge);
-            WasDerivedFrom renameEdge = new WasDerivedFrom(fileVertex, (File) localCache.remove(pathfrom));
+            WasDerivedFrom renameEdge = new WasDerivedFrom(fileVertex, (Artifact) localCache.remove(pathfrom));
             renameEdge.addAnnotation("iotime", Integer.toString(iotime));
             renameEdge.addAnnotation("endtime", Long.toString(now));
             renameEdge.addAnnotation("operation", "rename");
@@ -400,13 +400,13 @@ public class MacFUSE extends AbstractReporter {
      * @param linkPath Path to link to.
      */
     public void link(int pid, String originalFilePath, String linkPath) {
-        checkProgramTree(Integer.toString(pid));
+        checkProcessTree(Integer.toString(pid));
         originalFilePath = sanitizePath(originalFilePath);
         linkPath = sanitizePath(linkPath);
         long now = System.currentTimeMillis();
-        File link = createLinkVertex(linkPath);
+        Artifact link = createLinkVertex(linkPath);
         putVertex(link);
-        File original = createFileVertex(originalFilePath);
+        Artifact original = createFileVertex(originalFilePath);
         putVertex(original);
         WasDerivedFrom linkEdge = new WasDerivedFrom(original, link);
         linkEdge.addAnnotation("operation", "link");
@@ -423,13 +423,13 @@ public class MacFUSE extends AbstractReporter {
      * @param path The path to unlink.
      */
     public void unlink(int pid, String path) {
-        checkProgramTree(Integer.toString(pid));
+        checkProcessTree(Integer.toString(pid));
         path = sanitizePath(path);
         links.remove(path);
     }
 
-    private File createFileVertex(String path) {
-        File fileVertex = new File();
+    private Artifact createFileVertex(String path) {
+        Artifact fileVertex = new Artifact();
         java.io.File file = new java.io.File(path);
         fileVertex.addAnnotation("filename", file.getName());
         fileVertex.addAnnotation("path", path);
@@ -442,8 +442,8 @@ public class MacFUSE extends AbstractReporter {
         return fileVertex;
     }
 
-    private File createLinkVertex(String path) {
-        File linkVertex = new File();
+    private Artifact createLinkVertex(String path) {
+        Artifact linkVertex = new Artifact();
         linkVertex.addAnnotation("path", path);
         linkVertex.addAnnotation("filetype", "link");
         return linkVertex;
