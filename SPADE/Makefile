@@ -65,7 +65,7 @@ build:
 # Build the LinuxAudit reporter.
 build-linuxaudit:
 	@echo 'Building the LinuxAudit reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxAudit.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Audit.java
 	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
 	@echo ''
 	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'

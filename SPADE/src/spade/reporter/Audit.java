@@ -41,8 +41,9 @@ public class Audit extends AbstractReporter {
 
     // Store log for debugging purposes
     private boolean DEBUG_DUMP_LOG = false;
-    private String DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
-    //
+    private boolean ANDROID_PLATFORM = false;
+    private String DEBUG_DUMP_FILE;
+    ////////////////////////////////////////////////////////////////////////////
     private BufferedReader eventReader;
     private volatile boolean shutdown = false;
     private long boottime = 0;
@@ -50,7 +51,7 @@ public class Audit extends AbstractReporter {
     private long THREAD_SLEEP_DELAY = 100;
     private boolean USE_PROCFS = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
-    private final String AUDIT_EXEC_PATH = "spade-audit";
+    private String AUDIT_EXEC_PATH;
     // Process map based on <pid, vertex> pairs
     private Map<String, Process> processes = new HashMap<String, Process>();
     // File descriptor map based on <pid <fd, path>> pairs
@@ -77,7 +78,7 @@ public class Audit extends AbstractReporter {
     private static Pattern binder_transaction = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
     ////////////////////////////////////////////////////////////////////////////
     // List of processes to ignore
-    private final String ignoreProcesses = AUDIT_EXEC_PATH + " auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
+    private String ignoreProcesses;
     static final Logger logger = Logger.getLogger(Audit.class.getName());
 
     private enum SYSCALL {
@@ -90,6 +91,16 @@ public class Audit extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
+        if (ANDROID_PLATFORM) {
+            AUDIT_EXEC_PATH = "spade-audit";
+            ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
+            DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
+        } else {
+            AUDIT_EXEC_PATH = "./spade/reporter/spadeLinuxAudit";
+            ignoreProcesses = "./spade/reporter/spadeLinuxAudit spadeLinuxAudit auditd";
+            DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
+        }
+
         // Get system boot time from /proc/stat. This is later used to determine the start
         // time for processes.
         try {
@@ -189,38 +200,41 @@ public class Audit extends AbstractReporter {
                     }
                 }
             };
-            new Thread(eventProcessor, "androidAudit-Thread").start();
+            new Thread(eventProcessor, "Audit-Thread").start();
 
-            Runnable transactionProcessor = new Runnable() {
-                public void run() {
-                    try {
-                        BufferedReader transactionReader = new BufferedReader(new FileReader("/proc/binder/transaction_log"));
-                        String line;
-                        while (!shutdown) {
-                            while ((line = transactionReader.readLine()) != null) {
-                                Matcher transactionMatcher = binder_transaction.matcher(line);
-                                if (transactionMatcher.find()) {
-                                    int id = Integer.parseInt(transactionMatcher.group(1));
-                                    String type = transactionMatcher.group(2);
-                                    String frompid = transactionMatcher.group(3);
-                                    String topid = transactionMatcher.group(4);
-                                    if (id > binderTransaction) {
-                                        WasTriggeredBy transaction = new WasTriggeredBy(processes.get(topid), processes.get(frompid));
-                                        transaction.addAnnotation("operation", "binder-" + type);
-                                        putEdge(transaction);
-                                        binderTransaction = id;
+            if (ANDROID_PLATFORM) {
+
+                Runnable transactionProcessor = new Runnable() {
+                    public void run() {
+                        try {
+                            BufferedReader transactionReader = new BufferedReader(new FileReader("/proc/binder/transaction_log"));
+                            String line;
+                            while (!shutdown) {
+                                while ((line = transactionReader.readLine()) != null) {
+                                    Matcher transactionMatcher = binder_transaction.matcher(line);
+                                    if (transactionMatcher.find()) {
+                                        int id = Integer.parseInt(transactionMatcher.group(1));
+                                        String type = transactionMatcher.group(2);
+                                        String frompid = transactionMatcher.group(3);
+                                        String topid = transactionMatcher.group(4);
+                                        if (id > binderTransaction) {
+                                            WasTriggeredBy transaction = new WasTriggeredBy(processes.get(topid), processes.get(frompid));
+                                            transaction.addAnnotation("operation", "binder-" + type);
+                                            putEdge(transaction);
+                                            binderTransaction = id;
+                                        }
                                     }
                                 }
+                                Thread.sleep(THREAD_SLEEP_DELAY);
                             }
-                            Thread.sleep(THREAD_SLEEP_DELAY);
+                            transactionReader.close();
+                        } catch (Exception exception) {
+                            logger.log(Level.SEVERE, null, exception);
                         }
-                        transactionReader.close();
-                    } catch (Exception exception) {
-                        logger.log(Level.SEVERE, null, exception);
                     }
-                }
-            };
-            new Thread(transactionProcessor, "androidBinder-Thread").start();
+                };
+                new Thread(transactionProcessor, "androidBinder-Thread").start();
+            }
 
             // Determine pids of processes that are to be ignored. These are appended
             // to the audit rule.
@@ -346,6 +360,16 @@ public class Audit extends AbstractReporter {
                     while (key_value_matcher.find()) {
                         eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
                     }
+                } else if (type.equals("SOCKETCALL")) {
+                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                    while (key_value_matcher.find()) {
+                        eventBuffer.get(eventId).put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
+                    }
+                } else if (type.equals("SOCKADDR")) {
+                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                    while (key_value_matcher.find()) {
+                        eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                    }
                 } else {
                     logger.log(Level.WARNING, "unknown type {0} for message: {1}", new Object[]{type, line});
                 }
@@ -439,6 +463,10 @@ public class Audit extends AbstractReporter {
 
                 case 94: // fchmod()
                     processChmod(eventData, SYSCALL.FCHMOD);
+                    break;
+
+                case 102: // socketcall()
+                    processSocketCall(eventData);
                     break;
 
                 //////////////////////////////////////////////////////////////////
@@ -818,6 +846,41 @@ public class Audit extends AbstractReporter {
         String location = "pipe:[" + fd0 + "-" + fd1 + "]";
         addDescriptor(pid, fd0, location);
         addDescriptor(pid, fd1, location);
+    }
+
+    private void processSocketCall(Map<String, String> eventData) {
+        String time = eventData.get("time");
+        String pid = eventData.get("pid");
+        String saddr = eventData.get("saddr");
+        // continue if this is an AF_INET socket address
+        if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+            Artifact network = new Artifact();
+            network.addAnnotation("subtype", "network");
+            network.addAnnotation("address", address);
+            network.addAnnotation("port", port);
+            putVertex(network);
+            int callType = Integer.parseInt(eventData.get("socketcall_a0"));
+            // socketcall number is derived from /usr/include/linux/net.h
+            if (callType == 3) {
+                // connect()
+                WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
+                wgb.addAnnotation("time", time);
+                wgb.addAnnotation("operation", "connect");
+                putEdge(wgb);
+            } else if (callType == 5) {
+                // accept()
+                Used used = new Used(processes.get(pid), network);
+                used.addAnnotation("time", time);
+                used.addAnnotation("operation", "accept");
+                putEdge(used);
+            }
+        }
     }
 
     private String joinPaths(String path1, String path2) {
