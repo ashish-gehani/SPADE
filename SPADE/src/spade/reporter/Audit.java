@@ -86,7 +86,11 @@ public class Audit extends AbstractReporter {
         FORK,
         CLONE,
         CHMOD,
-        FCHMOD
+        FCHMOD,
+        SENDTO,
+        SENDMSG,
+        RECVFROM,
+        RECVMSG
     }
 
     @Override
@@ -254,10 +258,12 @@ public class Audit extends AbstractReporter {
             }
             pidReader.close();
 
-            String auditRules = "-a exit,always -S fork -S vfork -S execve -S open -S close "
-                    + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink "
+            String auditRules = "-a exit,always "
+                    + "-S clone -S fork -S vfork -S execve -S open -S close "
+                    + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink -S ftruncate "
                     + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
                     + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
+                    + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
                     + "-S pipe2 -F success=1" + ignorePids.toString();
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
@@ -452,6 +458,9 @@ public class Audit extends AbstractReporter {
                 case 213: // setuid()
                     processSetuid(eventData);
                     break;
+                    
+                case 93: // ftruncate()
+                    processTruncate(eventData);
 
                 case 15: // chmod()
                     processChmod(eventData, SYSCALL.CHMOD);
@@ -465,17 +474,27 @@ public class Audit extends AbstractReporter {
                     processSocketCall(eventData);
                     break;
 
+                case 290: // sendto()
+                    processSend(eventData, SYSCALL.SENDTO);
+
+                case 296: // sendmsg()
+                    processSend(eventData, SYSCALL.SENDMSG);
+
+                case 292: // recvfrom()
+                    processRecv(eventData, SYSCALL.RECVFROM);
+
+                case 297: // recvmsg()
+                    processRecv(eventData, SYSCALL.RECVMSG);
+
+                case 283: // connect()
+                    processConnect(eventData);
+
+                case 285: // accept()
+                    processAccept(eventData);
+
                 //////////////////////////////////////////////////////////////////
 
                 case 281: // socket()
-                    break;
-
-                case 290: // sendto()
-                case 296: // sendmsg()
-                    break;
-
-                case 292: // recvfrom()
-                case 297: // recvmsg()
                     break;
 
                 default:
@@ -645,6 +664,38 @@ public class Audit extends AbstractReporter {
 //            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
+    
+    private void processTruncate(Map<String, String> eventData) {
+        // write() receives the following message(s):
+        // - SYSCALL
+        // - EOE
+        String pid = eventData.get("pid");
+        checkProcessVertex(eventData, true, false);
+
+        String hexFD = eventData.get("a0");
+        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String time = eventData.get("time");
+
+        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
+            String path = fileDescriptors.get(pid).get(fd);
+            Artifact vertex = new Artifact();
+            vertex.addAnnotation("location", path);
+            // Look up version number in the version table if this is a normal file
+            if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
+                // Increment previous version number if it exists
+                int version = fileVersions.containsKey(path) ? fileVersions.get(path) + 1 : 1;
+                fileVersions.put(path, version);
+                vertex.addAnnotation("version", Integer.toString(version));
+            }
+            putVertex(vertex);
+            WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+            wgb.addAnnotation("operation", "truncate");
+            wgb.addAnnotation("time", time);
+            putEdge(wgb);
+        } else {
+//            logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+        }
+    }
 
     private void processIoctl(Map<String, String> eventData) {
         // ioctl() receives the following message(s):
@@ -747,6 +798,19 @@ public class Audit extends AbstractReporter {
         wdf.addAnnotation("operation", "rename");
         wdf.addAnnotation("time", time);
         putEdge(wdf);
+    }
+
+    private void processUnlink(Map<String, String> eventData) {
+        // link() and symlink() receive the following message(s):
+        // - SYSCALL
+        // - CWD
+        // - PATH 0 is directory containing the link
+        // - PATH 1 is file that is linked
+        // - EOE
+        // we use path 1
+        // -----------------------------------------------------------
+        // NOTHING TO DO: NO PROVENANCE SEMANTICS
+        // -----------------------------------------------------------
     }
 
     private void processLink(Map<String, String> eventData) {
@@ -857,9 +921,8 @@ public class Audit extends AbstractReporter {
             int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
             String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
             Artifact network = new Artifact();
-            network.addAnnotation("subtype", "network");
-            network.addAnnotation("address", address);
-            network.addAnnotation("port", port);
+            String location = String.format("address:%s, port:%s", address, port);
+            network.addAnnotation("location", location);
             putVertex(network);
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
@@ -876,6 +939,116 @@ public class Audit extends AbstractReporter {
                 used.addAnnotation("operation", "accept");
                 putEdge(used);
             }
+            // update file descriptor table
+            String hexFD = eventData.get("a0");
+            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+            addDescriptor(pid, fd, location);
+        }
+    }
+
+    private void processConnect(Map<String, String> eventData) {
+        String time = eventData.get("time");
+        String pid = eventData.get("pid");
+        String saddr = eventData.get("saddr");
+        // continue if this is an AF_INET socket address
+        if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+            Artifact network = new Artifact();
+            String location = String.format("address:%s, port:%s", address, port);
+            network.addAnnotation("location", location);
+            putVertex(network);
+            WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
+            wgb.addAnnotation("time", time);
+            wgb.addAnnotation("operation", "connect");
+            putEdge(wgb);
+            // update file descriptor table
+            String hexFD = eventData.get("a0");
+            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+            addDescriptor(pid, fd, location);
+        }
+    }
+
+    private void processAccept(Map<String, String> eventData) {
+        String time = eventData.get("time");
+        String pid = eventData.get("pid");
+        String saddr = eventData.get("saddr");
+        // continue if this is an AF_INET socket address
+        if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+            Artifact network = new Artifact();
+            String location = String.format("address:%s, port:%s", address, port);
+            network.addAnnotation("location", location);
+            putVertex(network);
+            Used used = new Used(processes.get(pid), network);
+            used.addAnnotation("time", time);
+            used.addAnnotation("operation", "accept");
+            putEdge(used);
+            // update file descriptor table
+            String hexFD = eventData.get("a0");
+            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+            addDescriptor(pid, fd, location);
+        }
+    }
+
+    private void processSend(Map<String, String> eventData, SYSCALL syscall) {
+        // sendto()/sendmsg() receive the following message(s):
+        // - SYSCALL
+        // - EOE
+        String pid = eventData.get("pid");
+        checkProcessVertex(eventData, true, false);
+
+        String hexFD = eventData.get("a0");
+        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String time = eventData.get("time");
+
+        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
+            String path = fileDescriptors.get(pid).get(fd);
+            Artifact vertex = new Artifact();
+            vertex.addAnnotation("location", path);
+            // Look up version number in the version table if this is a normal file
+            putVertex(vertex);
+            WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+            wgb.addAnnotation("operation", syscall.name().toLowerCase());
+            wgb.addAnnotation("time", time);
+            putEdge(wgb);
+        } else {
+//            logger.log(Level.WARNING, "send(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+        }
+    }
+
+    private void processRecv(Map<String, String> eventData, SYSCALL syscall) {
+        // sendto()/sendmsg() receive the following message(s):
+        // - SYSCALL
+        // - EOE
+        String pid = eventData.get("pid");
+        checkProcessVertex(eventData, true, false);
+
+        String hexFD = eventData.get("a0");
+        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String time = eventData.get("time");
+
+        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
+            String path = fileDescriptors.get(pid).get(fd);
+            Artifact vertex = new Artifact();
+            vertex.addAnnotation("location", path);
+            // Look up version number in the version table if this is a normal file
+            putVertex(vertex);
+            Used used = new Used(processes.get(pid), vertex);
+            used.addAnnotation("operation", syscall.name().toLowerCase());
+            used.addAnnotation("time", time);
+            putEdge(used);
+        } else {
+//            logger.log(Level.WARNING, "recv(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
