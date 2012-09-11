@@ -41,7 +41,7 @@ public class Audit extends AbstractReporter {
 
     // Store log for debugging purposes
     private boolean DEBUG_DUMP_LOG = false;
-    private boolean ANDROID_PLATFORM = false;
+    private boolean ANDROID_PLATFORM = true;
     private String DEBUG_DUMP_FILE;
     ////////////////////////////////////////////////////////////////////////////
     private BufferedReader eventReader;
@@ -90,7 +90,9 @@ public class Audit extends AbstractReporter {
         SENDTO,
         SENDMSG,
         RECVFROM,
-        RECVMSG
+        RECVMSG,
+        TRUNCATE,
+        FTRUNCATE
     }
 
     @Override
@@ -461,8 +463,12 @@ public class Audit extends AbstractReporter {
                     processSetuid(eventData);
                     break;
                     
+                case 92: // truncate()
+                	processTruncate(eventData, SYSCALL.TRUNCATE);
+                	break;
                 case 93: // ftruncate()
-                    processTruncate(eventData);
+                    processTruncate(eventData, SYSCALL.FTRUNCATE);
+                    break;
 
                 case 15: // chmod()
                     processChmod(eventData, SYSCALL.CHMOD);
@@ -667,36 +673,48 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    private void processTruncate(Map<String, String> eventData) {
+    private void processTruncate(Map<String, String> eventData, SYSCALL syscall) {
         // write() receives the following message(s):
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
         checkProcessVertex(eventData, true, false);
-
-        String hexFD = eventData.get("a0");
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+     
         String time = eventData.get("time");
-
-        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-            String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = new Artifact();
-            vertex.addAnnotation("location", path);
-            // Look up version number in the version table if this is a normal file
-            if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
-                // Increment previous version number if it exists
-                int version = fileVersions.containsKey(path) ? fileVersions.get(path) + 1 : 1;
-                fileVersions.put(path, version);
-                vertex.addAnnotation("version", Integer.toString(version));
+        String path = null;
+        
+        if (syscall == SYSCALL.TRUNCATE) {
+            path = joinPaths(eventData.get("cwd"), eventData.get("path0"));
+        } else if (syscall == SYSCALL.FTRUNCATE) {
+        	String hexFD = eventData.get("a0");
+            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+            if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
+                path = fileDescriptors.get(pid).get(fd);
             }
-            putVertex(vertex);
-            WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-            wgb.addAnnotation("operation", "truncate");
-            wgb.addAnnotation("time", time);
-            putEdge(wgb);
-        } else {
-//            logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+            else {
+            	// logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+            	return;
+            }
         }
+        else {
+        	logger.log(Level.SEVERE, "Illegal arguments received for truncate");
+        	return;
+        }
+        
+        Artifact vertex = new Artifact();
+        vertex.addAnnotation("location", path);
+        // Look up version number in the version table if this is a normal file
+        if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
+            // Increment previous version number if it exists
+            int version = fileVersions.containsKey(path) ? fileVersions.get(path) + 1 : 1;
+            fileVersions.put(path, version);
+            vertex.addAnnotation("version", Integer.toString(version));
+        }
+        putVertex(vertex);
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+        wgb.addAnnotation("operation", "truncate");
+        wgb.addAnnotation("time", time);
+        putEdge(wgb);
     }
 
     private void processIoctl(Map<String, String> eventData) {
