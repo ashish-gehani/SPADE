@@ -415,11 +415,13 @@ public class Audit extends AbstractReporter {
 
                 case 3: // read()
                 case 145: // readv()
+                case 180: // pread64()
                     processRead(eventData);
                     break;
 
                 case 4: // write()
                 case 146: // writev()
+                case 181: // pwrite64()
                     processWrite(eventData);
                     break;
 
