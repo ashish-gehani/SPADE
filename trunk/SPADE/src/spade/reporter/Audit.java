@@ -42,6 +42,7 @@ public class Audit extends AbstractReporter {
     // Store log for debugging purposes
     private boolean DEBUG_DUMP_LOG = false;
     private boolean ANDROID_PLATFORM = true;
+    private boolean SOCKETS_ALREADY_PARSED = true;
     private String DEBUG_DUMP_FILE;
     ////////////////////////////////////////////////////////////////////////////
     private BufferedReader eventReader;
@@ -262,10 +263,11 @@ public class Audit extends AbstractReporter {
 
             String auditRules = "-a exit,always "
                     + "-S clone -S fork -S vfork -S execve -S open -S close "
-                    + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink -S ftruncate "
+                    + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink "
                     + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
                     + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
                     + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
+                    + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
                     + "-S pipe2 -F success=1" + ignorePids.toString();
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
@@ -370,9 +372,13 @@ public class Audit extends AbstractReporter {
                         eventBuffer.get(eventId).put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
                     }
                 } else if (type.equals("SOCKADDR")) {
-                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                    while (key_value_matcher.find()) {
-                        eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                    if (SOCKETS_ALREADY_PARSED) {
+                        eventBuffer.get(eventId).put("socket_data", messageData);
+                    } else {
+                        Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                        while (key_value_matcher.find()) {
+                            eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                        }
                     }
                 } else {
                     logger.log(Level.WARNING, "unknown type {0} for message: {1}", new Object[]{type, line});
@@ -462,10 +468,11 @@ public class Audit extends AbstractReporter {
                 case 213: // setuid()
                     processSetuid(eventData);
                     break;
-                    
+
                 case 92: // truncate()
-                	processTruncate(eventData, SYSCALL.TRUNCATE);
-                	break;
+                    processTruncate(eventData, SYSCALL.TRUNCATE);
+                    break;
+
                 case 93: // ftruncate()
                     processTruncate(eventData, SYSCALL.FTRUNCATE);
                     break;
@@ -672,35 +679,30 @@ public class Audit extends AbstractReporter {
 //            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
-    
+
     private void processTruncate(Map<String, String> eventData, SYSCALL syscall) {
         // write() receives the following message(s):
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
         checkProcessVertex(eventData, true, false);
-     
+
         String time = eventData.get("time");
         String path = null;
-        
+
         if (syscall == SYSCALL.TRUNCATE) {
             path = joinPaths(eventData.get("cwd"), eventData.get("path0"));
         } else if (syscall == SYSCALL.FTRUNCATE) {
-        	String hexFD = eventData.get("a0");
+            String hexFD = eventData.get("a0");
             String fd = Integer.toString(Integer.parseInt(hexFD, 16));
             if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
                 path = fileDescriptors.get(pid).get(fd);
-            }
-            else {
-            	// logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
-            	return;
+            } else {
+                // logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+                return;
             }
         }
-        else {
-        	logger.log(Level.SEVERE, "Illegal arguments received for truncate");
-        	return;
-        }
-        
+
         Artifact vertex = new Artifact();
         vertex.addAnnotation("location", path);
         // Look up version number in the version table if this is a normal file
@@ -712,7 +714,7 @@ public class Audit extends AbstractReporter {
         }
         putVertex(vertex);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-        wgb.addAnnotation("operation", "truncate");
+        wgb.addAnnotation("operation", syscall.name().toLowerCase());
         wgb.addAnnotation("time", time);
         putEdge(wgb);
     }
@@ -931,17 +933,24 @@ public class Audit extends AbstractReporter {
     private void processSocketCall(Map<String, String> eventData) {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        String saddr = eventData.get("saddr");
-        // continue if this is an AF_INET socket address
-        if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
-            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+        String location = null;
+        if (SOCKETS_ALREADY_PARSED) {
+            location = eventData.get("socket_data");
+        } else {
+            String saddr = eventData.get("saddr");
+            // continue if this is an AF_INET socket address
+            if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+                String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+                int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+                int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+                int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+                int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+                String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+                location = String.format("address:%s, port:%s", address, port);
+            }
+        }
+        if (location != null) {
             Artifact network = new Artifact();
-            String location = String.format("address:%s, port:%s", address, port);
             network.addAnnotation("location", location);
             putVertex(network);
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
@@ -969,17 +978,24 @@ public class Audit extends AbstractReporter {
     private void processConnect(Map<String, String> eventData) {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        String saddr = eventData.get("saddr");
-        // continue if this is an AF_INET socket address
-        if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
-            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+        String location = null;
+        if (SOCKETS_ALREADY_PARSED) {
+            location = eventData.get("socket_data");
+        } else {
+            String saddr = eventData.get("saddr");
+            // continue if this is an AF_INET socket address
+            if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+                String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+                int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+                int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+                int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+                int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+                String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+                location = String.format("address:%s, port:%s", address, port);
+            }
+        }
+        if (location != null) {
             Artifact network = new Artifact();
-            String location = String.format("address:%s, port:%s", address, port);
             network.addAnnotation("location", location);
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
@@ -996,17 +1012,24 @@ public class Audit extends AbstractReporter {
     private void processAccept(Map<String, String> eventData) {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        String saddr = eventData.get("saddr");
-        // continue if this is an AF_INET socket address
-        if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
-            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+        String location = null;
+        if (SOCKETS_ALREADY_PARSED) {
+            location = eventData.get("socket_data");
+        } else {
+            String saddr = eventData.get("saddr");
+            // continue if this is an AF_INET socket address
+            if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+                String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+                int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+                int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+                int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+                int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+                String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+                location = String.format("address:%s, port:%s", address, port);
+            }
+        }
+        if (location != null) {
             Artifact network = new Artifact();
-            String location = String.format("address:%s, port:%s", address, port);
             network.addAnnotation("location", location);
             putVertex(network);
             Used used = new Used(processes.get(pid), network);
