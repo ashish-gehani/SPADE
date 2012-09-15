@@ -1,5 +1,5 @@
 #labels Featured
- * Hasnain Lakhani, Rashid Tahir, Azeem Aqil, Fareed Zaffar, Dawood Tariq, and Ashish Gehani, *Optimized Rollback and Re-computation*, _46th IEEE Hawaii International Conference on Systems Science, IEEE Computer Society_, 2013. [http://www.csl.sri.com/users/gehani/papers/HICSS-2013.Re-execution.pdf [PDF]]
+ * Hasnain Lakhani, Rashid Tahir, Azeem Aqil, Fareed Zaffar, Dawood Tariq, and Ashish Gehani, *Optimized Rollback and Re-computation*, _46th IEEE Hawaii International Conference on Systems Science (HICSS), IEEE Computer Society_, 2013. [http://www.csl.sri.com/users/gehani/papers/HICSS-2013.Re-execution.pdf [PDF]]
 
  * Ashish Gehani and Dawood Tariq, *SPADE: Support for Provenance Auditing in Distributed Environments*, _13th ACM/IFIP/USENIX International Conference on Middleware_, 2012. [http://www.csl.sri.com/users/gehani/papers/MW-2012.SPADE.pdf [PDF]]
 
