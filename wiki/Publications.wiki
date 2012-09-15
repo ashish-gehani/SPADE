@@ -1,0 +1,26 @@
+#labels Featured
+ * Ashish Gehani and Dawood Tariq, *SPADE: Support for Provenance Auditing in Distributed Environments*, _13th ACM/IFIP/USENIX International Conference on Middleware_, 2012. [http://www.csl.sri.com/users/gehani/papers/MW-2012.SPADE.pdf [PDF]]
+
+ * Dawood Tariq, Maisem Ali, and Ashish Gehani, *Towards Automated Collection of Application-Level Data Provenance*, _4th USENIX Workshop on the Theory and Practice of Provenance (TaPP)_, 2012. [http://www.csl.sri.com/users/gehani/papers/TaPP-2012.LLVM.pdf [PDF]]
+
+ * Tanu Malik, Ashish Gehani, Dawood Tariq, and Fareed Zaffar, *Sketching Distributed Data Provenance*, _Data Provenance and Data Management for eScience, Lecture Notes in Computer Science, Springer_, Vol. 7092, 2012. [http://www.csl.sri.com/users/gehani/papers/DPDM-2012.Sketch.pdf [PDF]]
+
+ * Ashish Gehani, Dawood Tariq, Basim Baig, and Tanu Malik, *Policy-Based Integration of Provenance Metadata*, _12th IEEE International Symposium on Policies for Distributed Systems and Networks (POLICY)_, 2011. [http://www.csl.sri.com/users/gehani/papers/POLICY-2011.Integration.pdf [PDF]]
+
+ * Dawood Tariq, Basim Baig, Ashish Gehani, Salman Mahmood, Rashid Tahir, Azeem Aqil, and Fareed Zaffar, *Identifying the Provenance of Correlated Anomalies*, _26th ACM Symposium on Applied Computing (SAC)_, 2011. [http://www.csl.sri.com/users/gehani/papers/SAC-2011.Bridge.pdf [PDF]]
+
+ * Tanu Malik, Ligia Nistor, and Ashish Gehani, *Tracking and Sketching Distributed Data Provenance*, _6th IEEE International Conference on e-Science_, 2010. [http://www.csl.sri.com/users/gehani/papers/eScience-2010.Sketch.pdf [PDF]]
+
+ * Ashish Gehani, Basim Baig, Salman Mahmood, Dawood Tariq, and Fareed Zaffar, *Fine-Grained Tracking of Grid Infections*, _11th ACM/IEEE International Conference on Grid Computing (GRID)_, 2010. [http://www.csl.sri.com/users/gehani/papers/GRID-2010.Volunteer.pdf [PDF]]
+
+ * Ashish Gehani and Minyoung Kim, *Mendel: Efficiently Verifying the Lineage of Data Modified in Multiple Trust Domains*, _19th ACM International Symposium on High Performance Distributed Computing (HPDC)_, 2010. [http://www.csl.sri.com/users/gehani/papers/HPDC-2010.Multi_Domain.pdf [PDF]]
+
+ * Ashish Gehani, Minyoung Kim, and Tanu Malik, *Efficient Querying of Distributed Provenance Stores*, _8th Workshop on the Challenges of Large Applications in Distributed Environments (CLADE)_, 2010. [http://www.csl.sri.com/users/gehani/papers/CLADE-2010.Querying.pdf [PDF]]
+
+ * Ashish Gehani, Minyoung Kim, and Jian Zhang, *Steps Toward Managing Lineage Metadata in Grid Clusters*, _1st Workshop on the Theory and Practice of Provenance (TaPP)_, 2009. [http://www.csl.sri.com/users/gehani/papers/TAPP-2009.Rebalance.pdf [PDF]]
+
+ * Ashish Gehani, Florent Kirchner, and Natarajan Shankar, *System Support for Forensic Inference*, _Advances in Digital Forensics V, Springer_, 2009. [http://www.csl.sri.com/users/gehani/papers/ICDF-2009.SSFI.pdf [http://www.csl.sri.com/users/gehani/papers/ICDF-2009.SSFI.pdf [PDF]]
+
+ * Ashish Gehani and Ulf Lindqvist, *Bonsai: Balanced Lineage Authentication*, _23rd Annual Computer Security Applications Conference (ACSAC), IEEE Computer Society_, 2007. [http://www.csl.sri.com/users/gehani/papers/ACSAC-2007.Bonsai.pdf [PDF]]
+
+ * Ashish Gehani and Ulf Lindqvist, *VEIL: A System for Certifying Video Provenance*, _9th IEEE International Symposium on Multimedia (ISM)_, 2007. [http://www.csl.sri.com/users/gehani/papers/ISM-2007.VEIL.pdf [PDF]]
