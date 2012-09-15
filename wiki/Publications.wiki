@@ -21,7 +21,7 @@
 
  * Ashish Gehani, Minyoung Kim, and Jian Zhang, *Steps Toward Managing Lineage Metadata in Grid Clusters*, _1st Workshop on the Theory and Practice of Provenance (TaPP)_, 2009. [http://www.csl.sri.com/users/gehani/papers/TAPP-2009.Rebalance.pdf [PDF]]
 
- * Ashish Gehani, Florent Kirchner, and Natarajan Shankar, *System Support for Forensic Inference*, _Advances in Digital Forensics V, Springer_, 2009. [http://www.csl.sri.com/users/gehani/papers/ICDF-2009.SSFI.pdf [http://www.csl.sri.com/users/gehani/papers/ICDF-2009.SSFI.pdf [PDF]]
+ * Ashish Gehani, Florent Kirchner, and Natarajan Shankar, *System Support for Forensic Inference*, _Advances in Digital Forensics V, Springer_, 2009. [http://www.csl.sri.com/users/gehani/papers/ICDF-2009.SSFI.pdf [PDF]]
 
  * Ashish Gehani and Ulf Lindqvist, *Bonsai: Balanced Lineage Authentication*, _23rd Annual Computer Security Applications Conference (ACSAC), IEEE Computer Society_, 2007. [http://www.csl.sri.com/users/gehani/papers/ACSAC-2007.Bonsai.pdf [PDF]]
 
