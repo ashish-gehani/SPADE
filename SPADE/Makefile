@@ -13,7 +13,7 @@ OS_ARCH = $(shell uname -m)
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm build-macfuse
 	OS_CONFIG_PATH = /usr/local/lib/pkgconfig
-	REPLIB_OSFLAG = -D_LLVMREPORTER_MACOSX 
+	REPLIB_OSFLAG = -D_LLVMREPORTER_MACOSX
 	LLVM_RULE = build-mac-llvm
 endif
 ifeq ($(OS_NAME), Linux)
@@ -49,7 +49,9 @@ build:
 	@echo 'Building utilities...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/utility/*.java
 	@echo 'Building storage...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/*.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Neo4j.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/SQL.java
 	@echo 'Building filters...'
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/*.java
 	@echo 'Building the DOT reporter...'
@@ -168,7 +170,7 @@ android-build:
 	@mkdir -p android-build/bin;
 	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
 	@mkdir -p android-lib;
-	@#$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar 
+	@#$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar
 	@cd build; \
 	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
 
@@ -200,4 +202,3 @@ install:
 	cp -R lib $(DESTDIR)/
 	cp -R cfg $(DESTDIR)/
 	cp -R log $(DESTDIR)/
-
