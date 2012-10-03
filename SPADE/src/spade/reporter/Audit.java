@@ -26,6 +26,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import spade.core.AbstractReporter;
+import spade.core.Buffer;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
@@ -50,6 +51,7 @@ public class Audit extends AbstractReporter {
     private long boottime = 0;
     private int binderTransaction = 0;
     private long THREAD_SLEEP_DELAY = 100;
+    private long THREAD_CLEANUP_TIMEOUT = 1000;
     private boolean USE_PROCFS = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private String AUDIT_EXEC_PATH;
@@ -95,7 +97,20 @@ public class Audit extends AbstractReporter {
         TRUNCATE,
         FTRUNCATE
     }
-
+    
+    private Thread eventProcessorThread = null;
+    private Thread transactionProcessorThread = null;
+    private String auditRules;
+    
+    private static String SPADE_AUDIT_LIBRARY = "/data/spade/android-lib/libspadeAndroidAudit.so";
+    private static native int initAuditStream();
+    private static native String readAuditStream(); 
+    private static native int closeAuditStream();
+    // Load library
+    static {
+        System.load(SPADE_AUDIT_LIBRARY);
+    }
+    
     @Override
     public boolean launch(String arguments) {
         if (ANDROID_PLATFORM) {
@@ -107,7 +122,7 @@ public class Audit extends AbstractReporter {
             ignoreProcesses = "./spade/reporter/spadeLinuxAudit spadeLinuxAudit auditd";
             DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
         }
-
+       
         // Get system boot time from /proc/stat. This is later used to determine the start
         // time for processes.
         try {
@@ -177,35 +192,67 @@ public class Audit extends AbstractReporter {
             Runnable eventProcessor = new Runnable() {
                 public void run() {
                     try {
-                        java.lang.Process straceProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-                        eventReader = new BufferedReader(new InputStreamReader(straceProcess.getInputStream()));
+                    	Logger logger = Logger.getLogger("EventProcessorThread");
+                    	if (initAuditStream() != 0)
+                    		throw new Exception("Unable to initialize Audit Stream");
+
+                        FileWriter dumpFileWriter = null;
                         BufferedWriter dumpWriter = null;
                         if (DEBUG_DUMP_LOG) {
-                            dumpWriter = new BufferedWriter(new FileWriter(DEBUG_DUMP_FILE));
+                        	dumpFileWriter = new FileWriter(DEBUG_DUMP_FILE);
+                            dumpWriter = new BufferedWriter(dumpFileWriter);
+                        }
+                    	
+                    	while (!shutdown) {
+                    		String line = readAuditStream();
+                    		if (line != null && !line.isEmpty()) {
+                    			parseEventLine(line);
+                                if (DEBUG_DUMP_LOG) {
+                                    dumpWriter.write(line);
+                                    dumpWriter.write(System.getProperty("line.separator"));
+                                    dumpWriter.flush();
+                                }
+                    		}
+                    	}
+
+						closeAuditStream();
+                        if (DEBUG_DUMP_LOG) {
+                            dumpWriter.close();
+                            dumpFileWriter.close();
                         }
 
+
+                    	/*
+                        java.lang.Process straceProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
+                        eventReader = new BufferedReader(new InputStreamReader(straceProcess.getInputStream()));
+
+
                         while (!shutdown) {
+                        	logger.info("Waiting for line input");
                             String line = eventReader.readLine();
                             if ((line != null) && !line.isEmpty()) {
                                 if (DEBUG_DUMP_LOG) {
                                     dumpWriter.write(line);
                                     dumpWriter.write(System.getProperty("line.separator"));
+                                    dumpWriter.flush();
                                 }
                                 parseEventLine(line);
-                            }
+                            }                           		
                         }
 
-                        if (DEBUG_DUMP_LOG) {
-                            dumpWriter.close();
-                        }
                         eventReader.close();
                         straceProcess.destroy();
+                        */
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
+                    } finally {
+                    	closeAuditStream();
                     }
+                    
                 }
             };
-            new Thread(eventProcessor, "Audit-Thread").start();
+            eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
+            eventProcessorThread.start();
 
             if (ANDROID_PLATFORM) {
                 Runnable transactionProcessor = new Runnable() {
@@ -237,7 +284,8 @@ public class Audit extends AbstractReporter {
                         }
                     }
                 };
-                new Thread(transactionProcessor, "androidBinder-Thread").start();
+                transactionProcessorThread = new Thread(transactionProcessor, "androidBinder-Thread");
+                transactionProcessorThread.start();
             }
 
             // Determine pids of processes that are to be ignored. These are appended
@@ -260,8 +308,7 @@ public class Audit extends AbstractReporter {
                 }
             }
             pidReader.close();
-
-            String auditRules = "-a exit,always "
+            auditRules = "-a exit,always "
                     + "-S clone -S fork -S vfork -S execve -S open -S close "
                     + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink "
                     + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
@@ -314,6 +361,8 @@ public class Audit extends AbstractReporter {
         shutdown = true;
         try {
             Runtime.getRuntime().exec("auditctl -D").waitFor();
+            transactionProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
+            eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
@@ -393,12 +442,15 @@ public class Audit extends AbstractReporter {
         try {
             // System call numbers are derived from:
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
+
             if (!eventBuffer.containsKey(eventId)) {
+            	logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId}); 
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
 
+          
             switch (syscall) {
                 case 2: // fork()
                 case 190: // vfork()
@@ -563,9 +615,10 @@ public class Audit extends AbstractReporter {
         // - PATH
         // - PATH
         // - EOE
+    	
         String pid = eventData.get("pid");
-        String time = eventData.get("time");
-
+        String time = eventData.get("time");   
+        
         Process newProcess = checkProcessVertex(eventData, false, true);
         if (!newProcess.getAnnotations().containsKey("commandline")) {
             // Unable to retrieve complete process information; generate vertex
@@ -644,7 +697,7 @@ public class Audit extends AbstractReporter {
             used.addAnnotation("time", time);
             putEdge(used);
         } else {
-//            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -1209,5 +1262,27 @@ public class Audit extends AbstractReporter {
         } else {
             return null;
         }
+    }
+    
+    public static void main(String args[]) {
+    	try {
+    	Audit a = new Audit();
+
+    	Runtime.getRuntime().exec("auditctl -a exit,always -S execve -F success=1");
+    	initAuditStream();
+    	String data;
+    	while(true)
+    	{
+    		data = readAuditStream();
+    		System.out.println(data);
+    		System.out.flush();
+    	}
+    	// 
+    	}
+    	catch (Exception e) 
+    	{
+			closeAuditStream();
+    		System.out.println(e);
+    	}
     }
 }

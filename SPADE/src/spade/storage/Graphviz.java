@@ -78,6 +78,7 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
+        	vertexCount++;
 //            if (vertexSet.add(incomingVertex.hashCode())) {
                 StringBuilder annotationString = new StringBuilder();
                 for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
@@ -144,6 +145,7 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
+        	edgeCount++;
 //            if (edgeSet.add(incomingEdge.hashCode())) {
                 StringBuilder annotationString = new StringBuilder();
                 for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
@@ -214,4 +216,25 @@ public class Graphviz extends AbstractStorage {
             return false;
         }
     }
+    
+    /**
+     * This method returns the internal state of the storage. 
+     * It is used mainly for debugging/monitoring.
+     * 
+     *  @return textual description of internal state
+     */
+    @Override
+    public String getInternalState() {
+    	return super.getInternalState() + "\tTransaction Count: " + String.valueOf(transaction_count);
+    }
+    
+    /**
+     * This method returns the internal state of the storage with more verbosity
+     * 
+     * @return textual description of the internal state
+     */
+    public String getInternalStateVerbose() {
+    	return getInternalState(); 
+    }
+    
 }

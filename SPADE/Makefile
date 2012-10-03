@@ -13,7 +13,7 @@ OS_ARCH = $(shell uname -m)
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm build-macfuse
 	OS_CONFIG_PATH = /usr/local/lib/pkgconfig
-	REPLIB_OSFLAG = -D_LLVMREPORTER_MACOSX
+	REPLIB_OSFLAG = -D_LLVMREPORTER_MACOSX 
 	LLVM_RULE = build-mac-llvm
 endif
 ifeq ($(OS_NAME), Linux)
@@ -36,6 +36,7 @@ help:
 	@#echo '      make android-build      - to build for android'
 	@#echo '      make android-deploy     - to deploy to android emulator'
 	@#echo '      make android-kernel     - to launch kernel on emulator'
+	@#echo '      make android-kernel-ddms- to launch kernel on emulator in debug mode for ddms'
 
 # ---------- Building SPADE ----------
 
@@ -148,6 +149,8 @@ clean:
 
 # ---------- Android-related rules [EXPERIMENTAL] ----------
 
+include scripts/android/devtest.mk
+
 # Build for Android
 android-build:
 	@mkdir -p build;
@@ -170,27 +173,39 @@ android-build:
 	@mkdir -p android-build/bin;
 	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
 	@mkdir -p android-lib;
-	@#$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar
+	@#$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar 
 	@cd build; \
 	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
+	@echo 'Building JNI Interface...'
+	javah -jni -d src/spade/reporter/jni -classpath "build" spade.reporter.Audit
+	ndk-build NDK_PROJECT_PATH=src/spade/reporter/
+	mv src/spade/reporter/libs/armeabi/libspadeAndroidAudit.so android-lib/	
 
 # Deploy to Android
 android-deploy:
 	$(ANDROID_SDK_TOOLS)/adb shell start
-	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade"
+	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade; rm -r /data/spade"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/log"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/cfg"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build/bin"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /data/spade"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /data/spade/android-lib"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/output"
 	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/output/graph.dot\\nreporter Audit\" > /sdcard/spade/cfg/spade.config"
-	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
+	$(ANDROID_SDK_TOOLS)/adb push android-build /sdcard/spade/android-build
+	$(ANDROID_SDK_TOOLS)/adb push android-lib /data/spade/android-lib
+	$(ANDROID_SDK_TOOLS)/adb shell chmod 775 /data/spade/android-lib/*
+
 
 # Launch Android kernel
 android-kernel:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.core.Kernel"
+
+# Launch Android kernel for use with debugger
+android-kernel-ddms:
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -agentlib:jdwp=transport=dt_android_adb,suspend=n,server=y -cp 'android-spade.jar' spade.core.Kernel"
 
 # Shut down SPADE on Android
 android-shutdown:
@@ -202,3 +217,5 @@ install:
 	cp -R lib $(DESTDIR)/
 	cp -R cfg $(DESTDIR)/
 	cp -R log $(DESTDIR)/
+
+	
