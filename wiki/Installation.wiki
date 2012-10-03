@@ -14,6 +14,10 @@ Note that `->` at the beginning of a line indicates that the command is to be ex
 
 To compile *SPADE*, the Java Development Kit (JDK) is required. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
+If you are using Linux, you'll also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via `sudo apt-get install libaudit-dev auditd libfuse-dev fuse-utils`
+
+If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ MacFUSE]. 
+
 ----
 
 ===Downloading and compiling===
