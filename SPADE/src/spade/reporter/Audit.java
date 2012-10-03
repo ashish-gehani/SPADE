@@ -40,9 +40,9 @@ import spade.vertex.opm.Process;
  */
 public class Audit extends AbstractReporter {
 
-    // Store log for debugging purposes
-    private boolean DEBUG_DUMP_LOG = false;
-    private boolean ANDROID_PLATFORM = true;
+    
+    private boolean DEBUG_DUMP_LOG = false; // Store log for debugging purposes
+    private boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch
     private boolean SOCKETS_ALREADY_PARSED = true;
     private String DEBUG_DUMP_FILE;
     ////////////////////////////////////////////////////////////////////////////
@@ -113,6 +113,9 @@ public class Audit extends AbstractReporter {
     
     @Override
     public boolean launch(String arguments) {
+    	
+    	ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
+    	
         if (ANDROID_PLATFORM) {
             AUDIT_EXEC_PATH = "spade-audit";
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
@@ -193,8 +196,6 @@ public class Audit extends AbstractReporter {
                 public void run() {
                     try {
                     	Logger logger = Logger.getLogger("EventProcessorThread");
-                    	if (initAuditStream() != 0)
-                    		throw new Exception("Unable to initialize Audit Stream");
 
                         FileWriter dumpFileWriter = null;
                         BufferedWriter dumpWriter = null;
@@ -203,46 +204,52 @@ public class Audit extends AbstractReporter {
                             dumpWriter = new BufferedWriter(dumpFileWriter);
                         }
                     	
-                    	while (!shutdown) {
-                    		String line = readAuditStream();
-                    		if (line != null && !line.isEmpty()) {
-                    			parseEventLine(line);
-                                if (DEBUG_DUMP_LOG) {
-                                    dumpWriter.write(line);
-                                    dumpWriter.write(System.getProperty("line.separator"));
-                                    dumpWriter.flush();
-                                }
-                    		}
-                    	}
+                    	if (ANDROID_PLATFORM) {
+	                    	if (initAuditStream() != 0)
+	                    		throw new Exception("Unable to initialize Audit Stream");
+	
+                    	
+	                    	while (!shutdown) {
+	                    		String line = readAuditStream();
+	                    		if (line != null && !line.isEmpty()) {
+	                    			parseEventLine(line);
+	                                if (DEBUG_DUMP_LOG) {
+	                                    dumpWriter.write(line);
+	                                    dumpWriter.write(System.getProperty("line.separator"));
+	                                    dumpWriter.flush();
+	                                }
+	                    		}
+	                    	}
+	
+							closeAuditStream();
+							
+                    	} else {
 
-						closeAuditStream();
+                            java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
+                            eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
+
+
+                            while (!shutdown) {
+                                String line = eventReader.readLine();
+                                if ((line != null) && !line.isEmpty()) {
+                                    if (DEBUG_DUMP_LOG) {
+                                        dumpWriter.write(line);
+                                        dumpWriter.write(System.getProperty("line.separator"));
+                                        dumpWriter.flush();
+                                    }
+                                    parseEventLine(line);
+                                }                           		
+                            }
+
+                            eventReader.close();
+                            auditProcess.destroy();
+                    	}
+                    	
                         if (DEBUG_DUMP_LOG) {
                             dumpWriter.close();
                             dumpFileWriter.close();
                         }
-
-
-                    	/*
-                        java.lang.Process straceProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-                        eventReader = new BufferedReader(new InputStreamReader(straceProcess.getInputStream()));
-
-
-                        while (!shutdown) {
-                        	logger.info("Waiting for line input");
-                            String line = eventReader.readLine();
-                            if ((line != null) && !line.isEmpty()) {
-                                if (DEBUG_DUMP_LOG) {
-                                    dumpWriter.write(line);
-                                    dumpWriter.write(System.getProperty("line.separator"));
-                                    dumpWriter.flush();
-                                }
-                                parseEventLine(line);
-                            }                           		
-                        }
-
-                        eventReader.close();
-                        straceProcess.destroy();
-                        */
+                    	
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
                     } finally {
@@ -318,7 +325,7 @@ public class Audit extends AbstractReporter {
                     + "-S pipe2 -F success=1" + ignorePids.toString();
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-            logger.log(Level.INFO, "configuring audit rules: {0}", auditRules);
+            logger.log(Level.INFO, "Configured	 audit rules: {0}", auditRules);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
@@ -1266,18 +1273,20 @@ public class Audit extends AbstractReporter {
     
     public static void main(String args[]) {
     	try {
-    	Audit a = new Audit();
-
-    	Runtime.getRuntime().exec("auditctl -a exit,always -S execve -F success=1");
-    	initAuditStream();
-    	String data;
-    	while(true)
-    	{
-    		data = readAuditStream();
-    		System.out.println(data);
-    		System.out.flush();
-    	}
-    	// 
+	    	
+    		final Audit a = new Audit();
+    		Buffer buf = new Buffer();
+    		a.setBuffer(buf);
+	    	a.launch("");
+	    	
+	    	final Thread mainThread = Thread.currentThread();
+	    	Runtime.getRuntime().addShutdownHook(new Thread() {
+	    	    public void run() {
+	    	        a.shutdown();
+	    	        mainThread.notify();
+	    	    }
+	    	});
+	    	mainThread.wait();
     	}
     	catch (Exception e) 
     	{
