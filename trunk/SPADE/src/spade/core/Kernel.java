@@ -425,6 +425,15 @@ public class Kernel {
 
         // Load the SPADE configuration from the default config file.
         configCommand("config load " + configFile, NullStream.out);
+        
+        // Wait till all threads are done
+        ArrayList<Thread> join_threads = new ArrayList<Thread> ( Arrays.asList(mainThread, controlThread, queryThread, remoteThread, sketchThread) );
+        for (Thread t: join_threads) {
+        	try {
+        		t.join(10000);
+        	} catch( InterruptedException ignore ) {}
+    	}
+
     }
 
     /**
@@ -845,11 +854,25 @@ public class Kernel {
      */
     public static void listCommand(String line, PrintStream outputStream) {
         String[] tokens = line.split("\\s+");
+        int verbose_level = 0;
+        String verbose_token = "";
         if (tokens.length < 2) {
             outputStream.println("Usage:");
             outputStream.println("\t" + LIST_STRING);
             return;
         }
+        for(int i = 0; i < tokens.length; ++i) {
+        	if ( tokens[i].equalsIgnoreCase("v") ) {
+        		verbose_level = 1;
+        		verbose_token = tokens[i];
+        	}
+        	else if ( tokens[i].equalsIgnoreCase("vv")) {
+        		verbose_level = 2;
+        		verbose_token = tokens[i];
+        	}
+        		
+        }
+        
         if (tokens[1].equalsIgnoreCase("reporters")) {
             if (reporters.isEmpty()) {
                 // Nothing to list if the set of reporters is empty.
@@ -864,6 +887,15 @@ public class Kernel {
                 outputStream.print("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2]);
                 if (arguments != null) {
                     outputStream.print(" (" + arguments + ")");
+                }
+                if (verbose_level > 0)
+                	outputStream.println();
+                if (verbose_level == 1)
+                	outputStream.print("\t" + reporter.getInternalState());
+                else if (verbose_level == 2) {
+                	outputStream.print("--------\n");
+                	outputStream.print(reporter.getInternalStateVerbose());
+                	outputStream.print("\n--------\n");
                 }
                 outputStream.println();
                 count++;
@@ -883,7 +915,17 @@ public class Kernel {
                 if (arguments != null) {
                     outputStream.print(" (" + arguments + ")");
                 }
-                outputStream.println();
+
+                if (verbose_level > 0)
+                	outputStream.println();
+                if (verbose_level == 1)
+                	outputStream.print("\t" + storage.getInternalState());
+                else if (verbose_level == 2) {
+                	outputStream.print("--------\n");
+                	outputStream.print(storage.getInternalStateVerbose());
+                	outputStream.print("\n--------\n");
+                }                
+				outputStream.println();
                 count++;
             }
         } else if (tokens[1].equalsIgnoreCase("filters")) {
@@ -941,12 +983,12 @@ public class Kernel {
                 outputStream.println("\t" + count + ". " + sketch.getClass().getName().split("\\.")[2]);
                 count++;
             }
-        } else if (tokens[1].equalsIgnoreCase("all")) {
-            listCommand("list reporters", outputStream);
-            listCommand("list storages", outputStream);
-            listCommand("list filters", outputStream);
+        } else if (tokens[1].equalsIgnoreCase("all")) {        	
+            listCommand("list reporters " + verbose_token, outputStream);
+            listCommand("list storages " + verbose_token, outputStream);
+            listCommand("list filters " + verbose_token, outputStream);
             //listCommand("list transformers", outputStream);
-            listCommand("list sketches", outputStream);
+            listCommand("list sketches " + verbose_token, outputStream);
         } else {
             outputStream.println("Usage:");
             outputStream.println("\t" + LIST_STRING);

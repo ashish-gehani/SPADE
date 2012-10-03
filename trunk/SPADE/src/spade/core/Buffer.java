@@ -71,7 +71,7 @@ public class Buffer {
             return queue.add(incomingEdge);
         }
     }
-
+    
     /**
      * This method is used to extract provenance elements from the buffer.
      *
@@ -88,5 +88,14 @@ public class Buffer {
      */
     public boolean isEmpty() {
         return queue.isEmpty();
+    }
+    
+    /** 
+     * This method is mainly used for debugging and monitoring purposes to get the size of the internal buffer
+     * 
+     * @return the number of elements in the buffer
+     */
+    public int size() {
+    	return queue.size();
     }
 }

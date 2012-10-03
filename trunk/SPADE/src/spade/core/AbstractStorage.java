@@ -146,4 +146,24 @@ public abstract class AbstractStorage {
     public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
         return null;
     }
+    
+    /**
+     * This method returns the internal state of the storage. 
+     * It is used mainly for debugging/monitoring.
+     * 
+     *  @return textual description of internal state
+     */
+    public String getInternalState() {
+    	return "Vertex Count: " + String.valueOf(vertexCount) + "\t Edge Count: " + String.valueOf(edgeCount);
+    }
+    
+    /**
+     * This method returns the internal state of the storage with more verbosity
+     * 
+     * @return textual description of the internal state
+     */
+    public String getInternalStateVerbose() {
+    	return getInternalState(); 
+    }
+    
 }
