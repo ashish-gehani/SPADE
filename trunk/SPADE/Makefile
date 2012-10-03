@@ -23,6 +23,8 @@ ifeq ($(OS_NAME), Linux)
 	LLVM_RULE = build-linux-llvm
 endif
 
+
+
 .PHONY: build android-build
 
 all:	build
@@ -38,7 +40,7 @@ help:
 	@#echo '      make android-kernel     - to launch kernel on emulator'
 	@#echo '      make android-kernel-ddms- to launch kernel on emulator in debug mode for ddms'
 
-# ---------- Building SPADE ----------
+# ---------- Building SPADE ----------	
 
 # Build the SPADE kernel.
 build:
@@ -64,6 +66,8 @@ build:
 	@#echo 'Building the LLVM reporter...'
 	@#javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LLVM.java
 	@make $(OS_BUILD)
+
+build-reporters: 
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
