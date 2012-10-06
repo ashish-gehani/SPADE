@@ -23,9 +23,17 @@ ifeq ($(OS_NAME), Linux)
 	LLVM_RULE = build-linux-llvm
 endif
 
+# -------- Default Build Configuration -----
+CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex BloomFilter Buffer Edge Graph Kernel MatrixFilter Query RemoteRegistry Vertex
+REPORTERS = DOT DSL Network
+STORAGES = Graphviz Neo4j SQL
+CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
+UTILITIES = JavaHome
+FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter 
+BUILD_DIRS = build
+# -------------------------------------------
 
-
-.PHONY: build android-build
+.PHONY: build android-build prepare-dirs 
 
 all:	build
 
@@ -41,60 +49,58 @@ help:
 	@#echo '      make android-kernel-ddms- to launch kernel on emulator in debug mode for ddms'
 
 # ---------- Building SPADE ----------	
+.SECONDEXPANSION:
 
-# Build the SPADE kernel.
-build:
-	@mkdir -p build;
-	@echo 'Building the SPADE Kernel...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java
-	@echo 'Building clients...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/client/*.java
-	@echo 'Building utilities...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/utility/*.java
-	@echo 'Building storage...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Neo4j.java
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/SQL.java
-	@echo 'Building filters...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/*.java
-	@echo 'Building the DOT reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/DOT.java
-	@echo 'Building the Pipe reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/DSL.java
-	@echo 'Building the Lsof reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Network.java
-	@#echo 'Building the LLVM reporter...'
-	@#javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LLVM.java
-	@make $(OS_BUILD)
+build: | prepare-dirs 
+build: build-java $$(OS_BUILD)
 
-build-reporters: 
+build-java: clients utilities storages filters reporters
+
+.SUFFIXES : .class .java
+
+prepare-dirs: 
+	$(foreach d, $(BUILD_DIRS), mkdir -p $(d) )
+
+
+build/%.class : src/%.java
+	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build $<
+
+core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
+	print "--- Built Core ---"
+clients: core $$(foreach f, $$(CLIENTS), build/spade/client/$$(f).class) 
+	print "--- Built Clients ---"
+reporters: core $$(foreach f,$$(REPORTERS), build/spade/reporter/$$(f).class ) 
+	print "--- Built Reporters ---"
+storages: core $$(foreach f,$$(STORAGES), build/spade/storage/$$(f).class )
+	print "--- Built Storages ---"
+utilities: core $$(foreach f,$$(UTILITIES), build/spade/utility/$$(f).class )
+	print "--- Built Utilities ---"
+filters: core $$(foreach f,$$(FILTERS), build/spade/filter/$$(f).class )
+	print "--- Built Filters ---"
 
 # Build the LinuxAudit reporter.
-build-linuxaudit:
-	@echo 'Building the Audit reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Audit.java
-	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
-	@echo ''
+build-linuxaudit: build/spade/reporter/Audit.class build/spade/reporter/spadeLinuxAudit 
 	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
 	@echo '----->            sudo chown root build/spade/reporter/spadeLinuxAudit'
 	@echo '----->            sudo chmod ug+s build/spade/reporter/spadeLinuxAudit'
 	@echo ''
+build/spade/reporter/spadeLinuxAudit: src/spade/reporter/spadeLinuxAudit.c
+	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
 
 # Build the LinuxFUSE reporter.
-build-linuxfuse:
-	@echo 'Building the LinuxFUSE reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/LinuxFUSE.java
-	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
-	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
+build-linuxfuse: src/spade/reporter/libLinuxFUSE.h lib/libLinuxFUSE.so
 	@echo ''
 	@echo '-----> IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
 	@echo ''
+src/spade/reporter/libLinuxFUSE.h: build/spade/reporter/LinuxFUSE.class
+	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
+lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
+	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
+	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
 
 # Build the OpenBSM reporter.
-build-openbsm:
-	@echo 'Building the OpenBSM reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/OpenBSM.java
+build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c
+	@echo '--- Building OpenBSM reporter ---'
 	gcc -o build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
 	sudo chown root build/spade/reporter/spadeOpenBSM
 	sudo chmod ug+s build/spade/reporter/spadeOpenBSM
@@ -104,10 +110,10 @@ build-openbsm:
 	@#echo '----->            sudo chmod ug+s build/spade/reporter/spadeOpenBSM'
 	@#echo ''
 
+	
+
 # Build the MacFUSE reporter.
-build-macfuse:
-	@echo 'Building the MacFUSE reporter...'
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/MacFUSE.java
+build-macfuse: announce-MacFUSE build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers `pkg-config fuse --cflags --libs` src/spade/reporter/libMacFUSE.c -o lib/libMacFUSE.jnilib
 
@@ -156,37 +162,28 @@ clean:
 include scripts/android/devtest.mk
 
 # Build for Android
-android-build:
-	@mkdir -p build;
-	@echo 'Building the SPADE Kernel...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java
-	@echo 'Building Android control client...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/client/AndroidClient.java
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/client/AndroidShutdown.java
-	@echo 'Building the Graphviz storage...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
-	@echo 'Building the SQL storage...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/SQL.java
-	@echo 'Building Audit reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Audit.java
-	@echo 'Building strace reporter...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Strace.java
-	@echo 'Building filters...'
-	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/*.java
-	@mkdir -p android-build;
-	@mkdir -p android-build/bin;
+android-build: REPORTERS = Audit Strace 
+android-build: STORAGES = Graphviz
+android-build: CLIENTS = AndroidClient AndroidShutdown
+android-build: BUILD_DIRS = build android-build android-build/bin android-lib 
+android-build: prepare-dirs android-dex android-jni-interfaces 
 	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
-	@mkdir -p android-lib;
-	@#$(ANDROID_SDK_TOOLS)/dx --dex --output=android-lib/h2-dex.jar lib/h2-1.3.166.jar 
+
+android-dex: android-build/bin/android-spade.jar
+android-build/bin/android-spade.jar: build
 	@cd build; \
 	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
-	@echo 'Building JNI Interface...'
-	javah -jni -d src/spade/reporter/jni -classpath "build" spade.reporter.Audit
+
+android-jni-interfaces: android-lib/libspadeAndroidAudit.so
+android-lib/libspadeAndroidAudit.so: src/spade/reporter/jni/spade_reporter_Audit.h src/spade/reporter/jni/spadeAndroidAudit.c src/spade/reporter/jni/Android.mk 
 	ndk-build NDK_PROJECT_PATH=src/spade/reporter/
-	mv src/spade/reporter/libs/armeabi/libspadeAndroidAudit.so android-lib/	
+	mv src/spade/reporter/libs/armeabi/libspadeAndroidAudit.so android-lib/		
+src/spade/reporter/jni/spade_reporter_Audit.h: src/spade/reporter/Audit.java
+	javah -jni -d src/spade/reporter/jni -classpath "build" spade.reporter.Audit
+
 
 # Deploy to Android
-android-deploy:
+android-deploy: android-build
 	$(ANDROID_SDK_TOOLS)/adb shell start
 	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade; rm -r /data/spade"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade"
@@ -222,4 +219,3 @@ install:
 	cp -R cfg $(DESTDIR)/
 	cp -R log $(DESTDIR)/
 
-	

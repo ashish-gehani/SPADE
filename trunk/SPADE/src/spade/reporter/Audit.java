@@ -42,7 +42,7 @@ public class Audit extends AbstractReporter {
 
     
     private boolean DEBUG_DUMP_LOG = false; // Store log for debugging purposes
-    private boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch
+    private static boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch
     private boolean SOCKETS_ALREADY_PARSED = true;
     private String DEBUG_DUMP_FILE;
     ////////////////////////////////////////////////////////////////////////////
@@ -102,13 +102,14 @@ public class Audit extends AbstractReporter {
     private Thread transactionProcessorThread = null;
     private String auditRules;
     
-    private static String SPADE_AUDIT_LIBRARY = "/data/spade/android-lib/libspadeAndroidAudit.so";
+    private static String SPADE_ANDROID_AUDIT_LIBRARY = "/data/spade/android-lib/libspadeAndroidAudit.so";
     private static native int initAuditStream();
     private static native String readAuditStream(); 
     private static native int closeAuditStream();
     // Load library
     static {
-        System.load(SPADE_AUDIT_LIBRARY);
+    	if (ANDROID_PLATFORM)
+    		System.load(SPADE_ANDROID_AUDIT_LIBRARY);
     }
     
     @Override
