@@ -65,7 +65,6 @@ prepare-dirs:
 build/%.class : src/%.java
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build $<
 
-.SECONDARY: core android-jni-interfaces 
 core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
 	@echo "--- Built Core ---"
 clients: core $$(foreach f, $$(CLIENTS), build/spade/client/$$(f).class) 

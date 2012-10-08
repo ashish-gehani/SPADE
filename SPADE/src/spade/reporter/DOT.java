@@ -20,15 +20,9 @@
 package spade.reporter;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.InputStreamReader;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -48,7 +42,7 @@ import spade.vertex.opm.Process;
 public class DOT extends AbstractReporter {
 
     private BufferedReader eventReader;
-    protected volatile boolean shutdown = false;
+    private volatile boolean shutdown = false;
     private Map<String, AbstractVertex> vertexMap = new HashMap<String, AbstractVertex>();
     static final Logger logger = Logger.getLogger(Audit.class.getName());
     // Pattern to match nodes
@@ -62,7 +56,6 @@ public class DOT extends AbstractReporter {
             return false;
         }
         try {
-        	logger.info("Opening file '" + arguments + "' for reading");
             eventReader = new BufferedReader(new FileReader(arguments));
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -89,7 +82,7 @@ public class DOT extends AbstractReporter {
         new Thread(lineProcessor, "DOT-Thread").start();
         return true;
     }
-    
+
     @Override
     public boolean shutdown() {
         shutdown = true;
