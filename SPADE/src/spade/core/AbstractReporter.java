@@ -19,6 +19,8 @@
  */
 package spade.core;
 
+import org.apache.log4j.Logger;
+
 /**
  * This is the base class for reporters.
  *
@@ -38,7 +40,7 @@ public abstract class AbstractReporter {
      * @param buffer The buffer to be set for this reporter.
      */
     public final void setBuffer(Buffer buffer) {
-        internalBuffer = buffer;
+    	internalBuffer = buffer;
     }
 
     /**
