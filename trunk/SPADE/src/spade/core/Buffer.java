@@ -52,7 +52,7 @@ public class Buffer {
         if (incomingVertex == null) {
             return false;
         } else {
-            return queue.add(incomingVertex);
+        	return queue.add(incomingVertex);
         }
     }
 

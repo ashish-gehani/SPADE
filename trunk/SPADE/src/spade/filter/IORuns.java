@@ -20,6 +20,8 @@
 package spade.filter;
 
 import java.util.*;
+import java.util.logging.Logger;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -57,6 +59,7 @@ public class IORuns extends AbstractFilter {
         }
         if (vertexBuffer.size() > BUFFER_SIZE) {
             AbstractVertex removed = vertexBuffer.remove();
+            Logger.getLogger("IORuns").warning("*** Vertex Buffer full. Dropping! )))");
 //            if (removed instanceof Artifact) {
 //                vertexMap.remove(removed.getAnnotation(artifactKey));
 //            } else if (removed instanceof Process) {

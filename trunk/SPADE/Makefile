@@ -30,7 +30,7 @@ STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
 UTILITIES = JavaHome
 FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter 
-BUILD_DIRS = build
+BUILD_DIRS = build android-build android-build/bin android-lib
 # -------------------------------------------
 
 .PHONY: build android-build prepare-dirs 
@@ -65,18 +65,19 @@ prepare-dirs:
 build/%.class : src/%.java
 	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build $<
 
+.SECONDARY: core android-jni-interfaces 
 core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
-	print "--- Built Core ---"
+	@echo "--- Built Core ---"
 clients: core $$(foreach f, $$(CLIENTS), build/spade/client/$$(f).class) 
-	print "--- Built Clients ---"
+	@echo "--- Built Clients ---"
 reporters: core $$(foreach f,$$(REPORTERS), build/spade/reporter/$$(f).class ) 
-	print "--- Built Reporters ---"
+	@echo "--- Built Reporters ---"
 storages: core $$(foreach f,$$(STORAGES), build/spade/storage/$$(f).class )
-	print "--- Built Storages ---"
+	@echo "--- Built Storages ---"
 utilities: core $$(foreach f,$$(UTILITIES), build/spade/utility/$$(f).class )
-	print "--- Built Utilities ---"
+	@echo "--- Built Utilities ---"
 filters: core $$(foreach f,$$(FILTERS), build/spade/filter/$$(f).class )
-	print "--- Built Filters ---"
+	@echo "--- Built Filters ---"
 
 # Build the LinuxAudit reporter.
 build-linuxaudit: build/spade/reporter/Audit.class build/spade/reporter/spadeLinuxAudit 
@@ -110,10 +111,10 @@ build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBS
 	@#echo '----->            sudo chmod ug+s build/spade/reporter/spadeOpenBSM'
 	@#echo ''
 
-	
+
 
 # Build the MacFUSE reporter.
-build-macfuse: announce-MacFUSE build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
+build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers `pkg-config fuse --cflags --libs` src/spade/reporter/libMacFUSE.c -o lib/libMacFUSE.jnilib
 
@@ -162,15 +163,16 @@ clean:
 include scripts/android/devtest.mk
 
 # Build for Android
-android-build: REPORTERS = Audit Strace 
-android-build: STORAGES = Graphviz
-android-build: CLIENTS = AndroidClient AndroidShutdown
-android-build: BUILD_DIRS = build android-build android-build/bin android-lib 
+.SECONDARY += android-lib/libspadeAndroidAudit.so
+ANDROID_REPORTERS = $(addsuffix .class, Audit Strace)
+ANDROID_STORAGES = $(addsuffix .class, Graphviz)
+ANDROID_CLIENTS = $(addsuffix .class, AndroidClient AndroidShutdown)
+ANDROID_FILTERS = $(addsuffix .class, IORuns)
 android-build: prepare-dirs android-dex android-jni-interfaces 
 	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
 
 android-dex: android-build/bin/android-spade.jar
-android-build/bin/android-spade.jar: build
+android-build/bin/android-spade.jar: core $(addprefix build/spade/reporter/, $(ANDROID_REPORTERS)) $(addprefix build/spade/storage/, $(ANDROID_STORAGES)) $(addprefix build/spade/filter/, $(ANDROID_FILTERS)) $(addprefix build/spade/client/, $(ANDROID_CLIENTS))
 	@cd build; \
 	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
 
