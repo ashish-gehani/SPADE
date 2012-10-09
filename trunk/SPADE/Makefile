@@ -11,16 +11,27 @@ LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 OS_NAME = $(shell uname)
 OS_ARCH = $(shell uname -m)
 ifeq ($(OS_NAME), Darwin)
-	OS_BUILD = build-openbsm build-macfuse
+	OS_BUILD = build-openbsm 
+	NO_FUSE = $(shell pkg-config fuse; echo $$?)
+	ifeq (0, $(NO_FUSE))
+		OS_BUILD += build-macfuse
+	endif
 	OS_CONFIG_PATH = /usr/local/lib/pkgconfig
 	REPLIB_OSFLAG = -D_LLVMREPORTER_MACOSX 
 	LLVM_RULE = build-mac-llvm
 endif
 ifeq ($(OS_NAME), Linux)
-	OS_BUILD = build-linuxaudit build-linuxfuse
+	OS_BUILD = build-linuxaudit
+	NO_FUSE = $(shell pkg-config fuse; echo $$?)
+	ifeq (0, $(NO_FUSE))
+		OS_BUILD += build-linuxfuse
+	endif
 	OS_CONFIG_PATH = /usr/lib/pkgconfig
 	REPLIB_OSFLAG = -D_LLVMREPORTER_LINUX
 	LLVM_RULE = build-linux-llvm
+endif
+ifneq (, $(findstring CYGWIN, $(OS_NAME)))
+	OS_BUILD = build/classes/reporter/ProcMon.class	
 endif
 
 # -------- Default Build Configuration -----
@@ -59,7 +70,7 @@ build-java: clients utilities storages filters reporters
 .SUFFIXES : .class .java
 
 prepare-dirs: 
-	$(foreach d, $(BUILD_DIRS), mkdir -p $(d) )
+	mkdir -p $(foreach d, $(BUILD_DIRS), $(d) )
 
 
 build/%.class : src/%.java
@@ -100,16 +111,16 @@ lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 
 # Build the OpenBSM reporter.
 build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c
-	@echo '--- Building OpenBSM reporter ---'
-	gcc -o build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
-	sudo chown root build/spade/reporter/spadeOpenBSM
-	sudo chmod ug+s build/spade/reporter/spadeOpenBSM
-	@#echo ''
+	@echo '--- Built OpenBSM reporter ---'
 	@#echo '-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:'
 	@#echo '----->            sudo chown root build/spade/reporter/spadeOpenBSM'
 	@#echo '----->            sudo chmod ug+s build/spade/reporter/spadeOpenBSM'
 	@#echo ''
 
+build/spade/reporter/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
+	gcc -o  build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
+	sudo chown root build/spade/reporter/spadeOpenBSM
+	sudo chmod ug+s build/spade/reporter/spadeOpenBSM
 
 
 # Build the MacFUSE reporter.
