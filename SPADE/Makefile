@@ -44,7 +44,7 @@ FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter
 BUILD_DIRS = build android-build android-build/bin android-lib
 # -------------------------------------------
 
-.PHONY: build android-build prepare-dirs 
+.PHONY: build android-build prepare-dirs core reporters filters clients utilities storages
 
 all:	build
 
@@ -173,16 +173,16 @@ clean:
 include scripts/android/devtest.mk
 
 # Build for Android
-.SECONDARY += android-lib/libspadeAndroidAudit.so
+.SECONDARY += android-lib/libspadeAndroidAudit.so android-build/bin/android-spade.jar android-dex 
 ANDROID_REPORTERS = $(addsuffix .class, Audit Strace)
 ANDROID_STORAGES = $(addsuffix .class, Graphviz)
 ANDROID_CLIENTS = $(addsuffix .class, AndroidClient AndroidShutdown)
 ANDROID_FILTERS = $(addsuffix .class, IORuns)
-android-build: prepare-dirs android-dex android-jni-interfaces 
+android-build: | prepare-dirs core android-dex android-jni-interfaces
 	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
 
 android-dex: android-build/bin/android-spade.jar
-android-build/bin/android-spade.jar: core $(addprefix build/spade/reporter/, $(ANDROID_REPORTERS)) $(addprefix build/spade/storage/, $(ANDROID_STORAGES)) $(addprefix build/spade/filter/, $(ANDROID_FILTERS)) $(addprefix build/spade/client/, $(ANDROID_CLIENTS))
+android-build/bin/android-spade.jar: $(addprefix build/spade/reporter/, $(ANDROID_REPORTERS)) $(addprefix build/spade/storage/, $(ANDROID_STORAGES)) $(addprefix build/spade/filter/, $(ANDROID_FILTERS)) $(addprefix build/spade/client/, $(ANDROID_CLIENTS))
 	@cd build; \
 	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
 
