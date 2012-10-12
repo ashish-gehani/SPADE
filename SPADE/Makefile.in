@@ -1,11 +1,17 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2011 SRI International.
 
+JAVAC=@JAVAC@
+JAVAH=@JAVAH@
+CC=@CC@
+
 # Path to Android SDK platform tools
-ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
+ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 
-# TARGET = src/spade/reporter/nweb
+# LLVM_TARGET = src/spade/reporter/nweb
+
+
 
 # System and architecture-specific configuration
 OS_NAME = $(shell uname)
@@ -139,24 +145,24 @@ build-mac-llvm:
 	$(LLVM_PATH)/bin/clang ${CLANG_FLAGS} -g -o src/spade/reporter/llvmTracer.o -x c++ src/spade/reporter/llvmTracer.cpp
 	$(LLVM_PATH)/bin/clang ${CLANG++_FLAGS} -o lib/llvmTracer.dylib src/spade/reporter/llvmTracer.o
 	$(LLVM_PATH)/bin/clang -static ${REPLIB_OSFLAG} src/spade/reporter/llvmBridge.c -c -o src/spade/reporter/llvmBridge.o
-	$(LLVM_PATH)/bin/clang -c -emit-llvm ${TARGET}.c -o ${TARGET}.bc
-	$(LLVM_PATH)/bin/opt -load lib/llvmTracer.dylib -provenance ${TARGET}.bc -o ${TARGET}.bc
-	$(LLVM_PATH)/bin/llc ${TARGET}.bc -o ${TARGET}.s
+	$(LLVM_PATH)/bin/clang -c -emit-llvm ${TARGET}.c -o ${LLVM_TARGET}.bc
+	$(LLVM_PATH)/bin/opt -load lib/llvmTracer.dylib -provenance ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.bc
+	$(LLVM_PATH)/bin/llc ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.s
 	$(LLVM_PATH)/bin/clang src/spade/reporter/llvmClose.c -c -o src/spade/reporter/llvmClose.o
-	$(LLVM_PATH)/bin/clang ${TARGET}.s src/spade/reporter/llvmClose.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress -o ${TARGET}.dylib
-	$(LLVM_PATH)/bin/clang src/spade/reporter/llvmBridge.o ${TARGET}.dylib -o ${TARGET}
+	$(LLVM_PATH)/bin/clang ${LLVM_TARGET}.s src/spade/reporter/llvmClose.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress -o ${LLVM_TARGET}.dylib
+	$(LLVM_PATH)/bin/clang src/spade/reporter/llvmBridge.o ${LLVM_TARGET}.dylib -o ${LLVM_TARGET}
 
 build-linux-llvm:
 	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
 	g++ src/spade/reporter/llvmTracer.cpp -shared -o lib/llvmTracer.so $(CXX_FLAGS)
 	gcc -static ${REPLIB_OSFLAG} src/spade/reporter/llvmBridge.c -c -o src/spade/reporter/llvmBridge.o
-	$(LLVM_PATH)/bin/clang -c -fPIC -emit-llvm ${TARGET}.c -o ${TARGET}.bc
-	$(LLVM_PATH)/bin/opt -load lib/llvmTracer.so -provenance ${TARGET}.bc -o ${TARGET}.bc
-	$(LLVM_PATH)/bin/llc -relocation-model=pic ${TARGET}.bc -o ${TARGET}.s
+	$(LLVM_PATH)/bin/clang -c -fPIC -emit-llvm ${LLVM_TARGET}.c -o ${LLVM_TARGET}.bc
+	$(LLVM_PATH)/bin/opt -load lib/llvmTracer.so -provenance ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.bc
+	$(LLVM_PATH)/bin/llc -relocation-model=pic ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.s
 	gcc -fPIC src/spade/reporter/llvmClose.c -c -o src/spade/reporter/llvmClose.o
-	gcc ${TARGET}.s -c -o ${TARGET}.o
-	gcc ${TARGET}.o src/spade/reporter/llvmClose.o -shared -o ${TARGET}.so
-	gcc ${TARGET}.so src/spade/reporter/llvmBridge.o -o ${TARGET}
+	gcc ${LLVM_TARGET}.s -c -o ${LLVM_TARGET}.o
+	gcc ${LLVM_TARGET}.o src/spade/reporter/llvmClose.o -shared -o ${LLVM_TARGET}.so
+	gcc ${LLVM_TARGET}.so src/spade/reporter/llvmBridge.o -o ${LLVM_TARGET}
 
 
 # ---------- Removing files ----------
@@ -189,8 +195,9 @@ android-build/bin/android-spade.jar: $(addprefix build/spade/reporter/, $(ANDROI
 android-jni-interfaces: android-lib/libspadeAndroidAudit.so
 android-lib/libspadeAndroidAudit.so: src/spade/reporter/jni/spade_reporter_Audit.h src/spade/reporter/jni/spadeAndroidAudit.c src/spade/reporter/jni/Android.mk 
 	ndk-build NDK_PROJECT_PATH=src/spade/reporter/
-	mv src/spade/reporter/libs/armeabi/libspadeAndroidAudit.so android-lib/		
-src/spade/reporter/jni/spade_reporter_Audit.h: src/spade/reporter/Audit.java
+	mv src/spade/reporter/libs/armeabi/libspadeAndroidAudit.so android-lib/
+	ndk-build NDK_PROJECT_PATH=src/spade/reporter/ clean
+src/spade/reporter/jni/spade_reporter_Audit.h: android-build/bin/android-spade.jar src/spade/reporter/Audit.java
 	javah -jni -d src/spade/reporter/jni -classpath "build" spade.reporter.Audit
 
 
