@@ -1298,25 +1298,29 @@ class LocalControlConnection implements Runnable {
 
             BufferedReader controlInputStream = new BufferedReader(new InputStreamReader(inStream));
             PrintStream controlOutputStream = new PrintStream(outStream);
-            while (!Kernel.shutdown) {
-                // Commands read from the input stream and executed.
-                if (controlInputStream.ready()) {
+            try {
+	            while (!Kernel.shutdown) {
+	                // Commands read from the input stream and executed.
                     String line = controlInputStream.readLine();
-                    if (line.equalsIgnoreCase("exit")) {
+                    if (line == null || line.equalsIgnoreCase("exit")) {
                         break;
                     }
                     Kernel.executeCommand(line, controlOutputStream);
                     // An empty line is printed to let the client know that the
                     // command output is complete.
                     controlOutputStream.println("");
-                }
+	            }
+            } catch (IOException e) {
+            	// Connection broken?
+            } finally {	
+	            controlInputStream.close();
+	            controlOutputStream.close();
+	
+	            inStream.close();
+	            outStream.close();
+	            if (controlSocket.isConnected())
+	            	controlSocket.close();
             }
-            controlInputStream.close();
-            controlOutputStream.close();
-
-            inStream.close();
-            outStream.close();
-            controlSocket.close();
         } catch (Exception ex) {
             Logger.getLogger(LocalControlConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
