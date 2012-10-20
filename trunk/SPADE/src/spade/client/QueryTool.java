@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import spade.core.Kernel;
+import spade.core.AuthSSLSocketFactory;
 
 public class QueryTool {
 
@@ -37,9 +38,10 @@ public class QueryTool {
         outputStream = System.out;
 
         try {
-            SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
             Socket remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             SPADEQueryOut = new BufferedReader(new InputStreamReader(inStream));

@@ -64,9 +64,10 @@ public class ConcreteSketchUncached extends AbstractSketch {
                 logger.log(Level.INFO, "concreteSketch - Attempting to receive sketches from {0}", remoteHost);
                 ////////////////////////////////////////////////////////////
 
-                SocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+                InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
                 Socket remoteSocket = new Socket();
                 remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+                remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
                 OutputStream outStream = remoteSocket.getOutputStream();
                 InputStream inStream = remoteSocket.getInputStream();
                 ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);

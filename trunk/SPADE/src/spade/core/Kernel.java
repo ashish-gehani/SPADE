@@ -73,7 +73,8 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static final String configFile = "../../cfg/spade.config";
+    public static String[] configFileLookupPaths = new String[] { System.getProperty("user.home") + "/.spade.config", "../../cfg/spade.config", "/etc/spade/spade.config" };
+    public static String configFile = null;
     /**
      * Path to configuration file for port numbers.
      */
@@ -81,7 +82,9 @@ public class Kernel {
     /**
      * Path to log files including the prefix.
      */
-    public static final String logPathAndPrefix = "../../log/SPADE_";
+    public static final String[] logPathLookups = new String[] {System.getProperty("user.home") + "/log/", "../../log/", "/var/log", };
+    public static final String logPathPrefix = "SPADE_";
+    public static String logPathAndPrefix;
     /**
      * Date/time suffix pattern for log files.
      */
@@ -143,7 +146,17 @@ public class Kernel {
     private static final String QUERY_PATHS_STRING = "query <class name> paths <source vertex id> <destination vertex id> <max length>";
     private static final String QUERY_REMOTEPATHS_STRING = "query <class name> remotepaths <source host:vertex id> <destination host:vertex id> <max length>";
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
-
+    /*
+     * Utility function for checking if file is writable
+     * 
+     * @param absolute or relaitve path to the fiel
+     * @return True is file exists and is writable to current user/process, else false 
+     */
+    private static Boolean checkIsWritable(String path) {
+    	File f = new File(path);
+    	return f.exists() && f.canWrite();
+    }
+    
     /**
      * The main initialization function.
      *
@@ -151,6 +164,52 @@ public class Kernel {
      */
     public static void main(String args[]) {
 
+    	// Initialize configFile to use
+    	for (String f : configFileLookupPaths) {
+    		if (checkIsWritable(f)) {
+	    		configFile = f;
+	    		break;
+    		}
+    	}
+    	if (configFile == null)	{
+    		configFile = configFileLookupPaths[0];
+    		System.out.println("Config file does not exist. Creating now in home directory");
+    		File fileConfigFile = new File(configFile);
+    		if (!fileConfigFile.exists())
+    		{
+    			try {
+    				fileConfigFile.createNewFile();
+    			} catch (IOException e) {
+    				System.err.println("Cannot create writable config file: " + configFile);
+    				e.printStackTrace();
+    				return;
+    			}
+    		}
+    		if (!fileConfigFile.canWrite()) {
+    			System.err.println("Cannot create writable config file: " + configFile);
+    			return;
+    		}
+    	}
+    	System.out.println("Using configfile: " + configFile);
+    	
+    	// Set logging directory
+    	for (String l : logPathLookups) {
+    		if (checkIsWritable(l)) {
+	    		logPathAndPrefix = l + logPathPrefix;
+	    		break;
+    		}
+    	}
+    	if (logPathAndPrefix == null)	{
+    		String logPathStr = logPathLookups[0];
+    		System.out.println("Logging directory does not exist. Creating now in home directory");
+    		File logPath = new File(logPathStr);
+    		if ( ! ( logPath.exists() || logPath.mkdirs() )) {
+    			System.err.println("Cannot create writable log directory" + logPathStr);
+    		}
+    		logPathAndPrefix = logPathStr + logPathPrefix;
+    	}
+    	System.out.println("Using log path: " + logPathAndPrefix);
+    	
         checkPorts();
 
         try {

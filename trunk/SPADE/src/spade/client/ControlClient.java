@@ -27,6 +27,7 @@ import java.util.LinkedList;
 import java.util.List;
 import jline.*;
 import spade.core.Kernel;
+import spade.core.AuthSSLSocketFactory;
 
 public class ControlClient {
 
@@ -35,7 +36,7 @@ public class ControlClient {
     private static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
     private static volatile boolean shutdown;
-    private static final String historyFile = "../cfg/control.history";
+    private static final String historyFile = "/tmp/control.history"; // TODO: Dawood, this needs to be configurable
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
 
@@ -50,9 +51,10 @@ public class ControlClient {
 
             public void run() {
                 try {
-                    SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
+                    InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
                     Socket remoteSocket = new Socket();
                     remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+                    remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
                     OutputStream outStream = remoteSocket.getOutputStream();
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));

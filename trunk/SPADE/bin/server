@@ -30,8 +30,9 @@ WRAPPER_CONF="../cfg/wrapper.conf"
 #  nice is only used if a priority is specified.
 PRIORITY=
 
-# Location of the pid file.
-PIDDIR="."
+# PIDDIR is set by the script based on writable location it finds
+PIDDIR= 
+
 
 # FIXED_COMMAND tells the script to use a hard coded action rather than
 # expecting the first parameter of the command line to be the command.
@@ -176,14 +177,21 @@ REALDIR=`dirname "$REALPATH"`
 # Normalize the path
 REALDIR=`cd "${REALDIR}"; pwd`
 
-# If the PIDDIR is relative, set its value relative to the full REALPATH to avoid problems if
-#  the working directory is later changed.
-FIRST_CHAR=`echo $PIDDIR | cut -c1,1`
-if [ "$FIRST_CHAR" != "/" ]
-then
-    PIDDIR=$REALDIR/$PIDDIR
+# Set PIDDIR
+if [ -w "/var/run" ]; then
+    PIDDIR="/var/run"
+elif [ -w $REALDIR ]; then
+    PIDDIR=$REALDIR
+elif [ -w "$HOME" ]; then
+    PIDDIR="$HOME"
+else
+    eval echo "Couldn't find a writable directory to place PID file"
+    exit 1
 fi
-# Same test for WRAPPER_CMD
+
+
+# If the WRAPPER_CMD is relative, set its value relative to the full REALPATH to avoid problems if
+#  the working directory is later changed.
 FIRST_CHAR=`echo $WRAPPER_CMD | cut -c1,1`
 if [ "$FIRST_CHAR" != "/" ]
 then

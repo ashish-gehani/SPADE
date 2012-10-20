@@ -32,6 +32,7 @@ public class RemoteRegistry {
         ServerSocket serverSocket = null;
         try {
             serverSocket = new ServerSocket(4444);
+            // TODO: Move it over SSL
         } catch (Exception exception) {
             System.out.println("Could not listen on port: 4444");
             System.exit(-1);

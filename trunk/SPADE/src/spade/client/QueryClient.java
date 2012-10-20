@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 import jline.ConsoleReader;
 import spade.core.Graph;
 import spade.core.Kernel;
+import spade.core.AuthSSLSocketFactory;
 
 public class QueryClient {
 
@@ -47,9 +48,11 @@ public class QueryClient {
         graphObjects = new HashMap<String, Graph>();
 
         try {
-            SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
             Socket remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            		
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             SPADEQueryOut = new ObjectInputStream(inStream);
