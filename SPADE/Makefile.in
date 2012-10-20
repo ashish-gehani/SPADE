@@ -41,7 +41,9 @@ ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 endif
 
 # -------- Default Build Configuration -----
-CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex BloomFilter Buffer Edge Graph Kernel MatrixFilter Query RemoteRegistry Vertex
+CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex \
+	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query RemoteRegistry Vertex \
+	AuthSSLSocketFactory AuthSSLServerSocket
 REPORTERS = DOT DSL Network
 STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
@@ -231,10 +233,21 @@ android-kernel-ddms:
 android-shutdown:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.client.AndroidShutdown"
 
+DESTDIR = @prefix@/spade/
+BINDIR = @bindir@
 install:
-	cp -R build $(DESTDIR)/
-	cp -R bin $(DESTDIR)/
-	cp -R lib $(DESTDIR)/
-	cp -R cfg $(DESTDIR)/
-	cp -R log $(DESTDIR)/
+	test -d $(DESTDIR) || mkdir $(DESTDIR) 
+	cp -R build $(DESTDIR)
+	cp -R bin $(DESTDIR)
+	cp -R lib $(DESTDIR)
+	cp -R cfg $(DESTDIR)
+	cp -R log $(DESTDIR)
+	if [ -e $(BINDIR)/spade-control ]; then unlink $(BINDIR)/spade-control; fi
+	if [ -e $(BINDIR)/spade-server ]; then unlink $(BINDIR)/spade-server; fi
+	ln -s $(DESTDIR)/bin/server $(BINDIR)/spade-server
+	ln -s $(DESTDIR)/bin/control $(BINDIR)/spade-control
 
+uninstall:
+	if [ -e $(BINDIR)/spade-control ]; then unlink $(BINDIR)/spade-control; fi
+	if [ -e $(BINDIR)/spade-server ]; then unlink $(BINDIR)/spade-server; fi
+	test -d $(DESTDIR) && rm -r $(DESTDIR)

@@ -23,6 +23,8 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+
+import spade.core.AuthSSLSocketFactory;
 import spade.core.Kernel;
 
 /**
@@ -79,9 +81,10 @@ public class AndroidClient {
         };
 
         try {
-            SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
             Socket remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));

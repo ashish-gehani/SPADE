@@ -25,7 +25,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import spade.core.Kernel;
-
+import spade.core.AuthSSLSocketFactory;
 /**
  *
  * @author dawood
@@ -35,9 +35,10 @@ public class AndroidShutdown {
     public static void main(String args[]) {
 
         try {
-            SocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
             Socket remoteSocket = new Socket();
             remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
+            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
             OutputStream outStream = remoteSocket.getOutputStream();
             PrintStream SPADEControlIn = new PrintStream(outStream);
             SPADEControlIn.println("shutdown");
