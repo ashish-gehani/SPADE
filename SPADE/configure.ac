@@ -29,7 +29,12 @@ if test "$JAVAH" = :; then
    AC_MSG_ERROR([This package needs javah installed and available in your path])
 fi
 
-AC_PATH_PROG(ANDROID_SDK_TOOLS, adb )
+AC_ARG_VAR(ANDROID_SDK_TOOLS)
+AC_PATH_PROG(ADB_PATH, "adb" )
+if test "$ADB_PATH" != :; then
+   ANDROID_SDK_TOOLS=`dirname $ADB_PATH`
+fi
+AC_SUBST([ANDROID_SDK_TOOLS])
 
 DUSER=spade
 AC_SUBST([DUSER])
