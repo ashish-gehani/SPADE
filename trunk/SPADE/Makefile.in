@@ -236,17 +236,17 @@ android-shutdown:
 DESTDIR = @prefix@/spade/
 BINDIR = @bindir@
 install:
-		test -d $(DESTDIR) || mkdir $(DESTDIR) 
-		cp -R build $(DESTDIR)
-		cp -R bin $(DESTDIR)
-		cp -R lib $(DESTDIR)
-		cp -R cfg $(DESTDIR)
-		cp -R log $(DESTDIR)
-		if [ -e $(BINDIR)/spadectl ]; then unlink $(BINDIR)/spadectl; fi
-		if [ -e $(BINDIR)/spaded ]; then unlink $(BINDIR)/spaded; fi
-		if [ -e $(BINDIR)/spadeq ]; then unlink $(BINDIR)/spadeq; fi
-		ln -s $(DESTDIR)/bin/spaded $(BINDIR)/spaded
-		ln -s $(DESTDIR)/bin/spadectl $(BINDIR)/spadectl
-		ln -s $(DESTDIR)/bin/spadeq $(BINDIR)/spadeq
+	test -d $(DESTDIR) || mkdir $(DESTDIR) 
+	cp -R build $(DESTDIR)
+	cp -R bin $(DESTDIR)
+	cp -R lib $(DESTDIR)
+	cp -R cfg $(DESTDIR)
+	cp -R log $(DESTDIR)
+	if [ -e $(BINDIR)/spadectl ]; then unlink $(BINDIR)/spadectl; fi
+	if [ -e $(BINDIR)/spaded ]; then unlink $(BINDIR)/spaded; fi
+	if [ -e $(BINDIR)/spadeq ]; then unlink $(BINDIR)/spadeq; fi
+	ln -s $(DESTDIR)/bin/spaded $(BINDIR)/spaded
+	ln -s $(DESTDIR)/bin/spadectl $(BINDIR)/spadectl
+	ln -s $(DESTDIR)/bin/spadeq $(BINDIR)/spadeq
 
 uninstall:
