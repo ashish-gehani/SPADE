@@ -244,7 +244,9 @@ install:
 		cp -R log $(DESTDIR)
 		if [ -e $(BINDIR)/spadectl ]; then unlink $(BINDIR)/spadectl; fi
 		if [ -e $(BINDIR)/spaded ]; then unlink $(BINDIR)/spaded; fi
+		if [ -e $(BINDIR)/spadeq ]; then unlink $(BINDIR)/spadeq; fi
 		ln -s $(DESTDIR)/bin/spaded $(BINDIR)/spaded
 		ln -s $(DESTDIR)/bin/spadectl $(BINDIR)/spadectl
+		ln -s $(DESTDIR)/bin/spadeq $(BINDIR)/spadeq
 
 uninstall:
