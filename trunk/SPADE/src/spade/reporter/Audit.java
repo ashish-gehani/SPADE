@@ -108,6 +108,8 @@ public class Audit extends AbstractReporter {
     private static native int closeAuditStream();
     // Load library
     static {
+    	ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
+
     	if (ANDROID_PLATFORM)
     		System.load(SPADE_ANDROID_AUDIT_LIBRARY);
     }
@@ -115,7 +117,6 @@ public class Audit extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
     	
-    	ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
     	
         if (ANDROID_PLATFORM) {
             AUDIT_EXEC_PATH = "spade-audit";
@@ -254,7 +255,8 @@ public class Audit extends AbstractReporter {
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
                     } finally {
-                    	closeAuditStream();
+                    	if(ANDROID_PLATFORM)
+                    		closeAuditStream();
                     }
                     
                 }

@@ -82,7 +82,7 @@ prepare-dirs:
 
 
 build/%.class : src/%.java
-	javac -proc:none -cp 'build:lib/*' -sourcepath src -d build $<
+	$(JAVAC) -proc:none -cp 'build:lib/*' -sourcepath src -d build $<
 
 core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
 	@echo "--- Built Core ---"
