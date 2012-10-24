@@ -19,7 +19,6 @@
  */
 package spade.storage;
 
-import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,12 +32,8 @@ import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
-import org.neo4j.helpers.collection.MapUtil;
-import org.neo4j.kernel.AbstractGraphDatabase;
-import static org.neo4j.kernel.Config.ALLOW_STORE_UPGRADE;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.Traversal;
-import org.neo4j.server.WrappingNeoServerBootstrapper;
 import spade.core.*;
 
 /**
@@ -49,34 +44,22 @@ import spade.core.*;
 public class Neo4j extends AbstractStorage {
 
     // Number of transactions to buffer before committing to database
-    private final int TRANSACTION_LIMIT = 50;
+    private final int TRANSACTION_LIMIT = 10000;
     // Number of transaction flushes before the database is shutdown and
     // restarted
-    private final int HARD_FLUSH_LIMIT = 10000;
+    private final int HARD_FLUSH_LIMIT = 10;
     // Identifying annotation to add to each edge/vertex
     private final String ID_STRING = Query.STORAGE_ID_STRING;
+    private final String VERTEX_INDEX = "vertexIndex";
+    private final String EDGE_INDEX = "edgeIndex";
     private GraphDatabaseService graphDb;
-    private WrappingNeoServerBootstrapper webServer;
     private IndexManager index;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
     private Transaction transaction;
     private int transactionCount;
     private int flushCount;
-    private Map<Integer, Long> vertexMap;
-    private Set<Integer> edgeSet;
-    private final String BENCHMARK_DUMP = "benchmark.txt";
-    private final boolean BENCHMARK = false;
-    private FileWriter BENCHMARK_WRITER;
-    private long processCount = 0;
-    private long artifactCount = 0;
-    private long agentCount = 0;
-    private long usedCount = 0;
-    private long wgbCount = 0;
-    private long wtbCount = 0;
-    private long wdfCount = 0;
-    private long wcbCount = 0;
-    private volatile boolean shutdown = false;
+    private Map<AbstractVertex, Long> vertexMap;
 
     private enum MyRelationshipTypes implements RelationshipType {
 
@@ -91,55 +74,16 @@ public class Neo4j extends AbstractStorage {
             }
             // Create new database given the path as argument. Upgrade the database
             // if it already exists and is an older version
-            graphDb = new EmbeddedGraphDatabase(arguments, MapUtil.stringMap(ALLOW_STORE_UPGRADE, "true"));
-            // Initialize the web server for the embedded database
-            webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
+            graphDb = new EmbeddedGraphDatabase(arguments);
             index = graphDb.index();
             transactionCount = 0;
             flushCount = 0;
             // Create vertex index
-            vertexIndex = index.forNodes("vertexIndex");
+            vertexIndex = index.forNodes(VERTEX_INDEX);
             // Create edge index
-            edgeIndex = index.forRelationships("edgeIndex");
-            // Create HashMap and HashSet to cache incoming edges/vertices
-            vertexMap = new HashMap<Integer, Long>();
-            edgeSet = new HashSet<Integer>();
-            // Start the web server, default port is 7474
-            webServer.start();
-
-            if (BENCHMARK) {
-                BENCHMARK_WRITER = new FileWriter(BENCHMARK_DUMP, false);
-                BENCHMARK_WRITER.write("time, process, artifact, agent, used, wgb, wtb, wdf, wcb\n");
-                Runnable mainRunnable = new Runnable() {
-
-                    public void run() {
-                        while (!shutdown) {
-                            String stats = System.currentTimeMillis() + ", "
-                                    + processCount + ", "
-                                    + artifactCount + ", "
-                                    + agentCount + ", "
-                                    + usedCount + ", "
-                                    + wgbCount + ", "
-                                    + wtbCount + ", "
-                                    + wdfCount + ", "
-                                    + wcbCount + "\n";
-                            try {
-                                BENCHMARK_WRITER.write(stats);
-                                BENCHMARK_WRITER.flush();
-                                Thread.sleep(1000);
-                            } catch (Exception e) {
-                            }
-                        }
-                        try {
-                            BENCHMARK_WRITER.close();
-                        } catch (Exception e) {
-                        }
-                    }
-                };
-                Thread benchThread = new Thread(mainRunnable, "Neo4j-BENCH-Thread");
-                benchThread.start();
-
-            }
+            edgeIndex = index.forRelationships(EDGE_INDEX);
+            // Create HashMap to store IDs of incoming vertices
+            vertexMap = new HashMap<AbstractVertex, Long>();
 
             return true;
         } catch (Exception exception) {
@@ -163,12 +107,10 @@ public class Neo4j extends AbstractStorage {
             flushCount++;
             // If hard flush limit is reached, restart the database
             if (flushCount == HARD_FLUSH_LIMIT) {
-//                webServer.stop();
                 graphDb.shutdown();
                 graphDb = new EmbeddedGraphDatabase(arguments);
-//                webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
-                vertexIndex = index.forNodes("vertexIndex");
-                edgeIndex = index.forRelationships("edgeIndex");
+                vertexIndex = index.forNodes(VERTEX_INDEX);
+                edgeIndex = index.forRelationships(EDGE_INDEX);
                 flushCount = 0;
             }
         }
@@ -193,17 +135,12 @@ public class Neo4j extends AbstractStorage {
             transaction.success();
             transaction.finish();
         }
-        webServer.stop();
         graphDb.shutdown();
-        shutdown = true;
         return true;
     }
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-        if (vertexMap.containsKey(incomingVertex.hashCode())) {
-            return false;
-        }
         if (transactionCount == 0) {
             transaction = graphDb.beginTx();
         }
@@ -219,20 +156,8 @@ public class Neo4j extends AbstractStorage {
         }
         newVertex.setProperty(ID_STRING, newVertex.getId());
         vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-        vertexMap.put(incomingVertex.hashCode(), newVertex.getId());
+        vertexMap.put(incomingVertex, newVertex.getId());
         checkTransactionCount();
-
-        // BEGIN BENCHMARKING CODE
-        if (BENCHMARK) {
-            if (incomingVertex.type().equalsIgnoreCase("Process")) {
-                processCount++;
-            } else if (incomingVertex.type().equalsIgnoreCase("Artifact")) {
-                artifactCount++;
-            } else if (incomingVertex.type().equalsIgnoreCase("Agent")) {
-                agentCount++;
-            }
-        }
-        // END BENCHMARKING CODE
 
         return true;
     }
@@ -241,16 +166,14 @@ public class Neo4j extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         AbstractVertex srcVertex = incomingEdge.getSourceVertex();
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-        if (!vertexMap.containsKey(srcVertex.hashCode())
-                || !vertexMap.containsKey(dstVertex.hashCode())
-                || !edgeSet.add(incomingEdge.hashCode())) {
+        if (!vertexMap.containsKey(srcVertex) || !vertexMap.containsKey(dstVertex)) {
             return false;
         }
         if (transactionCount == 0) {
             transaction = graphDb.beginTx();
         }
-        Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.hashCode()));
-        Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.hashCode()));
+        Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex));
+        Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex));
 
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
         for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
@@ -265,22 +188,6 @@ public class Neo4j extends AbstractStorage {
         newEdge.setProperty(ID_STRING, newEdge.getId());
         edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
         checkTransactionCount();
-
-        // BEGIN BENCHMARKING CODE
-        if (BENCHMARK) {
-            if (incomingEdge.type().equalsIgnoreCase("Used")) {
-                usedCount++;
-            } else if (incomingEdge.type().equalsIgnoreCase("WasTriggeredBy")) {
-                wtbCount++;
-            } else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")) {
-                wgbCount++;
-            } else if (incomingEdge.type().equalsIgnoreCase("WasControlledBy")) {
-                wcbCount++;
-            } else if (incomingEdge.type().equalsIgnoreCase("WasDerivedFrom")) {
-                wdfCount++;
-            }
-        }
-        // END BENCHMARKING CODE
 
         return true;
     }
@@ -470,7 +377,7 @@ public class Neo4j extends AbstractStorage {
                     // Add network artifacts to the network map of the graph. This is needed
                     // to resolve remote queries
                     try {
-                        if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("Network")) {
+                        if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("network")) {
                             resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
                         }
                     } catch (Exception exception) {
