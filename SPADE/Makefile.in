@@ -232,7 +232,6 @@ android-shutdown:
 DESTDIR = @prefix@/spade/
 install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR) 
-	cp -R build $(DESTDIR)
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
