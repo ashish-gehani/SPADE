@@ -48,13 +48,13 @@ import spade.core.AbstractVertex;
  *
  * @author Dawood Tariq
  */
-public class GephiStream extends AbstractStorage {
+public class Gephi extends AbstractStorage {
 
     private GraphModel graphModel;
     private DirectedGraph graph;
     private Map<AbstractVertex, Node> vertexMap;
     private final long COMMIT_DELAY = 120;
-    static final Logger logger = Logger.getLogger(GephiStream.class.getName());
+    static final Logger logger = Logger.getLogger(Gephi.class.getName());
 
     @Override
     public boolean initialize(String arguments) {

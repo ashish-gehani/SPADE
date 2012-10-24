@@ -131,7 +131,7 @@ public class Strace extends AbstractReporter {
                     try {
                         String straceCmdLine = "strace -e fork,read,write,open,close,link,unlink,execve,mknod,rename,dup,pipe,dup2,symlink,truncate,ftruncate,";
                         straceCmdLine += "socketcall,clone,vfork,setreuid32,setresuid32,setuid32,chmod,fchmod,";
-                        straceCmdLine += "ioctl,pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,socket,connect,accept,chmod,fchmod";
+                        straceCmdLine += "ioctl,pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,socket,connect,accept";
                         straceCmdLine += " -f -tt -s 200 -p " + mainPID + " -o tmp.txt";
 
                         java.lang.Process straceProcess = Runtime.getRuntime().exec(straceCmdLine);

@@ -39,7 +39,7 @@ import spade.vertex.opm.Process;
  *
  * @author Dawood Tariq
  */
-public class DOT extends AbstractReporter {
+public class Graphviz extends AbstractReporter {
 
     private BufferedReader eventReader;
     private volatile boolean shutdown = false;
@@ -79,7 +79,7 @@ public class DOT extends AbstractReporter {
                 }
             }
         };
-        new Thread(lineProcessor, "DOT-Thread").start();
+        new Thread(lineProcessor, "Graphviz-Thread").start();
         return true;
     }
 
