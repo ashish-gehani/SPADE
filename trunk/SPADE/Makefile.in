@@ -4,6 +4,7 @@
 JAVAC=@JAVAC@
 JAVAH=@JAVAH@
 CC=@CC@
+JAR=@JAR@
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
@@ -92,7 +93,7 @@ utilities: core $$(foreach f,$$(UTILITIES), build/spade/utility/$$(f).class )
 	@echo "--- Built Utilities ---"
 filters: core $$(foreach f,$$(FILTERS), build/spade/filter/$$(f).class )
 	@echo "--- Built Filters ---"
-	
+
 lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
 

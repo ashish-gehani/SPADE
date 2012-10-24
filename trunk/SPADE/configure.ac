@@ -29,6 +29,12 @@ if test "$JAVAH" = :; then
    AC_MSG_ERROR([This package needs javah installed and available in your path])
 fi
 
+AC_CHECK_PROGS([JAR], [jar], [:])
+if test "$JAR" = :; then
+   AC_MSG_ERROR([This package needs jar utility installed and available in your path])
+fi
+
+
 AC_ARG_VAR(ANDROID_SDK_TOOLS)
 AC_PATH_PROG(ADB_PATH, "adb" )
 if test "$ADB_PATH" != :; then

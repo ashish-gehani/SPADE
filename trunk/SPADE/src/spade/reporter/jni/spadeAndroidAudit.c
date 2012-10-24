@@ -24,6 +24,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <linux/socket.h>
+#include <sys/errno.h>
 #include <sys/un.h>
 #include <assert.h>
 
@@ -90,9 +91,10 @@ JNIEXPORT jint JNICALL Java_spade_reporter_Audit_initAuditStream (JNIEnv *env, j
  * Class:     spade_reporter_Audit
  * Method:    readAuditStream
  * Signature: ()Ljava/lang/String;
- * Makes a blocking call to read audit stream from socket
+ * Returns audit logs line by line. If no data is available, it'll make a blocking call and wait for data to arrive
  */
 JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * env, jclass j_class) {
+
   int rc;
   assert( sd != -1 ); // Socket already closed ?
 
@@ -102,15 +104,25 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
       jstring ret;
 
       // Return next line from read buffer
-      while(i < end && buffer[i] != '\n' && buffer[i] != '\0') i++;
-      buffer[i] = '\0';
-      ret = (*env)->NewStringUTF(env,&buffer[start]);
-      start = i + 1;
-      return ret;
+      while(buffer[start] == '\n' && start < end) start++; // skip empty lines
+      while(i < end && buffer[i] != '\n') i++;
+      if (i != end) 
+	{
+	  buffer[i] = '\0';
+	  ret = (*env)->NewStringUTF(env,&buffer[start]);
+	  start = i + 1;
+	  return ret;
+	}
+      else
+	{
+	  memmove(buffer, buffer + end, end - start);
+	  end = end - start;
+	  start = 0;
+	}
     }
   else 
     {
-      // buffer consumed, reset and receive from socket
+      // buffer consumed, reset pointers
       start = end = 0;
     }
 
@@ -119,7 +131,7 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
   if (rc < 0) {
     Java_spade_reporter_Audit_closeAuditStream(env, j_class);
     // Server closed the connection
-    LOGD("Error while receiving audit stream. Closing connection");
+    LOGD("Error while receiving audit stream. Closing connection. ret: %d, errno: %d, buffer-start: %d, buffer-end: %d", rc, errno, start, end);
     return NULL;
   }
   else if (rc == 0) {
@@ -128,11 +140,8 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
     return NULL;
   }
   end += rc;
-  buffer[end] = '\0';
-  LOGD(buffer);
 
   return Java_spade_reporter_Audit_readAuditStream(env, j_class);
-
 }
 
 /*
