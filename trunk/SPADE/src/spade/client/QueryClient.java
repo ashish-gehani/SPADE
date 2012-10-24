@@ -94,9 +94,6 @@ public class QueryClient {
                         }
                         System.out.println("-------------------------------------------------");
                         System.out.println();
-                    } else if (line.startsWith("info")) {
-                        String[] tokens = line.split("\\s+");
-                        graphObjects.get(tokens[1]).showDetails();
                     } else if (line.startsWith("export")) {
                         String[] tokens = line.split("\\s+");
                         graphObjects.get(tokens[1]).exportDOT(tokens[2]);
