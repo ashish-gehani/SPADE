@@ -9,9 +9,7 @@ CC=@CC@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 
-# LLVM_TARGET = src/spade/reporter/nweb
-
-
+# LLVM_TARGET = nweb
 
 # System and architecture-specific configuration
 OS_NAME = $(shell uname)
@@ -71,15 +69,13 @@ help:
 .SECONDEXPANSION:
 
 build: | prepare-dirs 
-build: build-java $$(OS_BUILD)
-
+build: build-java $$(OS_BUILD) lib/spade.jar
 build-java: clients utilities storages filters reporters
 
 .SUFFIXES : .class .java
 
 prepare-dirs: 
 	mkdir -p $(foreach d, $(BUILD_DIRS), $(d) )
-
 
 build/%.class : src/%.java
 	$(JAVAC) -proc:none -cp 'build:lib/*' -sourcepath src -d build $<
@@ -96,6 +92,9 @@ utilities: core $$(foreach f,$$(UTILITIES), build/spade/utility/$$(f).class )
 	@echo "--- Built Utilities ---"
 filters: core $$(foreach f,$$(FILTERS), build/spade/filter/$$(f).class )
 	@echo "--- Built Filters ---"
+	
+lib/spade.jar: build-java $$(OS_BUILD)
+	$(JAR) cvf lib/spade.jar -C build .
 
 # Build the LinuxAudit reporter.
 build-linuxaudit: build/spade/reporter/Audit.class build/spade/reporter/spadeLinuxAudit 
@@ -166,9 +165,7 @@ build-linux-llvm:
 	gcc ${LLVM_TARGET}.o src/spade/reporter/llvmClose.o -shared -o ${LLVM_TARGET}.so
 	gcc ${LLVM_TARGET}.so src/spade/reporter/llvmBridge.o -o ${LLVM_TARGET}
 
-
 # ---------- Removing files ----------
-
 # Remove Java classes and native libraries, executables that we compiled.
 
 clean:
@@ -202,7 +199,6 @@ android-lib/libspadeAndroidAudit.so: src/spade/reporter/jni/spade_reporter_Audit
 src/spade/reporter/jni/spade_reporter_Audit.h: android-build/bin/android-spade.jar src/spade/reporter/Audit.java
 	javah -jni -d src/spade/reporter/jni -classpath "build" spade.reporter.Audit
 
-
 # Deploy to Android
 android-deploy: android-build
 	$(ANDROID_SDK_TOOLS)/adb shell start
@@ -220,7 +216,6 @@ android-deploy: android-build
 	$(ANDROID_SDK_TOOLS)/adb push android-lib /data/spade/android-lib
 	$(ANDROID_SDK_TOOLS)/adb shell chmod 775 /data/spade/android-lib/*
 
-
 # Launch Android kernel
 android-kernel:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.core.Kernel"
@@ -234,7 +229,6 @@ android-shutdown:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.client.AndroidShutdown"
 
 DESTDIR = @prefix@/spade/
-BINDIR = @bindir@
 install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR) 
 	cp -R build $(DESTDIR)
@@ -242,11 +236,5 @@ install:
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
 	cp -R log $(DESTDIR)
-	if [ -e $(BINDIR)/spadectl ]; then unlink $(BINDIR)/spadectl; fi
-	if [ -e $(BINDIR)/spaded ]; then unlink $(BINDIR)/spaded; fi
-	if [ -e $(BINDIR)/spadeq ]; then unlink $(BINDIR)/spadeq; fi
-	ln -s $(DESTDIR)/bin/spaded $(BINDIR)/spaded
-	ln -s $(DESTDIR)/bin/spadectl $(BINDIR)/spadectl
-	ln -s $(DESTDIR)/bin/spadeq $(BINDIR)/spadeq
 
 uninstall:
