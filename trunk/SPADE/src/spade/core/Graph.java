@@ -19,7 +19,6 @@
  */
 package spade.core;
 
-import java.io.FileWriter;
 import java.io.Serializable;
 import java.util.*;
 import java.util.logging.Level;
@@ -37,17 +36,6 @@ import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
-import org.gephi.data.attributes.api.AttributeColumn;
-import org.gephi.data.attributes.api.AttributeController;
-import org.gephi.data.attributes.api.AttributeModel;
-import org.gephi.graph.api.DirectedGraph;
-import org.gephi.graph.api.GraphController;
-import org.gephi.graph.api.GraphModel;
-import org.gephi.graph.api.Node;
-import org.gephi.project.api.ProjectController;
-import org.gephi.statistics.plugin.*;
-import org.gephi.statistics.spi.Statistics;
-import org.openide.util.Lookup;
 
 /**
  * This class is used to represent query responses using sets for edges and
@@ -68,9 +56,6 @@ public class Graph extends AbstractStorage implements Serializable {
     private Set<AbstractEdge> edgeSet;
     private Map<Integer, AbstractEdge> edgeHashes;
     private Map<AbstractVertex, Integer> networkMap;
-    /**
-     *
-     */
     public Map<String, String> graphInfo;
     /**
      * For query results spanning multiple hosts, this is used to indicate
@@ -327,90 +312,6 @@ public class Graph extends AbstractStorage implements Serializable {
             outputStorage.shutdown();
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
-        }
-    }
-
-    /**
-     *
-     */
-    public void showDetails() {
-        // Gephi initialization
-        ProjectController pc = Lookup.getDefault().lookup(ProjectController.class);
-        pc.newProject();
-        GraphModel graphModel = Lookup.getDefault().lookup(GraphController.class).getModel();
-        DirectedGraph directedGraph = graphModel.getDirectedGraph();
-
-        for (AbstractVertex vertex : vertexSet) {
-            // Add information to Gephi graph model
-            Node newNode = graphModel.factory().newNode(vertex.getAnnotation(Query.STORAGE_ID_STRING));
-            newNode.getNodeData().setLabel(vertex.toString());
-            directedGraph.addNode(newNode);
-        }
-
-        for (AbstractEdge edge : edgeSet) {
-            // Add information to Gephi graph model
-            Node src = directedGraph.getNode(edge.getSourceVertex().getAnnotation(Query.STORAGE_ID_STRING));
-            Node dst = directedGraph.getNode(edge.getDestinationVertex().getAnnotation(Query.STORAGE_ID_STRING));
-            directedGraph.addEdge(src, dst);
-        }
-
-        AttributeModel attributeModel = Lookup.getDefault().lookup(AttributeController.class).getModel();
-        ArrayList<Statistics> stats = new ArrayList<Statistics>();
-
-        Statistics degreeStat = new Degree();
-        Statistics densityStat = new GraphDensity();
-        Statistics distanceStat = new GraphDistance();
-        Statistics clusteringStat = new ClusteringCoefficient();
-        Statistics componentStat = new ConnectedComponents();
-        Statistics eigenvectorStat = new EigenvectorCentrality();
-        Statistics hitStat = new Hits();
-        Statistics modularityStat = new Modularity();
-        Statistics rankStat = new PageRank();
-
-        stats.add(degreeStat);
-        stats.add(densityStat);
-        stats.add(distanceStat);
-        stats.add(clusteringStat);
-        stats.add(componentStat);
-        stats.add(eigenvectorStat);
-        stats.add(hitStat);
-        stats.add(modularityStat);
-        stats.add(rankStat);
-
-        StringBuilder output = new StringBuilder();
-        for (int i = 0; i < stats.size(); i++) {
-            Statistics thisStat = stats.get(i);
-            thisStat.execute(graphModel, attributeModel);
-            String reportString = thisStat.getReport().replace("<br />", "<br>").replace("<hr>", "").replaceAll(">\\s+<", "><").replace("<br><h2>", "<h2>");
-            reportString = "<hr>" + reportString.substring(12, reportString.length() - 14) + "<br>\n";
-            output.append(reportString);
-        }
-
-        degreeStat.execute(graphModel, attributeModel);
-        densityStat.execute(graphModel, attributeModel);
-        distanceStat.execute(graphModel, attributeModel);
-        clusteringStat.execute(graphModel, attributeModel);
-        componentStat.execute(graphModel, attributeModel);
-        eigenvectorStat.execute(graphModel, attributeModel);
-        hitStat.execute(graphModel, attributeModel);
-        modularityStat.execute(graphModel, attributeModel);
-
-        AttributeColumn col = attributeModel.getNodeTable().getColumn(GraphDistance.BETWEENNESS);
-        for (Node n : directedGraph.getNodes()) {
-            Double centrality = (Double) n.getNodeData().getAttributes().getValue(col.getIndex());
-            System.out.println(centrality);
-        }
-        
-        try {
-            FileWriter outputFile = new FileWriter("test.html", false);
-            outputFile.write("<HTML><HEAD><TITLE>SPADE Graph Report</TITLE></HEAD><BODY>");
-            outputFile.write(output.toString());
-            outputFile.write("</BODY></HTML>");
-            outputFile.close();
-
-            Runtime.getRuntime().exec("open test.html");
-        } catch (Exception exception) {
-            Logger.getLogger(Graph.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 
