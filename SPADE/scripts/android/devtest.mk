@@ -10,7 +10,7 @@ android-pull:
 	if [ -e audit.log ]; then rm audit.log; fi;
 	$(ANDROID_SDK_TOOLS)/adb pull /sdcard/spade/output/audit.log
 	cp audit.log /home/andy/shared/tmp/malanalysis/out/
-	
+
 android-testrun:
 	adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.reporter.Audit"
 

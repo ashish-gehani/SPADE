@@ -41,7 +41,7 @@ import spade.vertex.opm.Process;
 public class Audit extends AbstractReporter {
 
     
-    private boolean DEBUG_DUMP_LOG = false; // Store log for debugging purposes
+    private boolean DEBUG_DUMP_LOG = true; // Store log for debugging purposes
     private static boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch
     private boolean SOCKETS_ALREADY_PARSED = true;
     private String DEBUG_DUMP_FILE;
@@ -207,8 +207,9 @@ public class Audit extends AbstractReporter {
                         }
                     	
                     	if (ANDROID_PLATFORM) {
-	                    	if (initAuditStream() != 0)
-	                    		throw new Exception("Unable to initialize Audit Stream");
+                    		int init_status = initAuditStream(); 
+	                    	if (init_status != 0)
+	                    		throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
 	
                     	
 	                    	while (!shutdown) {
@@ -1274,7 +1275,34 @@ public class Audit extends AbstractReporter {
         }
     }
     
+    public static void test_dump_status(String args[]) {
+    	int empty_count = 0;
+    	int status = initAuditStream();
+    	if (status != 0)
+    		System.out.println("Unable to to open audit stream: " + String.valueOf(status) );
+    	else
+    		System.out.println("Stream initalization");
+    	while(true) {
+    		String audstream = readAuditStream();
+    		if (audstream != null)
+    			if (!audstream.isEmpty() || audstream.isEmpty())
+    				System.out.println(audstream);
+    			else {
+    				empty_count++;
+    				if (empty_count % 10 == 0)
+    					System.out.println("empty lines count is" + String.valueOf(empty_count));
+    			}
+    		else {
+    			break;
+    		}
+    	}
+    	System.out.println("End of stream!");
+    	closeAuditStream();
+    }
+    
     public static void main(String args[]) {
+    	test_dump_status(args);
+    	/*
     	try {
 	    	
     		final Audit a = new Audit();
@@ -1296,5 +1324,6 @@ public class Audit extends AbstractReporter {
 			closeAuditStream();
     		System.out.println(e);
     	}
+    	*/   	
     }
 }
