@@ -58,21 +58,21 @@ public class Gephi extends AbstractStorage {
 
     @Override
     public boolean initialize(String arguments) {
-        vertexMap = new HashMap<AbstractVertex, Node>();
-        try {
-            ProjectController pc = Lookup.getDefault().lookup(ProjectController.class);
-            pc.newProject();
-            Workspace workspace = pc.getCurrentWorkspace();
-
-            GraphController graphController = Lookup.getDefault().lookup(GraphController.class);
-            graphModel = graphController.getModel();
-            graph = graphModel.getDirectedGraph();
-
-            StreamingServer server = Lookup.getDefault().lookup(StreamingServer.class);
-            ServerControllerFactory controllerFactory = Lookup.getDefault().lookup(ServerControllerFactory.class);
-            ServerController serverController = controllerFactory.createServerController(graph);
-            String context = "/spade";
-            server.register(serverController, context);
+//        vertexMap = new HashMap<AbstractVertex, Node>();
+//        try {
+//            ProjectController pc = Lookup.getDefault().lookup(ProjectController.class);
+//            pc.newProject();
+//            Workspace workspace = pc.getCurrentWorkspace();
+//
+//            GraphController graphController = Lookup.getDefault().lookup(GraphController.class);
+//            graphModel = graphController.getModel();
+//            graph = graphModel.getDirectedGraph();
+//
+//            StreamingServer server = Lookup.getDefault().lookup(StreamingServer.class);
+//            ServerControllerFactory controllerFactory = Lookup.getDefault().lookup(ServerControllerFactory.class);
+//            ServerController serverController = controllerFactory.createServerController(graph);
+//            String context = "/spade";
+//            server.register(serverController, context);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -92,11 +92,11 @@ public class Gephi extends AbstractStorage {
 //            StreamingConnection connection = controller.connect(endpoint, graph);
 //            connection.asynchProcess();
 
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
+        return true;
+//        } catch (Exception exception) {
+//            logger.log(Level.SEVERE, null, exception);
+//            return false;
+//        }
     }
 
     @Override
@@ -107,65 +107,77 @@ public class Gephi extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
-//            HttpClient httpClient = new DefaultHttpClient();
-//            HttpPost request = new HttpPost("http://localhost:8080/workspace0?operation=updateGraph");
-//            String vertexString = String.format(
-//                    "{\"an\":{\"%s\":{\"label\":\"%s\"}}}",
-//                    incomingVertex.hashCode(),
-//                    incomingVertex.toString());
-//            StringEntity params = new StringEntity(vertexString);
-//            request.setEntity(params);
-//            httpClient.execute(request);
-//            httpClient.getConnectionManager().shutdown();
-
-            Node newNode = graphModel.factory().newNode();
-            newNode.getNodeData().setLabel(incomingVertex.toString());
-            newNode.getNodeData().setSize(10.0f);
-            if (incomingVertex.type().equals("Process")) {
-                newNode.getNodeData().setColor(0.0f, 0.0f, 1.0f);
-            } else if (incomingVertex.type().equals("Artifact")) {
-                newNode.getNodeData().setColor(0.9f, 0.8f, 0.4f);
-            } else if (incomingVertex.type().equals("Agent")) {
-                newNode.getNodeData().setColor(1.0f, 0.4f, 0.4f);
-            }
-            vertexMap.put(incomingVertex, newNode);
-            graph.addNode(newNode);
-            Thread.sleep(COMMIT_DELAY);
-
+            HttpClient httpClient = new DefaultHttpClient();
+            HttpPost request = new HttpPost("http://localhost:8080/workspace0?operation=updateGraph");
+            String vertexString = String.format(
+                    "{\"an\":{\"%s\":{\"label\":\"%s\"}}}",
+                    incomingVertex.hashCode(),
+                    incomingVertex.toString());
+            StringEntity params = new StringEntity(vertexString);
+            request.setEntity(params);
+            httpClient.execute(request);
+            httpClient.getConnectionManager().shutdown();
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
+
+//        try {
+//            Node newNode = graphModel.factory().newNode();
+//            newNode.getNodeData().setLabel(incomingVertex.toString());
+//            newNode.getNodeData().setSize(10.0f);
+//            if (incomingVertex.type().equals("Process")) {
+//                newNode.getNodeData().setColor(0.0f, 0.0f, 1.0f);
+//            } else if (incomingVertex.type().equals("Artifact")) {
+//                newNode.getNodeData().setColor(0.9f, 0.8f, 0.4f);
+//            } else if (incomingVertex.type().equals("Agent")) {
+//                newNode.getNodeData().setColor(1.0f, 0.4f, 0.4f);
+//            }
+//            vertexMap.put(incomingVertex, newNode);
+//            graph.addNode(newNode);
+//            Thread.sleep(COMMIT_DELAY);
+//
+//            return true;
+//        } catch (Exception exception) {
+//            logger.log(Level.SEVERE, null, exception);
+//            return false;
+//        }
     }
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
-//            HttpClient httpClient = new DefaultHttpClient();
-//            HttpPost request = new HttpPost("http://localhost:8080/workspace0?operation=updateGraph");
-//            String edgeString = String.format(
-//                    "{\"ae\":{\"%s\":{\"source\":\"%s\",\"target\":\"%s\",\"directed\":false}}}",
-//                    incomingEdge.hashCode(),
-//                    incomingEdge.getSourceVertex().hashCode(),
-//                    incomingEdge.getDestinationVertex().hashCode());
-//            StringEntity params = new StringEntity(edgeString);
-//            request.setEntity(params);
-//            httpClient.execute(request);
-//            httpClient.getConnectionManager().shutdown();
-
-            Node src = vertexMap.get(incomingEdge.getSourceVertex());
-            Node dst = vertexMap.get(incomingEdge.getDestinationVertex());
-            Edge edge = graphModel.factory().newEdge(src, dst, 1.0f, true);
-            edge.getEdgeData().setLabel(incomingEdge.toString());
-            edge.getEdgeData().setColor(0.0f, 0.0f, 0.0f);
-            graph.addEdge(edge);
-            Thread.sleep(COMMIT_DELAY);
-
+            HttpClient httpClient = new DefaultHttpClient();
+            HttpPost request = new HttpPost("http://localhost:8080/workspace0?operation=updateGraph");
+            String edgeString = String.format(
+                    "{\"ae\":{\"%s\":{\"source\":\"%s\",\"target\":\"%s\",\"directed\":false}}}",
+                    incomingEdge.hashCode(),
+                    incomingEdge.getSourceVertex().hashCode(),
+                    incomingEdge.getDestinationVertex().hashCode());
+            StringEntity params = new StringEntity(edgeString);
+            request.setEntity(params);
+            httpClient.execute(request);
+            httpClient.getConnectionManager().shutdown();
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
+
+//        try {
+//            Node src = vertexMap.get(incomingEdge.getSourceVertex());
+//            Node dst = vertexMap.get(incomingEdge.getDestinationVertex());
+//            Edge edge = graphModel.factory().newEdge(src, dst, 1.0f, true);
+//            edge.getEdgeData().setLabel(incomingEdge.toString());
+//            edge.getEdgeData().setColor(0.0f, 0.0f, 0.0f);
+//            graph.addEdge(edge);
+//            Thread.sleep(COMMIT_DELAY);
+//
+//            return true;
+//        } catch (Exception exception) {
+//            logger.log(Level.SEVERE, null, exception);
+//            return false;
+//        }
     }
 }
