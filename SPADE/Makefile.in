@@ -43,7 +43,7 @@ endif
 CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex \
 	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query RemoteRegistry Vertex \
 	AuthSSLSocketFactory AuthSSLServerSocket
-REPORTERS = DOT DSL Network
+REPORTERS = Graphviz DSL Network
 STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
 UTILITIES = JavaHome
