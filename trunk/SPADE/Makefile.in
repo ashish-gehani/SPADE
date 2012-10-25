@@ -121,17 +121,14 @@ lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
 
 # Build the OpenBSM reporter.
-build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c
-	@echo '--- Built OpenBSM reporter ---'
-	@#echo '-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:'
-	@#echo '----->            sudo chown root build/spade/reporter/spadeOpenBSM'
-	@#echo '----->            sudo chmod ug+s build/spade/reporter/spadeOpenBSM'
-	@#echo ''
+build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c build/spade/reporter/spadeOpenBSM
+	@echo '-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:'
+	@echo '----->            sudo chown root build/spade/reporter/spadeOpenBSM'
+	@echo '----->            sudo chmod ug+s build/spade/reporter/spadeOpenBSM'
+	@echo ''
 
 build/spade/reporter/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 	gcc -o  build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
-	sudo chown root build/spade/reporter/spadeOpenBSM
-	sudo chmod ug+s build/spade/reporter/spadeOpenBSM
 
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
