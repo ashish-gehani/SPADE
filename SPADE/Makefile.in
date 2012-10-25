@@ -71,7 +71,7 @@ help:
 
 build: | prepare-dirs 
 build: build-java $$(OS_BUILD) lib/spade.jar
-build-java: clients utilities storages filters reporters
+build-java: clients utilities storages filters reporters vertex edge
 
 .SUFFIXES : .class .java
 
@@ -93,6 +93,9 @@ utilities: core $$(foreach f,$$(UTILITIES), build/spade/utility/$$(f).class )
 	@echo "--- Built Utilities ---"
 filters: core $$(foreach f,$$(FILTERS), build/spade/filter/$$(f).class )
 	@echo "--- Built Filters ---"
+edge: core $$(foreach f, Used WasControlledBy WasDerivedFrom WasGeneratedBy WasTriggeredBy , build/spade/edge/opm/$$(f).class )
+vertex: core $$(foreach f, Agent  Artifact  Process , build/spade/vertex/opm/$$(f).class ) \
+	$$(foreach f, File  Function  Network  Program  Variable  , build/spade/vertex/custom/$$(f).class )
 
 lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
@@ -129,7 +132,6 @@ build/spade/reporter/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 	gcc -o  build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
 	sudo chown root build/spade/reporter/spadeOpenBSM
 	sudo chmod ug+s build/spade/reporter/spadeOpenBSM
-
 
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
