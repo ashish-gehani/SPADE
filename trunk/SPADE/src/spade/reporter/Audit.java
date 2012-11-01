@@ -36,13 +36,13 @@ import spade.vertex.opm.Process;
 
 /**
  *
- * @author Dawood Tariq
+ * @author Dawood Tariq, Sharjeel Ahmed Qureshi
  */
 public class Audit extends AbstractReporter {
 
     
-    private boolean DEBUG_DUMP_LOG = true; // Store log for debugging purposes
-    private static boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch
+    private boolean DEBUG_DUMP_LOG; // Store log for debugging purposes
+    private static boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch if Android platform is detected
     private boolean SOCKETS_ALREADY_PARSED = true;
     private String DEBUG_DUMP_FILE;
     ////////////////////////////////////////////////////////////////////////////
@@ -117,7 +117,6 @@ public class Audit extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
     	
-    	
         if (ANDROID_PLATFORM) {
             AUDIT_EXEC_PATH = "spade-audit";
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
@@ -127,7 +126,19 @@ public class Audit extends AbstractReporter {
             ignoreProcesses = "./spade/reporter/spadeLinuxAudit spadeLinuxAudit auditd";
             DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
         }
-       
+
+        Map<String, String> args = parseKeyValPairs(arguments);
+        if( args.containsKey("dump") ) {
+        	DEBUG_DUMP_LOG = true;
+        	if (!args.get("dump").isEmpty()) {
+        		DEBUG_DUMP_FILE = args.get("dump");
+        	}
+        }
+        else {
+        	DEBUG_DUMP_LOG = false;
+        }
+
+        
         // Get system boot time from /proc/stat. This is later used to determine the start
         // time for processes.
         try {
@@ -301,24 +312,7 @@ public class Audit extends AbstractReporter {
 
             // Determine pids of processes that are to be ignored. These are appended
             // to the audit rule.
-            Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
-            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
-            BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
-            pidReader.readLine();
-            String line;
-            StringBuilder ignorePids = new StringBuilder();
-            while ((line = pidReader.readLine()) != null) {
-                String details[] = line.split("\\s+");
-                String user = details[0];
-                String pid = details[1];
-                String name = details[8].trim();
-                if (user.equals("root") && ignoreProcessSet.contains(name)) {
-                    ignorePids.append(" -F pid!=").append(pid);
-                    ignorePids.append(" -F ppid!=").append(pid);
-                    logger.log(Level.INFO, "ignoring process {0} with pid {1}", new Object[]{name, pid});
-                }
-            }
-            pidReader.close();
+            StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
             auditRules = "-a exit,always "
                     + "-S clone -S fork -S vfork -S execve -S open -S close "
                     + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink "
@@ -326,7 +320,7 @@ public class Audit extends AbstractReporter {
                     + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
                     + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
                     + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
-                    + "-S pipe2 -F success=1" + ignorePids.toString();
+                    + "-S pipe2 -F success=1 " + ignorePids.toString();
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
             logger.log(Level.INFO, "Configured	 audit rules: {0}", auditRules);
@@ -337,6 +331,32 @@ public class Audit extends AbstractReporter {
 
         return true;
     }
+    
+	static private StringBuilder ignorePidsString(String ignoreProcesses) {
+		try {
+			// Only for Linux/Android
+			Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
+			java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+			BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+			pidReader.readLine();
+			String line;
+			StringBuilder ignorePids = new StringBuilder();
+			while ((line = pidReader.readLine()) != null) {
+			    String details[] = line.split("\\s+");
+			    String user = details[0];
+			    String pid = details[1];
+			    String name = details[8].trim();
+			    if (user.equals("root") && ignoreProcessSet.contains(name)) {
+			        ignorePids.append(" -F pid!=").append(pid);
+			        ignorePids.append(" -F ppid!=").append(pid);
+			    }
+			}
+			pidReader.close();
+			return ignorePids;
+		} catch(IOException e) {
+			return new StringBuilder();
+		}
+	}
 
     private Map<String, String> getFileDescriptors(String pid) {
         // Check if this pid exists in the /proc/ filesystem
@@ -389,11 +409,7 @@ public class Audit extends AbstractReporter {
             String messageData = line.substring(event_start_matcher.end());
 
             if (type.equals("SYSCALL")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                Map<String, String> eventData = new HashMap<String, String>();
-                while (key_value_matcher.find()) {
-                    eventData.put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
+                Map<String, String> eventData = parseKeyValPairs(messageData);
                 eventData.put("time", time);
                 eventBuffer.put(eventId, eventData);
             } else {
@@ -448,6 +464,20 @@ public class Audit extends AbstractReporter {
             logger.log(Level.WARNING, "unable to match line: {0}", line);
         }
     }
+    
+    /*
+     * Takes a string with keyvalue pairs and returns a Map
+     * Input e.g. "key1=val1 key2=val2" etc.
+     * Input string validation is callee's responsiblity 
+     */
+	private static Map<String, String> parseKeyValPairs(String messageData) {
+		Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+		Map<String, String> keyValPairs = new HashMap<String, String>();
+		while (key_value_matcher.find()) {
+		    keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
+		}
+		return keyValPairs;
+	}
 
     private void finishEvent(String eventId) {
         try {
@@ -588,6 +618,7 @@ public class Audit extends AbstractReporter {
         // fork() and clone() receive the following message(s):
         // - SYSCALL
         // - EOE
+    	/***
         String time = eventData.get("time");
         String oldPID = eventData.get("pid");
         String newPID = eventData.get("exit");
@@ -615,6 +646,7 @@ public class Audit extends AbstractReporter {
             }
             fileDescriptors.put(newPID, newfds);
         }
+        ***/
     }
 
     private void processExecve(Map<String, String> eventData) {
@@ -1275,35 +1307,78 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    public static void test_dump_status(String args[]) {
-    	int empty_count = 0;
+    private static Integer getSelfPid() {
+    	try {
+    		return Integer.parseInt( (new File("/proc/self")).getCanonicalFile().getName());
+    	} catch (Exception e) {
+    		return -1;
+    	}
+    }
+    
+    /*
+     * Simply reads audit stream and dumps it on stdout
+     * Mainly for testing and analysis
+     */
+    public static void dump_stream(String args[]) {
+
+	    try {
+	        String auditRules = "-a exit,always "
+	                + "-S clone -S fork -S vfork -S execve -S open -S close "
+	                + "-S read -S readv -S write -S writev -S link -S symlink "
+	                + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+	                + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
+	                + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
+	                + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
+	                + "-S pipe2 -F success=1 " + ignorePidsString("spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm");
+	        System.out.println("Settings rules: " + auditRules);
+	        Runtime.getRuntime().exec("auditctl -D").waitFor();
+	        Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
+	    } catch (Exception e) {
+	    	e.printStackTrace();
+	    	return;
+	    }
+	    
+	    String outBuf = "";
     	int status = initAuditStream();
     	if (status != 0)
     		System.out.println("Unable to to open audit stream: " + String.valueOf(status) );
     	else
     		System.out.println("Stream initalization");
-    	while(true) {
-    		String audstream = readAuditStream();
-    		if (audstream != null)
-    			if (!audstream.isEmpty() || audstream.isEmpty())
-    				System.out.println(audstream);
-    			else {
-    				empty_count++;
-    				if (empty_count % 10 == 0)
-    					System.out.println("empty lines count is" + String.valueOf(empty_count));
-    			}
-    		else {
-    			break;
-    		}
-    	}
-    	System.out.println("End of stream!");
-    	closeAuditStream();
-    }
-    
-    public static void main(String args[]) {
-    	test_dump_status(args);
-    	/*
+    	
     	try {
+	    	while(true) {
+		
+	    		String audstream = readAuditStream();
+	    		if (audstream != null)
+	    		{
+	    			if (!audstream.isEmpty())
+	    				outBuf = outBuf + "\n"+ audstream;
+	    		} else {
+	    			break;
+	    		}
+	    		
+	    		if ( outBuf.length() > 5000 )
+	    		{
+	    			// Flush
+	    			System.out.println(outBuf);
+	    			outBuf = "";
+	    		}
+	    	}
+    	} catch (Exception e) {
+        	e.printStackTrace();
+    	} finally {
+    		System.out.println("End of stream!");
+        	closeAuditStream();    		
+    	}
+    }
+        
+    /*
+     * Experimental code to run Audit reporter as solo lightweight process 
+     * instead of running complete SPADE kernel with all the storages and filters
+     * This is mainly useful for Android where resources are low
+     */
+	private static void run_solo() {
+		try {
 	    	
     		final Audit a = new Audit();
     		Buffer buf = new Buffer();
@@ -1317,6 +1392,13 @@ public class Audit extends AbstractReporter {
 	    	        mainThread.notify();
 	    	    }
 	    	});
+	    	
+	    	Runnable bufferFlusher = new Runnable() {
+	    		public void run() {
+	    			// TODO: Flush buffers here
+	    		}
+	    	};
+	    	Thread bufferFlusherThread = new Thread(bufferFlusher, "bufferFlusher");
 	    	mainThread.wait();
     	}
     	catch (Exception e) 
@@ -1324,6 +1406,16 @@ public class Audit extends AbstractReporter {
 			closeAuditStream();
     		System.out.println(e);
     	}
-    	*/   	
+	}
+    
+    public static void main(String args[]) {
+
+    	String action = args.length > 2 ? args[1]: "";
+    	
+    	if(action.equals("dump"))
+    		dump_stream(args);
+    	else
+    		run_solo();
     }
+
 }

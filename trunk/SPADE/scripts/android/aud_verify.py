@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 # Licensed Under GPL v3
 # Copyright (C) 2012 SRI International
