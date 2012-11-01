@@ -172,6 +172,7 @@ clean:
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build android-build android-lib
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
+	@rm -rf lib/spade.jar
 
 # ---------- Android-related rules [EXPERIMENTAL] ----------
 

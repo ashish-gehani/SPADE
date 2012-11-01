@@ -100,21 +100,25 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
 
   if (start < end)
     {
-      int i = start;
+      int i;
       jstring ret;
 
       // Return next line from read buffer
       while(buffer[start] == '\n' && start < end) start++; // skip empty lines
-      while(i < end && buffer[i] != '\n') i++;
+      i = start;
+      while( i < end && buffer[i] != '\n') i++ ; // Boundary till next EOL
       if (i != end) 
 	{
+	  // Return a string
 	  buffer[i] = '\0';
+	  assert ( memmem( &buffer[start], i - start, "\0", 1 ) == NULL );
 	  ret = (*env)->NewStringUTF(env,&buffer[start]);
 	  start = i + 1;
 	  return ret;
 	}
       else
 	{
+	  // Shift buffer back to prevent fragmentation
 	  memmove(buffer, buffer + end, end - start);
 	  end = end - start;
 	  start = 0;
@@ -125,6 +129,8 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
       // buffer consumed, reset pointers
       start = end = 0;
     }
+
+  // Buffer underflow, read more and retry
 
   rc = recv(sd, buffer + end, BUFFER_LENGTH - end - 1, 0);
   
