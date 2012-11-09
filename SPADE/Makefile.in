@@ -135,7 +135,7 @@ build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.jav
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers `pkg-config fuse --cflags --libs` src/spade/reporter/libMacFUSE.c -o lib/libMacFUSE.jnilib
 
-llvm:
+llvm: build/spade/reporter/LLVM.class
 	@make $(LLVM_RULE)
 
 build-mac-llvm:
