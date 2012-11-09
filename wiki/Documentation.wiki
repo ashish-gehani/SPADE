@@ -14,6 +14,7 @@
    * [MacFUSE On Mac OS X]
    * [LinuxFUSE On Linux]
   * [Pipe Collecting provenance from an external application]
+  * [LLVM Instrumenting applications using the LLVM compiler framework]
   * [ReporterAPI Using SPADE's provenance reporting API]
  * [Filters Filtering provenance]
  * [QueryClient Querying SPADE]
