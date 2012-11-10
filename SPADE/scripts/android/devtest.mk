@@ -34,3 +34,5 @@ android-rerun: android-rebuild-audit android-deploy android-kernel-ddms
 
 andy-go: android-rebuild-audit android-deploy android-testrun
 
+# Build test
+cryptest: build/spade/cryptest/S.class build/spade/cryptest/C.class 
