@@ -25,7 +25,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
 import spade.core.AbstractReporter;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
 import spade.core.Buffer;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
@@ -33,6 +38,11 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import spade.filter.IORuns;
+import spade.filter.FinalCommitFilter;
+import spade.storage.Graphviz;
+
 
 /**
  *
@@ -117,6 +127,10 @@ public class Audit extends AbstractReporter {
     @Override
     public boolean launch(String arguments) {
     	
+    	if(arguments == null) {
+    		arguments = "";
+    	}
+    	
         if (ANDROID_PLATFORM) {
             AUDIT_EXEC_PATH = "spade-audit";
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
@@ -200,11 +214,17 @@ public class Audit extends AbstractReporter {
                 }
             }
         }
-
+       
         try {
             // Start auditd and clear existing rules.
             Runtime.getRuntime().exec("auditctl -D").waitFor();
 
+            if (ANDROID_PLATFORM) {
+    			int init_status = initAuditStream(); 
+    	    	if (init_status != 0)
+    	    		throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
+            }
+            
             Runnable eventProcessor = new Runnable() {
                 public void run() {
                     try {
@@ -217,11 +237,7 @@ public class Audit extends AbstractReporter {
                             dumpWriter = new BufferedWriter(dumpFileWriter);
                         }
                     	
-                    	if (ANDROID_PLATFORM) {
-                    		int init_status = initAuditStream(); 
-	                    	if (init_status != 0)
-	                    		throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
-	
+                    	if (ANDROID_PLATFORM) {	
                     	
 	                    	while (!shutdown) {
 	                    		String line = readAuditStream();
@@ -315,7 +331,7 @@ public class Audit extends AbstractReporter {
             StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
             auditRules = "-a exit,always "
                     + "-S clone -S fork -S vfork -S execve -S open -S close "
-                    + "-S read -S readv -S write -S writev -S ioctl -S link -S symlink "
+                    + "-S read -S readv -S write -S writev -S link -S symlink "
                     + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
                     + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
                     + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
@@ -1321,6 +1337,8 @@ public class Audit extends AbstractReporter {
      */
     public static void dump_stream(String args[]) {
 
+    	System.out.println("Dumping Stream! :-");
+    	
 	    try {
 	        String auditRules = "-a exit,always "
 	                + "-S clone -S fork -S vfork -S execve -S open -S close "
@@ -1377,40 +1395,93 @@ public class Audit extends AbstractReporter {
      * instead of running complete SPADE kernel with all the storages and filters
      * This is mainly useful for Android where resources are low
      */
-	private static void run_solo() {
-		try {
-	    	
-    		final Audit a = new Audit();
-    		Buffer buf = new Buffer();
-    		a.setBuffer(buf);
-	    	a.launch("");
-	    	
-	    	final Thread mainThread = Thread.currentThread();
-	    	Runtime.getRuntime().addShutdownHook(new Thread() {
-	    	    public void run() {
-	    	        a.shutdown();
-	    	        mainThread.notify();
-	    	    }
-	    	});
-	    	
-	    	Runnable bufferFlusher = new Runnable() {
-	    		public void run() {
-	    			// TODO: Flush buffers here
-	    		}
-	    	};
-	    	Thread bufferFlusherThread = new Thread(bufferFlusher, "bufferFlusher");
-	    	mainThread.wait();
+    private static void run_solo() {
+    	try {
+
+    		final Audit reporter = new Audit();
+    		final Buffer buf = new Buffer();
+
+
+    		List<AbstractFilter> filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
+
+    		final Graphviz storage = new Graphviz();
+    		storage.initialize("/sdcard/audit.dot");
+
+    		FinalCommitFilter commitFilter = new FinalCommitFilter();
+    		commitFilter.storages = Collections.synchronizedSet(new HashSet<AbstractStorage>(Arrays.asList(new AbstractStorage[]{storage}) ));
+
+    		final IORuns filter_ioruns = new IORuns();
+    		filter_ioruns.setNextFilter(commitFilter);
+
+    		reporter.setBuffer(buf);
+    		reporter.launch("");
+
+    		final Thread mainThread = Thread.currentThread();
+
+    		Runtime.getRuntime().addShutdownHook(new Thread() {
+    			public void run() {
+    				reporter.shutdown();
+    				mainThread.notify();
+    			}
+    		});
+
+    		Runnable bufferFlusher = new Runnable() {
+    			public void run() {
+    				try {
+    					while(true) {
+    						while(!buf.isEmpty()) {
+    							Object bufferelement = buf.getBufferElement();
+    							if (bufferelement instanceof AbstractVertex) {
+    								AbstractVertex tempVertex = (AbstractVertex) bufferelement;
+    								int hash = tempVertex.hashCode();
+    								tempVertex.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
+    								tempVertex.addAnnotation("unique_id", Integer.toString(hash));
+    								filter_ioruns.putVertex(tempVertex);
+    							} else if (bufferelement instanceof AbstractEdge) {
+    								AbstractEdge tempEdge = (AbstractEdge) bufferelement;
+    								int hash = tempEdge.hashCode();
+    								tempEdge.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
+    								tempEdge.addAnnotation("unique_id", Integer.toString(hash));
+    								filter_ioruns.putEdge(tempEdge);
+    							} else if (bufferelement == null) {
+    								break;
+    							}
+    						}
+    						storage.flushTransactions();
+    						Thread.currentThread().wait(1000);
+    					}
+    				} catch (InterruptedException e) {
+    					return;
+    				}
+    			}
+    		};
+    		Thread bufferFlusherThread = new Thread(bufferFlusher, "bufferFlusher");
+    		bufferFlusherThread.run();
+
+    		System.out.println("Now Running");
+    		mainThread.wait();
+    		System.out.println("Shutdown initiated");
+    		bufferFlusher.notify();
     	}
     	catch (Exception e) 
     	{
-			closeAuditStream();
+    		
     		System.out.println(e);
     	}
-	}
+    	finally {
+    		closeAuditStream();
+    		System.out.println("Shutdown complete");
+    	}
+    }
     
     public static void main(String args[]) {
 
-    	String action = args.length > 2 ? args[1]: "";
+    	String action = args.length >= 1 ? args[0]: "";
+    	
+    	System.out.println("Provided args:");
+    	for(int i=0; i < args.length; ++i)
+    		System.out.println(args[i]);
+    	System.out.println("---");
     	
     	if(action.equals("dump"))
     		dump_stream(args);
