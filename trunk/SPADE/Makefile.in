@@ -44,7 +44,7 @@ CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStora
 	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query RemoteRegistry Vertex \
 	AuthSSLSocketFactory AuthSSLServerSocket
 REPORTERS = Graphviz DSL Network
-STORAGES = Graphviz Neo4j SQL Gephi
+STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
 UTILITIES = JavaHome
 FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter 
