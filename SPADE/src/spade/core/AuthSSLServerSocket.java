@@ -30,12 +30,13 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import org.openide.util.Exceptions;
 import sun.misc.BASE64Decoder;
 import sun.misc.BASE64Encoder;
 
@@ -52,6 +53,7 @@ public class AuthSSLServerSocket extends ServerSocket {
     private String sharedSecret;
     private String serverString = "server";
     private String clientString = "client";
+    static final Logger logger = Logger.getLogger(AuthSSLServerSocket.class.getName());
 
     public AuthSSLServerSocket(int port, String sharedSecret) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         super(port);
@@ -77,15 +79,15 @@ public class AuthSSLServerSocket extends ServerSocket {
             String encryptedValue = new BASE64Encoder().encode(encryptedBytes);
             outputStream.println(encryptedValue);
         } catch (BadPaddingException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (IllegalBlockSizeException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (InvalidKeyException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (NoSuchAlgorithmException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (NoSuchPaddingException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         }
 
         // Wait for correct response
@@ -105,15 +107,15 @@ public class AuthSSLServerSocket extends ServerSocket {
                 return socket;
             }
         } catch (BadPaddingException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (IllegalBlockSizeException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (InvalidKeyException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (NoSuchAlgorithmException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (NoSuchPaddingException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         }
         throw new IOException("auth failed");
     }
@@ -147,8 +149,8 @@ public class AuthSSLServerSocket extends ServerSocket {
 
             PrintStream out = new PrintStream(s.getOutputStream());
             out.println("This is a response from server");
-        } catch (Exception e) {
-            Exceptions.printStackTrace(e);
+        } catch (Exception ex) {
+            logger.log(Level.SEVERE, null, ex);
         }
     }
 }

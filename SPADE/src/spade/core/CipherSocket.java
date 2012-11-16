@@ -9,6 +9,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.security.spec.KeySpec;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
@@ -17,7 +19,6 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import org.openide.util.Exceptions;
 
 /**
  *
@@ -30,7 +31,8 @@ public class CipherSocket extends Socket {
     private final String salt = "12345678";
     private final String iv = "abcd1234efgd5678";
     private final String cipherMode = "AES/CFB8/NoPadding";
-    
+    static final Logger logger = Logger.getLogger(CipherSocket.class.getName());
+
     public void enableCipher(boolean enabled) {
         enableCipher = enabled;
     }
@@ -46,7 +48,7 @@ public class CipherSocket extends Socket {
     public CipherSocket() {
         super();
     }
-    
+
     public void createKey(String sharedSecret) {
         try {
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
@@ -54,7 +56,7 @@ public class CipherSocket extends Socket {
             SecretKey tmp = factory.generateSecret(spec);
             this.secretKey = new SecretKeySpec(tmp.getEncoded(), "AES");
         } catch (Exception ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         }
     }
 
@@ -66,7 +68,7 @@ public class CipherSocket extends Socket {
             SecretKey tmp = factory.generateSecret(spec);
             this.secretKey = new SecretKeySpec(tmp.getEncoded(), "AES");
         } catch (Exception ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         }
     }
 
@@ -78,7 +80,7 @@ public class CipherSocket extends Socket {
                 cipher = Cipher.getInstance(cipherMode);
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv.getBytes()));
             } catch (Exception ex) {
-                Exceptions.printStackTrace(ex);
+                logger.log(Level.SEVERE, null, ex);
                 return null;
             }
             CipherInputStream cipherInput = new CipherInputStream(super.getInputStream(), cipher);
@@ -96,7 +98,7 @@ public class CipherSocket extends Socket {
                 cipher = Cipher.getInstance(cipherMode);
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(iv.getBytes()));
             } catch (Exception ex) {
-                Exceptions.printStackTrace(ex);
+                logger.log(Level.SEVERE, null, ex);
                 return null;
             }
             CipherOutputStream cipherOutput = new CipherOutputStream(super.getOutputStream(), cipher);
