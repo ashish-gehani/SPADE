@@ -28,11 +28,12 @@ import java.net.InetSocketAddress;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import org.openide.util.Exceptions;
 import sun.misc.BASE64Decoder;
 import sun.misc.BASE64Encoder;
 
@@ -49,6 +50,7 @@ public class AuthSSLClientSocket extends CipherSocket {
     private String serverString = "server";
     private String clientString = "client";
     private int defaultTimeout = Integer.parseInt(Settings.getProperty("connection_timeout"));
+    static final Logger logger = Logger.getLogger(AuthSSLClientSocket.class.getName());
 
     public AuthSSLClientSocket(String host, int port, String sharedSecret) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         super(sharedSecret);
@@ -79,15 +81,15 @@ public class AuthSSLClientSocket extends CipherSocket {
                 this.enableCipher(true);
             }
         } catch (BadPaddingException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (IllegalBlockSizeException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (InvalidKeyException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (NoSuchAlgorithmException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         } catch (NoSuchPaddingException ex) {
-            Exceptions.printStackTrace(ex);
+            logger.log(Level.SEVERE, null, ex);
         }
     }
 
