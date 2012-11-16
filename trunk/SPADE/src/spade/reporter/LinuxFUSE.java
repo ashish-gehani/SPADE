@@ -88,26 +88,26 @@ public class LinuxFUSE extends AbstractReporter {
             logger.log(Level.WARNING, null, ex);
         }
 
-        try {
-            BufferedReader confReader = new BufferedReader(new FileReader("/etc/fuse.conf"));
-            String line;
-            boolean found = false;
-            while ((line = confReader.readLine()) != null) {
-                // Check if the line "user_allow_other" exists in the config file.
-                if (line.trim().equalsIgnoreCase("user_allow_other")) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                // File /etc/fuse.conf not configured correctly.
-                return false;
-            }
-        } catch (Exception ex) {
-            // File /etc/fuse.conf does not exist or is configured incorrectly.
-            logger.log(Level.WARNING, null, ex);
-            return false;
-        }
+//        try {
+//            BufferedReader confReader = new BufferedReader(new FileReader("/etc/fuse.conf"));
+//            String line;
+//            boolean found = false;
+//            while ((line = confReader.readLine()) != null) {
+//                // Check if the line "user_allow_other" exists in the config file.
+//                if (line.trim().equalsIgnoreCase("user_allow_other")) {
+//                    found = true;
+//                    break;
+//                }
+//            }
+//            if (!found) {
+//                // File /etc/fuse.conf not configured correctly.
+//                return false;
+//            }
+//        } catch (Exception ex) {
+//            // File /etc/fuse.conf does not exist or is configured incorrectly.
+//            logger.log(Level.WARNING, null, ex);
+//            return false;
+//        }
 
         try {
             // The argument to this reporter is the mount point for FUSE.
