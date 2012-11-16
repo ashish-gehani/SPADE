@@ -19,15 +19,23 @@
  */
 package spade.client;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.List;
-import jline.*;
-import spade.core.Kernel;
-import spade.core.AuthSSLSocketFactory;
+import jline.ArgumentCompletor;
+import jline.Completor;
+import jline.ConsoleReader;
+import jline.MultiCompletor;
+import jline.NullCompletor;
+import jline.SimpleCompletor;
+import spade.core.Settings;
 
 public class ControlClient {
 
@@ -48,13 +56,11 @@ public class ControlClient {
         shutdown = false;
 
         Runnable outputReader = new Runnable() {
-
             public void run() {
                 try {
-                    InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_CONTROL_PORT);
+                    InetSocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_control_port")));
                     Socket remoteSocket = new Socket();
-                    remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                    remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+                    remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
                     OutputStream outStream = remoteSocket.getOutputStream();
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
@@ -96,12 +102,12 @@ public class ControlClient {
 
             List<Completor> addArguments = new LinkedList<Completor>();
             addArguments.add(new SimpleCompletor(new String[]{"add"}));
-            addArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
+            addArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
             addArguments.add(new NullCompletor());
 
             List<Completor> removeArguments = new LinkedList<Completor>();
             removeArguments.add(new SimpleCompletor(new String[]{"remove"}));
-            removeArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "sketch", "reporter"}));
+            removeArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
             removeArguments.add(new NullCompletor());
 
             List<Completor> listArguments = new LinkedList<Completor>();

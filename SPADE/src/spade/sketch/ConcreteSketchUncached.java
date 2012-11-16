@@ -25,7 +25,6 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -64,10 +63,9 @@ public class ConcreteSketchUncached extends AbstractSketch {
                 logger.log(Level.INFO, "concreteSketch - Attempting to receive sketches from {0}", remoteHost);
                 ////////////////////////////////////////////////////////////
 
-                InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+                InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
                 Socket remoteSocket = new Socket();
-                remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+                remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
                 OutputStream outStream = remoteSocket.getOutputStream();
                 InputStream inStream = remoteSocket.getInputStream();
                 ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);

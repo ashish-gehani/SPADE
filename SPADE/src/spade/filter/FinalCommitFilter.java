@@ -1,7 +1,6 @@
 package spade.filter;
 
 import java.util.Set;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractSketch;

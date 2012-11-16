@@ -17,32 +17,27 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.client;
+package spade.edge.prov;
 
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import spade.core.Settings;
+import spade.core.AbstractEdge;
+import spade.vertex.prov.Activity;
 
 /**
+ * WasTriggeredBy edge based on the OPM model.
  *
- * @author dawood
+ * @author Dawood Tariq
  */
-public class AndroidShutdown {
+public class WasInformedBy extends AbstractEdge {
 
-    public static void main(String args[]) {
-
-        try {
-            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_control_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
-            OutputStream outStream = remoteSocket.getOutputStream();
-            PrintStream SPADEControlIn = new PrintStream(outStream);
-            SPADEControlIn.println("shutdown");
-            SPADEControlIn.close();
-        } catch (Exception exception) {
-            exception.printStackTrace();
-        }
+    /**
+     * Constructor for Activity->Activity edge
+     *
+     * @param informedActivity Triggered activity vertex
+     * @param informingActivity Calling activity vertex
+     */
+    public WasInformedBy(Activity informedActivity, Activity informingActivity) {
+        setSourceVertex(informedActivity);
+        setDestinationVertex(informingActivity);
+        addAnnotation("type", "WasInformedBy");
     }
 }

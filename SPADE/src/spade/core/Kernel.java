@@ -19,11 +19,29 @@
  */
 package spade.core;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -45,45 +63,21 @@ public class Kernel {
     /**
      * A string representing the unique identifier for provenance elements.
      */
-    public static final String UNIQUE_ID = "unique_id";
+    public static final String UNIQUE_ID = "hashcode";
     /**
      * A map used to cache the remote sketches.
      */
     public static Map<String, AbstractSketch> remoteSketches;
     /**
-     * Default port number for local control client.
-     */
-    public static int LOCAL_CONTROL_PORT = 19999;
-    /**
-     * Default port number for local query client.
-     */
-    public static int LOCAL_QUERY_PORT = 19998;
-    /**
-     * Default port number for remote queries.
-     */
-    public static int REMOTE_QUERY_PORT = 29999;
-    /**
-     * Default port number for remote sketch-related operations.
-     */
-    public static int REMOTE_SKETCH_PORT = 29998;
-    /**
-     * Default timeout interval.
-     */
-    public static int CONNECTION_TIMEOUT = 15000;
-    /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static String[] configFileLookupPaths = new String[] { System.getProperty("user.home") + "/.spade.config", "../../cfg/spade.config", "/etc/spade/spade.config" };
+    public static String[] configFileLookupPaths = new String[]{System.getProperty("user.home") + "/.spade.config", "../../cfg/spade.config", "/etc/spade/spade.config"};
     public static String configFile = null;
-    /**
-     * Path to configuration file for port numbers.
-     */
-    public static final String portsFile = "../../cfg/ports.config";
     /**
      * Path to log files including the prefix.
      */
-    public static final String[] logPathLookups = new String[] {System.getProperty("user.home") + "/log/", "../../log/", "/var/log", };
+    public static final String[] logPathLookups = new String[]{System.getProperty("user.home") + "/log/", "../../log/", "/var/log",};
     public static final String logPathPrefix = "SPADE_";
     public static String logPathAndPrefix;
     /**
@@ -149,15 +143,16 @@ public class Kernel {
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
     /*
      * Utility function for checking if file is writable
-     * 
+     *
      * @param absolute or relaitve path to the fiel
-     * @return True is file exists and is writable to current user/process, else false 
+     * @return True is file exists and is writable to current user/process, else false
      */
+
     private static Boolean checkIsWritable(String path) {
-    	File f = new File(path);
-    	return f.exists() && f.canWrite();
+        File f = new File(path);
+        return f.exists() && f.canWrite();
     }
-    
+
     /**
      * The main initialization function.
      *
@@ -165,53 +160,50 @@ public class Kernel {
      */
     public static void main(String args[]) {
 
-    	// Initialize configFile to use
-    	for (String f : configFileLookupPaths) {
-    		if (checkIsWritable(f)) {
-	    		configFile = f;
-	    		break;
-    		}
-    	}
-    	if (configFile == null)	{
-    		configFile = configFileLookupPaths[0];
-    		System.out.println("Config file does not exist. Creating now in home directory");
-    		File fileConfigFile = new File(configFile);
-    		if (!fileConfigFile.exists())
-    		{
-    			try {
-    				fileConfigFile.createNewFile();
-    			} catch (IOException e) {
-    				System.err.println("Cannot create writable config file: " + configFile);
-    				e.printStackTrace();
-    				return;
-    			}
-    		}
-    		if (!fileConfigFile.canWrite()) {
-    			System.err.println("Cannot create writable config file: " + configFile);
-    			return;
-    		}
-    	}
-    	System.out.println("Using configfile: " + configFile);
-    	
-    	// Set logging directory
-    	for (String l : logPathLookups) {
-    		if (checkIsWritable(l)) {
-	    		logPathAndPrefix = l + logPathPrefix;
-	    		break;
-    		}
-    	}
-    	if (logPathAndPrefix == null)	{
-    		String logPathStr = logPathLookups[0];
-    		System.out.println("Logging directory does not exist. Creating now in home directory");
-    		File logPath = new File(logPathStr);
-    		if ( ! ( logPath.exists() || logPath.mkdirs() )) {
-    			System.err.println("Cannot create writable log directory" + logPathStr);
-    		}
-    		logPathAndPrefix = logPathStr + logPathPrefix;
-    	}
-    	System.out.println("Using log path: " + logPathAndPrefix);
-    	
-        checkPorts();
+        // Initialize configFile to use
+        for (String f : configFileLookupPaths) {
+            if (checkIsWritable(f)) {
+                configFile = f;
+                break;
+            }
+        }
+        if (configFile == null) {
+            configFile = configFileLookupPaths[0];
+            System.out.println("Config file does not exist. Creating now in home directory");
+            File fileConfigFile = new File(configFile);
+            if (!fileConfigFile.exists()) {
+                try {
+                    fileConfigFile.createNewFile();
+                } catch (IOException e) {
+                    System.err.println("Cannot create writable config file: " + configFile);
+                    e.printStackTrace();
+                    return;
+                }
+            }
+            if (!fileConfigFile.canWrite()) {
+                System.err.println("Cannot create writable config file: " + configFile);
+                return;
+            }
+        }
+        System.out.println("Using configfile: " + configFile);
+
+        // Set logging directory
+        for (String l : logPathLookups) {
+            if (checkIsWritable(l)) {
+                logPathAndPrefix = l + logPathPrefix;
+                break;
+            }
+        }
+        if (logPathAndPrefix == null) {
+            String logPathStr = logPathLookups[0];
+            System.out.println("Logging directory does not exist. Creating now in home directory");
+            File logPath = new File(logPathStr);
+            if (!(logPath.exists() || logPath.mkdirs())) {
+                System.err.println("Cannot create writable log directory" + logPathStr);
+            }
+            logPathAndPrefix = logPathStr + logPathPrefix;
+        }
+        System.out.println("Using log path: " + logPathAndPrefix);
 
         try {
             // Configuring the global exception logger
@@ -393,7 +385,7 @@ public class Kernel {
         Runnable controlRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new AuthSSLServerSocket(LOCAL_CONTROL_PORT, "DAWOOD_READ_FROM_CONFIG");
+                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("local_control_port")));
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket controlSocket = serverSocket.accept();
@@ -415,7 +407,7 @@ public class Kernel {
         Runnable queryRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(LOCAL_QUERY_PORT);
+                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("local_query_port")));
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket querySocket = serverSocket.accept();
@@ -440,7 +432,7 @@ public class Kernel {
         Runnable remoteRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(REMOTE_QUERY_PORT);
+                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("remote_query_port")));
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
@@ -465,7 +457,7 @@ public class Kernel {
         Runnable sketchRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(REMOTE_SKETCH_PORT);
+                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("remote_sketch_port")));
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
@@ -485,49 +477,16 @@ public class Kernel {
 
         // Load the SPADE configuration from the default config file.
         configCommand("config load " + configFile, NullStream.out);
-        
+
         // Wait till all threads are done
-        ArrayList<Thread> join_threads = new ArrayList<Thread> ( Arrays.asList(mainThread, controlThread, queryThread, remoteThread, sketchThread) );
-        for (Thread t: join_threads) {
-        	try {
-        		t.join(10000);
-        	} catch( InterruptedException ignore ) {}
-    	}
-
-    }
-
-    /**
-     * Checks the port configuration file to assign port numbers.
-     */
-    public static void checkPorts() {
-        try {
-            // Check if the port configuration file exists. If not, use the
-            // default port numbers
-            File checkPortsFile = new File(portsFile);
-            if (!checkPortsFile.exists()) {
-                return;
+        ArrayList<Thread> join_threads = new ArrayList<Thread>(Arrays.asList(mainThread, controlThread, queryThread, remoteThread, sketchThread));
+        for (Thread t : join_threads) {
+            try {
+                t.join(10000);
+            } catch (InterruptedException ignore) {
             }
-
-            // Create HashMap to store key/value pairs from the configuration files
-            HashMap<String, Integer> configValues = new HashMap<String, Integer>();
-            BufferedReader fileReader = new BufferedReader(new FileReader(portsFile));
-            String line;
-            while ((line = fileReader.readLine()) != null) {
-                String[] tokens = line.split("=");
-                String key = tokens[0].trim().toUpperCase();
-                Integer value = Integer.parseInt(tokens[1].trim());
-                configValues.put(key, value);
-            }
-
-            // Assign port numbers from the configuration file
-            LOCAL_CONTROL_PORT = configValues.get("LOCAL_CONTROL_PORT");
-            LOCAL_QUERY_PORT = configValues.get("LOCAL_QUERY_PORT");
-            REMOTE_QUERY_PORT = configValues.get("REMOTE_QUERY_PORT");
-            REMOTE_SKETCH_PORT = configValues.get("REMOTE_SKETCH_PORT");
-            CONNECTION_TIMEOUT = configValues.get("CONNECTION_TIMEOUT");
-        } catch (Exception ex) {
-            logger.log(Level.SEVERE, null, ex);
         }
+
     }
 
     // The following two methods are called by the Graph object when adding vertices
@@ -921,18 +880,17 @@ public class Kernel {
             outputStream.println("\t" + LIST_STRING);
             return;
         }
-        for(int i = 0; i < tokens.length; ++i) {
-        	if ( tokens[i].equalsIgnoreCase("v") ) {
-        		verbose_level = 1;
-        		verbose_token = tokens[i];
-        	}
-        	else if ( tokens[i].equalsIgnoreCase("vv")) {
-        		verbose_level = 2;
-        		verbose_token = tokens[i];
-        	}
-        		
+        for (int i = 0; i < tokens.length; ++i) {
+            if (tokens[i].equalsIgnoreCase("v")) {
+                verbose_level = 1;
+                verbose_token = tokens[i];
+            } else if (tokens[i].equalsIgnoreCase("vv")) {
+                verbose_level = 2;
+                verbose_token = tokens[i];
+            }
+
         }
-        
+
         if (tokens[1].equalsIgnoreCase("reporters")) {
             if (reporters.isEmpty()) {
                 // Nothing to list if the set of reporters is empty.
@@ -948,14 +906,15 @@ public class Kernel {
                 if (arguments != null) {
                     outputStream.print(" (" + arguments + ")");
                 }
-                if (verbose_level > 0)
-                	outputStream.println();
-                if (verbose_level == 1)
-                	outputStream.print("\t" + reporter.getInternalState());
-                else if (verbose_level == 2) {
-                	outputStream.print("--------\n");
-                	outputStream.print(reporter.getInternalStateVerbose());
-                	outputStream.print("\n--------\n");
+                if (verbose_level > 0) {
+                    outputStream.println();
+                }
+                if (verbose_level == 1) {
+                    outputStream.print("\t" + reporter.getInternalState());
+                } else if (verbose_level == 2) {
+                    outputStream.print("--------\n");
+                    outputStream.print(reporter.getInternalStateVerbose());
+                    outputStream.print("\n--------\n");
                 }
                 outputStream.println();
                 count++;
@@ -976,16 +935,17 @@ public class Kernel {
                     outputStream.print(" (" + arguments + ")");
                 }
 
-                if (verbose_level > 0)
-                	outputStream.println();
-                if (verbose_level == 1)
-                	outputStream.print("\t" + storage.getInternalState());
-                else if (verbose_level == 2) {
-                	outputStream.print("--------\n");
-                	outputStream.print(storage.getInternalStateVerbose());
-                	outputStream.print("\n--------\n");
-                }                
-				outputStream.println();
+                if (verbose_level > 0) {
+                    outputStream.println();
+                }
+                if (verbose_level == 1) {
+                    outputStream.print("\t" + storage.getInternalState());
+                } else if (verbose_level == 2) {
+                    outputStream.print("--------\n");
+                    outputStream.print(storage.getInternalStateVerbose());
+                    outputStream.print("\n--------\n");
+                }
+                outputStream.println();
                 count++;
             }
         } else if (tokens[1].equalsIgnoreCase("filters")) {
@@ -1043,7 +1003,7 @@ public class Kernel {
                 outputStream.println("\t" + count + ". " + sketch.getClass().getName().split("\\.")[2]);
                 count++;
             }
-        } else if (tokens[1].equalsIgnoreCase("all")) {        	
+        } else if (tokens[1].equalsIgnoreCase("all")) {
             listCommand("list reporters " + verbose_token, outputStream);
             listCommand("list storages " + verbose_token, outputStream);
             listCommand("list filters " + verbose_token, outputStream);
@@ -1211,8 +1171,6 @@ public class Kernel {
     }
 }
 
-
-
 class FinalTransformer extends AbstractFilter {
 
     // This transformer is the last one in the list so any vertices or edges
@@ -1268,8 +1226,8 @@ class LocalControlConnection implements Runnable {
             BufferedReader controlInputStream = new BufferedReader(new InputStreamReader(inStream));
             PrintStream controlOutputStream = new PrintStream(outStream);
             try {
-	            while (!Kernel.shutdown) {
-	                // Commands read from the input stream and executed.
+                while (!Kernel.shutdown) {
+                    // Commands read from the input stream and executed.
                     String line = controlInputStream.readLine();
                     if (line == null || line.equalsIgnoreCase("exit")) {
                         break;
@@ -1278,17 +1236,18 @@ class LocalControlConnection implements Runnable {
                     // An empty line is printed to let the client know that the
                     // command output is complete.
                     controlOutputStream.println("");
-	            }
+                }
             } catch (IOException e) {
-            	// Connection broken?
-            } finally {	
-	            controlInputStream.close();
-	            controlOutputStream.close();
-	
-	            inStream.close();
-	            outStream.close();
-	            if (controlSocket.isConnected())
-	            	controlSocket.close();
+                // Connection broken?
+            } finally {
+                controlInputStream.close();
+                controlOutputStream.close();
+
+                inStream.close();
+                outStream.close();
+                if (controlSocket.isConnected()) {
+                    controlSocket.close();
+                }
             }
         } catch (Exception ex) {
             Logger.getLogger(LocalControlConnection.class.getName()).log(Level.SEVERE, null, ex);

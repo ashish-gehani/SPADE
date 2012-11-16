@@ -19,13 +19,26 @@
  */
 package spade.reporter;
 
-import java.io.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractReporter;
@@ -36,13 +49,11 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.filter.FinalCommitFilter;
+import spade.filter.IORuns;
+import spade.storage.Graphviz;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
-
-import spade.filter.IORuns;
-import spade.filter.FinalCommitFilter;
-import spade.storage.Graphviz;
-
 
 /**
  *
@@ -50,7 +61,6 @@ import spade.storage.Graphviz;
  */
 public class Audit extends AbstractReporter {
 
-    
     private boolean DEBUG_DUMP_LOG; // Store log for debugging purposes
     private static boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch if Android platform is detected
     private boolean SOCKETS_ALREADY_PARSED = true;
@@ -107,30 +117,33 @@ public class Audit extends AbstractReporter {
         TRUNCATE,
         FTRUNCATE
     }
-    
     private Thread eventProcessorThread = null;
     private Thread transactionProcessorThread = null;
     private String auditRules;
-    
     private static String SPADE_ANDROID_AUDIT_LIBRARY = "/data/spade/android-lib/libspadeAndroidAudit.so";
+
     private static native int initAuditStream();
-    private static native String readAuditStream(); 
+
+    private static native String readAuditStream();
+
     private static native int closeAuditStream();
     // Load library
-    static {
-    	ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
 
-    	if (ANDROID_PLATFORM)
-    		System.load(SPADE_ANDROID_AUDIT_LIBRARY);
+    static {
+        ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
+
+        if (ANDROID_PLATFORM) {
+            System.load(SPADE_ANDROID_AUDIT_LIBRARY);
+        }
     }
-    
+
     @Override
     public boolean launch(String arguments) {
-    	
-    	if(arguments == null) {
-    		arguments = "";
-    	}
-    	
+
+        if (arguments == null) {
+            arguments = "";
+        }
+
         if (ANDROID_PLATFORM) {
             AUDIT_EXEC_PATH = "spade-audit";
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
@@ -142,17 +155,16 @@ public class Audit extends AbstractReporter {
         }
 
         Map<String, String> args = parseKeyValPairs(arguments);
-        if( args.containsKey("dump") ) {
-        	DEBUG_DUMP_LOG = true;
-        	if (!args.get("dump").isEmpty()) {
-        		DEBUG_DUMP_FILE = args.get("dump");
-        	}
-        }
-        else {
-        	DEBUG_DUMP_LOG = false;
+        if (args.containsKey("dump")) {
+            DEBUG_DUMP_LOG = true;
+            if (!args.get("dump").isEmpty()) {
+                DEBUG_DUMP_FILE = args.get("dump");
+            }
+        } else {
+            DEBUG_DUMP_LOG = false;
         }
 
-        
+
         // Get system boot time from /proc/stat. This is later used to determine the start
         // time for processes.
         try {
@@ -214,46 +226,47 @@ public class Audit extends AbstractReporter {
                 }
             }
         }
-       
+
         try {
             // Start auditd and clear existing rules.
             Runtime.getRuntime().exec("auditctl -D").waitFor();
 
             if (ANDROID_PLATFORM) {
-    			int init_status = initAuditStream(); 
-    	    	if (init_status != 0)
-    	    		throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
+                int init_status = initAuditStream();
+                if (init_status != 0) {
+                    throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
+                }
             }
-            
+
             Runnable eventProcessor = new Runnable() {
                 public void run() {
                     try {
-                    	Logger logger = Logger.getLogger("EventProcessorThread");
+                        Logger logger = Logger.getLogger("EventProcessorThread");
 
                         FileWriter dumpFileWriter = null;
                         BufferedWriter dumpWriter = null;
                         if (DEBUG_DUMP_LOG) {
-                        	dumpFileWriter = new FileWriter(DEBUG_DUMP_FILE);
+                            dumpFileWriter = new FileWriter(DEBUG_DUMP_FILE);
                             dumpWriter = new BufferedWriter(dumpFileWriter);
                         }
-                    	
-                    	if (ANDROID_PLATFORM) {	
-                    	
-	                    	while (!shutdown) {
-	                    		String line = readAuditStream();
-	                    		if (line != null && !line.isEmpty()) {
-	                    			parseEventLine(line);
-	                                if (DEBUG_DUMP_LOG) {
-	                                    dumpWriter.write(line);
-	                                    dumpWriter.write(System.getProperty("line.separator"));
-	                                    dumpWriter.flush();
-	                                }
-	                    		}
-	                    	}
-	
-							closeAuditStream();
-							
-                    	} else {
+
+                        if (ANDROID_PLATFORM) {
+
+                            while (!shutdown) {
+                                String line = readAuditStream();
+                                if (line != null && !line.isEmpty()) {
+                                    parseEventLine(line);
+                                    if (DEBUG_DUMP_LOG) {
+                                        dumpWriter.write(line);
+                                        dumpWriter.write(System.getProperty("line.separator"));
+                                        dumpWriter.flush();
+                                    }
+                                }
+                            }
+
+                            closeAuditStream();
+
+                        } else {
 
                             java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
                             eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
@@ -268,25 +281,26 @@ public class Audit extends AbstractReporter {
                                         dumpWriter.flush();
                                     }
                                     parseEventLine(line);
-                                }                           		
+                                }
                             }
 
                             eventReader.close();
                             auditProcess.destroy();
-                    	}
-                    	
+                        }
+
                         if (DEBUG_DUMP_LOG) {
                             dumpWriter.close();
                             dumpFileWriter.close();
                         }
-                    	
+
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
                     } finally {
-                    	if(ANDROID_PLATFORM)
-                    		closeAuditStream();
+                        if (ANDROID_PLATFORM) {
+                            closeAuditStream();
+                        }
                     }
-                    
+
                 }
             };
             eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
@@ -347,32 +361,32 @@ public class Audit extends AbstractReporter {
 
         return true;
     }
-    
-	static private StringBuilder ignorePidsString(String ignoreProcesses) {
-		try {
-			// Only for Linux/Android
-			Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
-			java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
-			BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
-			pidReader.readLine();
-			String line;
-			StringBuilder ignorePids = new StringBuilder();
-			while ((line = pidReader.readLine()) != null) {
-			    String details[] = line.split("\\s+");
-			    String user = details[0];
-			    String pid = details[1];
-			    String name = details[8].trim();
-			    if (user.equals("root") && ignoreProcessSet.contains(name)) {
-			        ignorePids.append(" -F pid!=").append(pid);
-			        ignorePids.append(" -F ppid!=").append(pid);
-			    }
-			}
-			pidReader.close();
-			return ignorePids;
-		} catch(IOException e) {
-			return new StringBuilder();
-		}
-	}
+
+    static private StringBuilder ignorePidsString(String ignoreProcesses) {
+        try {
+            // Only for Linux/Android
+            Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
+            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+            BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+            pidReader.readLine();
+            String line;
+            StringBuilder ignorePids = new StringBuilder();
+            while ((line = pidReader.readLine()) != null) {
+                String details[] = line.split("\\s+");
+                String user = details[0];
+                String pid = details[1];
+                String name = details[8].trim();
+                if (user.equals("root") && ignoreProcessSet.contains(name)) {
+                    ignorePids.append(" -F pid!=").append(pid);
+                    ignorePids.append(" -F ppid!=").append(pid);
+                }
+            }
+            pidReader.close();
+            return ignorePids;
+        } catch (IOException e) {
+            return new StringBuilder();
+        }
+    }
 
     private Map<String, String> getFileDescriptors(String pid) {
         // Check if this pid exists in the /proc/ filesystem
@@ -480,20 +494,20 @@ public class Audit extends AbstractReporter {
             logger.log(Level.WARNING, "unable to match line: {0}", line);
         }
     }
-    
+
     /*
      * Takes a string with keyvalue pairs and returns a Map
      * Input e.g. "key1=val1 key2=val2" etc.
-     * Input string validation is callee's responsiblity 
+     * Input string validation is callee's responsiblity
      */
-	private static Map<String, String> parseKeyValPairs(String messageData) {
-		Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-		Map<String, String> keyValPairs = new HashMap<String, String>();
-		while (key_value_matcher.find()) {
-		    keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
-		}
-		return keyValPairs;
-	}
+    private static Map<String, String> parseKeyValPairs(String messageData) {
+        Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+        Map<String, String> keyValPairs = new HashMap<String, String>();
+        while (key_value_matcher.find()) {
+            keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
+        }
+        return keyValPairs;
+    }
 
     private void finishEvent(String eventId) {
         try {
@@ -501,13 +515,13 @@ public class Audit extends AbstractReporter {
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
 
             if (!eventBuffer.containsKey(eventId)) {
-            	logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId}); 
+                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
 
-          
+
             switch (syscall) {
                 case 2: // fork()
                 case 190: // vfork()
@@ -634,35 +648,33 @@ public class Audit extends AbstractReporter {
         // fork() and clone() receive the following message(s):
         // - SYSCALL
         // - EOE
-    	/***
-        String time = eventData.get("time");
-        String oldPID = eventData.get("pid");
-        String newPID = eventData.get("exit");
-        checkProcessVertex(eventData, true, false);
-
-        Process newProcess = new Process();
-        String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
-        String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
-        newProcess.addAnnotation("pid", newPID);
-        newProcess.addAnnotation("ppid", oldPID);
-        newProcess.addAnnotation("uid", uid);
-        newProcess.addAnnotation("gid", gid);
-
-        processes.put(newPID, newProcess);
-        putVertex(newProcess);
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(oldPID));
-        wtb.addAnnotation("operation", syscall.name().toLowerCase());
-        wtb.addAnnotation("time", time);
-        putEdge(wtb);
-        // Copy file descriptors from old process to new one
-        if (fileDescriptors.containsKey(oldPID)) {
-            Map<String, String> newfds = new HashMap<String, String>();
-            for (Map.Entry<String, String> entry : fileDescriptors.get(oldPID).entrySet()) {
-                newfds.put(entry.getKey(), entry.getValue());
-            }
-            fileDescriptors.put(newPID, newfds);
-        }
-        ***/
+        /**
+         * *
+         * String time = eventData.get("time"); String oldPID =
+         * eventData.get("pid"); String newPID = eventData.get("exit");
+         * checkProcessVertex(eventData, true, false);
+         *
+         * Process newProcess = new Process(); String uid =
+         * String.format("%s\t%s\t%s\t%s", eventData.get("uid"),
+         * eventData.get("euid"), eventData.get("suid"),
+         * eventData.get("fsuid")); String gid = String.format("%s\t%s\t%s\t%s",
+         * eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"),
+         * eventData.get("fsgid")); newProcess.addAnnotation("pid", newPID);
+         * newProcess.addAnnotation("ppid", oldPID);
+         * newProcess.addAnnotation("uid", uid); newProcess.addAnnotation("gid",
+         * gid);
+         *
+         * processes.put(newPID, newProcess); putVertex(newProcess);
+         * WasTriggeredBy wtb = new WasTriggeredBy(newProcess,
+         * processes.get(oldPID)); wtb.addAnnotation("operation",
+         * syscall.name().toLowerCase()); wtb.addAnnotation("time", time);
+         * putEdge(wtb); // Copy file descriptors from old process to new one if
+         * (fileDescriptors.containsKey(oldPID)) { Map<String, String> newfds =
+         * new HashMap<String, String>(); for (Map.Entry<String, String> entry :
+         * fileDescriptors.get(oldPID).entrySet()) { newfds.put(entry.getKey(),
+         * entry.getValue()); } fileDescriptors.put(newPID, newfds); }
+        **
+         */
     }
 
     private void processExecve(Map<String, String> eventData) {
@@ -674,10 +686,10 @@ public class Audit extends AbstractReporter {
         // - PATH
         // - PATH
         // - EOE
-    	
+
         String pid = eventData.get("pid");
-        String time = eventData.get("time");   
-        
+        String time = eventData.get("time");
+
         Process newProcess = checkProcessVertex(eventData, false, true);
         if (!newProcess.getAnnotations().containsKey("commandline")) {
             // Unable to retrieve complete process information; generate vertex
@@ -1322,171 +1334,169 @@ public class Audit extends AbstractReporter {
             return null;
         }
     }
-    
+
     private static Integer getSelfPid() {
-    	try {
-    		return Integer.parseInt( (new File("/proc/self")).getCanonicalFile().getName());
-    	} catch (Exception e) {
-    		return -1;
-    	}
+        try {
+            return Integer.parseInt((new File("/proc/self")).getCanonicalFile().getName());
+        } catch (Exception e) {
+            return -1;
+        }
     }
-    
+
     /*
      * Simply reads audit stream and dumps it on stdout
      * Mainly for testing and analysis
      */
     public static void dump_stream(String args[]) {
 
-    	System.out.println("Dumping Stream! :-");
-    	
-	    try {
-	        String auditRules = "-a exit,always "
-	                + "-S clone -S fork -S vfork -S execve -S open -S close "
-	                + "-S read -S readv -S write -S writev -S link -S symlink "
-	                + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-	                + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
-	                + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
-	                + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
-	                + "-S pipe2 -F success=1 " + ignorePidsString("spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm");
-	        System.out.println("Settings rules: " + auditRules);
-	        Runtime.getRuntime().exec("auditctl -D").waitFor();
-	        Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-	    } catch (Exception e) {
-	    	e.printStackTrace();
-	    	return;
-	    }
-	    
-	    String outBuf = "";
-    	int status = initAuditStream();
-    	if (status != 0)
-    		System.out.println("Unable to to open audit stream: " + String.valueOf(status) );
-    	else
-    		System.out.println("Stream initalization");
-    	
-    	try {
-	    	while(true) {
-		
-	    		String audstream = readAuditStream();
-	    		if (audstream != null)
-	    		{
-	    			if (!audstream.isEmpty())
-	    				outBuf = outBuf + "\n"+ audstream;
-	    		} else {
-	    			break;
-	    		}
-	    		
-	    		if ( outBuf.length() > 5000 )
-	    		{
-	    			// Flush
-	    			System.out.println(outBuf);
-	    			outBuf = "";
-	    		}
-	    	}
-    	} catch (Exception e) {
-        	e.printStackTrace();
-    	} finally {
-    		System.out.println("End of stream!");
-        	closeAuditStream();    		
-    	}
+        System.out.println("Dumping Stream! :-");
+
+        try {
+            String auditRules = "-a exit,always "
+                    + "-S clone -S fork -S vfork -S execve -S open -S close "
+                    + "-S read -S readv -S write -S writev -S link -S symlink "
+                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+                    + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
+                    + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
+                    + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
+                    + "-S pipe2 -F success=1 " + ignorePidsString("spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm");
+            System.out.println("Settings rules: " + auditRules);
+            Runtime.getRuntime().exec("auditctl -D").waitFor();
+            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        String outBuf = "";
+        int status = initAuditStream();
+        if (status != 0) {
+            System.out.println("Unable to to open audit stream: " + String.valueOf(status));
+        } else {
+            System.out.println("Stream initalization");
+        }
+
+        try {
+            while (true) {
+
+                String audstream = readAuditStream();
+                if (audstream != null) {
+                    if (!audstream.isEmpty()) {
+                        outBuf = outBuf + "\n" + audstream;
+                    }
+                } else {
+                    break;
+                }
+
+                if (outBuf.length() > 5000) {
+                    // Flush
+                    System.out.println(outBuf);
+                    outBuf = "";
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            System.out.println("End of stream!");
+            closeAuditStream();
+        }
     }
-        
+
     /*
-     * Experimental code to run Audit reporter as solo lightweight process 
+     * Experimental code to run Audit reporter as solo lightweight process
      * instead of running complete SPADE kernel with all the storages and filters
      * This is mainly useful for Android where resources are low
      */
     private static void run_solo() {
-    	try {
+        try {
 
-    		final Audit reporter = new Audit();
-    		final Buffer buf = new Buffer();
+            final Audit reporter = new Audit();
+            final Buffer buf = new Buffer();
 
 
-    		List<AbstractFilter> filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
+            List<AbstractFilter> filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
 
-    		final Graphviz storage = new Graphviz();
-    		storage.initialize("/sdcard/audit.dot");
+            final Graphviz storage = new Graphviz();
+            storage.initialize("/sdcard/audit.dot");
 
-    		FinalCommitFilter commitFilter = new FinalCommitFilter();
-    		commitFilter.storages = Collections.synchronizedSet(new HashSet<AbstractStorage>(Arrays.asList(new AbstractStorage[]{storage}) ));
+            FinalCommitFilter commitFilter = new FinalCommitFilter();
+            commitFilter.storages = Collections.synchronizedSet(new HashSet<AbstractStorage>(Arrays.asList(new AbstractStorage[]{storage})));
 
-    		final IORuns filter_ioruns = new IORuns();
-    		filter_ioruns.setNextFilter(commitFilter);
+            final IORuns filter_ioruns = new IORuns();
+            filter_ioruns.setNextFilter(commitFilter);
 
-    		reporter.setBuffer(buf);
-    		reporter.launch("");
+            reporter.setBuffer(buf);
+            reporter.launch("");
 
-    		final Thread mainThread = Thread.currentThread();
+            final Thread mainThread = Thread.currentThread();
 
-    		Runtime.getRuntime().addShutdownHook(new Thread() {
-    			public void run() {
-    				reporter.shutdown();
-    				mainThread.notify();
-    			}
-    		});
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                public void run() {
+                    reporter.shutdown();
+                    mainThread.notify();
+                }
+            });
 
-    		Runnable bufferFlusher = new Runnable() {
-    			public void run() {
-    				try {
-    					while(true) {
-    						while(!buf.isEmpty()) {
-    							Object bufferelement = buf.getBufferElement();
-    							if (bufferelement instanceof AbstractVertex) {
-    								AbstractVertex tempVertex = (AbstractVertex) bufferelement;
-    								int hash = tempVertex.hashCode();
-    								tempVertex.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
-    								tempVertex.addAnnotation("unique_id", Integer.toString(hash));
-    								filter_ioruns.putVertex(tempVertex);
-    							} else if (bufferelement instanceof AbstractEdge) {
-    								AbstractEdge tempEdge = (AbstractEdge) bufferelement;
-    								int hash = tempEdge.hashCode();
-    								tempEdge.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
-    								tempEdge.addAnnotation("unique_id", Integer.toString(hash));
-    								filter_ioruns.putEdge(tempEdge);
-    							} else if (bufferelement == null) {
-    								break;
-    							}
-    						}
-    						storage.flushTransactions();
-    						Thread.currentThread().wait(1000);
-    					}
-    				} catch (InterruptedException e) {
-    					return;
-    				}
-    			}
-    		};
-    		Thread bufferFlusherThread = new Thread(bufferFlusher, "bufferFlusher");
-    		bufferFlusherThread.run();
+            Runnable bufferFlusher = new Runnable() {
+                public void run() {
+                    try {
+                        while (true) {
+                            while (!buf.isEmpty()) {
+                                Object bufferelement = buf.getBufferElement();
+                                if (bufferelement instanceof AbstractVertex) {
+                                    AbstractVertex tempVertex = (AbstractVertex) bufferelement;
+                                    int hash = tempVertex.hashCode();
+                                    tempVertex.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
+                                    tempVertex.addAnnotation("unique_id", Integer.toString(hash));
+                                    filter_ioruns.putVertex(tempVertex);
+                                } else if (bufferelement instanceof AbstractEdge) {
+                                    AbstractEdge tempEdge = (AbstractEdge) bufferelement;
+                                    int hash = tempEdge.hashCode();
+                                    tempEdge.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
+                                    tempEdge.addAnnotation("unique_id", Integer.toString(hash));
+                                    filter_ioruns.putEdge(tempEdge);
+                                } else if (bufferelement == null) {
+                                    break;
+                                }
+                            }
+                            storage.flushTransactions();
+                            Thread.currentThread().wait(1000);
+                        }
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                }
+            };
+            Thread bufferFlusherThread = new Thread(bufferFlusher, "bufferFlusher");
+            bufferFlusherThread.run();
 
-    		System.out.println("Now Running");
-    		mainThread.wait();
-    		System.out.println("Shutdown initiated");
-    		bufferFlusher.notify();
-    	}
-    	catch (Exception e) 
-    	{
-    		
-    		System.out.println(e);
-    	}
-    	finally {
-    		closeAuditStream();
-    		System.out.println("Shutdown complete");
-    	}
+            System.out.println("Now Running");
+            mainThread.wait();
+            System.out.println("Shutdown initiated");
+            bufferFlusher.notify();
+        } catch (Exception e) {
+
+            System.out.println(e);
+        } finally {
+            closeAuditStream();
+            System.out.println("Shutdown complete");
+        }
     }
-    
+
     public static void main(String args[]) {
 
-    	String action = args.length >= 1 ? args[0]: "";
-    	
-    	System.out.println("Provided args:");
-    	for(int i=0; i < args.length; ++i)
-    		System.out.println(args[i]);
-    	System.out.println("---");
-    	
-    	if(action.equals("dump"))
-    		dump_stream(args);
-    	else
-    		run_solo();
-    }
+        String action = args.length >= 1 ? args[0] : "";
 
+        System.out.println("Provided args:");
+        for (int i = 0; i < args.length; ++i) {
+            System.out.println(args[i]);
+        }
+        System.out.println("---");
+
+        if (action.equals("dump")) {
+            dump_stream(args);
+        } else {
+            run_solo();
+        }
+    }
 }

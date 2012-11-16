@@ -19,11 +19,21 @@
  */
 package spade.core;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
-import java.util.*;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -139,10 +149,9 @@ public class Query {
             String host = tokens[0];
             String queryExpression = tokens[1];
             // Connect to the specified host and query for vertices.
-            InetSocketAddress sockaddr = new InetSocketAddress(host, Kernel.REMOTE_QUERY_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress(host, Integer.parseInt(Settings.getProperty("remote_query_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -250,10 +259,9 @@ public class Query {
                 Graph srcGraph, dstGraph;
 
                 // Connect to source host and get upward lineage
-                InetSocketAddress sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
+                InetSocketAddress sockaddr = new InetSocketAddress(srcHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
                 Socket remoteSocket = new Socket();
-                remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+                remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
                 OutputStream outStream = remoteSocket.getOutputStream();
                 InputStream inStream = remoteSocket.getInputStream();
                 //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -273,10 +281,9 @@ public class Query {
                 remoteSocket.close();
 
                 // Connect to destination host and get downward lineage
-                sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
+                sockaddr = new InetSocketAddress(dstHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
                 remoteSocket = new Socket();
-                remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-                remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+                remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
                 outStream = remoteSocket.getOutputStream();
                 inStream = remoteSocket.getInputStream();
                 //graphOutputStream = new ObjectOutputStream(outStream);
@@ -741,10 +748,9 @@ public class Query {
 
         try {
             // Connect to destination host and get all the destination network vertices
-            InetSocketAddress sockaddr = new InetSocketAddress(dstHost, Kernel.REMOTE_QUERY_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress(dstHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -785,10 +791,9 @@ public class Query {
             }
 
             // Connect to the source host and get all source network vertices.
-            sockaddr = new InetSocketAddress(srcHost, Kernel.REMOTE_QUERY_PORT);
+            sockaddr = new InetSocketAddress(srcHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
             remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             inStream = remoteSocket.getInputStream();
             outStream = remoteSocket.getOutputStream();
             //graphOutputStream = new ObjectOutputStream(outStream);
@@ -970,10 +975,9 @@ public class Query {
 
         try {
             // Establish a connection to the remote host
-            InetSocketAddress sockaddr = new InetSocketAddress(networkVertex.getAnnotation("destination host"), Kernel.REMOTE_QUERY_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress(networkVertex.getAnnotation("destination host"), Integer.parseInt(Settings.getProperty("remote_query_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -1180,10 +1184,9 @@ class RebuildSketch implements Runnable {
 
     public void run() {
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
@@ -1229,10 +1232,9 @@ class PropagateSketch implements Runnable {
 
     public void run() {
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
@@ -1276,10 +1278,9 @@ class PathFragment implements Runnable {
 
     public void run() {
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Kernel.REMOTE_SKETCH_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);

@@ -222,6 +222,7 @@ public class Graphviz extends AbstractStorage {
      *
      * @return textual description of the internal state
      */
+    @Override
     public String getInternalStateVerbose() {
         return getInternalState();
     }
