@@ -19,18 +19,20 @@
  */
 package spade.client;
 
-import java.io.*;
+import java.io.File;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import jline.ConsoleReader;
 import spade.core.Graph;
-import spade.core.Kernel;
-import spade.core.AuthSSLSocketFactory;
+import spade.core.Settings;
 
 public class QueryClient {
 
@@ -48,11 +50,10 @@ public class QueryClient {
         graphObjects = new HashMap<String, Graph>();
 
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_query_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
-            		
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             SPADEQueryOut = new ObjectInputStream(inStream);

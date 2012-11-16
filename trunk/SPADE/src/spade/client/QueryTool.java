@@ -19,12 +19,14 @@
  */
 package spade.client;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
-import spade.core.Kernel;
-import spade.core.AuthSSLSocketFactory;
+import spade.core.Settings;
 
 public class QueryTool {
 
@@ -38,10 +40,9 @@ public class QueryTool {
         outputStream = System.out;
 
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Kernel.LOCAL_QUERY_PORT);
+            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_query_port")));
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Kernel.CONNECTION_TIMEOUT);
-            remoteSocket = AuthSSLSocketFactory.getSocket(remoteSocket, sockaddr, "DAWOOD_READ_FROM_CONFIG");
+            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             SPADEQueryOut = new BufferedReader(new InputStreamReader(inStream));
@@ -70,7 +71,7 @@ public class QueryTool {
             while ((outputLine = SPADEQueryOut.readLine()) != null) {
                 outputStream.println(outputLine);
             }
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             System.out.println("Error retrieving results from SPADE");
             System.exit(-1);
         }

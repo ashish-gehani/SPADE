@@ -24,17 +24,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Random;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
 import org.openide.util.Exceptions;
 import sun.misc.BASE64Decoder;
 import sun.misc.BASE64Encoder;
@@ -47,62 +44,39 @@ import sun.misc.BASE64Encoder;
  *
  * @author Sharjeel Ahmed Qureshi
  */
-public class AuthSSLServerSocket extends ServerSocket {
+public class AuthSSLClientSocket extends CipherSocket {
 
-    private String sharedSecret;
     private String serverString = "server";
     private String clientString = "client";
+    private int defaultTimeout = Integer.parseInt(Settings.getProperty("connection_timeout"));
 
-    public AuthSSLServerSocket(int port, String sharedSecret) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
-        super(port);
-        this.sharedSecret = sharedSecret;
-    }
+    public AuthSSLClientSocket(String host, int port, String sharedSecret) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+        super(sharedSecret);
 
-    @Override
-    public Socket accept() throws IOException {
-        CipherSocket socket = new CipherSocket(sharedSecret);
-        SecretKey secretKey = socket.getKey();
-        implAccept(socket);
-        PrintStream outputStream = new PrintStream(socket.getOutputStream());
+        InetSocketAddress sockaddr = new InetSocketAddress(host, port);
+        this.connect(sockaddr, defaultTimeout);
 
-        // Send authentication string
-        String time = Long.toString(System.currentTimeMillis());
-        Random generator = new Random();
-        int randomInt = generator.nextInt();
-        String plaintext = randomInt + ":" + time + ":" + serverString;
+        PrintStream outputStream = new PrintStream(this.getOutputStream());
+        String encryptedMessage = readLine(this.getInputStream());
+
         try {
             Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-            byte[] encryptedBytes = cipher.doFinal(plaintext.getBytes());
-            String encryptedValue = new BASE64Encoder().encode(encryptedBytes);
-            outputStream.println(encryptedValue);
-        } catch (BadPaddingException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (IllegalBlockSizeException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (InvalidKeyException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (NoSuchAlgorithmException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (NoSuchPaddingException ex) {
-            Exceptions.printStackTrace(ex);
-        }
-
-        // Wait for correct response
-        String encryptedResponse = readLine(socket.getInputStream());
-        try {
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.DECRYPT_MODE, secretKey);
-            byte[] decodedValue = new BASE64Decoder().decodeBuffer(encryptedResponse);
+            cipher.init(Cipher.DECRYPT_MODE, this.getKey());
+            byte[] decodedValue = new BASE64Decoder().decodeBuffer(encryptedMessage);
             byte[] decryptedBytes = cipher.doFinal(decodedValue);
             String decryptedValue = new String(decryptedBytes);
             String[] tokens = decryptedValue.split(":");
-            int responseNumber = Integer.parseInt(tokens[0]);
-            String responseTime = tokens[1];
-            String responseClient = tokens[2];
-            if (responseNumber == (randomInt + 1) && responseTime.equals(time) && responseClient.equals(clientString)) {
-                socket.enableCipher(true);
-                return socket;
+            int messageNumber = Integer.parseInt(tokens[0]);
+            String messageTime = tokens[1];
+            String messageServer = tokens[2];
+            if (messageServer.equals(serverString)) {
+                messageNumber++;
+                String responseText = messageNumber + ":" + messageTime + ":" + clientString;
+                cipher.init(Cipher.ENCRYPT_MODE, this.getKey());
+                byte[] encryptedBytes = cipher.doFinal(responseText.getBytes());
+                String encryptedValue = new BASE64Encoder().encode(encryptedBytes);
+                outputStream.println(encryptedValue);
+                this.enableCipher(true);
             }
         } catch (BadPaddingException ex) {
             Exceptions.printStackTrace(ex);
@@ -115,7 +89,6 @@ public class AuthSSLServerSocket extends ServerSocket {
         } catch (NoSuchPaddingException ex) {
             Exceptions.printStackTrace(ex);
         }
-        throw new IOException("auth failed");
     }
 
     private String readLine(InputStream inputStream) {
@@ -137,18 +110,17 @@ public class AuthSSLServerSocket extends ServerSocket {
 
     public static void main(String[] argc) {
         try {
-            AuthSSLServerSocket asock = new AuthSSLServerSocket(1340, "abc123");
-            Socket s = asock.accept();
-            System.out.println("Client connected");
+            AuthSSLClientSocket s = new AuthSSLClientSocket("localhost", 1340, "abc123");
+            System.out.println("Connected with the server");
+
+            PrintStream printstream = new PrintStream(s.getOutputStream());
+            printstream.println("Hellow from client1!");
+            printstream.println("Hellow from client2!");
 
             BufferedReader inputStream = new BufferedReader(new InputStreamReader(s.getInputStream()));
-            System.out.println("Received 1: " + inputStream.readLine());
-            System.out.println("Received 2: " + inputStream.readLine());
-
-            PrintStream out = new PrintStream(s.getOutputStream());
-            out.println("This is a response from server");
+            System.out.println("Received: " + inputStream.readLine());
         } catch (Exception e) {
-            Exceptions.printStackTrace(e);
+            e.printStackTrace();
         }
     }
 }
