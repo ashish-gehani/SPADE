@@ -118,7 +118,7 @@ src/spade/reporter/libLinuxFUSE.h: build/spade/reporter/LinuxFUSE.class
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libLinuxFUSE.h spade.reporter.LinuxFUSE
 lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall `pkg-config fuse --cflags --libs` src/spade/reporter/libLinuxFUSE.c -o lib/libLinuxFUSE.so
+	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
 
 # Build the OpenBSM reporter.
 build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c build/spade/reporter/spadeOpenBSM
