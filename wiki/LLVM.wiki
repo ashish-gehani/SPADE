@@ -19,7 +19,7 @@ Provenance instrumentation (at function call level) can be added automatically t
 
 ===How to provenance-enable an application===
   # Set the `LLVM_PATH` variable in the Makefile to the top-level directory of the LLVM installation.
-  # Set the `LLVM_TARGET` variable in the Makefile to the source file that is to be instrumented. Do not add the file's extension. For example to instrument `/usr/local/src/nweb.c`, set `LLVM_TARGET=/usr/local/src/nweb`.
+  # Set the `LLVM_TARGET` variable in the Makefile to the source file that is to be instrumented. Do not add the file's extension. For example to instrument `/usr/local/src/nweb.c`, set `LLVM_TARGET=/usr/local/src/nweb` .
   # Build the LLVM Reporter and instrumented application using `make llvm` in the top-level directory of the SPADE installation.
   # Add the LLVM reporter to the SPADE kernel. (Use `add reporter LLVM` in the SPADE control client).
   # Run the target application. Function call level provenance will silenty be reported to the SPADE kernel.
