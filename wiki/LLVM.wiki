@@ -1,28 +1,25 @@
 #sidebar Documentation
 
-=_Instrumenting applications using the LLVM compiler framework_=
+=_Adding provenance instrumentation during compilation_=
 
-Our approach for adding provenance instrumentation to a target application is to insert it during compilation using the LLVM framework. The LLVM compiler infrastructure allows both compile-time and link-time optimizations of programs written in a range of source languages, including C, C++, ObjectiveC, and Java. Using the LLVM toolchain, programs written in these languages can be converted into an intermediate representation, also known as bitcode. The LLVM optimizer can then be used to perform built-in and userdeﬁned transformations of the bitcode. Finally, the bitcode can be converted into native objects and linked into an executable for the target hardware architecture.
+Provenance instrumentation (at function call level) can be added automatically to a target application during its compilation using our LLVM-based tools. The LLVM framework [LLVM http://llvm.org] allows compile-time optimization of any program written in a range of source languages, including C, C++, and Java. Using the LLVM toolchain, a program can be converted into an intermediate representation, referred to as _bitcode_. The LLVM optimizer is then used to transform the bitcode, to track the provenance of function calls in the program. Finally, the bitcode is converted into native code and linked to create an executable for the target hardware architecture.
 
-===Overview of workflow:===
-  # The target application is converted to bitcode with the LLVM C compiler `clang`.
-  # The LLVM Tracer module is compiled as a shared library.
+*NOTE:* This tool is very limited. Each file of a program must be instrumented separately. Values of function call arguments are only reported for primitive types.
+
+===Overview===
+  # Ensure that LLVM is installed. See http://llvm.org/releases/
+  # The target application is converted to bitcode, using a frontend, such as the LLVM C/C++ compiler `clang`.
+  # Our LLVM Tracer module is compiled as a shared library (`llvmTracer.so`).
   # The LLVM optimizer `opt` is run with the Tracer pass to add provenance instrumentation to the application bitcode.
-  # The LLVM bitcode compiler `llc` converts the instrumented bitcode into assembly
-  # The socket code for bridging the LLVM Tracer and Reporter is compiled into assembly.
+  # The LLVM bitcode compiler `llc` is used to convert the instrumented bitcode to assembly.
+  # To connect the output of the Tracer to the SPADE LLVM Reporter, another shared library (`llvmBridge.so`) is compiled to assembly.
   # The native compiler `gcc` (and implicitly the linker `ld`) is used to compile and link the instrumented application and bridge assembly code into an executable binary that sends provenance metadata to the SPADE kernel.
 
-===Requirements:===
- * LLVM (http://llvm.org/releases/)
-
 ----
 
-The LLVM reporter is built when the `make llvm` rule is executed in the SPADE directory.
-
-----
-
-===Instructions for instrumenting applications using the LLVM reporter:===
-  # Set the correct `LLVM_PATH` variable in the Makefile. This is the root directory of your clang/llvm installation.
-  # Set the correct `LLVM_TARGET` variable in the Makefile. This is the path to the source file you want to add instrumentation to. Do not add the `.c` extension to this variable. For example, if the application you want to instrument is `/var/tmp/nweb.c`, set the `LLVM_TARGET` variable to `/var/tmp/nweb`.
-  # Use the `make llvm` rule to build the binary with instrumentation code.
-  # To capture instrumentation data, add the LLVM reporter to SPADE (i.e., execute `add reporter LLVM` from the control client) before launching the application.
+===How to provenance-enable an application===
+  # Set the `LLVM_PATH` variable in the Makefile to the top-level directory of the LLVM installation.
+  # Set the `LLVM_TARGET` variable in the Makefile to the source file that is to be instrumented. Do not add the file's extension. For example to instrument `/var/tmp/nweb.c`, set `LLVM_TARGET=/var/tmp/nweb`.
+  # Build the LLVM Reporter and instrumented application using `make llvm` in the top-level directory of the SPADE installation.
+  # Add the LLVM reporter to the SPADE kernel. (Use `add reporter LLVM` in the SPADE control client).
+  # Run the target application. Function call level provenance will silenty be reported to the SPADE kernel.
