@@ -1,4 +1,4 @@
-#sidebar Documentation Unstable
+#sidebar Documentation
 
 =_Steps to download, compile, and run trunk version of SPADE_=
 
