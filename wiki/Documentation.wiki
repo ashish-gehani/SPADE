@@ -2,6 +2,8 @@
  * [Architecture Overview of SPADE's architecture]
  * [Installation Steps to download, compile, and run SPADE]
   * [ControlClient Controlling the SPADE server]
+ * [DocumentationUnstable Working with unstable trunk version]
+  * [ControlClientUnstable Controlling the SPADE server]
  * [Storage Adding a data store]
   * [Neo4j Storing provenance in a graph database]
   * [SQL Storing provenance in a SQL database]
