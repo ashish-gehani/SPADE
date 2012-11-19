@@ -35,11 +35,19 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 #define BUFFER_LENGTH   10000
 #define FALSE           0
 
-#ifdef DEBUG
 #include <android/log.h>
+#define LOGERR(...) __android_log_print(ANDROID_LOG_ERROR , "spade-audit", __VA_ARGS__)
+#ifdef DEBUG
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG , "spade-audit", __VA_ARGS__)
 #else
 #define LOGD(...)
+#endif
+
+#ifdef DEBUG
+#ifndef DUMPFILE
+#define DUMPFILE "/sdcard/audit-socket-dump.log"
+#endif
+FILE* fdump;
 #endif
 
 // Defining SUN_LEN. Does not exist in Bionic LIBC
@@ -52,6 +60,24 @@ int sd = -1, end=0, start=0;
 char buffer[BUFFER_LENGTH];
 struct sockaddr_un serveraddr;
 
+#ifdef TEST
+
+#define recv(a,b,c,d) simurecv(a,b,c,d)
+
+FILE* dumpinfile = NULL;
+int simurecv(int sockfd, void *buf, size_t len, int flags) 
+{
+  int retcount;
+  if(dumpinfile == NULL)
+    dumpinfile = fopen("/sdcard/audindump.log", "r");
+  if(dumpinfile == NULL)
+    return -1;
+  retcount = fread(buf, 1, len, dumpinfile);
+  return retcount;
+}
+FILE* stateoutf = NULL;
+#endif
+
 /*
  * Class:     spade_reporter_Audit
  * Method:    initAuditStream
@@ -60,6 +86,11 @@ struct sockaddr_un serveraddr;
  */
 JNIEXPORT jint JNICALL Java_spade_reporter_Audit_initAuditStream (JNIEnv *env, jclass j) {
   int rc;
+
+  #ifdef DEBUG
+  fdump = fopen(DUMPFILE, "w");
+  #endif
+
   do {
     sd = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -98,8 +129,19 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
   int rc;
   assert( sd != -1 ); // Socket already closed ?
 
+#ifdef TEST
+  if (stateoutf == NULL )
+    stateoutf = fopen("/sdcard/stateout.log", "w");
+#endif
+
   if (start < end)
     {
+#ifdef TEST
+      fprintf(stateoutf,"\n\n---=== start: %d end: %d  ===---\n\n", start, end);
+      fwrite(buffer, 1, BUFFER_LENGTH, stateoutf);
+#endif
+
+
       int i;
       jstring ret;
 
@@ -116,12 +158,17 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
 	  start = i + 1;
 	  return ret;
 	}
-      else
+      else if (i > BUFFER_LENGTH-100)
 	{
 	  // Shift buffer back to prevent fragmentation
-	  memmove(buffer, buffer + end, end - start);
+	  memmove(buffer, buffer + start, end - start);
 	  end = end - start;
 	  start = 0;
+#ifdef TEST
+          fprintf(stateoutf, "\n\n---=== Reset Buffer Start: %d End: %d ===---\n\n", start, end);
+          fwrite(buffer, 1, end, stateoutf);
+          fprintf(stateoutf, "===ENDRESETDUMP---");
+#endif
 	}
     }
   else 
@@ -132,22 +179,60 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
 
   // Buffer underflow, read more and retry
 
-  rc = recv(sd, buffer + end, BUFFER_LENGTH - end - 1, 0);
+  rc = recv(sd, buffer + end, BUFFER_LENGTH - end, 0);
   
   if (rc < 0) {
     Java_spade_reporter_Audit_closeAuditStream(env, j_class);
     // Server closed the connection
-    LOGD("Error while receiving audit stream. Closing connection. ret: %d, errno: %d, buffer-start: %d, buffer-end: %d", rc, errno, start, end);
+    LOGERR("Error while receiving audit stream. Closing connection. ret: %d, errno: %d, buffer-start: %d, buffer-end: %d", rc, errno, start, end);
     return NULL;
   }
   else if (rc == 0) {
     Java_spade_reporter_Audit_closeAuditStream(env, j_class);
-    LOGD("Server closed the connection");
+    LOGERR("Server closed the connection");
     return NULL;
   }
+
+#ifdef DEBUG
+  fwrite(buffer + end, 1, rc, fdump);
+#endif
+
   end += rc;
 
+
+#ifdef TEST
+  fprintf(stateoutf, "\n\n---=== Buffer Underflow. Reread buffer; start: %d end: %d rc: %d ===---\n\n", start, end, rc);
+#endif
+
   return Java_spade_reporter_Audit_readAuditStream(env, j_class);
+}
+
+/*
+ * Class:     spade_reporter_Audit
+ * Method:    readAuditStreamBytes
+ * Signature: ()Ljava/lang/String;
+ * Returns audit logs from unix socket and returns raw bytes
+ */
+JNIEXPORT jbyteArray JNICALL Java_spade_reporter_Audit_readAuditStreamRaw (JNIEnv * env, jclass j) {
+  int rc;
+  assert( sd != -1 ); // Socket already closed ?
+  char buf[BUFFER_LENGTH]; 
+  rc = recv(sd, buf, BUFFER_LENGTH, 0);
+  if (rc < 0) 
+    {
+      fprintf(stderr, "Connection error: %d", rc);
+      return (*env)->NewByteArray(env, 0);
+    }
+  jbyteArray retArray = (*env)->NewByteArray(env, rc);
+  void* retArrayRaw = (*env)->GetPrimitiveArrayCritical(env, (jarray)retArray, NULL);
+  if (retArrayRaw == NULL)
+    {
+      fprintf(stderr, "Out of memory in readAuditStreamRaw!");
+      return (*env)->NewByteArray(env, 0);
+    }
+  memcpy(retArrayRaw, buf, rc);
+  (*env)->ReleasePrimitiveArrayCritical(env, (jarray)retArray, retArrayRaw, NULL);
+  return retArray;
 }
 
 /*
@@ -156,8 +241,17 @@ JNIEXPORT jstring JNICALL Java_spade_reporter_Audit_readAuditStream (JNIEnv * en
  * Signature: ()I
  */
 JNIEXPORT jint JNICALL Java_spade_reporter_Audit_closeAuditStream (JNIEnv * env, jclass j_class) {
+  #ifdef DEBUG
+  fclose(fdump);
+  #endif
+
   if (sd != -1) close(sd);
   return 0;
+
+  #ifdef TEST 
+  fclose(dumpinfile);
+  fclose(stateoutf);
+  #endif 
 }
 
 
