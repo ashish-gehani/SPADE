@@ -1,0 +1,78 @@
+#sidebar Documentation Unstable
+
+=_Steps to download, compile, and run trunk version of SPADE_=
+
+*SPADE* is written in Java, allowing it to be used on a wide range of platforms. The steps described assume a Linux or Mac OS X command line environment with recent versions of `make`, `svn`, `java`, `javac`, `javah`, `gcc`, and `find` installed. On Windows, these are available with [http://www.cygwin.com Cygwin].
+
+Since *SPADE* is under active development, the instructions below describe how to download, compile, and run the latest trunk version of the code. Other versions can be used by adjusting the Subversion revision number.
+
+Note that `->` at the beginning of a line indicates that the command is to be executed in the *SPADE* client. Other commands are to be used in a Unix shell (such as `/bin/tcsh`).
+
+----
+
+===Requirements===
+
+To compile *SPADE*, the Java Development Kit (JDK) is required. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
+
+If you are using Linux, you'll also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via `sudo apt-get install libaudit-dev auditd libfuse-dev fuse-utils`
+
+If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ MacFUSE]. 
+
+----
+
+===Downloading and compiling===
+
+To download *SPADE*, use the following command (ensure that you use the revision number specified in the command as the latest revision may not be stable):
+
+{{{
+svn checkout https://data-provenance.googlecode.com/svn/trunk/SPADE/
+}}}
+
+This will create a `SPADE` directory and download all the necessary files in it.
+
+----
+
+To compile the *SPADE* code, navigate to this newly created directory and use the `make` command as follows:
+
+{{{
+cd SPADE
+./configure
+make
+sudo make install
+}}}
+
+----
+
+===Operating the SPADE server===
+
+To start the *SPADE* server, use:
+
+{{{
+spaded start
+}}}
+
+This will start the *SPADE* server as a background process. Note that the server allows multiple startup options. To start as a foreground process, use the following:
+
+{{{
+spaded console
+}}}
+
+*SPADE* can also be installed as a service to be started every time the system is booted. However, installing this service can only be done by a super-user. To install *SPADE* as a service, use this command:
+
+{{{
+sudo spaded install
+}}}
+
+To uninstall the *SPADE* service, use:
+
+{{{
+sudo spaded remove
+}}}
+
+To see whether *SPADE* is currently running or not, use the following command:
+
+{{{
+spaded status
+}}}
+
+----
