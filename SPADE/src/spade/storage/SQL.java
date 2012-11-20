@@ -45,6 +45,9 @@ public class SQL extends AbstractStorage {
     private final String VERTEX_TABLE = "VERTEX";
     private final String EDGE_TABLE = "EDGE";
     private final boolean ENABLE_SANITAZATION = true;
+    private final int BATCH_SIZE = 1000;
+    private int statement_count = 0;
+    private Statement batch_statement;
 
     @Override
     public boolean initialize(String arguments) {
@@ -75,20 +78,24 @@ public class SQL extends AbstractStorage {
                     + "type VARCHAR(16) NOT NULL, "
                     + "hash INT NOT NULL"
                     + ")";
-            dbStatement.execute(createVertexTable);
+//            dbStatement.execute(createVertexTable);
+            dbStatement.addBatch(createVertexTable);
 
             // Create edge table if it does not already exist
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS " + EDGE_TABLE + " ("
                     + "edgeId INT PRIMARY KEY AUTO_INCREMENT, "
                     + "type VARCHAR(16) NOT NULL ,"
                     + "hash INT NOT NULL, "
-                    + "fromVertexId INT NOT NULL, "
-                    + "toVertexId INT NOT NULL"
+                    + "srcVertexHash INT NOT NULL, "
+                    + "dstVertexHash INT NOT NULL"
                     + ")";
-            dbStatement.execute(createEdgeTable);
+//            dbStatement.execute(createEdgeTable);
+            dbStatement.addBatch(createEdgeTable);
+            dbStatement.executeBatch();
+            dbStatement.close();
 
             // For performance optimization, create and store procedure to add
-            // columns to tables since this method will be called frequently
+            // columns to tables since this method may be called frequently
             // ---- PROCEDURES UNSUPPORTED IN H2 ----
 //            String procedureStatement = "DROP PROCEDURE IF EXISTS addColumn;\n"
 //                    + "CREATE PROCEDURE addColumn(IN myTable VARCHAR(16), IN myColumn VARCHAR(64))\n"
@@ -98,7 +105,7 @@ public class SQL extends AbstractStorage {
 //                    + " EXECUTE STMT;\n" + "END;";
 //            dbStatement.execute(procedureStatement);
 
-            dbStatement.close();
+            batch_statement = dbConnection.createStatement();
             return true;
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
@@ -110,6 +117,10 @@ public class SQL extends AbstractStorage {
     public boolean shutdown() {
         try {
             // Close the connection to the database
+            if (++statement_count % BATCH_SIZE > 0) {
+                batch_statement.executeBatch();
+            }
+            batch_statement.close();
             dbConnection.close();
             return true;
         } catch (Exception ex) {
@@ -154,8 +165,10 @@ public class SQL extends AbstractStorage {
 //            callStatement.execute();
 //            callStatement.close();
             // Add column of type VARCHAR
-            Statement columnStatement = dbConnection.createStatement();
-            columnStatement.execute("ALTER TABLE " + table + " ADD IF NOT EXISTS `" + column + "` VARCHAR");
+//            Statement columnStatement = dbConnection.createStatement();
+            String statement = "ALTER TABLE " + table + " ADD IF NOT EXISTS `" + column + "` VARCHAR";
+            runStatement(statement);
+//            columnStatement.execute();
 
             if (table.equalsIgnoreCase(VERTEX_TABLE)) {
                 vertexAnnotations.add(column);
@@ -222,18 +235,22 @@ public class SQL extends AbstractStorage {
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
+        runStatement(insertString);
+        receivedVertices.add(incomingVertex.hashCode());
+        return true;
+
         // Execute statement and add this vertex to the set that has been received
         // so as to prevent duplicates
-        try {
-            Statement insertStatement = dbConnection.createStatement();
-            insertStatement.executeUpdate(insertString);
-            insertStatement.close();
-            receivedVertices.add(incomingVertex.hashCode());
-            return true;
-        } catch (Exception ex) {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-            return false;
-        }
+//        try {
+//            Statement insertStatement = dbConnection.createStatement();
+//            insertStatement.executeUpdate(insertString);
+//            insertStatement.close();
+//            receivedVertices.add(incomingVertex.hashCode());
+//            return true;
+//        } catch (Exception ex) {
+//            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+//            return false;
+//        }
     }
 
     @Override
@@ -245,16 +262,19 @@ public class SQL extends AbstractStorage {
 
         // Retrieve the vertex Ids of the source and destination vertices
         // from the VERTEX table
-        int fromVertexId = getVertexId(incomingEdge.getSourceVertex());
-        int toVertexId = getVertexId(incomingEdge.getDestinationVertex());
+//        int fromVertexId = getVertexId(incomingEdge.getSourceVertex());
+//        int toVertexId = getVertexId(incomingEdge.getDestinationVertex());
+//        if ((fromVertexId == 0) || (toVertexId == 0)) {
+//            return false;
+//        }
+
+        int srcVertexHash = incomingEdge.getSourceVertex().hashCode();
+        int dstVertexHash = incomingEdge.getDestinationVertex().hashCode();
 
         // If either the source or destination vertex do not exist, then return false
-        if ((fromVertexId == 0) || (toVertexId == 0)) {
-            return false;
-        }
 
         // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (`type`, `hash`, `fromVertexId`, `toVertexId`, ");
+        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (`type`, `hash`, `srcVertexHash`, `dstVertexHash`, ");
         for (String annotationKey : incomingEdge.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
@@ -281,9 +301,9 @@ public class SQL extends AbstractStorage {
         insertStringBuilder.append("', ");
         insertStringBuilder.append(incomingEdge.hashCode());
         insertStringBuilder.append(", ");
-        insertStringBuilder.append(fromVertexId);
+        insertStringBuilder.append(srcVertexHash);
         insertStringBuilder.append(", ");
-        insertStringBuilder.append(toVertexId);
+        insertStringBuilder.append(dstVertexHash);
         insertStringBuilder.append(", ");
 
         // Add the annotation values
@@ -301,17 +321,34 @@ public class SQL extends AbstractStorage {
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
+        runStatement(insertString);
+        receivedEdges.add(incomingEdge.hashCode());
+        return true;
+
         // Execute statement and add this edge to the set that has been received
         // so as to prevent duplicates
+//        try {
+//            Statement insertStatement = dbConnection.createStatement();
+//            insertStatement.executeUpdate(insertString);
+//            insertStatement.close();
+//            receivedEdges.add(incomingEdge.hashCode());
+//            return true;
+//        } catch (Exception ex) {
+//            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+//            return false;
+//        }
+    }
+
+    private void runStatement(String statement) {
         try {
-            Statement insertStatement = dbConnection.createStatement();
-            insertStatement.executeUpdate(insertString);
-            insertStatement.close();
-            receivedEdges.add(incomingEdge.hashCode());
-            return true;
+            batch_statement.addBatch(statement);
+            if (++statement_count % BATCH_SIZE == 0) {
+                batch_statement.executeBatch();
+                batch_statement.close();
+                batch_statement = dbConnection.createStatement();
+            }
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-            return false;
         }
     }
 }
