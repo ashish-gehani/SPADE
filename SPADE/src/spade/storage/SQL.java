@@ -40,8 +40,8 @@ public class SQL extends AbstractStorage {
     private Connection dbConnection;
     private HashSet<String> vertexAnnotations;
     private HashSet<String> edgeAnnotations;
-    private HashSet<Integer> receivedVertices;
-    private HashSet<Integer> receivedEdges;
+//    private HashSet<Integer> receivedVertices;
+//    private HashSet<Integer> receivedEdges;
     private final String VERTEX_TABLE = "VERTEX";
     private final String EDGE_TABLE = "EDGE";
     private final boolean ENABLE_SANITAZATION = true;
@@ -53,8 +53,8 @@ public class SQL extends AbstractStorage {
     public boolean initialize(String arguments) {
         vertexAnnotations = new HashSet<String>();
         edgeAnnotations = new HashSet<String>();
-        receivedVertices = new HashSet<Integer>();
-        receivedEdges = new HashSet<Integer>();
+//        receivedVertices = new HashSet<Integer>();
+//        receivedEdges = new HashSet<Integer>();
 
         // Arguments consist of 4 space-separated tokens: 'driver URL username password'
 
@@ -78,8 +78,7 @@ public class SQL extends AbstractStorage {
                     + "type VARCHAR(16) NOT NULL, "
                     + "hash INT NOT NULL"
                     + ")";
-//            dbStatement.execute(createVertexTable);
-            dbStatement.addBatch(createVertexTable);
+            dbStatement.execute(createVertexTable);
 
             // Create edge table if it does not already exist
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS " + EDGE_TABLE + " ("
@@ -89,9 +88,7 @@ public class SQL extends AbstractStorage {
                     + "srcVertexHash INT NOT NULL, "
                     + "dstVertexHash INT NOT NULL"
                     + ")";
-//            dbStatement.execute(createEdgeTable);
-            dbStatement.addBatch(createEdgeTable);
-            dbStatement.executeBatch();
+            dbStatement.execute(createEdgeTable);
             dbStatement.close();
 
             // For performance optimization, create and store procedure to add
@@ -186,9 +183,9 @@ public class SQL extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         // If this vertex has already been received before, return false
-        if (receivedVertices.contains(incomingVertex.hashCode())) {
-            return false;
-        }
+//        if (receivedVertices.contains(incomingVertex.hashCode())) {
+//            return false;
+//        }
 
         // Use StringBuilder to build the SQL insert statement
         StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + VERTEX_TABLE + " (`type`, `hash`, ");
@@ -236,7 +233,7 @@ public class SQL extends AbstractStorage {
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
         runStatement(insertString);
-        receivedVertices.add(incomingVertex.hashCode());
+//        receivedVertices.add(incomingVertex.hashCode());
         return true;
 
         // Execute statement and add this vertex to the set that has been received
@@ -256,9 +253,9 @@ public class SQL extends AbstractStorage {
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         // If this edge has already been received before, return false
-        if (receivedEdges.contains(incomingEdge.hashCode())) {
-            return false;
-        }
+//        if (receivedEdges.contains(incomingEdge.hashCode())) {
+//            return false;
+//        }
 
         // Retrieve the vertex Ids of the source and destination vertices
         // from the VERTEX table
@@ -322,7 +319,7 @@ public class SQL extends AbstractStorage {
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
         runStatement(insertString);
-        receivedEdges.add(incomingEdge.hashCode());
+//        receivedEdges.add(incomingEdge.hashCode());
         return true;
 
         // Execute statement and add this edge to the set that has been received
