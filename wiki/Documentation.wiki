@@ -19,5 +19,8 @@
  * [Filters Filtering provenance]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
+
+<wiki:comment>
  * [DocumentationUnstable Working with unstable trunk version]
   * [ControlClientUnstable Controlling the SPADE server]
+</wiki:comment>
