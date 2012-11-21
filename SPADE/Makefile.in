@@ -108,6 +108,7 @@ build-linuxaudit: build/spade/reporter/Audit.class build/spade/reporter/spadeLin
 	@echo ''
 build/spade/reporter/spadeLinuxAudit: src/spade/reporter/spadeLinuxAudit.c
 	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
+	cp build/spade/reporter/spadeLinuxAudit lib/
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/libLinuxFUSE.h lib/libLinuxFUSE.so

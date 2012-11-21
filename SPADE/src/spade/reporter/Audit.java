@@ -149,8 +149,9 @@ public class Audit extends AbstractReporter {
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
             DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
         } else {
-            AUDIT_EXEC_PATH = "./spade/reporter/spadeLinuxAudit";
-            ignoreProcesses = "./spade/reporter/spadeLinuxAudit spadeLinuxAudit auditd";
+            // AUDIT_EXEC_PATH = "./spade/reporter/spadeLinuxAudit";
+        	AUDIT_EXEC_PATH = "../../lib/spadeLinuxAudit";
+            ignoreProcesses = "spadeLinuxAudit auditd";
             DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
         }
 
@@ -366,7 +367,8 @@ public class Audit extends AbstractReporter {
         try {
             // Only for Linux/Android
             Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
-            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+            String ps_cmd = ANDROID_PLATFORM ? "ps" : "ps auc";
+            java.lang.Process pidChecker = Runtime.getRuntime().exec(ps_cmd);
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
             pidReader.readLine();
             String line;
@@ -375,7 +377,7 @@ public class Audit extends AbstractReporter {
                 String details[] = line.split("\\s+");
                 String user = details[0];
                 String pid = details[1];
-                String name = details[8].trim();
+                String name = details[details.length-1].trim();
                 if (user.equals("root") && ignoreProcessSet.contains(name)) {
                     ignorePids.append(" -F pid!=").append(pid);
                     ignorePids.append(" -F ppid!=").append(pid);
@@ -403,10 +405,13 @@ public class Audit extends AbstractReporter {
                 if (line == null) {
                     break;
                 }
-                String tokens[] = line.split("\\s+", 8);
-                String fd = tokens[5];
-                String location = tokens[7];
-                descriptors.put(fd, location);
+                String tokens[] = line.split("\\s+");
+                int toks = tokens.length;
+                if (toks > 3) {
+	                String fd = tokens[toks-3];
+	                String location = tokens[toks-1];
+	                descriptors.put(fd, location);
+                }
             }
             fdReader.close();
             return descriptors;
