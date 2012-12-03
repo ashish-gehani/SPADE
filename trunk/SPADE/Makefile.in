@@ -42,12 +42,12 @@ endif
 # -------- Default Build Configuration -----
 CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex \
 	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query RemoteRegistry Vertex \
-	AuthSSLSocketFactory AuthSSLServerSocket
+	AuthSSLSocketFactory AuthSSLServerSocket Settings
 REPORTERS = Graphviz DSL Network
 STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
 UTILITIES = JavaHome
-FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter 
+FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter FinalCommitFilter
 BUILD_DIRS = build android-build android-build/bin android-lib
 # -------------------------------------------
 
@@ -232,10 +232,17 @@ android-shutdown:
 
 DESTDIR = @prefix@
 install:
+ifeq ($(OS_NAME), Darwin)
+	sudo chown root build/spade/reporter/spadeOpenBSM
+	sudo chmod ug+s build/spade/reporter/spadeOpenBSM
+endif
+ifeq ($(OS_NAME), Linux)
+	sudo chown root build/spade/reporter/spadeLinuxAudit
+	sudo chmod ug+s build/spade/reporter/spadeLinuxAudit
+endif
 	test -d $(DESTDIR) || mkdir $(DESTDIR) 
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
 	cp -R log $(DESTDIR)
-
-uninstall:
+	cp -R build $(DESTDIR)
