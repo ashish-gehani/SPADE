@@ -150,7 +150,7 @@ public class Audit extends AbstractReporter {
             DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
         } else {
             // AUDIT_EXEC_PATH = "./spade/reporter/spadeLinuxAudit";
-        	AUDIT_EXEC_PATH = "../../lib/spadeLinuxAudit";
+            AUDIT_EXEC_PATH = "../../lib/spadeLinuxAudit";
             ignoreProcesses = "spadeLinuxAudit auditd";
             DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
         }
@@ -344,14 +344,24 @@ public class Audit extends AbstractReporter {
             // Determine pids of processes that are to be ignored. These are appended
             // to the audit rule.
             StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
-            auditRules = "-a exit,always "
-                    + "-S clone -S fork -S vfork -S execve -S open -S close "
-                    + "-S read -S readv -S write -S writev -S link -S symlink "
-                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-                    + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
-                    + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
-                    + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
-                    + "-S pipe2 -F success=1 " + ignorePids.toString();
+            if (!ANDROID_PLATFORM) {
+                auditRules = "-a exit,always "
+                        + "-S clone -S fork -S vfork -S execve -S open -S close "
+                        + "-S read -S readv -S write -S writev -S link -S symlink "
+                        + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+                        + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
+                        + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
+                        + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
+                        + "-S pipe2 -F success=1 " + ignorePids.toString();
+            } else {
+                auditRules = "-a exit,always "
+                        + "-S clone -S fork -S vfork -S execve -S open -S close "
+                        + "-S read -S readv -S write -S writev -S link -S symlink "
+                        + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+                        + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
+                        + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
+                        + "-S pipe2 -F success=1 " + ignorePids.toString();
+            }
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
             logger.log(Level.INFO, "Configured	 audit rules: {0}", auditRules);
@@ -377,7 +387,7 @@ public class Audit extends AbstractReporter {
                 String details[] = line.split("\\s+");
                 String user = details[0];
                 String pid = details[1];
-                String name = details[details.length-1].trim();
+                String name = details[details.length - 1].trim();
                 if (user.equals("root") && ignoreProcessSet.contains(name)) {
                     ignorePids.append(" -F pid!=").append(pid);
                     ignorePids.append(" -F ppid!=").append(pid);
@@ -408,9 +418,9 @@ public class Audit extends AbstractReporter {
                 String tokens[] = line.split("\\s+");
                 int toks = tokens.length;
                 if (toks > 3) {
-	                String fd = tokens[toks-3];
-	                String location = tokens[toks-1];
-	                descriptors.put(fd, location);
+                    String fd = tokens[toks - 3];
+                    String location = tokens[toks - 1];
+                    descriptors.put(fd, location);
                 }
             }
             fdReader.close();
@@ -653,33 +663,41 @@ public class Audit extends AbstractReporter {
         // fork() and clone() receive the following message(s):
         // - SYSCALL
         // - EOE
-        /**
-         * *
-         * String time = eventData.get("time"); String oldPID =
-         * eventData.get("pid"); String newPID = eventData.get("exit");
-         * checkProcessVertex(eventData, true, false);
-         *
-         * Process newProcess = new Process(); String uid =
-         * String.format("%s\t%s\t%s\t%s", eventData.get("uid"),
-         * eventData.get("euid"), eventData.get("suid"),
-         * eventData.get("fsuid")); String gid = String.format("%s\t%s\t%s\t%s",
-         * eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"),
-         * eventData.get("fsgid")); newProcess.addAnnotation("pid", newPID);
-         * newProcess.addAnnotation("ppid", oldPID);
-         * newProcess.addAnnotation("uid", uid); newProcess.addAnnotation("gid",
-         * gid);
-         *
-         * processes.put(newPID, newProcess); putVertex(newProcess);
-         * WasTriggeredBy wtb = new WasTriggeredBy(newProcess,
-         * processes.get(oldPID)); wtb.addAnnotation("operation",
-         * syscall.name().toLowerCase()); wtb.addAnnotation("time", time);
-         * putEdge(wtb); // Copy file descriptors from old process to new one if
-         * (fileDescriptors.containsKey(oldPID)) { Map<String, String> newfds =
-         * new HashMap<String, String>(); for (Map.Entry<String, String> entry :
-         * fileDescriptors.get(oldPID).entrySet()) { newfds.put(entry.getKey(),
-         * entry.getValue()); } fileDescriptors.put(newPID, newfds); }
-        **
-         */
+
+        String time = eventData.get("time");
+        String oldPID = eventData.get("pid");
+        String newPID = eventData.get("exit");
+        checkProcessVertex(eventData, true, false);
+
+        Process newProcess = new Process();
+        String uid = String.format("%s\t%s\t%s\t%s",
+                eventData.get("uid"),
+                eventData.get("euid"),
+                eventData.get("suid"),
+                eventData.get("fsuid"));
+        String gid = String.format("%s\t%s\t%s\t%s",
+                eventData.get("gid"),
+                eventData.get("egid"),
+                eventData.get("sgid"),
+                eventData.get("fsgid"));
+        newProcess.addAnnotation("pid", newPID);
+        newProcess.addAnnotation("ppid", oldPID);
+        newProcess.addAnnotation("uid", uid);
+        newProcess.addAnnotation("gid", gid);
+
+        processes.put(newPID, newProcess);
+        putVertex(newProcess);
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(oldPID));
+        wtb.addAnnotation("operation", syscall.name().toLowerCase());
+        wtb.addAnnotation("time", time);
+        putEdge(wtb); // Copy file descriptors from old process to new one
+        if (fileDescriptors.containsKey(oldPID)) {
+            Map<String, String> newfds = new HashMap<String, String>();
+            for (Map.Entry<String, String> entry : fileDescriptors.get(oldPID).entrySet()) {
+                newfds.put(entry.getKey(), entry.getValue());
+            }
+            fileDescriptors.put(newPID, newfds);
+        }
     }
 
     private void processExecve(Map<String, String> eventData) {
