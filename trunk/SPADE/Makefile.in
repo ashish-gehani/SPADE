@@ -101,14 +101,13 @@ lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
 
 # Build the LinuxAudit reporter.
-build-linuxaudit: build/spade/reporter/Audit.class build/spade/reporter/spadeLinuxAudit 
+build-linuxaudit: build/spade/reporter/Audit.class lib/spadeLinuxAudit 
 	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
-	@echo '----->            sudo chown root build/spade/reporter/spadeLinuxAudit'
-	@echo '----->            sudo chmod ug+s build/spade/reporter/spadeLinuxAudit'
+	@echo '----->            sudo chown root lib/spadeLinuxAudit'
+	@echo '----->            sudo chmod ug+s lib/spadeLinuxAudit'
 	@echo ''
-build/spade/reporter/spadeLinuxAudit: src/spade/reporter/spadeLinuxAudit.c
-	gcc -o build/spade/reporter/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
-	cp build/spade/reporter/spadeLinuxAudit lib/
+lib/spadeLinuxAudit: src/spade/reporter/spadeLinuxAudit.c
+	gcc -o lib/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/libLinuxFUSE.h lib/libLinuxFUSE.so
@@ -122,19 +121,18 @@ lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
 
 # Build the OpenBSM reporter.
-build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c build/spade/reporter/spadeOpenBSM
+build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c lib/spadeOpenBSM
 	@echo '-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:'
-	@echo '----->            sudo chown root build/spade/reporter/spadeOpenBSM'
-	@echo '----->            sudo chmod ug+s build/spade/reporter/spadeOpenBSM'
+	@echo '----->            sudo chown root lib/spadeOpenBSM'
+	@echo '----->            sudo chmod ug+s lib/spadeOpenBSM'
 	@echo ''
-
-build/spade/reporter/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
-	gcc -o  build/spade/reporter/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
+lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
+	gcc -o lib/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
 
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
-	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers `pkg-config fuse --cflags --libs` src/spade/reporter/libMacFUSE.c -o lib/libMacFUSE.jnilib
+	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
 
 llvm: build/spade/reporter/LLVM.class
 	@make $(LLVM_RULE)
@@ -233,7 +231,6 @@ android-shutdown:
 DESTDIR = @prefix@
 install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR) 
-	cp -R build $(DESTDIR)
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
