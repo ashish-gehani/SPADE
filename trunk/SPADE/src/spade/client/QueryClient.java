@@ -39,7 +39,7 @@ public class QueryClient {
     private static PrintStream outputStream;
     private static PrintStream SPADEQueryIn;
     private static ObjectInputStream SPADEQueryOut;
-    private static final String historyFile = "../cfg/query.history";
+    private static final String historyFile = "/tmp/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
     private static String QUERY_STORAGE = "Neo4j";
@@ -152,7 +152,7 @@ public class QueryClient {
 
         try {
             if ((queryTarget == null) && (queryString != null)) {
-                long begintime = 0, endtime = 0;
+                long begintime, endtime;
                 begintime = System.currentTimeMillis();
                 SPADEQueryIn.println(queryString);
                 String resultString = (String) SPADEQueryOut.readObject();
