@@ -44,7 +44,7 @@ public class ControlClient {
     private static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
     private static volatile boolean shutdown;
-    private static final String historyFile = "/tmp/control.history"; // TODO: Dawood, this needs to be configurable
+    private static final String historyFile = "/tmp/control.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
 
