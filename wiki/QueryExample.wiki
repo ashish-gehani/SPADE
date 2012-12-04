@@ -66,7 +66,7 @@ The graph of the provenance of the `root process` (which has a `vertexId` of `1`
 -> graph1 = getLineage(1, 10, ancestors)
 Time taken for query: 389 ms
 -> export graph1 /tmp/ancestors.dot
-Exported graph to /tmp/ancestors.dot
+Exported graph1 to /tmp/ancestors.dot
 }}}
 
 The file `/tmp/ancestors.dot` is in [http://www.graphviz.org Graphviz] format. When rendered it looks like this:
@@ -83,7 +83,7 @@ Similarly, the graph in which the same vertex is part of the provenance can be r
 -> graph2 = getLineage(1, 10, descendants)
 Time taken for query: 560 ms
 -> export graph2 /tmp/descendants.dot
-Exported graph to /tmp/descendants.dot
+Exported graph2 to /tmp/descendants.dot
 }}}
 
 When rendered, it looks like this:
