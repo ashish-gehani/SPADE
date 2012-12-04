@@ -43,30 +43,30 @@ In the case of `Neo4j`, the expressions can use the full [http://lucene.apache.o
 
 ----
 
-===Retrieving lineage===
-
-The `getLineage()` class of queries is used find the ancestors or descendants of a specific provenance vertex.
-
- * The third argument is the `vertexId` used by the storage system.
- * The fourth argument is the maximum number of levels of the graph that should be returned. 
- * The fifth argument is either `ancestors` or `descendants` to indicate whether to return the vertices from which the specified one was derived or the vertices which used the specified vertex.
- * The sixth argument is the expression on which the lineage should terminate or `null` if no expression is to be used.
- * The seventh argument is the name of a file in which the response to the query will be stored in [http://www.graphviz.org Graphviz] format.
-
-For example, if the Neo4j database contained *Artifact* vertices with the dates of birth of people and *WasDerivedFrom* edges from children to parents, this query could be used to find Galileo's parents:
-
-{{{
--> query Neo4j lineage 1024 1 ancestors null /tmp/Galileo_parents.dot
-}}}
-
-----
-
 ===Finding paths between vertices===
 
 The `paths` class of queries lets the user find all paths between two vertices. The third argument is the source vertex identifier and the fourth argument is the destination vertex identifier. The maximum path length is specified in the fifth argument. For example, to find paths from vertex 2 to vertex 5 having a maximum length of 10, the following query could be used:
 
 {{{
 -> query Neo4j paths 2 5 10 /tmp/paths.dot
+}}}
+
+----
+
+===Retrieving lineage===
+
+The `getLineage()` class of queries is used find the ancestors or descendants of a specific provenance vertex.
+
+ * The first argument is the `vertex id` used by the storage system to identify the starting vertex for the query.
+ * The second argument is the maximum number of levels of the graph that should be returned. 
+ * The third argument is either `ancestors` or `descendants` to indicate whether to return the vertices from which the specified one was derived or the vertices which used the specified vertex.
+ * The fourth argument is optional and specifies the expression on which the lineage should terminate.
+
+For example, if the database contained *Artifact* vertices with the dates of birth of people and *WasDerivedFrom* edges from children to parents, this query could be used to find Galileo's parents:
+
+{{{
+-> galileo_parents = getLineage(1024, 1, ancestors)
+Time taken for query: 388 ms
 }}}
 
 ----
