@@ -4,7 +4,8 @@
 
 ===Requirements:===
  * The Linux Audit system (http://people.redhat.com/sgrubb/audit/)
- * On Fedora, FUSE can be installed with the following command:
+ * On Fedora, Audit can be installed with the following command:
+
 {{{
 yum install audit audit-libs
 }}}
