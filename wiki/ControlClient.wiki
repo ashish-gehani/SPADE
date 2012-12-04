@@ -2,10 +2,10 @@
 
 =_Controlling the SPADE server_=
 
-To start the client used to configure the *SPADE* server, execute the following command:
+To start the client used to control the *SPADE* server, execute the following command in your terminal/shell:
 
 {{{
-./SPADE/bin/control
+$ spade-controller
 }}}
 
 The following will appear:
