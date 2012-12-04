@@ -344,7 +344,7 @@ public class Audit extends AbstractReporter {
             // Determine pids of processes that are to be ignored. These are appended
             // to the audit rule.
             StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
-            if (!ANDROID_PLATFORM) {
+            if (ANDROID_PLATFORM) {
                 auditRules = "-a exit,always "
                         + "-S clone -S fork -S vfork -S execve -S open -S close "
                         + "-S read -S readv -S write -S writev -S link -S symlink "
