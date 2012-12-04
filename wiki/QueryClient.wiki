@@ -93,6 +93,7 @@ Query results can be exported to files in DOT format which can be rendered as im
 
 {{{
 -> export var2 /tmp/galileo_parents.dot
+Exported var2 to /tmp/galileo_parents.dot
 }}}
 
 ----
