@@ -82,7 +82,16 @@ var1       | getVertices(date:02-15-1564)
 var2       | getPaths(2, 5, 10)
 var3       | getLineage(1024, 1, ancestors)
 ----------------------------------------------
+}}}
 
+----
+
+===Exporting results of queries===
+
+Query results can be exported to files in DOT format which can be rendered as images using [http://www.graphviz.org/ Graphviz]. The following illustrates the use of the `export` command:
+
+{{{
+-> export var2 /tmp/galileo_parents.dot
 }}}
 
 ----
