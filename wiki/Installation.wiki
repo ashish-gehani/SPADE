@@ -14,9 +14,13 @@ Note that `->` at the beginning of a line indicates that the command is to be ex
 
 To compile *SPADE*, the Java Development Kit (JDK) is required. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
-If you are using Linux, you'll also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via `sudo apt-get install libaudit-dev auditd libfuse-dev fuse-utils`
+If you are using Linux, you'll also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via the following command:
 
-If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ MacFUSE]. 
+{{{
+`sudo apt-get install libaudit-dev auditd libfuse-dev fuse-utils`
+}}}
+
+If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ MacFUSE] or [http://fuse4x.github.com/ Fuse4X]. 
 
 ----
 
@@ -25,17 +29,18 @@ If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ M
 To download *SPADE*, use the following command (ensure that you use the revision number specified in the command as the latest revision may not be stable):
 
 {{{
-svn checkout -r 521 https://data-provenance.googlecode.com/svn/trunk/SPADE/
+svn export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 
 This will create a `SPADE` directory and download all the necessary files in it.
 
 ----
 
-To compile the *SPADE* code, navigate to this newly created directory and use the `make` command as follows:
+To compile the *SPADE* code, navigate to this newly created directory and `configure` the package before executing the `make` command as follows:
 
 {{{
 cd SPADE
+./configure
 make
 }}}
 
