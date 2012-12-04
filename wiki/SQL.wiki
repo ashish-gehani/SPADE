@@ -2,16 +2,20 @@
 
 =_Storing provenance in a SQL database_=
 
-The H2 SQL storage can be added to SPADE using the control client. Note that a single argument must be provided. This is the location in the filesystem where the database is to be created if it does not exist, or where it is to be retrieved from if it has previously been created. In the example below `/tmp/spade.sql_db` is the location of the database:
+The SQL storage can be added to SPADE using the controller. Note that four arguments must be provided when adding this storage: databases driver to use, database URL, username, and password. If either the username or password is unused, the string literal `null` should be used.
+
+SPADE comes pre-packaged with the H2 SQL library and the following example shows how to use it to create a database in the filesystem: 
 
 {{{
--> add storage SQL /tmp/sql/spade.sql_db
+-> add storage SQL org.h2.Driver jdbc:h2:/tmp/sql/spade.sql_db sa null
 Adding storage SQL... done
 }}}
 
+This will create a database in the filesystem at `/tmp/sql/spade.sql_db` if it does not exist, or use the existing database if it has previously been created.
+
 ----
 
-The following will cause the kernel to stop sending provenance records to the SQL database:
+The following will cause SPADE to stop sending provenance records to the SQL database:
 
 {{{
 -> remove storage SQL
