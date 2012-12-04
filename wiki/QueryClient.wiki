@@ -30,8 +30,6 @@ Available commands:
 
 The `getVertices()` class of queries finds all the provenance vertices that have specific properties. The properties are framed as a query expression that can be evaluated by the storage system.
 
-----
-
 For example, to query for all vertices that have the annotation `date:02-15-1564` use the following command to evaluate this query and assign the result to `var1`:
 
 {{{
@@ -45,10 +43,11 @@ In the case of `Neo4j`, the expressions can use the full [http://lucene.apache.o
 
 ===Finding paths between vertices===
 
-The `paths` class of queries lets the user find all paths between two vertices. The third argument is the source vertex identifier and the fourth argument is the destination vertex identifier. The maximum path length is specified in the fifth argument. For example, to find paths from vertex 2 to vertex 5 having a maximum length of 10, the following query could be used:
+The `getPaths` class of queries lets the user find all paths between two vertices. The first argument is the source vertex identifier and the second argument is the destination vertex identifier. The maximum path length is specified in the third argument. For example, to find paths from vertex 2 to vertex 5 having a maximum length of 10, the following query could be used:
 
 {{{
--> query Neo4j paths 2 5 10 /tmp/paths.dot
+-> var2 = getPaths(2, 5, 10)
+Time taken for query: 211 ms
 }}}
 
 ----
@@ -65,8 +64,25 @@ The `getLineage()` class of queries is used find the ancestors or descendants of
 For example, if the database contained *Artifact* vertices with the dates of birth of people and *WasDerivedFrom* edges from children to parents, this query could be used to find Galileo's parents:
 
 {{{
--> galileo_parents = getLineage(1024, 1, ancestors)
-Time taken for query: 388 ms
+-> var3 = getLineage(1024, 1, ancestors)
+Time taken for query: 688 ms
+}}}
+
+----
+
+===Listing results of queries===
+
+The `list` command can be used to show the results of queries that have been executed:
+
+{{{
+-> list
+----------------------------------------------
+Graph      | Expression
+var1       | getVertices(date:02-15-1564)
+var2       | getPaths(2, 5, 10)
+var3       | getLineage(1024, 1, ancestors)
+----------------------------------------------
+
 }}}
 
 ----
