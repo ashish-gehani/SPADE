@@ -24,12 +24,20 @@ If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ M
 
 ----
 
-===Downloading and compiling===
+===Installing from package (recommended)===
+
+For installing on Linux, the debian package can be downloaded from [http://data-provenance.googlecode.com/svn/trunk/Packages/spade_2.0-1_all.deb here]. Installation can then be done via the following command:
+
+{{{
+dpkg -i spade_2.0-1_all.deb
+}}}
+
+===Downloading and compiling manually===
 
 To download *SPADE*, use the following command (ensure that you use the revision number specified in the command as the latest revision may not be stable):
 
 {{{
-svn export http://data-provenance.googlecode.com/svn/trunk/SPADE/
+svn -r 660 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 
 This will create a `SPADE` directory and download all the necessary files in it.
@@ -51,31 +59,31 @@ make
 To start the *SPADE* server, use:
 
 {{{
-./SPADE/bin/server start
+spade-server start
 }}}
 
 This will start the *SPADE* server as a background process. Note that the server allows multiple startup options. To start as a foreground process, use the following:
 
 {{{
-./SPADE/bin/server console
+spade-server console
 }}}
 
 *SPADE* can also be installed as a service to be started every time the system is booted. However, installing this service can only be done by a super-user. To install *SPADE* as a service, use this command:
 
 {{{
-sudo ./SPADE/bin/server install
+sudo spade-server install
 }}}
 
 To uninstall the *SPADE* service, use:
 
 {{{
-sudo ./SPADE/bin/server remove
+sudo spade-server remove
 }}}
 
 To see whether *SPADE* is currently running or not, use the following command:
 
 {{{
-./SPADE/bin/server status
+spade-server status
 }}}
 
 ----
