@@ -32,6 +32,8 @@ For installing on Linux, the debian package can be downloaded from [http://data-
 dpkg -i spade_2.0-1_all.deb
 }}}
 
+----
+
 ===Downloading and compiling manually===
 
 To download *SPADE*, use the following command (ensure that you use the revision number specified in the command as the latest revision may not be stable):
@@ -41,8 +43,6 @@ svn -r 660 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 
 This will create a `SPADE` directory and download all the necessary files in it.
-
-----
 
 To compile the *SPADE* code, navigate to this newly created directory and `configure` the package before executing the `make` command as follows:
 
