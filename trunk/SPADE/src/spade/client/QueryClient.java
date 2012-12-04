@@ -116,7 +116,7 @@ public class QueryClient {
         //      function(arguments)
         // Examples:
         //      getVertices(expression)
-        //      getPaths(src_id, dst_id)
+        //      getPaths(src_id, dst_id, maxlength)
         //      getLineage(id, depth, direction)
         //      getLineage(id, depth, direction, expression)
         Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
@@ -138,7 +138,7 @@ public class QueryClient {
             queryTarget = pathMatcher.group(2);
             String srcVertex = pathMatcher.group(3);
             String dstVertex = pathMatcher.group(4);
-            String maxLength = pathMatcher.group(4);
+            String maxLength = pathMatcher.group(5);
             queryString = "query " + QUERY_STORAGE + " paths " + srcVertex + " " + dstVertex + " " + maxLength;
         } else if (lineageMatcher.matches()) {
             result = lineageMatcher.group(1);
@@ -167,7 +167,7 @@ public class QueryClient {
                 endtime = System.currentTimeMillis();
                 long elapsedtime = endtime - begintime;
 
-                System.out.println("Time taken for query: " + elapsedtime);
+                System.out.println("Time taken for query: " + elapsedtime + " ms");
             } else if (queryTarget != null) {
                 queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
                 if (!graphObjects.containsKey(queryTarget)) {

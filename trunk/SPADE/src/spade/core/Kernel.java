@@ -136,9 +136,12 @@ public class Kernel {
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
-    private static final String QUERY_VERTEX_STRING = "query <class name> vertices <expression>";
-    private static final String QUERY_LINEAGE_STRING = "query <class name> lineage <vertex id> <depth> <direction> <terminating expression>";
-    private static final String QUERY_PATHS_STRING = "query <class name> paths <source vertex id> <destination vertex id> <max length>";
+    private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
+    private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id)";
+    private static final String QUERY_LINEAGE_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
+    private static final String QUERY_LIST_STRING = "list";
+    private static final String QUERY_EXPORT_STRING = "export <result> <path>";
+    private static final String QUERY_EXIT_STRING = "exit";    
     private static final String QUERY_REMOTEPATHS_STRING = "query <class name> remotepaths <source host:vertex id> <destination host:vertex id> <max length>";
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
     /*
@@ -350,15 +353,15 @@ public class Kernel {
                                 Object bufferelement = buffer.getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
                                     AbstractVertex tempVertex = (AbstractVertex) bufferelement;
-                                    int hash = tempVertex.hashCode();
-                                    tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
-                                    tempVertex.addAnnotation(UNIQUE_ID, Integer.toString(hash));
+//                                    int hash = tempVertex.hashCode();
+//                                    tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
+//                                    tempVertex.addAnnotation(UNIQUE_ID, Integer.toString(hash));
                                     filters.get(FIRST_FILTER).putVertex(tempVertex);
                                 } else if (bufferelement instanceof AbstractEdge) {
                                     AbstractEdge tempEdge = (AbstractEdge) bufferelement;
-                                    int hash = tempEdge.hashCode();
-                                    tempEdge.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
-                                    tempEdge.addAnnotation(UNIQUE_ID, Integer.toString(hash));
+//                                    int hash = tempEdge.hashCode();
+//                                    tempEdge.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
+//                                    tempEdge.addAnnotation(UNIQUE_ID, Integer.toString(hash));
                                     filters.get(FIRST_FILTER).putEdge(tempEdge);
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
@@ -664,9 +667,11 @@ public class Kernel {
         StringBuilder string = new StringBuilder();
         string.append("Available commands:\n");
         string.append("\t" + QUERY_VERTEX_STRING + "\n");
-        string.append("\t" + QUERY_LINEAGE_STRING + "\n");
         string.append("\t" + QUERY_PATHS_STRING + "\n");
-        string.append("\t" + EXIT_STRING);
+        string.append("\t" + QUERY_LINEAGE_STRING + "\n");
+        string.append("\t" + QUERY_LIST_STRING + "\n");
+        string.append("\t" + QUERY_EXPORT_STRING + "\n");
+        string.append("\t" + QUERY_EXIT_STRING);
         return string.toString();
     }
 
@@ -1274,7 +1279,6 @@ class LocalQueryConnection implements Runnable {
                 // Commands read from the input stream and executed.
                 if (queryInputStream.ready()) {
                     String line = queryInputStream.readLine();
-                    System.out.println("Received line: " + line);
                     if (line.equalsIgnoreCase("exit")) {
                         break;
                     } else {
