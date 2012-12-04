@@ -17,23 +17,3 @@ Storage can be added and removed while the *SPADE* kernel is running. For exampl
 -> remove storage Neo4j
 Shutting down storage Neo4j... done
 }}}
-
-----
-
-===Using the Neo4j Web interface===
-
-Neo4j provides a Web-based administrative interface that allows users to monitor the server and browse data. When the Neo4j storage is added to *SPADE* using the `add storage` command in the control client, the Web interface becomes accessible at the URL: http://localhost:7474/.
-
-Detailed documentation describing this web interface and how it can be used to browse data is available [http://docs.neo4j.org/chunked/stable/tools-webadmin.html here].
-
-----
-
-===Using Neoclipse===
-
-The [http://neo4j.org/download_v1/ Neoclipse] tool that can be used navigate and inspect the *SPADE* Neo4j database. _Note:_ *SPADE* uses Neo4j version 1.5 and a corresponding version of Neoclipse must be used.
-
-A database can be viewed in Neoclipse only if it is not currently being used by *SPADE*. To view a *SPADE* Neo4j database:
-
-  # Go to Preferences (which is the first button on the top toolbar of Neoclipse on a Mac).
-  # In the section "Neo4j", select the database location and exit Preferences.
-  # Click on the "Start/Connect" button (which is the first button on the second toolbar of Neoclipse on a Mac).
