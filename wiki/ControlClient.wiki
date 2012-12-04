@@ -2,7 +2,7 @@
 
 =_Controlling the SPADE server_=
 
-To start the client used to control the *SPADE* server, execute the following command in your terminal/shell:
+To start the controller used to configure the *SPADE* server, execute the following command in your terminal/shell:
 
 {{{
 spade-controller
@@ -47,7 +47,7 @@ No sketches added
 
 ----
 
-To exit the client, use the `exit` command:
+To exit the controller, use the `exit` command:
 
 {{{
 -> exit
