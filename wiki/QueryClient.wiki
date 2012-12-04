@@ -78,6 +78,7 @@ The `list` command can be used to show the results of queries that have been exe
 -> list
 ----------------------------------------------
 Graph      | Expression
+----------------------------------------------
 var1       | getVertices(date:02-15-1564)
 var2       | getPaths(2, 5, 10)
 var3       | getLineage(1024, 1, ancestors)
