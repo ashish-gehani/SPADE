@@ -26,7 +26,7 @@ If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ M
 
 ===Installing from package (recommended)===
 
-For installing on Linux, the debian package can be downloaded from [http://data-provenance.googlecode.com/svn/trunk/Packages/spade_2.0-1_all.deb here]. Installation can then be done via the following command:
+For installing on Linux, the debian package can be downloaded from [http://data-provenance.googlecode.com/svn/trunk/packages/spade_2.0-1_all.deb here]. Installation can then be done via the following command:
 
 {{{
 dpkg -i spade_2.0-1_all.deb
