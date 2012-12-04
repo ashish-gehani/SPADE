@@ -41,8 +41,8 @@ endif
 
 # -------- Default Build Configuration -----
 CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex \
-	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query RemoteRegistry Vertex \
-	AuthSSLSocketFactory AuthSSLServerSocket Settings
+	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query Vertex \
+	AuthSSLServerSocket Settings
 REPORTERS = Graphviz DSL Network
 STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
