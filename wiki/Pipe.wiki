@@ -2,22 +2,22 @@
 
 =_Writing provenance to a pipe_=
 
-To let a user (or external application) start sending provenance information to *SPADE* with minimal effort, we have implemented a `Pipe` reporter. It creates a named pipe in the filesystem, to which a user (or external application) can send provenance information in a simple language that we describe below.
+To let a user (or external application) start sending provenance information to *SPADE* with minimal effort, we have implemented a `DSL` reporter. It creates a named pipe in the filesystem, to which a user (or external application) can send provenance information in a simple language that we describe below.
 
 ----
 
-The `Pipe` reporter is compiled along with SPADE. This reporter takes a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the *SPADE* control client (after SPADE has been started):
+The `DSL` reporter is compiled along with SPADE. This reporter takes a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the *SPADE* controller (after the SPADE server has been started):
 
 {{{
--> add reporter Pipe /tmp/spade_pipe
-Adding reporter Pipe... done
+-> add reporter DSL /tmp/spade_pipe
+Adding reporter DSL... done
 }}}
 
-As long as no other object existed at that location (such as a file, directory, socket, or pipe), the `Pipe` reporter will create a named pipe at that location (which is `/tmp/spade_pipe` in the above example).
+As long as no other object existed at that location (such as a file, directory, socket, or pipe), the `DSL` reporter will create a named pipe at that location (which is `/tmp/spade_pipe` in the above example).
 
 ----
 
-To send provenance metadata to the *SPADE* kernel through the `Pipe` reporter, each vertex or edge must be described on a new line.
+To send provenance metadata to the *SPADE* server through the `DSL` reporter, each vertex or edge must be described on a new line.
 
 ===Sending a provenance vertex===
 
@@ -27,7 +27,7 @@ To send a vertex, write a line of the below form to the pipe:
 
 Depending on whether the value associated with the key `type` is `Agent`, `Process`, or `Artifact`, a corresponding Open Provenance Model vertex will be created. The `unique identifier` is used to disambiguate a vertex so that it can be referred to as the endpoint of an edge. Each `<key>:<value` pair (of which there can be an arbitrary number) is turned into an annotation on the vertex.
 
-(Note that the `type:<Agent|Process|Artifact>` and `id:<unique identifier>` elements are only used to tell the `Pipe` reporter what vertices / edges to create, and are not committed to storage.)
+(Note that the `type:<Agent|Process|Artifact>` and `id:<unique identifier>` elements are only used to tell the `DSL` reporter what vertices / edges to create, and are not committed to storage.)
 
 ----
 
@@ -59,7 +59,7 @@ If the key `type` is `WasTriggeredBy`, the key `from` must be associated with a 
 If the key `type` is `WasDerivedFrom`, the key `from` must be associated with a value that is the unique identifier of an `Artifact` vertex, and the key `to` must be associated with a value that is the unique identifier of an `Artifact` vertex.
 If the key `type` is `WasControlledBy`, the key `from` must be associated with a value that is the unique identifier of a `Process` vertex, and the key `to` must be associated with a value that is the unique identifier of an `Agent` vertex.
 
-All the remaining `<key>:<value` pairs are turned into annotations on the edge.
+All the remaining `<key>:<value>` pairs are turned into annotations on the edge.
 
 ----
 
@@ -75,9 +75,9 @@ To record provenance from within an application, simply print or write the infor
 
 ----
 
-Reporters can be added and removed while the *SPADE* kernel is running. For example, the provenance metadata being written to the named pipe created by the `Pipe` reporter will no longer be sent to the *SPADE* kernel after this:
+Reporters can be added and removed while the *SPADE* server is running. For example, the provenance metadata being written to the named pipe created by the `DSL` reporter will no longer be sent to the *SPADE* server after this:
 
 {{{
--> remove reporter Pipe
-Shutting down reporter Pipe... done
+-> remove reporter DSL
+Shutting down reporter DSL... done
 }}}
