@@ -1,12 +1,21 @@
-#summary Requirements
+#sidebar Documentation
 
-= Introduction =
+=_Requirements for SPADE_=
 
-Add your content here.
+*SPADE* is written in Java, allowing it to be used on a wide range of platforms. The steps described assume a Linux or Mac OS X command line environment with recent versions of `make`, `svn`, `java`, `javac`, `javah`, `gcc`, and `find` installed. On Windows, these are available with [http://www.cygwin.com Cygwin].
 
-= Details =
+Since *SPADE* is under active development, the instructions below describe how to download, compile, and run the latest stable version of the code. Other versions can be used by adjusting the Subversion revision number.
 
-Add your content here.  Format your content with:
-  * Text in *bold* or _italic_
-  * Headings, paragraphs, and lists
-  * Automatic links to other wiki pages
+Note that `->` at the beginning of a line indicates that the command is to be executed in the *SPADE* client. Other commands are to be used in a Unix shell (such as `/bin/tcsh`).
+
+----
+
+To compile *SPADE*, the Java Development Kit (JDK) is required. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
+
+If you are using Linux, you'll also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via the following command:
+
+{{{
+sudo apt-get install libaudit-dev auditd libfuse-dev fuse-utils
+}}}
+
+If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ MacFUSE] or [http://fuse4x.github.com/ Fuse4X]. 
