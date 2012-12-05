@@ -30,8 +30,9 @@ sudo port install subversion fuse4x
 
 On Windows, SPADE can be installed using [http://www.cygwin.com/ Cygwin]. Detailed instructions on setting up Cygwin can be found on its homepage. The following Cygwin packages are required:
 
-  * `gcc` (under `devel`)
-  * `gcc-core` (under `devel`)
-  * `subversion` (under `devel`)
+  * `gcc` (under the `Devel` category)
+  * `gcc-core` (under the `Devel` category)
+  * `make` (under the `Devel` category)
+  * `subversion` (under the `Devel` category)
 
 To use the `ProcMon` reporter for Windows, you will need to download [http://technet.microsoft.com/en-us/sysinternals/bb896645.aspx Process Monitor].
