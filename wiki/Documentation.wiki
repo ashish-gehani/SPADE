@@ -1,7 +1,8 @@
 #labels Featured
  * [Architecture Overview of SPADE's architecture]
- * [Installation Steps to download, compile, and run SPADE]
-  * [ControlClient Controlling the SPADE server]
+ * [Installation Setting up SPADE]
+  * [Requirements Requirements for SPADE]
+  * [ControlClient Starting and controlling the SPADE server]
  * [Storage Adding a data store]
   * [Neo4j Storing provenance in a graph database]
   * [SQL Storing provenance in a SQL database]
