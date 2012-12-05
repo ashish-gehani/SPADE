@@ -2,13 +2,13 @@
 
 =_Requirements for SPADE_=
 
-This page lists the requirements for setting up SPADE on various operating systems. In all cases, the Java Development Kit (JDK) is required to compile SPADE. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
+This page lists the requirements for setting up SPADE on various operating systems. In all cases, the Oracle Java Development Kit (JDK) is required to compile SPADE. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
 ----
 
 ===Linux===
 
-In addition to the JDK, SPADE requires that you have subversion installed on your system which is used to download the source files for compilation. You will also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via the following command:
+In addition to the JDK, building SPADE requires that you have Subversion installed on your system. It is used to download the source files for compilation. You will also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, all of these can be installed via the following command:
 
 {{{
 sudo apt-get install subversion libaudit-dev auditd libfuse-dev fuse-utils
@@ -18,7 +18,7 @@ sudo apt-get install subversion libaudit-dev auditd libfuse-dev fuse-utils
 
 ===Mac OS X===
 
-If you are using Mac OS X, you will need subversion to download the SPADE source files. [http://fuse4x.github.com/ Fuse4X] is required to compile the Mac OS X file system reporter for SPADE. If you already have [http://code.google.com/p/macfuse/ MacFUSE] installed then it is not necessary to install Fuse4X. Using [http://www.macports.org/ MacPorts], you can install the required packages using the following command:
+If you are using Mac OS X, you will need Subversion to retrieve the SPADE source files. [http://fuse4x.github.com/ Fuse4X] is required, unless you already have [http://code.google.com/p/macfuse/ MacFUSE] installed. Using [http://www.macports.org/ MacPorts], you can install the required packages with the following command:
 
 {{{
 sudo port install subversion fuse4x
@@ -35,4 +35,4 @@ On Windows, SPADE can be installed using [http://www.cygwin.com/ Cygwin]. Detail
   * `make` (under the `Devel` category)
   * `subversion` (under the `Devel` category)
 
-To use the `ProcMon` reporter for Windows, you will need to download [http://technet.microsoft.com/en-us/sysinternals/bb896645.aspx Process Monitor].
+To use the `ProcMon` reporter for Windows, you will need to download and install [http://technet.microsoft.com/en-us/sysinternals/bb896645.aspx Process Monitor].
