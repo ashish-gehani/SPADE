@@ -2,7 +2,13 @@
 
 =_Download source files and compiling_=
 
-After fulfilling the necessary requirements for your system, the following steps are performed to download and compile SPADE. First, use the following command to download SPADE. Ensure that you use the revision number specified in the command as the latest version of the source code may not be stable:
+After fulfilling the necessary requirements for your system, the following steps are performed to download and compile SPADE.
+
+----
+
+===On Linux and Mac OS X===
+
+First, use the following command to download SPADE. Ensure that you use the revision number specified in the command as the latest version of the source code may not be stable:
 
 {{{
 svn -r 660 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
