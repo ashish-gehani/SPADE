@@ -40,4 +40,10 @@ This will create a `SPADE` directory and download all the necessary files in it.
 export PATH=$PATH:/cygdrive/c/Program\ Files/Java/jdk1.7.0_09/bin
 }}}
 
-Please also ensure that any spaces in the path are escaped with a backslash as in the example above.
+Please also ensure that any spaces in the path are escaped with a backslash as in the example above. Finally, execute the following commands to navigate to the newly-created SPADE directory and compile the package:
+
+{{{
+cd SPADE
+./configure
+make
+}}}
