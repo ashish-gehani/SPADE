@@ -2,7 +2,7 @@
 
 =_Requirements for SPADE_=
 
-*SPADE* is written in Java, allowing it to be used on a wide range of platforms. This page lists the requirements for setting up SPADE on various operating systems. In all cases, the Java Development Kit (JDK) is required to compile SPADE. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
+This page lists the requirements for setting up SPADE on various operating systems. In all cases, the Java Development Kit (JDK) is required to compile SPADE. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
 ----
 
