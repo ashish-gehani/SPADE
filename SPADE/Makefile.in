@@ -9,6 +9,7 @@ JAR=@JAR@
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
+JAVAC_CP = build:lib/*
 
 # LLVM_TARGET = nweb
 
@@ -36,7 +37,8 @@ ifeq ($(OS_NAME), Linux)
 	LLVM_RULE = build-linux-llvm
 endif
 ifneq (, $(findstring CYGWIN, $(OS_NAME)))
-	OS_BUILD = build/classes/reporter/ProcMon.class	
+	OS_BUILD = build/spade/reporter/ProcMon.class	
+	JAVAC_CP = build;lib\*
 endif
 
 # -------- Default Build Configuration -----
@@ -79,7 +81,7 @@ prepare-dirs:
 	mkdir -p $(foreach d, $(BUILD_DIRS), $(d) )
 
 build/%.class : src/%.java
-	$(JAVAC) -proc:none -cp 'build:lib/*' -sourcepath src -d build $<
+	$(JAVAC) -proc:none -cp '$(JAVAC_CP)' -sourcepath src -d build $<
 
 core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
 	@echo "--- Built Core ---"
