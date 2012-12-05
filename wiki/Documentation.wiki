@@ -1,7 +1,7 @@
 #labels Featured
  * [Architecture Overview of SPADE's architecture]
  * [Installation Setting up SPADE]
-  * [Prerequisites for SPADE]
+  * [Prerequisites Prerequisites for SPADE]
   * [Compiling Download source files and compiling]
   * [ControlClient Starting and controlling the SPADE server]
  * [Storage Adding a data store]
