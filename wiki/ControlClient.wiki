@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Controlling the SPADE server_=
+=_Starting and controlling the SPADE server_=
 
 To start the controller used to configure the *SPADE* server, execute the following command in your terminal/shell:
 
