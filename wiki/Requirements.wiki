@@ -20,7 +20,7 @@ sudo apt-get install subversion libaudit-dev auditd libfuse-dev fuse-utils
 
 ===Mac OS X===
 
-If you are using Mac OS X, you will need subversion to download the SPADE source files as well as [http://fuse4x.github.com/ Fuse4X]. If you already have [http://code.google.com/p/macfuse/ MacFUSE] installed then it is not necessary to install Fuse4X. Using [http://www.macports.org/ MacPorts], you can install the required packages using the following command:
+If you are using Mac OS X, you will need subversion to download the SPADE source files. [http://fuse4x.github.com/ Fuse4X] is required to compile the Mac OS X file system reporter for SPADE. If you already have [http://code.google.com/p/macfuse/ MacFUSE] installed then it is not necessary to install Fuse4X. Using [http://www.macports.org/ MacPorts], you can install the required packages using the following command:
 
 {{{
 sudo port install subversion fuse4x
@@ -29,4 +29,3 @@ sudo port install subversion fuse4x
 ----
 
 ===Windows===
-
