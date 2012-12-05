@@ -2,20 +2,31 @@
 
 =_Requirements for SPADE_=
 
-*SPADE* is written in Java, allowing it to be used on a wide range of platforms. The steps described assume a Linux or Mac OS X command line environment with recent versions of `make`, `svn`, `java`, `javac`, `javah`, `gcc`, and `find` installed. On Windows, these are available with [http://www.cygwin.com Cygwin].
+*SPADE* is written in Java, allowing it to be used on a wide range of platforms. This page lists the requirements for setting up SPADE on various operating systems.
 
-Since *SPADE* is under active development, the instructions below describe how to download, compile, and run the latest stable version of the code. Other versions can be used by adjusting the Subversion revision number.
-
-Note that `->` at the beginning of a line indicates that the command is to be executed in the *SPADE* client. Other commands are to be used in a Unix shell (such as `/bin/tcsh`).
+In all cases, the Java Development Kit (JDK) is required to compile SPADE. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
 ----
 
-To compile *SPADE*, the Java Development Kit (JDK) is required. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
+===Linux===
 
-If you are using Linux, you'll also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via the following command:
+In addition to the JDK, SPADE requires that you have subversion installed on your system which is used to download the source files for compilation. You will also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, these can be easily installed via the following command:
 
 {{{
-sudo apt-get install libaudit-dev auditd libfuse-dev fuse-utils
+sudo apt-get install subversion libaudit-dev auditd libfuse-dev fuse-utils
 }}}
 
-If you are using Mac OS X, you'll also need [http://code.google.com/p/macfuse/ MacFUSE] or [http://fuse4x.github.com/ Fuse4X]. 
+----
+
+===Mac OS X===
+
+If you are using Mac OS X, you will need subversion to download the SPADE source files as well as [http://fuse4x.github.com/ Fuse4X]. If you already have [http://code.google.com/p/macfuse/ MacFUSE] installed then it is not necessary to install Fuse4X. Using [http://www.macports.org/ MacPorts], you can install the required packages using the following command:
+
+{{{
+sudo port install subversion fuse4x
+}}}
+
+----
+
+===Windows===
+
