@@ -414,7 +414,7 @@ public class Audit extends AbstractReporter {
             fdReader.close();
             return descriptors;
         } catch (Exception exception) {
-            logger.log(Level.WARNING, "unable to retrieve file descriptors for " + pid, exception);
+//            logger.log(Level.WARNING, "unable to retrieve file descriptors for " + pid, exception);
             return null;
         }
     }
@@ -450,7 +450,7 @@ public class Audit extends AbstractReporter {
                 eventBuffer.put(eventId, eventData);
             } else {
                 if (!eventBuffer.containsKey(eventId)) {
-                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
+//                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
                     return;
                 }
                 if (type.equals("EOE")) {
@@ -521,7 +521,7 @@ public class Audit extends AbstractReporter {
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
 
             if (!eventBuffer.containsKey(eventId)) {
-                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
+//                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
@@ -851,7 +851,7 @@ public class Audit extends AbstractReporter {
             if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
                 path = fileDescriptors.get(pid).get(fd);
             } else {
-                // logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
                 return;
             }
         }
