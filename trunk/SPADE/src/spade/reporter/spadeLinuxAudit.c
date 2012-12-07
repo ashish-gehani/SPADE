@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
             /* Increment the number of bytes that have been received so far  */
             /*****************************************************************/
             bytesReceived += rc;
-            printf("%s\n", buffer);
+            printf("%s", buffer);
         }
     } while (FALSE);
 
