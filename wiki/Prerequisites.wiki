@@ -14,6 +14,12 @@ In addition to the JDK, building SPADE requires that you have Subversion install
 sudo apt-get install subversion libaudit-dev auditd libfuse-dev fuse-utils
 }}}
 
+For Fedora, use the following command:
+
+{{{
+sudo yum install subversion audit fuse-devel fuse-libs
+}}}
+
 ----
 
 ===Mac OS X===
