@@ -92,7 +92,7 @@ public class Audit extends AbstractReporter {
     // Group 2: type
     // Group 3: time
     // Group 4: recordid
-    private static Pattern pattern_message_start = Pattern.compile("type=(\\w*) audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+    private static Pattern pattern_message_start = Pattern.compile("node=([a-zA-Z_0-9\\.]+) type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
     // Group 1: cwd
     private static Pattern pattern_cwd = Pattern.compile("cwd=\"*((?<=\")[^\"]*(?=\"))\"*");
     // Group 1: item number
@@ -438,9 +438,10 @@ public class Audit extends AbstractReporter {
     private void parseEventLine(String line) {
         Matcher event_start_matcher = pattern_message_start.matcher(line);
         if (event_start_matcher.find()) {
-            String type = event_start_matcher.group(1);
-            String time = event_start_matcher.group(2);
-            String eventId = event_start_matcher.group(3);
+            String node = event_start_matcher.group(1);
+            String type = event_start_matcher.group(2);
+            String time = event_start_matcher.group(3);
+            String eventId = event_start_matcher.group(4);
             String messageData = line.substring(event_start_matcher.end());
 
             if (type.equals("SYSCALL")) {
