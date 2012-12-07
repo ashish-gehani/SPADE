@@ -131,7 +131,6 @@ public class Audit extends AbstractReporter {
 
     static {
         ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
-
         if (ANDROID_PLATFORM) {
             System.load(SPADE_ANDROID_AUDIT_LIBRARY);
         }
@@ -149,7 +148,6 @@ public class Audit extends AbstractReporter {
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
             DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
         } else {
-            // AUDIT_EXEC_PATH = "./spade/reporter/spadeLinuxAudit";
             AUDIT_EXEC_PATH = "../../lib/spadeLinuxAudit";
             ignoreProcesses = "spadeLinuxAudit auditd";
             DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
@@ -164,7 +162,6 @@ public class Audit extends AbstractReporter {
         } else {
             DEBUG_DUMP_LOG = false;
         }
-
 
         // Get system boot time from /proc/stat. This is later used to determine the start
         // time for processes.
@@ -231,7 +228,6 @@ public class Audit extends AbstractReporter {
         try {
             // Start auditd and clear existing rules.
             Runtime.getRuntime().exec("auditctl -D").waitFor();
-
             if (ANDROID_PLATFORM) {
                 int init_status = initAuditStream();
                 if (init_status != 0) {
@@ -242,8 +238,6 @@ public class Audit extends AbstractReporter {
             Runnable eventProcessor = new Runnable() {
                 public void run() {
                     try {
-                        Logger logger = Logger.getLogger("EventProcessorThread");
-
                         FileWriter dumpFileWriter = null;
                         BufferedWriter dumpWriter = null;
                         if (DEBUG_DUMP_LOG) {
@@ -252,7 +246,6 @@ public class Audit extends AbstractReporter {
                         }
 
                         if (ANDROID_PLATFORM) {
-
                             while (!shutdown) {
                                 String line = readAuditStream();
                                 if (line != null && !line.isEmpty()) {
@@ -264,15 +257,10 @@ public class Audit extends AbstractReporter {
                                     }
                                 }
                             }
-
                             closeAuditStream();
-
                         } else {
-
                             java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
                             eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
-
-
                             while (!shutdown) {
                                 String line = eventReader.readLine();
                                 if ((line != null) && !line.isEmpty()) {
@@ -284,16 +272,13 @@ public class Audit extends AbstractReporter {
                                     parseEventLine(line);
                                 }
                             }
-
                             eventReader.close();
                             auditProcess.destroy();
                         }
-
                         if (DEBUG_DUMP_LOG) {
                             dumpWriter.close();
                             dumpFileWriter.close();
                         }
-
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
                     } finally {
@@ -364,7 +349,7 @@ public class Audit extends AbstractReporter {
             }
 
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-            logger.log(Level.INFO, "Configured	 audit rules: {0}", auditRules);
+            logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
@@ -437,7 +422,9 @@ public class Audit extends AbstractReporter {
         shutdown = true;
         try {
             Runtime.getRuntime().exec("auditctl -D").waitFor();
-            transactionProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
+            if (ANDROID_PLATFORM) {
+                transactionProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
+            }
             eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -1035,7 +1022,6 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         checkProcessVertex(eventData, true, false);
-
         // mode is in hex format in <a1>
         String mode = Integer.toOctalString(Integer.parseInt(eventData.get("a1"), 16));
         // if syscall is chmod, then path is <path0> relative to <cwd>
@@ -1498,7 +1484,6 @@ public class Audit extends AbstractReporter {
             System.out.println("Shutdown initiated");
             bufferFlusher.notify();
         } catch (Exception e) {
-
             System.out.println(e);
         } finally {
             closeAuditStream();
