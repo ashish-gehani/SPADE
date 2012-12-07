@@ -72,7 +72,8 @@ public class Audit extends AbstractReporter {
     private int binderTransaction = 0;
     private long THREAD_SLEEP_DELAY = 100;
     private long THREAD_CLEANUP_TIMEOUT = 1000;
-    private boolean USE_PROCFS = true;
+    private final boolean USE_PROCFS = true;
+    private final boolean USE_OPEN_CLOSE = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private String AUDIT_EXEC_PATH;
     // Process map based on <pid, vertex> pairs
@@ -339,12 +340,14 @@ public class Audit extends AbstractReporter {
                         + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
                         + "-S pipe2 -F success=1 " + ignorePids.toString();
             } else {
-                auditRules = "-a exit,always "
+                auditRules = "-a exit,always ";
+                if (!USE_OPEN_CLOSE) {
+                    auditRules += "-S read -S readv -S write -S writev ";
+                }
+                auditRules += "-S link -S symlink "
                         + "-S clone -S fork -S vfork -S execve -S open -S close "
-                        + "-S read -S readv -S write -S writev -S link -S symlink "
                         + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-                        + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
-                        + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
+                        + "-S chmod -S fchmod -S pipe -S truncate -S ftruncate "
                         + "-S pipe2 -F success=1 " + ignorePids.toString();
             }
 
@@ -737,6 +740,21 @@ public class Audit extends AbstractReporter {
             path = joinPaths(cwd, path);
         }
         addDescriptor(pid, fd, path);
+
+        if (USE_OPEN_CLOSE) {
+            String flags = eventData.get("a1");
+            Map<String, String> newData = new HashMap<String, String>();
+            newData.put("pid", pid);
+            newData.put("a0", Integer.toHexString(Integer.parseInt(fd)));
+            newData.put("time", eventData.get("time"));
+            if (flags.charAt(flags.length() - 1) == '0') {
+                // read
+                processRead(newData);
+            } else {
+                // write
+                processWrite(newData);
+            }
+        }
     }
 
     private void processClose(Map<String, String> eventData) {
