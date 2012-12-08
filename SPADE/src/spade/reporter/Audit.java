@@ -150,7 +150,7 @@ public class Audit extends AbstractReporter {
             DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
         } else {
             AUDIT_EXEC_PATH = "../../lib/spadeLinuxAudit";
-            ignoreProcesses = "spadeLinuxAudit auditd";
+            ignoreProcesses = "spadeLinuxAudit auditd kauditd java spade-server spade-controller";
             DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
         }
 
@@ -338,7 +338,7 @@ public class Audit extends AbstractReporter {
                         + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
                         + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
                         + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
-                        + "-S pipe2 -F success=1 " + ignorePids.toString();
+                        + "-S pipe2 -F success=1" + ignorePids.toString();
             } else {
                 auditRules = "-a exit,always ";
                 if (!USE_OPEN_CLOSE) {
@@ -348,9 +348,8 @@ public class Audit extends AbstractReporter {
                         + "-S clone -S fork -S vfork -S execve -S open -S close "
                         + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
                         + "-S chmod -S fchmod -S pipe -S truncate -S ftruncate "
-                        + "-S pipe2 -F success=1 " + ignorePids.toString();
+                        + "-S pipe2 -F success=1" + ignorePids.toString();
             }
-
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
             logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
         } catch (Exception exception) {
@@ -365,7 +364,7 @@ public class Audit extends AbstractReporter {
         try {
             // Only for Linux/Android
             Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
-            String ps_cmd = ANDROID_PLATFORM ? "ps" : "ps auc";
+            String ps_cmd = ANDROID_PLATFORM ? "ps" : "ps axuc";
             java.lang.Process pidChecker = Runtime.getRuntime().exec(ps_cmd);
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
             pidReader.readLine();
@@ -797,7 +796,7 @@ public class Audit extends AbstractReporter {
             used.addAnnotation("time", time);
             putEdge(used);
         } else {
-//            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -829,7 +828,7 @@ public class Audit extends AbstractReporter {
             wgb.addAnnotation("time", time);
             putEdge(wgb);
         } else {
-//            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -851,7 +850,7 @@ public class Audit extends AbstractReporter {
             if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
                 path = fileDescriptors.get(pid).get(fd);
             } else {
-//                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
                 return;
             }
         }
