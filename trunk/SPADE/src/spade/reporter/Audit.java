@@ -796,7 +796,7 @@ public class Audit extends AbstractReporter {
             used.addAnnotation("time", time);
             putEdge(used);
         } else {
-            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -828,7 +828,7 @@ public class Audit extends AbstractReporter {
             wgb.addAnnotation("time", time);
             putEdge(wgb);
         } else {
-            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -850,7 +850,7 @@ public class Audit extends AbstractReporter {
             if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
                 path = fileDescriptors.get(pid).get(fd);
             } else {
-                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
                 return;
             }
         }
