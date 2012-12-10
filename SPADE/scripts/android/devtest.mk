@@ -11,8 +11,21 @@ android-pull:
 	$(ANDROID_SDK_TOOLS)/adb pull /sdcard/spade/output/audit.log
 	cp audit.log /home/andy/shared/tmp/malanalysis/out/
 
+android-analyze:
+	mkdir -p ~/tmp/manalysis/out/
+	adb pull /sdcard/audit.dot
+	adb pull /sdcard/audit.dump
+	dot -Tsvg audit.dot > audit.svg
+	mv audit.* ~/tmp/manalysis/out/
+	firefox ~/tmp/manalysis/out/audit.svg
+	
+android-pull-dump:
+	adb pull /sdcard/audit.dump
+	python scripts/android/aud_verify.py audit.dump
+
+
 android-testrun:
-	adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.reporter.Audit"
+	adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.reporter.Audit dump > /sdcard/audit.dump"
 
 android-rebuild-audit:
 	@echo 'Building Audit reporter...'

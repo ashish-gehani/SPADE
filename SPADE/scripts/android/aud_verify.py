@@ -85,7 +85,7 @@ def main():
     f = open(sys.argv[1], 'r')
     process(f)
     print "--"
-    print "Following event IDs did not get their EOEs: " + str(unfinished.keys())
+    print "Following event IDs did not get their EOEs: " + str(sorted(unfinished.keys()))
     print "Total %d items did not get their EOEs" % len(unfinished)
     print "Total %d EOE received without their SYSCALL messages" % len(unseens)
 

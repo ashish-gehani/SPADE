@@ -196,6 +196,7 @@ android-jni-interfaces: android-lib/libspadeAndroidAudit.so
 android-lib/libspadeAndroidAudit.so: src/spade/reporter/jni/spade_reporter_Audit.h src/spade/reporter/jni/spadeAndroidAudit.c src/spade/reporter/jni/Android.mk 
 	ndk-build NDK_PROJECT_PATH=src/spade/reporter/
 	mv src/spade/reporter/libs/armeabi/libspadeAndroidAudit.so android-lib/
+	mv src/spade/reporter/libs/armeabi/spade-audit android-lib/
 	ndk-build NDK_PROJECT_PATH=src/spade/reporter/ clean
 src/spade/reporter/jni/spade_reporter_Audit.h: android-build/bin/android-spade.jar src/spade/reporter/Audit.java
 	javah -jni -d src/spade/reporter/jni -classpath "build" spade.reporter.Audit
@@ -216,7 +217,7 @@ android-deploy: android-build
 	$(ANDROID_SDK_TOOLS)/adb push android-build /sdcard/spade/android-build
 	$(ANDROID_SDK_TOOLS)/adb push android-lib /data/spade/android-lib
 	$(ANDROID_SDK_TOOLS)/adb shell chmod 775 /data/spade/android-lib/*
-
+	
 # Launch Android kernel
 android-kernel:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.core.Kernel"
