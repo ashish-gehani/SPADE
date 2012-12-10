@@ -35,27 +35,21 @@ import spade.vertex.opm.Artifact;
 public class IORuns extends AbstractFilter {
 
     private final int BUFFER_SIZE = 2000;
-//    private final String processKey = "pid";
     private final String artifactKey = "location";
     private Map<String, HashSet<String>> writes;
     private Map<String, HashSet<String>> reads;
     private Queue<AbstractVertex> vertexBuffer;
-//    private Map<String, AbstractVertex> vertexMap;
 
     public IORuns() {
         writes = new HashMap<String, HashSet<String>>();
         reads = new HashMap<String, HashSet<String>>();
         vertexBuffer = new LinkedList<AbstractVertex>();
-//        vertexMap = new HashMap<String, AbstractVertex>();
     }
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
         if (incomingVertex instanceof Artifact) {
             vertexBuffer.add(incomingVertex);
-//            vertexMap.put(incomingVertex.getAnnotation(artifactKey), incomingVertex);
-//        } else if (incomingVertex instanceof Process) {
-//            vertexMap.put(Integer.toString(incomingVertex.hashCode()), incomingVertex);
         } else {
             putInNextFilter(incomingVertex);
             return;
@@ -63,11 +57,6 @@ public class IORuns extends AbstractFilter {
         if (vertexBuffer.size() > BUFFER_SIZE) {
             AbstractVertex removed = vertexBuffer.remove();
             Logger.getLogger("IORuns").warning("*** Vertex Buffer full. Dropping! )))");
-//            if (removed instanceof Artifact) {
-//                vertexMap.remove(removed.getAnnotation(artifactKey));
-//            } else if (removed instanceof Process) {
-//                vertexMap.remove(Integer.toString(removed.hashCode()));
-//            }
         }
     }
 
@@ -90,9 +79,7 @@ public class IORuns extends AbstractFilter {
                     tempSet.add(processVertexHash);
                 }
             }
-//            vertexBuffer.remove(usedEdge.getSourceVertex());
             vertexBuffer.remove(usedEdge.getDestinationVertex());
-//            putInNextFilter(usedEdge.getSourceVertex());
             putInNextFilter(usedEdge.getDestinationVertex());
             putInNextFilter(usedEdge);
             if (writes.containsKey(fileVertexHash)) {
@@ -117,26 +104,19 @@ public class IORuns extends AbstractFilter {
                 }
             }
             vertexBuffer.remove(wgb.getSourceVertex());
-//            vertexBuffer.remove(wgb.getDestinationVertex());
             putInNextFilter(wgb.getSourceVertex());
-//            putInNextFilter(wgb.getDestinationVertex());
             putInNextFilter(wgb);
             if (reads.containsKey(fileVertexHash)) {
                 HashSet<String> tempSet = reads.get(fileVertexHash);
                 tempSet.remove(processVertexHash);
             }
         } else {
-//            vertexBuffer.remove(incomingEdge.getSourceVertex());
-//            vertexBuffer.remove(incomingEdge.getDestinationVertex());
-//            putInNextFilter(incomingEdge.getSourceVertex());
-//            putInNextFilter(incomingEdge.getDestinationVertex());
             putInNextFilter(incomingEdge);
         }
     }
 
     @Override
     public boolean shutdown() {
-
         return true;
     }
 }
