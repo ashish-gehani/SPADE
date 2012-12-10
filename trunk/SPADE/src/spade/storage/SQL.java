@@ -40,8 +40,6 @@ public class SQL extends AbstractStorage {
     private Connection dbConnection;
     private HashSet<String> vertexAnnotations;
     private HashSet<String> edgeAnnotations;
-//    private HashSet<Integer> receivedVertices;
-//    private HashSet<Integer> receivedEdges;
     private final String VERTEX_TABLE = "VERTEX";
     private final String EDGE_TABLE = "EDGE";
     private final boolean ENABLE_SANITAZATION = true;
@@ -53,8 +51,6 @@ public class SQL extends AbstractStorage {
     public boolean initialize(String arguments) {
         vertexAnnotations = new HashSet<String>();
         edgeAnnotations = new HashSet<String>();
-//        receivedVertices = new HashSet<Integer>();
-//        receivedEdges = new HashSet<Integer>();
 
         // Arguments consist of 4 space-separated tokens: 'driver URL username password'
 
@@ -75,7 +71,7 @@ public class SQL extends AbstractStorage {
             // Create vertex table if it does not already exist
             String createVertexTable = "CREATE TABLE IF NOT EXISTS " + VERTEX_TABLE + " ("
                     + "vertexId INT PRIMARY KEY AUTO_INCREMENT, "
-                    + "type VARCHAR(16) NOT NULL, "
+                    + "type VARCHAR(32) NOT NULL, "
                     + "hash INT NOT NULL"
                     + ")";
             dbStatement.execute(createVertexTable);
@@ -83,7 +79,7 @@ public class SQL extends AbstractStorage {
             // Create edge table if it does not already exist
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS " + EDGE_TABLE + " ("
                     + "edgeId INT PRIMARY KEY AUTO_INCREMENT, "
-                    + "type VARCHAR(16) NOT NULL ,"
+                    + "type VARCHAR(32) NOT NULL ,"
                     + "hash INT NOT NULL, "
                     + "srcVertexHash INT NOT NULL, "
                     + "dstVertexHash INT NOT NULL"
@@ -97,7 +93,7 @@ public class SQL extends AbstractStorage {
 //            String procedureStatement = "DROP PROCEDURE IF EXISTS addColumn;\n"
 //                    + "CREATE PROCEDURE addColumn(IN myTable VARCHAR(16), IN myColumn VARCHAR(64))\n"
 //                    + "BEGIN\n"
-//                    + " SET @newStatement = CONCAT('ALTER TABLE ', myTable, ' ADD COLUMN ', myColumn, ' BLOB');\n"
+//                    + " SET @newStatement = CONCAT('ALTER TABLE ', myTable, ' ADD COLUMN ', myColumn, ' VARCHAR');\n"
 //                    + " PREPARE STMT FROM @newStatement;\n"
 //                    + " EXECUTE STMT;\n" + "END;";
 //            dbStatement.execute(procedureStatement);
@@ -182,11 +178,6 @@ public class SQL extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-        // If this vertex has already been received before, return false
-//        if (receivedVertices.contains(incomingVertex.hashCode())) {
-//            return false;
-//        }
-
         // Use StringBuilder to build the SQL insert statement
         StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + VERTEX_TABLE + " (`type`, `hash`, ");
         for (String annotationKey : incomingVertex.getAnnotations().keySet()) {
@@ -233,42 +224,13 @@ public class SQL extends AbstractStorage {
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
         runStatement(insertString);
-//        receivedVertices.add(incomingVertex.hashCode());
         return true;
-
-        // Execute statement and add this vertex to the set that has been received
-        // so as to prevent duplicates
-//        try {
-//            Statement insertStatement = dbConnection.createStatement();
-//            insertStatement.executeUpdate(insertString);
-//            insertStatement.close();
-//            receivedVertices.add(incomingVertex.hashCode());
-//            return true;
-//        } catch (Exception ex) {
-//            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-//            return false;
-//        }
     }
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        // If this edge has already been received before, return false
-//        if (receivedEdges.contains(incomingEdge.hashCode())) {
-//            return false;
-//        }
-
-        // Retrieve the vertex Ids of the source and destination vertices
-        // from the VERTEX table
-//        int fromVertexId = getVertexId(incomingEdge.getSourceVertex());
-//        int toVertexId = getVertexId(incomingEdge.getDestinationVertex());
-//        if ((fromVertexId == 0) || (toVertexId == 0)) {
-//            return false;
-//        }
-
         int srcVertexHash = incomingEdge.getSourceVertex().hashCode();
         int dstVertexHash = incomingEdge.getDestinationVertex().hashCode();
-
-        // If either the source or destination vertex do not exist, then return false
 
         // Use StringBuilder to build the SQL insert statement
         StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (`type`, `hash`, `srcVertexHash`, `dstVertexHash`, ");
@@ -319,21 +281,7 @@ public class SQL extends AbstractStorage {
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
         runStatement(insertString);
-//        receivedEdges.add(incomingEdge.hashCode());
         return true;
-
-        // Execute statement and add this edge to the set that has been received
-        // so as to prevent duplicates
-//        try {
-//            Statement insertStatement = dbConnection.createStatement();
-//            insertStatement.executeUpdate(insertString);
-//            insertStatement.close();
-//            receivedEdges.add(incomingEdge.hashCode());
-//            return true;
-//        } catch (Exception ex) {
-//            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-//            return false;
-//        }
     }
 
     private void runStatement(String statement) {
