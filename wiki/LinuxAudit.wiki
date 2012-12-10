@@ -11,6 +11,18 @@ sudo chown root lib/spadeLinuxAudit
 sudo chmod ug+s lib/spadeLinuxAudit
 }}}
 
+Furthermore, to allow this reporter access to the audit stream, edit the file `/etc/audisp/plugins.d/af_unix.conf` and activate this plugin by changing the line that says
+
+{{{
+active = no
+}}}
+
+to
+
+{{{
+active = yes
+}}}
+
 ----
 
 To activate the transformation of the audit event stream into provenance records, the following command must be executed in the SPADE controller:
