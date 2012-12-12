@@ -8,9 +8,9 @@ JAR=@JAR@
 
 # Path to Android SDK platform tools
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
-LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 JAVAC_CP = build:lib/*
 
+LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 # LLVM_TARGET = nweb
 
 # System and architecture-specific configuration
@@ -44,7 +44,7 @@ endif
 # -------- Default Build Configuration -----
 CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex \
 	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query Vertex Settings
-REPORTERS = Graphviz DSL Network
+REPORTERS = Graphviz DSL Network LLVM
 STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
 UTILITIES = JavaHome
@@ -135,9 +135,8 @@ build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.jav
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
 	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
 
-llvm: build/spade/reporter/LLVM.class
+llvm:
 	@make $(LLVM_RULE)
-	$(JAR) cvf lib/spade.jar -C build .
 
 build-mac-llvm:
 	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
@@ -174,6 +173,7 @@ clean:
 	@rm -rf build android-build android-lib
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
+	@rm -rf lib/spadeOpenBSM lib/spadeLinuxAudit
 
 # ---------- Android-related rules [EXPERIMENTAL] ----------
 
