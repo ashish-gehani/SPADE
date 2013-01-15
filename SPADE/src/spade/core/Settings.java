@@ -16,7 +16,7 @@ import java.util.Properties;
 public class Settings {
 
     private static final String settingsFile = "../../cfg/settings.config";
-    static Properties prop = new Properties();
+    private final static Properties prop = new Properties();
 
     static {
         try {
@@ -27,6 +27,7 @@ public class Settings {
             setProperty("remote_query_port", "29999");
             setProperty("remote_sketch_port", "29998");
             setProperty("connection_timeout", "15000");
+            setProperty("spade_root", "../../");
         }
     }
 
