@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.SSLSocket;
 import spade.core.*;
 
 public class ConcreteSketch extends AbstractSketch {
@@ -63,9 +64,9 @@ public class ConcreteSketch extends AbstractSketch {
                     logger.log(Level.INFO, "concreteSketch - Attempting to receive sketches from {0}", remoteHost);
                     ////////////////////////////////////////////////////////////
 
-                    InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
-                    Socket remoteSocket = new Socket();
-                    remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+                    int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
+                    SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(remoteHost, port);
+
                     OutputStream outStream = remoteSocket.getOutputStream();
                     InputStream inStream = remoteSocket.getInputStream();
                     ObjectOutputStream clientObjectOutputStream = new ObjectOutputStream(outStream);

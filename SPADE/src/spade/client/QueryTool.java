@@ -20,12 +20,18 @@
 package spade.client;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 import spade.core.Settings;
 
 public class QueryTool {
@@ -34,15 +40,51 @@ public class QueryTool {
     private static PrintStream SPADEQueryIn;
     private static BufferedReader SPADEQueryOut;
     private static final String nullString = "null";
+    // Members for creating secure sockets
+    private static KeyStore clientKeyStorePrivate;
+    private static KeyStore serverKeyStorePublic;
+    private static SSLSocketFactory sslSocketFactory;
+
+    private static void setupKeyStores() throws Exception {
+        String serverPublicPath = "../ssl/server.public";
+        String clientPrivatePath = "../ssl/client.private";
+
+        serverKeyStorePublic = KeyStore.getInstance("JKS");
+        serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
+        clientKeyStorePrivate = KeyStore.getInstance("JKS");
+        clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
+    }
+
+    private static void setupClientSSLContext() throws Exception {
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextInt();
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(serverKeyStorePublic);
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
+        sslSocketFactory = sslContext.getSocketFactory();
+    }
 
     public static void main(String args[]) {
+        // Set up context for secure connections
+        try {
+            setupKeyStores();
+            setupClientSSLContext();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
 
         outputStream = System.out;
 
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_query_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            String host = "localhost";
+            int port = Integer.parseInt(Settings.getProperty("local_query_port"));
+            SSLSocket remoteSocket = (SSLSocket) sslSocketFactory.createSocket(host, port);
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             SPADEQueryOut = new BufferedReader(new InputStreamReader(inStream));
