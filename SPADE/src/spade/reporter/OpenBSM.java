@@ -20,11 +20,14 @@
 package spade.reporter;
 
 import java.io.BufferedReader;
+import java.io.FileWriter;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractReporter;
@@ -54,6 +57,9 @@ public class OpenBSM extends AbstractReporter {
     private final int THREAD_SLEEP_DELAY = 5;
     private Map<String, String> eventData;
     private int pathCount = 0;
+    private FileWriter outputFile;
+    private String debugPath = "openbsm_debug.txt";
+    private Queue<String> buffer = new ConcurrentLinkedQueue<String>();
 
     @Override
     public boolean launch(String arguments) {
@@ -77,17 +83,24 @@ public class OpenBSM extends AbstractReporter {
             nativePID = Integer.toString((Integer) pidField.get(nativeProcess));
             eventReader = new BufferedReader(new InputStreamReader(nativeProcess.getInputStream()));
 
-            Runnable eventProcessor = new Runnable() {
+            Runnable bufferRunnable = new Runnable() {
                 public void run() {
                     try {
+                        outputFile = new FileWriter(debugPath, false);
+
                         while (!shutdown) {
                             String line = eventReader.readLine();
                             if (line != null) {
-                                // Process the event.
-                                parseEventToken(line);
+                                buffer.add(line);
+                                outputFile.write(line);
+                                outputFile.write("\n");
                             }
-                            Thread.sleep(THREAD_SLEEP_DELAY);
+//                            Thread.sleep(THREAD_SLEEP_DELAY);
                         }
+
+                        outputFile.flush();
+                        outputFile.close();
+
                         // Get the pid of the process and kill it.
                         nativeProcess.destroy();
                         Runtime.getRuntime().exec("kill " + nativePID);
@@ -96,7 +109,29 @@ public class OpenBSM extends AbstractReporter {
                     }
                 }
             };
-            new Thread(eventProcessor, "OpenBSM-Thread").start();
+            new Thread(bufferRunnable, "OpenBSM-buffer-Thread").start();
+
+            Runnable eventParserRunnable = new Runnable() {
+                public void run() {
+                    try {
+                        while (!shutdown) {
+                            String line = buffer.poll();
+                            if (line != null) {
+                                // Process the event.
+                                parseEventToken(line);
+                            } else {
+                                Thread.sleep(THREAD_SLEEP_DELAY);
+                            }
+                        }
+                        while (!buffer.isEmpty()) {
+                            parseEventToken(buffer.poll());
+                        }
+                    } catch (Exception exception) {
+                        Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
+                    }
+                }
+            };
+            new Thread(eventParserRunnable, "OpenBSM-parser-Thread").start();
 
         } catch (Exception exception) {
             Logger.getLogger(OpenBSM.class.getName()).log(Level.SEVERE, null, exception);
@@ -152,7 +187,7 @@ public class OpenBSM extends AbstractReporter {
             fileArtifact.addAnnotation("filename", filename[filename.length - 1]);
         }
         int version = fileVersions.containsKey(path) ? fileVersions.get(path) : 0;
-        if (update) {
+        if (update && path.startsWith("/") && !path.startsWith("/dev/")) {
             version++;
         }
         fileArtifact.addAnnotation("version", Integer.toString(version));
@@ -357,6 +392,7 @@ public class OpenBSM extends AbstractReporter {
         int event_id = Integer.parseInt(eventData.get("event_id"));
         String time = eventData.get("event_time");
         Process thisProcess = processVertices.get(pid);
+        boolean put;
 
         switch (event_id) {
 
@@ -389,8 +425,11 @@ public class OpenBSM extends AbstractReporter {
             case 72:        // open - read
                 checkCurrentProcess();
                 String readPath = eventData.containsKey("path1") ? eventData.get("path1") : eventData.get("path0");
+                put = !fileVersions.containsKey(readPath.replace("//", "/"));
                 Artifact readFileArtifact = createFileVertex(readPath, false);
-                putVertex(readFileArtifact);
+                if (put) {
+                    putVertex(readFileArtifact);
+                }
                 Used readEdge = new Used(thisProcess, readFileArtifact);
                 readEdge.addAnnotation("time", time);
                 putEdge(readEdge);
@@ -423,8 +462,11 @@ public class OpenBSM extends AbstractReporter {
                 if (!toPath.startsWith("/")) {
                     toPath = fromPath.substring(0, fromPath.lastIndexOf("/")) + toPath;
                 }
+                put = !fileVersions.containsKey(fromPath.replace("//", "/"));
                 Artifact fromFileArtifact = createFileVertex(fromPath, false);
-                putVertex(fromFileArtifact);
+                if (put) {
+                    putVertex(fromFileArtifact);
+                }
                 Used renameReadEdge = new Used(thisProcess, fromFileArtifact);
                 renameReadEdge.addAnnotation("time", time);
                 putEdge(renameReadEdge);

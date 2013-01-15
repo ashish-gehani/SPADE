@@ -44,7 +44,7 @@ endif
 # -------- Default Build Configuration -----
 CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex \
 	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query Vertex Settings
-REPORTERS = Graphviz DSL Network LLVM
+REPORTERS = Graphviz DSL Network LLVM ProcMon
 STORAGES = Graphviz Neo4j SQL
 CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
 UTILITIES = JavaHome
@@ -55,17 +55,18 @@ BUILD_DIRS = build android-build android-build/bin android-lib
 .PHONY: build android-build prepare-dirs core reporters filters clients utilities storages
 
 all:	build
+	./generatekeys.sh
 
 help:
 	@echo 'Usage:'
 	@echo '      make                    - to compile the code'
 	@echo '      make clean              - to remove the compiled code'
 	@echo ' '
-	@#echo '      make clean-all          - to remove everything except the makefile'
-	@#echo '      make android-build      - to build for android'
-	@#echo '      make android-deploy     - to deploy to android emulator'
-	@#echo '      make android-kernel     - to launch kernel on emulator'
-	@#echo '      make android-kernel-ddms- to launch kernel on emulator in debug mode for ddms'
+	# @echo '      make clean-all          - to remove everything except the makefile'
+	# @echo '      make android-build      - to build for android'
+	# @echo '      make android-deploy     - to deploy to android emulator'
+	# @echo '      make android-kernel     - to launch kernel on emulator'
+	# @echo '      make android-kernel-ddms- to launch kernel on emulator in debug mode for ddms'
 
 # ---------- Building SPADE ----------	
 .SECONDEXPANSION:
@@ -232,9 +233,9 @@ android-shutdown:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.client.AndroidShutdown"
 
 DESTDIR = @prefix@
-install:
-	test -d $(DESTDIR) || mkdir $(DESTDIR) 
-	cp -R bin $(DESTDIR)
-	cp -R lib $(DESTDIR)
-	cp -R cfg $(DESTDIR)
-	cp -R log $(DESTDIR)
+# install:
+# 	test -d $(DESTDIR) || mkdir $(DESTDIR) 
+# 	cp -R bin $(DESTDIR)
+# 	cp -R lib $(DESTDIR)
+# 	cp -R cfg $(DESTDIR)
+# 	cp -R log $(DESTDIR)

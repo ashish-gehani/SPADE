@@ -20,17 +20,24 @@
 package spade.client;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 import jline.ConsoleReader;
+import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
 
@@ -43,16 +50,51 @@ public class QueryClient {
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
     private static String QUERY_STORAGE = "Neo4j";
+    // Members for creating secure sockets
+    private static KeyStore clientKeyStorePrivate;
+    private static KeyStore serverKeyStorePublic;
+    private static SSLSocketFactory sslSocketFactory;
+
+    private static void setupKeyStores() throws Exception {
+        String serverPublicPath = "../ssl/server.public";
+        String clientPrivatePath = "../ssl/client.private";
+
+        serverKeyStorePublic = KeyStore.getInstance("JKS");
+        serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
+        clientKeyStorePrivate = KeyStore.getInstance("JKS");
+        clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
+    }
+
+    private static void setupClientSSLContext() throws Exception {
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextInt();
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(serverKeyStorePublic);
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
+        sslSocketFactory = sslContext.getSocketFactory();
+    }
 
     public static void main(String args[]) {
+        // Set up context for secure connections
+        try {
+            setupKeyStores();
+            setupClientSSLContext();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
 
         outputStream = System.out;
         graphObjects = new HashMap<String, Graph>();
 
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_query_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            String host = "localhost";
+            int port = Integer.parseInt(Settings.getProperty("local_query_port"));
+            SSLSocket remoteSocket = (SSLSocket) sslSocketFactory.createSocket(host, port);
 
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
@@ -95,9 +137,15 @@ public class QueryClient {
                         }
                         System.out.println("-------------------------------------------------");
                         System.out.println();
+                    } else if (line.startsWith("storage")) {
+                        String[] tokens = line.split("\\s+");
+                        QUERY_STORAGE = tokens[1];
                     } else if (line.startsWith("export")) {
                         String[] tokens = line.split("\\s+");
                         graphObjects.get(tokens[1]).exportDOT(tokens[2]);
+                    } else if (line.startsWith("vertices")) {
+                        String[] tokens = line.split("\\s+");
+                        listVertices(tokens[1]);
                     } else {
                         parseQuery(line);
                     }
@@ -110,20 +158,35 @@ public class QueryClient {
         }
     }
 
+    private static void listVertices(String var) {
+        Graph graph = graphObjects.get(var);
+        if (graph == null) {
+            System.out.println("Graph " + var + " does not exist");
+            return;
+        }
+        for (AbstractVertex vertex : graph.vertexSet()) {
+            System.out.println("[" + vertex.toString() + "]");
+        }
+        System.out.println(graph.vertexSet().size() + " vertices found\n");
+    }
+
     private static void parseQuery(String input) {
         // Accepts input of the following form and generates the corresponding
         // query expression to pass to the Query class:
         //      function(arguments)
         // Examples:
         //      getVertices(expression)
+        //      getEdges(expression)
         //      getPaths(src_id, dst_id, maxlength)
         //      getLineage(id, depth, direction)
         //      getLineage(id, depth, direction, expression)
         Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
+        Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
         Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
         Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getLineage\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*([a-zA-Z]+)\\s*(,\\s*.+)?\\s*\\)[;]?");
 
         Matcher vertexMatcher = vertexPattern.matcher(input);
+        Matcher edgeMatcher = edgePattern.matcher(input);
         Matcher pathMatcher = pathPattern.matcher(input);
         Matcher lineageMatcher = lineagePattern.matcher(input);
 
@@ -133,6 +196,11 @@ public class QueryClient {
             queryTarget = vertexMatcher.group(2);
             String expression = vertexMatcher.group(3);
             queryString = "query " + QUERY_STORAGE + " vertices " + expression;
+        } else if (edgeMatcher.matches()) {
+            result = edgeMatcher.group(1);
+            queryTarget = edgeMatcher.group(2);
+            String expression = edgeMatcher.group(3);
+            queryString = "query " + QUERY_STORAGE + " edges " + expression;
         } else if (pathMatcher.matches()) {
             result = pathMatcher.group(1);
             queryTarget = pathMatcher.group(2);
@@ -153,6 +221,7 @@ public class QueryClient {
         try {
             if ((queryTarget == null) && (queryString != null)) {
                 long begintime, endtime;
+                System.out.println("executing query sting: " + queryString);
                 begintime = System.currentTimeMillis();
                 SPADEQueryIn.println(queryString);
                 String resultString = (String) SPADEQueryOut.readObject();

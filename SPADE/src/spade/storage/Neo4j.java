@@ -25,16 +25,29 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
-import org.neo4j.graphdb.*;
+import org.neo4j.graphdb.Direction;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.Traversal;
-import spade.core.*;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Edge;
+import spade.core.Graph;
+import spade.core.Query;
+import spade.core.Vertex;
 
 /**
  * Neo4j storage implementation.
@@ -60,6 +73,8 @@ public class Neo4j extends AbstractStorage {
     private int transactionCount;
     private int flushCount;
     private Map<AbstractVertex, Long> vertexMap;
+    private Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
+    private Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
 
     private enum MyRelationshipTypes implements RelationshipType {
 
@@ -247,10 +262,18 @@ public class Neo4j extends AbstractStorage {
         Set<AbstractVertex> sourceSet = null;
         Set<AbstractVertex> destinationSet = null;
         if (sourceExpression != null) {
-            sourceSet = getVertices(sourceExpression).vertexSet();
+            if (sourceExpression.trim().equalsIgnoreCase("null")) {
+                sourceExpression = null;
+            } else {
+                sourceSet = getVertices(sourceExpression).vertexSet();
+            }
         }
         if (destinationExpression != null) {
-            destinationSet = getVertices(destinationExpression).vertexSet();
+            if (destinationExpression.trim().equalsIgnoreCase("null")) {
+                destinationExpression = null;
+            } else {
+                destinationSet = getVertices(destinationExpression).vertexSet();
+            }
         }
         IndexHits<Relationship> queryHits = edgeIndex.query(edgeExpression);
         for (Relationship foundRelationship : queryHits) {
@@ -348,7 +371,10 @@ public class Neo4j extends AbstractStorage {
         } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
             dir = Direction.INCOMING;
         } else if (Query.DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
-            dir = Direction.BOTH;
+            Graph ancestor = getLineage(vertexId, depth, "ancestor", terminatingExpression);
+            Graph descendant = getLineage(vertexId, depth, "descendant", terminatingExpression);
+            Graph result = Graph.union(ancestor, descendant);
+            return result;
         } else {
             return null;
         }

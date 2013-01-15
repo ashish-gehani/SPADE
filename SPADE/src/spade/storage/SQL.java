@@ -22,13 +22,20 @@ package spade.storage;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Query;
+import spade.core.Vertex;
 
 /**
  * Basic SQL storage implementation.
@@ -294,6 +301,220 @@ public class SQL extends AbstractStorage {
             }
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void flushStatements() {
+        try {
+            batch_statement.executeBatch();
+            batch_statement.close();
+            batch_statement = dbConnection.createStatement();
+        } catch (Exception ex) {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
+    public Graph getVertices(String expression) {
+        try {
+            flushStatements();
+            Graph graph = new Graph();
+            String query = "SELECT * FROM VERTEX WHERE " + expression;
+            Statement vertexStatement = dbConnection.createStatement();
+            ResultSet result = vertexStatement.executeQuery(query);
+            ResultSetMetaData metadata = result.getMetaData();
+            int columnCount = metadata.getColumnCount();
+
+            Map<Integer, String> columnLabels = new HashMap<Integer, String>();
+            for (int i = 1; i <= columnCount; i++) {
+                columnLabels.put(i, metadata.getColumnName(i));
+            }
+
+            while (result.next()) {
+                AbstractVertex vertex = new Vertex();
+                vertex.removeAnnotation("type");
+                vertex.addAnnotation(columnLabels.get(1), Integer.toString(result.getInt(1)));
+                vertex.addAnnotation("type", result.getString(2));
+                vertex.addAnnotation(columnLabels.get(3), Integer.toString(result.getInt(3)));
+                for (int i = 4; i <= columnCount; i++) {
+                    String value = result.getString(i);
+                    if ((value != null) && !value.isEmpty()) {
+                        vertex.addAnnotation(columnLabels.get(i), result.getString(i));
+                    }
+                }
+                graph.putVertex(vertex);
+            }
+
+            return graph;
+        } catch (Exception ex) {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
+    }
+
+    @Override
+    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
+        flushStatements();
+        Graph graph = new Graph();
+        int vertexColumnCount;
+        int edgeColumnCount;
+        Map<Integer, AbstractVertex> vertexLookup = new HashMap<Integer, AbstractVertex>();
+        Map<Integer, String> vertexColumnLabels = new HashMap<Integer, String>();
+        Map<Integer, String> edgeColumnLabels = new HashMap<Integer, String>();
+        Set<Integer> doneSet = new HashSet<Integer>();
+        Set<Integer> tempSet = new HashSet<Integer>();
+
+        // Get the source vertex
+        try {
+            String query = "SELECT * FROM VERTEX WHERE vertexId = " + vertexId;
+            Statement vertexStatement = dbConnection.createStatement();
+            ResultSet result = vertexStatement.executeQuery(query);
+            ResultSetMetaData metadata = result.getMetaData();
+            vertexColumnCount = metadata.getColumnCount();
+
+            for (int i = 1; i <= vertexColumnCount; i++) {
+                vertexColumnLabels.put(i, metadata.getColumnName(i));
+            }
+
+            result.next();
+            AbstractVertex vertex = new Vertex();
+            vertex.removeAnnotation("type");
+            int id = result.getInt(1);
+            int hash = result.getInt(3);
+            vertex.addAnnotation(vertexColumnLabels.get(1), Integer.toString(id));
+            vertex.addAnnotation("type", result.getString(2));
+            vertex.addAnnotation(vertexColumnLabels.get(3), Integer.toString(hash));
+            for (int i = 4; i <= vertexColumnCount; i++) {
+                String value = result.getString(i);
+                if ((value != null) && !value.isEmpty()) {
+                    vertex.addAnnotation(vertexColumnLabels.get(i), result.getString(i));
+                }
+            }
+            graph.putVertex(vertex);
+            vertexLookup.put(hash, vertex);
+            tempSet.add(hash);
+        } catch (Exception ex) {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
+
+        // Get the vertex hashes for the terminating set
+        if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
+            terminatingExpression = null;
+        }
+
+        Set<Integer> terminatingSet = null;
+        if (terminatingExpression != null) {
+            terminatingSet = new HashSet<Integer>();
+            try {
+                String query = "SELECT hash FROM VERTEX WHERE " + vertexId;
+                Statement vertexStatement = dbConnection.createStatement();
+                ResultSet result = vertexStatement.executeQuery(query);
+                while (result.next()) {
+                    terminatingSet.add(result.getInt(1));
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+                return null;
+            }
+        }
+
+        String dir;
+        if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+            dir = "a";
+        } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+            dir = "d";
+        } else {
+            return null;
+        }
+
+        int currentDepth = 0;
+        while (true) {
+            if ((tempSet.isEmpty()) || (depth == 0)) {
+                break;
+            }
+            doneSet.addAll(tempSet);
+            Set<Integer> newTempSet = new HashSet<Integer>();
+            for (Integer tempVertexHash : tempSet) {
+                // Get edges for this vertex
+                try {
+                    // Construct the required query
+                    String query = "SELECT * FROM EDGE WHERE ";
+                    query += dir.equals("a") ? "srcVertexHash = " : "dstVertexHash = ";
+                    query += tempVertexHash;
+                    Statement edgeStatement = dbConnection.createStatement();
+                    ResultSet result = edgeStatement.executeQuery(query);
+
+                    // Get column labels for edge table
+                    ResultSetMetaData metadata = result.getMetaData();
+                    edgeColumnCount = metadata.getColumnCount();
+
+                    for (int i = 1; i <= edgeColumnCount; i++) {
+                        edgeColumnLabels.put(i, metadata.getColumnName(i));
+                    }
+
+                    while (result.next()) {
+                        int hashToCheck = dir.equals("a") ? result.getInt(4) : result.getInt(5);
+                        if ((terminatingExpression != null) && (terminatingSet.contains(hashToCheck))) {
+                            continue;
+                        }
+                        if (!doneSet.contains(hashToCheck)) {
+                            newTempSet.add(hashToCheck);
+                        }
+                        AbstractVertex otherVertex = getVertexFromHash(hashToCheck, vertexColumnCount, vertexColumnLabels);
+                        graph.putVertex(otherVertex);
+                        vertexLookup.put(hashToCheck, otherVertex);
+                        AbstractVertex srcVertex = dir.equals("a") ? vertexLookup.get(tempVertexHash) : vertexLookup.get(hashToCheck);
+                        AbstractVertex dstVertex = dir.equals("a") ? vertexLookup.get(hashToCheck) : vertexLookup.get(tempVertexHash);
+                        AbstractEdge edge = new spade.core.Edge(srcVertex, dstVertex);
+                        edge.removeAnnotation("type");
+
+                        edge.addAnnotation(edgeColumnLabels.get(1), Integer.toString(result.getInt(1)));
+                        edge.addAnnotation("type", result.getString(2));
+                        edge.addAnnotation(edgeColumnLabels.get(3), Integer.toString(result.getInt(3)));
+                        for (int i = 5; i <= edgeColumnCount; i++) {
+                            String value = result.getString(i);
+                            if ((value != null) && !value.isEmpty()) {
+                                edge.addAnnotation(edgeColumnLabels.get(i), result.getString(i));
+                            }
+                        }
+                        putEdge(edge);
+                    }
+                } catch (Exception ex) {
+                    Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+                    return null;
+                }
+            }
+            tempSet.clear();
+            tempSet.addAll(newTempSet);
+            depth--;
+            currentDepth++;
+        }
+
+        return graph;
+    }
+
+    private AbstractVertex getVertexFromHash(int hash, int columnCount, Map<Integer, String> columnLabels) {
+        try {
+            String query = "SELECT * FROM VERTEX WHERE hash = " + hash;
+            Statement vertexStatement = dbConnection.createStatement();
+            ResultSet result = vertexStatement.executeQuery(query);
+            result.next();
+            AbstractVertex vertex = new Vertex();
+            vertex.removeAnnotation("type");
+            vertex.addAnnotation(columnLabels.get(1), Integer.toString(result.getInt(1)));
+            vertex.addAnnotation("type", result.getString(2));
+            vertex.addAnnotation(columnLabels.get(3), Integer.toString(result.getInt(3)));
+            for (int i = 4; i <= columnCount; i++) {
+                String value = result.getString(i);
+                if ((value != null) && !value.isEmpty()) {
+                    vertex.addAnnotation(columnLabels.get(i), result.getString(i));
+                }
+            }
+            return vertex;
+        } catch (Exception ex) {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         }
     }
 }

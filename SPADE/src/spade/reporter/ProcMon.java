@@ -21,9 +21,10 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.InputStreamReader;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractReporter;
@@ -44,10 +45,10 @@ public class ProcMon extends AbstractReporter {
     private BufferedReader eventReader;
     private Map<String, Process> processMap = new HashMap<String, Process>();
     private Map<String, Integer> artifactVersions = new HashMap<String, Integer>();
+    private Set<String> loadedImages = new HashSet<String>();
+    private Set<String> networkConnections = new HashSet<String>();
     static final Logger logger = Logger.getLogger(ProcMon.class.getName());
     private volatile boolean shutdown = false;
-    ////////////////////////////////////////////////////////////////////////////
-    private final String TrID_PATH = "C:\\Documents and Settings\\User\\Desktop\\trid.exe";
     ////////////////////////////////////////////////////////////////////////////
     private final String COLUMN_TIME = "Time of Day";
     private final String COLUMN_PROCESS_NAME = "Process Name";
@@ -146,8 +147,12 @@ public class ProcMon extends AbstractReporter {
                         if (line == null) {
                             break;
                         }
+                        while (!line.endsWith("\"")) {
+                            line += eventReader.readLine();
+                        }
                         processLine(line);
                     }
+                    logger.log(Level.INFO, "Finished parsing file");
                     eventReader.close();
                 } catch (Exception exception) {
                     logger.log(Level.SEVERE, null, exception);
@@ -165,33 +170,38 @@ public class ProcMon extends AbstractReporter {
     }
 
     private void processLine(String line) {
-        String[] data = line.substring(1, line.length() - 1).split("\",\"");
-        if (!data[N_RESULT].equals("SUCCESS")) {
-            return;
-        }
-
-        if (!processMap.containsKey(data[N_PID])) {
-            createProcess(data);
-        }
-
-        String eventClass = data[N_EVENT_CLASS];
-        String category = data[N_CATEGORY];
-        String operation = data[N_OPERATION];
-
-        if (category.equals(CATEGORY_READ) || category.equals(CATEGORY_READ_METADATA)) {
-            if (eventClass.equals(EVENT_CLASS_REGISTRY) || eventClass.equals(EVENT_CLASS_FILE_SYSTEM)) {
-                readArtifact(data);
+        try {
+            String[] data = line.substring(1, line.length() - 1).split("\",\"");
+            if (!data[N_RESULT].equals("SUCCESS")) {
+                return;
             }
-        } else if (category.equals(CATEGORY_WRITE) || category.equals(CATEGORY_WRITE_METADATA)) {
-            if (eventClass.equals(EVENT_CLASS_REGISTRY) || eventClass.equals(EVENT_CLASS_FILE_SYSTEM)) {
-                writeArtifact(data);
+
+            if (!processMap.containsKey(data[N_PID])) {
+                createProcess(data);
             }
-        } else if (operation.equals(OPERATION_LoadImage)) {
-            loadImage(data);
-        } else if (operation.equals(OPERATION_TCPSend) || operation.equals(OPERATION_UDPSend)) {
-            networkSend(data);
-        } else if (operation.equals(OPERATION_TCPReceive) || operation.equals(OPERATION_UDPReceive)) {
-            networkReceive(data);
+
+            String eventClass = data[N_EVENT_CLASS];
+            String category = data[N_CATEGORY];
+            String operation = data[N_OPERATION];
+
+            if (category.equals(CATEGORY_READ) || category.equals(CATEGORY_READ_METADATA)) {
+                if (eventClass.equals(EVENT_CLASS_REGISTRY) || eventClass.equals(EVENT_CLASS_FILE_SYSTEM)) {
+                    readArtifact(data);
+                }
+            } else if (category.equals(CATEGORY_WRITE) || category.equals(CATEGORY_WRITE_METADATA)) {
+                if (eventClass.equals(EVENT_CLASS_REGISTRY) || eventClass.equals(EVENT_CLASS_FILE_SYSTEM)) {
+                    writeArtifact(data);
+                }
+            } else if (operation.equals(OPERATION_LoadImage)) {
+                loadImage(data);
+            } else if (operation.equals(OPERATION_TCPSend) || operation.equals(OPERATION_UDPSend)) {
+                networkSend(data);
+            } else if (operation.equals(OPERATION_TCPReceive) || operation.equals(OPERATION_UDPReceive)) {
+                networkReceive(data);
+            }
+        } catch (Exception exception) {
+            System.err.println("Error parsing line: " + line);
+//            logger.log(Level.SEVERE, null, exception);
         }
     }
 
@@ -200,35 +210,15 @@ public class ProcMon extends AbstractReporter {
         String ppid = data[N_PARENT_PID];
 
         Process process = new Process();
-        process.addAnnotation(COLUMN_PID, pid);
-        process.addAnnotation(COLUMN_PARENT_PID, ppid);
-        process.addAnnotation(COLUMN_PROCESS_NAME, data[N_PROCESS_NAME]);
-        process.addAnnotation(COLUMN_IMAGE_PATH, data[N_IMAGE_PATH]);
-        process.addAnnotation(COLUMN_COMMAND_LINE, data[N_COMMAND_LINE]);
-        process.addAnnotation(COLUMN_ARCHITECTURE, data[N_ARCHITECTURE]);
-        process.addAnnotation(COLUMN_COMPANY, data[N_COMPANY]);
-        process.addAnnotation(COLUMN_DESCRIPTION, data[N_DESCRIPTION]);
-        process.addAnnotation(COLUMN_VERSION, data[N_VERSION]);
-
-        // Add TrID information
-        try {
-            java.io.File file = new java.io.File(data[N_IMAGE_PATH]);
-            if (file.exists() && TrID_PATH.length() > 0) {
-                java.lang.Process TrIDProcess = Runtime.getRuntime().exec(String.format("%s -r:1 \"%s\"", TrID_PATH, data[N_IMAGE_PATH]));
-                BufferedReader TrIDReader = new BufferedReader(new InputStreamReader(TrIDProcess.getInputStream()));
-                // Skip first 6 lines
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                process.addAnnotation("TrID Result", TrIDReader.readLine());
-                TrIDReader.close();
-            }
-        } catch (Exception ex) {
-            logger.log(Level.SEVERE, null, ex);
-        }
+        process.addAnnotation("pid", pid);
+        process.addAnnotation("ppid", ppid);
+        process.addAnnotation("name", data[N_PROCESS_NAME]);
+        process.addAnnotation("imagepath", data[N_IMAGE_PATH]);
+        process.addAnnotation("commandline", data[N_COMMAND_LINE]);
+        process.addAnnotation("arch", data[N_ARCHITECTURE]);
+        process.addAnnotation("company", data[N_COMPANY]);
+        process.addAnnotation("description", data[N_DESCRIPTION]);
+        process.addAnnotation("version", data[N_VERSION]);
 
         putVertex(process);
         processMap.put(pid, process);
@@ -242,7 +232,7 @@ public class ProcMon extends AbstractReporter {
 
         if (processMap.containsKey(ppid)) {
             WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
-            wtb.addAnnotation(COLUMN_TIME, data[N_TIME]);
+            wtb.addAnnotation("time", data[N_TIME]);
             putEdge(wtb);
         }
     }
@@ -251,21 +241,25 @@ public class ProcMon extends AbstractReporter {
         String pid = data[N_PID];
         String path = data[N_PATH];
 
+        boolean put = !artifactVersions.containsKey(path);
         int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) : 0;
         artifactVersions.put(path, version);
 
         Artifact artifact = new Artifact();
-        artifact.addAnnotation("Class", data[N_EVENT_CLASS]);
-        artifact.addAnnotation(COLUMN_PATH, path);
-        artifact.addAnnotation("Version", Integer.toString(version));
-        putVertex(artifact);
+        artifact.addAnnotation("class", data[N_EVENT_CLASS]);
+        artifact.addAnnotation("path", path);
+        artifact.addAnnotation("version", Integer.toString(version));
+
+        if (put) {
+            putVertex(artifact);
+        }
 
         Used used = new Used(processMap.get(pid), artifact);
-        used.addAnnotation(COLUMN_TIME, data[N_TIME]);
-        used.addAnnotation(COLUMN_OPERATION, data[N_OPERATION]);
-        used.addAnnotation(COLUMN_CATEGORY, data[N_CATEGORY]);
-        used.addAnnotation(COLUMN_DETAIL, data[N_DETAIL]);
-        used.addAnnotation(COLUMN_DURATION, data[N_DURATION]);
+        used.addAnnotation("time", data[N_TIME]);
+        used.addAnnotation("operation", data[N_OPERATION]);
+        used.addAnnotation("category", data[N_CATEGORY]);
+        used.addAnnotation("detail", data[N_DETAIL]);
+        used.addAnnotation("duration", data[N_DURATION]);
         putEdge(used);
     }
 
@@ -277,17 +271,17 @@ public class ProcMon extends AbstractReporter {
         artifactVersions.put(path, version);
 
         Artifact artifact = new Artifact();
-        artifact.addAnnotation("Class", data[N_EVENT_CLASS]);
-        artifact.addAnnotation(COLUMN_PATH, path);
-        artifact.addAnnotation("Version", Integer.toString(version));
+        artifact.addAnnotation("class", data[N_EVENT_CLASS]);
+        artifact.addAnnotation("path", path);
+        artifact.addAnnotation("version", Integer.toString(version));
         putVertex(artifact);
 
         WasGeneratedBy wgb = new WasGeneratedBy(artifact, processMap.get(pid));
-        wgb.addAnnotation(COLUMN_TIME, data[N_TIME]);
-        wgb.addAnnotation(COLUMN_OPERATION, data[N_OPERATION]);
-        wgb.addAnnotation(COLUMN_CATEGORY, data[N_CATEGORY]);
-        wgb.addAnnotation(COLUMN_DETAIL, data[N_DETAIL]);
-        wgb.addAnnotation(COLUMN_DURATION, data[N_DURATION]);
+        wgb.addAnnotation("time", data[N_TIME]);
+        wgb.addAnnotation("operation", data[N_OPERATION]);
+        wgb.addAnnotation("category", data[N_CATEGORY]);
+        wgb.addAnnotation("detail", data[N_DETAIL]);
+        wgb.addAnnotation("duration", data[N_DURATION]);
         putEdge(wgb);
     }
 
@@ -295,36 +289,17 @@ public class ProcMon extends AbstractReporter {
         String pid = data[N_PID];
 
         Artifact image = new Artifact();
-        image.addAnnotation("Type", "File");
-        image.addAnnotation(COLUMN_PATH, data[N_PATH]);
-
-        // Add TrID information
-        try {
-            java.io.File file = new java.io.File(data[N_PATH]);
-            if (file.exists() && TrID_PATH.length() > 0) {
-                java.lang.Process TrIDProcess = Runtime.getRuntime().exec(String.format("%s -r:1 \"%s\"", TrID_PATH, data[N_PATH]));
-                BufferedReader TrIDReader = new BufferedReader(new InputStreamReader(TrIDProcess.getInputStream()));
-                // Skip first 6 lines
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                TrIDReader.readLine();
-                image.addAnnotation("TrID Result", TrIDReader.readLine());
-                TrIDReader.close();
-            }
-        } catch (Exception ex) {
-            logger.log(Level.SEVERE, null, ex);
+        image.addAnnotation("type", "file");
+        image.addAnnotation("path", data[N_PATH]);
+        if (loadedImages.add(data[N_PATH])) {
+            putVertex(image);
         }
 
-        putVertex(image);
-
         Used used = new Used(processMap.get(pid), image);
-        used.addAnnotation(COLUMN_TIME, data[N_TIME]);
-        used.addAnnotation(COLUMN_OPERATION, data[N_OPERATION]);
-        used.addAnnotation(COLUMN_DETAIL, data[N_DETAIL]);
-        used.addAnnotation(COLUMN_DURATION, data[N_DURATION]);
+        used.addAnnotation("time", data[N_TIME]);
+        used.addAnnotation("operation", data[N_OPERATION]);
+        used.addAnnotation("detail", data[N_DETAIL]);
+        used.addAnnotation("duration", data[N_DURATION]);
         putEdge(used);
     }
 
@@ -336,16 +311,18 @@ public class ProcMon extends AbstractReporter {
 
         Artifact network = new Artifact();
         network.addAnnotation("subtype", "network");
-        network.addAnnotation("Local Host", local[0]);
-        network.addAnnotation("Local Port", local[1]);
-        network.addAnnotation("Remote Host", remote[0]);
-        network.addAnnotation("Remote Port", remote[1]);
-        putVertex(network);
+        network.addAnnotation("local host", local[0]);
+        network.addAnnotation("local port", local[1]);
+        network.addAnnotation("remote host", remote[0]);
+        network.addAnnotation("remote port", remote[1]);
+        if (networkConnections.add(data[N_PATH])) {
+            putVertex(network);
+        }
 
         WasGeneratedBy wgb = new WasGeneratedBy(network, processMap.get(pid));
-        wgb.addAnnotation(COLUMN_TIME, data[N_TIME]);
-        wgb.addAnnotation(COLUMN_OPERATION, data[N_OPERATION]);
-        wgb.addAnnotation(COLUMN_DETAIL, data[N_DETAIL]);
+        wgb.addAnnotation("time", data[N_TIME]);
+        wgb.addAnnotation("operation", data[N_OPERATION]);
+        wgb.addAnnotation("detail", data[N_DETAIL]);
         putEdge(wgb);
     }
 
@@ -357,16 +334,18 @@ public class ProcMon extends AbstractReporter {
 
         Artifact network = new Artifact();
         network.addAnnotation("subtype", "network");
-        network.addAnnotation("Local Host", local[0]);
-        network.addAnnotation("Local Port", local[1]);
-        network.addAnnotation("Remote Host", remote[0]);
-        network.addAnnotation("Remote Port", remote[1]);
-        putVertex(network);
+        network.addAnnotation("local host", local[0]);
+        network.addAnnotation("local port", local[1]);
+        network.addAnnotation("remote host", remote[0]);
+        network.addAnnotation("remote port", remote[1]);
+        if (networkConnections.add(data[N_PATH])) {
+            putVertex(network);
+        }
 
         Used used = new Used(processMap.get(pid), network);
-        used.addAnnotation(COLUMN_TIME, data[N_TIME]);
-        used.addAnnotation(COLUMN_OPERATION, data[N_OPERATION]);
-        used.addAnnotation(COLUMN_DETAIL, data[N_DETAIL]);
+        used.addAnnotation("time", data[N_TIME]);
+        used.addAnnotation("operation", data[N_OPERATION]);
+        used.addAnnotation("detail", data[N_DETAIL]);
         putEdge(used);
     }
 }

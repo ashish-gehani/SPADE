@@ -26,7 +26,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -36,6 +35,7 @@ import java.util.Set;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.SSLSocket;
 
 /**
  *
@@ -96,6 +96,8 @@ public class Query {
                     begintime = System.currentTimeMillis();
                     if (tokens[2].equalsIgnoreCase("vertices")) {
                         resultGraph = queryVertices(tokens[3], storage);
+                    } else if (tokens[2].equalsIgnoreCase("edges")) {
+                        resultGraph = queryEdges(tokens[3], storage);
                     } else if (tokens[2].equalsIgnoreCase("remotevertices")) {
                         resultGraph = queryRemoteVertices(tokens[3], storage);
                     } else if (tokens[2].equalsIgnoreCase("lineage")) {
@@ -133,6 +135,24 @@ public class Query {
         return resultGraph;
     }
 
+    private static Graph queryEdges(String queryLine, AbstractStorage storage) {
+        try {
+            String[] expression = queryLine.split(",");
+            Graph resultGraph;
+            if (expression.length == 2) {
+                resultGraph = storage.getEdges(expression[0].trim(), expression[1].trim());
+            } else if (expression.length == 3) {
+                resultGraph = storage.getEdges(expression[0].trim(), expression[1].trim(), expression[2].trim());
+            } else {
+                return null;
+            }
+            return resultGraph;
+        } catch (Exception badQuery) {
+            logger.log(Level.SEVERE, null, badQuery);
+            return null;
+        }
+    }
+
     private static Graph queryVertices(String queryLine, AbstractStorage storage) {
         try {
             Graph resultGraph = storage.getVertices(queryLine);
@@ -149,9 +169,9 @@ public class Query {
             String host = tokens[0];
             String queryExpression = tokens[1];
             // Connect to the specified host and query for vertices.
-            InetSocketAddress sockaddr = new InetSocketAddress(host, Integer.parseInt(Settings.getProperty("remote_query_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
+            SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(host, port);
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -259,9 +279,9 @@ public class Query {
                 Graph srcGraph, dstGraph;
 
                 // Connect to source host and get upward lineage
-                InetSocketAddress sockaddr = new InetSocketAddress(srcHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
-                Socket remoteSocket = new Socket();
-                remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+                int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
+                SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(srcHost, port);
+
                 OutputStream outStream = remoteSocket.getOutputStream();
                 InputStream inStream = remoteSocket.getInputStream();
                 //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -281,9 +301,9 @@ public class Query {
                 remoteSocket.close();
 
                 // Connect to destination host and get downward lineage
-                sockaddr = new InetSocketAddress(dstHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
-                remoteSocket = new Socket();
-                remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+                port = Integer.parseInt(Settings.getProperty("remote_query_port"));
+                remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(dstHost, port);
+
                 outStream = remoteSocket.getOutputStream();
                 inStream = remoteSocket.getInputStream();
                 //graphOutputStream = new ObjectOutputStream(outStream);
@@ -748,9 +768,9 @@ public class Query {
 
         try {
             // Connect to destination host and get all the destination network vertices
-            InetSocketAddress sockaddr = new InetSocketAddress(dstHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
+            SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(dstHost, port);
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -791,9 +811,9 @@ public class Query {
             }
 
             // Connect to the source host and get all source network vertices.
-            sockaddr = new InetSocketAddress(srcHost, Integer.parseInt(Settings.getProperty("remote_query_port")));
-            remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            port = Integer.parseInt(Settings.getProperty("remote_query_port"));
+            remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(srcHost, port);
+
             inStream = remoteSocket.getInputStream();
             outStream = remoteSocket.getOutputStream();
             //graphOutputStream = new ObjectOutputStream(outStream);
@@ -975,9 +995,10 @@ public class Query {
 
         try {
             // Establish a connection to the remote host
-            InetSocketAddress sockaddr = new InetSocketAddress(networkVertex.getAnnotation("destination host"), Integer.parseInt(Settings.getProperty("remote_query_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            String host = networkVertex.getAnnotation("destination host");
+            int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
+            SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(host, port);
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
@@ -1184,9 +1205,9 @@ class RebuildSketch implements Runnable {
 
     public void run() {
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
+            SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(remoteHost, port);
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
@@ -1232,9 +1253,9 @@ class PropagateSketch implements Runnable {
 
     public void run() {
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
+            SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(remoteHost, port);
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);
@@ -1278,9 +1299,9 @@ class PathFragment implements Runnable {
 
     public void run() {
         try {
-            InetSocketAddress sockaddr = new InetSocketAddress(remoteHost, Integer.parseInt(Settings.getProperty("remote_sketch_port")));
-            Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
+            SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(remoteHost, port);
+
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(outStream);

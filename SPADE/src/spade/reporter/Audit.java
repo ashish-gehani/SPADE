@@ -43,7 +43,6 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractReporter;
 import spade.core.AbstractStorage;
-import spade.core.AbstractSketch;
 import spade.core.AbstractVertex;
 import spade.core.Buffer;
 import spade.edge.opm.Used;
@@ -66,11 +65,9 @@ public class Audit extends AbstractReporter {
     private static boolean ANDROID_PLATFORM = false; // Set to true dyanmically on Launch if Android platform is detected
     private boolean SOCKETS_ALREADY_PARSED = true;
     private String DEBUG_DUMP_FILE;
-    private boolean USE_JNI = false;
     ////////////////////////////////////////////////////////////////////////////
-    private static java.lang.Process auditProcess;
     private BufferedReader eventReader;
-    private static volatile boolean shutdown = false;
+    private volatile boolean shutdown = false;
     private long boottime = 0;
     private int binderTransaction = 0;
     private long THREAD_SLEEP_DELAY = 100;
@@ -87,6 +84,8 @@ public class Audit extends AbstractReporter {
     private Map<String, Map<String, String>> eventBuffer = new HashMap<String, Map<String, String>>();
     // File version map based on <path, version> pairs
     private Map<String, Integer> fileVersions = new HashMap<String, Integer>();
+    // Set to cache paths that have received ioctl calls
+    private Set<String> ioctlPaths = new HashSet<String>();
     ////////////////////////////////////////////////////////////////////////////
     // Group 1: key
     // Group 2: value
@@ -95,7 +94,7 @@ public class Audit extends AbstractReporter {
     // Group 2: type
     // Group 3: time
     // Group 4: recordid
-    private static Pattern pattern_message_start;
+    private static Pattern pattern_message_start = Pattern.compile("node=([a-zA-Z_0-9\\.]+) type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
     // Group 1: cwd
     private static Pattern pattern_cwd = Pattern.compile("cwd=\"*((?<=\")[^\"]*(?=\"))\"*");
     // Group 1: item number
@@ -135,11 +134,6 @@ public class Audit extends AbstractReporter {
 
     static {
         ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
-		if (ANDROID_PLATFORM)
-			pattern_message_start = Pattern.compile("type=(\\w*) audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
-		else
-			pattern_message_start = Pattern.compile("node=([a-zA-Z_0-9\\.]+) type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
-			
         if (ANDROID_PLATFORM) {
             System.load(SPADE_ANDROID_AUDIT_LIBRARY);
         }
@@ -153,7 +147,7 @@ public class Audit extends AbstractReporter {
         }
 
         if (ANDROID_PLATFORM) {
-            AUDIT_EXEC_PATH = "/data/spade/android-lib/spade-audit";
+            AUDIT_EXEC_PATH = "spade-audit";
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
             DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
         } else {
@@ -172,28 +166,6 @@ public class Audit extends AbstractReporter {
             DEBUG_DUMP_LOG = false;
         }
 
-        // Start auditd and clear existing rules.
-        try {
-	        Runtime.getRuntime().exec("auditctl -D").waitFor();
-
-	        if (ANDROID_PLATFORM) {
-	        	if (USE_JNI) {
-	        		int init_status = initAuditStream();
-		            if (init_status != 0) {
-		                throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
-		            }
-	        	} else {
-	        		auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-	        	}
-	        }
-	        else {
-	        	auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-	        }
-        } catch( Exception e) {
-        	logger.log(Level.SEVERE, "Unable to initialize Audit", e);
-        	return false;
-        }
-        
         // Get system boot time from /proc/stat. This is later used to determine the start
         // time for processes.
         try {
@@ -257,12 +229,18 @@ public class Audit extends AbstractReporter {
         }
 
         try {
+            // Start auditd and clear existing rules.
+            Runtime.getRuntime().exec("auditctl -D").waitFor();
+            if (ANDROID_PLATFORM) {
+                int init_status = initAuditStream();
+                if (init_status != 0) {
+                    throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
+                }
+            }
 
             Runnable eventProcessor = new Runnable() {
                 public void run() {
                     try {
-                        Logger logger = Logger.getLogger("EventProcessorThread");
-
                         FileWriter dumpFileWriter = null;
                         BufferedWriter dumpWriter = null;
                         if (DEBUG_DUMP_LOG) {
@@ -270,8 +248,7 @@ public class Audit extends AbstractReporter {
                             dumpWriter = new BufferedWriter(dumpFileWriter);
                         }
 
-                        
-                        if (ANDROID_PLATFORM && USE_JNI) {
+                        if (ANDROID_PLATFORM) {
                             while (!shutdown) {
                                 String line = readAuditStream();
                                 if (line != null && !line.isEmpty()) {
@@ -284,10 +261,9 @@ public class Audit extends AbstractReporter {
                                 }
                             }
                             closeAuditStream();
-
                         } else {
+                            java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
                             eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
-
                             while (!shutdown) {
                                 String line = eventReader.readLine();
                                 if ((line != null) && !line.isEmpty()) {
@@ -299,23 +275,18 @@ public class Audit extends AbstractReporter {
                                     parseEventLine(line);
                                 }
                             }
-
                             eventReader.close();
                             auditProcess.destroy();
                         }
-
                         if (DEBUG_DUMP_LOG) {
                             dumpWriter.close();
                             dumpFileWriter.close();
                         }
-
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
                     } finally {
-                        if (ANDROID_PLATFORM && USE_JNI) {
+                        if (ANDROID_PLATFORM) {
                             closeAuditStream();
-                        } else {
-                        	auditProcess.destroy();
                         }
                     }
 
@@ -327,21 +298,8 @@ public class Audit extends AbstractReporter {
             if (ANDROID_PLATFORM) {
                 Runnable transactionProcessor = new Runnable() {
                     public void run() {
-                    	
-                    	String BINDER_TRANSACTION_LOG;
-                    	
-                    	
-                    	if (!(new java.io.File("/proc/binder/transaction_log").exists())) {
-                    		BINDER_TRANSACTION_LOG = "/proc/binder/transaction_log";
-                    	} else if (!(new java.io.File("/sys/kernel/debug/binder/transaction_log").exists())) { 
-                    		BINDER_TRANSACTION_LOG = "/sys/kernel/debug/binder/transaction_log";                    		
-                    	} else {
-                    		logger.log(Level.SEVERE, "No transaction log found");
-                    		return;
-                    	} 
-                    		
                         try {
-                            BufferedReader transactionReader = new BufferedReader(new FileReader(BINDER_TRANSACTION_LOG));
+                            BufferedReader transactionReader = new BufferedReader(new FileReader("/proc/binder/transaction_log"));
                             String line;
                             while (!shutdown) {
                                 while ((line = transactionReader.readLine()) != null) {
@@ -365,7 +323,6 @@ public class Audit extends AbstractReporter {
                         } catch (Exception exception) {
                             logger.log(Level.SEVERE, null, exception);
                         }
-
                     }
                 };
                 transactionProcessorThread = new Thread(transactionProcessor, "androidBinder-Thread");
@@ -396,7 +353,7 @@ public class Audit extends AbstractReporter {
                         + "-S pipe2 -F success=1" + ignorePids.toString();
             }
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-            logger.log(Level.INFO, "Configured audit rules: {0}", auditRules);
+            logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
@@ -494,7 +451,7 @@ public class Audit extends AbstractReporter {
                 eventBuffer.put(eventId, eventData);
             } else {
                 if (!eventBuffer.containsKey(eventId)) {
-                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
+//                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
                     return;
                 }
                 if (type.equals("EOE")) {
@@ -565,7 +522,7 @@ public class Audit extends AbstractReporter {
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
 
             if (!eventBuffer.containsKey(eventId)) {
-                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
+//                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
@@ -692,6 +649,23 @@ public class Audit extends AbstractReporter {
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
+    }
+
+    private Artifact createFileVertex(String path, boolean update) {
+        Artifact fileArtifact = new Artifact();
+        path = path.replace("//", "/");
+        fileArtifact.addAnnotation("path", path);
+        String[] filename = path.split("/");
+        if (filename.length > 0) {
+            fileArtifact.addAnnotation("filename", filename[filename.length - 1]);
+        }
+        int version = fileVersions.containsKey(path) ? fileVersions.get(path) : 0;
+        if (update && path.startsWith("/") && !path.startsWith("/dev/")) {
+            version++;
+        }
+        fileArtifact.addAnnotation("version", Integer.toString(version));
+        fileVersions.put(path, version);
+        return fileArtifact;
     }
 
     private void processForkClone(Map<String, String> eventData, SYSCALL syscall) {
@@ -827,15 +801,11 @@ public class Audit extends AbstractReporter {
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = new Artifact();
-            vertex.addAnnotation("location", path);
-            // Look up version number in the version table if this is a normal file
-            if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
-                int version = fileVersions.containsKey(path) ? fileVersions.get(path) : 0;
-                fileVersions.put(path, version);
-                vertex.addAnnotation("version", Integer.toString(version));
+            boolean put = !fileVersions.containsKey(path);
+            Artifact vertex = createFileVertex(path, false);
+            if (put) {
+                putVertex(vertex);
             }
-            putVertex(vertex);
             Used used = new Used(processes.get(pid), vertex);
             used.addAnnotation("operation", "read");
             used.addAnnotation("time", time);
@@ -858,15 +828,7 @@ public class Audit extends AbstractReporter {
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = new Artifact();
-            vertex.addAnnotation("location", path);
-            // Look up version number in the version table if this is a normal file
-            if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
-                // Increment previous version number if it exists
-                int version = fileVersions.containsKey(path) ? fileVersions.get(path) + 1 : 1;
-                fileVersions.put(path, version);
-                vertex.addAnnotation("version", Integer.toString(version));
-            }
+            Artifact vertex = createFileVertex(path, true);
             putVertex(vertex);
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", "write");
@@ -895,20 +857,12 @@ public class Audit extends AbstractReporter {
             if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
                 path = fileDescriptors.get(pid).get(fd);
             } else {
-                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+//                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
                 return;
             }
         }
 
-        Artifact vertex = new Artifact();
-        vertex.addAnnotation("location", path);
-        // Look up version number in the version table if this is a normal file
-        if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
-            // Increment previous version number if it exists
-            int version = fileVersions.containsKey(path) ? fileVersions.get(path) + 1 : 1;
-            fileVersions.put(path, version);
-            vertex.addAnnotation("version", Integer.toString(version));
-        }
+        Artifact vertex = createFileVertex(path, true);
         putVertex(vertex);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
         wgb.addAnnotation("operation", syscall.name().toLowerCase());
@@ -930,8 +884,10 @@ public class Audit extends AbstractReporter {
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
             Artifact vertex = new Artifact();
-            vertex.addAnnotation("location", path);
-            putVertex(vertex);
+            vertex.addAnnotation("path", path);
+            if (ioctlPaths.add(path)) {
+                putVertex(vertex);
+            }
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", "ioctl");
             wgb.addAnnotation("time", time);
@@ -992,21 +948,17 @@ public class Audit extends AbstractReporter {
         String srcpath = joinPaths(cwd, eventData.get("path2"));
         String dstpath = joinPaths(cwd, eventData.get("path3"));
 
-        Artifact srcVertex = new Artifact();
-        srcVertex.addAnnotation("location", srcpath);
-        // Look up version number in the version table if it exists and remove it
-        int version = fileVersions.containsKey(srcpath) ? fileVersions.remove(srcpath) : 0;
-        srcVertex.addAnnotation("version", Integer.toString(version));
-        putVertex(srcVertex);
+        boolean put = !fileVersions.containsKey(srcpath);
+        Artifact srcVertex = createFileVertex(srcpath, false);
+        if (put) {
+            putVertex(srcVertex);
+        }
         Used used = new Used(processes.get(pid), srcVertex);
         used.addAnnotation("operation", "read");
         used.addAnnotation("time", time);
         putEdge(used);
 
-        Artifact dstVertex = new Artifact();
-        dstVertex.addAnnotation("location", dstpath);
-        dstVertex.addAnnotation("version", "1");
-        fileVersions.put(dstpath, 1);
+        Artifact dstVertex = createFileVertex(dstpath, true);
         putVertex(dstVertex);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, processes.get(pid));
         wgb.addAnnotation("operation", "write");
@@ -1049,21 +1001,17 @@ public class Audit extends AbstractReporter {
         String srcpath = joinPaths(cwd, eventData.get("path0"));
         String dstpath = joinPaths(cwd, eventData.get("path2"));
 
-        Artifact srcVertex = new Artifact();
-        srcVertex.addAnnotation("location", srcpath);
-        // Look up version number in the version table if it exists and remove it
-        int version = fileVersions.containsKey(srcpath) ? fileVersions.get(srcpath) : 0;
-        srcVertex.addAnnotation("version", Integer.toString(version));
-        putVertex(srcVertex);
+        boolean put = !fileVersions.containsKey(srcpath);
+        Artifact srcVertex = createFileVertex(srcpath, false);
+        if (put) {
+            putVertex(srcVertex);
+        }
         Used used = new Used(processes.get(pid), srcVertex);
         used.addAnnotation("operation", "read");
         used.addAnnotation("time", time);
         putEdge(used);
 
-        Artifact dstVertex = new Artifact();
-        dstVertex.addAnnotation("location", dstpath);
-        dstVertex.addAnnotation("version", "1");
-        fileVersions.put(dstpath, 1);
+        Artifact dstVertex = createFileVertex(dstpath, true);
         putVertex(dstVertex);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, processes.get(pid));
         wgb.addAnnotation("operation", "write");
@@ -1085,12 +1033,10 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         checkProcessVertex(eventData, true, false);
-
         // mode is in hex format in <a1>
         String mode = Integer.toOctalString(Integer.parseInt(eventData.get("a1"), 16));
         // if syscall is chmod, then path is <path0> relative to <cwd>
         // if syscall is fchmod, look up file descriptor which is <a0>
-        Artifact vertex = new Artifact();
         String path = null;
         if (syscall == SYSCALL.CHMOD) {
             path = joinPaths(eventData.get("cwd"), eventData.get("path0"));
@@ -1100,9 +1046,7 @@ public class Audit extends AbstractReporter {
                 path = fileDescriptors.get(pid).get(fd);
             }
         }
-        int version = fileVersions.containsKey(path) ? fileVersions.get(path) + 1 : 1;
-        vertex.addAnnotation("location", path);
-        vertex.addAnnotation("version", Integer.toString(version));
+        Artifact vertex = createFileVertex(path, true);
         putVertex(vertex);
 
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
@@ -1147,8 +1091,7 @@ public class Audit extends AbstractReporter {
             }
         }
         if (location != null) {
-            Artifact network = new Artifact();
-            network.addAnnotation("location", location);
+            Artifact network = createFileVertex(location, true);
             putVertex(network);
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
@@ -1192,8 +1135,7 @@ public class Audit extends AbstractReporter {
             }
         }
         if (location != null) {
-            Artifact network = new Artifact();
-            network.addAnnotation("location", location);
+            Artifact network = createFileVertex(location, true);
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
             wgb.addAnnotation("time", time);
@@ -1226,8 +1168,7 @@ public class Audit extends AbstractReporter {
             }
         }
         if (location != null) {
-            Artifact network = new Artifact();
-            network.addAnnotation("location", location);
+            Artifact network = createFileVertex(location, false);
             putVertex(network);
             Used used = new Used(processes.get(pid), network);
             used.addAnnotation("time", time);
@@ -1253,9 +1194,7 @@ public class Audit extends AbstractReporter {
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = new Artifact();
-            vertex.addAnnotation("location", path);
-            // Look up version number in the version table if this is a normal file
+            Artifact vertex = createFileVertex(path, true);
             putVertex(vertex);
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", syscall.name().toLowerCase());
@@ -1279,9 +1218,7 @@ public class Audit extends AbstractReporter {
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = new Artifact();
-            vertex.addAnnotation("location", path);
-            // Look up version number in the version table if this is a normal file
+            Artifact vertex = createFileVertex(path, false);
             putVertex(vertex);
             Used used = new Used(processes.get(pid), vertex);
             used.addAnnotation("operation", syscall.name().toLowerCase());
@@ -1423,78 +1360,55 @@ public class Audit extends AbstractReporter {
     public static void dump_stream(String args[]) {
 
         System.out.println("Dumping Stream! :-");
-        
-        boolean USE_JNI = false;
-        
-        if (USE_JNI) {
 
-	        String outBuf = "";
-	        int status = initAuditStream();
-	        if (status != 0) {
-	            System.out.println("Unable to to open audit stream: " + String.valueOf(status));
-	        } else {
-	            System.out.println("Stream initalization");
-	        }
-	
-	        try {
-	            while (true) {
-	
-	                String audstream = readAuditStream();
-	                if (audstream != null) {
-	                    if (!audstream.isEmpty()) {
-	                        // outBuf = outBuf + "\n" + audstream;
-	                    	System.out.println(audstream);
-	                    }
-	                } else {
-	                    break;
-	                }
-	
-	                if (outBuf.length() > 0) {
-	                    // Flush
-	                    // System.out.println(outBuf);
-	                    // outBuf = "";
-	                }
-	            }
-	        } catch (Exception e) {
-	            e.printStackTrace();
-	        } finally {
-	            System.out.println("End of stream!");
-	            closeAuditStream();
-	        }
+        try {
+            String auditRules = "-a exit,always "
+                    + "-S clone -S fork -S vfork -S execve -S open -S close "
+                    + "-S read -S readv -S write -S writev -S link -S symlink "
+                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+                    + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
+                    + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
+                    + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
+                    + "-S pipe2 -F success=1 " + ignorePidsString("spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm");
+            System.out.println("Settings rules: " + auditRules);
+            Runtime.getRuntime().exec("auditctl -D").waitFor();
+            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
 
+        String outBuf = "";
+        int status = initAuditStream();
+        if (status != 0) {
+            System.out.println("Unable to to open audit stream: " + String.valueOf(status));
         } else {
-	        java.lang.Process auditProcess;
-	        try {
-	            Runtime.getRuntime().exec("auditctl -D").waitFor();
-	            auditProcess  = Runtime.getRuntime().exec("/data/spade/android-lib/spade-audit");
-	        	String auditRules = "-a exit,always "
-	                    + "-S clone -S fork -S vfork -S execve -S open -S close "
-	                    + "-S read -S readv -S write -S writev -S link -S symlink "
-	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-	                    + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
-	                    + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg "
-	                    + "-S pread64 -S pwrite64 -S truncate -S ftruncate "
-	                    + "-S pipe2 -F success=1 " + ignorePidsString("/data/spade/android-lib/spade-audit spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm");
-	            System.out.println("Settings rules: " + auditRules);
-	            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-	        } catch (Exception e) {
-	            e.printStackTrace();
-	            return;
-	        }        
-	
-	        try {
-	            BufferedReader eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
-	
-	        	while (true) {
-		            String line = eventReader.readLine();
-		            if ((line != null) && !line.isEmpty()) {
-		                System.out.println(line);
-		            }
-		        }
-	        } catch (Exception e) {
-	        	e.printStackTrace();
-	        	return;
-	        }
+            System.out.println("Stream initalization");
+        }
+
+        try {
+            while (true) {
+
+                String audstream = readAuditStream();
+                if (audstream != null) {
+                    if (!audstream.isEmpty()) {
+                        outBuf = outBuf + "\n" + audstream;
+                    }
+                } else {
+                    break;
+                }
+
+                if (outBuf.length() > 5000) {
+                    // Flush
+                    System.out.println(outBuf);
+                    outBuf = "";
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            System.out.println("End of stream!");
+            closeAuditStream();
         }
     }
 
@@ -1517,25 +1431,26 @@ public class Audit extends AbstractReporter {
 
             FinalCommitFilter commitFilter = new FinalCommitFilter();
             commitFilter.storages = Collections.synchronizedSet(new HashSet<AbstractStorage>(Arrays.asList(new AbstractStorage[]{storage})));
-            commitFilter.sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
 
             final IORuns filter_ioruns = new IORuns();
             filter_ioruns.setNextFilter(commitFilter);
 
-            System.out.println("Launching now");
-            
             reporter.setBuffer(buf);
-            // reporter.launch("dump=/sdcard/audit.dump");
             reporter.launch("");
-            
+
             final Thread mainThread = Thread.currentThread();
-            
-            System.out.println("Launch complete - Running Now");
 
-                   try { 
-                    	java.io.File shutdown_monitor = new java.io.File("/sdcard/shutdown");
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                public void run() {
+                    reporter.shutdown();
+                    mainThread.notify();
+                }
+            });
 
-                        while (!shutdown) {
+            Runnable bufferFlusher = new Runnable() {
+                public void run() {
+                    try {
+                        while (true) {
                             while (!buf.isEmpty()) {
                                 Object bufferelement = buf.getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
@@ -1553,44 +1468,28 @@ public class Audit extends AbstractReporter {
                                 } else if (bufferelement == null) {
                                     break;
                                 }
-                                if (shutdown_monitor.exists())
-                                	break;
                             }
-
-                            if (shutdown_monitor.exists()) {
-                            	System.out.println("Shutdown initiated");
-                        		shutdown = true;
-                        		shutdown_monitor.delete();
-                            }
-                            
-                            try {
-                            	auditProcess.exitValue();
-                            	logger.log(Level.WARNING, "Audit Reader Process has died. Quitting!");
-                            	shutdown = true; // Process has exited
-                            } catch (Exception e) {
-                            	// Process has not yet terminated; ignore
-                            };
-                            
                             storage.flushTransactions();
-                            Thread.sleep(2000);
+                            Thread.currentThread().wait(1000);
                         }
-
-                        reporter.shutdown();
-	                    storage.shutdown();
-	                    Thread.sleep(2000);
-                        
                     } catch (InterruptedException e) {
-                        System.out.println("Error in BufferFlusher");
-                        e.printStackTrace();
+                        return;
                     }
-            
+                }
+            };
+            Thread bufferFlusherThread = new Thread(bufferFlusher, "bufferFlusher");
+            bufferFlusherThread.run();
+
+            System.out.println("Now Running");
+            mainThread.wait();
+            System.out.println("Shutdown initiated");
+            bufferFlusher.notify();
         } catch (Exception e) {
             System.out.println(e);
         } finally {
-            // closeAuditStream();
+            closeAuditStream();
             System.out.println("Shutdown complete");
         }
-        System.exit(0);
     }
 
     public static void main(String args[]) {
