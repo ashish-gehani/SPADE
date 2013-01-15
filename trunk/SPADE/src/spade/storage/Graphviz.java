@@ -23,7 +23,11 @@ import java.io.FileWriter;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.*;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Kernel;
+import spade.core.Query;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -102,10 +106,10 @@ public class Graphviz extends AbstractStorage {
             if (type.equalsIgnoreCase("Agent")) {
                 shape = "octagon";
                 color = "rosybrown1";
-            } else if (type.equalsIgnoreCase("Process")) {
+            } else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity")) {
                 shape = "box";
                 color = "lightsteelblue1";
-            } else if (type.equalsIgnoreCase("Artifact")) {
+            } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity")) {
                 shape = "ellipse";
                 color = "khaki1";
                 try {

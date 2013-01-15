@@ -21,6 +21,7 @@ package spade.core;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -32,6 +33,8 @@ import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,6 +49,12 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 import spade.filter.FinalCommitFilter;
 
 /**
@@ -137,23 +146,65 @@ public class Kernel {
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
     private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
+    private static final String QUERY_EDGE1_STRING = "<result> = getEdges(source vertex id, destination vertex id)";
+    private static final String QUERY_EDGE2_STRING = "<result> = getEdges(source vertex expression, destination vertex expression, edge expression)";
     private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id)";
     private static final String QUERY_LINEAGE_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
     private static final String QUERY_LIST_STRING = "list";
     private static final String QUERY_EXPORT_STRING = "export <result> <path>";
-    private static final String QUERY_EXIT_STRING = "exit";    
+    private static final String QUERY_EXIT_STRING = "exit";
     private static final String QUERY_REMOTEPATHS_STRING = "query <class name> remotepaths <source host:vertex id> <destination host:vertex id> <max length>";
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
-    /*
-     * Utility function for checking if file is writable
-     *
-     * @param absolute or relaitve path to the fiel
-     * @return True is file exists and is writable to current user/process, else false
-     */
+    // Members for creating secure sockets
+    private static KeyStore clientKeyStorePublic;
+    private static KeyStore clientKeyStorePrivate;
+    private static KeyStore serverKeyStorePublic;
+    private static KeyStore serverKeyStorePrivate;
+    public static SSLSocketFactory sslSocketFactory;
+    public static SSLServerSocketFactory sslServerSocketFactory;
 
-    private static Boolean checkIsWritable(String path) {
-        File f = new File(path);
-        return f.exists() && f.canWrite();
+    private static void setupKeyStores() throws Exception {
+        String serverPublicPath = Settings.getProperty("spade_root") + "ssl/server.public";
+        String serverPrivatePath = Settings.getProperty("spade_root") + "ssl/server.private";
+        String clientPublicPath = Settings.getProperty("spade_root") + "ssl/client.public";
+        String clientPrivatePath = Settings.getProperty("spade_root") + "ssl/client.private";
+
+        serverKeyStorePublic = KeyStore.getInstance("JKS");
+        serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
+        serverKeyStorePrivate = KeyStore.getInstance("JKS");
+        serverKeyStorePrivate.load(new FileInputStream(serverPrivatePath), "private".toCharArray());
+        clientKeyStorePublic = KeyStore.getInstance("JKS");
+        clientKeyStorePublic.load(new FileInputStream(clientPublicPath), "public".toCharArray());
+        clientKeyStorePrivate = KeyStore.getInstance("JKS");
+        clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
+    }
+
+    private static void setupClientSSLContext() throws Exception {
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextInt();
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(serverKeyStorePublic);
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
+        sslSocketFactory = sslContext.getSocketFactory();
+    }
+
+    private static void setupServerSSLContext() throws Exception {
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextInt();
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(clientKeyStorePublic);
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(serverKeyStorePrivate, "private".toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
+        sslServerSocketFactory = sslContext.getServerSocketFactory();
     }
 
     /**
@@ -162,6 +213,14 @@ public class Kernel {
      * @param args
      */
     public static void main(String args[]) {
+        // Set up context for secure connections
+        try {
+            setupKeyStores();
+            setupClientSSLContext();
+            setupServerSSLContext();
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+        }
 
         // Initialize configFile to use
         for (String f : configFileLookupPaths) {
@@ -388,7 +447,9 @@ public class Kernel {
         Runnable controlRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("local_control_port")));
+                    int port = Integer.parseInt(Settings.getProperty("local_control_port"));
+                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
+                    serverSocket.setNeedClientAuth(true);
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket controlSocket = serverSocket.accept();
@@ -410,7 +471,9 @@ public class Kernel {
         Runnable queryRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("local_query_port")));
+                    int port = Integer.parseInt(Settings.getProperty("local_query_port"));
+                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
+                    serverSocket.setNeedClientAuth(true);
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket querySocket = serverSocket.accept();
@@ -435,7 +498,9 @@ public class Kernel {
         Runnable remoteRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("remote_query_port")));
+                    int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
+                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
+                    serverSocket.setNeedClientAuth(true);
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
@@ -460,7 +525,9 @@ public class Kernel {
         Runnable sketchRunnable = new Runnable() {
             public void run() {
                 try {
-                    ServerSocket serverSocket = new ServerSocket(Integer.parseInt(Settings.getProperty("remote_sketch_port")));
+                    int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
+                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
+                    serverSocket.setNeedClientAuth(true);
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
@@ -490,6 +557,17 @@ public class Kernel {
             }
         }
 
+    }
+
+    /*
+     * Utility function for checking if file is writable
+     *
+     * @param absolute or relaitve path to the fiel
+     * @return True is file exists and is writable to current user/process, else false
+     */
+    private static Boolean checkIsWritable(String path) {
+        File f = new File(path);
+        return f.exists() && f.canWrite();
     }
 
     // The following two methods are called by the Graph object when adding vertices
@@ -667,6 +745,8 @@ public class Kernel {
         StringBuilder string = new StringBuilder();
         string.append("Available commands:\n");
         string.append("\t" + QUERY_VERTEX_STRING + "\n");
+        string.append("\t" + QUERY_EDGE1_STRING + "\n");
+        string.append("\t" + QUERY_EDGE2_STRING + "\n");
         string.append("\t" + QUERY_PATHS_STRING + "\n");
         string.append("\t" + QUERY_LINEAGE_STRING + "\n");
         string.append("\t" + QUERY_LIST_STRING + "\n");
@@ -1277,18 +1357,16 @@ class LocalQueryConnection implements Runnable {
 
             while (!Kernel.shutdown) {
                 // Commands read from the input stream and executed.
-                if (queryInputStream.ready()) {
-                    String line = queryInputStream.readLine();
-                    if (line.equalsIgnoreCase("exit")) {
-                        break;
+                String line = queryInputStream.readLine();
+                if (line.equalsIgnoreCase("exit")) {
+                    break;
+                } else {
+                    Graph resultGraph = Query.executeQuery(line, false);
+                    if (resultGraph != null) {
+                        queryOutputStream.writeObject("graph");
+                        queryOutputStream.writeObject(resultGraph);
                     } else {
-                        Graph resultGraph = Query.executeQuery(line, false);
-                        if (resultGraph != null) {
-                            queryOutputStream.writeObject("graph");
-                            queryOutputStream.writeObject(resultGraph);
-                        } else {
-                            queryOutputStream.writeObject(Kernel.getQueryCommands());
-                        }
+                        queryOutputStream.writeObject(Kernel.getQueryCommands());
                     }
                 }
             }

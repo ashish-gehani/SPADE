@@ -3,17 +3,17 @@
  SPADE - Support for Provenance Auditing in Distributed Environments.
  Copyright (C) 2012 SRI International
 
- This program is free software: you can redistribute it and/or  
- modify it under the terms of the GNU General Public License as  
- published by the Free Software Foundation, either version 3 of the  
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
  License, or (at your option) any later version.
 
- This program is distributed in the hope that it will be useful,  
- but WITHOUT ANY WARRANTY; without even the implied warranty of  
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU  
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  General Public License for more details.
 
- You should have received a copy of the GNU General Public License  
+ You should have received a copy of the GNU General Public License
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
@@ -35,7 +35,7 @@ import spade.vertex.opm.Artifact;
 public class IORuns extends AbstractFilter {
 
     private final int BUFFER_SIZE = 2000;
-    private final String artifactKey = "location";
+    private final String artifactKey = "path";
     private Map<String, HashSet<String>> writes;
     private Map<String, HashSet<String>> reads;
     private Queue<AbstractVertex> vertexBuffer;
@@ -55,7 +55,6 @@ public class IORuns extends AbstractFilter {
             return;
         }
         if (vertexBuffer.size() > BUFFER_SIZE) {
-            AbstractVertex removed = vertexBuffer.remove();
             Logger.getLogger("IORuns").warning("*** Vertex Buffer full. Dropping! )))");
         }
     }

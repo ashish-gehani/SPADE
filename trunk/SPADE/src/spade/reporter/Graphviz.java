@@ -73,6 +73,7 @@ public class Graphviz extends AbstractReporter {
                         }
                         processLine(line);
                     }
+                    logger.log(Level.INFO, "Finished parsing file");
                     eventReader.close();
                 } catch (Exception exception) {
                     logger.log(Level.SEVERE, null, exception);
