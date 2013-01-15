@@ -21,14 +21,20 @@ package spade.client;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 import jline.ArgumentCompletor;
 import jline.Completor;
 import jline.ConsoleReader;
@@ -47,8 +53,43 @@ public class ControlClient {
     private static final String historyFile = "/tmp/control.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
+    // Members for creating secure sockets
+    private static KeyStore clientKeyStorePrivate;
+    private static KeyStore serverKeyStorePublic;
+    private static SSLSocketFactory sslSocketFactory;
+
+    private static void setupKeyStores() throws Exception {
+        String serverPublicPath = "../ssl/server.public";
+        String clientPrivatePath = "../ssl/client.private";
+
+        serverKeyStorePublic = KeyStore.getInstance("JKS");
+        serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
+        clientKeyStorePrivate = KeyStore.getInstance("JKS");
+        clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
+    }
+
+    private static void setupClientSSLContext() throws Exception {
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextInt();
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(serverKeyStorePublic);
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
+        sslSocketFactory = sslContext.getSocketFactory();
+    }
 
     public static void main(String args[]) {
+        // Set up context for secure connections
+        try {
+            setupKeyStores();
+            setupClientSSLContext();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
 
         outputStream = System.out;
         errorStream = System.err;
@@ -58,25 +99,24 @@ public class ControlClient {
         Runnable outputReader = new Runnable() {
             public void run() {
                 try {
-                    InetSocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_control_port")));
-                    Socket remoteSocket = new Socket();
-                    remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+                    String host = "localhost";
+                    int port = Integer.parseInt(Settings.getProperty("local_control_port"));
+                    SSLSocket remoteSocket = (SSLSocket) sslSocketFactory.createSocket(host, port);
+
                     OutputStream outStream = remoteSocket.getOutputStream();
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEControlIn = new PrintStream(outStream);
 
                     while (!shutdown) {
-                        if (SPADEControlOut.ready()) {
-                            // This thread keeps reading from the output pipe and
-                            // printing to the current output stream.
-                            String outputLine = SPADEControlOut.readLine();
-                            if (outputLine != null) {
-                                outputStream.println(outputLine);
-                            }
-                            if (outputLine.equals("")) {
-                                outputStream.print(COMMAND_PROMPT);
-                            }
+                        // This thread keeps reading from the output pipe and
+                        // printing to the current output stream.
+                        String outputLine = SPADEControlOut.readLine();
+                        if (outputLine != null) {
+                            outputStream.println(outputLine);
+                        }
+                        if (outputLine.equals("")) {
+                            outputStream.print(COMMAND_PROMPT);
                         }
                         Thread.sleep(THREAD_SLEEP_DELAY);
                     }
@@ -90,6 +130,7 @@ public class ControlClient {
         new Thread(outputReader).start();
 
         try {
+            Thread.sleep(2000);
 
             outputStream.println("");
             outputStream.println("SPADE 2.0 Control Client");
