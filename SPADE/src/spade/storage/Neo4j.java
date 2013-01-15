@@ -72,7 +72,7 @@ public class Neo4j extends AbstractStorage {
     private Transaction transaction;
     private int transactionCount;
     private int flushCount;
-    private Map<AbstractVertex, Long> vertexMap;
+    private Map<String, Long> vertexMap;
     private Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
     private Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
 
@@ -98,7 +98,7 @@ public class Neo4j extends AbstractStorage {
             // Create edge index
             edgeIndex = index.forRelationships(EDGE_INDEX);
             // Create HashMap to store IDs of incoming vertices
-            vertexMap = new HashMap<AbstractVertex, Long>();
+            vertexMap = new HashMap<String, Long>();
 
             return true;
         } catch (Exception exception) {
@@ -171,7 +171,7 @@ public class Neo4j extends AbstractStorage {
         }
         newVertex.setProperty(ID_STRING, newVertex.getId());
         vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-        vertexMap.put(incomingVertex, newVertex.getId());
+        vertexMap.put(incomingVertex.toString(), newVertex.getId());
         checkTransactionCount();
 
         return true;
@@ -181,14 +181,14 @@ public class Neo4j extends AbstractStorage {
     public boolean putEdge(AbstractEdge incomingEdge) {
         AbstractVertex srcVertex = incomingEdge.getSourceVertex();
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-        if (!vertexMap.containsKey(srcVertex) || !vertexMap.containsKey(dstVertex)) {
+        if (!vertexMap.containsKey(srcVertex.toString()) || !vertexMap.containsKey(dstVertex.toString())) {
             return false;
         }
         if (transactionCount == 0) {
             transaction = graphDb.beginTx();
         }
-        Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex));
-        Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex));
+        Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.toString()));
+        Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.toString()));
 
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
         for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {

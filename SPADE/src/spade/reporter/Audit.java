@@ -72,7 +72,7 @@ public class Audit extends AbstractReporter {
     private int binderTransaction = 0;
     private long THREAD_SLEEP_DELAY = 100;
     private long THREAD_CLEANUP_TIMEOUT = 1000;
-    private final boolean USE_PROCFS = true;
+    private final boolean USE_PROCFS = false;
     private final boolean USE_OPEN_CLOSE = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private String AUDIT_EXEC_PATH;
