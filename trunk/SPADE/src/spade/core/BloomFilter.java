@@ -110,8 +110,7 @@ public class BloomFilter implements Serializable {
      * @param expectedNumberOfFilterElements defines the maximum number of
      * elements the filter is expected to contain.
      * @param actualNumberOfFilterElements specifies how many elements have been
-     * inserted into the
-     * <code>filterData</code> BitSet.
+     * inserted into the <code>filterData</code> BitSet.
      * @param filterData a BitSet representing an existing Bloom filter.
      */
     public BloomFilter(int bitSetSize, int expectedNumberOfFilterElements, int actualNumberOfFilterElements, BitSet filterData) {
