@@ -451,7 +451,7 @@ public class Audit extends AbstractReporter {
                 eventBuffer.put(eventId, eventData);
             } else {
                 if (!eventBuffer.containsKey(eventId)) {
-                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
+//                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
                     return;
                 }
                 if (type.equals("EOE")) {
@@ -522,7 +522,7 @@ public class Audit extends AbstractReporter {
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
 
             if (!eventBuffer.containsKey(eventId)) {
-                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
+//                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
@@ -719,32 +719,28 @@ public class Audit extends AbstractReporter {
         // - PATH
         // - EOE
 
-        try {
-            String pid = eventData.get("pid");
-            String time = eventData.get("time");
+        String pid = eventData.get("pid");
+        String time = eventData.get("time");
 
-            Process newProcess = checkProcessVertex(eventData, false, true);
-            if (!newProcess.getAnnotations().containsKey("commandline")) {
-                // Unable to retrieve complete process information; generate vertex
-                // based on audit information
-                int argc = Integer.parseInt(eventData.get("execve_argc"));
-                String commandline = "";
-                for (int i = 0; i < argc; i++) {
-                    commandline += eventData.get("execve_a" + i) + " ";
-                }
-                commandline = commandline.trim();
-                newProcess.addAnnotation("cwd", eventData.get("cwd"));
-                newProcess.addAnnotation("commandline", commandline);
+        Process newProcess = checkProcessVertex(eventData, false, true);
+        if (!newProcess.getAnnotations().containsKey("commandline")) {
+            // Unable to retrieve complete process information; generate vertex
+            // based on audit information
+            int argc = Integer.parseInt(eventData.get("execve_argc"));
+            String commandline = "";
+            for (int i = 0; i < argc; i++) {
+                commandline += eventData.get("execve_a" + i) + " ";
             }
-            putVertex(newProcess);
-            WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(pid));
-            wtb.addAnnotation("operation", "execve");
-            wtb.addAnnotation("time", time);
-            putEdge(wtb);
-            processes.put(pid, newProcess);
-        } catch (NumberFormatException e) {
-            logger.log(Level.SEVERE, "received argument: " + eventData.get("execve_argc"), e);
+            commandline = commandline.trim();
+            newProcess.addAnnotation("cwd", eventData.get("cwd"));
+            newProcess.addAnnotation("commandline", commandline);
         }
+        putVertex(newProcess);
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(pid));
+        wtb.addAnnotation("operation", "execve");
+        wtb.addAnnotation("time", time);
+        putEdge(wtb);
+        processes.put(pid, newProcess);
     }
 
     private void processOpen(Map<String, String> eventData) {
