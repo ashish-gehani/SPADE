@@ -75,6 +75,7 @@ public class Neo4j extends AbstractStorage {
     private Map<String, Long> vertexMap;
     private Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
     private Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
+    static final Logger logger = Logger.getLogger(Neo4j.class.getName());
 
     private enum MyRelationshipTypes implements RelationshipType {
 
@@ -102,7 +103,7 @@ public class Neo4j extends AbstractStorage {
 
             return true;
         } catch (Exception exception) {
-            Logger.getLogger(Neo4j.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
             return false;
         }
     }
@@ -115,15 +116,17 @@ public class Neo4j extends AbstractStorage {
                 transaction.success();
                 transaction.finish();
             } catch (Exception exception) {
-                Logger.getLogger(Neo4j.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, exception);
             }
             // Reset transaction count and increase flush count
             transactionCount = 0;
             flushCount++;
             // If hard flush limit is reached, restart the database
             if (flushCount == HARD_FLUSH_LIMIT) {
+                logger.log(Level.INFO, "Hard flush limit reached - restarting database");
                 graphDb.shutdown();
                 graphDb = new EmbeddedGraphDatabase(arguments);
+                index = graphDb.index();
                 vertexIndex = index.forNodes(VERTEX_INDEX);
                 edgeIndex = index.forRelationships(EDGE_INDEX);
                 flushCount = 0;
@@ -156,55 +159,65 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-        if (transactionCount == 0) {
-            transaction = graphDb.beginTx();
-        }
-        Node newVertex = graphDb.createNode();
-        for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            if (key.equalsIgnoreCase(ID_STRING)) {
-                continue;
+        try {
+            if (transactionCount == 0) {
+                transaction = graphDb.beginTx();
             }
-            newVertex.setProperty(key, value);
-            vertexIndex.add(newVertex, key, value);
-        }
-        newVertex.setProperty(ID_STRING, newVertex.getId());
-        vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-        vertexMap.put(incomingVertex.toString(), newVertex.getId());
-        checkTransactionCount();
+            Node newVertex = graphDb.createNode();
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equalsIgnoreCase(ID_STRING)) {
+                    continue;
+                }
+                newVertex.setProperty(key, value);
+                vertexIndex.add(newVertex, key, value);
+            }
+            newVertex.setProperty(ID_STRING, newVertex.getId());
+            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+            vertexMap.put(incomingVertex.toString(), newVertex.getId());
+            checkTransactionCount();
 
-        return true;
+            return true;
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
+            return false;
+        }
     }
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex srcVertex = incomingEdge.getSourceVertex();
-        AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-        if (!vertexMap.containsKey(srcVertex.toString()) || !vertexMap.containsKey(dstVertex.toString())) {
+        try {
+            AbstractVertex srcVertex = incomingEdge.getSourceVertex();
+            AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
+            if (!vertexMap.containsKey(srcVertex.toString()) || !vertexMap.containsKey(dstVertex.toString())) {
+                return false;
+            }
+            if (transactionCount == 0) {
+                transaction = graphDb.beginTx();
+            }
+            Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.toString()));
+            Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.toString()));
+
+            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equalsIgnoreCase(ID_STRING)) {
+                    continue;
+                }
+                newEdge.setProperty(key, value);
+                edgeIndex.add(newEdge, key, value);
+            }
+            newEdge.setProperty(ID_STRING, newEdge.getId());
+            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+            checkTransactionCount();
+
+            return true;
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
             return false;
         }
-        if (transactionCount == 0) {
-            transaction = graphDb.beginTx();
-        }
-        Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.toString()));
-        Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.toString()));
-
-        Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-        for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            if (key.equalsIgnoreCase(ID_STRING)) {
-                continue;
-            }
-            newEdge.setProperty(key, value);
-            edgeIndex.add(newEdge, key, value);
-        }
-        newEdge.setProperty(ID_STRING, newEdge.getId());
-        edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-        checkTransactionCount();
-
-        return true;
     }
 
     private AbstractVertex convertNodeToVertex(Node node) {
