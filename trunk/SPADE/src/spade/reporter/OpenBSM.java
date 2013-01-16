@@ -57,8 +57,9 @@ public class OpenBSM extends AbstractReporter {
     private final int THREAD_SLEEP_DELAY = 5;
     private Map<String, String> eventData;
     private int pathCount = 0;
-    private FileWriter outputFile;
-    private String debugPath = "openbsm_debug.txt";
+    private FileWriter debugFile;
+    private String debugFilePath = "openbsm_debug.txt";
+    private boolean debug = false;
     private Queue<String> buffer = new ConcurrentLinkedQueue<String>();
 
     @Override
@@ -86,20 +87,25 @@ public class OpenBSM extends AbstractReporter {
             Runnable bufferRunnable = new Runnable() {
                 public void run() {
                     try {
-                        outputFile = new FileWriter(debugPath, false);
+                        if (debug) {
+                            debugFile = new FileWriter(debugFilePath, false);
+                        }
 
                         while (!shutdown) {
                             String line = eventReader.readLine();
                             if (line != null) {
                                 buffer.add(line);
-                                outputFile.write(line);
-                                outputFile.write("\n");
+                                if (debug) {
+                                    debugFile.write(line + "\n");
+                                }
+
                             }
-//                            Thread.sleep(THREAD_SLEEP_DELAY);
                         }
 
-                        outputFile.flush();
-                        outputFile.close();
+                        if (debug) {
+                            debugFile.flush();
+                            debugFile.close();
+                        }
 
                         // Get the pid of the process and kill it.
                         nativeProcess.destroy();
