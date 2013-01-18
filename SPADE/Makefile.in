@@ -237,6 +237,10 @@ install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR)
 	sudo chown root lib/spadeOpenBSM
 	sudo chmod ug+s lib/spadeOpenBSM
+	sudo chown root bin/spade-server
+	sudo chmod ug+s bin/spade-server
+	sudo chown root bin/spade-controller
+	sudo chmod ug+s bin/spade-controller
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
