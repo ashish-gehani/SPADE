@@ -241,3 +241,4 @@ install:
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
 	cp -R log $(DESTDIR)
+	cp -R ssl $(DESTDIR)
