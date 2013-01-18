@@ -63,10 +63,14 @@ public class OpenBSM extends AbstractReporter {
     private String debugFilePath = "openbsm_debug.txt";
     private boolean debug = false;
     private Queue<String> buffer = new ConcurrentLinkedQueue<String>();
-    private final boolean USE_PS = false;
+    private boolean USE_PS = false;
 
     @Override
     public boolean launch(String arguments) {
+        if (arguments != null && arguments.equalsIgnoreCase("USE_PS")) {
+            USE_PS = true;
+        }
+
         // The argument to the launch method is unused.
         processVertices = new HashMap<String, Process>();
         fileVersions = new HashMap<String, Integer>();
