@@ -73,6 +73,7 @@ public class Kernel {
      * A string representing the unique identifier for provenance elements.
      */
     public static final String UNIQUE_ID = "hashcode";
+    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     /**
      * A map used to cache the remote sketches.
      */
@@ -81,12 +82,12 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static String[] configFileLookupPaths = new String[]{System.getProperty("user.home") + "/.spade.config", "../../cfg/spade.config", "/etc/spade/spade.config"};
+    public static String[] configFileLookupPaths = new String[]{System.getProperty("user.home") + "/.spade.config", SPADE_ROOT + "cfg/spade.config", "/etc/spade/spade.config"};
     public static String configFile = null;
     /**
      * Path to log files including the prefix.
      */
-    public static final String[] logPathLookups = new String[]{System.getProperty("user.home") + "/log/", "../../log/", "/var/log",};
+    public static final String[] logPathLookups = new String[]{System.getProperty("user.home") + "/log/", SPADE_ROOT + "log/", "/var/log",};
     public static final String logPathPrefix = "SPADE_";
     public static String logPathAndPrefix;
     /**

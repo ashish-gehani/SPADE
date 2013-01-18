@@ -46,7 +46,8 @@ public class QueryClient {
     private static PrintStream outputStream;
     private static PrintStream SPADEQueryIn;
     private static ObjectInputStream SPADEQueryOut;
-    private static final String historyFile = "/tmp/query.history";
+    private static final String SPADE_ROOT = "../";
+    private static final String historyFile = SPADE_ROOT + "cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
     private static String QUERY_STORAGE = "Neo4j";
@@ -56,8 +57,8 @@ public class QueryClient {
     private static SSLSocketFactory sslSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = "../ssl/server.public";
-        String clientPrivatePath = "../ssl/client.private";
+        String serverPublicPath = SPADE_ROOT + "ssl/server.public";
+        String clientPrivatePath = SPADE_ROOT + "ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());

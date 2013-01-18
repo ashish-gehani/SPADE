@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractReporter;
+import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
@@ -53,7 +54,8 @@ public class OpenBSM extends AbstractReporter {
     private String nativePID;
     private volatile boolean shutdown;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
-    private final String binaryPath = "../../lib/spadeOpenBSM";
+    private final String SPADE_ROOT = Settings.getProperty("spade_root");
+    private final String binaryPath = SPADE_ROOT + "lib/spadeOpenBSM";
     private final int THREAD_SLEEP_DELAY = 5;
     private Map<String, String> eventData;
     private int pathCount = 0;
@@ -61,6 +63,7 @@ public class OpenBSM extends AbstractReporter {
     private String debugFilePath = "openbsm_debug.txt";
     private boolean debug = false;
     private Queue<String> buffer = new ConcurrentLinkedQueue<String>();
+    private final boolean USE_PS = false;
 
     @Override
     public boolean launch(String arguments) {
@@ -412,7 +415,7 @@ public class OpenBSM extends AbstractReporter {
             case 241:       // fork1
                 checkCurrentProcess();
                 String childPID = eventData.get("return_value");
-                Process childProcess = createProcessVertex(childPID);
+                Process childProcess = USE_PS ? createProcessVertex(childPID) : null;
                 if (childProcess == null) {
                     childProcess = new Process();
                     childProcess.addAnnotation("pid", childPID);
@@ -495,7 +498,7 @@ public class OpenBSM extends AbstractReporter {
         String pid = eventData.get("pid");
         // Make sure the process that triggered this event has already been added.
         if (!processVertices.containsKey(pid)) {
-            Process process = createProcessVertex(pid);
+            Process process = USE_PS ? createProcessVertex(pid) : null;
             if (process == null) {
                 process = new Process();
                 process.addAnnotation("pid", pid);

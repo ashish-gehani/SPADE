@@ -40,14 +40,15 @@ public class QueryTool {
     private static PrintStream SPADEQueryIn;
     private static BufferedReader SPADEQueryOut;
     private static final String nullString = "null";
+    private static final String SPADE_ROOT = "../";
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = "../ssl/server.public";
-        String clientPrivatePath = "../ssl/client.private";
+        String serverPublicPath = SPADE_ROOT + "ssl/server.public";
+        String clientPrivatePath = SPADE_ROOT + "ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());

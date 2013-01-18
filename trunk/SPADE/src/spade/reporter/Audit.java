@@ -45,6 +45,7 @@ import spade.core.AbstractReporter;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Buffer;
+import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
@@ -75,6 +76,7 @@ public class Audit extends AbstractReporter {
     private final boolean USE_PROCFS = false;
     private final boolean USE_OPEN_CLOSE = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
+    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     private String AUDIT_EXEC_PATH;
     // Process map based on <pid, vertex> pairs
     private Map<String, Process> processes = new HashMap<String, Process>();
@@ -151,9 +153,9 @@ public class Audit extends AbstractReporter {
             ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
             DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
         } else {
-            AUDIT_EXEC_PATH = "../../lib/spadeLinuxAudit";
+            AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeLinuxAudit";
             ignoreProcesses = "spadeLinuxAudit auditd kauditd java spade-server spade-controller";
-            DEBUG_DUMP_FILE = "../../log/LinuxAudit.log";
+            DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
         }
 
         Map<String, String> args = parseKeyValPairs(arguments);
