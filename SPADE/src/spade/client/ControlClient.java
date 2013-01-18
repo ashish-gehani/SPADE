@@ -140,7 +140,11 @@ public class ControlClient {
             // Set up command history and tab completion.
 
             ConsoleReader commandReader = new ConsoleReader();
-            commandReader.getHistory().setHistoryFile(new File(historyFile));
+            try {
+                commandReader.getHistory().setHistoryFile(new File(historyFile));
+            } catch (Exception ex) {
+                // Ignore
+            }
 
             List<Completor> addArguments = new LinkedList<Completor>();
             addArguments.add(new SimpleCompletor(new String[]{"add"}));

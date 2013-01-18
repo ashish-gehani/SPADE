@@ -114,7 +114,11 @@ public class QueryClient {
             // Set up command history and tab completion.
 
             ConsoleReader commandReader = new ConsoleReader();
-            commandReader.getHistory().setHistoryFile(new File(historyFile));
+            try {
+                commandReader.getHistory().setHistoryFile(new File(historyFile));
+            } catch (Exception ex) {
+                // Ignore
+            }
 
             SPADEQueryIn.println("");
             String commands = (String) SPADEQueryOut.readObject();
