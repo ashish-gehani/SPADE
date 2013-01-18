@@ -81,7 +81,7 @@ prepare-dirs:
 	mkdir -p $(foreach d, $(BUILD_DIRS), $(d) )
 
 build/%.class : src/%.java
-	$(JAVAC) -proc:none -cp '$(JAVAC_CP)' -sourcepath src -d build $<
+	$(JAVAC) -source 1.6 -target 1.6 -proc:none -cp '$(JAVAC_CP)' -sourcepath src -d build $<
 
 core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
 	@echo "--- Built Core ---"
@@ -233,9 +233,11 @@ android-shutdown:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.client.AndroidShutdown"
 
 DESTDIR = @prefix@
-# install:
-# 	test -d $(DESTDIR) || mkdir $(DESTDIR) 
-# 	cp -R bin $(DESTDIR)
-# 	cp -R lib $(DESTDIR)
-# 	cp -R cfg $(DESTDIR)
-# 	cp -R log $(DESTDIR)
+install:
+	test -d $(DESTDIR) || mkdir $(DESTDIR)
+	sudo chown root lib/spadeOpenBSM
+	sudo chmod ug+s lib/spadeOpenBSM
+	cp -R bin $(DESTDIR)
+	cp -R lib $(DESTDIR)
+	cp -R cfg $(DESTDIR)
+	cp -R log $(DESTDIR)
