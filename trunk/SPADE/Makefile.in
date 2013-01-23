@@ -73,7 +73,7 @@ prepare-dirs:
 	mkdir -p $(foreach d, $(BUILD_DIRS), $(d) )
 
 build/%.class : src/%.java
-	$(JAVAC) -source 1.6 -target 1.6 -proc:none -cp '$(JAVAC_CP)' -sourcepath src -d build $<
+	$(JAVAC) -proc:none -cp '$(JAVAC_CP)' -sourcepath src -d build $<
 
 core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
 	@echo "--- Built Core ---"
