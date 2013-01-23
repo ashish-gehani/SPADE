@@ -5,9 +5,6 @@ JAVAC=@JAVAC@
 JAVAH=@JAVAH@
 CC=@CC@
 JAR=@JAR@
-
-# Path to Android SDK platform tools
-ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 JAVAC_CP = build:lib/*
 
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
@@ -46,13 +43,13 @@ CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStora
 	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query Vertex Settings
 REPORTERS = Graphviz DSL Network LLVM ProcMon
 STORAGES = Graphviz Neo4j SQL
-CLIENTS = AndroidClient AndroidShutdown ControlClient QueryClient QueryTool
+CLIENTS = ControlClient QueryClient QueryTool
 UTILITIES = JavaHome
 FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter FinalCommitFilter
-BUILD_DIRS = build android-build android-build/bin android-lib
+BUILD_DIRS = build
 # -------------------------------------------
 
-.PHONY: build android-build prepare-dirs core reporters filters clients utilities storages
+.PHONY: build prepare-dirs core reporters filters clients utilities storages
 
 all:	build
 	./generatekeys.sh
@@ -62,11 +59,6 @@ help:
 	@echo '      make                    - to compile the code'
 	@echo '      make clean              - to remove the compiled code'
 	@echo ' '
-	# @echo '      make clean-all          - to remove everything except the makefile'
-	# @echo '      make android-build      - to build for android'
-	# @echo '      make android-deploy     - to deploy to android emulator'
-	# @echo '      make android-kernel     - to launch kernel on emulator'
-	# @echo '      make android-kernel-ddms- to launch kernel on emulator in debug mode for ddms'
 
 # ---------- Building SPADE ----------	
 .SECONDEXPANSION:
@@ -171,76 +163,14 @@ build-linux-llvm:
 
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
-	@rm -rf build android-build android-lib
+	@rm -rf build
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeLinuxAudit
 
-# ---------- Android-related rules [EXPERIMENTAL] ----------
-
-include scripts/android/devtest.mk
-
-# Build for Android
-.SECONDARY += android-lib/libspadeAndroidAudit.so android-build/bin/android-spade.jar android-dex 
-ANDROID_REPORTERS = $(addsuffix .class, Audit Strace)
-ANDROID_STORAGES = $(addsuffix .class, Graphviz)
-ANDROID_CLIENTS = $(addsuffix .class, AndroidClient AndroidShutdown)
-ANDROID_FILTERS = $(addsuffix .class, IORuns)
-android-build: | prepare-dirs core android-dex android-jni-interfaces
-	@echo "dalvikvm -cp 'bin/android-spade.jar' spade.client.AndroidClient" > android-build/control.sh
-
-android-dex: android-build/bin/android-spade.jar
-android-build/bin/android-spade.jar: $(addprefix build/spade/reporter/, $(ANDROID_REPORTERS)) $(addprefix build/spade/storage/, $(ANDROID_STORAGES)) $(addprefix build/spade/filter/, $(ANDROID_FILTERS)) $(addprefix build/spade/client/, $(ANDROID_CLIENTS))
-	@cd build; \
-	$(ANDROID_SDK_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/bin/android-spade.jar spade;
-
-android-jni-interfaces: android-lib/libspadeAndroidAudit.so
-android-lib/libspadeAndroidAudit.so: src/spade/reporter/jni/spade_reporter_Audit.h src/spade/reporter/jni/spadeAndroidAudit.c src/spade/reporter/jni/Android.mk 
-	ndk-build NDK_PROJECT_PATH=src/spade/reporter/
-	mv src/spade/reporter/libs/armeabi/libspadeAndroidAudit.so android-lib/
-	mv src/spade/reporter/libs/armeabi/spade-audit android-lib/
-	ndk-build NDK_PROJECT_PATH=src/spade/reporter/ clean
-src/spade/reporter/jni/spade_reporter_Audit.h: android-build/bin/android-spade.jar src/spade/reporter/Audit.java
-	javah -jni -d src/spade/reporter/jni -classpath "build" spade.reporter.Audit
-
-# Deploy to Android
-android-deploy: android-build
-	$(ANDROID_SDK_TOOLS)/adb shell start
-	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade; rm -r /data/spade"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/log"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/cfg"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build/bin"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /data/spade"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /data/spade/android-lib"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/output"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/output/graph.dot\\nreporter Audit\" > /sdcard/spade/cfg/spade.config"
-	$(ANDROID_SDK_TOOLS)/adb push android-build /sdcard/spade/android-build
-	$(ANDROID_SDK_TOOLS)/adb push android-lib /data/spade/android-lib
-	$(ANDROID_SDK_TOOLS)/adb shell chmod 775 /data/spade/android-lib/*
-	
-# Launch Android kernel
-android-kernel:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.core.Kernel"
-
-# Launch Android kernel for use with debugger
-android-kernel-ddms:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -agentlib:jdwp=transport=dt_android_adb,suspend=n,server=y -cp 'android-spade.jar' spade.core.Kernel"
-
-# Shut down SPADE on Android
-android-shutdown:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build/bin; dalvikvm -cp 'android-spade.jar' spade.client.AndroidShutdown"
-
 DESTDIR = @prefix@
 install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR)
-	sudo chown root lib/spadeOpenBSM
-	sudo chmod ug+s lib/spadeOpenBSM
-	sudo chown root bin/spade-server
-	sudo chmod ug+s bin/spade-server
-	sudo chown root bin/spade-controller
-	sudo chmod ug+s bin/spade-controller
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
