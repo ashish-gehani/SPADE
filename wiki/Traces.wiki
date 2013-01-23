@@ -14,20 +14,20 @@ Add your content here.
 </tr>
 <tr>
 <th align="left">Apache</th>
-<td>[http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/script.tar.gz Download]</td>
-<td></td>
-<td></td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/script.tar.gz SQL script]</td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Mac/Apache/script.tar.gz SQL script]</td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Windows/Apache/script.tar.gz SQL script]</td>
 </tr>
 <tr>
 <th align="left">Blast</th>
-<td></td>
-<td></td>
-<td></td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Blast/script.tar.gz SQL script]</td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Mac/Blast/script.tar.gz SQL script]</td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Windows/Blast/script.tar.gz SQL script]</td>
 </tr>
 <tr>
 <th align="left">Postmark</th>
-<td></td>
-<td></td>
-<td></td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Postmark/script.tar.gz SQL script]</td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Mac/Postmark/script.tar.gz SQL script]</td>
+<td align="center">[http://data-provenance.googlecode.com/svn/wiki/traces/Windows/Postmark/script.tar.gz SQL script]</td>
 </tr>
 </table>
