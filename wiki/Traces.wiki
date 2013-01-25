@@ -28,7 +28,7 @@ The provenance traces are provided in compressed SQL script format which can be 
 </td>
 </tr>
 <tr>
-<th align="left">Blast</th>
+<th align="left">BLAST</th>
 <td align="center">
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Blast/script.tar.gz SQL script], 
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Blast/linux_blast_h2.tar.gz H2 database]
@@ -43,7 +43,7 @@ The provenance traces are provided in compressed SQL script format which can be 
 </td>
 </tr>
 <tr>
-<th align="left">Postmark</th>
+<th align="left">PostMark</th>
 <td align="center">
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Postmark/script.tar.gz SQL script], [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Postmark/linux_postmark_h2.tar.gz H2 database]
 </td>
