@@ -13,7 +13,10 @@ SQL Workbench/J is a free tool that can be downloaded from [http://www.sql-workb
   # Select "H2 Database Engine" from the list.
   # For `Library`, enter the path to the H2 Java library.
 
-Add your content here.  Format your content with:
-  * Text in *bold* or _italic_
-  * Headings, paragraphs, and lists
-  * Automatic links to other wiki pages
+*Viewing H2 SQL databases:*
+  # Go to File --> Connect.
+  # Select `H2 Database Engine` from the Driver list.
+  # For URL, enter the path to the H2 SQL database without the extension. For example, if the database file is located at `/tmp/database.h2.db`, enter `/tmp/database` in the URL field.
+  # Enter `sa` for Username.
+  # Leave the password blank.
+  # Click OK.
