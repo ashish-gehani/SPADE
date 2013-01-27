@@ -64,3 +64,7 @@ To import these provenance traces into MySQL, use the following command on Linux
 {{{
 gzip -dc < script.tar.gz | mysql -u {user} -p {database}
 }}}
+
+=== Viewing the H2 SQL database ===
+
+To view or browse the H2 SQL database without importing the SQL script into an existing database, follow the instructions on [DBTools this page].
