@@ -20,3 +20,4 @@ SQL Workbench/J is a free tool that can be downloaded from [http://www.sql-workb
   # Enter `sa` for Username.
   # Leave the password blank.
   # Click OK.
+  # The *Statement* tab can now be used to execute SQL statements in the database. The *Database Explorer* tab can be used to view/browse the data.
