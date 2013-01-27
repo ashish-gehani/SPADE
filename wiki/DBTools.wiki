@@ -19,5 +19,5 @@ SQL Workbench/J is a free tool that can be downloaded from [http://www.sql-workb
   # For URL, enter the path to the H2 SQL database without the extension. For example, if the database file is located at `/tmp/database.h2.db`, enter `/tmp/database` in the URL field.
   # Enter `sa` for Username.
   # Leave the password blank.
-  # Click OK.
+  # Click OK to connect to the H2 SQL database.
   # The *Statement* tab can now be used to execute SQL statements in the database. The *Database Explorer* tab can be used to view/browse the data.
