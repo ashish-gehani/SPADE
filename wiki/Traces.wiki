@@ -56,3 +56,11 @@ The provenance traces are provided in compressed SQL script format which can be 
 </td>
 </tr>
 </table>
+
+=== Importing into MySQL ===
+
+To import these provenance traces into MySQL, use the following command on Linux/Mac OS X systems replacing `{user}` and `{password}` with your MySQL credentials:
+
+{{{
+gzip -dc < script.tar.gz | mysql -u {user} -p {database}
+}}}
