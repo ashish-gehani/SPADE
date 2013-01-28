@@ -21,6 +21,7 @@
  * [Filters Filtering provenance]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
+ * [DBTools Viewing SQL/Neo4j databases]
 
 <wiki:comment>
  * [DocumentationUnstable Working with unstable trunk version]
