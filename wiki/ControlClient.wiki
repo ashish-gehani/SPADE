@@ -2,31 +2,31 @@
 
 =_Starting and controlling the SPADE server_=
 
-To start the *SPADE* server, navigate to the `SPADE` directory and use the following command:
+To start the SPADE server, navigate to the `SPADE` directory and use the following command:
 
 {{{
 ./bin/spade-server start
 }}}
 
-This will start the *SPADE* server as a background process. Note that the server allows multiple startup options. To start as a foreground process, use the following:
+This will start the SPADE server as a background process. Note that the server allows multiple startup options. To start as a foreground process, use the following:
 
 {{{
 ./bin/spade-server console
 }}}
 
-*SPADE* can also be installed as a service to be started every time the system is booted. However, installing this service can only be done by a super-user. To install *SPADE* as a service, use this command:
+SPADE can also be installed as a service to be started every time the system is booted. However, installing this service can only be done by a super-user. To install SPADE as a service, use this command:
 
 {{{
 sudo ./bin/spade-server install
 }}}
 
-To uninstall the *SPADE* service, use:
+To uninstall the SPADE service, use:
 
 {{{
 sudo ./bin/spade-server remove
 }}}
 
-To see whether *SPADE* is currently running or not, use the following command:
+To see whether SPADE is currently running or not, use the following command:
 
 {{{
 ./bin/spade-server status
@@ -34,7 +34,7 @@ To see whether *SPADE* is currently running or not, use the following command:
 
 ----
 
-To start the controller used to configure the *SPADE* server, execute the following command from your terminal/shell in the `SPADE` directory:
+To start the controller used to configure the SPADE server, execute the following command from your terminal/shell in the `SPADE` directory:
 
 {{{
 ./bin/spade-controller
@@ -87,7 +87,7 @@ To exit the controller without stopping the SPADE server, use the `exit` command
 
 ----
 
-To stop the *SPADE* server completely, use the `shutdown` command:
+To stop the SPADE server completely, use the `shutdown` command:
 
 {{{
 -> shutdown
