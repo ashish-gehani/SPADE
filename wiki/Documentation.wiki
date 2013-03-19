@@ -6,7 +6,7 @@
  * [Installation Setting up SPADE]
   * [Prerequisites Requirements]
   * [Compiling Downloading and compiling]
-  * [ControlClient Running SPADE]
+  * [ControlClient Starting and controlling SPADE]
  * [Storage Storing provenance]
   * [Neo4j Storing provenance in a graph database]
   * [SQL Storing provenance in a relational database]
