@@ -2,6 +2,7 @@
 <wiki:comment>
  * [Architecture Overview of architecture]
 </wiki:comment>
+
  * [Installation Setting up SPADE]
   * [Prerequisites Requirements]
   * [Compiling Downloading and compiling]
@@ -24,6 +25,7 @@
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
  * [DBTools Viewing provenance databases]
+
 <wiki:comment>
  * [DocumentationUnstable Working with unstable trunk version]
   * [ControlClientUnstable Controlling the SPADE server]
