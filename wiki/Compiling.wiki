@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Download source files and compiling_=
+=_Downloading and compiling_=
 
 After fulfilling the necessary requirements for your system, the following steps are performed to download and compile SPADE.
 
