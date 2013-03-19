@@ -1,5 +1,8 @@
 #labels Featured
+<wiki:comment>
  * [Architecture Overview of architecture]
+</wiki:comment>
+
  * [Installation Setting up SPADE]
   * [Prerequisites Requirements]
   * [Compiling Downloading and compiling]
