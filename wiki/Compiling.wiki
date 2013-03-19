@@ -16,7 +16,7 @@ svn -r 738 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 
 This will create a `SPADE` directory and download all the necessary files in it.
 
-To compile the *SPADE* code, navigate to this newly created directory and `configure` the package before executing the `make` command as follows:
+To compile the SPADE code, navigate to this newly created directory and `configure` the package before executing the `make` command as follows:
 
 {{{
 cd SPADE
