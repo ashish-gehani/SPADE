@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Starting and controlling the SPADE server_=
+=_Starting and controlling SPADE_=
 
 To start the SPADE server, navigate to the `SPADE` directory and use the following command:
 
