@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Prerequisites for SPADE_=
+=_Requirements_=
 
 This page lists the requirements for setting up SPADE on various operating systems. In all cases, the Oracle Java Development Kit (JDK) is required to compile SPADE. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
