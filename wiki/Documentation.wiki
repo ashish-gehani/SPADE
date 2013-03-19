@@ -1,8 +1,8 @@
 #labels Featured
  * [Architecture Overview of architecture]
  * [Installation Setting up SPADE]
-  * [Prerequisites Prerequisites]
-  * [Compiling Download compiling]
+  * [Prerequisites Requirements]
+  * [Compiling Downloading and compiling]
   * [ControlClient Running SPADE]
  * [Storage Storing provenance]
   * [Neo4j Storing provenance in a graph database]
