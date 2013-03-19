@@ -3,7 +3,7 @@
  * [Architecture Overview of architecture]
 </wiki:comment>
 
- * Setting up SPADE
+ * [Installation Setting up SPADE]
   * [Prerequisites Requirements]
   * [Compiling Downloading and compiling]
   * [ControlClient Running SPADE]
