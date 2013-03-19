@@ -1,12 +1,12 @@
 #labels Featured
- * [Architecture Overview of SPADE's architecture]
+ * [Architecture Overview of architecture]
  * [Installation Setting up SPADE]
-  * [Prerequisites Prerequisites for SPADE]
-  * [Compiling Download source files and compiling]
-  * [ControlClient Starting and controlling the SPADE server]
- * [Storage Adding a data store]
+  * [Prerequisites Prerequisites]
+  * [Compiling Download compiling]
+  * [ControlClient Running SPADE]
+ * [Storage Storing provenance]
   * [Neo4j Storing provenance in a graph database]
-  * [SQL Storing provenance in a SQL database]
+  * [SQL Storing provenance in a relational database]
   * [Graphviz Creating Graphviz output]
  * [Reporting Collecting provenance]
   * Collecting provenance across the operating system
@@ -18,10 +18,10 @@
   * [Pipe Collecting provenance from an external application]
   * [LLVM Adding provenance instrumentation during compilation]
   * [ReporterAPI Using SPADE's provenance reporting API]
- * [Filters Filtering provenance]
+  * [Filters Filtering provenance]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
- * [DBTools Viewing SQL/Neo4j databases]
+ * [DBTools Viewing provenance databases]
 
 <wiki:comment>
  * [DocumentationUnstable Working with unstable trunk version]
