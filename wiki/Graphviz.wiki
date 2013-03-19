@@ -2,16 +2,16 @@
 
 =_Creating Graphviz output_=
 
-*SPADE* includes support for the kernel to send all the provenance metadata to a single file in [http://www.graphviz.org Graphviz] _dot_ format.
+SPADE includes support for the sever to send all the provenance metadata to a single file in [http://www.graphviz.org Graphviz] _dot_ format.
 
-In order to do this, add the Graphviz storage before sending the relevant provenance metadata to the kernel:
+In order to do this, add the Graphviz storage before sending the relevant provenance metadata to the server:
 
 {{{
 -> add storage Graphviz /tmp/provenance.dot
 Adding storage Graphviz... done
 }}}
 
-At this point any provenance metadata that is sent to the kernel will be integrated and corresponding elements will be output to the `/tmp/provenance.dot` file. (Note that the file will be overwritten if it already existed.)
+At this point any provenance metadata that is sent to the server will be integrated and corresponding elements will be output to the `/tmp/provenance.dot` file. (Note that the file will be overwritten if it already existed.)
 
 ----
 
