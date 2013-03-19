@@ -1,8 +1,8 @@
 #sidebar Documentation
 
-=_Storing provenance in a SQL database_=
+=_Storing provenance in a relational database_=
 
-The SQL storage can be added to SPADE using the controller. Note that four arguments must be provided when adding this storage: *the database driver to use, database URL, username, and password*. When adding the storage using the controller, these arguments are separated by spaced. If either the username or password is unused, the string literal `null` should be used.
+The SQL storage can be added to SPADE using the controller, allowing provenance records to be sent to a relational database. Note that four arguments must be provided when adding this storage: *the database driver to use, database URL, username, and password*. When adding the storage using the controller, these arguments are separated by spaces. If either the username or password is unused, the string literal `null` should be used.
 
 SPADE comes pre-packaged with the H2 SQL library and the following example shows how to use it to create a database in the filesystem: 
 
