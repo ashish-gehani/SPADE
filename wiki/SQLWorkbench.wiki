@@ -18,17 +18,7 @@ SQL Workbench/J is a free tool that can be downloaded from [http://www.sql-workb
   # Enter `sa` for Username.
   # Leave the password blank.
   # Click *OK* to connect to the H2 SQL database.
-  # The *Statement* tab can now be used to execute SQL statements in the database. The *Database Explorer* tab can be used to view/browse the data.
 
+The *Database Explorer* tab can now be used to view/browse the data:
 
-=== Neoclipse ===
-
-Neoclipse allows users to connect to and visualize Neo4j graph databases. To begin, download Neoclipse for your OS from [https://github.com/neo4j/neoclipse/downloads here]. Ensure that you download version 1.8 of Neoclipse as it must correspond to the version on Neo4j used by SPADE.
-
-  # Start Neoclipse.
-  # In the *Connections* window, create a new connection by clicking on the *New Connection* toolbar button.
-  # Enter the desired name for the database.
-  # For *URI*, enter the path to the Neo4j database on your disk.
-  # Click *OK* to save the connection settings.
-  # In the *Connections* window, select the newly-created connection.
-  # In the *Database graph* window, click on the *Start/Connect database* toolbar button. The Neo4j graph database will now appear in this window.
+The *Statement* tab can be used to execute SQL statements in the database:
