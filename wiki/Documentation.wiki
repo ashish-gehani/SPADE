@@ -22,7 +22,7 @@
   * [LLVM Adding provenance instrumentation during compilation]
   * [ReporterAPI Using SPADE's provenance reporting API]
   * [Filters Filtering provenance]
- * [DBTools Viewing provenance databases]
+ * [DBTools Viewing provenance]
   * [SQLWorkbench Viewing provenance in a relational database]
   * [Neoclipse Viewing provenance in a graph database]
  * [QueryClient Querying SPADE]
