@@ -22,9 +22,9 @@
   * [LLVM Adding provenance instrumentation during compilation]
   * [ReporterAPI Using SPADE's provenance reporting API]
   * [Filters Filtering provenance]
+ * [DBTools Viewing provenance databases]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
- * [DBTools Viewing provenance databases]
 
 <wiki:comment>
  * [DocumentationUnstable Working with unstable trunk version]
