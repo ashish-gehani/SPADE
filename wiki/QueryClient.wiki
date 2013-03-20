@@ -2,7 +2,7 @@
 
 =_Querying SPADE_=
 
-*SPADE* supports three classes of queries. These are invoked using the *SPADE* query client which is started with the following command:
+SPADE supports three classes of queries. These are invoked using the SPADE query client which is started with the following command:
 
 {{{
 ./bin/spade-query
