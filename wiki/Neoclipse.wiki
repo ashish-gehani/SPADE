@@ -8,6 +8,6 @@ Neoclipse allows users to connect to and visualize Neo4j graph databases. To beg
   # In the *Connections* window, create a new connection by clicking on the *New Connection* toolbar button.
   # Enter the desired name for the database.
   # For *URI*, enter the path to the Neo4j database on your disk.
-  # Click *OK* to save the connection settings. <p align="center">http://data-provenance.googlecode.com/svn/wiki/img/neoclipse_create_connection.png</p>
+  # Click *OK* to save the connection settings.<p align="center">http://data-provenance.googlecode.com/svn/wiki/img/neoclipse_create_connection.png</p>
   # In the *Connections* window, select the newly-created connection.
-  # In the *Database graph* window, click on the *Start/Connect database* toolbar button. The Neo4j graph database will now appear in this window.
+  # In the *Database graph* window, click on the *Start/Connect database* toolbar button. The Neo4j graph database will now appear in this window.<p align="center">http://data-provenance.googlecode.com/svn/wiki/img/neoclipse_browse_database.png</p>
