@@ -4,7 +4,7 @@
 
 The Audit reporter is built automatically when the `make` command is issued.
 
-Before this reporter can be used, the following commands must be executed to grant *SPADE* access to the audit stream. These commands only need to be executed once after *SPADE* is compiled:
+Before this reporter can be used, the following commands must be executed to grant SPADE access to the audit stream. These commands only need to be executed once after SPADE is compiled:
 
 {{{
 sudo chown root lib/spadeLinuxAudit
