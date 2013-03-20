@@ -1,8 +1,8 @@
 #sidebar Documentation
 
-=_Programmatically reporting provenance_=
+=_Using SPADE's provenance reporting API_=
 
-To create a reporter that sends information programmatically to the *SPADE* server, create a class in the `spade.reporter.*` package that extends the [http://code.google.com/p/data-provenance/source/browse/trunk/SPADE/src/spade/core/AbstractReporter.java spade.core.AbstractReporter] class. For example, to activate a class named `myReporter` in the *SPADE* kernel use:
+To create a reporter that sends information programmatically to the SPADE server, create a class in the `spade.reporter.*` package that extends the [http://code.google.com/p/data-provenance/source/browse/trunk/SPADE/src/spade/core/AbstractReporter.java spade.core.AbstractReporter] class. For example, to activate a class named `myReporter`, use:
 
 {{{
 -> add reporter myReporter arguments
@@ -16,13 +16,13 @@ Similarly, the reporter can be deactivated while the server is running:
 -> remove reporter myReporter
 }}}
 
-The above command will cause the *SPADE* server to invoke the _*spade.reporter.myReporter.shutdown()*_ method. It will also be called when the *SPADE* server is exiting.
+The above command will cause the SPADE server to invoke the _*spade.reporter.myReporter.shutdown()*_ method. It will also be called when the SPADE server is exiting.
 
 ----
 
 ===Sending a provenance vertex===
 
-The following steps are used to send a provenance vertex to the *SPADE* server:
+The following steps are used to send a provenance vertex to the SPADE server:
 
   * Create an instance of `spade.vertex.opm.Agent`, `spade.vertex.opm.Process`, or `spade.vertex.opm.Artifact`. For example, to create a vertex describing a file use:
 
@@ -48,7 +48,7 @@ putVertex(artifact);
 
 ===Sending a provenance edge===
 
-The following steps are used to send a provenance edge to the *SPADE* server:
+The following steps are used to send a provenance edge to the SPADE server:
 
   * Create an instance of `spade.edge.opm.Used`, `spade.edge.opm.WasGeneratedBy`, `spade.edge.opm.WasDerivedFrom`, `spade.edge.opm.WasTriggeredBy`, or `spade.edge.opm.WasControlledBy`. For example, to create an edge describing that a file was read by a process:
 
