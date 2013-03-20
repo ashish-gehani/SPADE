@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Neoclipse_=
+=_Viewing provenance in a graph database_=
 
 Neoclipse allows users to connect to and visualize Neo4j graph databases. To begin, download Neoclipse for your OS from [https://github.com/neo4j/neoclipse/downloads here]. Ensure that you download version 1.8 of Neoclipse as it must correspond to the version on Neo4j used by SPADE.
 
