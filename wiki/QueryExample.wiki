@@ -6,7 +6,7 @@ The example below illustrates the use of the query client.
 
 ----
 
-After the *SPADE* server has been started, add the `Neo4j` storage and `DSL` reporter using the control client:
+After the SPADE server has been started, add the `Neo4j` storage and `DSL` reporter using the control client:
 
 {{{
 -> add storage Neo4j /tmp/spade_database
