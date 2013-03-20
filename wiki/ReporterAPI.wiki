@@ -8,7 +8,7 @@ To create a reporter that sends information programmatically to the SPADE server
 -> add reporter myReporter arguments
 }}}
 
-This will cause the server to invoke the _*spade.reporter.myReporter.launch()*_ method and pass the `arguments` string to it. Note that `myReporter` must be in the `spade.reporter.*` package and the Java class must be stored in the `SPADE/src/spade/reporter` directory. The server will load the `spade.reporter.myReporter` class dynamically when the above command is issued in the *SPADE* controller.
+This will cause the server to invoke the _*spade.reporter.myReporter.launch()*_ method and pass the `arguments` string to it. Note that `myReporter` must be in the `spade.reporter.*` package and the Java class must be stored in the `SPADE/src/spade/reporter` directory. The server will load the `spade.reporter.myReporter` class dynamically when the above command is issued in the SPADE controller.
 
 Similarly, the reporter can be deactivated while the server is running:
 
