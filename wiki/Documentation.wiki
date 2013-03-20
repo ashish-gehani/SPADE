@@ -24,6 +24,7 @@
   * [Filters Filtering provenance]
  * [DBTools Viewing provenance databases]
   * [SQLWorkbench Viewing provenance in a relational database]
+  * [Neoclipse Viewing provenance in a graph database]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
 
