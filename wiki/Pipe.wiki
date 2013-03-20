@@ -2,11 +2,11 @@
 
 =_Writing provenance to a pipe_=
 
-To let a user (or external application) start sending provenance information to *SPADE* with minimal effort, we have implemented a `DSL` reporter. It creates a named pipe in the filesystem, to which a user (or external application) can send provenance information in a simple language that we describe below.
+To let a user (or external application) start sending provenance information to SPADE with minimal effort, we have implemented a `DSL` reporter. It creates a named pipe in the filesystem, to which a user (or external application) can send provenance information in a simple language that we describe below.
 
 ----
 
-The `DSL` reporter is compiled along with SPADE. This reporter takes a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the *SPADE* controller (after the SPADE server has been started):
+The `DSL` reporter is compiled along with SPADE. This reporter takes a single argument, which is the location in the filesystem where the pipe is to be created. Note that this must be done in the SPADE controller (after the SPADE server has been started):
 
 {{{
 -> add reporter DSL /tmp/spade_pipe
@@ -17,7 +17,7 @@ As long as no other object existed at that location (such as a file, directory, 
 
 ----
 
-To send provenance metadata to the *SPADE* server through the `DSL` reporter, each vertex or edge must be described on a new line.
+To send provenance metadata to the SPADE server through the `DSL` reporter, each vertex or edge must be described on a new line.
 
 ===Sending a provenance vertex===
 
@@ -75,7 +75,7 @@ To record provenance from within an application, simply print or write the infor
 
 ----
 
-Reporters can be added and removed while the *SPADE* server is running. For example, the provenance metadata being written to the named pipe created by the `DSL` reporter will no longer be sent to the *SPADE* server after this:
+Reporters can be added and removed while the SPADE server is running. For example, the provenance metadata being written to the named pipe created by the `DSL` reporter will no longer be sent to the SPADE server after this:
 
 {{{
 -> remove reporter DSL
