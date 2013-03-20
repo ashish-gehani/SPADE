@@ -23,6 +23,7 @@
   * [ReporterAPI Using SPADE's provenance reporting API]
   * [Filters Filtering provenance]
  * [DBTools Viewing provenance databases]
+  * [SQLWorkbench Viewing provenance in a relational database]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
 
