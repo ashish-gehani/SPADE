@@ -23,6 +23,18 @@ http://data-provenance.googlecode.com/svn/wiki/img/sql_configure_driver.png
   # Leave the password blank.
   # Click *OK* to connect to the H2 SQL database.
 
+<p align="center">
+http://data-provenance.googlecode.com/svn/wiki/img/sql_connect_database.png
+</p>
+
 The *Database Explorer* tab can now be used to view/browse the data:
 
+<p align="center">
+http://data-provenance.googlecode.com/svn/wiki/img/sql_browsing_table.png
+</p>
+
 The *Statement* tab can be used to execute SQL statements in the database:
+
+<p align="center">
+http://data-provenance.googlecode.com/svn/wiki/img/sql_search_data.png
+</p>
