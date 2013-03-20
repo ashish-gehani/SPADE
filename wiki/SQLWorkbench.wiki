@@ -11,6 +11,10 @@ SQL Workbench/J is a free tool that can be downloaded from [http://www.sql-workb
   # Select *H2 Database Engine* from the list.
   # For *Library*, enter the path to the H2 Java library.
 
+<p align="center">
+http://data-provenance.googlecode.com/svn/wiki/img/sql_configure_driver.png
+</p>
+
 *Viewing H2 SQL databases:*
   # Go to *File* --> *Connect*.
   # Select *H2 Database Engine* from the Driver list.
