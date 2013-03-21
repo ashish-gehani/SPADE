@@ -1,6 +1,6 @@
 #sidebar Documentation
 
-=_Using filters_=
+=_Filtering provenance_=
 
 We provide a set of filters to manipulate provenance data before it is committed to storage. They are described below:
 
