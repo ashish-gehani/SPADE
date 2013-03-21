@@ -63,7 +63,7 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_modular.png
 
 </table>
 
-<p>
+<font color="#ffffff">...</font>
 
 
 
