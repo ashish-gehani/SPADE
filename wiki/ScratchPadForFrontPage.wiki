@@ -67,4 +67,6 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_modular.png
 <font color="#ffffff">...</font>
 
 
-To Learn more
+To learn more about SPADE, please refer to the [https://code.google.com/p/data-provenance/wiki/Documentation documentation].
+
+||This material is based upon work supported by the National Science Foundation under Grants OCI-0722068 and IIS-1116414. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.||
