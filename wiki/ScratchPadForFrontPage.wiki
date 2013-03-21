@@ -5,13 +5,12 @@ Data is continuously transformed by computation. Understanding the origins of a 
 
 <table border="1" align="center" width="100%">
 <tr>
-<td align="left">
+<td align="left" width="80%">
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/script.tar.gz SQL script], 
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/linux_apache_h2.tar.gz H2 database]
 </td>
 <td align="right">
-[http://data-provenance.googlecode.com/svn/wiki/traces/Mac/Apache/script.tar.gz SQL script], 
-[http://data-provenance.googlecode.com/svn/wiki/traces/Mac/Apache/mac_apache_h2.tar.gz H2 database]
+http://data-provenance.googlecode.com/svn/wiki/img/neoclipse_browse_database.png
 </td>
 </tr>
 </table>
