@@ -3,7 +3,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 *SPADE* provides functionality to track and analyze the provenance of data that arises from multiple sources, distributed over the wide area, at varied levels of abstraction, and from both discrete and continuous systems. It has a number of features that make it ideal for any provenance-related needs:
 
 
-<table border="0" align="center">
+<table border="1" align="center">
 <tr>
 <td align="left">
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/script.tar.gz SQL script], 
