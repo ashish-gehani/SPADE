@@ -5,7 +5,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 
 <table border="1" align="center" width="100%">
 <tr>
-<td align="left" width="80%">
+<td align="left" width="70%">
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/script.tar.gz SQL script], 
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/linux_apache_h2.tar.gz H2 database]
 </td>
