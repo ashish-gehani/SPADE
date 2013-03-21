@@ -6,7 +6,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 <table border="1" align="left" width="840px">
 
 <tr><td>
-<table border="0" align="left" height="150px">
+<table border="0" align="left">
 <tr>
 <td align="left" width="70%">
 ==Quick Setup for Mac, Windows, and Linux==
@@ -20,7 +20,7 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png
 </td></tr>
 
 <tr><td>
-<table border="0" align="left" height="150px">
+<table border="0" align="left">
 <tr>
 <td align="left" width="70%">
 ==Ease of Use==
@@ -34,7 +34,7 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_easy.png
 </td></tr>
 
 <tr><td>
-<table border="0" align="left" height="150px">
+<table border="0" align="left">
 <tr>
 <td align="left" width="70%">
 ==Rich Query Functionality==
@@ -48,7 +48,7 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_query.png
 </td></tr>
 
 <tr><td>
-<table border="0" align="left" height="150px">
+<table border="0" align="left">
 <tr>
 <td align="left" width="70%">
 ==Modular and Extensible==
