@@ -10,7 +10,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 [http://data-provenance.googlecode.com/svn/wiki/traces/Linux/Apache/linux_apache_h2.tar.gz H2 database]
 </td>
 <td align="right">
-http://data-provenance.googlecode.com/svn/wiki/img/neoclipse_browse_database.png
+http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png
 </td>
 </tr>
 </table>
