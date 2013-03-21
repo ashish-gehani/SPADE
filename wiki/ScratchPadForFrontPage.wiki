@@ -6,7 +6,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 <table border="1" align="left" width="840px">
 
 <tr><td>
-<table border="0" align="left">
+<table border="0" align="left" height="150px">
 <tr>
 <td align="left" width="70%">
 ==Quick Setup for Mac, Windows, and Linux==
