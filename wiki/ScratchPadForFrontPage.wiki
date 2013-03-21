@@ -64,8 +64,6 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_modular.png
 </table>
 
 
-<font color="#ffffff">...</font>
-<p>
 
 
 To learn more about SPADE, please refer to the [https://code.google.com/p/data-provenance/wiki/Documentation documentation].
