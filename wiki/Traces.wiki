@@ -74,9 +74,8 @@ gzip -dc < script.tar.gz | mysql -u {user} -p {password}
 To browse the H2 SQL database without importing the SQL script into an existing database, follow the instructions [DBTools here].
 
 === Generating the provenance traces ===
-==== Postmark ====
-The following configuration settings were used:
 
+For *Postmark*, the following configuration settings were used:
   * Base number of files: 500
   * Transactions: 500
   * Files range between 500 bytes and 9.77 kilobytes in size
