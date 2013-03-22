@@ -27,7 +27,7 @@ SPADE is written in Java, allowing it to be deployed to various platforms with m
 SPADE is designed to necessitate minimal or no changes to the workflow being monitored. Simply run SPADE with an operating system-wide or filesystem-wide reporter to [https://code.google.com/p/data-provenance/wiki/Reporting track provenance for your workflows].
 </td>
 <td align="center">
-<img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_easy.png" height="120px" />
+<a href="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_easy.png"><img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_easy.png" height="120px" /></a>
 </td>
 </tr>
 </table>
