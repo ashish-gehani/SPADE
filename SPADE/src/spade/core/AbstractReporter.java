@@ -70,24 +70,24 @@ public abstract class AbstractReporter {
         return internalBuffer.putEdge(edge);
     }
 
-    /**
-     * This method returns the internal state of the reporter. 
-     * It is used mainly for debugging/monitoring.
-     * 
-     *  @return String description of internal state
-     */
-    public String getInternalState() {
-    	return "Internal Buffer Size: " + internalBuffer.size();
-    }
-    
-    /**
-     * This method returns the internal state of reporter with more verbosity
-     * 
-     * @return String based description of the internal state
-     */
-    public String getInternalStateVerbose() {
-    	return getInternalState(); 
-    }
+//    /**
+//     * This method returns the internal state of the reporter. 
+//     * It is used mainly for debugging/monitoring.
+//     * 
+//     *  @return String description of internal state
+//     */
+//    public String getInternalState() {
+//    	return "Internal Buffer Size: " + internalBuffer.size();
+//    }
+//    
+//    /**
+//     * This method returns the internal state of reporter with more verbosity
+//     * 
+//     * @return String based description of the internal state
+//     */
+//    public String getInternalStateVerbose() {
+//    	return getInternalState(); 
+//    }
     
     /**
      * This method is invoked by the kernel when launching a reporter.

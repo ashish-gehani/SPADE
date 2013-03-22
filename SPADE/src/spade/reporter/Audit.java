@@ -88,6 +88,9 @@ public class Audit extends AbstractReporter {
     private Map<String, Integer> fileVersions = new HashMap<String, Integer>();
     // Set to cache paths that have received ioctl calls
     private Set<String> ioctlPaths = new HashSet<String>();
+    // List of processes to ignore
+    private String ignoreProcesses;
+    static final Logger logger = Logger.getLogger(Audit.class.getName());
     ////////////////////////////////////////////////////////////////////////////
     // Group 1: key
     // Group 2: value
@@ -105,9 +108,6 @@ public class Audit extends AbstractReporter {
     // Binder transaction log pattern
     private static Pattern binder_transaction = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
     ////////////////////////////////////////////////////////////////////////////
-    // List of processes to ignore
-    private String ignoreProcesses;
-    static final Logger logger = Logger.getLogger(Audit.class.getName());
 
     private enum SYSCALL {
 

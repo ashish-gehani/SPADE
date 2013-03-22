@@ -37,10 +37,11 @@ public abstract class AbstractEdge implements Serializable {
     protected Map<String, String> annotations = new LinkedHashMap<String, String>();
     private AbstractVertex sourceVertex;
     private AbstractVertex destinationVertex;
-    /**
-     * A pointer to the Graph object that this edge belongs to.
-     */
-    public Graph resultGraph;
+
+//    /**
+//     * A pointer to the Graph object that this edge belongs to.
+//     */
+//    public Graph resultGraph;
 
     /**
      * Returns the map containing the annotations for this edge.

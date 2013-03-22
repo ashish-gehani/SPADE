@@ -123,7 +123,9 @@ public class ControlClient {
                     }
                     SPADEControlOut.close();
                 } catch (Exception exception) {
-                    System.out.println("Error connecting to SPADE");
+                    if (!shutdown) {
+                        System.out.println("Error connecting to SPADE");
+                    }
                     System.exit(-1);
                 }
             }

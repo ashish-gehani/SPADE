@@ -29,6 +29,7 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
+import spade.core.Settings;
 import spade.core.Vertex;
 
 public class Fusion extends AbstractFilter {
@@ -37,7 +38,8 @@ public class Fusion extends AbstractFilter {
     private LinkedList<Object> rightList;
     private Map<AbstractVertex, AbstractVertex> fusedVertices;
     private Map<RuleIdentifier, RuleIdentifier> rules;
-    private final String configFile = "../cfg/fusion.config";
+    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
+    private final String configFile = SPADE_ROOT + "cfg/fusion.config";
     private final String SOURCE_REPORTER = spade.core.Kernel.SOURCE_REPORTER;
     private int MAX_LIST_LENGTH = 5;
     private String leftReporter;
@@ -45,9 +47,9 @@ public class Fusion extends AbstractFilter {
     private String FUSED_SOURCE_REPORTER;
 
     public Fusion() {
-        // The left and right lists are used to store provenance elements from the 
+        // The left and right lists are used to store provenance elements from the
         // two reporters respectively. Elements are added and removed using the queue
-        // interface but the lists are initialized as LinkedLists to allow for 
+        // interface but the lists are initialized as LinkedLists to allow for
         // traversal and checking for matching elements
         leftList = new LinkedList<Object>();
         rightList = new LinkedList<Object>();
@@ -179,7 +181,7 @@ public class Fusion extends AbstractFilter {
     }
 
     private boolean compare(AbstractVertex firstVertex, AbstractVertex secondVertex) {
-        // Use the rules map to determine if the two vertices match. First, the 
+        // Use the rules map to determine if the two vertices match. First, the
         // source reporters are checked and then the annotations
         for (RuleIdentifier currentRule : rules.keySet()) {
             RuleIdentifier otherRule = rules.get(currentRule);
