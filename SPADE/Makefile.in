@@ -171,6 +171,10 @@ clean:
 DESTDIR = @prefix@
 install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR)
+	chown root lib/spadeLinuxAudit
+	chown ug+s lib/spadeLinuxAudit
+	chown root lib/spadeOpenBSM
+	chown ug+s lib/spadeOpenBSM
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
