@@ -90,11 +90,14 @@ nmake /f Makefile.win _apached
 
 ----
 
-For *Postmark*, the following configuration settings were used:
-  * Base number of files: 500
-  * Transactions: 500
-  * Files range between 500 bytes and 9.77 kilobytes in size
-  * Block sizes: read=512 bytes, write=512 bytes
+For *Postmark*, the following configuration settings were used for the benchmark:
+
+{{{
+Base number of files: 500
+Transactions: 500
+Files range between 500 bytes and 9.77 kilobytes in size
+Block sizes: read=512 bytes, write=512 bytes
+}}}
 
 ----
 
