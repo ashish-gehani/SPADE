@@ -210,24 +210,24 @@ public class Graphviz extends AbstractStorage {
         }
     }
 
-    /**
-     * This method returns the internal state of the storage. It is used mainly
-     * for debugging/monitoring.
-     *
-     * @return textual description of internal state
-     */
-    @Override
-    public String getInternalState() {
-        return super.getInternalState() + "\tTransaction Count: " + String.valueOf(transaction_count);
-    }
-
-    /**
-     * This method returns the internal state of the storage with more verbosity
-     *
-     * @return textual description of the internal state
-     */
-    @Override
-    public String getInternalStateVerbose() {
-        return getInternalState();
-    }
+//    /**
+//     * This method returns the internal state of the storage. It is used mainly
+//     * for debugging/monitoring.
+//     *
+//     * @return textual description of internal state
+//     */
+//    @Override
+//    public String getInternalState() {
+//        return super.getInternalState() + "\tTransaction Count: " + String.valueOf(transaction_count);
+//    }
+//
+//    /**
+//     * This method returns the internal state of the storage with more verbosity
+//     *
+//     * @return textual description of the internal state
+//     */
+//    @Override
+//    public String getInternalStateVerbose() {
+//        return getInternalState();
+//    }
 }

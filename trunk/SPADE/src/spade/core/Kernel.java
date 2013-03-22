@@ -995,13 +995,13 @@ public class Kernel {
                 if (verbose_level > 0) {
                     outputStream.println();
                 }
-                if (verbose_level == 1) {
-                    outputStream.print("\t" + reporter.getInternalState());
-                } else if (verbose_level == 2) {
-                    outputStream.print("--------\n");
-                    outputStream.print(reporter.getInternalStateVerbose());
-                    outputStream.print("\n--------\n");
-                }
+//                if (verbose_level == 1) {
+//                    outputStream.print("\t" + reporter.getInternalState());
+//                } else if (verbose_level == 2) {
+//                    outputStream.print("--------\n");
+//                    outputStream.print(reporter.getInternalStateVerbose());
+//                    outputStream.print("\n--------\n");
+//                }
                 outputStream.println();
                 count++;
             }
@@ -1024,13 +1024,13 @@ public class Kernel {
                 if (verbose_level > 0) {
                     outputStream.println();
                 }
-                if (verbose_level == 1) {
-                    outputStream.print("\t" + storage.getInternalState());
-                } else if (verbose_level == 2) {
-                    outputStream.print("--------\n");
-                    outputStream.print(storage.getInternalStateVerbose());
-                    outputStream.print("\n--------\n");
-                }
+//                if (verbose_level == 1) {
+//                    outputStream.print("\t" + storage.getInternalState());
+//                } else if (verbose_level == 2) {
+//                    outputStream.print("--------\n");
+//                    outputStream.print(storage.getInternalStateVerbose());
+//                    outputStream.print("\n--------\n");
+//                }
                 outputStream.println();
                 count++;
             }
@@ -1263,12 +1263,12 @@ class FinalTransformer extends AbstractFilter {
     // received by it need to be passed to the correct graph.
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-        incomingVertex.resultGraph.commitVertex(incomingVertex);
+//        incomingVertex.resultGraph.commitVertex(incomingVertex);
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        incomingEdge.resultGraph.commitEdge(incomingEdge);
+//        incomingEdge.resultGraph.commitEdge(incomingEdge);
     }
 }
 

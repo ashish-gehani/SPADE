@@ -113,8 +113,10 @@ public class Graph extends AbstractStorage implements Serializable {
      * @param inputVertex The vertex to be added
      */
     public boolean putVertex(AbstractVertex inputVertex) {
-        inputVertex.resultGraph = this;
-        Kernel.sendToTransformers(inputVertex);
+//        inputVertex.resultGraph = this;
+//        Kernel.sendToTransformers(inputVertex);
+//        return true;
+        commitVertex(inputVertex);
         return true;
     }
 
@@ -125,8 +127,10 @@ public class Graph extends AbstractStorage implements Serializable {
      * @param inputEdge The edge to be added
      */
     public boolean putEdge(AbstractEdge inputEdge) {
-        inputEdge.resultGraph = this;
-        Kernel.sendToTransformers(inputEdge);
+//        inputEdge.resultGraph = this;
+//        Kernel.sendToTransformers(inputEdge);
+//        return true;
+        commitEdge(inputEdge);
         return true;
     }
 

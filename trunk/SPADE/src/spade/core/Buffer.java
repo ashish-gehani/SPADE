@@ -32,7 +32,6 @@ import java.util.logging.Logger;
 public class Buffer {
 
     private Queue<Object> queue;
-    private static final Logger logger = Logger.getLogger(Buffer.class.getName());
 
     /**
      * Empty constructor for this class.
