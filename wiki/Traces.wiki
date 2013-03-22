@@ -75,8 +75,31 @@ To browse the H2 SQL database without importing the SQL script into an existing 
 
 === Generating the provenance traces ===
 
+For *Apache*, the following commands were used on Linux and Mac OS X:
+
+{{{
+./configure
+make
+}}}
+
+The following command was used on Windows:
+
+{{{
+command
+}}}
+
+----
+
 For *Postmark*, the following configuration settings were used:
   * Base number of files: 500
   * Transactions: 500
   * Files range between 500 bytes and 9.77 kilobytes in size
   * Block sizes: read=512 bytes, write=512 bytes
+
+----
+
+For *BLAST*, the input data set was downloaded from ftp://ftp.ncbi.nlm.nih.gov/genomes/INFLUENZA/influenza.faa and the following command was used:
+
+{{{
+makeblastdb -in influenza.faa -parse_seqids -hash_index -out outputdb
+}}}
