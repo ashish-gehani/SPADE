@@ -12,7 +12,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 ==Quick Setup for Mac, Windows, and Linux==
 SPADE is written in Java, allowing it to be deployed to various platforms with minimal effort. We provide pre-built packages for download, as well as the [https://code.google.com/p/data-provenance/wiki/Compiling source code for compiling from scratch].
 </td>
-<td align="right">
+<td align="center">
 http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png
 </td>
 </tr>
@@ -26,7 +26,7 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png
 ==Ease of Use==
 SPADE is designed to necessitate minimal or no changes to the workflow being monitored. Simply run SPADE with an operating system-wide or filesystem-wide reporter to [https://code.google.com/p/data-provenance/wiki/Reporting track provenance for your workflows].
 </td>
-<td align="right">
+<td align="center">
 <img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_easy.png" height="120px" />
 </td>
 </tr>
@@ -40,7 +40,7 @@ SPADE is designed to necessitate minimal or no changes to the workflow being mon
 ==Rich Query Functionality==
 Use SPADE's [https://code.google.com/p/data-provenance/wiki/QueryClient query tool] to track provenance vertices, lineage, or paths in your workflows. Alternatively, you can use [https://code.google.com/p/data-provenance/wiki/DBTools existing third-party tools] to query the provenance databases directly.
 </td>
-<td align="right">
+<td align="center">
 http://data-provenance.googlecode.com/svn/wiki/img/frontpage_query.png
 </td>
 </tr>
@@ -54,7 +54,7 @@ http://data-provenance.googlecode.com/svn/wiki/img/frontpage_query.png
 ==Modular and Extensible==
 SPADE has been designed from the ground up to be completely modular and extensible. This allows for [https://code.google.com/p/data-provenance/wiki/ReporterAPI custom modules] to be designed and implemented for any scenario.
 </td>
-<td align="right">
+<td align="center">
 http://data-provenance.googlecode.com/svn/wiki/img/frontpage_modular.png
 </td>
 </tr>
