@@ -1,9 +1,12 @@
 = ProvBench Traces =
 
-These provenance traces were collected from three applications (Apache, BLAST, PostMark) each run on
-three operating systems (Linux, Mac OS X, and Windows). The tool(s) used to generate these traces included SPADE with H2 SQL storage.
+Below are provenance traces collected from three applications (Apache, BLAST, PostMark), each run on three operating systems (Linux, Mac OS X, and Windows). Each trace was collected using *SPADE* with a Linux / Mac OS X / Windows reporter and H2 SQL storage.
 
-The provenance traces are provided in compressed SQL script format which can be imported in most SQL databases.
+For more information about the workloads, please see:
+
+  * Hasnain Lakhani, Rashid Tahir, Azeem Aqil, Fareed Zaffar, Dawood Tariq, and Ashish Gehani, *Optimized Rollback and Re-computation*, _46th IEEE Hawaii International Conference on Systems Science (HICSS)_, IEEE Computer Society, 2013. [http://www.csl.sri.com/users/gehani/papers/HICSS-2013.Re-execution.pdf [PDF]]
+
+The provenance traces are provided in compressed SQL script format. This can be imported into most SQL databases.
 
 <table border="1" align="center">
 <tr>
@@ -59,7 +62,7 @@ The provenance traces are provided in compressed SQL script format which can be 
 
 === Importing into MySQL ===
 
-To import these provenance traces into MySQL, use the following command on Linux/Mac OS X systems replacing `{user}` and `{password}` with your MySQL credentials:
+To import the provenance traces into MySQL, use the following command on Linux or Mac OS X, replacing `{user}` and `{password}` with your MySQL credentials:
 
 {{{
 gzip -dc < script.tar.gz | mysql -u {user} -p {password}
@@ -67,4 +70,4 @@ gzip -dc < script.tar.gz | mysql -u {user} -p {password}
 
 === Viewing the H2 SQL database ===
 
-To view or browse the H2 SQL database without importing the SQL script into an existing database, follow the instructions on [DBTools this page].
+To browse the H2 SQL database without importing the SQL script into an existing database, follow the instructions [DBTools here].
