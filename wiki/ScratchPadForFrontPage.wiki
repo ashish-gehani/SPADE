@@ -13,7 +13,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 SPADE is written in Java, allowing it to be deployed to various platforms with minimal effort. We provide pre-built packages for download, as well as the [https://code.google.com/p/data-provenance/wiki/Compiling source code for compiling from scratch].
 </td>
 <td align="center">
-http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png
+<img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png" height="120px" />
 </td>
 </tr>
 </table>
