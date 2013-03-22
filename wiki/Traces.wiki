@@ -85,7 +85,7 @@ make
 The following command was used on Windows:
 
 {{{
-command
+nmake /f Makefile.win _apached
 }}}
 
 ----
