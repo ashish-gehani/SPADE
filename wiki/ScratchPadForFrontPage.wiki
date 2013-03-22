@@ -13,7 +13,7 @@ Data is continuously transformed by computation. Understanding the origins of a 
 SPADE is written in Java, allowing it to be deployed to various platforms with minimal effort. We provide pre-built packages for download, as well as the [https://code.google.com/p/data-provenance/wiki/Compiling source code for compiling from scratch].
 </td>
 <td align="center">
-<img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png" height="120px" />
+<img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_platforms.png" />
 </td>
 </tr>
 </table>
@@ -41,7 +41,7 @@ SPADE is designed to necessitate minimal or no changes to the workflow being mon
 Use SPADE's [https://code.google.com/p/data-provenance/wiki/QueryClient query tool] to track provenance vertices, lineage, or paths in your workflows. Alternatively, you can use [https://code.google.com/p/data-provenance/wiki/DBTools existing third-party tools] to query the provenance databases directly.
 </td>
 <td align="center">
-<img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_query.png" height="120px" />
+<a href="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_query.png"><img src="http://data-provenance.googlecode.com/svn/wiki/img/frontpage_query.png" height="120px" /></a>
 </td>
 </tr>
 </table>
