@@ -35,8 +35,6 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -82,14 +80,11 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static String[] configFileLookupPaths = new String[]{System.getProperty("user.home") + "/.spade.config", SPADE_ROOT + "cfg/spade.config", "/etc/spade/spade.config"};
-    public static String configFile = null;
+    public static String configFile = SPADE_ROOT + "cfg/spade.config";
     /**
      * Path to log files including the prefix.
      */
-    public static final String[] logPathLookups = new String[]{System.getProperty("user.home") + "/log/", SPADE_ROOT + "log/", "/var/log",};
-    public static final String logPathPrefix = "SPADE_";
-    public static String logPathAndPrefix;
+    public static String logPathAndPrefix = SPADE_ROOT + "log/SPADE_";
     /**
      * Date/time suffix pattern for log files.
      */
@@ -135,13 +130,10 @@ public class Kernel {
     private static final int FIRST_TRANSFORMER = 0;
     private static final int FIRST_FILTER = 0;
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
-    //private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> <index> <initialization arguments>";
     private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter <class name> <index> <initialization arguments>";
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
-    //private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <index>";
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter <index>";
-    //private static final String LIST_STRING = "list reporters|storages|filters|transformers|sketches|all";
     private static final String LIST_STRING = "list reporters|storages|filters|sketches|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
@@ -154,7 +146,6 @@ public class Kernel {
     private static final String QUERY_LIST_STRING = "list";
     private static final String QUERY_EXPORT_STRING = "export <result> <path>";
     private static final String QUERY_EXIT_STRING = "exit";
-    private static final String QUERY_REMOTEPATHS_STRING = "query <class name> remotepaths <source host:vertex id> <destination host:vertex id> <max length>";
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePublic;
@@ -222,51 +213,6 @@ public class Kernel {
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
-
-        // Initialize configFile to use
-        for (String f : configFileLookupPaths) {
-            if (checkIsWritable(f)) {
-                configFile = f;
-                break;
-            }
-        }
-        if (configFile == null) {
-            configFile = configFileLookupPaths[0];
-            System.out.println("Config file does not exist. Creating now in home directory");
-            File fileConfigFile = new File(configFile);
-            if (!fileConfigFile.exists()) {
-                try {
-                    fileConfigFile.createNewFile();
-                } catch (IOException e) {
-                    System.err.println("Cannot create writable config file: " + configFile);
-                    e.printStackTrace();
-                    return;
-                }
-            }
-            if (!fileConfigFile.canWrite()) {
-                System.err.println("Cannot create writable config file: " + configFile);
-                return;
-            }
-        }
-        System.out.println("Using configfile: " + configFile);
-
-        // Set logging directory
-        for (String l : logPathLookups) {
-            if (checkIsWritable(l)) {
-                logPathAndPrefix = l + logPathPrefix;
-                break;
-            }
-        }
-        if (logPathAndPrefix == null) {
-            String logPathStr = logPathLookups[0];
-            System.out.println("Logging directory does not exist. Creating now in home directory");
-            File logPath = new File(logPathStr);
-            if (!(logPath.exists() || logPath.mkdirs())) {
-                System.err.println("Cannot create writable log directory" + logPathStr);
-            }
-            logPathAndPrefix = logPathStr + logPathPrefix;
-        }
-        System.out.println("Using log path: " + logPathAndPrefix);
 
         try {
             // Configuring the global exception logger
@@ -548,27 +494,6 @@ public class Kernel {
 
         // Load the SPADE configuration from the default config file.
         configCommand("config load " + configFile, NullStream.out);
-
-        // Wait till all threads are done
-        ArrayList<Thread> join_threads = new ArrayList<Thread>(Arrays.asList(mainThread, controlThread, queryThread, remoteThread, sketchThread));
-        for (Thread t : join_threads) {
-            try {
-                t.join(10000);
-            } catch (InterruptedException ignore) {
-            }
-        }
-
-    }
-
-    /*
-     * Utility function for checking if file is writable
-     *
-     * @param absolute or relaitve path to the fiel
-     * @return True is file exists and is writable to current user/process, else false
-     */
-    private static Boolean checkIsWritable(String path) {
-        File f = new File(path);
-        return f.exists() && f.canWrite();
     }
 
     // The following two methods are called by the Graph object when adding vertices
@@ -966,16 +891,6 @@ public class Kernel {
             outputStream.println("\t" + LIST_STRING);
             return;
         }
-        for (int i = 0; i < tokens.length; ++i) {
-            if (tokens[i].equalsIgnoreCase("v")) {
-                verbose_level = 1;
-                verbose_token = tokens[i];
-            } else if (tokens[i].equalsIgnoreCase("vv")) {
-                verbose_level = 2;
-                verbose_token = tokens[i];
-            }
-
-        }
 
         if (tokens[1].equalsIgnoreCase("reporters")) {
             if (reporters.isEmpty()) {
@@ -992,16 +907,6 @@ public class Kernel {
                 if (arguments != null) {
                     outputStream.print(" (" + arguments + ")");
                 }
-                if (verbose_level > 0) {
-                    outputStream.println();
-                }
-//                if (verbose_level == 1) {
-//                    outputStream.print("\t" + reporter.getInternalState());
-//                } else if (verbose_level == 2) {
-//                    outputStream.print("--------\n");
-//                    outputStream.print(reporter.getInternalStateVerbose());
-//                    outputStream.print("\n--------\n");
-//                }
                 outputStream.println();
                 count++;
             }
@@ -1020,17 +925,6 @@ public class Kernel {
                 if (arguments != null) {
                     outputStream.print(" (" + arguments + ")");
                 }
-
-                if (verbose_level > 0) {
-                    outputStream.println();
-                }
-//                if (verbose_level == 1) {
-//                    outputStream.print("\t" + storage.getInternalState());
-//                } else if (verbose_level == 2) {
-//                    outputStream.print("--------\n");
-//                    outputStream.print(storage.getInternalStateVerbose());
-//                    outputStream.print("\n--------\n");
-//                }
                 outputStream.println();
                 count++;
             }

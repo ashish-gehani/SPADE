@@ -39,6 +39,7 @@ import javax.net.ssl.TrustManagerFactory;
 import jline.ConsoleReader;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.core.Query;
 import spade.core.Settings;
 
 public class QueryClient {
@@ -50,6 +51,7 @@ public class QueryClient {
     private static final String historyFile = SPADE_ROOT + "cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
+    private static HashMap<String, String> graphExpressions;
     private static String QUERY_STORAGE = "Neo4j";
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
@@ -91,6 +93,7 @@ public class QueryClient {
 
         outputStream = System.out;
         graphObjects = new HashMap<String, Graph>();
+        graphExpressions = new HashMap<String, String>();
 
         try {
             String host = "localhost";
@@ -137,8 +140,8 @@ public class QueryClient {
                         System.out.println("-------------------------------------------------");
                         for (Map.Entry<String, Graph> currentEntry : graphObjects.entrySet()) {
                             String key = currentEntry.getKey();
-                            Graph graph = currentEntry.getValue();
-                            System.out.println(key + "\t\t | " + graph.graphInfo.get("expression"));
+                            String expression = graphExpressions.get(key);
+                            System.out.println(key + "\t\t | " + expression);
                         }
                         System.out.println("-------------------------------------------------");
                         System.out.println();
@@ -188,7 +191,7 @@ public class QueryClient {
         Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
         Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
         Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
-        Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getLineage\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*([a-zA-Z]+)\\s*(,\\s*.+)?\\s*\\)[;]?");
+        Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getLineage\\(\\s*([a-zA-Z0-9]+)\\s*,\\s*(\\d+)\\s*,\\s*([a-zA-Z]+)\\s*(,\\s*.+)?\\s*\\)[;]?");
 
         Matcher vertexMatcher = vertexPattern.matcher(input);
         Matcher edgeMatcher = edgePattern.matcher(input);
@@ -221,20 +224,48 @@ public class QueryClient {
             String direction = lineageMatcher.group(5);
             String terminatingExpression = (lineageMatcher.group(6) == null) ? "null" : lineageMatcher.group(6).substring(1).trim();
             queryString = "query " + QUERY_STORAGE + " lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
+            try {
+                if ((queryTarget == null) && graphObjects.containsKey(vertexId)) {
+                    Graph totalGraphs = new Graph();
+                    long begintime = System.currentTimeMillis();
+                    for (AbstractVertex vertex : graphObjects.get(vertexId).vertexSet()) {
+                        String storageId = vertex.getAnnotation(Query.STORAGE_ID_STRING);
+                        queryString = "query " + QUERY_STORAGE + " lineage " + storageId + " " + depth + " " + direction + " " + terminatingExpression;
+                        SPADEQueryIn.println(queryString);
+                        String resultString = (String) SPADEQueryOut.readObject();
+                        if (resultString.equals("graph")) {
+                            Graph resultGraph = (Graph) SPADEQueryOut.readObject();
+                            totalGraphs = Graph.union(totalGraphs, resultGraph);
+                        } else {
+                            outputStream.println(resultString + "\n");
+                        }
+                    }
+                    long endtime = System.currentTimeMillis();
+                    long elapsedtime = endtime - begintime;
+                    System.out.println("Time taken for query: " + elapsedtime + " ms");
+
+                    graphObjects.put(result, totalGraphs);
+                    String queryExpression = input.split("\\s*=\\s*")[1];
+                    graphExpressions.put(result, queryExpression);
+                    return;
+                }
+            } catch (Exception exception) {
+                exception.printStackTrace();
+            }
         }
 
         try {
             if ((queryTarget == null) && (queryString != null)) {
                 long begintime, endtime;
-                System.out.println("executing query sting: " + queryString);
+//                System.out.println("executing query sting: " + queryString);
                 begintime = System.currentTimeMillis();
                 SPADEQueryIn.println(queryString);
                 String resultString = (String) SPADEQueryOut.readObject();
                 if (resultString.equals("graph")) {
                     Graph resultGraph = (Graph) SPADEQueryOut.readObject();
                     String queryExpression = input.split("\\s*=\\s*")[1];
-                    resultGraph.graphInfo.put("expression", queryExpression);
                     graphObjects.put(result, resultGraph);
+                    graphExpressions.put(result, queryExpression);
                 } else {
                     outputStream.println(resultString + "\n");
                 }
@@ -267,7 +298,7 @@ public class QueryClient {
                 if (resultGraph != null) {
                     graphObjects.put(result, resultGraph);
                     String queryExpression = input.split("\\s*=\\s*")[1];
-                    resultGraph.graphInfo.put("expression", queryExpression);
+                    graphExpressions.put(result, queryExpression);
                 }
             }
         } catch (Exception exception) {
