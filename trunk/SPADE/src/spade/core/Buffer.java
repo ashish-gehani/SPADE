@@ -21,7 +21,6 @@ package spade.core;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.logging.Logger;
 
 /**
  * This is the buffer class which is used by reporters to send provenance

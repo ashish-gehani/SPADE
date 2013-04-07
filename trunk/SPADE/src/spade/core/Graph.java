@@ -59,7 +59,6 @@ public class Graph extends AbstractStorage implements Serializable {
     private Set<AbstractEdge> edgeSet;
     private Map<Integer, AbstractEdge> edgeHashes;
     private Map<AbstractVertex, Integer> networkMap;
-    public Map<String, String> graphInfo;
     /**
      * For query results spanning multiple hosts, this is used to indicate
      * whether the network boundaries have been properly transformed.
@@ -79,7 +78,6 @@ public class Graph extends AbstractStorage implements Serializable {
         edgeSet = new HashSet<AbstractEdge>();
         edgeHashes = new HashMap<Integer, AbstractEdge>();
         networkMap = new HashMap<AbstractVertex, Integer>();
-        graphInfo = new HashMap<String, String>();
 
         // Lucene initialization
         try {
@@ -113,33 +111,6 @@ public class Graph extends AbstractStorage implements Serializable {
      * @param inputVertex The vertex to be added
      */
     public boolean putVertex(AbstractVertex inputVertex) {
-//        inputVertex.resultGraph = this;
-//        Kernel.sendToTransformers(inputVertex);
-//        return true;
-        commitVertex(inputVertex);
-        return true;
-    }
-
-    /**
-     * Add an edge to the graph object. The edge is sent to the transformers
-     * before it is finally committed.
-     *
-     * @param inputEdge The edge to be added
-     */
-    public boolean putEdge(AbstractEdge inputEdge) {
-//        inputEdge.resultGraph = this;
-//        Kernel.sendToTransformers(inputEdge);
-//        return true;
-        commitEdge(inputEdge);
-        return true;
-    }
-
-    /**
-     * Commit a vertex to this graph.
-     *
-     * @param inputVertex The vertex to be committed
-     */
-    public void commitVertex(AbstractVertex inputVertex) {
         vertexSet.add(inputVertex);
         vertexHashes.put(inputVertex.hashCode(), inputVertex);
 
@@ -157,14 +128,16 @@ public class Graph extends AbstractStorage implements Serializable {
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
+        return true;
     }
 
     /**
-     * Commit an edge to this graph.
+     * Add an edge to the graph object. The edge is sent to the transformers
+     * before it is finally committed.
      *
-     * @param inputEdge The edge to be committed
+     * @param inputEdge The edge to be added
      */
-    public void commitEdge(AbstractEdge inputEdge) {
+    public boolean putEdge(AbstractEdge inputEdge) {
         edgeSet.add(inputEdge);
         edgeHashes.put(inputEdge.hashCode(), inputEdge);
 
@@ -184,6 +157,7 @@ public class Graph extends AbstractStorage implements Serializable {
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
+        return true;
     }
 
     /**
@@ -234,10 +208,10 @@ public class Graph extends AbstractStorage implements Serializable {
         edges.retainAll(graph2.edgeSet());
 
         for (AbstractVertex vertex : vertices) {
-            resultGraph.commitVertex(vertex);
+            resultGraph.putVertex(vertex);
         }
         for (AbstractEdge edge : edges) {
-            resultGraph.commitEdge(edge);
+            resultGraph.putEdge(edge);
         }
 
         return resultGraph;
@@ -263,10 +237,10 @@ public class Graph extends AbstractStorage implements Serializable {
         edges.addAll(graph2.edgeSet());
 
         for (AbstractVertex vertex : vertices) {
-            resultGraph.commitVertex(vertex);
+            resultGraph.putVertex(vertex);
         }
         for (AbstractEdge edge : edges) {
-            resultGraph.commitEdge(edge);
+            resultGraph.putEdge(edge);
         }
 
         return resultGraph;
@@ -291,10 +265,10 @@ public class Graph extends AbstractStorage implements Serializable {
         edges.removeAll(graph2.edgeSet());
 
         for (AbstractVertex vertex : vertices) {
-            resultGraph.commitVertex(vertex);
+            resultGraph.putVertex(vertex);
         }
         for (AbstractEdge edge : edges) {
-            resultGraph.commitEdge(edge);
+            resultGraph.putEdge(edge);
         }
 
         return resultGraph;
@@ -349,7 +323,7 @@ public class Graph extends AbstractStorage implements Serializable {
                 int docId = hits[i].doc;
                 Document foundDoc = searcher.doc(docId);
                 int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
-                resultGraph.commitVertex(vertexHashes.get(hash));
+                resultGraph.putVertex(vertexHashes.get(hash));
             }
 
             searcher.close();
@@ -449,10 +423,10 @@ public class Graph extends AbstractStorage implements Serializable {
                 Set<AbstractEdge> edgeResultSet = srcEdgeSet;
                 edgeResultSet.retainAll(dstEdgeSet);
                 for (AbstractVertex vertex : vertexResultSet) {
-                    resultGraph.commitVertex(vertex);
+                    resultGraph.putVertex(vertex);
                 }
                 for (AbstractEdge edge : edgeResultSet) {
-                    resultGraph.commitEdge(edge);
+                    resultGraph.putEdge(edge);
                 }
             }
             return resultGraph;
@@ -504,7 +478,7 @@ public class Graph extends AbstractStorage implements Serializable {
                 Set<Integer> newTempSet = new HashSet<Integer>();
                 Set<Integer> newTempEdgeSet = new HashSet<Integer>();
                 for (Integer currentVertexHash : tempSet) {
-                    resultGraph.commitVertex(vertexHashes.get(currentVertexHash));
+                    resultGraph.putVertex(vertexHashes.get(currentVertexHash));
                     doneSet.add(currentVertexHash);
 
                     String queryString;
@@ -554,7 +528,7 @@ public class Graph extends AbstractStorage implements Serializable {
                     searcher.close();
                 }
                 for (int edgeHash : tempEdgeSet) {
-                    resultGraph.commitEdge(edgeHashes.get(edgeHash));
+                    resultGraph.putEdge(edgeHashes.get(edgeHash));
                 }
                 tempEdgeSet = newTempEdgeSet;
 
