@@ -14,10 +14,10 @@ cd "$current"
 wrapper_home="$PRGDIR"/..
 export wrapper_home
 
-wrapper_jar="$wrapper_home"/wrapper.jar
+wrapper_jar="$wrapper_home"/bin/wrapper.jar
 export wrapper_jar
 
-wrapper_app_jar="$wrapper_home"/wrapperApp.jar
+wrapper_app_jar="$wrapper_home"/bin/wrapperApp.jar
 export wrapper_app_jar
 
 wrapper_java_sys_options=-Djna_tmpdir="$wrapper_home"/tmp
