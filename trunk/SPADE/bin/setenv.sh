@@ -20,7 +20,7 @@ export wrapper_jar
 wrapper_app_jar="$wrapper_home"/bin/wrapperApp.jar
 export wrapper_app_jar
 
-wrapper_java_sys_options=-Djna_tmpdir="$wrapper_home"/tmp
+wrapper_java_sys_options=-Djna_tmpdir=/tmp
 export wrapper_java_sys_options
 
 wrapper_java_options=-Xmx30m
