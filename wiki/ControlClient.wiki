@@ -5,9 +5,10 @@
 To start the SPADE server, navigate to the `SPADE` directory and use the following command:
 
 {{{
-spade-server start
+spade-start.sh
 }}}
 
+<wiki:comment>
 This will start the SPADE server as a background process. Note that the server allows multiple startup options. To start as a foreground process, use the following:
 
 {{{
@@ -31,13 +32,13 @@ To see whether SPADE is currently running or not, use the following command:
 {{{
 spade-server status
 }}}
-
+</wiki:comment>
 ----
 
 To start the controller used to configure the SPADE server, execute the following command from your terminal/shell in the `SPADE` directory:
 
 {{{
-spade-controller
+spade-controller.sh
 }}}
 
 The following will appear:
