@@ -28,7 +28,9 @@ import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.net.ssl.KeyManagerFactory;
@@ -37,9 +39,9 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 import jline.ConsoleReader;
+import scala.actors.threadpool.Arrays;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.core.Query;
 import spade.core.Settings;
 
 public class QueryClient {
@@ -48,7 +50,7 @@ public class QueryClient {
     private static PrintStream SPADEQueryIn;
     private static ObjectInputStream SPADEQueryOut;
     private static final String SPADE_ROOT = "../";
-    private static final String historyFile = SPADE_ROOT + "cfg/query.history";
+    private static final String historyFile = SPADE_ROOT + "conf/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
     private static HashMap<String, String> graphExpressions;
@@ -59,8 +61,8 @@ public class QueryClient {
     private static SSLSocketFactory sslSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = SPADE_ROOT + "ssl/server.public";
-        String clientPrivatePath = SPADE_ROOT + "ssl/client.private";
+        String serverPublicPath = SPADE_ROOT + "conf/ssl/server.public";
+        String clientPrivatePath = SPADE_ROOT + "conf/ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
@@ -186,17 +188,25 @@ public class QueryClient {
         //      getVertices(expression)
         //      getEdges(expression)
         //      getPaths(src_id, dst_id, maxlength)
-        //      getLineage(id, depth, direction)
-        //      getLineage(id, depth, direction, expression)
+        //      getLineage(id/graph, depth, direction)
+        //      getLineage(id/graph, depth, direction, expression)
+        //      showVertices(annotations)
+        //      getChildren(expression)
         Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
         Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
         Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
         Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getLineage\\(\\s*([a-zA-Z0-9]+)\\s*,\\s*(\\d+)\\s*,\\s*([a-zA-Z]+)\\s*(,\\s*.+)?\\s*\\)[;]?");
+        Pattern showVerticesPattern = Pattern.compile("([a-zA-Z0-9]+\\.)showVertices\\((.+)\\)[;]?");
+        Pattern childrenPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)getChildren\\((.+)\\)[;]?");
+        Pattern parentsPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)getParents\\((.+)\\)[;]?");
 
         Matcher vertexMatcher = vertexPattern.matcher(input);
         Matcher edgeMatcher = edgePattern.matcher(input);
         Matcher pathMatcher = pathPattern.matcher(input);
         Matcher lineageMatcher = lineagePattern.matcher(input);
+        Matcher showVerticesMatcher = showVerticesPattern.matcher(input);
+        Matcher childrenMatcher = childrenPattern.matcher(input);
+        Matcher parentsMatcher = parentsPattern.matcher(input);
 
         String queryTarget = null, queryString = null, result = null;
         if (vertexMatcher.matches()) {
@@ -229,7 +239,7 @@ public class QueryClient {
                     Graph totalGraphs = new Graph();
                     long begintime = System.currentTimeMillis();
                     for (AbstractVertex vertex : graphObjects.get(vertexId).vertexSet()) {
-                        String storageId = vertex.getAnnotation(Query.STORAGE_ID_STRING);
+                        String storageId = vertex.getAnnotation(Settings.getProperty("storage_identifier"));
                         queryString = "query " + QUERY_STORAGE + " lineage " + storageId + " " + depth + " " + direction + " " + terminatingExpression;
                         SPADEQueryIn.println(queryString);
                         String resultString = (String) SPADEQueryOut.readObject();
@@ -252,6 +262,50 @@ public class QueryClient {
             } catch (Exception exception) {
                 exception.printStackTrace();
             }
+        } else if (showVerticesMatcher.matches()) {
+            queryTarget = edgeMatcher.group(1);
+            queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
+            String annotationsArray[] = edgeMatcher.group(2).split(", ");
+            Set<String> annotations = new HashSet<String>(Arrays.asList(annotationsArray));
+            if (!graphObjects.containsKey(queryTarget)) {
+                System.out.println("Error: graph " + queryTarget + " does not exist");
+                return;
+            }
+            Graph target = graphObjects.get(queryTarget);
+            for (AbstractVertex vertex : target.vertexSet()) {
+                StringBuilder vertexString = new StringBuilder();
+                vertexString.append("[");
+                for (Map.Entry<String, String> entry : vertex.getAnnotations().entrySet()) {
+                    String annotation = entry.getKey();
+                    String value = entry.getValue();
+                    if (annotations.contains(annotation)) {
+                        vertexString.append(annotation);
+                        vertexString.append("=");
+                        vertexString.append(value);
+                        vertexString.append(", ");
+                    }
+                }
+                vertexString.delete(vertexString.length() - 2, vertexString.length());
+                vertexString.append("]");
+                System.out.println("\t" + vertexString);
+            }
+            return;
+        } else if (childrenMatcher.matches()) {
+            result = edgeMatcher.group(1);
+            queryTarget = edgeMatcher.group(2);
+            queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
+            String expression = edgeMatcher.group(3);
+            parseQuery(result + "=getLineage(" + queryTarget + ", 1, desc)");
+            parseQuery(result + "=" + result + ".getVertices(" + expression + ")");
+            return;
+        } else if (parentsMatcher.matches()) {
+            result = edgeMatcher.group(1);
+            queryTarget = edgeMatcher.group(2);
+            queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
+            String expression = edgeMatcher.group(3);
+            parseQuery(result + "=getLineage(" + queryTarget + ", 1, anc)");
+            parseQuery(result + "=" + result + ".getVertices(" + expression + ")");
+            return;
         }
 
         try {

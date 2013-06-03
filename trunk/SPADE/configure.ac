@@ -20,9 +20,6 @@ if test "`$JAVAC -version 2>&1 | grep '1.6'`" = ""; then
     AC_MSG_ERROR([The java compiler version must be 1.6 or 1.7])
   fi
 fi
-if test "`$JAVAC -version 2>&1 | grep 'gcj'`" != ""; then
-   AC_MSG_ERROR([OpenJDK Java Compiler is known to have compilation issues. Please use Oracle's JDK for compilation from http://www.oracle.com/technetwork/java/javase/downloads/index.html])
-fi
 
 AC_CHECK_PROGS([JAVAH], [javah], [:])
 if test "$JAVAH" = :; then

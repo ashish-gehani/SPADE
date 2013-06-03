@@ -20,7 +20,6 @@
 package spade.core;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -62,15 +61,6 @@ import spade.filter.FinalCommitFilter;
  */
 public class Kernel {
 
-    /**
-     * A string representing the key for the source reporter annotation added to
-     * all elements retrieved from buffers.
-     */
-    public static final String SOURCE_REPORTER = "source_reporter";
-    /**
-     * A string representing the unique identifier for provenance elements.
-     */
-    public static final String UNIQUE_ID = "hashcode";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     /**
      * A map used to cache the remote sketches.
@@ -80,7 +70,7 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static String configFile = SPADE_ROOT + "cfg/spade.config";
+    public static String configFile = SPADE_ROOT + "conf/spade.config";
     /**
      * Path to log files including the prefix.
      */
@@ -129,6 +119,7 @@ public class Kernel {
     private static final int REMOVE_WAIT_DELAY = 100;
     private static final int FIRST_TRANSFORMER = 0;
     private static final int FIRST_FILTER = 0;
+    // Strings for control client
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
     private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter <class name> <index> <initialization arguments>";
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
@@ -138,11 +129,13 @@ public class Kernel {
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
+    // Strings for query client
     private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
     private static final String QUERY_EDGE1_STRING = "<result> = getEdges(source vertex id, destination vertex id)";
     private static final String QUERY_EDGE2_STRING = "<result> = getEdges(source vertex expression, destination vertex expression, edge expression)";
     private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id)";
-    private static final String QUERY_LINEAGE_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
+    private static final String QUERY_LINEAGE1_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
+    private static final String QUERY_LINEAGE2_STRING = "<result> = getLineage(result, depth, direction, terminating expression)";
     private static final String QUERY_LIST_STRING = "list";
     private static final String QUERY_EXPORT_STRING = "export <result> <path>";
     private static final String QUERY_EXIT_STRING = "exit";
@@ -156,10 +149,10 @@ public class Kernel {
     public static SSLServerSocketFactory sslServerSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = Settings.getProperty("spade_root") + "ssl/server.public";
-        String serverPrivatePath = Settings.getProperty("spade_root") + "ssl/server.private";
-        String clientPublicPath = Settings.getProperty("spade_root") + "ssl/client.public";
-        String clientPrivatePath = Settings.getProperty("spade_root") + "ssl/client.private";
+        String serverPublicPath = Settings.getProperty("spade_root") + "conf/ssl/server.public";
+        String serverPrivatePath = Settings.getProperty("spade_root") + "conf/ssl/server.private";
+        String clientPublicPath = Settings.getProperty("spade_root") + "conf/ssl/client.public";
+        String clientPrivatePath = Settings.getProperty("spade_root") + "conf/ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
@@ -359,15 +352,9 @@ public class Kernel {
                                 Object bufferelement = buffer.getBufferElement();
                                 if (bufferelement instanceof AbstractVertex) {
                                     AbstractVertex tempVertex = (AbstractVertex) bufferelement;
-//                                    int hash = tempVertex.hashCode();
-//                                    tempVertex.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
-//                                    tempVertex.addAnnotation(UNIQUE_ID, Integer.toString(hash));
                                     filters.get(FIRST_FILTER).putVertex(tempVertex);
                                 } else if (bufferelement instanceof AbstractEdge) {
                                     AbstractEdge tempEdge = (AbstractEdge) bufferelement;
-//                                    int hash = tempEdge.hashCode();
-//                                    tempEdge.addAnnotation(SOURCE_REPORTER, reporter.getClass().getName().split("\\.")[2]);
-//                                    tempEdge.addAnnotation(UNIQUE_ID, Integer.toString(hash));
                                     filters.get(FIRST_FILTER).putEdge(tempEdge);
                                 } else if (bufferelement == null) {
                                     if (removereporters.contains(reporter)) {
@@ -674,7 +661,8 @@ public class Kernel {
         string.append("\t" + QUERY_EDGE1_STRING + "\n");
         string.append("\t" + QUERY_EDGE2_STRING + "\n");
         string.append("\t" + QUERY_PATHS_STRING + "\n");
-        string.append("\t" + QUERY_LINEAGE_STRING + "\n");
+        string.append("\t" + QUERY_LINEAGE1_STRING + "\n");
+        string.append("\t" + QUERY_LINEAGE2_STRING + "\n");
         string.append("\t" + QUERY_LIST_STRING + "\n");
         string.append("\t" + QUERY_EXPORT_STRING + "\n");
         string.append("\t" + QUERY_EXIT_STRING);

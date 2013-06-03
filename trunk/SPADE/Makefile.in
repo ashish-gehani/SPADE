@@ -6,6 +6,7 @@ JAVAH=@JAVAH@
 CC=@CC@
 JAR=@JAR@
 JAVAC_CP = build:lib/*
+JAVAC_OPTIONS = -Xlint:none -proc:none
 
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 # LLVM_TARGET = nweb
@@ -39,14 +40,7 @@ ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 endif
 
 # -------- Default Build Configuration -----
-CORE = AbstractEdge AbstractFilter AbstractReporter AbstractSketch AbstractStorage AbstractVertex \
-	BloomFilter Buffer Edge Graph Kernel MatrixFilter Query Vertex Settings
-REPORTERS = Graphviz DSL Network LLVM ProcMon
-STORAGES = Graphviz Neo4j SQL
-CLIENTS = ControlClient QueryClient QueryTool
-UTILITIES = JavaHome
-FILTERS =  CycleAvoidance Fusion GraphFinesse IORuns LLVMFilter FinalCommitFilter
-BUILD_DIRS = build
+REPORTERS = Graphviz DSL Network LLVM
 # -------------------------------------------
 
 .PHONY: build prepare-dirs core reporters filters clients utilities storages
@@ -65,31 +59,36 @@ help:
 
 build: | prepare-dirs 
 build: build-java $$(OS_BUILD) lib/spade.jar
-build-java: clients utilities storages filters reporters vertex edge
+build-java: core clients utilities storages filters sketches reporters
 
 .SUFFIXES : .class .java
 
 prepare-dirs: 
-	mkdir -p $(foreach d, $(BUILD_DIRS), $(d) )
+	mkdir -p build
 
 build/%.class : src/%.java
-	$(JAVAC) -source 1.6 -target 1.6 -Xlint:-options -proc:none -cp '$(JAVAC_CP)' -sourcepath src -d build $<
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build $<
 
-core: $$(foreach f, $$(CORE), build/spade/core/$$(f).class)
+core:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/core/*.java
 	@echo "--- Built Core ---"
-clients: core $$(foreach f, $$(CLIENTS), build/spade/client/$$(f).class) 
+clients:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/client/*.java
 	@echo "--- Built Clients ---"
-reporters: core $$(foreach f,$$(REPORTERS), build/spade/reporter/$$(f).class ) 
+reporters: $$(foreach f,$$(REPORTERS), build/spade/reporter/$$(f).class ) 
 	@echo "--- Built Reporters ---"
-storages: core $$(foreach f,$$(STORAGES), build/spade/storage/$$(f).class )
+storages:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/storage/*.java
 	@echo "--- Built Storages ---"
-utilities: core $$(foreach f,$$(UTILITIES), build/spade/utility/$$(f).class )
+utilities:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/utility/*.java
 	@echo "--- Built Utilities ---"
-filters: core $$(foreach f,$$(FILTERS), build/spade/filter/$$(f).class )
+filters:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/filter/*.java
 	@echo "--- Built Filters ---"
-edge: core $$(foreach f, Used WasControlledBy WasDerivedFrom WasGeneratedBy WasTriggeredBy , build/spade/edge/opm/$$(f).class )
-vertex: core $$(foreach f, Agent  Artifact  Process , build/spade/vertex/opm/$$(f).class ) \
-	$$(foreach f, File  Function  Network  Program  Variable  , build/spade/vertex/custom/$$(f).class )
+sketches:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/sketch/*.java
+	@echo "--- Built Sketches ---"
 
 lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
@@ -160,19 +159,18 @@ build-linux-llvm:
 
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeLinuxAudit
+	@rm -rf conf/ssl
 
 DESTDIR = @prefix@
 install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR)
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
-	cp -R cfg $(DESTDIR)
+	cp -R conf $(DESTDIR)
 	cp -R log $(DESTDIR)
-	cp -R ssl $(DESTDIR)
