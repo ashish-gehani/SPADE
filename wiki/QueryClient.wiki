@@ -5,7 +5,7 @@
 SPADE supports three classes of queries. These are invoked using the SPADE query client which is started with the following command:
 
 {{{
-spade-query
+dig.sh
 }}}
 
 The following will appear:
