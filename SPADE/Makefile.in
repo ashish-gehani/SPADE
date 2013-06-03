@@ -174,3 +174,5 @@ install:
 	cp -R lib $(DESTDIR)
 	cp -R conf $(DESTDIR)
 	cp -R log $(DESTDIR)
+	cp -R scripts $(DESTDIR)
+	cp -R templates $(DESTDIR)
