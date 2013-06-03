@@ -54,6 +54,10 @@ public class Graph extends AbstractStorage implements Serializable {
     private static final String INTERNAL_HASH_KEY = "INTERNAL_HASH_KEY";
     private static final String INTERNAL_SRC_VERTEX_HASH_KEY = "INTERNAL_SRC_VERTEX_HASH_KEY";
     private static final String INTERNAL_DST_VERTEX_HASH_KEY = "INTERNAL_DST_VERTEX_HASH_KEY";
+    private static final String ID_STRING = Settings.getProperty("storage_identifier");
+    private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+    private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
     private Set<AbstractVertex> vertexSet;
     private Map<Integer, AbstractVertex> vertexHashes;
     private Set<AbstractEdge> edgeSet;
@@ -482,11 +486,11 @@ public class Graph extends AbstractStorage implements Serializable {
                     doneSet.add(currentVertexHash);
 
                     String queryString;
-                    if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+                    if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
                         queryString = INTERNAL_SRC_VERTEX_HASH_KEY + ":" + currentVertexHash;
-                    } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+                    } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
                         queryString = INTERNAL_DST_VERTEX_HASH_KEY + ":" + currentVertexHash;
-                    } else if (Query.DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
+                    } else if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
                         queryString = INTERNAL_SRC_VERTEX_HASH_KEY + ":" + currentVertexHash
                                 + " OR " + INTERNAL_DST_VERTEX_HASH_KEY + ":" + currentVertexHash;
                     } else {
@@ -502,17 +506,17 @@ public class Graph extends AbstractStorage implements Serializable {
                         int hash = Integer.parseInt(foundDoc.get(INTERNAL_HASH_KEY));
                         newTempEdgeSet.add(hash);
                         AbstractEdge tempEdge = edgeHashes.get(hash);
-                        if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+                        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
                             int newHash = tempEdge.getDestinationVertex().hashCode();
                             if (!doneSet.contains(newHash)) {
                                 newTempSet.add(newHash);
                             }
-                        } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+                        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
                             int newHash = tempEdge.getSourceVertex().hashCode();
                             if (!doneSet.contains(newHash)) {
                                 newTempSet.add(newHash);
                             }
-                        } else if (Query.DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
+                        } else if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
                             int newHash1 = tempEdge.getSourceVertex().hashCode();
                             if (!doneSet.contains(newHash1)) {
                                 newTempSet.add(newHash1);
@@ -549,7 +553,7 @@ public class Graph extends AbstractStorage implements Serializable {
         try {
             StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_35);
             QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
-            org.apache.lucene.search.Query query = queryParser.parse(Query.STORAGE_ID_STRING + ":" + vertexId);
+            org.apache.lucene.search.Query query = queryParser.parse(ID_STRING + ":" + vertexId);
             IndexReader reader = IndexReader.open(vertexIndex);
             IndexSearcher searcher = new IndexSearcher(reader);
             TopScoreDocCollector collector = TopScoreDocCollector.create(1, true);

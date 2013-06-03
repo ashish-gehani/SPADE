@@ -15,19 +15,25 @@ import java.util.Properties;
  */
 public class Settings {
 
-    private static final String settingsFile = "../cfg/settings.config";
+    private static final String settingsFile = "conf/settings.config";
     private final static Properties prop = new Properties();
 
     static {
         try {
             prop.load(new FileInputStream(settingsFile));
         } catch (IOException ex) {
+            setProperty("spade_root", "./");
             setProperty("local_control_port", "19999");
             setProperty("local_query_port", "19998");
             setProperty("remote_query_port", "29999");
             setProperty("remote_sketch_port", "29998");
             setProperty("connection_timeout", "15000");
-            setProperty("spade_root", "../../");
+            setProperty("source_reporter", "source_reporter");
+            setProperty("direction_ancestors", "ancestors");
+            setProperty("direction_descendants", "descendants");
+            setProperty("direction_both", "both");
+            setProperty("storage_identifier", "storageID");
+            setProperty("default_query_storage", "Neo4j");
         }
     }
 

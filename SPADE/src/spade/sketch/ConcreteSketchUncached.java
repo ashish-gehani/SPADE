@@ -23,8 +23,6 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -120,6 +118,7 @@ class updateMatrixThreadUncached implements Runnable {
     private AbstractVertex vertex;
     private String type;
     private static final Logger logger = Logger.getLogger(updateMatrixThreadUncached.class.getName());
+    private static final String ID_STRING = Settings.getProperty("storage_identifier");
 
     public updateMatrixThreadUncached(AbstractSketch workingSketch, AbstractVertex networkVertex, String edgeType) {
         sketch = workingSketch;
@@ -175,9 +174,9 @@ class updateMatrixThreadUncached implements Runnable {
             Graph result = Query.executeQuery(vertexQueryExpression, false);
             AbstractVertex resultVertex = result.vertexSet().iterator().next();
             ////////////////////////////////////////////////////////////
-            logger.log(Level.INFO, "concreteSketch - Returning storageId: {0}", resultVertex.getAnnotation(Query.STORAGE_ID_STRING));
+            logger.log(Level.INFO, "concreteSketch - Returning storageId: {0}", resultVertex.getAnnotation(ID_STRING));
             ////////////////////////////////////////////////////////////
-            return resultVertex.getAnnotation(Query.STORAGE_ID_STRING);
+            return resultVertex.getAnnotation(ID_STRING);
         } catch (Exception exception) {
             Logger.getLogger(ConcreteSketchUncached.class.getName()).log(Level.SEVERE, null, exception);
             return null;

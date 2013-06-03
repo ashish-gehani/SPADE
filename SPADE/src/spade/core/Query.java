@@ -46,14 +46,8 @@ public class Query {
     private static final int WAIT_FOR_FLUSH = 10;
     private static final Logger logger = Logger.getLogger(Query.class.getName());
     protected static final boolean DEBUG_OUTPUT = false;
-    public static final String STORAGE_ID_STRING = "storageId";
-    // String to match for when specifying direction for ancestors
-    public static final String DIRECTION_ANCESTORS = "ancestors";
-    // String to match for when specifying direction for descendants
-    public static final String DIRECTION_DESCENDANTS = "descendants";
-    // String to match for when specifying direction for both ancestors
-    // and descendants
-    public static final String DIRECTION_BOTH = "both";
+    private static final String ID_STRING = Settings.getProperty("storage_identifier");
+    private static final String QUERY_STORAGE = Settings.getProperty("default_query_storage");
 
     /**
      * This method is used to call query methods on the desired storage. The
@@ -401,7 +395,7 @@ public class Query {
             }
 
             for (int i = 0; i < vertices.length; i++) {
-                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(Query.STORAGE_ID_STRING);
+                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(ID_STRING);
                 Graph path = executeQuery("query Neo4j paths " + srcVertexId + " " + vertexId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
@@ -450,7 +444,7 @@ public class Query {
             }
 
             for (int i = 0; i < vertices.length; i++) {
-                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(Query.STORAGE_ID_STRING);
+                String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(ID_STRING);
                 Graph path = executeQuery("query Neo4j paths " + vertexId + " " + dstVertexId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
@@ -574,8 +568,8 @@ public class Query {
                 if (j == i) {
                     continue;
                 }
-                String srcId = ((AbstractVertex) vertices[i]).getAnnotation(Query.STORAGE_ID_STRING);
-                String dstId = ((AbstractVertex) vertices[j]).getAnnotation(Query.STORAGE_ID_STRING);
+                String srcId = ((AbstractVertex) vertices[i]).getAnnotation(ID_STRING);
+                String dstId = ((AbstractVertex) vertices[j]).getAnnotation(ID_STRING);
                 Graph path = executeQuery("query Neo4j paths " + srcId + " " + dstId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
@@ -785,14 +779,14 @@ public class Query {
             // Add those network vertices to the destination set that have a path
             // to the specified vertex
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet()) {
-                expression = "query Neo4j paths " + currentVertex.getAnnotation(Query.STORAGE_ID_STRING) + " " + dstVertexId + " 20";
+                expression = "query Neo4j paths " + currentVertex.getAnnotation(ID_STRING) + " " + dstVertexId + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty()) {
                     destinationNetworkVertices.add(currentVertex);
 
                     if (DEBUG_OUTPUT) {
-                        logger.log(Level.INFO, "sketchPaths.1 - added vertex {0} to dstSet", currentVertex.getAnnotation(Query.STORAGE_ID_STRING));
+                        logger.log(Level.INFO, "sketchPaths.1 - added vertex {0} to dstSet", currentVertex.getAnnotation(ID_STRING));
                     }
 
                 }
@@ -826,14 +820,14 @@ public class Query {
             // Check whether the remote query server returned a graph in response
             tempResultGraph = (Graph) graphInputStream.readObject();
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet()) {
-                expression = "query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation(Query.STORAGE_ID_STRING) + " 20";
+                expression = "query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation(ID_STRING) + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty()) {
                     sourceNetworkVertices.add(currentVertex);
 
                     if (DEBUG_OUTPUT) {
-                        logger.log(Level.INFO, "sketchPaths.1 - added vertex {0} to srcSet", currentVertex.getAnnotation(Query.STORAGE_ID_STRING));
+                        logger.log(Level.INFO, "sketchPaths.1 - added vertex {0} to srcSet", currentVertex.getAnnotation(ID_STRING));
                     }
 
                 }
@@ -1024,7 +1018,7 @@ public class Query {
             // The graph should only have one vertex which is the network vertex.
             // We use this to get the vertex id
             AbstractVertex targetVertex = vertexGraph.vertexSet().iterator().next();
-            String targetVertexId = targetVertex.getAnnotation(Query.STORAGE_ID_STRING);
+            String targetVertexId = targetVertex.getAnnotation(ID_STRING);
             int vertexId = Integer.parseInt(targetVertexId);
 
             // Build the expression for the remote lineage query

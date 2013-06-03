@@ -34,7 +34,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.core.Query;
+import spade.core.Settings;
 import spade.core.Vertex;
 
 /**
@@ -52,6 +52,9 @@ public class SQL extends AbstractStorage {
     private final boolean ENABLE_SANITAZATION = true;
     private final int BATCH_SIZE = 1000;
     private int statement_count = 0;
+    private static final String ID_STRING = Settings.getProperty("storage_identifier");
+    private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
     private Statement batch_statement;
 
     @Override
@@ -63,15 +66,17 @@ public class SQL extends AbstractStorage {
 
         try {
             String[] tokens = arguments.split("\\s+");
-            String driver = tokens[0];
-            String databaseURL = tokens[1];
-            String username = tokens[2];
-            String password = tokens[3];
-            username = (username.equalsIgnoreCase("null")) ? "" : username;
-            password = (password.equalsIgnoreCase("null")) ? "" : password;
+            String driver = (tokens[0].equalsIgnoreCase("default")) ? "org.apache.derby.jdbc.EmbeddedDriver" : tokens[0];
+            String databaseURL = (tokens[1].equalsIgnoreCase("default")) ? "jdbc:derby:derbyDB;create=true" : tokens[1];
+//            String username = tokens[2];
+//            String password = tokens[3];
+//            username = (username.equalsIgnoreCase("null")) ? "" : username;
+//            password = (password.equalsIgnoreCase("null")) ? "" : password;
 
-            Class.forName(driver);
-            dbConnection = DriverManager.getConnection(databaseURL, username, password);
+            Class.forName(driver).newInstance();
+            dbConnection = DriverManager.getConnection(databaseURL);
+//            dbConnection = DriverManager.getConnection(databaseURL, username, password);
+            dbConnection.setAutoCommit(false);
 
             Statement dbStatement = dbConnection.createStatement();
 
@@ -121,6 +126,7 @@ public class SQL extends AbstractStorage {
                 batch_statement.executeBatch();
             }
             batch_statement.close();
+            DriverManager.getConnection("jdbc:derby:;shutdown=true");
             dbConnection.close();
             return true;
         } catch (Exception ex) {
@@ -420,15 +426,14 @@ public class SQL extends AbstractStorage {
         }
 
         String dir;
-        if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
             dir = "a";
-        } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
             dir = "d";
         } else {
             return null;
         }
 
-        int currentDepth = 0;
         while (true) {
             if ((tempSet.isEmpty()) || (depth == 0)) {
                 break;
@@ -488,7 +493,6 @@ public class SQL extends AbstractStorage {
             tempSet.clear();
             tempSet.addAll(newTempSet);
             depth--;
-            currentDepth++;
         }
 
         return graph;

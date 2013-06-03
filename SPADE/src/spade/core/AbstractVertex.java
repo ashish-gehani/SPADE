@@ -20,7 +20,7 @@
 package spade.core;
 
 import java.io.Serializable;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -34,7 +34,7 @@ public abstract class AbstractVertex implements Serializable {
     /**
      * A map containing the annotations for this vertex.
      */
-    protected Map<String, String> annotations = new LinkedHashMap<String, String>();
+    protected Map<String, String> annotations = new HashMap<String, String>();
 
     /**
      * Returns the map containing the annotations for this vertex.

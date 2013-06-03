@@ -26,8 +26,7 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Kernel;
-import spade.core.Query;
+import spade.core.Settings;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -86,12 +85,10 @@ public class Graphviz extends AbstractStorage {
                 if (key == null || value == null) {
                     continue;
                 }
-                if ((key.equalsIgnoreCase(Query.STORAGE_ID_STRING))
-                        || (key.equalsIgnoreCase("type"))
+                if ((key.equalsIgnoreCase("type"))
                         || (key.equalsIgnoreCase("subtype"))
                         || (key.equalsIgnoreCase("environment"))
-                        || (key.equalsIgnoreCase(Kernel.UNIQUE_ID))
-                        || (key.equalsIgnoreCase(Kernel.SOURCE_REPORTER))) {
+                        || (key.equalsIgnoreCase(Settings.getProperty("source_reporter")))) {
                     continue;
                 }
                 annotationString.append(key.replace("\\", "\\\\"));
@@ -149,11 +146,9 @@ public class Graphviz extends AbstractStorage {
                 if (key == null || value == null) {
                     continue;
                 }
-                if ((key.equalsIgnoreCase(Query.STORAGE_ID_STRING))
-                        || (key.equalsIgnoreCase("type"))
+                if ((key.equalsIgnoreCase("type"))
                         || (key.equalsIgnoreCase("subtype"))
-                        || (key.equalsIgnoreCase(Kernel.UNIQUE_ID))
-                        || (key.equalsIgnoreCase(Kernel.SOURCE_REPORTER))) {
+                        || (key.equalsIgnoreCase(Settings.getProperty("source_reporter")))) {
                     continue;
                 }
                 annotationString.append(key.replace("\\", "\\\\"));
@@ -209,25 +204,4 @@ public class Graphviz extends AbstractStorage {
             return false;
         }
     }
-
-//    /**
-//     * This method returns the internal state of the storage. It is used mainly
-//     * for debugging/monitoring.
-//     *
-//     * @return textual description of internal state
-//     */
-//    @Override
-//    public String getInternalState() {
-//        return super.getInternalState() + "\tTransaction Count: " + String.valueOf(transaction_count);
-//    }
-//
-//    /**
-//     * This method returns the internal state of the storage with more verbosity
-//     *
-//     * @return textual description of the internal state
-//     */
-//    @Override
-//    public String getInternalStateVerbose() {
-//        return getInternalState();
-//    }
 }

@@ -46,7 +46,7 @@ import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
-import spade.core.Query;
+import spade.core.Settings;
 import spade.core.Vertex;
 
 /**
@@ -57,14 +57,17 @@ import spade.core.Vertex;
 public class Neo4j extends AbstractStorage {
 
     // Number of transactions to buffer before committing to database
-    private final int TRANSACTION_LIMIT = 10000;
+    private static final int TRANSACTION_LIMIT = 10000;
     // Number of transaction flushes before the database is shutdown and
     // restarted
-    private final int HARD_FLUSH_LIMIT = 10;
+    private static final int HARD_FLUSH_LIMIT = 10;
     // Identifying annotation to add to each edge/vertex
-    private final String ID_STRING = Query.STORAGE_ID_STRING;
-    private final String VERTEX_INDEX = "vertexIndex";
-    private final String EDGE_INDEX = "edgeIndex";
+    private static final String ID_STRING = Settings.getProperty("storage_identifier");
+    private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+    private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
+    private static final String VERTEX_INDEX = "vertexIndex";
+    private static final String EDGE_INDEX = "edgeIndex";
     private GraphDatabaseService graphDb;
     private IndexManager index;
     private Index<Node> vertexIndex;
@@ -80,6 +83,10 @@ public class Neo4j extends AbstractStorage {
     private enum MyRelationshipTypes implements RelationshipType {
 
         EDGE
+    }
+
+    public GraphDatabaseService getDB() {
+        return graphDb;
     }
 
     @Override
@@ -223,17 +230,13 @@ public class Neo4j extends AbstractStorage {
     private AbstractVertex convertNodeToVertex(Node node) {
         AbstractVertex resultVertex = new Vertex();
         for (String key : node.getPropertyKeys()) {
-            try {
-                String value = (String) node.getProperty(key);
-                resultVertex.addAnnotation(key, value);
-            } catch (Exception fetchStringException) {
-                try {
-                    String longValue = Long.toString((Long) node.getProperty(key));
-                    resultVertex.addAnnotation(key, longValue);
-                } catch (Exception fetchLongException) {
-                    String doubleValue = Double.toString((Double) node.getProperty(key));
-                    resultVertex.addAnnotation(key, doubleValue);
-                }
+            Object value = node.getProperty(key);
+            if (value instanceof String) {
+                resultVertex.addAnnotation(key, (String) value);
+            } else if (value instanceof Long) {
+                resultVertex.addAnnotation(key, Long.toString((Long) value));
+            } else if (value instanceof Double) {
+                resultVertex.addAnnotation(key, Double.toString((Double) value));
             }
         }
         return resultVertex;
@@ -242,17 +245,13 @@ public class Neo4j extends AbstractStorage {
     private AbstractEdge convertRelationshipToEdge(Relationship relationship) {
         AbstractEdge resultEdge = new Edge((Vertex) convertNodeToVertex(relationship.getStartNode()), (Vertex) convertNodeToVertex(relationship.getEndNode()));
         for (String key : relationship.getPropertyKeys()) {
-            try {
-                String value = (String) relationship.getProperty(key);
-                resultEdge.addAnnotation(key, value);
-            } catch (Exception fetchStringException) {
-                try {
-                    String longValue = Long.toString((Long) relationship.getProperty(key));
-                    resultEdge.addAnnotation(key, longValue);
-                } catch (Exception fetchLongException) {
-                    String doubleValue = Double.toString((Double) relationship.getProperty(key));
-                    resultEdge.addAnnotation(key, doubleValue);
-                }
+            Object value = relationship.getProperty(key);
+            if (value instanceof String) {
+                resultEdge.addAnnotation(key, (String) value);
+            } else if (value instanceof Long) {
+                resultEdge.addAnnotation(key, Long.toString((Long) value));
+            } else if (value instanceof Double) {
+                resultEdge.addAnnotation(key, Double.toString((Double) value));
             }
         }
         return resultEdge;
@@ -379,11 +378,11 @@ public class Neo4j extends AbstractStorage {
         }
 
         Direction dir;
-        if (Query.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
             dir = Direction.OUTGOING;
-        } else if (Query.DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
             dir = Direction.INCOMING;
-        } else if (Query.DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
+        } else if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
             Graph ancestor = getLineage(vertexId, depth, "ancestor", terminatingExpression);
             Graph descendant = getLineage(vertexId, depth, "descendant", terminatingExpression);
             Graph result = Graph.union(ancestor, descendant);

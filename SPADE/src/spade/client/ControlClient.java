@@ -51,7 +51,7 @@ public class ControlClient {
     private static BufferedReader SPADEControlOut;
     private static volatile boolean shutdown;
     private static final String SPADE_ROOT = "../";
-    private static final String historyFile = SPADE_ROOT + "cfg/control.history";
+    private static final String historyFile = SPADE_ROOT + "conf/control.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
     // Members for creating secure sockets
@@ -60,8 +60,8 @@ public class ControlClient {
     private static SSLSocketFactory sslSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = SPADE_ROOT + "ssl/server.public";
-        String clientPrivatePath = SPADE_ROOT + "ssl/client.private";
+        String serverPublicPath = SPADE_ROOT + "conf/ssl/server.public";
+        String clientPrivatePath = SPADE_ROOT + "conf/ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());

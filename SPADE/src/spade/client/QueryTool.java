@@ -47,8 +47,8 @@ public class QueryTool {
     private static SSLSocketFactory sslSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = SPADE_ROOT + "ssl/server.public";
-        String clientPrivatePath = SPADE_ROOT + "ssl/client.private";
+        String serverPublicPath = SPADE_ROOT + "conf/ssl/server.public";
+        String clientPrivatePath = SPADE_ROOT + "conf/ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
