@@ -433,7 +433,7 @@ public class Graph extends AbstractStorage implements Serializable {
 				graph.putEdge(edge);
 			}
 		} catch (Exception exception) {
-			exception.printStackTrace();
+                    logger.log(Level.SEVERE, "Error while processing line: " + line, exception);
 		}
 	}
 
