@@ -88,7 +88,7 @@ public abstract class AbstractStorage {
      * @return The result of this query in a graph object.
      */
     public Graph getVertices(String expression) {
-        return null;
+		throw new UnsupportedOperationException("Unsupported operation.");
     }
 
     /**
@@ -102,7 +102,7 @@ public abstract class AbstractStorage {
      * @return The result of this query in a graph object.
      */
     public Graph getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
-        return null;
+		throw new UnsupportedOperationException("Unsupported operation.");
     }
 
     /**
@@ -113,8 +113,8 @@ public abstract class AbstractStorage {
      * @param dstVertexId The destination vertex id.
      * @return The result of this query in a graph object.
      */
-    public Graph getEdges(String srcVertexId, String dstVertexId) {
-        return null;
+    public Graph getEdges(int srcVertexId, int dstVertexId) {
+		throw new UnsupportedOperationException("Unsupported operation.");
     }
 
     /**
@@ -127,8 +127,20 @@ public abstract class AbstractStorage {
      * @param maxLength The maximum path length.
      * @return The result of this query in a graph object.
      */
-    public Graph getPaths(String srcVertexId, String dstVertexId, int maxLength) {
-        return null;
+    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
+		throw new UnsupportedOperationException("Unsupported operation.");
+    }
+
+    public Graph getPaths(int srcVertexId, int dstVertexId) {
+    	return getPaths(srcVertexId, dstVertexId, Integer.MAX_VALUE);
+    }
+    
+    public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
+		throw new UnsupportedOperationException("Unsupported operation.");
+    }
+
+    public Graph getPaths(String srcVertexExpression, String dstVertexExpression) {
+    	return getPaths(srcVertexExpression, dstVertexExpression, Integer.MAX_VALUE);
     }
 
     /**
@@ -143,7 +155,19 @@ public abstract class AbstractStorage {
      * lineage or null.
      * @return The result of this query in a graph object.
      */
-    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
-        return null;
+    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
+		throw new UnsupportedOperationException("Unsupported operation.");
+    }
+    
+    public Graph getLineage(int vertexId, String direction) {
+    	return getLineage(vertexId, Integer.MAX_VALUE, direction, null);
+    }
+
+    public Graph getLineage(String vertexExpression, int depth, String direction, String terminatingExpression) {
+		throw new UnsupportedOperationException("Unsupported operation.");
+    }
+    
+    public Graph getLineage(String vertexExpression, String direction) {
+    	return getLineage(vertexExpression, Integer.MAX_VALUE, direction, null);
     }
 }

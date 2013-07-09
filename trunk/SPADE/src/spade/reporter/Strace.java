@@ -20,6 +20,7 @@
 package spade.reporter;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
@@ -30,7 +31,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -44,540 +44,704 @@ import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
 /**
- *
- * @author Dawood
+ * 
+ * @author Dawood Tariq and Sharjeel Qureshi
  */
 public class Strace extends AbstractReporter {
 
-    BufferedReader reader;
-    PrintWriter debugWriter;
-    volatile boolean shutdown = false;
-    final boolean DEBUG_INFO = false;
-    static final Logger logger = Logger.getLogger(Strace.class.getName());
-//    final Pattern eventPattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+([\\d]+:[\\d]+:[\\d]+\\.[\\d]+)\\s+(\\w+)\\((.*)\\)\\s+=\\s+(\\-?[0-9]+).*");
-//    final Pattern eventIncompletePattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+(.*) <unfinished \\.\\.\\.>");
-//    final Pattern eventCompletorPattern = Pattern.compile("\\[pid\\s+([0-9]+)\\]\\s+.*<... \\w+ resumed> (.*)");
-    final Pattern eventPattern = Pattern.compile("([0-9]+)\\s+([\\d]+:[\\d]+:[\\d]+\\.[\\d]+)\\s+(\\w+)\\((.*)\\)\\s+=\\s+(\\-?[0-9]+).*");
-    final Pattern eventIncompletePattern = Pattern.compile("([0-9]+)\\s+(.*) <unfinished \\.\\.\\.>");
-    final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
-    Map<String, String> incompleteEvents = new HashMap<String, String>();
-    Map<String, Map<String, String>> fileDescriptors = new HashMap<String, Map<String, String>>();
-    Map<String, Integer> fileVersions = new HashMap<String, Integer>();
-    Map<String, Process> processes = new HashMap<String, Process>();
-    List<Set<String>> sharedDescriptorTables = new ArrayList<Set<String>>();
-    final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
-    int lineNumber = 1;
-    long boottime = 0;
-    String mainPID;
+	PrintWriter logWriter;
+	final boolean LOG_DEBUG_INFO = true;
+	final int THREAD_SLEEP_DELAY = 5;
+	volatile boolean shutdown = false;
+	static final Logger logger = Logger.getLogger(Strace.class.getName());
+	static final Pattern eventPattern = Pattern.compile("([0-9]+)\\s+([\\d]+:[\\d]+:[\\d]+\\.[\\d]+)\\s+(\\w+)\\((.*)\\)\\s+=\\s+(\\-?[0-9]+).*");
+	static final Pattern eventIncompletePattern = Pattern.compile("([0-9]+)\\s+(.*) <unfinished \\.\\.\\.>");
+	static final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
+	static final Pattern networkPattern = Pattern.compile("sin_port=htons\\(([0-9]+)\\), sin_addr=inet_addr\\(\"(.*)\"\\)");
+	static final Pattern binderTransactionPattern = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
+	String DEBUG_FILE_PATH = "/sdcard/spade/debug.txt";
+	String TEMP_FILE_PATH = "/sdcard/spade/output.txt";
+	Map<String, String> incompleteEvents = new HashMap<String, String>();
+	Map<String, Map<String, String>> fileDescriptors = new HashMap<String, Map<String, String>>();
+	Map<String, Integer> fileVersions = new HashMap<String, Integer>();
+	Map<String, Process> processes = new HashMap<String, Process>();
+	List<Set<String>> sharedDescriptorTables = new ArrayList<Set<String>>();
+	final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
+	ArrayList<String> mainPIDs = new ArrayList<String>();
+	String templine = null;
 
-    @Override
-    public boolean launch(String arguments) {
-        if (arguments == null) {
-            // Attach to zygote
-            try {
-                java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
-                BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
-                pidReader.readLine();
-                String line;
-                while ((line = pidReader.readLine()) != null) {
-                    String details[] = line.split("\\s+");
-                    String pid = details[1];
-                    String name = details[8];
-                    if (name.equals("zygote")) {
-                        mainPID = pid;
-                        logger.log(Level.INFO, "attached to zygote with pid {0}", pid);
-                        break;
-                    }
-                }
-                pidReader.close();
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-                return false;
-            }
-        } else {
-            mainPID = arguments;
-        }
+	private void log(String message) {
+		if (LOG_DEBUG_INFO) {
+			logWriter.println(message);
+		}
+	}
 
-        try {
-            BufferedReader boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
-            String line;
-            while ((line = boottimeReader.readLine()) != null) {
-                StringTokenizer st = new StringTokenizer(line);
-                if (st.nextToken().equals("btime")) {
-                    boottime = Long.parseLong(st.nextToken()) * 1000;
-                    break;
-                } else {
-                    continue;
-                }
-            }
-            boottimeReader.close();
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-        }
+	@Override
+	public boolean launch(String arguments) {
+		if (arguments == null) {
+			// Attach to zygote
+			try {
+				java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+				BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+				pidReader.readLine();
+				String line;
+				while ((line = pidReader.readLine()) != null) {
+					String details[] = line.split("\\s+");
+					String uid = details[0];
+					String pid = details[1];
+					String name = details[8];
+					if (name.equals("zygote")) {
+						mainPIDs.add(pid);
+						logger.log(Level.INFO, "attached to zygote with pid {0}", pid);
+					}
+					if (uid.equals("radio")) {
+						mainPIDs.add(pid);
+						logger.log(Level.INFO, "attached to radio process with pid {0}", pid);
+					}
+				}
+				pidReader.close();
+			} catch (Exception exception) {
+				logger.log(Level.SEVERE, null, exception);
+				return false;
+			}
+		} else {
+			mainPIDs.add(arguments);
+		}
 
-        try {
-            java.lang.Process pidinfo = Runtime.getRuntime().exec("ls -l /proc/" + mainPID + "/fd");
-            BufferedReader fdReader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
-            Map<String, String> descriptors = new HashMap<String, String>();
-            while (true) {
-                String line = fdReader.readLine();
-                if (line == null) {
-                    break;
-                }
-                String tokens[] = line.split("\\s+", 8);
-                String fd = tokens[5];
-                String location = tokens[7];
-                descriptors.put(fd, location);
-            }
-            fileDescriptors.put(mainPID, descriptors);
-            fdReader.close();
+		try {
+			if (LOG_DEBUG_INFO) {
+				logWriter = new PrintWriter(new FileWriter(DEBUG_FILE_PATH, false));
+			}
 
-            if (DEBUG_INFO) {
-                debugWriter = new PrintWriter(new FileWriter(mainPID + "_trace_dbg.txt"));
-            }
+			for (String pid : mainPIDs) {
+				checkProcessTree(pid);
+			}
 
-            Runnable eventProcessor = new Runnable() {
-                public void run() {
-                    try {
-                        String straceCmdLine = "strace -e fork,read,write,open,close,link,unlink,execve,mknod,rename,dup,pipe,dup2,symlink,truncate,ftruncate,";
-                        straceCmdLine += "socketcall,clone,vfork,setreuid32,setresuid32,setuid32,chmod,fchmod,";
-                        straceCmdLine += "ioctl,pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,socket,connect,accept";
-                        straceCmdLine += " -f -tt -s 200 -p " + mainPID + " -o tmp.txt";
+			Runnable traceProcessor = new Runnable() {
+				public void run() {
+					try {
+						String straceCmdLine = "strace -e fork,read,write,open,close,link,execve,mknod,rename,dup,dup2,symlink,";
+						straceCmdLine += "clone,vfork,setuid32,setgid32,chmod,fchmod,pipe,truncate,ftruncate,";
+						straceCmdLine += "ioctl,pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,connect,accept";
+						straceCmdLine += " -f -F -tt -v -s 200";
+						for (String pid : mainPIDs) {
+							straceCmdLine += " -p " + pid;
+						}
+						straceCmdLine += " -o " + TEMP_FILE_PATH;
+						logger.log(Level.INFO, straceCmdLine);
 
-                        java.lang.Process straceProcess = Runtime.getRuntime().exec(straceCmdLine);
-//                        reader = new BufferedReader(new InputStreamReader(straceProcess.getInputStream()));
-                        Thread.sleep(2000);
-                        reader = new BufferedReader(new FileReader("tmp.txt"));
+						java.lang.Process straceProcess = Runtime.getRuntime().exec(straceCmdLine);
+						Thread.sleep(2000);
+						BufferedReader traceReader = new BufferedReader(new FileReader(TEMP_FILE_PATH));
 
-                        while (!shutdown) {
-                            String line = reader.readLine();
-                            if (line != null) {
-                                parseEvent(line);
-                            } else {
-                                Thread.sleep(5);
-                            }
-                            lineNumber++;
-                        }
+						while (!shutdown) {
+							String line = traceReader.readLine();
+							if (line != null) {
+								parseEvent(line);
+							} else {
+								Thread.sleep(THREAD_SLEEP_DELAY);
+							}
+						}
 
-                        reader.close();
-                        straceProcess.destroy();
-                    } catch (Exception exception) {
-                        logger.log(Level.SEVERE, null, exception);
-                    }
-                }
-            };
-            new Thread(eventProcessor, "strace-Thread").start();
+						if (LOG_DEBUG_INFO) {
+							logWriter.flush();
+							logWriter.close();
+						}
+						traceReader.close();
+						straceProcess.destroy();
+					} catch (Exception exception) {
+						logger.log(Level.SEVERE, null, exception);
+					}
+				}
+			};
+			new Thread(traceProcessor, "strace-Thread").start();
 
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
+			Runnable binderProcessor = new Runnable() {
+				public void run() {
+					try {
+						try {
+							PrintWriter binderControl = new PrintWriter(new FileWriter("/sdcard/spade/android-build/binder_dctl.sh", false));
+							binderControl.println("echo $1 > /sys/module/binder/parameters/debug_mask");
+							binderControl.close();
+							// Purge klog output
+							Runtime.getRuntime().exec("cat /proc/kmsg").destroy();
+							Thread.sleep(500);
+							// Set BINDER's TRANSACTION_ DEBUG log on
+							Runtime.getRuntime().exec("sh /sdcard/spade/android-build/binder_dctl.sh 0x200");
+							Thread.sleep(500);
+						} catch (Exception e) {
+							logger.log(Level.SEVERE, "error setting up binder transaction processor", e);
+							return;
+						}
 
-    private void checkProcess(String pid) {
-        if (!processes.containsKey(pid)) {
-            Process process = new Process();
-            try {
-                BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
-                String nameline = procReader.readLine();
-                procReader.readLine();
-                procReader.readLine();
-                procReader.readLine();
-                String ppidline = procReader.readLine();
-                procReader.readLine();
-                String uidline = procReader.readLine();
-                String gidline = procReader.readLine();
-                procReader.close();
+						java.lang.Process kmsgReaderProcess = Runtime.getRuntime().exec("cat /proc/kmsg");
+						BufferedReader kmsgReader = new BufferedReader(new InputStreamReader(kmsgReaderProcess.getInputStream()));
+						Set<String> transactionAlreadyProcessed = new HashSet<String>();
+						String line;
 
-                BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
-                String statline = statReader.readLine();
-                statReader.close();
+						while (!shutdown) {
+							while ((line = kmsgReader.readLine()) != null) {
+								if (line.contains("BC_REPLY")) {
+									try {
+										// Example line: <6>binder: 276:515
+										// BC_REPLY 116519 -> 422:422, data
+										// 2a290aa8-(null) size 8-0
+										String details[] = line.split("\\s+");
+										String type = details[2];
+										String frompid = details[1].split(":")[1];
+										String topid = details[5].split(":")[1].replace(",", "");
+										String pidpair = frompid + "-" + topid;
+										if (!transactionAlreadyProcessed.contains(pidpair)) {
+											checkProcessTree(topid);
+											checkProcessTree(frompid);
 
-                BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
-                String cmdline = cmdlineReader.readLine();
-                cmdlineReader.close();
+											// Create vertex artifact
+											// binder-<frompid>-<topid>
+											Artifact vertex = new Artifact();
+											vertex.addAnnotation("location", "binder-" + pidpair);
+											putVertex(vertex);
 
-                String stats[] = statline.split("\\s+");
-                long elapsedtime = Long.parseLong(stats[21]) * 10;
-                long starttime = boottime + elapsedtime;
-                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(starttime));
-                String stime = Long.toString(starttime);
+											WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(frompid));
+											wgb.addAnnotation("operation", "BC_REPLY");
+											putEdge(wgb);
 
-                String name = nameline.split("\\s+")[1];
-                String ppid = ppidline.split("\\s+")[1];
-                String uid = uidline.split("\\s+", 2)[1];
-                String gid = gidline.split("\\s+", 2)[1];
-                cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
+											Used used = new Used(processes.get(topid), vertex);
+											used.addAnnotation("operation", "BC_REPLY");
+											putEdge(used);
 
-                process.addAnnotation("name", name);
-                process.addAnnotation("pid", pid);
-                process.addAnnotation("ppid", ppid);
-                process.addAnnotation("uid", uid);
-                process.addAnnotation("gid", gid);
-                process.addAnnotation("starttime_unix", stime);
-                process.addAnnotation("starttime_simple", stime_readable);
-                process.addAnnotation("commandline", cmdline);
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-                return;
-            }
-//            try {
-//                BufferedReader environReader = new BufferedReader(new FileReader("/proc/" + pid + "/environ"));
-//                String environ = environReader.readLine();
-//                environReader.close();
-//                if (environ != null) {
-//                    environ = environ.replace("\0", ", ");
-//                    environ = environ.replace("\"", "'");
-//                    process.addAnnotation("environment", environ);
-//                }
-//            } catch (Exception exception) {
-//            }
-            putVertex(process);
-            processes.put(pid, process);
-        }
-    }
+											transactionAlreadyProcessed.add(pidpair);
+										}
+									} catch (Exception e) {
+										logger.log(Level.SEVERE, "error parsing binder transaction log: " + line, e);
+									}
 
-    private boolean updateSharedDescriptorTables(String pid, String fd, String path, boolean add) {
-        // Search for processes with shared file descriptor tables and update them as well
-        for (int i = 0; i < sharedDescriptorTables.size(); i++) {
-            if (sharedDescriptorTables.get(i).contains(pid)) {
-                for (String sharedPid : sharedDescriptorTables.get(i)) {
-                    if (add) {
-                        if (!fileDescriptors.containsKey(sharedPid)) {
-                            Map<String, String> descriptors = new HashMap<String, String>();
-                            descriptors.put(fd, path);
-                            fileDescriptors.put(sharedPid, descriptors);
-                        } else {
-                            fileDescriptors.get(sharedPid).put(fd, path);
-                        }
-                    } else {
-                        if (fileDescriptors.containsKey(sharedPid) && fileDescriptors.get(sharedPid).containsKey(fd)) {
-                            fileDescriptors.get(sharedPid).remove(fd);
-                        }
-                    }
-                }
-                return true;
-            }
-        }
-        return false;
-    }
+								}
+							}
+						}
+						// Set BINDER's TRANSACTION_ DEBUG log off
+						Runtime.getRuntime().exec("sh /sdcard/spade/android-build/binder_dctl.sh 0x200");
+					} catch (Exception exception) {
+						logger.log(Level.SEVERE, null, exception);
+					}
+				}
+			};
+			new Thread(binderProcessor, "androidBinder-Thread").start();
 
-    private void parseEvent(String line) {
-        Matcher eventMatcher = eventPattern.matcher(line);
-        Matcher incompleteMatcher = eventIncompletePattern.matcher(line);
-        Matcher completorMatcher = eventCompletorPattern.matcher(line);
+			return true;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+	}
 
-        if (eventMatcher.matches()) {
-            String pid = eventMatcher.group(1);
-            String time = eventMatcher.group(2);
-            String syscall = eventMatcher.group(3);
-            String args = eventMatcher.group(4);
-            String retVal = eventMatcher.group(5);
+	private void parseEvent(String line) {
+		try {
+			Matcher eventMatcher = eventPattern.matcher(line);
+			Matcher incompleteMatcher = eventIncompletePattern.matcher(line);
+			Matcher completorMatcher = eventCompletorPattern.matcher(line);
 
-            if (retVal.equals("-1")) {
-                if (DEBUG_INFO) {
-                    debugWriter.println(String.format("%d:\t%s() failed with code %s:\t\t%s", lineNumber, syscall, retVal, line));
-                }
-                return;
-            }
+			boolean success = true;
 
-            if (syscall.equals("open")) {
-                String path = args.substring(1, args.lastIndexOf('\"'));
-                String fd = retVal;
-                // Search for processes with shared file descriptor tables and update them as well
-                if (updateSharedDescriptorTables(pid, fd, path, true)) {
-                    return;
-                }
-                // No shared processes found, just add file to own file descriptor table
-                if (!fileDescriptors.containsKey(pid)) {
-                    Map<String, String> descriptors = new HashMap<String, String>();
-                    descriptors.put(fd, path);
-                    fileDescriptors.put(pid, descriptors);
-                } else {
-                    fileDescriptors.get(pid).put(fd, path);
-                }
-            } else if (syscall.equals("close")) {
-                String fd = args;
-                // Search for processes with shared file descriptor tables and update them as well
-                if (updateSharedDescriptorTables(pid, fd, null, false)) {
-                    return;
-                }
-                if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-                    fileDescriptors.get(pid).remove(fd);
-                } else {
-                    if (DEBUG_INFO) {
-                        debugWriter.println(String.format("%d:\t%s() failed - descriptor %s not found:\t\t%s", lineNumber, syscall, fd, line));
-                    }
-                }
-            } else if (syscall.equals("dup") || syscall.equals("dup2")) {
-                String oldfd = (syscall.equals("dup")) ? args : args.substring(0, args.indexOf(','));
-                String newfd = retVal;
-                if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(oldfd)) {
-                    String path = fileDescriptors.get(pid).get(oldfd);
-                    if (updateSharedDescriptorTables(pid, newfd, path, true)) {
-                        return;
-                    }
-                    fileDescriptors.get(pid).put(newfd, path);
-                } else {
-                    if (DEBUG_INFO) {
-                        debugWriter.println(String.format("%d:\t%s() failed - descriptor %s not found:\t\t%s", lineNumber, syscall, oldfd, line));
-                    }
-                }
-            } else if (syscall.equals("write")
-                    || syscall.equals("pwrite")
-                    || syscall.equals("writev")
-                    || syscall.equals("send")
-                    || syscall.equals("sendmsg")) {
-                String fd = args.substring(0, args.indexOf(','));
-                if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-                    checkProcess(pid);
-                    String path = fileDescriptors.get(pid).get(fd);
-                    Artifact vertex = new Artifact();
-                    vertex.addAnnotation("location", path);
-                    // Look up version number in the version table if this is a normal file
-                    if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
-                        int version = 1;
-                        if (fileVersions.containsKey(path)) {
-                            // Increment previous version number
-                            version = fileVersions.get(path) + 1;
-                        }
-                        fileVersions.put(path, version);
-                        vertex.addAnnotation("version", Integer.toString(version));
-                    }
-                    putVertex(vertex);
-                    WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-                    wgb.addAnnotation("time", time);
-                    putEdge(wgb);
-                } else {
-                    if (DEBUG_INFO) {
-                        debugWriter.println(String.format("%d:\t%s() failed - descriptor %s not found:\t\t%s", lineNumber, syscall, fd, line));
-                    }
-                }
-            } else if (syscall.equals("read")
-                    || syscall.equals("pread")
-                    || syscall.equals("readv")
-                    || syscall.equals("recv")
-                    || syscall.equals("recvmsg")) {
-                String fd = args.substring(0, args.indexOf(','));
-                if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-                    checkProcess(pid);
-                    String path = fileDescriptors.get(pid).get(fd);
-                    Artifact vertex = new Artifact();
-                    vertex.addAnnotation("location", path);
-                    // Look up version number in the version table if this is a normal file
-                    if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
-                        int version = 0;
-                        if (fileVersions.containsKey(path)) {
-                            version = fileVersions.get(path);
-                        }
-                        fileVersions.put(path, version);
-                        vertex.addAnnotation("version", Integer.toString(version));
-                    }
-                    putVertex(vertex);
-                    Used used = new Used(processes.get(pid), vertex);
-                    used.addAnnotation("time", time);
-                    used.addAnnotation("operation", syscall);
-                    putEdge(used);
-                } else {
-                    if (DEBUG_INFO) {
-                        debugWriter.println(String.format("%d:\t%s() failed - descriptor %s not found:\t\t%s", lineNumber, syscall, fd, line));
-                    }
-                }
-            } else if (syscall.equals("recvfrom")) {
-                String fd = args.substring(0, args.indexOf(','));
-                String location = null;
-                int startIndex = args.lastIndexOf('{');
-                if (startIndex != -1) {
-                    location = args.substring(startIndex, args.lastIndexOf('}') + 1);
-                } else if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-                    location = fileDescriptors.get(pid).get(fd);
-                }
-                if (location != null) {
-                    checkProcess(pid);
-                    Artifact vertex = new Artifact();
-                    vertex.addAnnotation("location", location);
-                    putVertex(vertex);
-                    Used used = new Used(processes.get(pid), vertex);
-                    used.addAnnotation("time", time);
-                    used.addAnnotation("operation", syscall);
-                    putEdge(used);
-                }
-            } else if (syscall.equals("fork") || syscall.equals("vfork") || syscall.equals("clone")) {
-                checkProcess(pid);
-                String newPid = retVal;
-                checkProcess(newPid);
-//                for (Entry<String, String> entry : processes.get(pid).getAnnotations().entrySet()) {
-//                    childProcess.addAnnotation(entry.getKey(), entry.getValue());
-//                }
-//                childProcess.addAnnotation("pid", newPid);
-//                if (syscall.equals("clone") && args.contains("CLONE_PARENT") && (processes.get(pid).getAnnotation("ppid") != null)) {
-//                    childProcess.addAnnotation("ppid", processes.get(pid).getAnnotation("ppid"));
-//                } else {
-//                    childProcess.addAnnotation("ppid", pid);
-//                }
-                WasTriggeredBy wtb = new WasTriggeredBy(processes.get(newPid), processes.get(pid));
-                wtb.addAnnotation("operation", syscall);
-                wtb.addAnnotation("time", time);
-                putEdge(wtb);
+			if (eventMatcher.matches()) {
+				String pid = eventMatcher.group(1);
+				String time = eventMatcher.group(2);
+				String syscall = eventMatcher.group(3);
+				String args = eventMatcher.group(4);
+				String retVal = eventMatcher.group(5);
 
-                // Copy file descriptor table to the new process
-                if (fileDescriptors.containsKey(pid)) {
-                    Map<String, String> newfds = new HashMap<String, String>();
-                    for (Map.Entry<String, String> entry : fileDescriptors.get(pid).entrySet()) {
-                        newfds.put(entry.getKey(), entry.getValue());
-                    }
-                    fileDescriptors.put(newPid, newfds);
-                }
+				if (!processes.containsKey(pid)) {
+					log(String.format("process %s not found, generating:\t\t%s", pid, line));
+					checkProcessTree(pid);
+				}
 
-                // If the clone class has CLONE_FILES flag set, then the file descriptor table
-                // needs to be shared
-                if (syscall.equals("clone") && args.contains("CLONE_FILES")) {
-                    for (int i = 0; i < sharedDescriptorTables.size(); i++) {
-                        if (sharedDescriptorTables.get(i).contains(pid)) {
-                            sharedDescriptorTables.get(i).add(newPid);
-                            return;
-                        }
-                    }
-                    Set<String> newSet = new HashSet<String>();
-                    newSet.add(pid);
-                    newSet.add(newPid);
-                    sharedDescriptorTables.add(newSet);
-                }
-            } else if (syscall.equals("pipe")) {
-                String fd1 = args.substring(1, args.indexOf(','));
-                String fd2 = args.substring(args.indexOf(',') + 1, args.length() - 1);
-                String path = "pipe" + args;
-                // Update shared descriptor tables
-                if (updateSharedDescriptorTables(pid, fd1, path, true) && updateSharedDescriptorTables(pid, fd2, path, true)) {
-                    return;
-                }
-                // No shared file descriptor tables found
-                if (!fileDescriptors.containsKey(pid)) {
-                    Map<String, String> descriptors = new HashMap<String, String>();
-                    descriptors.put(fd1, path);
-                    descriptors.put(fd2, path);
-                    fileDescriptors.put(pid, descriptors);
-                } else {
-                    fileDescriptors.get(pid).put(fd1, path);
-                    fileDescriptors.get(pid).put(fd2, path);
-                }
-            } else if (syscall.equals("rename")) {
-                checkProcess(pid);
-                String from = args.substring(1, args.indexOf(',') - 1);
-                String to = args.substring(args.indexOf(',') + 3, args.length() - 1);
-                int version = 0;
-                if (fileVersions.containsKey(from)) {
-                    version = fileVersions.get(from);
-                    fileVersions.remove(from);
-                }
-                fileVersions.put(to, 1);
-                Artifact fromVertex = new Artifact();
-                fromVertex.addAnnotation("location", from);
-                fromVertex.addAnnotation("version", Integer.toString(version));
-                putVertex(fromVertex);
-                Used used = new Used(processes.get(pid), fromVertex);
-                used.addAnnotation("time", time);
-                putEdge(used);
-                Artifact toVertex = new Artifact();
-                toVertex.addAnnotation("location", to);
-                toVertex.addAnnotation("version", "1");
-                putVertex(toVertex);
-                WasGeneratedBy wgb = new WasGeneratedBy(toVertex, processes.get(pid));
-                wgb.addAnnotation("time", time);
-                putEdge(wgb);
-                WasDerivedFrom wdf = new WasDerivedFrom(toVertex, fromVertex);
-                wdf.addAnnotation("operation", syscall);
-                wdf.addAnnotation("time", time);
-                putEdge(wdf);
-            } else if (syscall.equals("setuid32")) {
-                Process oldProcess = processes.remove(pid);
-                checkProcess(pid);
-                Process newProcess = processes.get(pid);
-                WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
-                wtb.addAnnotation("operation", syscall);
-                wtb.addAnnotation("time", time);
-                putEdge(wtb);
-            } else if (syscall.equals("execve")) {
-//                String filename = args.substring(1, args.indexOf(',') - 1);
-//                String cmdline = args.substring(args.indexOf('['), args.indexOf(']') + 1);
-                Process oldProcess = processes.remove(pid);
-                checkProcess(pid);
-                Process newProcess = processes.get(pid);
-//                for (Entry<String, String> entry : oldProcess.getAnnotations().entrySet()) {
-//                    newProcess.addAnnotation(entry.getKey(), entry.getValue());
-//                }
-//                newProcess.addAnnotation("filename", filename);
-//                newProcess.addAnnotation("cmdline", cmdline);
-//                processes.put(pid, newProcess);
-                WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
-                wtb.addAnnotation("operation", syscall);
-                wtb.addAnnotation("time", time);
-                putEdge(wtb);
-            } else if (syscall.equals("connect")) {
-                String fd = args.substring(0, args.indexOf(','));
-                String socket = args.substring(args.indexOf('{'), args.indexOf('}') + 1);
-                if (updateSharedDescriptorTables(pid, fd, socket, true)) {
-                    return;
-                }
-                // No shared processes found, just add file to own file descriptor table
-                if (!fileDescriptors.containsKey(pid)) {
-                    Map<String, String> descriptors = new HashMap<String, String>();
-                    descriptors.put(fd, socket);
-                    fileDescriptors.put(pid, descriptors);
-                } else {
-                    fileDescriptors.get(pid).put(fd, socket);
-                }
-            } else if (syscall.equals("ioctl")) {
-                String fd = args.substring(0, args.indexOf(','));
-                if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-                    checkProcess(pid);
-                    String path = fileDescriptors.get(pid).get(fd);
-                    Artifact vertex = new Artifact();
-                    vertex.addAnnotation("location", path);
-                    putVertex(vertex);
-                    WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-                    wgb.addAnnotation("operation", syscall);
-                    wgb.addAnnotation("time", time);
-                    putEdge(wgb);
-                } else {
-                    if (DEBUG_INFO) {
-                        debugWriter.println(String.format("%d:\t%s() failed - descriptor %s not found:\t\t%s", lineNumber, syscall, fd, line));
-                    }
-                }
-            } else if (syscall.equals("syscall_983045")
-                    || syscall.equals("syscall_983042")
-                    || syscall.equals("socket")
-                    || syscall.equals("unlink")) {
-                // Ignore these syscalls
-                // 983045 is ARM_set_tls(void*)
-                // 983042 is ARM_cacheflush(long start, long end, long flags)
-            } else {
-                if (DEBUG_INFO) {
-                    debugWriter.println(String.format("%d:\tsyscall %s() unrecognized:\t\t%s", lineNumber, syscall, line));
-                }
-            }
-        } else if (incompleteMatcher.matches()) {
-            incompleteEvents.put(incompleteMatcher.group(1), incompleteMatcher.group(2));
-        } else if (completorMatcher.matches()) {
-            String completeEvent = completorMatcher.group(1) + " "
-                    + incompleteEvents.remove(completorMatcher.group(1)) + completorMatcher.group(2);
-            parseEvent(completeEvent);
-        }
-    }
+				if (retVal.equals("-1")) {
+					success = false;
+				}
+				
+				if (syscall.equals("open")) {
+					if (!success) {
+						templine = null;
+						return;
+					}
+					String path = args.substring(1, args.lastIndexOf('\"'));
+					String fd = retVal;
+					// Search for processes with shared file descriptor
+					// tables
+					// and
+					// update them as well
+					if (updateSharedDescriptorTables(pid, fd, path, true)) {
+						templine = null;
+						return;
+					}
+					// No shared processes found, just add file to own file
+					// descriptor table
+					if (!fileDescriptors.containsKey(pid)) {
+						Map<String, String> descriptors = new HashMap<String, String>();
+						descriptors.put(fd, path);
+						fileDescriptors.put(pid, descriptors);
+					} else {
+						fileDescriptors.get(pid).put(fd, path);
+					}
+				} else if (syscall.equals("close")) {
+					if (!success) {
+						templine = null;
+						return;
+					}
+					String fd = args;
+					// Search for processes with shared file descriptor
+					// tables
+					// and
+					// update them as well
+					if (updateSharedDescriptorTables(pid, fd, null, false)) {
+						templine = null;
+						return;
+					}
+					if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
+						fileDescriptors.get(pid).remove(fd);
+					} else {
+						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
+					}
+				} else if (syscall.equals("dup") || syscall.equals("dup2")) {
+					if (!success) {
+						templine = null;
+						return;
+					}
+					String oldfd = (syscall.equals("dup")) ? args : args.substring(0, args.indexOf(','));
+					String newfd = retVal;
+					if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(oldfd)) {
+						String path = fileDescriptors.get(pid).get(oldfd);
+						if (updateSharedDescriptorTables(pid, newfd, path, true)) {
+							templine = null;
+							return;
+						}
+						fileDescriptors.get(pid).put(newfd, path);
+					} else {
+						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, oldfd, line));
+					}
+				} else if (syscall.equals("write") || syscall.equals("pwrite") || syscall.equals("writev") || syscall.equals("send") || syscall.equals("sendto") || syscall.equals("sendmsg")) {
+					String fd = args.substring(0, args.indexOf(','));
+					if (!fileDescriptors.get(pid).containsKey(fd)) {
+						fixDescriptor(pid, fd);
+					}
+					String path = fileDescriptors.get(pid).get(fd);
+					if (path != null) {
+						Artifact vertex = new Artifact();
+						vertex.addAnnotation("location", path);
+						Matcher networkMatcher = networkPattern.matcher(path);
+						if (networkMatcher.find()) {
+							vertex.addAnnotation("subtype", "network");
+							vertex.addAnnotation("address", networkMatcher.group(2));
+							vertex.addAnnotation("port", networkMatcher.group(1));
+						} else if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
+							int version = 1;
+							if (fileVersions.containsKey(path)) {
+								// Increment previous version number
+								version = fileVersions.get(path) + 1;
+							}
+							fileVersions.put(path, version);
+							vertex.addAnnotation("version", Integer.toString(version));
+						}
+						putVertex(vertex);
+						WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+						wgb.addAnnotation("operation", syscall);
+						wgb.addAnnotation("time", time);
+						wgb.addAnnotation("success", success ? "true" : "false");
+						putEdge(wgb);
+					} else {
+						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
+					}
+				} else if (syscall.equals("read") || syscall.equals("pread") || syscall.equals("readv") || syscall.equals("recv") || syscall.equals("recvfrom") || syscall.equals("recvmsg")) {
+					String fd = args.substring(0, args.indexOf(','));
+					if (!fileDescriptors.get(pid).containsKey(fd)) {
+						fixDescriptor(pid, fd);
+					}
+					String path = fileDescriptors.get(pid).get(fd);
+					if (path != null) {
+						Artifact vertex = new Artifact();
+						vertex.addAnnotation("location", path);
+						Matcher networkMatcher = networkPattern.matcher(path);
+						if (networkMatcher.find()) {
+							vertex.addAnnotation("subtype", "network");
+							vertex.addAnnotation("address", networkMatcher.group(2));
+							vertex.addAnnotation("port", networkMatcher.group(1));
+						} else if ((path.startsWith("/") && !path.startsWith("/dev/"))) {
+							int version = 0;
+							if (fileVersions.containsKey(path)) {
+								version = fileVersions.get(path);
+							}
+							fileVersions.put(path, version);
+							vertex.addAnnotation("version", Integer.toString(version));
+						}
+						putVertex(vertex);
+						Used used = new Used(processes.get(pid), vertex);
+						used.addAnnotation("operation", syscall);
+						used.addAnnotation("time", time);
+						used.addAnnotation("success", success ? "true" : "false");
+						putEdge(used);
+					} else {
+						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
+					}
+				} else if (syscall.equals("fork") || syscall.equals("vfork") || syscall.equals("clone")) {
+					if (!success) {
+						templine = null;
+						return;
+					}
+					String newPid = retVal;
+					Process oldProcess = processes.get(pid);
+					Process newProcess = new Process();
+					String ppid = syscall.equals("clone") ? oldProcess.getAnnotation("ppid") : oldProcess.getAnnotation("pid");
+					newProcess.addAnnotation("uid", oldProcess.getAnnotation("uid"));
+					newProcess.addAnnotation("gid", oldProcess.getAnnotation("gid"));
+					newProcess.addAnnotation("pid", newPid);
+					newProcess.addAnnotation("ppid", ppid);
+					String commandline = getCommandLine(newPid);
+					if (commandline != null) {
+						newProcess.addAnnotation("commandline", commandline);
+					}
+					putVertex(newProcess);
+					processes.put(newPid, newProcess);
+					WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
+					wtb.addAnnotation("operation", syscall);
+					wtb.addAnnotation("time", time);
+					putEdge(wtb);
 
-    @Override
-    public boolean shutdown() {
-        try {
-            if (DEBUG_INFO) {
-                debugWriter.flush();
-                debugWriter.close();
-            }
-            shutdown = true;
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
+					// Copy file descriptor table to the new process
+					if (fileDescriptors.containsKey(pid)) {
+						Map<String, String> newfds = new HashMap<String, String>();
+						for (Map.Entry<String, String> entry : fileDescriptors.get(pid).entrySet()) {
+							newfds.put(entry.getKey(), entry.getValue());
+						}
+						fileDescriptors.put(newPid, newfds);
+					}
+
+					if (syscall.equals("clone") && args.contains("CLONE_FILES")) {
+						for (int i = 0; i < sharedDescriptorTables.size(); i++) {
+							if (sharedDescriptorTables.get(i).contains(pid)) {
+								sharedDescriptorTables.get(i).add(newPid);
+								templine = null;
+								return;
+							}
+						}
+						Set<String> newSet = new HashSet<String>();
+						newSet.add(pid);
+						newSet.add(newPid);
+						sharedDescriptorTables.add(newSet);
+					}
+				} else if (syscall.equals("pipe")) {
+					String fd1 = args.substring(1, args.indexOf(','));
+					String fd2 = args.substring(args.indexOf(',') + 1, args.length() - 1);
+					String path = "pipe" + args;
+					// Update shared descriptor tables
+					if (updateSharedDescriptorTables(pid, fd1, path, true) && updateSharedDescriptorTables(pid, fd2, path, true)) {
+						templine = null;
+						return;
+					}
+					// No shared file descriptor tables found
+					if (!fileDescriptors.containsKey(pid)) {
+						Map<String, String> descriptors = new HashMap<String, String>();
+						descriptors.put(fd1, path);
+						descriptors.put(fd2, path);
+						fileDescriptors.put(pid, descriptors);
+					} else {
+						fileDescriptors.get(pid).put(fd1, path);
+						fileDescriptors.get(pid).put(fd2, path);
+					}
+				} else if (syscall.equals("rename")) {
+					if (!success) {
+						templine = null;
+						return;
+					}
+					String from = args.substring(1, args.indexOf(',') - 1);
+					String to = args.substring(args.indexOf(',') + 3, args.length() - 1);
+					int version = 0;
+					if (fileVersions.containsKey(from)) {
+						version = fileVersions.get(from);
+						fileVersions.remove(from);
+					}
+					fileVersions.put(to, 1);
+					Artifact fromVertex = new Artifact();
+					fromVertex.addAnnotation("location", from);
+					fromVertex.addAnnotation("version", Integer.toString(version));
+					putVertex(fromVertex);
+					Used used = new Used(processes.get(pid), fromVertex);
+					used.addAnnotation("time", time);
+					putEdge(used);
+					Artifact toVertex = new Artifact();
+					toVertex.addAnnotation("location", to);
+					toVertex.addAnnotation("version", "1");
+					putVertex(toVertex);
+					WasGeneratedBy wgb = new WasGeneratedBy(toVertex, processes.get(pid));
+					wgb.addAnnotation("time", time);
+					putEdge(wgb);
+					WasDerivedFrom wdf = new WasDerivedFrom(toVertex, fromVertex);
+					wdf.addAnnotation("operation", syscall);
+					wdf.addAnnotation("time", time);
+					putEdge(wdf);
+				} else if (syscall.equals("setuid32")) {
+					Process oldProcess = processes.get(pid);
+					Process newProcess = copyProcess(oldProcess);
+					newProcess.addAnnotation("uid", args);
+					putVertex(newProcess);
+					if (success) {
+						processes.put(pid, newProcess);
+					}
+					WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
+					wtb.addAnnotation("operation", syscall);
+					wtb.addAnnotation("time", time);
+					wtb.addAnnotation("success", success ? "true" : "false");
+					putEdge(wtb);
+				} else if (syscall.equals("setgid32")) {
+					Process oldProcess = processes.get(pid);
+					Process newProcess = copyProcess(oldProcess);
+					newProcess.addAnnotation("gid", args);
+					putVertex(newProcess);
+					if (success) {
+						processes.put(pid, newProcess);
+					}
+					WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
+					wtb.addAnnotation("operation", syscall);
+					wtb.addAnnotation("time", time);
+					wtb.addAnnotation("success", success ? "true" : "false");
+					putEdge(wtb);
+				} else if (syscall.equals("execve")) {
+					String commandline = args.substring(args.indexOf('[') + 1, args.indexOf(']')).replace(",", "").replace("\"", "");
+					Process oldProcess = processes.get(pid);
+					Process newProcess = copyProcess(oldProcess);
+					newProcess.addAnnotation("commandline", commandline);
+					putVertex(newProcess);
+					processes.put(pid, newProcess);
+					WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
+					wtb.addAnnotation("operation", syscall);
+					wtb.addAnnotation("time", time);
+					putEdge(wtb);
+				} else if (syscall.equals("connect")) {
+					String fd = args.substring(0, args.indexOf(','));
+					String socket = args.substring(args.indexOf('{'), args.indexOf('}') + 1);
+					if (updateSharedDescriptorTables(pid, fd, socket, true)) {
+						templine = null;
+						return;
+					}
+					// No shared processes found, just add file to own file
+					// descriptor table
+					if (!fileDescriptors.containsKey(pid)) {
+						Map<String, String> descriptors = new HashMap<String, String>();
+						descriptors.put(fd, socket);
+						fileDescriptors.put(pid, descriptors);
+					} else {
+						fileDescriptors.get(pid).put(fd, socket);
+					}
+				} else if (syscall.equals("chmod")) {
+					String path = args.substring(1, args.indexOf(',') - 1);
+					String mode = args.split(", ")[1];
+					Artifact vertex = new Artifact();
+					vertex.addAnnotation("location", path);
+					int version = 1;
+					if (fileVersions.containsKey(path)) {
+						// Increment previous version number
+						version = fileVersions.get(path) + 1;
+					}
+					fileVersions.put(path, version);
+					vertex.addAnnotation("version", Integer.toString(version));
+					putVertex(vertex);
+					WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+					wgb.addAnnotation("operation", syscall);
+					wgb.addAnnotation("time", time);
+					wgb.addAnnotation("mode", mode);
+					wgb.addAnnotation("success", success ? "true" : "false");
+					putEdge(wgb);
+				} else if (syscall.equals("ioctl")) {
+					String fd = args.substring(0, args.indexOf(','));
+					if (!fileDescriptors.get(pid).containsKey(fd)) {
+						fixDescriptor(pid, fd);
+					}
+					if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
+						String path = fileDescriptors.get(pid).get(fd);
+						Artifact vertex = new Artifact();
+						vertex.addAnnotation("location", path);
+						putVertex(vertex);
+						WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+						wgb.addAnnotation("operation", syscall);
+						wgb.addAnnotation("time", time);
+						putEdge(wgb);
+					} else {
+						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
+					}
+				} else if (syscall.equals("syscall_983045") || syscall.equals("syscall_983042")) {
+					// Ignore these syscalls
+					// 983045 is ARM_set_tls(void*)
+					// 983042 is ARM_cacheflush(long start, long end, long
+					// flags)
+				} else {
+					log(String.format("syscall %s() unrecognized:\t\t%s", syscall, line));
+				}
+			} else if (incompleteMatcher.matches()) {
+				incompleteEvents.put(incompleteMatcher.group(1), incompleteMatcher.group(2));
+			} else if (completorMatcher.matches()) {
+				String completeEvent = completorMatcher.group(1) + " " + incompleteEvents.remove(completorMatcher.group(1)) + completorMatcher.group(2);
+				parseEvent(completeEvent);
+			} else if (templine == null) {
+				templine = line;
+				return;
+			} else if (templine != null) {
+				String finalline = templine + line;
+				templine = null;
+				parseEvent(finalline);
+			}
+			templine = null;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, String.format("exception occurred on line: %s", line), exception);
+		}
+	}
+
+	private void checkProcessTree(String pid) {
+		// Check the process tree to ensure that the given PID exists in it. If
+		// not, then add it and recursively check its parents so that this
+		// process eventually joins the main process tree.
+		try {
+			if (processes.containsKey(pid)) {
+				return;
+			}
+			Process processVertex = createProcess(pid);
+			if (processVertex == null) {
+				return;
+			}
+			putVertex(processVertex);
+			processes.put(pid, processVertex);
+			String ppid = processVertex.getAnnotation("ppid");
+			if (Integer.parseInt(ppid) >= 1) {
+				checkProcessTree(ppid);
+				WasTriggeredBy triggerEdge = new WasTriggeredBy((Process) processes.get(pid), (Process) processes.get(ppid));
+				putEdge(triggerEdge);
+			}
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+		}
+	}
+
+	private Process copyProcess(Process input) {
+		Process output = new Process();
+		for (Map.Entry<String, String> entry : input.getAnnotations().entrySet()) {
+			output.addAnnotation(entry.getKey(), entry.getValue());
+		}
+		return output;
+	}
+
+	private String getCommandLine(String pid) {
+		try {
+			BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
+			String cmdline = cmdlineReader.readLine();
+			cmdlineReader.close();
+			cmdline = (cmdline == null) ? null : cmdline.replace("\0", " ").replace("\"", "'").trim();
+			return cmdline;
+		} catch (Exception exception) {
+			return null;
+		}
+	}
+
+	private Process createProcess(String pid) {
+		// The process vertex is created using the proc filesystem.
+		try {
+			Process newProcess = new Process();
+			BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
+			procReader.readLine();
+			procReader.readLine();
+			procReader.readLine();
+			procReader.readLine();
+			String ppidline = procReader.readLine();
+			procReader.readLine();
+			String uidline = procReader.readLine();
+			String gidline = procReader.readLine();
+			procReader.close();
+
+			BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
+			String cmdline = cmdlineReader.readLine();
+			cmdlineReader.close();
+
+			String ppid = ppidline.split("\\s+")[1];
+			String uid = uidline.split("\\s+")[2];
+			String gid = gidline.split("\\s+")[2];
+
+			newProcess.addAnnotation("pid", pid);
+			newProcess.addAnnotation("ppid", ppid);
+			newProcess.addAnnotation("uid", uid);
+			newProcess.addAnnotation("gid", gid);
+			if (cmdline != null) {
+				cmdline = cmdline.replace("\0", " ").replace("\"", "'").trim();
+				newProcess.addAnnotation("commandline", cmdline);
+			}
+
+			java.lang.Process pidinfo = Runtime.getRuntime().exec("ls -l /proc/" + pid + "/fd");
+			BufferedReader fdReader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+			Map<String, String> descriptors = new HashMap<String, String>();
+			while (true) {
+				String line = fdReader.readLine();
+				if (line == null) {
+					break;
+				}
+				String tokens[] = line.split("\\s+", 8);
+				String fd = tokens[5];
+				String location = tokens[7];
+				descriptors.put(fd, location);
+			}
+			fileDescriptors.put(pid, descriptors);
+			fdReader.close();
+
+			return newProcess;
+		} catch (Exception exception) {
+			log("unable to create process vertex for pid " + pid + " from /proc/");
+			return null;
+		}
+	}
+
+	private boolean updateSharedDescriptorTables(String pid, String fd, String path, boolean add) {
+		// Search for processes with shared file descriptor tables and update
+		// them as well
+		for (int i = 0; i < sharedDescriptorTables.size(); i++) {
+			if (sharedDescriptorTables.get(i).contains(pid)) {
+				for (String sharedPid : sharedDescriptorTables.get(i)) {
+					if (add) {
+						if (!fileDescriptors.containsKey(sharedPid)) {
+							Map<String, String> descriptors = new HashMap<String, String>();
+							descriptors.put(fd, path);
+							fileDescriptors.put(sharedPid, descriptors);
+						} else {
+							fileDescriptors.get(sharedPid).put(fd, path);
+						}
+					} else {
+						if (fileDescriptors.containsKey(sharedPid) && fileDescriptors.get(sharedPid).containsKey(fd)) {
+							fileDescriptors.get(sharedPid).remove(fd);
+						}
+					}
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean fixDescriptor(String pid, String fd) {
+		try {
+			File file = new File("/proc/" + pid + "/fd/" + fd);
+			String resolved = file.getCanonicalPath();
+			if ((resolved.indexOf(":") != -1) && (resolved.lastIndexOf("/") != -1)) {
+				resolved = resolved.substring(resolved.lastIndexOf("/") + 1);
+			}
+			fileDescriptors.get(pid).put(fd, resolved);
+			return true;
+		} catch (Exception exception) {
+			log(String.format("unable to get file descriptor %s for pid %s from /proc/%s/fd/%s", fd, pid, pid, fd));
+			return false;
+		}
+	}
+
+	@Override
+	public boolean shutdown() {
+		try {
+			shutdown = true;
+			return true;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+	}
 }

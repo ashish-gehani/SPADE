@@ -134,7 +134,7 @@ public class Query {
             String[] expression = queryLine.split(",");
             Graph resultGraph;
             if (expression.length == 2) {
-                resultGraph = storage.getEdges(expression[0].trim(), expression[1].trim());
+                resultGraph = storage.getEdges(Integer.parseInt(expression[0].trim()), Integer.parseInt(expression[1].trim()));
             } else if (expression.length == 3) {
                 resultGraph = storage.getEdges(expression[0].trim(), expression[1].trim(), expression[2].trim());
             } else {
@@ -198,7 +198,7 @@ public class Query {
             int depth = Integer.parseInt(tokens[1]);
             String direction = tokens[2];
             String terminatingExpression = tokens[3];
-            resultGraph = storage.getLineage(vertexId, depth, direction, terminatingExpression);
+            resultGraph = storage.getLineage(Integer.parseInt(vertexId), depth, direction, terminatingExpression);
             if (resolveRemote) {
                 // Perform the remote queries here. A temporary remoteGraph is
                 // created to store the results of the remote queries and then
@@ -212,16 +212,16 @@ public class Query {
                     // the result with the remoteGraph. This also adds the network
                     // vertexes to the remoteGraph as well, so that deeper level
                     // network queries are resolved iteratively
-                    for (Map.Entry currentEntry : currentNetworkMap.entrySet()) {
-                        AbstractVertex networkVertex = (AbstractVertex) currentEntry.getKey();
-                        int currentDepth = (Integer) currentEntry.getValue();
+                    for (Map.Entry<AbstractVertex, Integer> currentEntry : currentNetworkMap.entrySet()) {
+                        AbstractVertex networkVertex = currentEntry.getKey();
+                        int currentDepth = currentEntry.getValue();
                         // Execute remote query
                         Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction, terminatingExpression);
                         // Update the depth values of all network artifacts in the
                         // remote network map to reflect current level of iteration
-                        for (Map.Entry currentNetworkEntry : tempRemoteGraph.networkMap().entrySet()) {
-                            AbstractVertex tempNetworkVertex = (AbstractVertex) currentNetworkEntry.getKey();
-                            int updatedDepth = currentDepth + (Integer) currentNetworkEntry.getValue();
+                        for (Map.Entry<AbstractVertex, Integer> currentNetworkEntry : tempRemoteGraph.networkMap().entrySet()) {
+                            AbstractVertex tempNetworkVertex = currentNetworkEntry.getKey();
+                            int updatedDepth = currentDepth + currentNetworkEntry.getValue();
                             tempRemoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
                         }
                         // Add the lineage of the current network node to the
@@ -245,8 +245,8 @@ public class Query {
     private static Graph queryPaths(String queryLine, AbstractStorage storage) {
         try {
             String[] tokens = queryLine.split("\\s+");
-            String srcVertexId = tokens[0];
-            String dstVertexId = tokens[1];
+            int srcVertexId = Integer.parseInt(tokens[0]);
+            int dstVertexId = Integer.parseInt(tokens[1]);
             int maxLength = Integer.parseInt(tokens[2]);
             Graph resultGraph = storage.getPaths(srcVertexId, dstVertexId, maxLength);
             return resultGraph;
