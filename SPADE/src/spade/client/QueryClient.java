@@ -152,7 +152,7 @@ public class QueryClient {
                         QUERY_STORAGE = tokens[1];
                     } else if (line.startsWith("export")) {
                         String[] tokens = line.split("\\s+");
-                        graphObjects.get(tokens[1]).exportDOT(tokens[2]);
+                        graphObjects.get(tokens[1]).exportGraph(tokens[2]);
                     } else if (line.startsWith("vertices")) {
                         String[] tokens = line.split("\\s+");
                         listVertices(tokens[1]);
@@ -338,12 +338,12 @@ public class QueryClient {
                     String queryExpression = vertexMatcher.group(3);
                     resultGraph = graphObjects.get(queryTarget).getVertices(queryExpression);
                 } else if (pathMatcher.matches()) {
-                    String srcVertexId = pathMatcher.group(3);
-                    String dstVertexId = pathMatcher.group(4);
+					int srcVertexId = Integer.parseInt(pathMatcher.group(3));
+					int dstVertexId = Integer.parseInt(pathMatcher.group(4));
                     int maxLength = Integer.parseInt(pathMatcher.group(5));
                     resultGraph = graphObjects.get(queryTarget).getPaths(srcVertexId, dstVertexId, maxLength);
                 } else if (lineageMatcher.matches()) {
-                    String vertexId = lineageMatcher.group(3);
+                    int vertexId = Integer.parseInt(lineageMatcher.group(3));
                     int depth = Integer.parseInt(lineageMatcher.group(4));
                     String direction = lineageMatcher.group(5);
                     String terminatingExpression = (lineageMatcher.group(6) == null) ? "null" : lineageMatcher.group(6).substring(1).trim();

@@ -51,384 +51,420 @@ import spade.core.Vertex;
 
 /**
  * Neo4j storage implementation.
- *
+ * 
  * @author Dawood Tariq
  */
 public class Neo4j extends AbstractStorage {
 
-    // Number of transactions to buffer before committing to database
-    private static final int TRANSACTION_LIMIT = 10000;
-    // Number of transaction flushes before the database is shutdown and
-    // restarted
-    private static final int HARD_FLUSH_LIMIT = 10;
-    // Identifying annotation to add to each edge/vertex
-    private static final String ID_STRING = Settings.getProperty("storage_identifier");
-    private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
-    private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
-    private static final String VERTEX_INDEX = "vertexIndex";
-    private static final String EDGE_INDEX = "edgeIndex";
-    private GraphDatabaseService graphDb;
-    private IndexManager index;
-    private Index<Node> vertexIndex;
-    private RelationshipIndex edgeIndex;
-    private Transaction transaction;
-    private int transactionCount;
-    private int flushCount;
-    private Map<String, Long> vertexMap;
-    private Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
-    private Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
-    static final Logger logger = Logger.getLogger(Neo4j.class.getName());
+	// Number of transactions to buffer before committing to database
+	private static final int TRANSACTION_LIMIT = 10000;
+	// Number of transaction flushes before the database is shutdown and
+	// restarted
+	private static final int HARD_FLUSH_LIMIT = 10;
+	// Identifying annotation to add to each edge/vertex
+	private static final String ID_STRING = Settings.getProperty("storage_identifier");
+	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+	private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+	private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
+	private static final String VERTEX_INDEX = "vertexIndex";
+	private static final String EDGE_INDEX = "edgeIndex";
+	private GraphDatabaseService graphDb;
+	private IndexManager index;
+	private Index<Node> vertexIndex;
+	private RelationshipIndex edgeIndex;
+	private Transaction transaction;
+	private int transactionCount;
+	private int flushCount;
+	private Map<String, Long> vertexMap;
+	private Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
+	private Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
+	static final Logger logger = Logger.getLogger(Neo4j.class.getName());
 
-    private enum MyRelationshipTypes implements RelationshipType {
+	private enum MyRelationshipTypes implements RelationshipType {
 
-        EDGE
-    }
+		EDGE
+	}
 
-    public GraphDatabaseService getDB() {
-        return graphDb;
-    }
+	public GraphDatabaseService getDB() {
+		return graphDb;
+	}
 
-    @Override
-    public boolean initialize(String arguments) {
-        try {
-            if (arguments == null) {
-                return false;
-            }
-            // Create new database given the path as argument. Upgrade the database
-            // if it already exists and is an older version
-            graphDb = new EmbeddedGraphDatabase(arguments);
-            index = graphDb.index();
-            transactionCount = 0;
-            flushCount = 0;
-            // Create vertex index
-            vertexIndex = index.forNodes(VERTEX_INDEX);
-            // Create edge index
-            edgeIndex = index.forRelationships(EDGE_INDEX);
-            // Create HashMap to store IDs of incoming vertices
-            vertexMap = new HashMap<String, Long>();
+	@Override
+	public boolean initialize(String arguments) {
+		try {
+			if (arguments == null) {
+				return false;
+			}
+			// Create new database given the path as argument. Upgrade the
+			// database
+			// if it already exists and is an older version
+			graphDb = new EmbeddedGraphDatabase(arguments);
+			index = graphDb.index();
+			transactionCount = 0;
+			flushCount = 0;
+			// Create vertex index
+			vertexIndex = index.forNodes(VERTEX_INDEX);
+			// Create edge index
+			edgeIndex = index.forRelationships(EDGE_INDEX);
+			// Create HashMap to store IDs of incoming vertices
+			vertexMap = new HashMap<String, Long>();
 
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
+			return true;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+	}
 
-    private void checkTransactionCount() {
-        transactionCount++;
-        if (transactionCount == TRANSACTION_LIMIT) {
-            // If transaction limit is reached, commit the transactions
-            try {
-                transaction.success();
-                transaction.finish();
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-            }
-            // Reset transaction count and increase flush count
-            transactionCount = 0;
-            flushCount++;
-            // If hard flush limit is reached, restart the database
-            if (flushCount == HARD_FLUSH_LIMIT) {
-                logger.log(Level.INFO, "Hard flush limit reached - restarting database");
-                graphDb.shutdown();
-                graphDb = new EmbeddedGraphDatabase(arguments);
-                index = graphDb.index();
-                vertexIndex = index.forNodes(VERTEX_INDEX);
-                edgeIndex = index.forRelationships(EDGE_INDEX);
-                flushCount = 0;
-            }
-        }
-    }
+	private void checkTransactionCount() {
+		transactionCount++;
+		if (transactionCount == TRANSACTION_LIMIT) {
+			// If transaction limit is reached, commit the transactions
+			try {
+				transaction.success();
+				transaction.finish();
+			} catch (Exception exception) {
+				logger.log(Level.SEVERE, null, exception);
+			}
+			// Reset transaction count and increase flush count
+			transactionCount = 0;
+			flushCount++;
+			// If hard flush limit is reached, restart the database
+			if (flushCount == HARD_FLUSH_LIMIT) {
+				logger.log(Level.INFO, "Hard flush limit reached - restarting database");
+				graphDb.shutdown();
+				graphDb = new EmbeddedGraphDatabase(arguments);
+				index = graphDb.index();
+				vertexIndex = index.forNodes(VERTEX_INDEX);
+				edgeIndex = index.forRelationships(EDGE_INDEX);
+				flushCount = 0;
+			}
+		}
+	}
 
-    @Override
-    public boolean flushTransactions() {
-        // Flush any pending transactions. This method is called by the Kernel
-        // whenever a query is executed
-        if (transaction != null) {
-            transaction.success();
-            transaction.finish();
-            transactionCount = 0;
-        }
-        return true;
-    }
+	@Override
+	public boolean flushTransactions() {
+		// Flush any pending transactions. This method is called by the Kernel
+		// whenever a query is executed
+		if (transaction != null) {
+			transaction.success();
+			transaction.finish();
+			transactionCount = 0;
+		}
+		return true;
+	}
 
-    @Override
-    public boolean shutdown() {
-        // Flush all transactions before shutting down the database
-        if (transaction != null) {
-            transaction.success();
-            transaction.finish();
-        }
-        graphDb.shutdown();
-        return true;
-    }
+	@Override
+	public boolean shutdown() {
+		// Flush all transactions before shutting down the database
+		if (transaction != null) {
+			transaction.success();
+			transaction.finish();
+		}
+		graphDb.shutdown();
+		return true;
+	}
 
-    @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
-        try {
-            if (transactionCount == 0) {
-                transaction = graphDb.beginTx();
-            }
-            Node newVertex = graphDb.createNode();
-            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
-                }
-                newVertex.setProperty(key, value);
-                vertexIndex.add(newVertex, key, value);
-            }
-            newVertex.setProperty(ID_STRING, newVertex.getId());
-            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-            vertexMap.put(incomingVertex.toString(), newVertex.getId());
-            checkTransactionCount();
+	@Override
+	public boolean putVertex(AbstractVertex incomingVertex) {
+		try {
+			if (transactionCount == 0) {
+				transaction = graphDb.beginTx();
+			}
+			Node newVertex = graphDb.createNode();
+			for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+				String key = currentEntry.getKey();
+				String value = currentEntry.getValue();
+				if (key.equalsIgnoreCase(ID_STRING)) {
+					continue;
+				}
+				newVertex.setProperty(key, value);
+				vertexIndex.add(newVertex, key, value);
+			}
+			newVertex.setProperty(ID_STRING, newVertex.getId());
+			vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+			vertexMap.put(incomingVertex.toString(), newVertex.getId());
+			checkTransactionCount();
 
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
+			return true;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+	}
 
-    @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
-        try {
-            AbstractVertex srcVertex = incomingEdge.getSourceVertex();
-            AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-            if (!vertexMap.containsKey(srcVertex.toString()) || !vertexMap.containsKey(dstVertex.toString())) {
-                return false;
-            }
-            if (transactionCount == 0) {
-                transaction = graphDb.beginTx();
-            }
-            Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.toString()));
-            Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.toString()));
+	@Override
+	public boolean putEdge(AbstractEdge incomingEdge) {
+		try {
+			AbstractVertex srcVertex = incomingEdge.getSourceVertex();
+			AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
+			if (!vertexMap.containsKey(srcVertex.toString()) || !vertexMap.containsKey(dstVertex.toString())) {
+				return false;
+			}
+			if (transactionCount == 0) {
+				transaction = graphDb.beginTx();
+			}
+			Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.toString()));
+			Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.toString()));
 
-            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
-                }
-                newEdge.setProperty(key, value);
-                edgeIndex.add(newEdge, key, value);
-            }
-            newEdge.setProperty(ID_STRING, newEdge.getId());
-            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-            checkTransactionCount();
+			Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+			for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+				String key = currentEntry.getKey();
+				String value = currentEntry.getValue();
+				if (key.equalsIgnoreCase(ID_STRING)) {
+					continue;
+				}
+				newEdge.setProperty(key, value);
+				edgeIndex.add(newEdge, key, value);
+			}
+			newEdge.setProperty(ID_STRING, newEdge.getId());
+			edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+			checkTransactionCount();
 
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
+			return true;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+	}
 
-    private AbstractVertex convertNodeToVertex(Node node) {
-        AbstractVertex resultVertex = new Vertex();
-        for (String key : node.getPropertyKeys()) {
-            Object value = node.getProperty(key);
-            if (value instanceof String) {
-                resultVertex.addAnnotation(key, (String) value);
-            } else if (value instanceof Long) {
-                resultVertex.addAnnotation(key, Long.toString((Long) value));
-            } else if (value instanceof Double) {
-                resultVertex.addAnnotation(key, Double.toString((Double) value));
-            }
-        }
-        return resultVertex;
-    }
+	private AbstractVertex convertNodeToVertex(Node node) {
+		AbstractVertex resultVertex = new Vertex();
+		for (String key : node.getPropertyKeys()) {
+			Object value = node.getProperty(key);
+			if (value instanceof String) {
+				resultVertex.addAnnotation(key, (String) value);
+			} else if (value instanceof Long) {
+				resultVertex.addAnnotation(key, Long.toString((Long) value));
+			} else if (value instanceof Double) {
+				resultVertex.addAnnotation(key, Double.toString((Double) value));
+			}
+		}
+		return resultVertex;
+	}
 
-    private AbstractEdge convertRelationshipToEdge(Relationship relationship) {
-        AbstractEdge resultEdge = new Edge((Vertex) convertNodeToVertex(relationship.getStartNode()), (Vertex) convertNodeToVertex(relationship.getEndNode()));
-        for (String key : relationship.getPropertyKeys()) {
-            Object value = relationship.getProperty(key);
-            if (value instanceof String) {
-                resultEdge.addAnnotation(key, (String) value);
-            } else if (value instanceof Long) {
-                resultEdge.addAnnotation(key, Long.toString((Long) value));
-            } else if (value instanceof Double) {
-                resultEdge.addAnnotation(key, Double.toString((Double) value));
-            }
-        }
-        return resultEdge;
-    }
+	private AbstractEdge convertRelationshipToEdge(Relationship relationship) {
+		AbstractEdge resultEdge = new Edge((Vertex) convertNodeToVertex(relationship.getStartNode()), (Vertex) convertNodeToVertex(relationship.getEndNode()));
+		for (String key : relationship.getPropertyKeys()) {
+			Object value = relationship.getProperty(key);
+			if (value instanceof String) {
+				resultEdge.addAnnotation(key, (String) value);
+			} else if (value instanceof Long) {
+				resultEdge.addAnnotation(key, Long.toString((Long) value));
+			} else if (value instanceof Double) {
+				resultEdge.addAnnotation(key, Double.toString((Double) value));
+			}
+		}
+		return resultEdge;
+	}
 
-    @Override
-    public Graph getVertices(String expression) {
-        Graph resultGraph = new Graph();
-        IndexHits<Node> queryHits = vertexIndex.query(expression);
-        for (Node foundNode : queryHits) {
-            resultGraph.putVertex(convertNodeToVertex(foundNode));
-        }
-        queryHits.close();
-        return resultGraph;
-    }
+	@Override
+	public Graph getVertices(String expression) {
+		Graph resultGraph = new Graph();
+		IndexHits<Node> queryHits = vertexIndex.query(expression);
+		for (Node foundNode : queryHits) {
+			resultGraph.putVertex(convertNodeToVertex(foundNode));
+		}
+		queryHits.close();
+		resultGraph.commitIndex();
+		return resultGraph;
+	}
 
-    @Override
-    public Graph getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
-        Graph resultGraph = new Graph();
-        Set<AbstractVertex> sourceSet = null;
-        Set<AbstractVertex> destinationSet = null;
-        if (sourceExpression != null) {
-            if (sourceExpression.trim().equalsIgnoreCase("null")) {
-                sourceExpression = null;
-            } else {
-                sourceSet = getVertices(sourceExpression).vertexSet();
-            }
-        }
-        if (destinationExpression != null) {
-            if (destinationExpression.trim().equalsIgnoreCase("null")) {
-                destinationExpression = null;
-            } else {
-                destinationSet = getVertices(destinationExpression).vertexSet();
-            }
-        }
-        IndexHits<Relationship> queryHits = edgeIndex.query(edgeExpression);
-        for (Relationship foundRelationship : queryHits) {
-            AbstractVertex sourceVertex = convertNodeToVertex(foundRelationship.getStartNode());
-            AbstractVertex destinationVertex = convertNodeToVertex(foundRelationship.getEndNode());
-            AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
-            if ((sourceExpression != null) && (destinationExpression != null)) {
-                if (sourceSet.contains(tempEdge.getSourceVertex()) && destinationSet.contains(tempEdge.getDestinationVertex())) {
-                    resultGraph.putVertex(sourceVertex);
-                    resultGraph.putVertex(destinationVertex);
-                    resultGraph.putEdge(tempEdge);
-                }
-            } else if ((sourceExpression != null) && (destinationExpression == null)) {
-                if (sourceSet.contains(tempEdge.getSourceVertex())) {
-                    resultGraph.putVertex(sourceVertex);
-                    resultGraph.putVertex(destinationVertex);
-                    resultGraph.putEdge(tempEdge);
-                }
-            } else if ((sourceExpression == null) && (destinationExpression != null)) {
-                if (destinationSet.contains(tempEdge.getDestinationVertex())) {
-                    resultGraph.putVertex(sourceVertex);
-                    resultGraph.putVertex(destinationVertex);
-                    resultGraph.putEdge(tempEdge);
-                }
-            } else if ((sourceExpression == null) && (destinationExpression == null)) {
-                resultGraph.putVertex(sourceVertex);
-                resultGraph.putVertex(destinationVertex);
-                resultGraph.putEdge(tempEdge);
-            }
-        }
-        queryHits.close();
-        return resultGraph;
-    }
+	@Override
+	public Graph getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
+		Graph resultGraph = new Graph();
+		Set<AbstractVertex> sourceSet = null;
+		Set<AbstractVertex> destinationSet = null;
+		if (sourceExpression != null) {
+			if (sourceExpression.trim().equalsIgnoreCase("null")) {
+				sourceExpression = null;
+			} else {
+				sourceSet = getVertices(sourceExpression).vertexSet();
+			}
+		}
+		if (destinationExpression != null) {
+			if (destinationExpression.trim().equalsIgnoreCase("null")) {
+				destinationExpression = null;
+			} else {
+				destinationSet = getVertices(destinationExpression).vertexSet();
+			}
+		}
+		IndexHits<Relationship> queryHits = edgeIndex.query(edgeExpression);
+		for (Relationship foundRelationship : queryHits) {
+			AbstractVertex sourceVertex = convertNodeToVertex(foundRelationship.getStartNode());
+			AbstractVertex destinationVertex = convertNodeToVertex(foundRelationship.getEndNode());
+			AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
+			if ((sourceExpression != null) && (destinationExpression != null)) {
+				if (sourceSet.contains(tempEdge.getSourceVertex()) && destinationSet.contains(tempEdge.getDestinationVertex())) {
+					resultGraph.putVertex(sourceVertex);
+					resultGraph.putVertex(destinationVertex);
+					resultGraph.putEdge(tempEdge);
+				}
+			} else if ((sourceExpression != null) && (destinationExpression == null)) {
+				if (sourceSet.contains(tempEdge.getSourceVertex())) {
+					resultGraph.putVertex(sourceVertex);
+					resultGraph.putVertex(destinationVertex);
+					resultGraph.putEdge(tempEdge);
+				}
+			} else if ((sourceExpression == null) && (destinationExpression != null)) {
+				if (destinationSet.contains(tempEdge.getDestinationVertex())) {
+					resultGraph.putVertex(sourceVertex);
+					resultGraph.putVertex(destinationVertex);
+					resultGraph.putEdge(tempEdge);
+				}
+			} else if ((sourceExpression == null) && (destinationExpression == null)) {
+				resultGraph.putVertex(sourceVertex);
+				resultGraph.putVertex(destinationVertex);
+				resultGraph.putEdge(tempEdge);
+			}
+		}
+		queryHits.close();
+		resultGraph.commitIndex();
+		return resultGraph;
+	}
 
-    @Override
-    public Graph getEdges(String srcVertexId, String dstVertexId) {
-        Graph resultGraph = new Graph();
-        Long srcNodeId = Long.parseLong(srcVertexId);
-        Long dstNodeId = Long.parseLong(dstVertexId);
-        IndexHits<Relationship> queryHits = edgeIndex.query("type:*", graphDb.getNodeById(srcNodeId), graphDb.getNodeById(dstNodeId));
-        for (Relationship currentRelationship : queryHits) {
-            resultGraph.putVertex(convertNodeToVertex(currentRelationship.getStartNode()));
-            resultGraph.putVertex(convertNodeToVertex(currentRelationship.getEndNode()));
-            resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
-        }
-        queryHits.close();
-        return resultGraph;
-    }
+	@Override
+	public Graph getEdges(int srcVertexId, int dstVertexId) {
+		Graph resultGraph = new Graph();
+		IndexHits<Relationship> queryHits = edgeIndex.query("type:*", graphDb.getNodeById(srcVertexId), graphDb.getNodeById(dstVertexId));
+		for (Relationship currentRelationship : queryHits) {
+			resultGraph.putVertex(convertNodeToVertex(currentRelationship.getStartNode()));
+			resultGraph.putVertex(convertNodeToVertex(currentRelationship.getEndNode()));
+			resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
+		}
+		queryHits.close();
+		resultGraph.commitIndex();
+		return resultGraph;
+	}
 
-    @Override
-    public Graph getPaths(String srcVertexId, String dstVertexId, int maxLength) {
-        Graph resultGraph = new Graph();
+	@Override
+	public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
+		Graph resultGraph = new Graph();
+		Set<Node> sourceNodes = new HashSet<Node>();
+		Set<Node> destinationNodes = new HashSet<Node>();
 
-        Node sourceNode = graphDb.getNodeById(Long.parseLong(srcVertexId));
-        Node destinationNode = graphDb.getNodeById(Long.parseLong(dstVertexId));
+		IndexHits<Node> queryHits = vertexIndex.query(srcVertexExpression);
+		for (Node foundNode : queryHits) {
+			sourceNodes.add(foundNode);
+		}
+		queryHits.close();
+		queryHits = vertexIndex.query(dstVertexExpression);
+		for (Node foundNode : queryHits) {
+			destinationNodes.add(foundNode);
+		}
+		queryHits.close();
 
-        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.OUTGOING), maxLength);
+		Set<Long> addedNodeIds = new HashSet<Long>();
+		Set<Long> addedEdgeIds = new HashSet<Long>();
 
-        for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
-            for (Node currentNode : currentPath.nodes()) {
-                resultGraph.putVertex(convertNodeToVertex(currentNode));
-            }
-            for (Relationship currentRelationship : currentPath.relationships()) {
-                resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
-            }
-        }
+		PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.OUTGOING), maxLength);
+		for (Node sourceNode : sourceNodes) {
+			for (Node destinationNode : destinationNodes) {
+				for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
+					for (Node currentNode : currentPath.nodes()) {
+						if (!addedNodeIds.contains(currentNode.getId())) {
+							resultGraph.putVertex(convertNodeToVertex(currentNode));
+							addedNodeIds.add(currentNode.getId());
+						}
+					}
+					for (Relationship currentRelationship : currentPath.relationships()) {
+						if (!addedEdgeIds.contains(currentRelationship.getId())) {
+							resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
+							addedEdgeIds.add(currentRelationship.getId());
+						}
+					}
+				}
+			}
+		}
 
-        return resultGraph;
-    }
+		resultGraph.commitIndex();
+		return resultGraph;
+	}
 
-    @Override
-    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
-        Graph resultGraph = new Graph();
+	@Override
+	public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
+		return getPaths(ID_STRING + ":" + srcVertexId, ID_STRING + ":" + dstVertexId, maxLength);
+	}
 
-        Node sourceNode = graphDb.getNodeById(Long.parseLong(vertexId));
-        resultGraph.putVertex(convertNodeToVertex(sourceNode));
+	@Override
+	public Graph getLineage(String vertexExpression, int depth, String direction, String terminatingExpression) {
+		Direction dir;
+		if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+			dir = Direction.OUTGOING;
+		} else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+			dir = Direction.INCOMING;
+		} else if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
+			Graph ancestor = getLineage(vertexExpression, depth, DIRECTION_ANCESTORS, terminatingExpression);
+			Graph descendant = getLineage(vertexExpression, depth, DIRECTION_DESCENDANTS, terminatingExpression);
+			Graph result = Graph.union(ancestor, descendant);
+			return result;
+		} else {
+			return null;
+		}
 
-        if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
-            terminatingExpression = null;
-        }
+		Graph resultGraph = new Graph();
+		Set<Node> doneSet = new HashSet<Node>();
+		Set<Node> tempSet = new HashSet<Node>();
 
-        Set<Node> terminatingSet = null;
-        if (terminatingExpression != null) {
-            terminatingSet = new HashSet<Node>();
-            IndexHits<Node> queryHits = vertexIndex.query(terminatingExpression);
-            for (Node foundNode : queryHits) {
-                terminatingSet.add(foundNode);
-            }
-            queryHits.close();
-        }
+		IndexHits<Node> queryHits = vertexIndex.query(vertexExpression);
+		for (Node foundNode : queryHits) {
+			resultGraph.putVertex(convertNodeToVertex(foundNode));
+			tempSet.add(foundNode);
+		}
+		queryHits.close();
 
-        Direction dir;
-        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-            dir = Direction.OUTGOING;
-        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-            dir = Direction.INCOMING;
-        } else if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
-            Graph ancestor = getLineage(vertexId, depth, "ancestor", terminatingExpression);
-            Graph descendant = getLineage(vertexId, depth, "descendant", terminatingExpression);
-            Graph result = Graph.union(ancestor, descendant);
-            return result;
-        } else {
-            return null;
-        }
+		if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
+			terminatingExpression = null;
+		}
+		Set<Node> terminatingSet = new HashSet<Node>();
+		if (terminatingExpression != null) {
+			queryHits = vertexIndex.query(terminatingExpression);
+			for (Node foundNode : queryHits) {
+				terminatingSet.add(foundNode);
+			}
+			queryHits.close();
+		}
 
-        Set<Node> doneSet = new HashSet<Node>();
-        Set<Node> tempSet = new HashSet<Node>();
-        tempSet.add(sourceNode);
-        int currentDepth = 0;
-        while (true) {
-            if ((tempSet.isEmpty()) || (depth == 0)) {
-                break;
-            }
-            doneSet.addAll(tempSet);
-            Set<Node> newTempSet = new HashSet<Node>();
-            for (Node tempNode : tempSet) {
-                for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
-                    Node otherNode = nodeRelationship.getOtherNode(tempNode);
-                    if ((terminatingExpression != null) && (terminatingSet.contains(otherNode))) {
-                        continue;
-                    }
-                    if (!doneSet.contains(otherNode)) {
-                        newTempSet.add(otherNode);
-                    }
-                    resultGraph.putVertex(convertNodeToVertex(otherNode));
-                    resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
-                    // Add network artifacts to the network map of the graph. This is needed
-                    // to resolve remote queries
-                    try {
-                        if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("network")) {
-                            resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
-                        }
-                    } catch (Exception exception) {
-                        // Ignore
-                    }
-                }
-            }
-            tempSet.clear();
-            tempSet.addAll(newTempSet);
-            depth--;
-            currentDepth++;
-        }
+		int currentDepth = 0;
+		while (true) {
+			if ((tempSet.isEmpty()) || (depth == 0)) {
+				break;
+			}
+			doneSet.addAll(tempSet);
+			Set<Node> newTempSet = new HashSet<Node>();
+			for (Node tempNode : tempSet) {
+				for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
+					Node otherNode = nodeRelationship.getOtherNode(tempNode);
+					if (terminatingSet.contains(otherNode)) {
+						continue;
+					}
+					if (!doneSet.contains(otherNode)) {
+						newTempSet.add(otherNode);
+					}
+					resultGraph.putVertex(convertNodeToVertex(otherNode));
+					resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
+					// Add network artifacts to the network map of the graph.
+					// This is needed to resolve remote queries
+					try {
+						if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("network")) {
+							resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+						}
+					} catch (Exception exception) {
+						// Ignore
+					}
+				}
+			}
+			tempSet.clear();
+			tempSet.addAll(newTempSet);
+			depth--;
+			currentDepth++;
+		}
 
-        return resultGraph;
-    }
+		resultGraph.commitIndex();
+		return resultGraph;
+	}
+
+	public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
+		return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
+	}
 }

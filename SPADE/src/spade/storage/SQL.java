@@ -351,6 +351,7 @@ public class SQL extends AbstractStorage {
                 graph.putVertex(vertex);
             }
 
+            graph.commitIndex();
             return graph;
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
@@ -359,7 +360,7 @@ public class SQL extends AbstractStorage {
     }
 
     @Override
-    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
+    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
         flushStatements();
         Graph graph = new Graph();
         int vertexColumnCount;
@@ -495,6 +496,7 @@ public class SQL extends AbstractStorage {
             depth--;
         }
 
+        graph.commitIndex();
         return graph;
     }
 

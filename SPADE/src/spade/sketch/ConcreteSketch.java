@@ -32,7 +32,7 @@ import spade.core.*;
 
 public class ConcreteSketch extends AbstractSketch {
 
-    private static final double falsePositiveProbability = 0.1;
+	private static final double falsePositiveProbability = 0.1;
     private static final int expectedSize = 20;
     private static final Logger logger = Logger.getLogger(ConcreteSketch.class.getName());
 
