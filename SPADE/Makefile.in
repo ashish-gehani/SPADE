@@ -7,6 +7,8 @@ CC=@CC@
 JAR=@JAR@
 JAVAC_CP = build:lib/*
 JAVAC_OPTIONS = -Xlint:none -proc:none
+BUILD_TOOLS = /var/android-sdk-macosx/build-tools/17.0.0
+ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
 
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 # LLVM_TARGET = nweb
@@ -43,7 +45,7 @@ endif
 REPORTERS = Graphviz DSL Network LLVM
 # -------------------------------------------
 
-.PHONY: build prepare-dirs core reporters filters clients utilities storages
+.PHONY: build prepare-dirs core reporters filters clients utilities storages android-build
 
 all:	build
 	./generatekeys.sh
@@ -157,11 +159,45 @@ build-linux-llvm:
 	gcc ${LLVM_TARGET}.o src/spade/reporter/llvmClose.o -shared -o ${LLVM_TARGET}.so
 	gcc ${LLVM_TARGET}.so src/spade/reporter/llvmBridge.o -o ${LLVM_TARGET}
 
+# Build for Android
+android-build:
+	@mkdir -p build;
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/client/AndroidClient.java
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/core/*.java
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/filter/IORuns.java
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
+	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Strace.java
+	@mkdir -p android-lib;
+	# $(BUILD_TOOLS)/dx --dex --output=android-lib/lucene-core-3.5.0.jar lib/lucene-core-3.5.0.jar
+	@mkdir -p android-build;
+	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
+	@cd build; \
+	$(BUILD_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
+
+# Deploy to Android
+android-start:
+	$(ANDROID_SDK_TOOLS)/adb shell start
+	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/log"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/conf"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
+	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
+	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/audit.dot\\nreporter Strace\" > /sdcard/spade/conf/spade.config"
+	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel android"
+
+android-stop:
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
+
+graph-utility:
+	java -cp 'build:lib/*' spade.utility.GraphUtility
+
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
-	@rm -rf build
+	@rm -rf build android-build android-lib
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeLinuxAudit
@@ -174,5 +210,3 @@ install:
 	cp -R lib $(DESTDIR)
 	cp -R conf $(DESTDIR)
 	cp -R log $(DESTDIR)
-	cp -R scripts $(DESTDIR)
-	cp -R templates $(DESTDIR)
