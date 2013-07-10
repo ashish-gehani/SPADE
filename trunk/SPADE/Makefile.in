@@ -7,7 +7,7 @@ CC=@CC@
 JAR=@JAR@
 JAVAC_CP = build:lib/*
 JAVAC_OPTIONS = -Xlint:none -proc:none
-ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@ 
+ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
@@ -172,7 +172,7 @@ android-build:
 	@mkdir -p android-build;
 	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
 	@cd build; \
-	$(ANDROID_BUILD_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
+	$(ANDROID_BUILD_TOOLS)dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
 
 # Deploy to Android
 android-start:
