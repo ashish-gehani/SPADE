@@ -7,8 +7,8 @@ CC=@CC@
 JAR=@JAR@
 JAVAC_CP = build:lib/*
 JAVAC_OPTIONS = -Xlint:none -proc:none
-BUILD_TOOLS = /var/android-sdk-macosx/build-tools/17.0.0
-ANDROID_SDK_TOOLS = /var/android-sdk-macosx/platform-tools
+ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@ 
+ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 # LLVM_TARGET = nweb
@@ -168,27 +168,27 @@ android-build:
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/storage/Graphviz.java
 	javac -cp 'build:lib/*' -sourcepath src -d build src/spade/reporter/Strace.java
 	@mkdir -p android-lib;
-	# $(BUILD_TOOLS)/dx --dex --output=android-lib/lucene-core-3.5.0.jar lib/lucene-core-3.5.0.jar
+	# $(ANDROID_BUILD_TOOLS)/dx --dex --output=android-lib/lucene-core-3.5.0.jar lib/lucene-core-3.5.0.jar
 	@mkdir -p android-build;
 	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
 	@cd build; \
-	$(BUILD_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
+	$(ANDROID_BUILD_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
 
 # Deploy to Android
 android-start:
-	$(ANDROID_SDK_TOOLS)/adb shell start
-	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/log"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/conf"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/audit.dot\\nreporter Strace\" > /sdcard/spade/conf/spade.config"
-	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel android"
+	$(ANDROID_SDK_TOOLS)adb shell start
+	$(ANDROID_SDK_TOOLS)adb shell "rm -r /sdcard/spade"
+	$(ANDROID_SDK_TOOLS)adb shell "mkdir /sdcard/spade"
+	$(ANDROID_SDK_TOOLS)adb shell "mkdir /sdcard/spade/log"
+	$(ANDROID_SDK_TOOLS)adb shell "mkdir /sdcard/spade/conf"
+	$(ANDROID_SDK_TOOLS)adb shell "mkdir /sdcard/spade/android-lib"
+	$(ANDROID_SDK_TOOLS)adb shell "mkdir /sdcard/spade/android-build"
+	$(ANDROID_SDK_TOOLS)adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/audit.dot\\nreporter Strace\" > /sdcard/spade/conf/spade.config"
+	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)adb push $$f /sdcard/spade/$$f; done;
+	$(ANDROID_SDK_TOOLS)adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel android"
 
 android-stop:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
+	$(ANDROID_SDK_TOOLS)adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
 
 graph-utility:
 	java -cp 'build:lib/*' spade.utility.GraphUtility
