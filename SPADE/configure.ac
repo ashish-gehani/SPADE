@@ -31,6 +31,25 @@ if test "$JAR" = :; then
    AC_MSG_ERROR([This package needs jar utility installed and available in your path])
 fi
 
+AC_CHECK_PROGS([ADB], [adb], [:])
+if test "$ADB" != :; then
+   ADB_PATH=`which adb`
+   ANDROID_SDK_TOOLS=`dirname $ADB_PATH`/
+else
+   ANDROID_SDK_TOOLS=""
+fi
+AC_SUBST([ANDROID_SDK_TOOLS])
+
+AC_CHECK_PROGS([DX], [dx], [:])
+if test "$DX" != :; then
+   DX_PATH=`which dx`
+   ANDROID_BUILD_TOOLS=`dirname $DX_PATH`/
+else
+   ANDROID_BUILD_TOOLS=""
+fi
+AC_SUBST([ANDROID_BUILD_TOOLS])
+
+
 DUSER=spade
 AC_SUBST([DUSER])
 
