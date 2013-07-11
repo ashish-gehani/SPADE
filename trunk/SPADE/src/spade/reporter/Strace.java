@@ -46,6 +46,7 @@ import spade.vertex.opm.Process;
 /**
  * 
  * @author Dawood Tariq and Sharjeel Qureshi
+ * @description Reporter for strace on Android
  */
 public class Strace extends AbstractReporter {
 
@@ -59,6 +60,8 @@ public class Strace extends AbstractReporter {
 	static final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
 	static final Pattern networkPattern = Pattern.compile("sin_port=htons\\(([0-9]+)\\), sin_addr=inet_addr\\(\"(.*)\"\\)");
 	static final Pattern binderTransactionPattern = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
+	private static Pattern patternKeyValue = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
+
 	String DEBUG_FILE_PATH = "/sdcard/spade/debug.txt";
 	String TEMP_FILE_PATH = "/sdcard/spade/output.txt";
 	Map<String, String> incompleteEvents = new HashMap<String, String>();
@@ -76,36 +79,64 @@ public class Strace extends AbstractReporter {
 		}
 	}
 
+	/*
+	 * Takes a string with keyvalue pairs and returns a Map Input e.g.
+	 * "key1=val1 key2=val2" etc. Input string validation is callee's
+	 * responsiblity
+	 */
+	private static Map<String, String> parseKeyValPairs(String messageData) {
+		Matcher key_value_matcher = patternKeyValue.matcher(messageData);
+		Map<String, String> keyValPairs = new HashMap<String, String>();
+		while (key_value_matcher.find()) {
+			keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
+		}
+		return keyValPairs;
+	}
+
 	@Override
-	public boolean launch(String arguments) {
-		if (arguments == null) {
-			// Attach to zygote
-			try {
-				java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
-				BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
-				pidReader.readLine();
-				String line;
-				while ((line = pidReader.readLine()) != null) {
-					String details[] = line.split("\\s+");
-					String uid = details[0];
-					String pid = details[1];
-					String name = details[8];
-					if (name.equals("zygote")) {
-						mainPIDs.add(pid);
-						logger.log(Level.INFO, "attached to zygote with pid {0}", pid);
-					}
-					if (uid.equals("radio")) {
-						mainPIDs.add(pid);
-						logger.log(Level.INFO, "attached to radio process with pid {0}", pid);
-					}
-				}
-				pidReader.close();
-			} catch (Exception exception) {
-				logger.log(Level.SEVERE, null, exception);
-				return false;
+	public boolean launch(	String arguments) {
+
+		// Parsed the arguments
+		// Arguments e.g. "user=radio user=u0_a1 name=zygote" 
+		// all of the conditionals are translate into "OR" clauses
+		if (arguments == null || arguments.equals("")) {
+			arguments = "name=zygote";
+		}
+		Map<String, String> passedArgsKeyVals = parseKeyValPairs(arguments);
+
+		Map<String, Set<String>> argumentsMap = new HashMap();
+		argumentsMap.put("name", new HashSet());
+		argumentsMap.put("user", new HashSet());
+		argumentsMap.put("pid", new HashSet());
+
+
+		for(String key: passedArgsKeyVals.keySet()) {
+			if(key.equals("name") || key.equals("user") || key.equals("pid") ) {
+				argumentsMap.get(key).add( passedArgsKeyVals.get(key) );
 			}
-		} else {
-			mainPIDs.add(arguments);
+		}
+		argumentsMap.get("name").add("zygote");
+
+		// Attach to zygote and other user specified places
+		try {
+			java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+			BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+			pidReader.readLine();
+			String line;
+			while ((line = pidReader.readLine()) != null) {
+				String details[] = line.split("\\s+");
+				String user = details[0];
+				String pid = details[1];
+				String name = details[8];
+
+				if ( argumentsMap.get("name").contains(name) || argumentsMap.get("user").contains(user) || argumentsMap.get("pid").contains(pid) ) {
+					mainPIDs.add(pid);
+				}
+			}
+			pidReader.close();
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
 		}
 
 		try {
@@ -219,7 +250,7 @@ public class Strace extends AbstractReporter {
 							}
 						}
 						// Set BINDER's TRANSACTION_ DEBUG log off
-						Runtime.getRuntime().exec("sh /sdcard/spade/android-build/binder_dctl.sh 0x200");
+						Runtime.getRuntime().exec("sh /sdcard/spade/android-build/binder_dctl.sh 0");
 					} catch (Exception exception) {
 						logger.log(Level.SEVERE, null, exception);
 					}
@@ -550,6 +581,7 @@ public class Strace extends AbstractReporter {
 					wgb.addAnnotation("success", success ? "true" : "false");
 					putEdge(wgb);
 				} else if (syscall.equals("ioctl")) {
+                                    /*
 					String fd = args.substring(0, args.indexOf(','));
 					if (!fileDescriptors.get(pid).containsKey(fd)) {
 						fixDescriptor(pid, fd);
@@ -566,6 +598,7 @@ public class Strace extends AbstractReporter {
 					} else {
 						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
 					}
+                                    */
 				} else if (syscall.equals("syscall_983045") || syscall.equals("syscall_983042")) {
 					// Ignore these syscalls
 					// 983045 is ARM_set_tls(void*)
