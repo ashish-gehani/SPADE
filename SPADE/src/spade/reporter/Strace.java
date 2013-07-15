@@ -46,7 +46,6 @@ import spade.vertex.opm.Process;
 /**
  * 
  * @author Dawood Tariq and Sharjeel Qureshi
- * @description Reporter for strace on Android
  */
 public class Strace extends AbstractReporter {
 
@@ -60,8 +59,7 @@ public class Strace extends AbstractReporter {
 	static final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
 	static final Pattern networkPattern = Pattern.compile("sin_port=htons\\(([0-9]+)\\), sin_addr=inet_addr\\(\"(.*)\"\\)");
 	static final Pattern binderTransactionPattern = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
-	private static Pattern patternKeyValue = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
-
+	static final Pattern patternKeyValue = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
 	String DEBUG_FILE_PATH = "/sdcard/spade/debug.txt";
 	String TEMP_FILE_PATH = "/sdcard/spade/output.txt";
 	Map<String, String> incompleteEvents = new HashMap<String, String>();
@@ -94,25 +92,23 @@ public class Strace extends AbstractReporter {
 	}
 
 	@Override
-	public boolean launch(	String arguments) {
-
+	public boolean launch(String arguments) {
 		// Parsed the arguments
-		// Arguments e.g. "user=radio user=u0_a1 name=zygote" 
+		// Arguments e.g. "user=radio user=u0_a1 name=zygote"
 		// all of the conditionals are translate into "OR" clauses
 		if (arguments == null || arguments.equals("")) {
 			arguments = "name=zygote";
 		}
 		Map<String, String> passedArgsKeyVals = parseKeyValPairs(arguments);
 
-		Map<String, Set<String>> argumentsMap = new HashMap();
-		argumentsMap.put("name", new HashSet());
-		argumentsMap.put("user", new HashSet());
-		argumentsMap.put("pid", new HashSet());
+		Map<String, Set<String>> argumentsMap = new HashMap<String, Set<String>>();
+		argumentsMap.put("name", new HashSet<String>());
+		argumentsMap.put("user", new HashSet<String>());
+		argumentsMap.put("pid", new HashSet<String>());
 
-
-		for(String key: passedArgsKeyVals.keySet()) {
-			if(key.equals("name") || key.equals("user") || key.equals("pid") ) {
-				argumentsMap.get(key).add( passedArgsKeyVals.get(key) );
+		for (String key : passedArgsKeyVals.keySet()) {
+			if (key.equals("name") || key.equals("user") || key.equals("pid")) {
+				argumentsMap.get(key).add(passedArgsKeyVals.get(key));
 			}
 		}
 		argumentsMap.get("name").add("zygote");
@@ -128,8 +124,7 @@ public class Strace extends AbstractReporter {
 				String user = details[0];
 				String pid = details[1];
 				String name = details[8];
-
-				if ( argumentsMap.get("name").contains(name) || argumentsMap.get("user").contains(user) || argumentsMap.get("pid").contains(pid) ) {
+				if (argumentsMap.get("name").contains(name) || argumentsMap.get("user").contains(user) || argumentsMap.get("pid").contains(pid)) {
 					mainPIDs.add(pid);
 				}
 			}
@@ -153,7 +148,7 @@ public class Strace extends AbstractReporter {
 					try {
 						String straceCmdLine = "strace -e fork,read,write,open,close,link,execve,mknod,rename,dup,dup2,symlink,";
 						straceCmdLine += "clone,vfork,setuid32,setgid32,chmod,fchmod,pipe,truncate,ftruncate,";
-						straceCmdLine += "ioctl,pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,connect,accept";
+						straceCmdLine += "pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,connect,accept";
 						straceCmdLine += " -f -F -tt -v -s 200";
 						for (String pid : mainPIDs) {
 							straceCmdLine += " -p " + pid;
@@ -288,7 +283,7 @@ public class Strace extends AbstractReporter {
 				if (retVal.equals("-1")) {
 					success = false;
 				}
-				
+
 				if (syscall.equals("open")) {
 					if (!success) {
 						templine = null;
@@ -421,11 +416,17 @@ public class Strace extends AbstractReporter {
 					Process oldProcess = processes.get(pid);
 					Process newProcess = new Process();
 					String ppid = syscall.equals("clone") ? oldProcess.getAnnotation("ppid") : oldProcess.getAnnotation("pid");
+					String tgid = syscall.equals("clone") ? oldProcess.getAnnotation("tgid") : newPid;
 					newProcess.addAnnotation("uid", oldProcess.getAnnotation("uid"));
 					newProcess.addAnnotation("gid", oldProcess.getAnnotation("gid"));
 					newProcess.addAnnotation("pid", newPid);
 					newProcess.addAnnotation("ppid", ppid);
-					String commandline = getCommandLine(newPid);
+					newProcess.addAnnotation("tgid", tgid);
+					String name = getProcessName(newPid);
+					if (name != null) {
+						newProcess.addAnnotation("name", name);
+					}
+					String commandline = getProcessCommandLine(newPid);
 					if (commandline != null) {
 						newProcess.addAnnotation("commandline", commandline);
 					}
@@ -581,24 +582,25 @@ public class Strace extends AbstractReporter {
 					wgb.addAnnotation("success", success ? "true" : "false");
 					putEdge(wgb);
 				} else if (syscall.equals("ioctl")) {
-                                    /*
-					String fd = args.substring(0, args.indexOf(','));
-					if (!fileDescriptors.get(pid).containsKey(fd)) {
-						fixDescriptor(pid, fd);
-					}
-					if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-						String path = fileDescriptors.get(pid).get(fd);
-						Artifact vertex = new Artifact();
-						vertex.addAnnotation("location", path);
-						putVertex(vertex);
-						WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-						wgb.addAnnotation("operation", syscall);
-						wgb.addAnnotation("time", time);
-						putEdge(wgb);
-					} else {
-						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
-					}
-                                    */
+					// String fd = args.substring(0, args.indexOf(','));
+					// if (!fileDescriptors.get(pid).containsKey(fd)) {
+					// fixDescriptor(pid, fd);
+					// }
+					// if (fileDescriptors.containsKey(pid) &&
+					// fileDescriptors.get(pid).containsKey(fd)) {
+					// String path = fileDescriptors.get(pid).get(fd);
+					// Artifact vertex = new Artifact();
+					// vertex.addAnnotation("location", path);
+					// putVertex(vertex);
+					// WasGeneratedBy wgb = new WasGeneratedBy(vertex,
+					// processes.get(pid));
+					// wgb.addAnnotation("operation", syscall);
+					// wgb.addAnnotation("time", time);
+					// putEdge(wgb);
+					// } else {
+					// log(String.format("%s() failed - descriptor %s not found:\t\t%s",
+					// syscall, fd, line));
+					// }
 				} else if (syscall.equals("syscall_983045") || syscall.equals("syscall_983042")) {
 					// Ignore these syscalls
 					// 983045 is ARM_set_tls(void*)
@@ -659,13 +661,51 @@ public class Strace extends AbstractReporter {
 		return output;
 	}
 
-	private String getCommandLine(String pid) {
+	private String getProcessCommandLine(String pid) {
 		try {
 			BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
 			String cmdline = cmdlineReader.readLine();
 			cmdlineReader.close();
 			cmdline = (cmdline == null) ? null : cmdline.replace("\0", " ").replace("\"", "'").trim();
+			System.out.println("First command line: " + cmdline);
 			return cmdline;
+			// Thread.sleep(2000);
+			// File file = new File("/proc/" + pid + "/cmdline");
+			// if (!file.exists())
+			// return cmdline;
+			// cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid
+			// + "/cmdline"));
+			// String newCmdline = cmdlineReader.readLine();
+			// cmdlineReader.close();
+			// newCmdline = (newCmdline == null) ? null :
+			// newCmdline.replace("\0", " ").replace("\"", "'").trim();
+			// System.out.println("Second command line: " + newCmdline);
+			// return (newCmdline == null) ? cmdline : newCmdline;
+		} catch (Exception exception) {
+			return null;
+		}
+	}
+
+	private String getProcessName(String pid) {
+		try {
+			BufferedReader namelineReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
+			String nameline = namelineReader.readLine();
+			namelineReader.close();
+			nameline = (nameline == null) ? null : nameline.split("\\s+", 2)[1];
+			return nameline;
+			// System.out.println("First process name: " + nameline);
+			// Thread.sleep(2000);
+			// File file = new File("/proc/" + pid + "/status");
+			// if (!file.exists())
+			// return nameline;
+			// namelineReader = new BufferedReader(new FileReader("/proc/" + pid
+			// + "/status"));
+			// String newNameline = namelineReader.readLine();
+			// namelineReader.close();
+			// newNameline = (newNameline == null) ? null :
+			// newNameline.split("\\s+", 2)[1];
+			// System.out.println("Second process name: " + newNameline);
+			// return (newNameline == null) ? nameline : newNameline;
 		} catch (Exception exception) {
 			return null;
 		}
@@ -676,9 +716,9 @@ public class Strace extends AbstractReporter {
 		try {
 			Process newProcess = new Process();
 			BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
+			String nameline = procReader.readLine();
 			procReader.readLine();
-			procReader.readLine();
-			procReader.readLine();
+			String tgidline = procReader.readLine();
 			procReader.readLine();
 			String ppidline = procReader.readLine();
 			procReader.readLine();
@@ -690,12 +730,16 @@ public class Strace extends AbstractReporter {
 			String cmdline = cmdlineReader.readLine();
 			cmdlineReader.close();
 
+			String name = nameline.split("\\s+", 2)[1];
 			String ppid = ppidline.split("\\s+")[1];
 			String uid = uidline.split("\\s+")[2];
 			String gid = gidline.split("\\s+")[2];
+			String tgid = tgidline.split("\\s+")[1];
 
+			newProcess.addAnnotation("name", name);
 			newProcess.addAnnotation("pid", pid);
 			newProcess.addAnnotation("ppid", ppid);
+			newProcess.addAnnotation("tgid", tgid);
 			newProcess.addAnnotation("uid", uid);
 			newProcess.addAnnotation("gid", gid);
 			if (cmdline != null) {
