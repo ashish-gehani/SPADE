@@ -63,6 +63,7 @@ public class Strace extends AbstractReporter {
 	String DEBUG_FILE_PATH = "/sdcard/spade/debug.txt";
 	String TEMP_FILE_PATH = "/sdcard/spade/output.txt";
 	Map<String, String> incompleteEvents = new HashMap<String, String>();
+	Map<String, String> socketDescriptors = new HashMap<String, String>();
 	Map<String, Map<String, String>> fileDescriptors = new HashMap<String, Map<String, String>>();
 	Map<String, Integer> fileVersions = new HashMap<String, Integer>();
 	Map<String, Process> processes = new HashMap<String, Process>();
@@ -129,6 +130,26 @@ public class Strace extends AbstractReporter {
 				}
 			}
 			pidReader.close();
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+
+		// Populate socket descriptors
+		try {
+			java.lang.Process socketChecker = Runtime.getRuntime().exec("cat /proc/net/unix");
+			BufferedReader socketReader = new BufferedReader(new InputStreamReader(socketChecker.getInputStream()));
+			socketReader.readLine();
+			String line;
+			while ((line = socketReader.readLine()) != null) {
+				String details[] = line.split("\\s+");
+				if (details.length == 8) {
+					String inode = details[6];
+					String path = details[7];
+					socketDescriptors.put(inode, path);
+				}
+			}
+			socketReader.close();
 		} catch (Exception exception) {
 			logger.log(Level.SEVERE, null, exception);
 			return false;
@@ -758,6 +779,12 @@ public class Strace extends AbstractReporter {
 				String tokens[] = line.split("\\s+", 8);
 				String fd = tokens[5];
 				String location = tokens[7];
+				if (location.startsWith("socket:")) {
+					String node = location.substring(location.indexOf("[") + 1, location.lastIndexOf("]"));
+					if (socketDescriptors.containsKey(node)) {
+						location = socketDescriptors.get(node);
+					}
+				}
 				descriptors.put(fd, location);
 			}
 			fileDescriptors.put(pid, descriptors);
@@ -802,6 +829,12 @@ public class Strace extends AbstractReporter {
 			String resolved = file.getCanonicalPath();
 			if ((resolved.indexOf(":") != -1) && (resolved.lastIndexOf("/") != -1)) {
 				resolved = resolved.substring(resolved.lastIndexOf("/") + 1);
+			}
+			if (resolved.startsWith("socket:")) {
+				String node = resolved.substring(resolved.indexOf("[") + 1, resolved.lastIndexOf("]"));
+				if (socketDescriptors.containsKey(node)) {
+					resolved = socketDescriptors.get(node);
+				}
 			}
 			fileDescriptors.get(pid).put(fd, resolved);
 			return true;
