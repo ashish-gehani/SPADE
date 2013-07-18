@@ -141,12 +141,23 @@ public class Strace extends AbstractReporter {
 			BufferedReader socketReader = new BufferedReader(new InputStreamReader(socketChecker.getInputStream()));
 			socketReader.readLine();
 			String line;
+			int lastInodeWithPath = -1;
 			while ((line = socketReader.readLine()) != null) {
 				String details[] = line.split("\\s+");
 				if (details.length == 8) {
-					String inode = details[6];
+					String strInode = details[6];
 					String path = details[7];
-					socketDescriptors.put(inode, path);
+					socketDescriptors.put(strInode, path);
+					lastInodeWithPath = Integer.parseInt(strInode);
+				} else if(details.length == 7) {
+					// Heuristic to finding socket path against inode
+					// Background here: http://unix.stackexchange.com/questions/16300/whos-got-the-other-end-of-this-unix-socketpair
+					// Basically the adjacent inode number would probably have same socket path as this one
+					String strInode = details[6];
+					int inode = Integer.parseInt(strInode);
+
+					if ( Math.abs(inode - lastInodeWithPath) < 4 && lastInodeWithPath >= 0)
+						socketDescriptors.put(strInode, socketDescriptors.get( Integer.toString(lastInodeWithPath) ) );	
 				}
 			}
 			socketReader.close();
@@ -834,6 +845,9 @@ public class Strace extends AbstractReporter {
 				String node = resolved.substring(resolved.indexOf("[") + 1, resolved.lastIndexOf("]"));
 				if (socketDescriptors.containsKey(node)) {
 					resolved = socketDescriptors.get(node);
+				}
+				else {
+					// TODO: Lookup from /proc/net/*
 				}
 			}
 			fileDescriptors.get(pid).put(fd, resolved);
