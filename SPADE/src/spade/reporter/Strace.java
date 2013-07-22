@@ -59,7 +59,6 @@ public class Strace extends AbstractReporter {
 	static final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
 	static final Pattern networkPattern = Pattern.compile("sin_port=htons\\(([0-9]+)\\), sin_addr=inet_addr\\(\"(.*)\"\\)");
 	static final Pattern binderTransactionPattern = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
-	static final Pattern patternKeyValue = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
 	String DEBUG_FILE_PATH = "/sdcard/spade/debug.txt";
 	String TEMP_FILE_PATH = "/sdcard/spade/output.txt";
 	Map<String, String> incompleteEvents = new HashMap<String, String>();
@@ -78,43 +77,31 @@ public class Strace extends AbstractReporter {
 		}
 	}
 
-	/*
-	 * Takes a string with keyvalue pairs and returns a Map Input e.g.
-	 * "key1=val1 key2=val2" etc. Input string validation is callee's
-	 * responsiblity
-	 */
-	private static Map<String, String> parseKeyValPairs(String messageData) {
-		Matcher key_value_matcher = patternKeyValue.matcher(messageData);
-		Map<String, String> keyValPairs = new HashMap<String, String>();
-		while (key_value_matcher.find()) {
-			keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
-		}
-		return keyValPairs;
-	}
-
 	@Override
 	public boolean launch(String arguments) {
-		// Parsed the arguments
+		// Parse the arguments
 		// Arguments e.g. "user=radio user=u0_a1 name=zygote"
 		// all of the conditionals are translate into "OR" clauses
 		if (arguments == null || arguments.equals("")) {
 			arguments = "name=zygote";
 		}
-		Map<String, String> passedArgsKeyVals = parseKeyValPairs(arguments);
 
 		Map<String, Set<String>> argumentsMap = new HashMap<String, Set<String>>();
 		argumentsMap.put("name", new HashSet<String>());
 		argumentsMap.put("user", new HashSet<String>());
 		argumentsMap.put("pid", new HashSet<String>());
 
-		for (String key : passedArgsKeyVals.keySet()) {
+		String[] pairs = arguments.split("\\s+");
+		for (String pair : pairs) {
+			String[] keyvalue = pair.split("=");
+			String key = keyvalue[0];
+			String value = keyvalue[1];
 			if (key.equals("name") || key.equals("user") || key.equals("pid")) {
-				argumentsMap.get(key).add(passedArgsKeyVals.get(key));
+				argumentsMap.get(key).add(value);
 			}
 		}
-		argumentsMap.get("name").add("zygote");
 
-		// Attach to zygote and other user specified places
+		// Attach strace
 		try {
 			java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
 			BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
@@ -126,6 +113,7 @@ public class Strace extends AbstractReporter {
 				String pid = details[1];
 				String name = details[8];
 				if (argumentsMap.get("name").contains(name) || argumentsMap.get("user").contains(user) || argumentsMap.get("pid").contains(pid)) {
+					System.out.println("Attaching to " + name + " with pid " + pid);
 					mainPIDs.add(pid);
 				}
 			}
@@ -145,19 +133,20 @@ public class Strace extends AbstractReporter {
 			while ((line = socketReader.readLine()) != null) {
 				String details[] = line.split("\\s+");
 				if (details.length == 8) {
-					String strInode = details[6];
+					String inode = details[6];
 					String path = details[7];
-					socketDescriptors.put(strInode, path);
-					lastInodeWithPath = Integer.parseInt(strInode);
-				} else if(details.length == 7) {
+					socketDescriptors.put(inode, path);
+					lastInodeWithPath = Integer.parseInt(inode);
+				} else if (details.length == 7) {
 					// Heuristic to finding socket path against inode
-					// Background here: http://unix.stackexchange.com/questions/16300/whos-got-the-other-end-of-this-unix-socketpair
-					// Basically the adjacent inode number would probably have same socket path as this one
-					String strInode = details[6];
-					int inode = Integer.parseInt(strInode);
-
-					if ( Math.abs(inode - lastInodeWithPath) < 4 && lastInodeWithPath >= 0)
-						socketDescriptors.put(strInode, socketDescriptors.get( Integer.toString(lastInodeWithPath) ) );	
+					// Background here:
+					// http://unix.stackexchange.com/questions/16300/whos-got-the-other-end-of-this-unix-socketpair
+					// Basically the adjacent inode number would probably have
+					// same socket path as this one
+					String inode = details[6];
+					if (Math.abs(Integer.parseInt(inode) - lastInodeWithPath) < 4 && lastInodeWithPath >= 0) {
+						socketDescriptors.put(inode, socketDescriptors.get(Integer.toString(lastInodeWithPath)));
+					}
 				}
 			}
 			socketReader.close();
@@ -405,6 +394,39 @@ public class Strace extends AbstractReporter {
 						wgb.addAnnotation("time", time);
 						wgb.addAnnotation("success", success ? "true" : "false");
 						putEdge(wgb);
+						// Extra check for sms
+						int firstIndex = args.indexOf("\"") + 1;
+						int secondIndex = args.lastIndexOf("\"");
+						if (firstIndex > 0 && secondIndex > -1) {
+							String data = args.substring(firstIndex, secondIndex);
+							if (data.startsWith("AT+")) {
+								Artifact at = new Artifact();
+								at.addAnnotation("action", "at+");
+								at.addAnnotation("command", data);
+								at.addAnnotation("time", time);
+								putVertex(at);
+								WasGeneratedBy atwgb = new WasGeneratedBy(at, processes.get(pid));
+								atwgb.addAnnotation("operation", "at+");
+								atwgb.addAnnotation("time", time);
+								putEdge(atwgb);
+							}
+						}
+						if (processes.get(pid).getAnnotation("name").equals("rild") && path.equals("/dev/qemu_pipe")) {
+							if (firstIndex > 0 && secondIndex > -1) {
+								String data = args.substring(firstIndex, secondIndex);
+								if (data.matches("[0-9A-Fa-f]+")) {
+									Artifact pdu = new Artifact();
+									pdu.addAnnotation("action", "pdu");
+									pdu.addAnnotation("data", data);
+									pdu.addAnnotation("time", time);
+									putVertex(pdu);
+									WasGeneratedBy pduwgb = new WasGeneratedBy(pdu, processes.get(pid));
+									pduwgb.addAnnotation("operation", "pdu");
+									pduwgb.addAnnotation("time", time);
+									putEdge(pduwgb);
+								}
+							}
+						}
 					} else {
 						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
 					}
@@ -699,8 +721,8 @@ public class Strace extends AbstractReporter {
 			String cmdline = cmdlineReader.readLine();
 			cmdlineReader.close();
 			cmdline = (cmdline == null) ? null : cmdline.replace("\0", " ").replace("\"", "'").trim();
-			System.out.println("First command line: " + cmdline);
 			return cmdline;
+			// System.out.println("First command line: " + cmdline);
 			// Thread.sleep(2000);
 			// File file = new File("/proc/" + pid + "/cmdline");
 			// if (!file.exists())
@@ -845,9 +867,6 @@ public class Strace extends AbstractReporter {
 				String node = resolved.substring(resolved.indexOf("[") + 1, resolved.lastIndexOf("]"));
 				if (socketDescriptors.containsKey(node)) {
 					resolved = socketDescriptors.get(node);
-				}
-				else {
-					// TODO: Lookup from /proc/net/*
 				}
 			}
 			fileDescriptors.get(pid).put(fd, resolved);
