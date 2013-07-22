@@ -20,6 +20,7 @@
 package spade.core;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.Serializable;
@@ -74,8 +75,8 @@ public class Graph extends AbstractStorage implements Serializable {
 	private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
 	private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
 
-	private static final Pattern nodePattern = Pattern.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(.*)\" fillcolor=\"(.*)\"", Pattern.DOTALL);
-	private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(.*)\"", Pattern.DOTALL);
+	private static final Pattern nodePattern = Pattern.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
+	private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
 	private static final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
 	private static final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
 
@@ -352,6 +353,10 @@ public class Graph extends AbstractStorage implements Serializable {
 		if (path == null) {
 			return null;
 		}
+		File file = new File(path);
+		if (!file.exists()) {
+			return null;
+		}
 		Graph result = new Graph();
 		Map<String, AbstractVertex> vertexMap = new HashMap<String, AbstractVertex>();
 		try {
@@ -383,7 +388,7 @@ public class Graph extends AbstractStorage implements Serializable {
 				AbstractVertex vertex;
 				if (shape.equals("box")) {
 					vertex = new Process();
-				} else if (shape.equals("ellipse")) {
+				} else if (shape.equals("ellipse") || shape.equals("diamond")) {
 					vertex = new Artifact();
 				} else if (shape.equals("octagon")) {
 					vertex = new Agent();
@@ -474,12 +479,12 @@ public class Graph extends AbstractStorage implements Serializable {
 			for (Map.Entry<String, String> currentEntry : vertex.getAnnotations().entrySet()) {
 				String key = currentEntry.getKey();
 				String value = currentEntry.getValue();
-				if (key.equals(ID_STRING))
+				if (key.equals(ID_STRING)) {
 					continue;
+				}
 				annotationString.append(key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n");
 			}
-			annotationString.append(ID_STRING + ":" + reverseVertexIdentifiers.get(vertex));
-			String vertexString = annotationString.toString();
+			String vertexString = annotationString.substring(0, annotationString.length() - 2);
 			String shape = "box";
 			String color = "white";
 			String type = vertex.getAnnotation("type");
@@ -507,11 +512,11 @@ public class Graph extends AbstractStorage implements Serializable {
 			for (Map.Entry<String, String> currentEntry : edge.getAnnotations().entrySet()) {
 				String key = currentEntry.getKey();
 				String value = currentEntry.getValue();
-				if (key.equals(ID_STRING))
+				if (key.equals(ID_STRING)) {
 					continue;
+				}
 				annotationString.append(key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n");
 			}
-			annotationString.append(ID_STRING + ":" + reverseEdgeIdentifiers.get(edge));
 			String color = "black";
 			String type = edge.getAnnotation("type");
 			if (type.equalsIgnoreCase("Used")) {
@@ -525,12 +530,15 @@ public class Graph extends AbstractStorage implements Serializable {
 			} else if (type.equalsIgnoreCase("WasDerivedFrom")) {
 				color = "orange";
 			}
+			String style = "solid";
+			if (edge.getAnnotation("success") != null && edge.getAnnotation("success").equals("false")) {
+				style = "dashed";
+			}
 
-			String edgeString = "(" + annotationString.toString() + ")";
+			String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
 			String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getSourceVertex()));
 			String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getDestinationVertex()));
-
-			writer.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\"];\n");
+			writer.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
 		} catch (Exception exception) {
 			logger.log(Level.SEVERE, null, exception);
 		}
@@ -594,106 +602,116 @@ public class Graph extends AbstractStorage implements Serializable {
 
 	@Override
 	public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
-		try {
-			Set<AbstractVertex> srcVertexSet = new HashSet<AbstractVertex>();
-			Set<AbstractVertex> dstVertexSet = new HashSet<AbstractVertex>();
-			Set<AbstractEdge> srcEdgeSet = new HashSet<AbstractEdge>();
-			Set<AbstractEdge> dstEdgeSet = new HashSet<AbstractEdge>();
-
-			Set<Integer> tempSrcSet = new HashSet<Integer>();
-			Set<Integer> tempDstSet = new HashSet<Integer>();
-			IndexReader vertexReader = IndexReader.open(vertexIndex);
-			IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-			ScoreDoc[] srcHits = vertexSearcher.search(queryParser.parse(srcVertexExpression), MAX_QUERY_HITS).scoreDocs;
-			for (int i = 0; i < srcHits.length; ++i) {
-				int docId = srcHits[i].doc;
-				Document foundDoc = vertexSearcher.doc(docId);
-				int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-				tempSrcSet.add(vertex_identifier);
-			}
-			ScoreDoc[] dstHits = vertexSearcher.search(queryParser.parse(dstVertexExpression), MAX_QUERY_HITS).scoreDocs;
-			for (int i = 0; i < dstHits.length; ++i) {
-				int docId = dstHits[i].doc;
-				Document foundDoc = vertexSearcher.doc(docId);
-				int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-				tempDstSet.add(vertex_identifier);
-			}
-			vertexSearcher.close();
-			vertexReader.close();
-
-			IndexReader edgeReader = IndexReader.open(edgeIndex);
-			IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
-
-			Set<Integer> processedVertices = new HashSet<Integer>();
-			processedVertices.addAll(tempSrcSet);
-			for (int i = 0; i <= maxLength; i++) {
-				Set<Integer> newTempSet = new HashSet<Integer>();
-				for (Integer currentVertexId : tempSrcSet) {
-					srcVertexSet.add(vertexIdentifiers.get(currentVertexId));
-					ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(SRC_VERTEX_ID + ":\"" + currentVertexId + "\""), MAX_QUERY_HITS).scoreDocs;
-					for (int j = 0; j < hits.length; ++j) {
-						int docId = hits[j].doc;
-						Document foundDoc = edgeSearcher.doc(docId);
-						int edge_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-						AbstractEdge edge = edgeIdentifiers.get(edge_identifier);
-						int vertexId = reverseVertexIdentifiers.get(edge.getDestinationVertex());
-						if (processedVertices.add(vertexId)) {
-							srcEdgeSet.add(edge);
-							newTempSet.add(vertexId);
-						}
-					}
-				}
-				if (newTempSet.isEmpty()) {
-					break;
-				}
-				tempSrcSet = newTempSet;
-			}
-
-			processedVertices = new HashSet<Integer>();
-			processedVertices.addAll(tempDstSet);
-			for (int i = 0; i <= maxLength; i++) {
-				Set<Integer> newTempSet = new HashSet<Integer>();
-				for (Integer currentVertexId : tempDstSet) {
-					dstVertexSet.add(vertexIdentifiers.get(currentVertexId));
-					ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(DST_VERTEX_ID + ":\"" + currentVertexId + "\""), MAX_QUERY_HITS).scoreDocs;
-					for (int j = 0; j < hits.length; ++j) {
-						int docId = hits[j].doc;
-						Document foundDoc = edgeSearcher.doc(docId);
-						int edge_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-						AbstractEdge edge = edgeIdentifiers.get(edge_identifier);
-						int vertexId = reverseVertexIdentifiers.get(edge.getSourceVertex());
-						if (processedVertices.add(vertexId)) {
-							dstEdgeSet.add(edge);
-							newTempSet.add(vertexId);
-						}
-					}
-				}
-				if (newTempSet.isEmpty()) {
-					break;
-				}
-				tempDstSet = newTempSet;
-			}
-			edgeSearcher.close();
-			edgeReader.close();
-
-			Graph resultGraph = new Graph();
-			Set<AbstractVertex> vertexResultSet = srcVertexSet;
-			vertexResultSet.retainAll(dstVertexSet);
-			Set<AbstractEdge> edgeResultSet = srcEdgeSet;
-			edgeResultSet.retainAll(dstEdgeSet);
-			for (AbstractVertex vertex : vertexResultSet) {
-				resultGraph.putVertex(vertex);
-			}
-			for (AbstractEdge edge : edgeResultSet) {
-				resultGraph.putEdge(edge);
-			}
-
-			resultGraph.commitIndex();
-			return resultGraph;
-		} catch (Exception exception) {
-			logger.log(Level.SEVERE, null, exception);
-			return null;
-		}
+		Graph a = getLineage(srcVertexExpression, maxLength, DIRECTION_ANCESTORS, null);
+		Graph d = getLineage(dstVertexExpression, maxLength, DIRECTION_DESCENDANTS, null);
+		return Graph.intersection(a, d);
+		// try {
+		// Set<AbstractVertex> srcVertexSet = new HashSet<AbstractVertex>();
+		// Set<AbstractVertex> dstVertexSet = new HashSet<AbstractVertex>();
+		// Set<AbstractEdge> srcEdgeSet = new HashSet<AbstractEdge>();
+		// Set<AbstractEdge> dstEdgeSet = new HashSet<AbstractEdge>();
+		//
+		// Set<Integer> tempSrcSet = new HashSet<Integer>();
+		// Set<Integer> tempDstSet = new HashSet<Integer>();
+		// IndexReader vertexReader = IndexReader.open(vertexIndex);
+		// IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
+		// ScoreDoc[] srcHits =
+		// vertexSearcher.search(queryParser.parse(srcVertexExpression),
+		// MAX_QUERY_HITS).scoreDocs;
+		// for (int i = 0; i < srcHits.length; ++i) {
+		// int docId = srcHits[i].doc;
+		// Document foundDoc = vertexSearcher.doc(docId);
+		// int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
+		// tempSrcSet.add(vertex_identifier);
+		// }
+		// ScoreDoc[] dstHits =
+		// vertexSearcher.search(queryParser.parse(dstVertexExpression),
+		// MAX_QUERY_HITS).scoreDocs;
+		// for (int i = 0; i < dstHits.length; ++i) {
+		// int docId = dstHits[i].doc;
+		// Document foundDoc = vertexSearcher.doc(docId);
+		// int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
+		// tempDstSet.add(vertex_identifier);
+		// }
+		// vertexSearcher.close();
+		// vertexReader.close();
+		//
+		// IndexReader edgeReader = IndexReader.open(edgeIndex);
+		// IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
+		//
+		// Set<Integer> processedVertices = new HashSet<Integer>();
+		// processedVertices.addAll(tempSrcSet);
+		// for (int i = 0; i <= maxLength; i++) {
+		// Set<Integer> newTempSet = new HashSet<Integer>();
+		// for (Integer currentVertexId : tempSrcSet) {
+		// srcVertexSet.add(vertexIdentifiers.get(currentVertexId));
+		// ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(SRC_VERTEX_ID
+		// + ":\"" + currentVertexId + "\""), MAX_QUERY_HITS).scoreDocs;
+		// for (int j = 0; j < hits.length; ++j) {
+		// int docId = hits[j].doc;
+		// Document foundDoc = edgeSearcher.doc(docId);
+		// int edge_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
+		// AbstractEdge edge = edgeIdentifiers.get(edge_identifier);
+		// int vertexId =
+		// reverseVertexIdentifiers.get(edge.getDestinationVertex());
+		// if (processedVertices.add(vertexId)) {
+		// srcEdgeSet.add(edge);
+		// newTempSet.add(vertexId);
+		// }
+		// }
+		// }
+		// if (newTempSet.isEmpty()) {
+		// break;
+		// }
+		// tempSrcSet = newTempSet;
+		// }
+		//
+		// processedVertices = new HashSet<Integer>();
+		// processedVertices.addAll(tempDstSet);
+		// for (int i = 0; i <= maxLength; i++) {
+		// Set<Integer> newTempSet = new HashSet<Integer>();
+		// for (Integer currentVertexId : tempDstSet) {
+		// dstVertexSet.add(vertexIdentifiers.get(currentVertexId));
+		// ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(DST_VERTEX_ID
+		// + ":\"" + currentVertexId + "\""), MAX_QUERY_HITS).scoreDocs;
+		// for (int j = 0; j < hits.length; ++j) {
+		// int docId = hits[j].doc;
+		// Document foundDoc = edgeSearcher.doc(docId);
+		// int edge_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
+		// AbstractEdge edge = edgeIdentifiers.get(edge_identifier);
+		// int vertexId = reverseVertexIdentifiers.get(edge.getSourceVertex());
+		// if (processedVertices.add(vertexId)) {
+		// dstEdgeSet.add(edge);
+		// newTempSet.add(vertexId);
+		// }
+		// }
+		// }
+		// if (newTempSet.isEmpty()) {
+		// break;
+		// }
+		// tempDstSet = newTempSet;
+		// }
+		// edgeSearcher.close();
+		// edgeReader.close();
+		//
+		// Graph resultGraph = new Graph();
+		// Set<AbstractVertex> vertexResultSet = srcVertexSet;
+		// vertexResultSet.retainAll(dstVertexSet);
+		// Set<AbstractEdge> edgeResultSet = srcEdgeSet;
+		// edgeResultSet.retainAll(dstEdgeSet);
+		// for (AbstractVertex vertex : vertexResultSet) {
+		// resultGraph.putVertex(vertex);
+		// }
+		// for (AbstractEdge edge : edgeResultSet) {
+		// resultGraph.putEdge(edge);
+		// }
+		//
+		// resultGraph.commitIndex();
+		// return resultGraph;
+		// } catch (Exception exception) {
+		// logger.log(Level.SEVERE, null, exception);
+		// return null;
+		// }
 	}
 
 	@Override
