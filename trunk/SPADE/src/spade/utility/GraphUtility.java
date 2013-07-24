@@ -7,7 +7,11 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 import jline.ConsoleReader;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.core.AbstractEdge;
 import spade.core.Graph;
+import spade.filter.FinalCommitFilter;
 
 public class GraphUtility {
 
@@ -15,11 +19,12 @@ public class GraphUtility {
 	private static final String COMMAND_PROMPT = "-> ";
 	private static HashMap<String, Graph> graphObjects = new HashMap<String, Graph>();
 
-	private static Pattern importPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+importGraph\\((.+)\\)");
-	private static Pattern exportPattern = Pattern.compile("([a-zA-Z0-9]+)\\.exportGraph\\((.+)\\)");
-	private static Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\.showVertices\\((.+)\\)");
-	private static Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+)\\.getPaths\\((.+)\\)");
-	private static Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+)\\.getLineage\\((.+)\\)");
+	private static Pattern importPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*import\\((.+)\\)");
+	private static Pattern exportPattern = Pattern.compile("([a-zA-Z0-9]+)\\.export\\((.+)\\)");
+	private static Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\.showVertices\\((.*)\\)");
+	private static Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+)\\.getPaths\\((.+)\\)");
+	private static Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+)\\.getLineage\\((.+)\\)");
+	private static Pattern filterPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+)\\.filter\\((.+)\\)");
 
 	public static void main(String[] args) {
 		try {
@@ -52,14 +57,14 @@ public class GraphUtility {
 		Matcher vertexMatcher = vertexPattern.matcher(line);
 		Matcher pathMatcher = pathPattern.matcher(line);
 		Matcher lineageMatcher = lineagePattern.matcher(line);
+		Matcher filterMatcher = filterPattern.matcher(line);
 
 		if (importMatcher.matches()) {
 			String target = importMatcher.group(1);
 			String inputFile = importMatcher.group(2).trim();
 			Graph graph = null;
-			try {
-				graph = Graph.importGraph(inputFile);
-			} catch (Exception exception) {
+			graph = Graph.importGraph(inputFile);
+			if (graph == null) {
 				outputStream.println("Error importing graph!");
 				return;
 			}
@@ -83,6 +88,7 @@ public class GraphUtility {
 		} else if (vertexMatcher.matches()) {
 			String input = vertexMatcher.group(1);
 			String expression = vertexMatcher.group(2).trim();
+			expression = (expression.equals("") || expression == null) ? "type:*" : expression;
 			if (!graphObjects.containsKey(input)) {
 				outputStream.println(String.format("Graph %s not found!", input));
 				return;
@@ -144,13 +150,44 @@ public class GraphUtility {
 			} else {
 				outputStream.println(String.format("Error querying graph %s!", input));
 			}
+		} else if (filterMatcher.matches()) {
+			String target = filterMatcher.group(1);
+			String input = filterMatcher.group(2);
+			String filterName = filterMatcher.group(3).trim();
+			if (!graphObjects.containsKey(input)) {
+				outputStream.println(String.format("Graph %s not found!", input));
+				return;
+			}
+			Graph result = new Graph();
+			AbstractFilter filter;
+			try {
+				filter = (AbstractFilter) Class.forName("spade.filter." + filterName).newInstance();
+			} catch (Exception ex) {
+				outputStream.println("Unable to find/load filter!");
+				return;
+			}
+			FinalCommitFilter finalFilter = new FinalCommitFilter();
+			finalFilter.storages.add(result);
+			filter.setNextFilter(finalFilter);
+			Graph graph = graphObjects.get(input);
+			for (AbstractVertex v : graph.vertexSet()) {
+				filter.putVertex(v);
+			}
+			for (AbstractEdge e : graph.edgeSet()) {
+				filter.putEdge(e);
+			}
+			result.commitIndex();
+			finalFilter.storages.remove(graph);
+			graphObjects.put(target, result);
+			outputStream.println(String.format("Result saved in graph %s", target));
 		} else {
 			outputStream.println("Available commands:");
-			outputStream.println("\t <var> = importGraph(<path>)");
-			outputStream.println("\t <var>.exportGraph(<path>)");
+			outputStream.println("\t <var> = import(<path>)");
+			outputStream.println("\t <var>.export(<path>)");
 			outputStream.println("\t <var>.showVertices(<expression>)");
 			outputStream.println("\t <var> = <var>.getPaths(<src id | expression>, <dst id | expression>)");
 			outputStream.println("\t <var> = <var>.getLineage(<src id | expression>, <direction>)");
+			outputStream.println("\t <var> = <var>.filter(<filter name>)");
 			outputStream.println("\t exit");
 		}
 	}
