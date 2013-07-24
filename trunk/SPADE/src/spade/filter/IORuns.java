@@ -46,7 +46,7 @@ public class IORuns extends AbstractFilter {
 
 	@Override
 	public void putVertex(AbstractVertex incomingVertex) {
-		if (incomingVertex instanceof Artifact) {
+		if ((incomingVertex instanceof Artifact) && (incomingVertex.getAnnotation(artifactKey) != null)) {
 			vertexBuffer.add(incomingVertex);
 		} else {
 			putInNextFilter(incomingVertex);
@@ -56,7 +56,7 @@ public class IORuns extends AbstractFilter {
 
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
-		if (incomingEdge instanceof Used) {
+		if ((incomingEdge instanceof Used) && (incomingEdge.getDestinationVertex().getAnnotation(artifactKey) != null)) {
 			Used usedEdge = (Used) incomingEdge;
 			String fileVertexHash = usedEdge.getDestinationVertex().getAnnotation(artifactKey);
 			String processVertexHash = Integer.toString(usedEdge.getSourceVertex().hashCode());
@@ -80,7 +80,7 @@ public class IORuns extends AbstractFilter {
 				HashSet<String> tempSet = writes.get(fileVertexHash);
 				tempSet.remove(processVertexHash);
 			}
-		} else if (incomingEdge instanceof WasGeneratedBy) {
+		} else if ((incomingEdge instanceof WasGeneratedBy) && (incomingEdge.getSourceVertex().getAnnotation(artifactKey) != null)) {
 			WasGeneratedBy wgb = (WasGeneratedBy) incomingEdge;
 			String fileVertexHash = wgb.getSourceVertex().getAnnotation(artifactKey);
 			String processVertexHash = Integer.toString(wgb.getDestinationVertex().hashCode());
