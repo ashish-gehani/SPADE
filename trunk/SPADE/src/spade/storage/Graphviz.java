@@ -82,9 +82,6 @@ public class Graphviz extends AbstractStorage {
 				if (key == null || value == null) {
 					continue;
 				}
-				if (key.equals("type") || key.equals("subtype")) {
-					continue;
-				}
 				annotationString.append(key.replace("\\", "\\\\"));
 				annotationString.append(":");
 				annotationString.append(value.replace("\\", "\\\\"));
@@ -133,9 +130,6 @@ public class Graphviz extends AbstractStorage {
 				String key = currentEntry.getKey();
 				String value = currentEntry.getValue();
 				if (key == null || value == null) {
-					continue;
-				}
-				if (key.equals("type") || key.equals("subtype")) {
 					continue;
 				}
 				annotationString.append(key.replace("\\", "\\\\"));

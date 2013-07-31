@@ -100,6 +100,10 @@ public class Graph extends AbstractStorage implements Serializable {
 	private transient IndexWriter vertexIndexWriter;
 	private transient IndexWriter edgeIndexWriter;
 
+	public void mergeThreads() {
+		
+	}
+
 	/**
 	 * An empty constructor.
 	 */

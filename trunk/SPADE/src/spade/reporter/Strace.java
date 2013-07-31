@@ -40,6 +40,8 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.reporter.pdu.Pdu;
+import spade.reporter.pdu.PduParser;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -51,6 +53,9 @@ public class Strace extends AbstractReporter {
 
 	PrintWriter logWriter;
 	final boolean LOG_DEBUG_INFO = true;
+	final boolean TRACE_SYSTEM = false;
+	final boolean TRACE_APPS = false;
+	final boolean ADD_BEHAVIOR_TAGS = true;
 	final int THREAD_SLEEP_DELAY = 5;
 	volatile boolean shutdown = false;
 	static final Logger logger = Logger.getLogger(Strace.class.getName());
@@ -113,6 +118,12 @@ public class Strace extends AbstractReporter {
 				String pid = details[1];
 				String name = details[8];
 				if (argumentsMap.get("name").contains(name) || argumentsMap.get("user").contains(user) || argumentsMap.get("pid").contains(pid)) {
+					System.out.println("Attaching to " + name + " with pid " + pid);
+					mainPIDs.add(pid);
+				} else if (TRACE_SYSTEM && name.startsWith("/system/bin/")) {
+					System.out.println("Attaching to " + name + " with pid " + pid);
+					mainPIDs.add(pid);
+				} else if (TRACE_APPS && name.startsWith("com.android.")) {
 					System.out.println("Attaching to " + name + " with pid " + pid);
 					mainPIDs.add(pid);
 				}
@@ -257,6 +268,10 @@ public class Strace extends AbstractReporter {
 											putEdge(used);
 
 											transactionAlreadyProcessed.add(pidpair);
+
+											if (processes.get(frompid).getAnnotation("commandline").equals("android.process.acore")) {
+												createBehavior(vertex, "GetContact");
+											}
 										}
 									} catch (Exception e) {
 										logger.log(Level.SEVERE, "error parsing binder transaction log: " + line, e);
@@ -278,6 +293,18 @@ public class Strace extends AbstractReporter {
 		} catch (Exception exception) {
 			logger.log(Level.SEVERE, null, exception);
 			return false;
+		}
+	}
+
+	private void createBehavior(Artifact artifact, String behavior) {
+		if (ADD_BEHAVIOR_TAGS) {
+			Artifact behaviorArtifact = new Artifact();
+			behaviorArtifact.addAnnotation("behavior", behavior);
+			putVertex(behaviorArtifact);
+			WasDerivedFrom w1 = new WasDerivedFrom(artifact, behaviorArtifact);
+			putEdge(w1);
+			WasDerivedFrom w2 = new WasDerivedFrom(behaviorArtifact, artifact);
+			putEdge(w2);
 		}
 	}
 
@@ -394,38 +421,63 @@ public class Strace extends AbstractReporter {
 						wgb.addAnnotation("time", time);
 						wgb.addAnnotation("success", success ? "true" : "false");
 						putEdge(wgb);
-						// Extra check for sms
+						// Extra checks for additional data
 						int firstIndex = args.indexOf("\"") + 1;
 						int secondIndex = args.lastIndexOf("\"");
 						if (firstIndex > 0 && secondIndex > -1) {
 							String data = args.substring(firstIndex, secondIndex);
-							if (data.startsWith("AT+")) {
+							if (data.startsWith("AT")) {
 								Artifact at = new Artifact();
-								at.addAnnotation("action", "at+");
 								at.addAnnotation("command", data);
 								at.addAnnotation("time", time);
 								putVertex(at);
 								WasGeneratedBy atwgb = new WasGeneratedBy(at, processes.get(pid));
-								atwgb.addAnnotation("operation", "at+");
+								atwgb.addAnnotation("operation", syscall);
+								atwgb.addAnnotation("action", "atcommand");
 								atwgb.addAnnotation("time", time);
 								putEdge(atwgb);
-							}
-						}
-						if (processes.get(pid).getAnnotation("name").equals("rild") && path.equals("/dev/qemu_pipe")) {
-							if (firstIndex > 0 && secondIndex > -1) {
-								String data = args.substring(firstIndex, secondIndex);
-								if (data.matches("[0-9A-Fa-f]+")) {
-									Artifact pdu = new Artifact();
-									pdu.addAnnotation("action", "pdu");
-									pdu.addAnnotation("data", data);
-									pdu.addAnnotation("time", time);
-									putVertex(pdu);
-									WasGeneratedBy pduwgb = new WasGeneratedBy(pdu, processes.get(pid));
-									pduwgb.addAnnotation("operation", "pdu");
-									pduwgb.addAnnotation("time", time);
-									putEdge(pduwgb);
+								if (data.startsWith("ATD")) {
+									createBehavior(at, "PhoneCall");
+								} else if (data.startsWith("AT+CNMI")) {
+									createBehavior(at, "ReceiveSMS");
+								} else {
+									createBehavior(at, "ATCommand");
 								}
 							}
+							if (processes.get(pid).getAnnotation("name").equals("rild") && path.equals("/dev/qemu_pipe") && data.matches("[0-9A-Fa-f]+")) {
+								Artifact pdu = new Artifact();
+								pdu.addAnnotation("pdudata", data);
+								PduParser parser = new PduParser();
+								Pdu pduMessage = parser.parsePdu(data);
+								pdu.addAnnotation("address", pduMessage.getAddress());
+								pdu.addAnnotation("text", pduMessage.getDecodedText().replaceAll("\n", ""));
+								pdu.addAnnotation("time", time);
+								putVertex(pdu);
+								WasGeneratedBy pduwgb = new WasGeneratedBy(pdu, processes.get(pid));
+								pduwgb.addAnnotation("operation", syscall);
+								pduwgb.addAnnotation("action", "pdu");
+								pduwgb.addAnnotation("time", time);
+								putEdge(pduwgb);
+								createBehavior(pdu, "SendSMS");
+							}
+							if (data.startsWith("$GP")) {
+								Artifact gps = new Artifact();
+								gps.addAnnotation("gpsdata", data);
+								gps.addAnnotation("time", time);
+								putVertex(gps);
+								WasGeneratedBy gpswgb = new WasGeneratedBy(gps, processes.get(pid));
+								gpswgb.addAnnotation("operation", syscall);
+								gpswgb.addAnnotation("action", "gps");
+								gpswgb.addAnnotation("time", time);
+								putEdge(gpswgb);
+								createBehavior(gps, "GeoLocation");
+							}
+						}
+						if (path.equals("/data/data/com.android.providers.telephony/databases/mmssms.db")) {
+							createBehavior(vertex, "WriteSMSDB");
+						}
+						if (networkMatcher.find()) {
+							createBehavior(vertex, "Internet");
 						}
 					} else {
 						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
@@ -458,6 +510,30 @@ public class Strace extends AbstractReporter {
 						used.addAnnotation("time", time);
 						used.addAnnotation("success", success ? "true" : "false");
 						putEdge(used);
+						// Extra checks for additional data
+						int firstIndex = args.indexOf("\"") + 1;
+						int secondIndex = args.lastIndexOf("\"");
+						if (firstIndex > 0 && secondIndex > -1) {
+							String data = args.substring(firstIndex, secondIndex);
+							if (data.startsWith("$GP")) {
+								Artifact gps = new Artifact();
+								gps.addAnnotation("gpsdata", data);
+								gps.addAnnotation("time", time);
+								putVertex(gps);
+								Used gpsUsed = new Used(processes.get(pid), gps);
+								gpsUsed.addAnnotation("operation", syscall);
+								gpsUsed.addAnnotation("action", "gps");
+								gpsUsed.addAnnotation("time", time);
+								putEdge(gpsUsed);
+								createBehavior(gps, "GeoLocation");
+							}
+						}
+						if (path.equals("/data/data/com.android.providers.telephony/databases/mmssms.db")) {
+							createBehavior(vertex, "ReadSMSDB");
+						}
+						if (networkMatcher.find()) {
+							createBehavior(vertex, "Internet");
+						}
 					} else {
 						log(String.format("%s() failed - descriptor %s not found:\t\t%s", syscall, fd, line));
 					}

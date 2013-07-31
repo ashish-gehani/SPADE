@@ -35,12 +35,16 @@ import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
+import org.neo4j.kernel.AbstractGraphDatabase;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.Traversal;
+import org.neo4j.server.WrappingNeoServerBootstrapper;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
@@ -69,6 +73,7 @@ public class Neo4j extends AbstractStorage {
 	private static final String VERTEX_INDEX = "vertexIndex";
 	private static final String EDGE_INDEX = "edgeIndex";
 	private GraphDatabaseService graphDb;
+	private WrappingNeoServerBootstrapper webServer;
 	private IndexManager index;
 	private Index<Node> vertexIndex;
 	private RelationshipIndex edgeIndex;
@@ -85,10 +90,6 @@ public class Neo4j extends AbstractStorage {
 		EDGE
 	}
 
-	public GraphDatabaseService getDB() {
-		return graphDb;
-	}
-
 	@Override
 	public boolean initialize(String arguments) {
 		try {
@@ -98,7 +99,7 @@ public class Neo4j extends AbstractStorage {
 			// Create new database given the path as argument. Upgrade the
 			// database
 			// if it already exists and is an older version
-			graphDb = new EmbeddedGraphDatabase(arguments);
+			graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
 			index = graphDb.index();
 			transactionCount = 0;
 			flushCount = 0;
@@ -108,6 +109,9 @@ public class Neo4j extends AbstractStorage {
 			edgeIndex = index.forRelationships(EDGE_INDEX);
 			// Create HashMap to store IDs of incoming vertices
 			vertexMap = new HashMap<String, Long>();
+
+			webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
+			webServer.start();
 
 			return true;
 		} catch (Exception exception) {
@@ -131,13 +135,16 @@ public class Neo4j extends AbstractStorage {
 			flushCount++;
 			// If hard flush limit is reached, restart the database
 			if (flushCount == HARD_FLUSH_LIMIT) {
+				webServer.stop();
 				logger.log(Level.INFO, "Hard flush limit reached - restarting database");
 				graphDb.shutdown();
-				graphDb = new EmbeddedGraphDatabase(arguments);
+				graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
 				index = graphDb.index();
 				vertexIndex = index.forNodes(VERTEX_INDEX);
 				edgeIndex = index.forRelationships(EDGE_INDEX);
 				flushCount = 0;
+				webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
+				webServer.start();
 			}
 		}
 	}
