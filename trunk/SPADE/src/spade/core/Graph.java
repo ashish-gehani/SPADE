@@ -27,6 +27,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,6 +59,8 @@ import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
+import spade.vertex.custom.EOS;
+
 /**
  * This class is used to represent query responses using sets for edges and
  * vertices.
@@ -82,10 +85,10 @@ public class Graph extends AbstractStorage implements Serializable {
 
 	private Analyzer analyzer = new KeywordAnalyzer();
 	private QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
-	private Set<AbstractVertex> vertexSet = new HashSet<AbstractVertex>();
+	private Set<AbstractVertex> vertexSet = new LinkedHashSet<AbstractVertex>();
 	private Map<Integer, AbstractVertex> vertexIdentifiers = new HashMap<Integer, AbstractVertex>();
 	private Map<AbstractVertex, Integer> reverseVertexIdentifiers = new HashMap<AbstractVertex, Integer>();
-	private Set<AbstractEdge> edgeSet = new HashSet<AbstractEdge>();
+	private Set<AbstractEdge> edgeSet = new LinkedHashSet<AbstractEdge>();
 	private Map<Integer, AbstractEdge> edgeIdentifiers = new HashMap<Integer, AbstractEdge>();
 	private Map<AbstractEdge, Integer> reverseEdgeIdentifiers = new HashMap<AbstractEdge, Integer>();
 	private Map<AbstractVertex, Integer> networkMap = new HashMap<AbstractVertex, Integer>();

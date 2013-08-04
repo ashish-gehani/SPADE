@@ -26,6 +26,7 @@ import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 
+import spade.vertex.custom.EOS;
 /**
  * 
  * @author Dawood Tariq
@@ -47,6 +48,7 @@ public class Graphviz extends AbstractReporter {
 			for (AbstractEdge e : graph.edgeSet()) {
 				putEdge(e);
 			}
+			putVertex(new EOS());
 			return true;
 		} catch (Exception exception) {
 			logger.log(Level.SEVERE, null, exception);

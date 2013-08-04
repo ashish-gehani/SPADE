@@ -13,6 +13,8 @@ import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.filter.FinalCommitFilter;
 
+import spade.vertex.custom.EOS;
+
 public class GraphUtility {
 
 	private static PrintStream outputStream = System.out;
@@ -176,6 +178,7 @@ public class GraphUtility {
 			for (AbstractEdge e : graph.edgeSet()) {
 				filter.putEdge(e);
 			}
+			filter.putVertex( new EOS() );
 			result.commitIndex();
 			finalFilter.storages.remove(graph);
 			graphObjects.put(target, result);
