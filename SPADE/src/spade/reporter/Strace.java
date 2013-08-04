@@ -241,13 +241,16 @@ public class Strace extends AbstractReporter {
 							while ((line = kmsgReader.readLine()) != null) {
 								if (line.contains("BC_REPLY")) {
 									try {
-										// Example line: <6>binder: 276:515
-										// BC_REPLY 116519 -> 422:422, data
-										// 2a290aa8-(null) size 8-0
+										// Example line: 
+										//    <6>binder: 276:515 BC_REPLY 116519 -> 422:422, data 2a290aa8-(null) size 8-0
+										// Example on device:
+										//    <6>[ 1513.755523] binder: 125:1250 BC_REPLY 21276 -> 399:399, data 41fa5788-  (null) size 20-0
+										
+										line = line.split("binder:")[1].trim();
 										String details[] = line.split("\\s+");
-										String type = details[2];
-										String frompid = details[1].split(":")[1];
-										String topid = details[5].split(":")[1].replace(",", "");
+										String type = details[1];
+										String frompid = details[0].split(":")[1];
+										String topid = details[4].split(":")[1].replace(",", "");
 										String pidpair = frompid + "-" + topid;
 										if (!transactionAlreadyProcessed.contains(pidpair)) {
 											checkProcessTree(topid);
