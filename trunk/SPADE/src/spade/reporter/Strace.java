@@ -55,7 +55,7 @@ public class Strace extends AbstractReporter {
 	final boolean LOG_DEBUG_INFO = true;
 	final boolean TRACE_SYSTEM = false;
 	final boolean TRACE_APPS = false;
-	final boolean ADD_BEHAVIOR_TAGS = true;
+	final boolean ADD_BEHAVIOR_TAGS = false;
 	final int THREAD_SLEEP_DELAY = 5;
 	volatile boolean shutdown = false;
 	static final Logger logger = Logger.getLogger(Strace.class.getName());
@@ -77,6 +77,7 @@ public class Strace extends AbstractReporter {
 	String templine = null;
 
 	private void log(String message) {
+		logger.log(Level.INFO, message);
 		if (LOG_DEBUG_INFO) {
 			logWriter.println(message);
 		}
@@ -241,16 +242,13 @@ public class Strace extends AbstractReporter {
 							while ((line = kmsgReader.readLine()) != null) {
 								if (line.contains("BC_REPLY")) {
 									try {
-										// Example line: 
-										//    <6>binder: 276:515 BC_REPLY 116519 -> 422:422, data 2a290aa8-(null) size 8-0
-										// Example on device:
-										//    <6>[ 1513.755523] binder: 125:1250 BC_REPLY 21276 -> 399:399, data 41fa5788-  (null) size 20-0
-										
-										line = line.split("binder:")[1].trim();
+										// Example line: <6>binder: 276:515
+										// BC_REPLY 116519 -> 422:422, data
+										// 2a290aa8-(null) size 8-0
 										String details[] = line.split("\\s+");
-										String type = details[1];
-										String frompid = details[0].split(":")[1];
-										String topid = details[4].split(":")[1].replace(",", "");
+										String type = details[2];
+										String frompid = details[1].split(":")[1];
+										String topid = details[5].split(":")[1].replace(",", "");
 										String pidpair = frompid + "-" + topid;
 										if (!transactionAlreadyProcessed.contains(pidpair)) {
 											checkProcessTree(topid);
@@ -447,7 +445,8 @@ public class Strace extends AbstractReporter {
 									createBehavior(at, "ATCommand");
 								}
 							}
-							if (processes.get(pid).getAnnotation("name").equals("rild") && path.equals("/dev/qemu_pipe") && data.matches("[0-9A-Fa-f]+")) {
+							if (processes.get(pid).getAnnotation("name") != null && processes.get(pid).getAnnotation("name").equals("rild") && path.equals("/dev/qemu_pipe")
+									&& data.matches("[0-9A-Fa-f]+")) {
 								Artifact pdu = new Artifact();
 								pdu.addAnnotation("pdudata", data);
 								PduParser parser = new PduParser();
