@@ -93,7 +93,7 @@ public class SQL extends AbstractStorage {
 			// + "hash INT NOT NULL"
 			// + ")";
 			dbStatement.execute(createVertexTable);
-
+			
 			// Create edge table if it does not already exist
 			String createEdgeTable = "CREATE TABLE " + EDGE_TABLE + " (" + "edgeId INT GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " + "type VARCHAR(32) NOT NULL ,"
 					+ "hash INT NOT NULL, " + "srcVertexHash INT NOT NULL, " + "dstVertexHash INT NOT NULL" + ")";
