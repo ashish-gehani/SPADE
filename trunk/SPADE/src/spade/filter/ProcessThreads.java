@@ -1,5 +1,6 @@
 package spade.filter;
 
+import java.beans.DesignMode;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -86,8 +87,8 @@ public class ProcessThreads extends AbstractFilter {
                     }
                     builder.append(" ");
                 }
-                logger.log(Level.INFO, mainProcess.getAnnotation("pid"));  // Forcefully throough exception
                 logger.log(Level.WARNING, "Shelved vertex is null. All attributes: " + builder.toString());
+                logger.log(Level.INFO, mainProcess.getAnnotation("pid"));  // Forcefully throw exception
                 return null;
             }
 
@@ -192,12 +193,13 @@ public class ProcessThreads extends AbstractFilter {
         }
     }
 
+
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
 
         // logger.info("Shelving edge " + incomingEdge.toString());
         shelvedEdges.add(incomingEdge);
-
+        
     }
 
     /*
@@ -206,7 +208,7 @@ public class ProcessThreads extends AbstractFilter {
     public void EOE() {
 
         logger.log(Level.INFO, "EOE received. Ending stream ");
-
+        
         for (String pid : currentMainProcessNode.keySet()) {
 
             logger.log(Level.INFO, "Flushing vertex: " + pid);
@@ -233,8 +235,7 @@ public class ProcessThreads extends AbstractFilter {
                     	logger.log(Level.WARNING, "Something went wrong flushing Thread Group ID " + pid + ". Continuing with rest.");
                     }
                 } 
-                
-
+               
             }
         }
 
@@ -246,40 +247,38 @@ public class ProcessThreads extends AbstractFilter {
             AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
             AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
 
-
             if (sourceVertex.type().equalsIgnoreCase("Process")) {
                 String pid = sourceVertex.getAnnotation("pid");
                 String tgid = sourceVertex.getAnnotation("tgid");
 
-                if (!pid.equals(tgid)) {
-                    // Map this thread to a flushed out vertex
-                    String mappedPid = tgid;
-
-                    logger.log(Level.INFO, "Remapping " + mappedPid + " to " + tgid);
-                    if (currentMainProcessNode.containsKey(mappedPid)) {
-                        incomingEdge.setSourceVertex(currentMainProcessNode.get(mappedPid).getVertex());
-                    } else {
-                        incomingEdge.setSourceVertex(flushedOutVertices.get(mappedPid));
-                    }
+                
+                String mappedPid = pid.equals(tgid) ? pid : tgid;
+                
+                if (currentMainProcessNode.containsKey(mappedPid)) {
+                    incomingEdge.setSourceVertex(currentMainProcessNode.get(mappedPid).getVertex());
+                } else {
+                    incomingEdge.setSourceVertex(flushedOutVertices.get(mappedPid));
                 }
+                
             }
+            
             if (destinationVertex.type().equalsIgnoreCase("Process")) {
                 String pid = destinationVertex.getAnnotation("pid");
                 String tgid = destinationVertex.getAnnotation("tgid");
-
-                if (!pid.equals(tgid)) {
-                    // Map this thread to a flushed out vertex
-                    String mappedPid = tgid;
-                    if (currentMainProcessNode.containsKey(mappedPid)) {
-                        incomingEdge.setDestinationVertex(currentMainProcessNode.get(mappedPid).getVertex());
-                    } else {
-                        incomingEdge.setDestinationVertex(flushedOutVertices.get(mappedPid));
-                    }
+                
+                String mappedPid = pid.equals(tgid) ? pid : tgid;
+                
+                if (currentMainProcessNode.containsKey(mappedPid)) {
+                    incomingEdge.setDestinationVertex(currentMainProcessNode.get(mappedPid).getVertex());
+                } else {
+                    incomingEdge.setDestinationVertex(flushedOutVertices.get(mappedPid));
                 }
+            
             }
 
             putInNextFilter(incomingEdge);
         }
+        
     }
 
     private boolean flushVertex(String pid) {
