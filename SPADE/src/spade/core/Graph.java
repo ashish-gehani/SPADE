@@ -219,7 +219,7 @@ public class Graph extends AbstractStorage implements Serializable {
 			edgeSet.add(inputEdge);
 			serial_number++;
 		} catch (Exception exception) {
-			// logger.log(Level.SEVERE, null, exception);
+			logger.log(Level.SEVERE, null, exception);
 		}
 		return true;
 	}
@@ -578,6 +578,7 @@ public class Graph extends AbstractStorage implements Serializable {
 			reader.close();
 			return results;
 		} catch (Exception exception) {
+			logger.log(Level.WARNING, "Error while listing vertices. Returning empty array.", exception);
 			return new ArrayList<Integer>();
 		}
 	}
