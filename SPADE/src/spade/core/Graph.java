@@ -59,8 +59,6 @@ import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
-import spade.vertex.custom.EOS;
-
 /**
  * This class is used to represent query responses using sets for edges and
  * vertices.
@@ -104,7 +102,7 @@ public class Graph extends AbstractStorage implements Serializable {
 	private transient IndexWriter edgeIndexWriter;
 
 	public void mergeThreads() {
-		
+
 	}
 
 	/**
@@ -820,5 +818,99 @@ public class Graph extends AbstractStorage implements Serializable {
 	@Override
 	public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
 		return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
+	}
+
+	@Override
+	public Graph getPaths(Graph srcGraph, Graph dstGraph, int maxLength) {
+		Graph a = getLineage(srcGraph, maxLength, DIRECTION_ANCESTORS, null);
+		Graph d = getLineage(dstGraph, maxLength, DIRECTION_DESCENDANTS, null);
+		return Graph.intersection(a, d);
+	}
+
+	@Override
+	public Graph getLineage(Graph srcGraph, int depth, String direction, String terminatingExpression) {
+		try {
+			if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
+				Graph ancestor = getLineage(srcGraph, depth, DIRECTION_ANCESTORS, terminatingExpression);
+				Graph descendant = getLineage(srcGraph, depth, DIRECTION_DESCENDANTS, terminatingExpression);
+				Graph result = Graph.union(ancestor, descendant);
+				return result;
+			} else if (!DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()) && !DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+				return null;
+			}
+
+			Graph resultGraph = new Graph();
+
+			IndexReader vertexReader = IndexReader.open(vertexIndex);
+			IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
+			Set<Integer> terminatingSet = new HashSet<Integer>();
+			if ((terminatingExpression != null) && (!terminatingExpression.trim().equalsIgnoreCase("null"))) {
+				ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(terminatingExpression), MAX_QUERY_HITS).scoreDocs;
+				for (int i = 0; i < hits.length; ++i) {
+					int docId = hits[i].doc;
+					Document foundDoc = vertexSearcher.doc(docId);
+					int id = Integer.parseInt(foundDoc.get(ID_STRING));
+					terminatingSet.add(id);
+				}
+			}
+			vertexSearcher.close();
+			vertexReader.close();
+
+			Set<Integer> processedVertices = new HashSet<Integer>();
+			for (AbstractVertex vertex : srcGraph.vertexSet()) {
+				resultGraph.putVertex(vertex);
+				processedVertices.add(reverseVertexIdentifiers.get(vertex));
+			}
+
+			Set<Integer> doneVertices = new HashSet<Integer>();
+			doneVertices.addAll(processedVertices);
+
+			IndexReader edgeReader = IndexReader.open(edgeIndex);
+			IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
+			for (int i = 0; i <= depth; i++) {
+				Set<Integer> tempProcessedVertices = new HashSet<Integer>();
+				for (int currentVertexId : processedVertices) {
+					String queryString = null;
+					if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+						queryString = SRC_VERTEX_ID + ":\"" + currentVertexId + "\"";
+					} else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+						queryString = DST_VERTEX_ID + ":\"" + currentVertexId + "\"";
+					}
+
+					ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(queryString), MAX_QUERY_HITS).scoreDocs;
+					for (int j = 0; j < hits.length; ++j) {
+						int docId = hits[j].doc;
+						Document foundDoc = edgeSearcher.doc(docId);
+						int edgeId = Integer.parseInt(foundDoc.get(ID_STRING));
+						AbstractEdge tempEdge = edgeIdentifiers.get(edgeId);
+						int otherVertexId = 0;
+						if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+							otherVertexId = reverseVertexIdentifiers.get(tempEdge.getDestinationVertex());
+						} else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
+							otherVertexId = reverseVertexIdentifiers.get(tempEdge.getSourceVertex());
+						}
+						if (!terminatingSet.contains(otherVertexId)) {
+							resultGraph.putVertex(vertexIdentifiers.get(otherVertexId));
+							resultGraph.putEdge(tempEdge);
+							if (doneVertices.add(otherVertexId)) {
+								tempProcessedVertices.add(otherVertexId);
+							}
+						}
+					}
+				}
+				if (tempProcessedVertices.isEmpty()) {
+					break;
+				}
+				processedVertices = tempProcessedVertices;
+			}
+
+			edgeSearcher.close();
+			edgeReader.close();
+			resultGraph.commitIndex();
+			return resultGraph;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return null;
+		}
 	}
 }

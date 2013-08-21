@@ -13,8 +13,6 @@ import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.filter.FinalCommitFilter;
 
-import spade.vertex.custom.EOS;
-
 public class GraphUtility {
 
 	private static PrintStream outputStream = System.out;
@@ -53,6 +51,123 @@ public class GraphUtility {
 		}
 	}
 
+	private static void importGraph(String path, String target) {
+		Graph graph = Graph.importGraph(path);
+		if (graph == null) {
+			outputStream.println("Error importing graph!");
+			return;
+		}
+		outputStream.println(String.format("Finished importing %s to graph %s", path, target));
+		graphObjects.put(target, graph);
+	}
+
+	private static void exportGraph(String input, String path) {
+		if (!graphObjects.containsKey(input)) {
+			outputStream.println(String.format("Graph %s not found!", input));
+			return;
+		}
+		Graph graph = graphObjects.get(input);
+		try {
+			graph.exportGraph(path);
+		} catch (Exception exception) {
+			outputStream.println("Error exporting graph!");
+			return;
+		}
+		outputStream.println(String.format("Finished exporting graph %s to %s", input, path));
+	}
+
+	private static void showVertices(String input, String expression) {
+		expression = (expression.equals("") || expression == null) ? "type:*" : expression;
+		if (!graphObjects.containsKey(input)) {
+			outputStream.println(String.format("Graph %s not found!", input));
+			return;
+		}
+		Graph graph = graphObjects.get(input);
+		List<Integer> vertices = graph.listVertices(expression);
+		outputStream.println(String.format("%d vertices matched expression:", vertices.size()));
+		for (int id : vertices) {
+			outputStream.println(String.format(" - %d\t\t%s", id, graph.getVertex(id)));
+		}
+	}
+
+	private static void getPaths(String target, String input, String expression) {
+		if (!graphObjects.containsKey(input)) {
+			outputStream.println(String.format("Graph %s not found!", input));
+			return;
+		}
+		Graph graph = graphObjects.get(input);
+		Graph result = null;
+		String[] args = expression.split(",");
+		try {
+			int src = Integer.parseInt(args[0].trim());
+			int dst = Integer.parseInt(args[1].trim());
+			result = graph.getPaths(src, dst);
+		} catch (Exception exception) {
+			String src = args[0].trim();
+			String dst = args[1].trim();
+			result = (graphObjects.containsKey(src) && graphObjects.containsKey(dst)) ? graph.getPaths(graphObjects.get(src), graphObjects.get(dst)) : graph.getPaths(src, dst);
+		}
+		if (result != null) {
+			graphObjects.put(target, result);
+			outputStream.println(String.format("Result saved in graph %s", target));
+		} else {
+			outputStream.println(String.format("Error querying graph %s!", input));
+		}
+	}
+
+	private static void getLineage(String target, String input, String expression) {
+		if (!graphObjects.containsKey(input)) {
+			outputStream.println(String.format("Graph %s not found!", input));
+			return;
+		}
+		Graph graph = graphObjects.get(input);
+		Graph result = null;
+		String[] args = expression.split(",");
+		String direction = args[1].trim();
+		try {
+			int src = Integer.parseInt(args[0].trim());
+			result = graph.getLineage(src, direction);
+		} catch (Exception exception) {
+			String src = args[0].trim();
+			result = graphObjects.containsKey(src) ? graph.getLineage(graphObjects.get(src), direction) : graph.getLineage(src, direction);
+		}
+		if (result != null) {
+			graphObjects.put(target, result);
+			outputStream.println(String.format("Result saved in graph %s", target));
+		} else {
+			outputStream.println(String.format("Error querying graph %s!", input));
+		}
+	}
+
+	private static void filter(String target, String input, String filterName) {
+		if (!graphObjects.containsKey(input)) {
+			outputStream.println(String.format("Graph %s not found!", input));
+			return;
+		}
+		Graph result = new Graph();
+		AbstractFilter filter;
+		try {
+			filter = (AbstractFilter) Class.forName("spade.filter." + filterName).newInstance();
+		} catch (Exception ex) {
+			outputStream.println("Unable to find/load filter!");
+			return;
+		}
+		FinalCommitFilter finalFilter = new FinalCommitFilter();
+		finalFilter.storages.add(result);
+		filter.setNextFilter(finalFilter);
+		Graph graph = graphObjects.get(input);
+		for (AbstractVertex v : graph.vertexSet()) {
+			filter.putVertex(v);
+		}
+		for (AbstractEdge e : graph.edgeSet()) {
+			filter.putEdge(e);
+		}
+		result.commitIndex();
+		finalFilter.storages.remove(graph);
+		graphObjects.put(target, result);
+		outputStream.println(String.format("Result saved in graph %s", target));
+	}
+
 	private static void processQuery(String line) {
 		Matcher importMatcher = importPattern.matcher(line);
 		Matcher exportMatcher = exportPattern.matcher(line);
@@ -63,126 +178,31 @@ public class GraphUtility {
 
 		if (importMatcher.matches()) {
 			String target = importMatcher.group(1);
-			String inputFile = importMatcher.group(2).trim();
-			Graph graph = null;
-			graph = Graph.importGraph(inputFile);
-			if (graph == null) {
-				outputStream.println("Error importing graph!");
-				return;
-			}
-			outputStream.println(String.format("Finished importing %s to graph %s", inputFile, target));
-			graphObjects.put(target, graph);
+			String path = importMatcher.group(2).trim();
+			importGraph(path, target);
 		} else if (exportMatcher.matches()) {
 			String input = exportMatcher.group(1);
-			String outputFile = exportMatcher.group(2).trim();
-			if (!graphObjects.containsKey(input)) {
-				outputStream.println(String.format("Graph %s not found!", input));
-				return;
-			}
-			Graph graph = graphObjects.get(input);
-			try {
-				graph.exportGraph(outputFile);
-			} catch (Exception exception) {
-				outputStream.println("Error exporting graph!");
-				return;
-			}
-			outputStream.println(String.format("Finished exporting graph %s to %s", input, outputFile));
+			String path = exportMatcher.group(2).trim();
+			exportGraph(input, path);
 		} else if (vertexMatcher.matches()) {
 			String input = vertexMatcher.group(1);
-			String expression = vertexMatcher.group(2).trim();
-			expression = (expression.equals("") || expression == null) ? "type:*" : expression;
-			if (!graphObjects.containsKey(input)) {
-				outputStream.println(String.format("Graph %s not found!", input));
-				return;
-			}
-			Graph graph = graphObjects.get(input);
-			List<Integer> vertices = graph.listVertices(expression);
-			outputStream.println(String.format("%d vertices matched expression:", vertices.size()));
-			for (int id : vertices) {
-				outputStream.println(String.format(" - %d\t\t%s", id, graph.getVertex(id)));
-			}
+			String expression = vertexMatcher.group(2);
+			showVertices(input, expression);
 		} else if (pathMatcher.matches()) {
 			String target = pathMatcher.group(1);
 			String input = pathMatcher.group(2);
 			String expression = pathMatcher.group(3).trim();
-			if (!graphObjects.containsKey(input)) {
-				outputStream.println(String.format("Graph %s not found!", input));
-				return;
-			}
-			Graph graph = graphObjects.get(input);
-			Graph result = null;
-			String[] args = expression.split(",");
-			try {
-				int src = Integer.parseInt(args[0].trim());
-				int dst = Integer.parseInt(args[1].trim());
-				result = graph.getPaths(src, dst);
-			} catch (Exception exception) {
-				String src = args[0].trim();
-				String dst = args[1].trim();
-				result = graph.getPaths(src, dst);
-			}
-			if (result != null) {
-				graphObjects.put(target, result);
-				outputStream.println(String.format("Result saved in graph %s", target));
-			} else {
-				outputStream.println(String.format("Error querying graph %s!", input));
-			}
+			getPaths(target, input, expression);
 		} else if (lineageMatcher.matches()) {
 			String target = lineageMatcher.group(1);
 			String input = lineageMatcher.group(2);
 			String expression = lineageMatcher.group(3).trim();
-			if (!graphObjects.containsKey(input)) {
-				outputStream.println(String.format("Graph %s not found!", input));
-				return;
-			}
-			Graph graph = graphObjects.get(input);
-			Graph result = null;
-			String[] args = expression.split(",");
-			String direction = args[1].trim();
-			try {
-				int src = Integer.parseInt(args[0].trim());
-				result = graph.getLineage(src, direction);
-			} catch (Exception exception) {
-				String src = args[0].trim();
-				result = graph.getLineage(src, direction);
-			}
-			if (result != null) {
-				graphObjects.put(target, result);
-				outputStream.println(String.format("Result saved in graph %s", target));
-			} else {
-				outputStream.println(String.format("Error querying graph %s!", input));
-			}
+			getLineage(target, input, expression);
 		} else if (filterMatcher.matches()) {
 			String target = filterMatcher.group(1);
 			String input = filterMatcher.group(2);
 			String filterName = filterMatcher.group(3).trim();
-			if (!graphObjects.containsKey(input)) {
-				outputStream.println(String.format("Graph %s not found!", input));
-				return;
-			}
-			Graph result = new Graph();
-			AbstractFilter filter;
-			try {
-				filter = (AbstractFilter) Class.forName("spade.filter." + filterName).newInstance();
-			} catch (Exception ex) {
-				outputStream.println("Unable to find/load filter!");
-				return;
-			}
-			FinalCommitFilter finalFilter = new FinalCommitFilter();
-			finalFilter.storages.add(result);
-			filter.setNextFilter(finalFilter);
-			Graph graph = graphObjects.get(input);
-			for (AbstractVertex v : graph.vertexSet()) {
-				filter.putVertex(v);
-			}
-			for (AbstractEdge e : graph.edgeSet()) {
-				filter.putEdge(e);
-			}
-			filter.putVertex( new EOS() );
-			result.commitIndex();
-			finalFilter.storages.remove(graph);
-			graphObjects.put(target, result);
-			outputStream.println(String.format("Result saved in graph %s", target));
+			filter(target, input, filterName);
 		} else {
 			outputStream.println("Available commands:");
 			outputStream.println("\t <var> = import(<path>)");
