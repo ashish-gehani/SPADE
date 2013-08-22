@@ -43,4 +43,9 @@ Check out SPADE from the source code repository by executing the following comma
 {{{
 svn export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
-This command will create a new `SPADE` directory and download the required files into it.
+This command will create a new `SPADE` directory and download the required files into it. To compile the SPADE code, navigate to this newly created directory and configure the package before executing the make command as follows:
+{{{
+cd SPADE
+./configure
+make android-build
+}}}
