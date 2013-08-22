@@ -11,6 +11,15 @@ Please ensure that you have the following installed on your system:
   * `subversion`
   * [http://www.oracle.com/technetwork/java/javase/downloads/index.html Oracle JDK]
 
+== Setting up Android SDK ==
+
+Download the Android SDK:
+
+  * For Mac OS X, [http://dl.google.com/android/android-sdk_r22.0.5-macosx.zip click here].
+  * For Linux, [http://dl.google.com/android/android-sdk_r22.0.5-linux.tgz click here].
+
+Once the download is complete, extract the archive which will create a new directory containing the Android SDK.
+
 == Setting up SPADE ==
 
 First, check out SPADE by executing the following command in terminal:
