@@ -44,7 +44,7 @@ When prompted to create a custom hardware profile, just press enter to select th
 
 Check out SPADE from the source code repository by executing the following command in terminal:
 {{{
-svn export http://data-provenance.googlecode.com/svn/trunk/SPADE/
+svn export -r 956 http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 This command will create a new `SPADE` directory and download the required files into it. To compile the SPADE code, navigate to this newly created directory and configure the package before executing the make command as follows:
 {{{
