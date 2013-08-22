@@ -10,6 +10,7 @@ Please ensure that you have the following installed on your system:
   * `make`
   * `subversion`
   * [http://www.oracle.com/technetwork/java/javase/downloads/index.html Oracle JDK]
+  * Android SDK
 
 == Setting up Android SDK ==
 
@@ -24,6 +25,11 @@ cd ~/android-sdk-macosx
 ./tools/android
 }}}
 This will open a new window showing the list of packages available for download via the Android SDK. The necessary list of required packages should already be checked. Simply click the `Install packages..." button located near the bottom-right of the window and proceed to install these packages.
+
+Once the installation is complete, some new directories will have been created in your Android SDK directory. These need to be added to your path. On Mac OS X, this can be done by editing the `~/.profile` file and adding the following line at the end of this file:
+{{{
+export PATH=/var/tmp/android-sdk/macosx/tools:/var/tmp/android-sdk/macosx/platform-tools:/var/tmp/android-sdk/macosx/build-tools/18.0.1:$PATH
+}}}
 
 == Setting up SPADE ==
 
