@@ -18,7 +18,12 @@ Download the Android SDK:
   * For Mac OS X, [http://dl.google.com/android/android-sdk_r22.0.5-macosx.zip click here].
   * For Linux, [http://dl.google.com/android/android-sdk_r22.0.5-linux.tgz click here].
 
-Once the download is complete, extract the archive which will create a new directory containing the Android SDK.
+Once the download is complete, extract the archive which will create a new directory containing the Android SDK. For Mac OS X, this directory will be `android-sdk-macosx`. For Linux, it will be `android-sdk-linux`. In terminal, navigate to this directory and run `tools/android`:
+{{{
+cd ~/android-sdk-macosx
+./tools/android
+}}}
+This will open a new window showing the list of packages available for download via the Android SDK. The necessary list of required packages should already be checked. Simply click the `Install packages..." button located near the bottom-right of the window and proceed to install these packages.
 
 == Setting up SPADE ==
 
