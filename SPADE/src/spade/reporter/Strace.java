@@ -35,6 +35,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Arrays;
 import spade.core.AbstractReporter;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
@@ -242,14 +243,20 @@ public class Strace extends AbstractReporter {
 							while ((line = kmsgReader.readLine()) != null) {
 								if (line.contains("BC_REPLY")) {
 									try {
-										// Example line: <6>binder: 276:515
-										// BC_REPLY 116519 -> 422:422, data
-										// 2a290aa8-(null) size 8-0
+										// Example line: 
+										// <6>binder: 276:515 BC_REPLY 116519 -> 422:422, data 2a290aa8-(null) size 8-0
+
+										// Example line on 4.2 device:
+										// <6>[ 9094.578430] binder: 130:400 BC_REPLY 537128 -> 578:793, data 4118dcc8-  (null) size 12-0
+
 										String details[] = line.split("\\s+");
-										String type = details[2];
-										String frompid = details[1].split(":")[1];
-										String topid = details[5].split(":")[1].replace(",", "");
+
+										int baseIndex = Arrays.asList(details).indexOf("binder:");
+										String type = details[baseIndex+2];
+										String frompid = details[baseIndex+1].split(":")[1];
+										String topid = details[baseIndex+5].split(":")[1].replace(",", "");
 										String pidpair = frompid + "-" + topid;
+
 										if (!transactionAlreadyProcessed.contains(pidpair)) {
 											checkProcessTree(topid);
 											checkProcessTree(frompid);
