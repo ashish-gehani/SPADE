@@ -71,4 +71,7 @@ SPADE will capture provenance activity on the device from the moment it is start
 {{{
 adb pull /sdcard/spade/audit.dot
 }}}
-Using Graphviz, this file can be converted to an image for viewing.
+Using Graphviz, this file can be converted to an image for viewing:
+{{{
+dot -T svg -o audit.svg audit.dot
+}}}
