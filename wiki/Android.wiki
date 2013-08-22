@@ -1,11 +1,12 @@
 = Introduction =
 
-Add your content here.
+This page will guide you through setting up SPADE for use with Android.
 
+== Requirements (Mac OS X) ==
 
-= Details =
+Please ensure that you have the following installed on your system:
 
-Add your content here.  Format your content with:
-  * Text in *bold* or _italic_
-  * Headings, paragraphs, and lists
-  * Automatic links to other wiki pages
+  * `gcc`
+  * `make`
+  * `subversion`
+  * [http://www.oracle.com/technetwork/java/javase/downloads/index.html Oracle JDK]
