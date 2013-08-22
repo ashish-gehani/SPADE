@@ -1,4 +1,4 @@
-= Introduction =
+= SPADE for Android =
 
 This page will guide you through setting up SPADE for use with Android.
 
@@ -10,3 +10,11 @@ Please ensure that you have the following installed on your system:
   * `make`
   * `subversion`
   * [http://www.oracle.com/technetwork/java/javase/downloads/index.html Oracle JDK]
+
+== Setting up SPADE ==
+
+First, check out SPADE by executing the following command in terminal:
+{{{
+svn export http://data-provenance.googlecode.com/svn/trunk/SPADE/
+}}}
+This command will create a new `SPADE` directory and download the required files into it.
