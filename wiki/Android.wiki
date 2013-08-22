@@ -31,9 +31,15 @@ Once the installation is complete, some new directories will have been created i
 export PATH=/var/tmp/android-sdk/macosx/tools:/var/tmp/android-sdk/macosx/platform-tools:/var/tmp/android-sdk/macosx/build-tools/18.0.1:$PATH
 }}}
 
+Next, create an AVD for the Android emulator by executing the following command:
+{{{
+android create avd -n SPADE_AVD -t 15 -c 100M
+}}}
+This creates an AVD named `SPADE_AVD` with an SD card capacity of 100 MB.
+
 == Setting up SPADE ==
 
-First, check out SPADE by executing the following command in terminal:
+Check out SPADE from the source code repository by executing the following command in terminal:
 {{{
 svn export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
