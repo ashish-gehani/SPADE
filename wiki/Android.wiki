@@ -35,7 +35,7 @@ Next, create an AVD for the Android emulator by executing the following command:
 {{{
 android create avd -n SPADE_AVD -t 15 -c 100M
 }}}
-This creates an AVD named `SPADE_AVD` with an SD card capacity of 100 MB.
+When prompted to create a custom hardware profile, just press enter to select the default hardware configuration. This will create an AVD named `SPADE_AVD` with an SD card capacity of 100 MB.
 
 == Setting up SPADE ==
 
