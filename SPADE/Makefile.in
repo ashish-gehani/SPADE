@@ -184,9 +184,9 @@ android-start:
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/conf"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
 	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/audit.dot\\nreporter Strace name=zygote user=radio user=system user=u0_a10\" > /sdcard/spade/conf/spade.config"
+	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/audit.dot\\nreporter Strace name=zygote user=radio user=system !name=/system/bin/surfaceflinger\" > /sdcard/spade/conf/spade.config"
 	@for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.core.Kernel android"
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -Xmx512M -cp android-spade.jar spade.core.Kernel android"
 
 android-stop:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"

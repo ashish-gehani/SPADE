@@ -94,16 +94,23 @@ public class Strace extends AbstractReporter {
 		}
 
 		Map<String, Set<String>> argumentsMap = new HashMap<String, Set<String>>();
+
 		argumentsMap.put("name", new HashSet<String>());
 		argumentsMap.put("user", new HashSet<String>());
 		argumentsMap.put("pid", new HashSet<String>());
+		argumentsMap.put("!name", new HashSet<String>());
+		argumentsMap.put("!user", new HashSet<String>());
+		argumentsMap.put("!pid", new HashSet<String>());
+
 
 		String[] pairs = arguments.split("\\s+");
 		for (String pair : pairs) {
 			String[] keyvalue = pair.split("=");
 			String key = keyvalue[0];
 			String value = keyvalue[1];
-			if (key.equals("name") || key.equals("user") || key.equals("pid")) {
+
+			if (  key.equals("name")  ||  key.equals("user") ||  key.equals("pid") || 
+				 key.equals("!name")  || key.equals("!user") || key.equals("!pid") ) {
 				argumentsMap.get(key).add(value);
 			}
 		}
@@ -120,8 +127,10 @@ public class Strace extends AbstractReporter {
 				String pid = details[1];
 				String name = details[8];
 				if (argumentsMap.get("name").contains(name) || argumentsMap.get("user").contains(user) || argumentsMap.get("pid").contains(pid)) {
-					System.out.println("Attaching to " + name + " with pid " + pid);
-					mainPIDs.add(pid);
+					if( !argumentsMap.get("!name").contains(name) && !argumentsMap.get("!user").contains(name) && !argumentsMap.get("!pid").contains(name) ) {
+						mainPIDs.add(pid);
+						System.out.println("Attaching to " + name + " with pid " + pid);
+					}
 				} else if (TRACE_SYSTEM && name.startsWith("/system/bin/")) {
 					System.out.println("Attaching to " + name + " with pid " + pid);
 					mainPIDs.add(pid);
@@ -332,7 +341,7 @@ public class Strace extends AbstractReporter {
 				String retVal = eventMatcher.group(5);
 
 				if (!processes.containsKey(pid)) {
-					log(String.format("process %s not found, generating:\t\t%s", pid, line));
+					log(String.format("Process %s not seen before, generating:\t\t%s", pid, line));
 					checkProcessTree(pid);
 				}
 
