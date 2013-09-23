@@ -22,12 +22,12 @@ Download the Android SDK:
   * For Mac OS X, [http://dl.google.com/android/android-sdk_r22.0.5-macosx.zip click here].
   * For Linux, [http://dl.google.com/android/android-sdk_r22.0.5-linux.tgz click here].
 
-Once the download is complete, extract the archive which will create a new directory containing the Android SDK. For Mac OS X, this directory will be `android-sdk-macosx`. For Linux, it will be `android-sdk-linux`. In terminal, navigate to this directory and run `tools/android`:
+Once the download is complete, extract the archive. This will create a new directory containing the Android SDK. For Mac OS X, this directory will be `android-sdk-macosx`. For Linux, it will be `android-sdk-linux`. In the terminal window, navigate to this directory and run `tools/android`:
 {{{
 cd ~/android-sdk-macosx
 ./tools/android
 }}}
-This will open a new window showing the list of packages available for download via the Android SDK. The necessary list of required packages should already be checked. Simply click the `Install packages..." button located near the bottom-right of the window and proceed to install these packages.
+This will open a new window showing the list of packages available for download via the Android SDK. The necessary list of required packages should already be checked. Simply click the `Install packages...` button located near the bottom-right of the window and proceed to install these packages.
 
 Once the installation is complete, some new directories will have been created in your Android SDK directory. These need to be added to your path. On Mac OS X, this can be done by editing the `~/.profile` file and adding the following line at the end of this file:
 {{{
@@ -38,15 +38,15 @@ Next, create an AVD for the Android emulator by executing the following command:
 {{{
 android create avd -n SPADE_AVD -t 15 -c 100M
 }}}
-When prompted to create a custom hardware profile, just press enter to select the default hardware configuration. This will create an AVD named `SPADE_AVD` with an SD card capacity of 100 MB.
+When prompted to create a custom hardware profile, just press the `Enter` key to select the default hardware configuration. This will create an AVD named `SPADE_AVD` with an SD card capacity of 100 MB.
 
 == Setting up SPADE ==
 
-Check out SPADE from the source code repository by executing the following command in terminal:
+Check out SPADE from the source code repository by executing the following command in the terminal window:
 {{{
 svn export -r 956 http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
-This command will create a new `SPADE` directory and download the required files into it. To compile the SPADE code, navigate to this newly created directory and configure the package before executing the make command as follows:
+This command will create a new `SPADE` directory and download the required files into it. To compile the SPADE code, navigate to this newly created directory and configure the package before executing the `make` command as follows:
 {{{
 cd SPADE
 ./configure
@@ -59,7 +59,7 @@ The Android AVD that was created earlier can be launched in the emulator by exec
 {{{
 emulator -avd SPADE_AVD -wipe-data &
 }}}
-Once the emulator is started, SPADE can be launched on it by running the following command from the SPADE directory:
+Once the emulator is started, SPADE can be launched in it by running the following command from the SPADE directory:
 {{{
 make android-start &
 }}}
@@ -67,7 +67,7 @@ To stop SPADE, execute the following:
 {{{
 make android-stop
 }}}
-SPADE will capture provenance activity on the device from the moment it is started to the point at which it is stopped. To extract the provenance graph file that was generated for the activity during the period, use the following command:
+SPADE will capture provenance activity on the device from the moment it is started to the point at which it is stopped. To extract the provenance graph file that was generated for the activity during this period, use the following command:
 {{{
 adb pull /sdcard/spade/audit.dot
 }}}
