@@ -34,7 +34,7 @@ Once the installation is complete, some new directories will have been created i
 export PATH=/var/tmp/android-sdk/macosx/tools:/var/tmp/android-sdk/macosx/platform-tools:/var/tmp/android-sdk/macosx/build-tools/18.0.1:$PATH
 }}}
 
-Next, create an AVD for the Android emulator by executing the following command:
+An Android Virtual Device (AVD) is an emulator configuration that lets you run Android on your machine without the need for an actual Android device. For the next step, create an AVD by executing the following command:
 {{{
 android create avd -n SPADE_AVD -t 15 -c 100M
 }}}
