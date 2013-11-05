@@ -46,6 +46,7 @@ public class DSL extends AbstractReporter {
     private volatile boolean shutdown;
     private HashMap<String, AbstractVertex> vertices;
     private final int THREAD_SLEEP_DELAY = 5;
+    private Logger logger = Logger.getLogger(DSL.class.getName());
 
     @Override
     public boolean launch(String arguments) {
@@ -97,6 +98,7 @@ public class DSL extends AbstractReporter {
 
     private void parseEvent(String line) {
         try {
+
             // Tokens are split on spaces not preceded by a backslash using
             // a negative lookbehind in the regex.
             String[] tokens = line.split("(?<!\\\\) ");
@@ -135,6 +137,8 @@ public class DSL extends AbstractReporter {
             } else if ((type.equalsIgnoreCase("used")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Artifact)) {
                     edge = new Used((Process) vertices.get(from), (Artifact) vertices.get(to));
+                } else {
+                    logger.log(Level.WARNING, "Used edge must be from a Process to an Artifact");
                 }
             } else if ((type.equalsIgnoreCase("wasgeneratedby")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Artifact) && (vertices.get((to)) instanceof Process)) {
@@ -143,14 +147,20 @@ public class DSL extends AbstractReporter {
             } else if ((type.equalsIgnoreCase("wastriggeredby")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Process)) {
                     edge = new WasTriggeredBy((Process) vertices.get(from), (Process) vertices.get(to));
+                } else {
+                    logger.log(Level.WARNING, "WasTriggeredBy edge must be from an Process to a Process");
                 }
             } else if ((type.equalsIgnoreCase("wascontrolledby")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Agent)) {
                     edge = new WasControlledBy((Process) vertices.get(from), (Agent) vertices.get(to));
+                } else {
+                    logger.log(Level.WARNING, "WasControlledBy edge must be from a Process to an Agent");
                 }
-            } else if ((type.equalsIgnoreCase("wasderivedfrom")) && (from != null) && (to != null)) {
+             } else if ((type.equalsIgnoreCase("wasderivedfrom")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Artifact) && (vertices.get((to)) instanceof Artifact)) {
                     edge = new WasDerivedFrom((Artifact) vertices.get(from), (Artifact) vertices.get(to));
+                } else {
+                    logger.log(Level.WARNING, "WasDerivedFrom edge must be from an Artifact to an Artifact");
                 }
             }
             // Finally, pass vertex or edge to buffer.
@@ -163,7 +173,7 @@ public class DSL extends AbstractReporter {
                 putEdge(edge);
             }
         } catch (Exception exception) {
-            Logger.getLogger(DSL.class.getName()).log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, null, exception);
         }
     }
 
@@ -176,7 +186,7 @@ public class DSL extends AbstractReporter {
     private String getValue(String token) {
         // Return the value after removing escaping backslashes. The backslashes
         // are detected using positive lookbehind.
-        return token.split("(?<!\\\\):")[1].replaceAll("\\\\(?=[: ])", "");
+        return token.split("(?<!\\\\):", 2)[1].replaceAll("\\\\(?=[: ])", "");
     }
 
     @Override
