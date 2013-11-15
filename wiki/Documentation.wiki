@@ -15,6 +15,7 @@
   * Collecting provenance across the operating system
    * [OpenBSM On Mac OS X]
    * [LinuxAudit On Linux]
+   * [Android On Android]
   * Limiting collection to a part of the filesystem
    * [MacFUSE On Mac OS X]
    * [LinuxFUSE On Linux]
@@ -27,7 +28,6 @@
   * [Neoclipse Viewing provenance in a graph database]
  * [QueryClient Querying SPADE]
   * [QueryExample Example illustrating provenance querying]
- * [Android SPADE on Android]
 
 <wiki:comment>
  * [DocumentationUnstable Working with unstable trunk version]
