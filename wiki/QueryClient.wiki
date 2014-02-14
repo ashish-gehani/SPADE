@@ -19,12 +19,12 @@ Available commands:
        <result> = getPaths(src_id, dst_id, max_length)
        <result> = getLineage(id, depth, direction)
        <result> = getLineage(id, depth, direction, expression)
-       <result>.showVertices(expression)
        <result> = <result>.getChildren(expression)
        <result> = <result>.getParents(expression)
+       <result>.showVertices(expression)
+       <result> = import(path)
+       <result>.export(path)
        list
-       export <result> <path>
-       import <path> <result>
        exit
 
 ->
