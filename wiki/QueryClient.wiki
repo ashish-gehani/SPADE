@@ -15,11 +15,16 @@ SPADE 2.0 Query Client
 
 Available commands:
        <result> = getVertices(expression)
-       <result> = getPaths(source vertex id, destination vertex id)
-       <result> = getLineage(vertex id, depth, direction)
-       <result> = getLineage(vertex id, depth, direction, terminating expression)
+       <result> = getEdges(expression)
+       <result> = getPaths(src_id, dst_id, max_length)
+       <result> = getLineage(id, depth, direction)
+       <result> = getLineage(id, depth, direction, expression)
+       <result>.showVertices(expression)
+       <result> = <result>.getChildren(expression)
+       <result> = <result>.getParents(expression)
        list
        export <result> <path>
+       import <path> <result>
        exit
 
 ->
@@ -94,6 +99,17 @@ Query results can be exported to files in DOT format which can be rendered as im
 {{{
 -> export var2 /tmp/galileo_parents.dot
 Exported var2 to /tmp/galileo_parents.dot
+}}}
+
+----
+
+===Importing previously exported results===
+
+Existing files in DOT format can be imported to result variables in the graph. The following illustrates the use of the `import` command:
+
+{{{
+-> import /tmp/galileo_parents.dot var3
+Imported /tmp/galileo_parents.dot to var3
 }}}
 
 ----
