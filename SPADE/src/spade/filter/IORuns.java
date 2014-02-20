@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -33,84 +34,88 @@ import spade.vertex.opm.Artifact;
 
 public class IORuns extends AbstractFilter {
 
-	private final String artifactKey = "location";
-	private Map<String, HashSet<String>> writes;
-	private Map<String, HashSet<String>> reads;
-	private Queue<AbstractVertex> vertexBuffer;
+    private final int BUFFER_SIZE = 2000;
+    private final String artifactKey = "path";
+    private Map<String, HashSet<String>> writes;
+    private Map<String, HashSet<String>> reads;
+    private Queue<AbstractVertex> vertexBuffer;
 
-	public IORuns() {
-		writes = new HashMap<String, HashSet<String>>();
-		reads = new HashMap<String, HashSet<String>>();
-		vertexBuffer = new LinkedList<AbstractVertex>();
-	}
+    public IORuns() {
+        writes = new HashMap<String, HashSet<String>>();
+        reads = new HashMap<String, HashSet<String>>();
+        vertexBuffer = new LinkedList<AbstractVertex>();
+    }
 
-	@Override
-	public void putVertex(AbstractVertex incomingVertex) {
-		if ((incomingVertex instanceof Artifact) && (incomingVertex.getAnnotation(artifactKey) != null)) {
-			vertexBuffer.add(incomingVertex);
-		} else {
-			putInNextFilter(incomingVertex);
-			return;
-		}
-	}
+    @Override
+    public void putVertex(AbstractVertex incomingVertex) {
+        if (incomingVertex instanceof Artifact) {
+            vertexBuffer.add(incomingVertex);
+        } else {
+            putInNextFilter(incomingVertex);
+            return;
+        }
+        if (vertexBuffer.size() > BUFFER_SIZE) {
+            Logger.getLogger("IORuns").warning("*** Vertex Buffer full. Dropping! )))");
+        }
+    }
 
-	@Override
-	public void putEdge(AbstractEdge incomingEdge) {
-		if ((incomingEdge instanceof Used) && (incomingEdge.getDestinationVertex().getAnnotation(artifactKey) != null)) {
-			Used usedEdge = (Used) incomingEdge;
-			String fileVertexHash = usedEdge.getDestinationVertex().getAnnotation(artifactKey);
-			String processVertexHash = Integer.toString(usedEdge.getSourceVertex().hashCode());
-			if (!reads.containsKey(fileVertexHash)) {
-				HashSet<String> tempSet = new HashSet<String>();
-				tempSet.add(processVertexHash);
-				reads.put(fileVertexHash, tempSet);
-			} else {
-				HashSet<String> tempSet = reads.get(fileVertexHash);
-				if (tempSet.contains(processVertexHash)) {
-					vertexBuffer.remove(usedEdge.getDestinationVertex());
-					return;
-				} else {
-					tempSet.add(processVertexHash);
-				}
-			}
-			vertexBuffer.remove(usedEdge.getDestinationVertex());
-			putInNextFilter(usedEdge.getDestinationVertex());
-			putInNextFilter(usedEdge);
-			if (writes.containsKey(fileVertexHash)) {
-				HashSet<String> tempSet = writes.get(fileVertexHash);
-				tempSet.remove(processVertexHash);
-			}
-		} else if ((incomingEdge instanceof WasGeneratedBy) && (incomingEdge.getSourceVertex().getAnnotation(artifactKey) != null)) {
-			WasGeneratedBy wgb = (WasGeneratedBy) incomingEdge;
-			String fileVertexHash = wgb.getSourceVertex().getAnnotation(artifactKey);
-			String processVertexHash = Integer.toString(wgb.getDestinationVertex().hashCode());
-			if (!writes.containsKey(fileVertexHash)) {
-				HashSet<String> tempSet = new HashSet<String>();
-				tempSet.add(processVertexHash);
-				writes.put(fileVertexHash, tempSet);
-			} else {
-				HashSet<String> tempSet = writes.get(fileVertexHash);
-				if (tempSet.contains(processVertexHash)) {
-					vertexBuffer.remove(wgb.getSourceVertex());
-					return;
-				} else {
-					tempSet.add(processVertexHash);
-				}
-			}
-			vertexBuffer.remove(wgb.getSourceVertex());
-			putInNextFilter(wgb.getSourceVertex());
-			putInNextFilter(wgb);
-			if (reads.containsKey(fileVertexHash)) {
-				HashSet<String> tempSet = reads.get(fileVertexHash);
-				tempSet.remove(processVertexHash);
-			}
-		} else {
-			putInNextFilter(incomingEdge);
-		}
-	}
+    @Override
+    public void putEdge(AbstractEdge incomingEdge) {
+        if (incomingEdge instanceof Used) {
+            Used usedEdge = (Used) incomingEdge;
+            String fileVertexHash = usedEdge.getDestinationVertex().getAnnotation(artifactKey);
+            String processVertexHash = Integer.toString(usedEdge.getSourceVertex().hashCode());
+            if (!reads.containsKey(fileVertexHash)) {
+                HashSet<String> tempSet = new HashSet<String>();
+                tempSet.add(processVertexHash);
+                reads.put(fileVertexHash, tempSet);
+            } else {
+                HashSet<String> tempSet = reads.get(fileVertexHash);
+                if (tempSet.contains(processVertexHash)) {
+                    vertexBuffer.remove(usedEdge.getDestinationVertex());
+                    return;
+                } else {
+                    tempSet.add(processVertexHash);
+                }
+            }
+            vertexBuffer.remove(usedEdge.getDestinationVertex());
+            putInNextFilter(usedEdge.getDestinationVertex());
+            putInNextFilter(usedEdge);
+            if (writes.containsKey(fileVertexHash)) {
+                HashSet<String> tempSet = writes.get(fileVertexHash);
+                tempSet.remove(processVertexHash);
+            }
+        } else if (incomingEdge instanceof WasGeneratedBy) {
+            WasGeneratedBy wgb = (WasGeneratedBy) incomingEdge;
+            String fileVertexHash = wgb.getSourceVertex().getAnnotation(artifactKey);
+            String processVertexHash = Integer.toString(wgb.getDestinationVertex().hashCode());
+            if (!writes.containsKey(fileVertexHash)) {
+                HashSet<String> tempSet = new HashSet<String>();
+                tempSet.add(processVertexHash);
+                writes.put(fileVertexHash, tempSet);
+            } else {
+                HashSet<String> tempSet = writes.get(fileVertexHash);
+                if (tempSet.contains(processVertexHash)) {
+                    vertexBuffer.remove(wgb.getSourceVertex());
+                    return;
+                } else {
+                    tempSet.add(processVertexHash);
+                }
+            }
+            vertexBuffer.remove(wgb.getSourceVertex());
+            putInNextFilter(wgb.getSourceVertex());
+            putInNextFilter(wgb);
+            if (reads.containsKey(fileVertexHash)) {
+                HashSet<String> tempSet = reads.get(fileVertexHash);
+                tempSet.remove(processVertexHash);
+            }
+        } else {
+            putInNextFilter(incomingEdge);
+        }
+    }
 
-	@Override
-	public boolean shutdown() {
-		return true;
-	}
+    @Override
+    public boolean shutdown() {
+        return true;
+    }
 }
