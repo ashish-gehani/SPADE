@@ -36,18 +36,23 @@ import java.util.regex.Pattern;
 
 public class ProvenanceIntegration {
 
-    public static String inputPath1 = "/var/tmp/input1.dot";
-    public static String inputPath2 = "/var/tmp/input2.dot";
-    public static String resultPath = "/var/tmp/result.dot";
-    public static int vertexThreshold = 4;
-    public static int edgeThreshold = 2;
-    public static int tolerance = 2;
-
     public static void main(String[] args) {
+    	try {
+	    	String inputPath1 = args[0];
+	    	String inputPath2 = args[1];
+	    	int vertexThreshold = Integer.parseInt(args[2]);
+	    	int edgeThreshold = Integer.parseInt(args[3]);
+	    	int tolerance = Integer.parseInt(args[4]);
+	    	String outputPath = args[5];
+	    } catch (Exception ex) {
+	    	System.out.println("Program arguments:");
+	    	System.out.println("  <input file 1> <input file 2> <vertex threshold> <edge threshold> <tolerance> <output file>");
+	    }
+
         Graph graph1 = Graph.importGraph(inputPath1);
         Graph graph2 = Graph.importGraph(inputPath2);
-        Graph result = Graph.integrate(graph1, graph2, vertexThreshold, edgeThreshold, tolerance);
-        result.exportGraph(resultPath);
+        Graph output = Graph.integrate(graph1, graph2, vertexThreshold, edgeThreshold, tolerance);
+        output.exportGraph(outputPath);
     }
 }
 
