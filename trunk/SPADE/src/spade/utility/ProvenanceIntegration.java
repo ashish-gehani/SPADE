@@ -37,17 +37,20 @@ import java.util.regex.Pattern;
 public class ProvenanceIntegration {
 
     public static void main(String[] args) {
-    	try {
-	    	String inputPath1 = args[0];
-	    	String inputPath2 = args[1];
-	    	int vertexThreshold = Integer.parseInt(args[2]);
-	    	int edgeThreshold = Integer.parseInt(args[3]);
-	    	int tolerance = Integer.parseInt(args[4]);
-	    	String outputPath = args[5];
-	    } catch (Exception ex) {
-	    	System.out.println("Program arguments:");
-	    	System.out.println("  <input file 1> <input file 2> <vertex threshold> <edge threshold> <tolerance> <output file>");
-	    }
+        String inputPath1 = null, inputPath2 = null, outputPath = null;
+        int vertexThreshold = 0, edgeThreshold = 0, tolerance = 0;
+        try {
+            inputPath1 = args[0];
+            inputPath2 = args[1];
+            vertexThreshold = Integer.parseInt(args[2]);
+            edgeThreshold = Integer.parseInt(args[3]);
+            tolerance = Integer.parseInt(args[4]);
+            outputPath = args[5];
+        } catch (Exception ex) {
+            System.out.println("Program arguments:");
+            System.out.println("  <input file 1> <input file 2> <vertex threshold> <edge threshold> <tolerance> <output file>");
+            return;
+        }
 
         Graph graph1 = Graph.importGraph(inputPath1);
         Graph graph2 = Graph.importGraph(inputPath2);
