@@ -21,16 +21,16 @@ $H END INIT INFO
 #-----------------------------------------------------------------------------
 
 status() {
-    eval "$w_status_cmd"
+     $w_status_cmd
 }
 
 stopit() {
     echo "Stopping $w_name ..."
-	eval "$w_stop_cmd"
+	 $w_stop_cmd
 }
 startit() {
     echo "Starting $w_name ..."
-    eval "$w_start_cmd"
+     $w_start_cmd
 }
 
 
