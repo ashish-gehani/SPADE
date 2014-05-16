@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2014 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -117,7 +117,6 @@ public class QueryClient {
             outputStream.println("");
 
             // Set up command history and tab completion.
-
             ConsoleReader commandReader = new ConsoleReader();
             try {
                 commandReader.getHistory().setHistoryFile(new File(historyFile));
@@ -186,12 +185,13 @@ public class QueryClient {
         //      function(arguments)
         // Examples:
         //      getVertices(expression)
-        //      getEdges(expression)
+        //      getEdges(src_id, dst_id)
         //      getPaths(src_id, dst_id, maxlength)
         //      getLineage(id/graph, depth, direction)
         //      getLineage(id/graph, depth, direction, expression)
         //      showVertices(annotations)
         //      getChildren(expression)
+        //      getParents(expression)
         Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
         Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
         Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
@@ -263,9 +263,9 @@ public class QueryClient {
                 exception.printStackTrace();
             }
         } else if (showVerticesMatcher.matches()) {
-            queryTarget = edgeMatcher.group(1);
+            queryTarget = showVerticesMatcher.group(1);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
-            String annotationsArray[] = edgeMatcher.group(2).split(", ");
+            String annotationsArray[] = showVerticesMatcher.group(2).split(", ");
             Set<String> annotations = new HashSet<String>(Arrays.asList(annotationsArray));
             if (!graphObjects.containsKey(queryTarget)) {
                 System.out.println("Error: graph " + queryTarget + " does not exist");
@@ -285,24 +285,26 @@ public class QueryClient {
                         vertexString.append(", ");
                     }
                 }
-                vertexString.delete(vertexString.length() - 2, vertexString.length());
+                if (vertexString.length() > 3) {
+                    vertexString.delete(vertexString.length() - 2, vertexString.length());
+                }
                 vertexString.append("]");
                 System.out.println("\t" + vertexString);
             }
             return;
         } else if (childrenMatcher.matches()) {
-            result = edgeMatcher.group(1);
-            queryTarget = edgeMatcher.group(2);
+            result = childrenMatcher.group(1);
+            queryTarget = childrenMatcher.group(2);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
-            String expression = edgeMatcher.group(3);
+            String expression = childrenMatcher.group(3);
             parseQuery(result + "=getLineage(" + queryTarget + ", 1, desc)");
             parseQuery(result + "=" + result + ".getVertices(" + expression + ")");
             return;
         } else if (parentsMatcher.matches()) {
-            result = edgeMatcher.group(1);
-            queryTarget = edgeMatcher.group(2);
+            result = parentsMatcher.group(1);
+            queryTarget = parentsMatcher.group(2);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
-            String expression = edgeMatcher.group(3);
+            String expression = parentsMatcher.group(3);
             parseQuery(result + "=getLineage(" + queryTarget + ", 1, anc)");
             parseQuery(result + "=" + result + ".getVertices(" + expression + ")");
             return;
@@ -338,8 +340,8 @@ public class QueryClient {
                     String queryExpression = vertexMatcher.group(3);
                     resultGraph = graphObjects.get(queryTarget).getVertices(queryExpression);
                 } else if (pathMatcher.matches()) {
-					int srcVertexId = Integer.parseInt(pathMatcher.group(3));
-					int dstVertexId = Integer.parseInt(pathMatcher.group(4));
+                    int srcVertexId = Integer.parseInt(pathMatcher.group(3));
+                    int dstVertexId = Integer.parseInt(pathMatcher.group(4));
                     int maxLength = Integer.parseInt(pathMatcher.group(5));
                     resultGraph = graphObjects.get(queryTarget).getPaths(srcVertexId, dstVertexId, maxLength);
                 } else if (lineageMatcher.matches()) {

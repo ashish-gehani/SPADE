@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2014 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -140,7 +140,6 @@ public class ControlClient {
             outputStream.println("");
 
             // Set up command history and tab completion.
-
             ConsoleReader commandReader = new ConsoleReader();
             try {
                 commandReader.getHistory().setHistoryFile(new File(historyFile));

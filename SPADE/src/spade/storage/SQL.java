@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2014 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -50,67 +50,76 @@ public class SQL extends AbstractStorage {
     private final String VERTEX_TABLE = "VERTEX";
     private final String EDGE_TABLE = "EDGE";
     private final boolean ENABLE_SANITAZATION = true;
-    private final int BATCH_SIZE = 1000;
+    private final int BATCH_SIZE = 1;
     private int statement_count = 0;
     private static final String ID_STRING = Settings.getProperty("storage_identifier");
     private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
-    private Statement batch_statement;
 
+    // private Statement batch_statement;
     @Override
     public boolean initialize(String arguments) {
         vertexAnnotations = new HashSet<String>();
         edgeAnnotations = new HashSet<String>();
 
-        // Arguments consist of 4 space-separated tokens: 'driver URL username password'
-
+        // Arguments consist of 4 space-separated tokens: 'driver URL username
+        // password'
         try {
             String[] tokens = arguments.split("\\s+");
             String driver = (tokens[0].equalsIgnoreCase("default")) ? "org.apache.derby.jdbc.EmbeddedDriver" : tokens[0];
-            String databaseURL = (tokens[1].equalsIgnoreCase("default")) ? "jdbc:derby:derbyDB;create=true" : tokens[1];
-//            String username = tokens[2];
-//            String password = tokens[3];
-//            username = (username.equalsIgnoreCase("null")) ? "" : username;
-//            password = (password.equalsIgnoreCase("null")) ? "" : password;
+            String databaseURL = (tokens[1].equalsIgnoreCase("default")) ? "jdbc:derby:/Users/dawood/Desktop/testSPADE/SPADE/bin/derbyDB;create=true" : tokens[1];
+            // String username = tokens[2];
+            // String password = tokens[3];
+            // username = (username.equalsIgnoreCase("null")) ? "" : username;
+            // password = (password.equalsIgnoreCase("null")) ? "" : password;
 
             Class.forName(driver).newInstance();
             dbConnection = DriverManager.getConnection(databaseURL);
-//            dbConnection = DriverManager.getConnection(databaseURL, username, password);
+            // dbConnection = DriverManager.getConnection(databaseURL, username,
+            // password);
             dbConnection.setAutoCommit(false);
 
             Statement dbStatement = dbConnection.createStatement();
 
             // Create vertex table if it does not already exist
-            String createVertexTable = "CREATE TABLE IF NOT EXISTS " + VERTEX_TABLE + " ("
-                    + "vertexId INT PRIMARY KEY AUTO_INCREMENT, "
-                    + "type VARCHAR(32) NOT NULL, "
-                    + "hash INT NOT NULL"
-                    + ")";
+            String createVertexTable = "CREATE TABLE " + VERTEX_TABLE + " (" + "vertexId INT GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " + "type VARCHAR(32) NOT NULL, "
+                    + "hash INT NOT NULL" + ")";
+            // String createVertexTable = "CREATE TABLE IF NOT EXISTS " +
+            // VERTEX_TABLE + " ("
+            // + "vertexId INT PRIMARY KEY AUTO_INCREMENT, "
+            // + "type VARCHAR(32) NOT NULL, "
+            // + "hash INT NOT NULL"
+            // + ")";
             dbStatement.execute(createVertexTable);
 
             // Create edge table if it does not already exist
-            String createEdgeTable = "CREATE TABLE IF NOT EXISTS " + EDGE_TABLE + " ("
-                    + "edgeId INT PRIMARY KEY AUTO_INCREMENT, "
-                    + "type VARCHAR(32) NOT NULL ,"
-                    + "hash INT NOT NULL, "
-                    + "srcVertexHash INT NOT NULL, "
-                    + "dstVertexHash INT NOT NULL"
-                    + ")";
+            String createEdgeTable = "CREATE TABLE " + EDGE_TABLE + " (" + "edgeId INT GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " + "type VARCHAR(32) NOT NULL ,"
+                    + "hash INT NOT NULL, " + "srcVertexHash INT NOT NULL, " + "dstVertexHash INT NOT NULL" + ")";
+            // String createEdgeTable = "CREATE TABLE IF NOT EXISTS " +
+            // EDGE_TABLE + " ("
+            // + "edgeId INT PRIMARY KEY AUTO_INCREMENT, "
+            // + "type VARCHAR(32) NOT NULL ,"
+            // + "hash INT NOT NULL, "
+            // + "srcVertexHash INT NOT NULL, "
+            // + "dstVertexHash INT NOT NULL"
+            // + ")";
             dbStatement.execute(createEdgeTable);
             dbStatement.close();
 
             // For performance optimization, create and store procedure to add
             // columns to tables since this method may be called frequently
             // ---- PROCEDURES UNSUPPORTED IN H2 ----
-//            String procedureStatement = "DROP PROCEDURE IF EXISTS addColumn;\n"
-//                    + "CREATE PROCEDURE addColumn(IN myTable VARCHAR(16), IN myColumn VARCHAR(64))\n"
-//                    + "BEGIN\n"
-//                    + " SET @newStatement = CONCAT('ALTER TABLE ', myTable, ' ADD COLUMN ', myColumn, ' VARCHAR');\n"
-//                    + " PREPARE STMT FROM @newStatement;\n"
-//                    + " EXECUTE STMT;\n" + "END;";
-//            dbStatement.execute(procedureStatement);
-
-            batch_statement = dbConnection.createStatement();
+            // String procedureStatement =
+            // "DROP PROCEDURE IF EXISTS addColumn;\n"
+            // +
+            // "CREATE PROCEDURE addColumn(IN myTable VARCHAR(16), IN myColumn VARCHAR(64))\n"
+            // + "BEGIN\n"
+            // +
+            // " SET @newStatement = CONCAT('ALTER TABLE ', myTable, ' ADD COLUMN ', myColumn, ' VARCHAR');\n"
+            // + " PREPARE STMT FROM @newStatement;\n"
+            // + " EXECUTE STMT;\n" + "END;";
+            // dbStatement.execute(procedureStatement);
+            // batch_statement = dbConnection.createStatement();
             return true;
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
@@ -122,10 +131,10 @@ public class SQL extends AbstractStorage {
     public boolean shutdown() {
         try {
             // Close the connection to the database
-            if (++statement_count % BATCH_SIZE > 0) {
-                batch_statement.executeBatch();
-            }
-            batch_statement.close();
+            // if (++statement_count % BATCH_SIZE > 0) {
+            // batch_statement.executeBatch();
+            // }
+            // batch_statement.close();
             DriverManager.getConnection("jdbc:derby:;shutdown=true");
             dbConnection.close();
             return true;
@@ -156,7 +165,8 @@ public class SQL extends AbstractStorage {
     }
 
     private boolean addColumn(String table, String column) {
-        // If this column has already been added before for this table, then return
+        // If this column has already been added before for this table, then
+        // return
         if ((table.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column)) {
             return true;
         } else if ((table.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column)) {
@@ -165,16 +175,22 @@ public class SQL extends AbstractStorage {
 
         try {
             // ---- PROCEDURES UNSUPPORTED IN H2 ----
-//            CallableStatement callStatement = dbConnection.prepareCall("{CALL addColumn(?, ?)}");
-//            callStatement.setString(1, table);
-//            callStatement.setString(2, column);
-//            callStatement.execute();
-//            callStatement.close();
+            // CallableStatement callStatement =
+            // dbConnection.prepareCall("{CALL addColumn(?, ?)}");
+            // callStatement.setString(1, table);
+            // callStatement.setString(2, column);
+            // callStatement.execute();
+            // callStatement.close();
             // Add column of type VARCHAR
-//            Statement columnStatement = dbConnection.createStatement();
-            String statement = "ALTER TABLE " + table + " ADD IF NOT EXISTS `" + column + "` VARCHAR";
-            runStatement(statement);
-//            columnStatement.execute();
+            // Statement columnStatement = dbConnection.createStatement();
+            // String statement = "ALTER TABLE " + table +
+            // " ADD IF NOT EXISTS `" + column + "` VARCHAR";
+            Statement s = dbConnection.createStatement();
+            String statement = "ALTER TABLE " + table + " ADD " + column + " VARCHAR(128)";
+            s.execute(statement);
+            s.close();
+            // runStatement(statement);
+            // columnStatement.execute();
 
             if (table.equalsIgnoreCase(VERTEX_TABLE)) {
                 vertexAnnotations.add(column);
@@ -192,7 +208,7 @@ public class SQL extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + VERTEX_TABLE + " (`type`, `hash`, ");
+        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + VERTEX_TABLE + " (type, hash, ");
         for (String annotationKey : incomingVertex.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
@@ -201,16 +217,18 @@ public class SQL extends AbstractStorage {
             // Sanitize column name to remove special characters
             String newAnnotationKey = sanitizeColumn(annotationKey);
 
-            // As the annotation keys are being iterated, add them as new columns
+            // As the annotation keys are being iterated, add them as new
+            // columns
             // to the table if they do not already exist
             addColumn(VERTEX_TABLE, newAnnotationKey);
 
-            insertStringBuilder.append("`");
+            insertStringBuilder.append("");
             insertStringBuilder.append(newAnnotationKey);
-            insertStringBuilder.append("`, ");
+            insertStringBuilder.append(", ");
         }
 
-        // Eliminate the last 2 characters from the string (", ") and begin adding values
+        // Eliminate the last 2 characters from the string (", ") and begin
+        // adding values
         String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
@@ -227,8 +245,7 @@ public class SQL extends AbstractStorage {
                 continue;
             }
 
-            String value = (ENABLE_SANITAZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"")
-                    : incomingVertex.getAnnotation(annotationKey);
+            String value = (ENABLE_SANITAZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"") : incomingVertex.getAnnotation(annotationKey);
 
             insertStringBuilder.append("'");
             insertStringBuilder.append(value);
@@ -236,7 +253,14 @@ public class SQL extends AbstractStorage {
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
-        runStatement(insertString);
+        try {
+            Statement s = dbConnection.createStatement();
+            s.execute(insertString);
+            s.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // runStatement(insertString);
         return true;
     }
 
@@ -246,7 +270,7 @@ public class SQL extends AbstractStorage {
         int dstVertexHash = incomingEdge.getDestinationVertex().hashCode();
 
         // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (`type`, `hash`, `srcVertexHash`, `dstVertexHash`, ");
+        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (type, hash, srcVertexHash, dstVertexHash, ");
         for (String annotationKey : incomingEdge.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
@@ -254,16 +278,18 @@ public class SQL extends AbstractStorage {
             // Sanitize column name to remove special characters
             String newAnnotationKey = sanitizeColumn(annotationKey);
 
-            // As the annotation keys are being iterated, add them as new columns
+            // As the annotation keys are being iterated, add them as new
+            // columns
             // to the table if they do not already exist
             addColumn(EDGE_TABLE, newAnnotationKey);
 
-            insertStringBuilder.append("`");
+            insertStringBuilder.append("");
             insertStringBuilder.append(newAnnotationKey);
-            insertStringBuilder.append("`, ");
+            insertStringBuilder.append(", ");
         }
 
-        // Eliminate the last 2 characters from the string (", ") and begin adding values
+        // Eliminate the last 2 characters from the string (", ") and begin
+        // adding values
         String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
@@ -284,8 +310,7 @@ public class SQL extends AbstractStorage {
                 continue;
             }
 
-            String value = (ENABLE_SANITAZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"")
-                    : incomingEdge.getAnnotation(annotationKey);
+            String value = (ENABLE_SANITAZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"") : incomingEdge.getAnnotation(annotationKey);
 
             insertStringBuilder.append("'");
             insertStringBuilder.append(value);
@@ -293,37 +318,42 @@ public class SQL extends AbstractStorage {
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
-        runStatement(insertString);
+        try {
+            Statement s = dbConnection.createStatement();
+            s.execute(insertString);
+            s.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // runStatement(insertString);
         return true;
     }
 
-    private void runStatement(String statement) {
-        try {
-            batch_statement.addBatch(statement);
-            if (++statement_count % BATCH_SIZE == 0) {
-                batch_statement.executeBatch();
-                batch_statement.close();
-                batch_statement = dbConnection.createStatement();
-            }
-        } catch (Exception ex) {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
-    private void flushStatements() {
-        try {
-            batch_statement.executeBatch();
-            batch_statement.close();
-            batch_statement = dbConnection.createStatement();
-        } catch (Exception ex) {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
+    // private void runStatement(String statement) {
+    // try {
+    // batch_statement.addBatch(statement);
+    // if (++statement_count % BATCH_SIZE == 0) {
+    // batch_statement.executeBatch();
+    // batch_statement.close();
+    // batch_statement = dbConnection.createStatement();
+    // }
+    // } catch (Exception ex) {
+    // Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+    // }
+    // }
+    // private void flushStatements() {
+    // try {
+    // batch_statement.executeBatch();
+    // batch_statement.close();
+    // batch_statement = dbConnection.createStatement();
+    // } catch (Exception ex) {
+    // Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+    // }
+    // }
     @Override
     public Graph getVertices(String expression) {
         try {
-            flushStatements();
+            // flushStatements();
             Graph graph = new Graph();
             String query = "SELECT * FROM VERTEX WHERE " + expression;
             Statement vertexStatement = dbConnection.createStatement();
@@ -351,6 +381,7 @@ public class SQL extends AbstractStorage {
                 graph.putVertex(vertex);
             }
 
+            graph.commitIndex();
             return graph;
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
@@ -359,8 +390,8 @@ public class SQL extends AbstractStorage {
     }
 
     @Override
-    public Graph getLineage(String vertexId, int depth, String direction, String terminatingExpression) {
-        flushStatements();
+    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
+        // flushStatements();
         Graph graph = new Graph();
         int vertexColumnCount;
         int edgeColumnCount;
@@ -495,6 +526,7 @@ public class SQL extends AbstractStorage {
             depth--;
         }
 
+        graph.commitIndex();
         return graph;
     }
 
