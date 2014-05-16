@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2014 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -136,10 +136,14 @@ public class Kernel {
     private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id)";
     private static final String QUERY_LINEAGE1_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
     private static final String QUERY_LINEAGE2_STRING = "<result> = getLineage(result, depth, direction, terminating expression)";
+    private static final String QUERY_CHILDREN_STRING = "<result> = getChildren(expression)";
+    private static final String QUERY_PARENTS_STRING = "<result> = getParents(expression)";
+    private static final String QUERY_SHOWVERTICES_STRING = "showVertices(annotations)";
     private static final String QUERY_LIST_STRING = "list";
     private static final String QUERY_EXPORT_STRING = "export <result> <path>";
     private static final String QUERY_EXIT_STRING = "exit";
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
+    private static boolean ANDROID_PLATFORM = false;
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePublic;
     private static KeyStore clientKeyStorePrivate;
@@ -198,13 +202,19 @@ public class Kernel {
      * @param args
      */
     public static void main(String args[]) {
+        if (args.length == 1 && args[0].equals("android")) {
+            ANDROID_PLATFORM = true;
+        }
+
         // Set up context for secure connections
-        try {
-            setupKeyStores();
-            setupClientSSLContext();
-            setupServerSSLContext();
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
+        if (!ANDROID_PLATFORM) {
+            try {
+                setupKeyStores();
+                setupClientSSLContext();
+                setupServerSSLContext();
+            } catch (Exception exception) {
+                logger.log(Level.SEVERE, null, exception);
+            }
         }
 
         try {
@@ -237,8 +247,8 @@ public class Kernel {
                     }
                     // Wait for main thread to consume all provenance data.
                     while (!reporters.isEmpty()) {
-                        for (Iterator reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
-                            AbstractReporter currentReporter = (AbstractReporter) reporterIterator.next();
+                        for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
+                            AbstractReporter currentReporter = reporterIterator.next();
                             Buffer currentBuffer = currentReporter.getBuffer();
                             if (currentBuffer.isEmpty()) {
                                 reporterIterator.remove();
@@ -292,27 +302,36 @@ public class Kernel {
         FinalTransformer finalTransformer = new FinalTransformer();
         transformers.add(finalTransformer);
 
-
-        // Initialize the main thread. This thread performs critical provenance-related
-        // work inside SPADE. It extracts provenance objects (vertices, edges) from the
-        // buffers, adds the source_reporter annotation to each object which is class name
+        // Initialize the main thread. This thread performs critical
+        // provenance-related
+        // work inside SPADE. It extracts provenance objects (vertices, edges)
+        // from the
+        // buffers, adds the source_reporter annotation to each object which is
+        // class name
         // of the reporter, and then sends these objects to the filter list.
-        // This thread is also used for cleanly removing reporters and storages (through
-        // the control commands and also when shutting down). This is done by ensuring that
-        // once a reporter is marked for removal, the provenance objects from its buffer are
+        // This thread is also used for cleanly removing reporters and storages
+        // (through
+        // the control commands and also when shutting down). This is done by
+        // ensuring that
+        // once a reporter is marked for removal, the provenance objects from
+        // its buffer are
         // completely flushed.
         Runnable mainRunnable = new Runnable() {
             public void run() {
                 try {
                     while (true) {
                         if (shutdown) {
-                            // The shutdown process is also partially handled by this thread. On
-                            // shutdown, all reporters are marked for removal so that their buffers
-                            // are cleanly flushed and no data is lost. When a buffer becomes empty,
-                            // it is removed along with its corresponding reporter. When all buffers
+                            // The shutdown process is also partially handled by
+                            // this thread. On
+                            // shutdown, all reporters are marked for removal so
+                            // that their buffers
+                            // are cleanly flushed and no data is lost. When a
+                            // buffer becomes empty,
+                            // it is removed along with its corresponding
+                            // reporter. When all buffers
                             // become empty, this thread terminates.
-                            for (Iterator reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
-                                AbstractReporter currentReporter = (AbstractReporter) reporterIterator.next();
+                            for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
+                                AbstractReporter currentReporter = reporterIterator.next();
                                 Buffer currentBuffer = currentReporter.getBuffer();
                                 if (currentBuffer.isEmpty()) {
                                     reporterIterator.remove();
@@ -324,9 +343,12 @@ public class Kernel {
                             }
                         }
                         if (flushTransactions) {
-                            // Flushing of transactions is also handled by this thread to ensure that
-                            // there are no errors/problems when using storages that are sensitive to
-                            // thread-context for their transactions. For example, this is true for
+                            // Flushing of transactions is also handled by this
+                            // thread to ensure that
+                            // there are no errors/problems when using storages
+                            // that are sensitive to
+                            // thread-context for their transactions. For
+                            // example, this is true for
                             // the embedded neo4j graph database.
                             for (AbstractStorage currentStorage : storages) {
                                 currentStorage.flushTransactions();
@@ -334,18 +356,22 @@ public class Kernel {
                             flushTransactions = false;
                         }
                         if (!removestorages.isEmpty()) {
-                            // Check if a storage is marked for removal. If it is, shut it down and
+                            // Check if a storage is marked for removal. If it
+                            // is, shut it down and
                             // remove it from the list.
-                            for (Iterator iterator = removestorages.iterator(); iterator.hasNext();) {
-                                AbstractStorage currentStorage = (AbstractStorage) iterator.next();
+                            for (Iterator<AbstractStorage> iterator = removestorages.iterator(); iterator.hasNext();) {
+                                AbstractStorage currentStorage = iterator.next();
                                 currentStorage.shutdown();
                                 iterator.remove();
                             }
                         }
                         for (AbstractReporter reporter : reporters) {
-                            // This loop performs the actual task of committing provenance data to
-                            // the storages. Each reporter is selected and the nested loop is used to
-                            // extract buffer elements in a batch manner for increased efficiency.
+                            // This loop performs the actual task of committing
+                            // provenance data to
+                            // the storages. Each reporter is selected and the
+                            // nested loop is used to
+                            // extract buffer elements in a batch manner for
+                            // increased efficiency.
                             // The elements are then passed to the filter list.
                             Buffer buffer = reporter.getBuffer();
                             for (int i = 0; i < BATCH_BUFFER_ELEMENTS; i++) {
@@ -374,16 +400,24 @@ public class Kernel {
         mainThread = new Thread(mainRunnable, "mainSPADE-Thread");
         mainThread.start();
 
-        // This thread creates the input and output pipes used for control (and also used
-        // by the control client). The exit value is used to determine if the pipes were
-        // successfully created. The input pipe (to which commands are issued) is read in
+        // This thread creates the input and output pipes used for control (and
+        // also used
+        // by the control client). The exit value is used to determine if the
+        // pipes were
+        // successfully created. The input pipe (to which commands are issued)
+        // is read in
         // a loop and the commands are processed.
         Runnable controlRunnable = new Runnable() {
             public void run() {
                 try {
+                    ServerSocket serverSocket = null;
                     int port = Integer.parseInt(Settings.getProperty("local_control_port"));
-                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
-                    serverSocket.setNeedClientAuth(true);
+                    if (ANDROID_PLATFORM) {
+                        serverSocket = new ServerSocket(port);
+                    } else {
+                        serverSocket = sslServerSocketFactory.createServerSocket(port);
+                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
+                    }
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket controlSocket = serverSocket.accept();
@@ -401,13 +435,17 @@ public class Kernel {
         Thread controlThread = new Thread(controlRunnable, "controlSocket-Thread");
         controlThread.start();
 
-
         Runnable queryRunnable = new Runnable() {
             public void run() {
                 try {
+                    ServerSocket serverSocket = null;
                     int port = Integer.parseInt(Settings.getProperty("local_query_port"));
-                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
-                    serverSocket.setNeedClientAuth(true);
+                    if (ANDROID_PLATFORM) {
+                        serverSocket = new ServerSocket(port);
+                    } else {
+                        serverSocket = sslServerSocketFactory.createServerSocket(port);
+                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
+                    }
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket querySocket = serverSocket.accept();
@@ -425,16 +463,22 @@ public class Kernel {
         Thread queryThread = new Thread(queryRunnable, "querySocket-Thread");
         queryThread.start();
 
-
-        // This thread creates a server socket for remote querying. When a query connection
-        // is established, another new thread is created for that connection object. The
+        // This thread creates a server socket for remote querying. When a query
+        // connection
+        // is established, another new thread is created for that connection
+        // object. The
         // remote query server is therefore a multithreaded server.
         Runnable remoteRunnable = new Runnable() {
             public void run() {
                 try {
+                    ServerSocket serverSocket = null;
                     int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
-                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
-                    serverSocket.setNeedClientAuth(true);
+                    if (ANDROID_PLATFORM) {
+                        serverSocket = new ServerSocket(port);
+                    } else {
+                        serverSocket = sslServerSocketFactory.createServerSocket(port);
+                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
+                    }
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
@@ -452,16 +496,22 @@ public class Kernel {
         Thread remoteThread = new Thread(remoteRunnable, "remoteQuery-Thread");
         remoteThread.start();
 
-
-        // This thread creates a server socket for remote sketches. When a sketch connection
-        // is established, another new thread is created for that connection object. The
+        // This thread creates a server socket for remote sketches. When a
+        // sketch connection
+        // is established, another new thread is created for that connection
+        // object. The
         // remote sketch server is therefore a multithreaded server.
         Runnable sketchRunnable = new Runnable() {
             public void run() {
                 try {
+                    ServerSocket serverSocket = null;
                     int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
-                    SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port);
-                    serverSocket.setNeedClientAuth(true);
+                    if (ANDROID_PLATFORM) {
+                        serverSocket = new ServerSocket(port);
+                    } else {
+                        serverSocket = sslServerSocketFactory.createServerSocket(port);
+                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
+                    }
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket clientSocket = serverSocket.accept();
@@ -483,9 +533,12 @@ public class Kernel {
         configCommand("config load " + configFile, NullStream.out);
     }
 
-    // The following two methods are called by the Graph object when adding vertices
-    // and edges to the result graph. Transformers are technically the same as filters
-    // and are used to modify/transform data as it is entered into a Graph object.
+    // The following two methods are called by the Graph object when adding
+    // vertices
+    // and edges to the result graph. Transformers are technically the same as
+    // filters
+    // and are used to modify/transform data as it is entered into a Graph
+    // object.
     /**
      * Method called by a Graph object to send vertices to transformers before
      * they are finally added to the result.
@@ -517,12 +570,14 @@ public class Kernel {
      */
     public static void executeCommand(String line, PrintStream outputStream) {
         if (line.startsWith("shutdown")) {
-            // On shutdown, save the current configuration in the default configuration
+            // On shutdown, save the current configuration in the default
+            // configuration
             // file.
             configCommand("config save " + configFile, NullStream.out);
             for (AbstractReporter reporter : reporters) {
                 // Shut down all reporters. After
-                // this, their buffers are flushed and then the storages are shut down.
+                // this, their buffers are flushed and then the storages are
+                // shut down.
                 reporter.shutdown();
             }
             shutdown = true;
@@ -663,6 +718,9 @@ public class Kernel {
         string.append("\t" + QUERY_PATHS_STRING + "\n");
         string.append("\t" + QUERY_LINEAGE1_STRING + "\n");
         string.append("\t" + QUERY_LINEAGE2_STRING + "\n");
+        string.append("\t" + QUERY_CHILDREN_STRING + "\n");
+        string.append("\t" + QUERY_PARENTS_STRING + "\n");
+        string.append("\t" + QUERY_SHOWVERTICES_STRING + "\n");
         string.append("\t" + QUERY_LIST_STRING + "\n");
         string.append("\t" + QUERY_EXPORT_STRING + "\n");
         string.append("\t" + QUERY_EXIT_STRING);
@@ -707,9 +765,12 @@ public class Kernel {
             Buffer buffer = new Buffer();
             reporter.setBuffer(buffer);
             if (reporter.launch(arguments)) {
-                // The launch() method must return true to indicate a successful launch.
-                // On true, the reporter is added to the reporters set and the buffer
-                // is put into a HashMap keyed by the reporter (this is used by the main
+                // The launch() method must return true to indicate a successful
+                // launch.
+                // On true, the reporter is added to the reporters set and the
+                // buffer
+                // is put into a HashMap keyed by the reporter (this is used by
+                // the main
                 // SPADE thread to extract buffer elements).
                 reporter.arguments = arguments;
                 reporters.add(reporter);
@@ -736,7 +797,8 @@ public class Kernel {
                 return;
             }
             if (storage.initialize(arguments)) {
-                // The initialize() method must return true to indicate successful startup.
+                // The initialize() method must return true to indicate
+                // successful startup.
                 // On true, the storage is added to the storages set.
                 storage.arguments = arguments;
                 storage.vertexCount = 0;
@@ -784,7 +846,8 @@ public class Kernel {
             filter.setNextFilter((AbstractFilter) filters.get(index));
             if (index > 0) {
                 // If the newly added filter is not the first in the list, then
-                // then configure the previous filter in the list to point to this
+                // then configure the previous filter in the list to point to
+                // this
                 // newly added filter as its next.
                 ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
             }
@@ -820,7 +883,8 @@ public class Kernel {
             // Initialize filter if arguments are provided
             filter.initialize(arguments);
             filter.arguments = arguments;
-            // The argument is the index at which the transformer is to be inserted.
+            // The argument is the index at which the transformer is to be
+            // inserted.
             if (index >= transformers.size()) {
                 outputStream.println("error: Invalid index");
                 return;
@@ -828,8 +892,10 @@ public class Kernel {
             // Set the next transformer of this newly added transformer.
             filter.setNextFilter((AbstractFilter) transformers.get(index));
             if (index > 0) {
-                // If the newly added transformer is not the first in the list, then
-                // then configure the previous transformer in the list to point to this
+                // If the newly added transformer is not the first in the list,
+                // then
+                // then configure the previous transformer in the list to point
+                // to this
                 // newly added transformer as its next.
                 ((AbstractFilter) transformers.get(index - 1)).setNextFilter(filter);
             }
@@ -872,7 +938,6 @@ public class Kernel {
      */
     public static void listCommand(String line, PrintStream outputStream) {
         String[] tokens = line.split("\\s+");
-        int verbose_level = 0;
         String verbose_token = "";
         if (tokens.length < 2) {
             outputStream.println("Usage:");
@@ -918,7 +983,8 @@ public class Kernel {
             }
         } else if (tokens[1].equalsIgnoreCase("filters")) {
             if (filters.size() == 1) {
-                // The size of the filters list will always be at least 1 because
+                // The size of the filters list will always be at least 1
+                // because
                 // of the FinalCommitFilter. The user is not made aware of the
                 // presence of this filter and it is only used for committing
                 // provenance data to the storages. Therefore, there is nothing
@@ -939,17 +1005,20 @@ public class Kernel {
             }
         } else if (tokens[1].equalsIgnoreCase("transformers")) {
             if (transformers.size() == 1) {
-                // The size of the transformers list will always be at least 1 because
+                // The size of the transformers list will always be at least 1
+                // because
                 // of the FinalTransformer. The user is not made aware of the
                 // presence of this filter and it is only used for committing
-                // provenance data to the result Graph. Therefore, there is nothing
+                // provenance data to the result Graph. Therefore, there is
+                // nothing
                 // to list if the size of the filters list is 1.
                 outputStream.println("No transformers added");
                 return;
             }
             outputStream.println((transformers.size() - 1) + " transformer(s) added:");
             for (int i = 0; i < transformers.size() - 1; i++) {
-                // Loop through the transformers list, printing their names (except
+                // Loop through the transformers list, printing their names
+                // (except
                 // for the last FinalTransformer).
                 String arguments = transformers.get(i).arguments;
                 outputStream.print("\t" + (i + 1) + ". " + transformers.get(i).getClass().getName().split("\\.")[2]);
@@ -975,7 +1044,7 @@ public class Kernel {
             listCommand("list reporters " + verbose_token, outputStream);
             listCommand("list storages " + verbose_token, outputStream);
             listCommand("list filters " + verbose_token, outputStream);
-            //listCommand("list transformers", outputStream);
+            // listCommand("list transformers", outputStream);
             listCommand("list sketches " + verbose_token, outputStream);
         } else {
             outputStream.println("Usage:");
@@ -1001,12 +1070,14 @@ public class Kernel {
         try {
             if (tokens[1].equalsIgnoreCase("reporter")) {
                 boolean found = false;
-                for (Iterator reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
-                    AbstractReporter reporter = (AbstractReporter) reporterIterator.next();
+                for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
+                    AbstractReporter reporter = reporterIterator.next();
                     // Search for the given reporter in the set of reporters.
                     if (reporter.getClass().getName().equals("spade.reporter." + tokens[2])) {
-                        // Mark the reporter for removal by adding it to the removereporters set.
-                        // This will enable the main SPADE thread to cleanly flush the reporter
+                        // Mark the reporter for removal by adding it to the
+                        // removereporters set.
+                        // This will enable the main SPADE thread to cleanly
+                        // flush the reporter
                         // buffer and remove it.
                         reporter.shutdown();
                         removereporters.add(reporter);
@@ -1026,12 +1097,14 @@ public class Kernel {
                 }
             } else if (tokens[1].equalsIgnoreCase("storage")) {
                 boolean found = false;
-                for (Iterator storageIterator = storages.iterator(); storageIterator.hasNext();) {
-                    AbstractStorage storage = (AbstractStorage) storageIterator.next();
+                for (Iterator<AbstractStorage> storageIterator = storages.iterator(); storageIterator.hasNext();) {
+                    AbstractStorage storage = storageIterator.next();
                     // Search for the given storage in the storages set.
                     if (storage.getClass().getName().equals("spade.storage." + tokens[2])) {
-                        // Mark the storage for removal by adding it to the removestorages set.
-                        // This will enable the main SPADE thread to safely commit any transactions
+                        // Mark the storage for removal by adding it to the
+                        // removestorages set.
+                        // This will enable the main SPADE thread to safely
+                        // commit any transactions
                         // and then remove the storage.
                         long vertexCount = storage.vertexCount;
                         long edgeCount = storage.edgeCount;
@@ -1051,7 +1124,8 @@ public class Kernel {
                     outputStream.println("Storage " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("filter")) {
-                // Filter removal is done by the index number (beginning from 1).
+                // Filter removal is done by the index number (beginning from
+                // 1).
                 int index = Integer.parseInt(tokens[2]);
                 if ((index <= 0) || (index >= filters.size())) {
                     outputStream.println("Error: Unable to remove filter - bad index");
@@ -1061,15 +1135,19 @@ public class Kernel {
                 outputStream.print("Removing filter " + filterName.split("\\.")[2] + "... ");
                 filters.get(index - 1).shutdown();
                 if (index > 1) {
-                    // Update the internal links between filters by calling the setNextFilter
-                    // method on the filter just before the one being removed. The (index-1)
-                    // check is used because this method is not to be called on the first filter.
+                    // Update the internal links between filters by calling the
+                    // setNextFilter
+                    // method on the filter just before the one being removed.
+                    // The (index-1)
+                    // check is used because this method is not to be called on
+                    // the first filter.
                     ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
                 }
                 filters.remove(index - 1);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("transformer")) {
-                // Transformer removal is done by the index number (beginning from 1).
+                // Transformer removal is done by the index number (beginning
+                // from 1).
                 int index = Integer.parseInt(tokens[2]);
                 if ((index <= 0) || (index >= transformers.size())) {
                     outputStream.println("Error: Unable to remove transformer - bad index");
@@ -1079,17 +1157,20 @@ public class Kernel {
                 outputStream.print("Removing transformer " + filterName.split("\\.")[2] + "... ");
                 transformers.get(index - 1).shutdown();
                 if (index > 1) {
-                    // Update the internal links between transformers by calling the setNextFilter
-                    // method on the transformer just before the one being removed. The (index-1)
-                    // check is used because this method is not to be called on the first transformer.
+                    // Update the internal links between transformers by calling
+                    // the setNextFilter
+                    // method on the transformer just before the one being
+                    // removed. The (index-1)
+                    // check is used because this method is not to be called on
+                    // the first transformer.
                     ((AbstractFilter) transformers.get(index - 2)).setNextFilter((AbstractFilter) transformers.get(index));
                 }
                 transformers.remove(index - 1);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 boolean found = false;
-                for (Iterator sketchIterator = sketches.iterator(); sketchIterator.hasNext();) {
-                    AbstractSketch sketch = (AbstractSketch) sketchIterator.next();
+                for (Iterator<AbstractSketch> sketchIterator = sketches.iterator(); sketchIterator.hasNext();) {
+                    AbstractSketch sketch = sketchIterator.next();
                     // Search for the given sketch in the sketches set.
                     if (sketch.getClass().getName().equals("spade.sketch." + tokens[2])) {
                         found = true;
@@ -1145,12 +1226,12 @@ class FinalTransformer extends AbstractFilter {
     // received by it need to be passed to the correct graph.
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-//        incomingVertex.resultGraph.commitVertex(incomingVertex);
+        // incomingVertex.resultGraph.commitVertex(incomingVertex);
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-//        incomingEdge.resultGraph.commitEdge(incomingEdge);
+        // incomingEdge.resultGraph.commitEdge(incomingEdge);
     }
 }
 

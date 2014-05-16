@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2014 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
-import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -34,8 +33,7 @@ import spade.vertex.opm.Artifact;
 
 public class IORuns extends AbstractFilter {
 
-    private final int BUFFER_SIZE = 2000;
-    private final String artifactKey = "path";
+    private final String artifactKey = "location";
     private Map<String, HashSet<String>> writes;
     private Map<String, HashSet<String>> reads;
     private Queue<AbstractVertex> vertexBuffer;
@@ -48,20 +46,17 @@ public class IORuns extends AbstractFilter {
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-        if (incomingVertex instanceof Artifact) {
+        if ((incomingVertex instanceof Artifact) && (incomingVertex.getAnnotation(artifactKey) != null)) {
             vertexBuffer.add(incomingVertex);
         } else {
             putInNextFilter(incomingVertex);
             return;
         }
-        if (vertexBuffer.size() > BUFFER_SIZE) {
-            Logger.getLogger("IORuns").warning("*** Vertex Buffer full. Dropping! )))");
-        }
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        if (incomingEdge instanceof Used) {
+        if ((incomingEdge instanceof Used) && (incomingEdge.getDestinationVertex().getAnnotation(artifactKey) != null)) {
             Used usedEdge = (Used) incomingEdge;
             String fileVertexHash = usedEdge.getDestinationVertex().getAnnotation(artifactKey);
             String processVertexHash = Integer.toString(usedEdge.getSourceVertex().hashCode());
@@ -85,7 +80,7 @@ public class IORuns extends AbstractFilter {
                 HashSet<String> tempSet = writes.get(fileVertexHash);
                 tempSet.remove(processVertexHash);
             }
-        } else if (incomingEdge instanceof WasGeneratedBy) {
+        } else if ((incomingEdge instanceof WasGeneratedBy) && (incomingEdge.getSourceVertex().getAnnotation(artifactKey) != null)) {
             WasGeneratedBy wgb = (WasGeneratedBy) incomingEdge;
             String fileVertexHash = wgb.getSourceVertex().getAnnotation(artifactKey);
             String processVertexHash = Integer.toString(wgb.getDestinationVertex().hashCode());

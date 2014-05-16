@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2014 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -26,7 +26,6 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Settings;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -49,9 +48,7 @@ public class Graphviz extends AbstractStorage {
             filePath = arguments;
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
-            outputFile.write("digraph spade2dot {\n"
-                    + "graph [rankdir = \"RL\"];\n"
-                    + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
+            outputFile.write("digraph spade2dot {\n" + "graph [rankdir = \"RL\"];\n" + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
                     + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
             return true;
         } catch (Exception exception) {
@@ -85,12 +82,6 @@ public class Graphviz extends AbstractStorage {
                 if (key == null || value == null) {
                     continue;
                 }
-                if ((key.equalsIgnoreCase("type"))
-                        || (key.equalsIgnoreCase("subtype"))
-                        || (key.equalsIgnoreCase("environment"))
-                        || (key.equalsIgnoreCase(Settings.getProperty("source_reporter")))) {
-                    continue;
-                }
                 annotationString.append(key.replace("\\", "\\\\"));
                 annotationString.append(":");
                 annotationString.append(value.replace("\\", "\\\\"));
@@ -121,12 +112,7 @@ public class Graphviz extends AbstractStorage {
             }
 
             String key = incomingVertex.toString().replace('\"', '\'');
-            outputFile.write("\""
-                    + key
-                    + "\" [label=\"" + vertexString.replace("\"", "'")
-                    + "\" shape=\"" + shape
-                    + "\" fillcolor=\"" + color
-                    + "\"];\n");
+            outputFile.write("\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
             checkTransactions();
             return true;
         } catch (Exception exception) {
@@ -144,11 +130,6 @@ public class Graphviz extends AbstractStorage {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
                 if (key == null || value == null) {
-                    continue;
-                }
-                if ((key.equalsIgnoreCase("type"))
-                        || (key.equalsIgnoreCase("subtype"))
-                        || (key.equalsIgnoreCase(Settings.getProperty("source_reporter")))) {
                     continue;
                 }
                 annotationString.append(key.replace("\\", "\\\\"));
@@ -170,6 +151,11 @@ public class Graphviz extends AbstractStorage {
                 color = "orange";
             }
 
+            String style = "solid";
+            if (incomingEdge.getAnnotation("success") != null && incomingEdge.getAnnotation("success").equals("false")) {
+                style = "dashed";
+            }
+
             String edgeString = annotationString.toString();
             if (edgeString.length() > 0) {
                 edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
@@ -178,13 +164,7 @@ public class Graphviz extends AbstractStorage {
             String srckey = incomingEdge.getSourceVertex().toString().replace('\"', '\'');
             String dstkey = incomingEdge.getDestinationVertex().toString().replace('\"', '\'');
 
-            outputFile.write("\""
-                    + srckey
-                    + "\" -> \""
-                    + dstkey
-                    + "\" [label=\"" + edgeString.replace("\"", "'")
-                    + "\" color=\"" + color
-                    + "\"];\n");
+            outputFile.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
             checkTransactions();
             return true;
         } catch (Exception exception) {

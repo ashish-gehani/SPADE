@@ -1,6 +1,24 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2014 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.filter;
 
-import java.beans.DesignMode;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -13,9 +31,6 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasGeneratedBy;
-import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
 /**
@@ -92,7 +107,6 @@ public class ProcessThreads extends AbstractFilter {
                 return null;
             }
 
-
             for (String s : multiAttributes.keySet()) {
                 StringBuilder builder = new StringBuilder();
                 Set<String> attrsSet = multiAttributes.get(s);
@@ -113,11 +127,9 @@ public class ProcessThreads extends AbstractFilter {
                     }
                 }
 
-
                 String strAttrs = builder.toString();
 
                 // logger.log(Level.INFO, "Setting attributes" + strAttrs);
-
                 if (s.equals("pid")) {
                     // PID should be same as of original Process
                     mainProcess.addAnnotation("tpids", strAttrs);
@@ -145,16 +157,16 @@ public class ProcessThreads extends AbstractFilter {
         }
 
         String dtgid = incomingVertex.getAnnotation("tgid");
-        if (dtgid != null && dtgid.equals("492"))
-        	logger.log(Level.INFO, "Processing vertex " + dtgid);
-        
+        if (dtgid != null && dtgid.equals("492")) {
+            logger.log(Level.INFO, "Processing vertex " + dtgid);
+        }
+
         if (incomingVertex.type().equalsIgnoreCase("Process")) {
 
             String pid = incomingVertex.getAnnotation("pid");
             String tgid = incomingVertex.getAnnotation("tgid");
-            
-            // logger.log(Level.INFO, "Processing PID:" + pid + " TGID:" + tgid);
 
+            // logger.log(Level.INFO, "Processing PID:" + pid + " TGID:" + tgid);
             // Its a process
             if (pid.equals(tgid)) {
 
@@ -170,8 +182,6 @@ public class ProcessThreads extends AbstractFilter {
                     assert !prevShelvedProcess.isMainVertexSet();
                     prevShelvedProcess.setMainProcess(incomingVertex);
                 }
-
-
 
             } else { // If its a thread
 
@@ -193,13 +203,12 @@ public class ProcessThreads extends AbstractFilter {
         }
     }
 
-
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
 
         // logger.info("Shelving edge " + incomingEdge.toString());
         shelvedEdges.add(incomingEdge);
-        
+
     }
 
     /*
@@ -208,7 +217,7 @@ public class ProcessThreads extends AbstractFilter {
     public void EOE() {
 
         logger.log(Level.INFO, "EOE received. Ending stream ");
-        
+
         for (String pid : currentMainProcessNode.keySet()) {
 
             logger.log(Level.INFO, "Flushing vertex: " + pid);
@@ -225,20 +234,19 @@ public class ProcessThreads extends AbstractFilter {
                     // The main process for a thread or set of threads was not received
                     // so just add a new dummy node for it 
                     // so that shelved edges will correctly map to a node when flushing out
-                	
-                	logger.log(Level.WARNING, "Main Process of Thread Group " + pid + " was not set. Adding artificial vertex.");
-                	Process p = new Process();
+
+                    logger.log(Level.WARNING, "Main Process of Thread Group " + pid + " was not set. Adding artificial vertex.");
+                    Process p = new Process();
                     p.addAnnotation("pid", pid);
                     currentMainProcessNode.get(pid).setMainProcess(p);
-                    
-                    if(!flushVertex(pid)) {
-                    	logger.log(Level.WARNING, "Something went wrong flushing Thread Group ID " + pid + ". Continuing with rest.");
+
+                    if (!flushVertex(pid)) {
+                        logger.log(Level.WARNING, "Something went wrong flushing Thread Group ID " + pid + ". Continuing with rest.");
                     }
-                } 
-               
+                }
+
             }
         }
-
 
         logger.log(Level.INFO, "Flushing edges " + Integer.toString(shelvedEdges.size()));
 
@@ -251,40 +259,38 @@ public class ProcessThreads extends AbstractFilter {
                 String pid = sourceVertex.getAnnotation("pid");
                 String tgid = sourceVertex.getAnnotation("tgid");
 
-                
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
-                
+
                 if (currentMainProcessNode.containsKey(mappedPid)) {
                     incomingEdge.setSourceVertex(currentMainProcessNode.get(mappedPid).getVertex());
                 } else {
                     incomingEdge.setSourceVertex(flushedOutVertices.get(mappedPid));
                 }
-                
+
             }
-            
+
             if (destinationVertex.type().equalsIgnoreCase("Process")) {
                 String pid = destinationVertex.getAnnotation("pid");
                 String tgid = destinationVertex.getAnnotation("tgid");
-                
+
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
-                
+
                 if (currentMainProcessNode.containsKey(mappedPid)) {
                     incomingEdge.setDestinationVertex(currentMainProcessNode.get(mappedPid).getVertex());
                 } else {
                     incomingEdge.setDestinationVertex(flushedOutVertices.get(mappedPid));
                 }
-            
+
             }
 
             putInNextFilter(incomingEdge);
         }
-        
+
     }
 
     private boolean flushVertex(String pid) {
 
         // Flush previously shelved vertices, if any
-
         ShelvedProcess previousProcess = currentMainProcessNode.get(pid);
         if (previousProcess != null && previousProcess.isMainVertexSet()) {
             putInNextFilter(previousProcess.getVertex());

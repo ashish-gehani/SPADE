@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2012 SRI International
+ Copyright (C) 2014 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -69,7 +69,7 @@ public class Buffer {
             return queue.add(incomingEdge);
         }
     }
-    
+
     /**
      * This method is used to extract provenance elements from the buffer.
      *
@@ -87,13 +87,14 @@ public class Buffer {
     public boolean isEmpty() {
         return queue.isEmpty();
     }
-    
-    /** 
-     * This method is mainly used for debugging and monitoring purposes to get the size of the internal buffer
-     * 
+
+    /**
+     * This method is mainly used for debugging and monitoring purposes to get
+     * the size of the internal buffer
+     *
      * @return the number of elements in the buffer
      */
     public int size() {
-    	return queue.size();
+        return queue.size();
     }
 }
