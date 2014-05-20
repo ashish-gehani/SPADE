@@ -38,6 +38,19 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
+// The RestFB library uses a Graph API access token to get data from Facebook.
+// More information about RestFB can be found at http://restfb.com/
+// To obtain the access token, go to https://developers.facebook.com/tools/explorer,
+// click "Get Access Token" and check all permissions.
+//
+// The access token is the only argument required by the Facebook reporter.
+// E.g., in the SPADE control client, usage would be as follows:
+//       --> add reporter Facebook <ACCESS_TOKEN>
+//
+// Note that this reporter makes numerous REST calls to Facebook's Graph API
+// and therefore takes a significant amount of time to completely fetch data
+// for the user. The actual time taken will depend on the number of friends 
+// the user has as well as the amount of activity.
 /**
  *
  * @author Dawood Tariq
@@ -50,19 +63,6 @@ public class Facebook extends AbstractReporter {
 
     @Override
     public boolean launch(String arguments) {
-        // The RestFB library uses a Graph API access token to get data from Facebook.
-        // The access token can be obtained from https://developers.facebook.com/tools/explorer
-        // More information about RestFB can be found at http://restfb.com/
-        //
-        // The access token is the only argument required by the Facebook reporter.
-        // E.g., in the SPADE control client, usage would be as follows:
-        //       --> add reporter Facebook <ACCESS_TOKEN>
-        //
-        // Note that this reporter makes numerous REST calls to Facebook's Graph API
-        // and therefore takes a significant amount of time to completely fetch data
-        // for the user. The actual time taken will depend on the number of friends 
-        // the user has as well as the amount of activity.
-
         MY_ACCESS_TOKEN = arguments;
 
         Runnable facebookProcessor = new Runnable() {
