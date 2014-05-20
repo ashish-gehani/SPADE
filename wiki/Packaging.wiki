@@ -4,9 +4,11 @@ Below are instructions for creating SPADE packages for deployment on Mac or Linu
 
 === Mac OS X ===
 
-For packaging on Mac OS X, it is assumed that you have MacPorts installed on your system. MacPorts can be found at http://www.macports.org/. The MacPort section on [http://guide.macports.org/#development.local-repositories Local Portfile Repositories] describes the steps to set up a local portfile. For this purpose, you can download [https://code.google.com/p/data-provenance/source/browse/trunk/misc/Portfile SPADE's portfile]. Once the local port is added to the PortIndex, it becomes available for installing and packaging:
+For packaging on Mac OS X, it is assumed that you have MacPorts installed on your system. MacPorts can be found at http://www.macports.org/. The MacPorts guide's section on [http://guide.macports.org/#development.local-repositories Local Portfile Repositories] describes the steps to set up a local portfile. For this purpose, you can download [https://code.google.com/p/data-provenance/source/browse/trunk/misc/Portfile SPADE's portfile]. Once the local port is added to the PortIndex as per the instructions in the guide, it becomes available for installing and packaging:
 
 {{{
 sudo port install spade
 port pkg spade
 }}}
+
+The above steps will create a SPADE `pkg` file for deployment on Mac OS X systems.
