@@ -12,3 +12,19 @@ port pkg spade
 }}}
 
 The above steps will create a SPADE `pkg` file for deployment on Mac OS X systems.
+
+
+=== Linux ===
+
+For creating a Debian package for deployment on Linux, it is assumed that you have `dh_make` and `dpkg` installed. After navigating to an empty directory, the steps to create a package are as follows:
+
+{{{
+svn export -r 987 http://data-provenance.googlecode.com/svn/trunk/SPADE/
+mv SPADE/ spade-2.0
+cd spade-2.0/
+dh_make --createorig
+cd debian/
+rm *.ex *.EX
+cd ..
+dpkg-buildpackage 
+}}}
