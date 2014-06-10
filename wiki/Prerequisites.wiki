@@ -4,21 +4,31 @@
 
 This page lists the requirements for setting up SPADE on various operating systems. In all cases, the Oracle Java Development Kit (JDK) is required to compile SPADE. This can be downloaded from http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
+On Ubuntu 14.04, this can be installed with:
+
+{{{
+sudo add-apt-repository ppa:webupd8team/java
+sudo apt-get update
+sudo apt-get install oracle-java8-installer
+}}}
+
 ----
 
 ===Linux===
 
-In addition to the JDK, building SPADE requires that you have Subversion installed on your system. It is used to download the source files for compilation. You will also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu, all of these can be installed via the following command:
+In addition to the JDK, building SPADE requires that you have Subversion installed on your system. It is used to download the source files for compilation. You will also need [http://people.redhat.com/sgrubb/audit/ Linux Audit] and [http://fuse.sourceforge.net/ FUSE development libraries]. On Ubuntu 14.04, all of these can be installed via the following command:
 
 {{{
-sudo apt-get install subversion libaudit-dev auditd libfuse-dev fuse-utils
+sudo apt-get install subversion libaudit-dev auditd libfuse-dev fuse
 }}}
 
+<wiki:comment>
 For Fedora, use the following command:
 
 {{{
 sudo yum install subversion audit fuse-devel fuse-libs
 }}}
+</wiki:comment>
 
 ----
 
