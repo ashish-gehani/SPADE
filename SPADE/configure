@@ -2620,7 +2620,9 @@ if test "$JAVAC" = :; then
 fi
 if test "`$JAVAC -version 2>&1 | grep '1.6'`" = ""; then
   if test "`$JAVAC -version 2>&1 | grep '1.7'`" = ""; then
-    as_fn_error $? "The java compiler version must be 1.6 or 1.7" "$LINENO" 5
+    if test "`$JAVAC -version 2>&1 | grep '1.8'`" = ""; then
+      as_fn_error $? "The Java compiler version must be 1.6 or higher" "$LINENO" 5
+    fi
   fi
 fi
 
