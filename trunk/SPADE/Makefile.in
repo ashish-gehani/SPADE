@@ -42,7 +42,7 @@ ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 endif
 
 # -------- Default Build Configuration -----
-REPORTERS = Graphviz DSL Network LLVM
+REPORTERS = Graphviz DSL Network LLVM Facebook
 # -------------------------------------------
 
 .PHONY: build prepare-dirs core reporters filters clients utilities storages android-build
