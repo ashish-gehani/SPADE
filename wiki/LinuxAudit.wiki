@@ -2,7 +2,7 @@
 
 =_Collecting system-wide provenance on Linux_=
 
-The Audit reporter is built automatically when the `make` command is issued.
+The Audit reporter is built automatically when the `make` command is issued. Currently, the Audit reporter is only supported on 32bit Linux.
 
 Before this reporter can be used, the following commands must be executed. These commands only need to be executed once after SPADE is compiled.
 
