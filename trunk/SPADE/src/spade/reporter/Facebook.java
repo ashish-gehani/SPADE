@@ -21,12 +21,15 @@ package spade.reporter;
 
 import com.restfb.Connection;
 import com.restfb.DefaultFacebookClient;
+import com.restfb.exception.*;
 import com.restfb.FacebookClient;
 import com.restfb.types.Comment;
 import com.restfb.types.NamedFacebookType;
 import com.restfb.types.Post;
+import com.restfb.types.Photo;
 import com.restfb.types.User;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import spade.core.AbstractReporter;
@@ -58,13 +61,13 @@ import spade.vertex.opm.Process;
 public class Facebook extends AbstractReporter {
 
     Map<String, AbstractVertex> objects = new HashMap<>();
+    List<String> postsVisited = new ArrayList<String>();
     FacebookClient client;
     String MY_ACCESS_TOKEN;
 
     @Override
     public boolean launch(String arguments) {
         MY_ACCESS_TOKEN = arguments;
-
         Runnable facebookProcessor = new Runnable() {
             @Override
             public void run() {
@@ -75,11 +78,16 @@ public class Facebook extends AbstractReporter {
                 User me = client.fetchObject("me", User.class);
                 String myId = me.getId();
                 Process myVertex = getUserVertex(myId);
+                int i = 0;
+                System.out.println("friend"+ i++);
+                processUserPhotos(myId);
+
                 processUserPosts(myId);
 
                 Connection<User> myFriends = client.fetchConnection("me/friends", User.class);
                 for (List<User> myFriend : myFriends) {
                     for (User friend : myFriend) {
+                        System.out.println("friend"+ i++);
                         String friendId = friend.getId();
                         Process friendVertex = getUserVertex(friendId);
                         WasTriggeredBy wtb = new WasTriggeredBy(friendVertex, myVertex);
@@ -104,28 +112,50 @@ public class Facebook extends AbstractReporter {
     public Process getUserVertex(String userId) {
         // A user vertex is created from the userId and cached for later reference
         // to prevent repetitive REST calls.
+        System.out.println("userID in getvertex " + userId);
         if (objects.containsKey(userId)) {
             return (Process) objects.get(userId);
         }
-        User user = client.fetchObject(userId, User.class);
-        Process process = new Process();
-        process.addAnnotation("userId", user.getId());
-        process.addAnnotation("name", user.getName());
-        objects.put(userId, process);
-        putVertex(process);
-        return process;
+        User user=null;
+        try{
+                System.out.println("userID in getvertex " + userId);
+
+            user = client.fetchObject(userId, User.class);
+                    System.out.println("got here");
+
+            Process process = new Process();
+            process.addAnnotation("userId", user.getId());
+            process.addAnnotation("name", user.getName());
+            objects.put(userId, process);
+            putVertex(process);
+            return process;
+        }catch(FacebookGraphException e){
+            System.out.println("a graph request failed in getUserVertex, probably because of a deleted facebook account or a bad request");
+        }
+        return null;
     }
 
     public void processUserPosts(String userId) {
         // For each post, determine the type and add the appropriate annotations.
         // Once the post vertex has been created and added, process the tags in the post
         // (i.e., the "with" tags). Finally, process the likes and comments for this post.
+        int i=0;
         Connection<Post> userPosts = client.fetchConnection(userId + "/posts", Post.class);
         for (List<Post> userPostsPage : userPosts) {
             for (Post post : userPostsPage) {
-
+                // System.out.println("post " + i++);
                 String fromUserId = post.getFrom().getId();
                 Process userProcess = getUserVertex(fromUserId);
+                if(userProcess == null){
+                    return;
+                }
+                if(postsVisited.contains(post.getId())){
+                    System.out.println("skipped a post because it was in the photos");
+                    continue;
+
+                }
+                postsVisited.add(post.getId());
+
                 Artifact postArtifact = new Artifact();
                 WasGeneratedBy wgb = new WasGeneratedBy(postArtifact, userProcess);
 
@@ -163,13 +193,89 @@ public class Facebook extends AbstractReporter {
                 putVertex(postArtifact);
                 putEdge(wgb);
 
+                //get message tags and with tags from every post
                 for (NamedFacebookType user : post.getWithTags()) {
                     Process taggedUser = getUserVertex(user.getId());
+                    if(taggedUser == null){
+                        continue;
+                    }
                     Used used = new Used(taggedUser, postArtifact);
-                    used.addAnnotation("fbType", "tagged");
+                    used.addAnnotation("fbType", "tagged with");
                     putEdge(used);
                 }
 
+                // System.out.println("start");
+                for (List<Post.MessageTag> tags : post.getMessageTags().values()) {
+                    for(Post.MessageTag tag : tags){
+                        // System.out.println("something happened " + tag.getId() + " " + tag.getType() + " " + post.getMessage());
+                        Process taggedUser = getUserVertex(tag.getId());
+                        if(taggedUser == null){
+                            continue;
+                        }
+                        Used used = new Used(taggedUser, postArtifact);
+                        used.addAnnotation("fbType", "tagged in");
+                        putEdge(used);
+                    }
+                }
+
+
+                // System.out.println("end");
+                processLikes(post.getId());
+                processComments(post.getId());
+
+            }
+        }
+    }
+    public void processUserPhotos(String userId) {
+        // For each post, determine the type and add the appropriate annotations.
+        // Once the post vertex has been created and added, process the tags in the post
+        // (i.e., the "with" tags). Finally, process the likes and comments for this post.
+        int i=0;
+        Connection<Photo> userPhotos = client.fetchConnection(userId + "/photos", Photo.class);
+        for (List<Photo> userPhotosPage : userPhotos) {
+            for (Photo post : userPhotosPage) {
+                // System.out.println("photo " + i++);
+                String fromUserId = post.getFrom().getId();
+                Process userProcess = getUserVertex(fromUserId);
+                if(userProcess == null){
+                    return;
+                }
+                if(postsVisited.contains(post.getId())){
+                    System.out.println("skipped a photo because it was in the posts");
+                    continue;
+                }
+                postsVisited.add(post.getId());
+                Artifact postArtifact = new Artifact();
+                WasGeneratedBy wgb = new WasGeneratedBy(postArtifact, userProcess);
+
+                postArtifact.addAnnotation("objectId", post.getId());
+                postArtifact.addAnnotation("author", userProcess.getAnnotation("name"));
+                postArtifact.addAnnotation("message", post.getName());
+                postArtifact.addAnnotation("time", post.getCreatedTime().toString());
+                postArtifact.addAnnotation("photoUrl", post.getLink());
+                postArtifact.addAnnotation("fbType", "photo");
+                wgb.addAnnotation("fbType", "photo");
+
+
+                objects.put(post.getId(), postArtifact);
+                putVertex(postArtifact);
+                putEdge(wgb);
+
+
+                // System.out.println("start");
+                for (Photo.Tag tag : post.getTags()) {
+                    System.out.println("something happened " + tag.getName() + tag.getId() + " " + tag.getType());
+                    Process taggedUser = getUserVertex(tag.getId());
+                    if(taggedUser == null){
+                        continue;
+                    }
+                    Used used = new Used(taggedUser, postArtifact);
+                    used.addAnnotation("fbType", "tagged in");
+                    putEdge(used);
+                }
+
+
+                // System.out.println("end");
                 processLikes(post.getId());
                 processComments(post.getId());
 
@@ -187,6 +293,9 @@ public class Facebook extends AbstractReporter {
             for (Comment comment : comments) {
                 String fromUserId = comment.getFrom().getId();
                 Process userProcess = getUserVertex(fromUserId);
+                if(userProcess == null){
+                    continue;
+                }
 
                 Artifact commentArtifact = new Artifact();
                 commentArtifact.addAnnotation("objectId", comment.getId());
@@ -217,6 +326,9 @@ public class Facebook extends AbstractReporter {
         for (List<User> users : userPages) {
             for (User user : users) {
                 Process userProcess = getUserVertex(user.getId());
+                if(userProcess == null){
+                    continue;
+                }
                 Artifact post = (Artifact) objects.get(objectId);
                 WasGeneratedBy wgb = new WasGeneratedBy(post, userProcess);
                 wgb.addAnnotation("fbType", "like");
