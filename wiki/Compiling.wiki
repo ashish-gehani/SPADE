@@ -11,7 +11,7 @@ After fulfilling the necessary requirements for your system, the following steps
 First, use the following command to download SPADE. Ensure that you use the revision number specified in the command as the latest version of the source code may not be stable:
 
 {{{
-svn -r 996 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
+svn -r 1006 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 
 This will create a `SPADE` directory and download all the necessary files in it.
@@ -31,7 +31,7 @@ make
 Enter the Cygwin terminal and use the following command to download the SPADE source files:
 
 {{{
-svn -r 996 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
+svn -r 1006 export http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 
 This will create a `SPADE` directory and download all the necessary files in it. For the source files to compile, Cygwin must find the `javac` Java compiler in the `PATH` variable. To add `javac` to `PATH`, execute the following inside the Cygwin terminal replacing `c/Program\ Files/Java/jdk1.7.0_09` with the path to your JDK installation:
