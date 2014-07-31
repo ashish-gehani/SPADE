@@ -47,4 +47,8 @@ Below papers did not use SPADEv2.
 
 ----
 
-||This material is based upon work supported by the National Science Foundation under Grants [http://www.nsf.gov/awardsearch/showAward?AWD_ID=0722068 OCI-0722068] and [http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414 IIS-1116414]. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.||
+||This material is based upon work supported by the National Science Foundation under Grants [http://www.nsf.gov/awardsearch/showAward?AWD_ID=0722068 OCI-0722068]^1^ and [http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414 IIS-1116414]^2^. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.||
+
+1: [http://www.nsf.gov/awardsearch/showAward?AWD_ID=0722068 Scalable Authentication of Grid Data Provenance], PI: [http://www.csl.sri.com/people/gehani/ Ashish Gehani]
+
+2: [http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414 Scalable Integration and Analysis of the Provenance of Diverse Scientific Data], PI: [http://www.csl.sri.com/people/gehani/ Ashish Gehani]
