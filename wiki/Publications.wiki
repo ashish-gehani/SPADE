@@ -51,4 +51,4 @@ Below papers did not use SPADEv2.
 
 ^1^ NSF Grant 0722068: [http://www.nsf.gov/awardsearch/showAward?AWD_ID=0722068 Scalable Authentication of Grid Data Provenance], PI: [http://www.csl.sri.com/people/gehani/ Ashish Gehani]
 
-^2^ NSF Grant: 1116414 [http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414 Scalable Integration and Analysis of the Provenance of Diverse Scientific Data], PI: [http://www.csl.sri.com/people/gehani/ Ashish Gehani]
+^2^ NSF Grant 1116414: [http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414 Scalable Integration and Analysis of the Provenance of Diverse Scientific Data], PI: [http://www.csl.sri.com/people/gehani/ Ashish Gehani]
