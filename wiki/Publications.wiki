@@ -1,5 +1,5 @@
 #labels Featured
- * Ashish Gehani and Dawood Tariq, *Provenance Integration*, _6th USENIX Workshop on the Theory and Practice of Provenance (TaPP)_, 2014. [http://www.csl.sri.com/users/gehani/papers/TaPP-2014.Integration.pdf [PDF]]
+ * Ashish Gehani and Dawood Tariq, *Provenance-Only Integration*, _6th USENIX Workshop on the Theory and Practice of Provenance (TaPP)_, 2014. [http://www.csl.sri.com/users/gehani/papers/TaPP-2014.Integration.pdf [PDF]]
 
  * Scott Moore, Ashish Gehani, and Natarajan Shankar, *Declaratively Processing Provenance Metadata*, _5th USENIX Workshop on the Theory and Practice of Provenance (TaPP)_ affiliated with the _10th USENIX Symposium on Networked Systems Design and Implementation (NSDI)_, 2013. [http://www.csl.sri.com/users/gehani/papers/TaPP-2013.Datalog.pdf [PDF]]
 
