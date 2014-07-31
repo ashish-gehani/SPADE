@@ -44,3 +44,7 @@
  * Ashish Gehani and Ulf Lindqvist, *VEIL: A System for Certifying Video Provenance*, _9th IEEE International Symposium on Multimedia (ISM)_, 2007. [http://www.csl.sri.com/users/gehani/papers/ISM-2007.VEIL.pdf [PDF]]
 
 </wiki:comment>
+
+----
+
+||This material is based upon work supported by the National Science Foundation under Grants [http://www.nsf.gov/awardsearch/showAward?AWD_ID=0722068 OCI-0722068] and [http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414 IIS-1116414]. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.||
