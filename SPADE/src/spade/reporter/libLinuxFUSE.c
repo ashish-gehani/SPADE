@@ -555,13 +555,13 @@ JNIEXPORT jint JNICALL Java_spade_reporter_LinuxFUSE_launchFUSE(JNIEnv *e, jobje
     linkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "link", "(ILjava/lang/String;Ljava/lang/String;)V");
     unlinkMethod = (*env)->GetMethodID(env, FUSEReporterClass, "unlink", "(ILjava/lang/String;)V");
 
-    int argc = 5;
+    int argc = 4;
     char *argv[argc];
     argv[0] = "libLinuxFUSE";
     argv[1] = "-f";
     argv[2] = "-s";
     argv[3] = (char*) (*env)->GetStringUTFChars(env, mountPoint, NULL);
-    argv[4] = "-oallow_other";
+    // argv[4] = "-oallow_other";
 
     umask(0);
     return fuse_main(argc, argv, &spade_oper, NULL);
