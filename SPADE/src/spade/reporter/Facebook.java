@@ -21,7 +21,7 @@ package spade.reporter;
 
 import com.restfb.Connection;
 import com.restfb.DefaultFacebookClient;
-import com.restfb.exception.*;
+import com.restfb.exception.FacebookException;
 import com.restfb.FacebookClient;
 import com.restfb.types.Comment;
 import com.restfb.types.NamedFacebookType;
@@ -32,6 +32,8 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
@@ -56,7 +58,7 @@ import spade.vertex.opm.Process;
 // the user has as well as the amount of activity.
 /**
  *
- * @author Dawood Tariq
+ * @author Dawood Tariq and Muhammad Zaman
  */
 public class Facebook extends AbstractReporter {
 
@@ -64,6 +66,7 @@ public class Facebook extends AbstractReporter {
     List<String> postsVisited = new ArrayList<String>();
     FacebookClient client;
     String MY_ACCESS_TOKEN;
+    Logger logger =  Logger.getLogger(Facebook.class.getName());
 
     @Override
     public boolean launch(String arguments) {
@@ -78,22 +81,18 @@ public class Facebook extends AbstractReporter {
                 User me = client.fetchObject("me", User.class);
                 String myId = me.getId();
                 Process myVertex = getUserVertex(myId);
-                int i = 0;
-                System.out.println("friend"+ i++);
                 processUserPhotos(myId);
-
                 processUserPosts(myId);
-
                 Connection<User> myFriends = client.fetchConnection("me/friends", User.class);
+
                 for (List<User> myFriend : myFriends) {
                     for (User friend : myFriend) {
-                        System.out.println("friend"+ i++);
                         String friendId = friend.getId();
                         Process friendVertex = getUserVertex(friendId);
                         WasTriggeredBy wtb = new WasTriggeredBy(friendVertex, myVertex);
-                        wtb.addAnnotation("fbType", "friend");
                         putEdge(wtb);
                         processUserPosts(friendId);
+                        processUserPhotos(friendId);
                     }
                 }
             }
@@ -112,25 +111,23 @@ public class Facebook extends AbstractReporter {
     public Process getUserVertex(String userId) {
         // A user vertex is created from the userId and cached for later reference
         // to prevent repetitive REST calls.
-        System.out.println("userID in getvertex " + userId);
-        if (objects.containsKey(userId)) {
+        if(userId == null){
+            logger.log(Level.WARNING, "a null value was recived as userId, this is probably because of a deleted facebook account");
+            return null;
+        }else if (objects.containsKey(userId)) {
             return (Process) objects.get(userId);
         }
         User user=null;
         try{
-                System.out.println("userID in getvertex " + userId);
-
             user = client.fetchObject(userId, User.class);
-                    System.out.println("got here");
-
             Process process = new Process();
             process.addAnnotation("userId", user.getId());
             process.addAnnotation("name", user.getName());
             objects.put(userId, process);
             putVertex(process);
             return process;
-        }catch(FacebookGraphException e){
-            System.out.println("a graph request failed in getUserVertex, probably because of a deleted facebook account or a bad request");
+        }catch(Exception e){
+            logger.log(Level.WARNING, "userID = "+userId+" a graph request failed in getUserVertex, probably because of a deleted facebook account or a bad request");
         }
         return null;
     }
@@ -139,11 +136,9 @@ public class Facebook extends AbstractReporter {
         // For each post, determine the type and add the appropriate annotations.
         // Once the post vertex has been created and added, process the tags in the post
         // (i.e., the "with" tags). Finally, process the likes and comments for this post.
-        int i=0;
         Connection<Post> userPosts = client.fetchConnection(userId + "/posts", Post.class);
         for (List<Post> userPostsPage : userPosts) {
             for (Post post : userPostsPage) {
-                // System.out.println("post " + i++);
                 String fromUserId = post.getFrom().getId();
                 Process userProcess = getUserVertex(fromUserId);
                 if(userProcess == null){
@@ -189,6 +184,15 @@ public class Facebook extends AbstractReporter {
                         break;
                 }
 
+                //get the privacy settings of the post
+                Post.Privacy privacy = post.getPrivacy();
+                postArtifact.addAnnotation("privacyValue", privacy.getValue());
+                postArtifact.addAnnotation("privacyAllow", privacy.getAllow());
+                postArtifact.addAnnotation("privacyDeny", privacy.getDeny());
+                postArtifact.addAnnotation("privacyDescription", privacy.getDescription());
+                postArtifact.addAnnotation("privacyFriends", privacy.getFriends());
+                postArtifact.addAnnotation("privacyNetworks", privacy.getNetworks());
+
                 objects.put(post.getId(), postArtifact);
                 putVertex(postArtifact);
                 putEdge(wgb);
@@ -203,11 +207,8 @@ public class Facebook extends AbstractReporter {
                     used.addAnnotation("fbType", "tagged with");
                     putEdge(used);
                 }
-
-                // System.out.println("start");
                 for (List<Post.MessageTag> tags : post.getMessageTags().values()) {
                     for(Post.MessageTag tag : tags){
-                        // System.out.println("something happened " + tag.getId() + " " + tag.getType() + " " + post.getMessage());
                         Process taggedUser = getUserVertex(tag.getId());
                         if(taggedUser == null){
                             continue;
@@ -219,7 +220,6 @@ public class Facebook extends AbstractReporter {
                 }
 
 
-                // System.out.println("end");
                 processLikes(post.getId());
                 processComments(post.getId());
 
@@ -230,11 +230,9 @@ public class Facebook extends AbstractReporter {
         // For each post, determine the type and add the appropriate annotations.
         // Once the post vertex has been created and added, process the tags in the post
         // (i.e., the "with" tags). Finally, process the likes and comments for this post.
-        int i=0;
         Connection<Photo> userPhotos = client.fetchConnection(userId + "/photos", Photo.class);
         for (List<Photo> userPhotosPage : userPhotos) {
             for (Photo post : userPhotosPage) {
-                // System.out.println("photo " + i++);
                 String fromUserId = post.getFrom().getId();
                 Process userProcess = getUserVertex(fromUserId);
                 if(userProcess == null){
@@ -262,9 +260,7 @@ public class Facebook extends AbstractReporter {
                 putEdge(wgb);
 
 
-                // System.out.println("start");
-                for (Photo.Tag tag : post.getTags()) {
-                    System.out.println("something happened " + tag.getName() + tag.getId() + " " + tag.getType());
+                for (Photo.Tag tag : post.getTags()) { 
                     Process taggedUser = getUserVertex(tag.getId());
                     if(taggedUser == null){
                         continue;
@@ -273,9 +269,6 @@ public class Facebook extends AbstractReporter {
                     used.addAnnotation("fbType", "tagged in");
                     putEdge(used);
                 }
-
-
-                // System.out.println("end");
                 processLikes(post.getId());
                 processComments(post.getId());
 
@@ -293,6 +286,7 @@ public class Facebook extends AbstractReporter {
             for (Comment comment : comments) {
                 String fromUserId = comment.getFrom().getId();
                 Process userProcess = getUserVertex(fromUserId);
+
                 if(userProcess == null){
                     continue;
                 }
@@ -326,6 +320,7 @@ public class Facebook extends AbstractReporter {
         for (List<User> users : userPages) {
             for (User user : users) {
                 Process userProcess = getUserVertex(user.getId());
+
                 if(userProcess == null){
                     continue;
                 }
