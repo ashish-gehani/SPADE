@@ -1,1 +1,1 @@
-nohup java -cp '../build:../lib/*' spade.client.ControlClient &
+java -cp '../build:../lib/*' spade.client.ControlClient
