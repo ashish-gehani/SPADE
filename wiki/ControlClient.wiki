@@ -2,7 +2,7 @@
 
 =_Starting and controlling SPADE_=
 
-To start the SPADE server, navigate to the `SPADE` directory and use the following command:
+To start the SPADE server, use the following command (in the `SPADE/bin` directory):
 
 {{{
 spade-start.sh
@@ -35,7 +35,7 @@ spade-server status
 </wiki:comment>
 ----
 
-To start the controller used to configure the SPADE server, execute the following command from your terminal/shell in the `SPADE` directory:
+To start the controller used to configure the SPADE server, execute the following command (in the `SPADE/bin` directory):
 
 {{{
 spade-controller.sh
