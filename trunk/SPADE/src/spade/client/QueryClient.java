@@ -49,7 +49,7 @@ public class QueryClient {
     private static PrintStream outputStream;
     private static PrintStream SPADEQueryIn;
     private static ObjectInputStream SPADEQueryOut;
-    private static final String SPADE_ROOT = "../";
+    private static final String SPADE_ROOT = "./";
     private static final String historyFile = SPADE_ROOT + "conf/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
