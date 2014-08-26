@@ -37,7 +37,7 @@ public class Settings {
         try {
             prop.load(new FileInputStream(settingsFile));
         } catch (IOException ex) {
-            setProperty("spade_root", "../");
+            setProperty("spade_root", "./");
             setProperty("local_control_port", "19999");
             setProperty("local_query_port", "19998");
             setProperty("remote_query_port", "29999");
