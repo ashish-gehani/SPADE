@@ -22,7 +22,9 @@
   * [Pipe Collecting provenance from an external application]
   * [LLVM Adding provenance instrumentation during compilation]
   * [ReporterAPI Using SPADE's provenance reporting API]
-  * [Filters Filtering provenance]
+  * Filtering provenance
+   * [AvailableFilters Available filters]
+   * [UsingFilters Using filters]
  * [DBTools Viewing provenance]
   * [SQLWorkbench Viewing provenance in a relational database]
   * [Neoclipse Viewing provenance in a graph database]
