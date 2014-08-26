@@ -2,7 +2,7 @@
 
 =_Filtering provenance_=
 
-We provide a set of filters to manipulate provenance data before it is committed to storage. They are described below:
+We provide a set of filters to manipulate provenance metadata before it is committed to storage. They are described below:
 
 ----
 
@@ -23,13 +23,13 @@ To merge the two streams, the names of both reporters must be specified on the f
 
 Next, rules can be specified on which to merge annotations. These rules are specified as `<1st reporter>.<annotation>=<2nd reporter>.<annotation>`.
 
-The Fusion filter will check to see if the merge rules satisfy the incoming vertices. If vertices are found that match the criteria, they are fused into a single vertex.
+The Fusion filter will check to see if the incoming vertices satisfy the merging rules. If vertices are found that match the criteria, they are fused into a single vertex.
 
 ----
 
 ===IORuns===
 
-Since reads and writes in an OS are typically chunked, a single read event to extract data from a file can result in multiple read operations happening in the underlying OS. This can result in a high volume of provenance data, especially when reading/writing large files. The IORuns filter can be used to aggregate consecutive edges of the same I/O operation (i.e., either read or write) into a single edge.
+Reads and writes in an operating system often occurs as _runs_ of one or the other type. For example, a single function that reads in a file may result in multiple read system calls. This can result in a high volume of provenance metadata, especially when reading or writing large files. The IORuns filter can be used to fuse consecutive edges of the same type of I/O operation (i.e., either read or write) into a single edge.
 
 ----
 
@@ -47,14 +47,14 @@ This filter tracks the entire lineage graph of a file and creates a new version 
 
 ===Adding/removing filters===
 
-Internally, SPADE maintains a list of filters for processing data provenance before passing it to storage. The list structure allows users to transform data using multiple filters. To add a filter, you must specify the filter name and the index in the list where you wish to add the filter. For the first filter, the index will be 0. Example:
+SPADE supports the use of multiple filters for processing provenance metadata. A list of currently configured filters is maintained. At the outset this does not contain any filters. To add a filter, its name must be specified along with the location in the list where it should be inserted. To add a new filter and make it the first to process incoming provenance, it should be inserted into location 0. For example:
 
 {{{
 -> add filter IORuns 0
 Adding filter IORuns... done
 }}}
 
-Another filter may then be added *before* the IORuns filter by specifying 0 as the index:
+Another filter may then be added *before* the IORuns filter by also specifying 0 as the location:
 
 {{{
 -> add filter CycleAvoidance 0
@@ -68,7 +68,7 @@ At this point, CycleAvoidance is located at index 0 and IORuns is located at ind
 Adding filter GraphFinesse... done
 }}}
 
-Based on the list structure maintained by SPADE, data provenance will first be transformed by CycleAvoidance, then GraphFinesse, and finally by IORuns before being delivered to storage.
+Based on the list maintained by SPADE, data provenance will first be transformed by CycleAvoidance, then GraphFinesse, and finally by IORuns, before being delivered to storage.
 
 To remove a filter, simply specify the index:
 
