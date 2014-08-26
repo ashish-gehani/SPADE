@@ -40,7 +40,7 @@ public class QueryTool {
     private static PrintStream SPADEQueryIn;
     private static BufferedReader SPADEQueryOut;
     private static final String nullString = "null";
-    private static final String SPADE_ROOT = "./";
+    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
