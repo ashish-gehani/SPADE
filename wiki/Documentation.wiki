@@ -23,7 +23,7 @@
   * [LLVM Adding provenance instrumentation during compilation]
   * [ReporterAPI Using SPADE's provenance reporting API]
   * Filtering provenance
-   * [AvailableFilters Available filters]
+   * [Filters Available filters]
    * [UsingFilters Using filters]
  * [DBTools Viewing provenance]
   * [SQLWorkbench Viewing provenance in a relational database]
