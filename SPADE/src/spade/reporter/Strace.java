@@ -228,14 +228,14 @@ public class Strace extends AbstractReporter {
                 public void run() {
                     try {
                         try {
-                            PrintWriter binderControl = new PrintWriter(new FileWriter("/sdcard/spade/android-build/binder_dctl.sh", false));
+                            PrintWriter binderControl = new PrintWriter(new FileWriter("/sdcard/spade/binder_dctl.sh", false));
                             binderControl.println("echo $1 > /sys/module/binder/parameters/debug_mask");
                             binderControl.close();
                             // Purge klog output
                             Runtime.getRuntime().exec("cat /proc/kmsg").destroy();
                             Thread.sleep(500);
                             // Set BINDER's TRANSACTION_ DEBUG log on
-                            Runtime.getRuntime().exec("sh /sdcard/spade/android-build/binder_dctl.sh 0x200");
+                            Runtime.getRuntime().exec("sh /sdcard/spade/binder_dctl.sh 0x200");
                             Thread.sleep(500);
                         } catch (Exception e) {
                             logger.log(Level.SEVERE, "error setting up binder transaction processor", e);
@@ -256,12 +256,14 @@ public class Strace extends AbstractReporter {
 
 										// Example line on 4.2 device:
                                         // <6>[ 9094.578430] binder: 130:400 BC_REPLY 537128 -> 578:793, data 4118dcc8-  (null) size 12-0
+                                        
+                                        line = line.substring(line.indexOf("binder:") + 8);
                                         String details[] = line.split("\\s+");
 
-                                        int baseIndex = Arrays.asList(details).indexOf("binder:");
-                                        String type = details[baseIndex + 2];
-                                        String frompid = details[baseIndex + 1].split(":")[1];
-                                        String topid = details[baseIndex + 5].split(":")[1].replace(",", "");
+                                        // int baseIndex = Arrays.asList(details).indexOf("binder:");
+                                        // String type = details[baseIndex + 2];
+                                        String frompid = details[0].split(":")[1];
+                                        String topid = details[4].split(":")[1].replace(",", "");
                                         String pidpair = frompid + "-" + topid;
 
                                         if (!transactionAlreadyProcessed.contains(pidpair)) {
@@ -296,7 +298,7 @@ public class Strace extends AbstractReporter {
                             }
                         }
                         // Set BINDER's TRANSACTION_ DEBUG log off
-                        Runtime.getRuntime().exec("sh /sdcard/spade/android-build/binder_dctl.sh 0");
+                        Runtime.getRuntime().exec("sh /sdcard/spade/binder_dctl.sh 0");
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
                     }
