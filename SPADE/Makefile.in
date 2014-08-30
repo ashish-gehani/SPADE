@@ -192,8 +192,9 @@ android-start:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade; dalvikvm -Xmx512M -cp android-spade.jar spade.core.Kernel android"
 
 android-stop:
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
-
+	# $(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
+  $(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
+  
 graph-utility:
 	java -cp 'build:lib/*' spade.utility.GraphUtility
 
