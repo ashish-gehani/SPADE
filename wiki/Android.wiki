@@ -22,29 +22,32 @@ Download the Android SDK:
   * For Mac OS X, [http://dl.google.com/android/android-sdk_r22.0.5-macosx.zip click here].
   * For Linux, [http://dl.google.com/android/android-sdk_r22.0.5-linux.tgz click here].
 
-Once the download is complete, extract the archive. This will create a new directory containing the Android SDK. For Mac OS X, this directory will be `android-sdk-macosx`. For Linux, it will be `android-sdk-linux`. In the terminal window, navigate to this directory and run `tools/android`:
+Once the download is complete, extract the archive. This will create a new directory containing the Android SDK. On Mac OS X, this directory will be `android-sdk-macosx`. On Linux, it will be `android-sdk-linux`. We will assume `$ANDROID_SDK` is set to this directory. In the terminal window, navigate to this directory and run `./tools/android`:
 {{{
-cd ~/android-sdk-macosx
+cd $ANDROID_SDK
 ./tools/android
 }}}
-This will open a new window showing the list of packages available for download via the Android SDK. The necessary list of required packages should already be checked. Simply click the `Install packages...` button located near the bottom-right of the window and proceed to install these packages.
+This will open a new window showing the list of packages available for download via the Android SDK. The `Android SDK Tools, Android SDK Platform-tools, Android SDK Build-tools`, and `SDK Platform` for the target version should be selected for installation, and click the `Install ... packages` button. After exiting, run `tools/android` again and select the `ARM EABI System Image` for installation.
 
-Once the installation is complete, some new directories will have been created in your Android SDK directory. These need to be added to your path. On Mac OS X, this can be done by editing the `~/.profile` file and adding the following line at the end of this file:
+Once the installation is complete, new directories will have been created in the Android SDK directory. These need to be added to the shell path. For a `bash` shell, this can be done appending the following line to the end of `~/.profile`:
 {{{
-export PATH=/var/tmp/android-sdk/macosx/tools:/var/tmp/android-sdk/macosx/platform-tools:/var/tmp/android-sdk/macosx/build-tools/18.0.1:$PATH
+export PATH=$ANDROID_SDK/tools:$ANDROID_SDK/platform-tools:$ANDROID_SDK/build-tools/19.1.0:$PATH
 }}}
+(Note: above `19.1.0` needs to be replaced with the appropriate directory name. `19.1.0` is the directory on Android 4.4.2 (API 19).)
 
-An Android Virtual Device (AVD) is an emulator configuration that lets you run Android on your machine without the need for an actual Android device. For the next step, create an AVD by executing the following command:
+An Android Virtual Device (AVD) is an emulator version that lets you run Android on your computer without the need for an actual Android device. In the next step, create an AVD by executing the following command:
 {{{
-android create avd -n SPADE_AVD -t 15 -c 100M
+android create avd -n SPADE_AVD -t "android-19" -c 100M
 }}}
-When prompted to create a custom hardware profile, just press the `Enter` key to select the default hardware configuration. This will create an AVD named `SPADE_AVD` with an SD card capacity of 100 MB.
+(Note: `android-19` should be replaced by the API version corresponding to the Android installed.)
+
+When prompted to create a custom hardware profile, just press the `Enter` key to select the default hardware configuration. This will create an AVD named `SPADE_AVD` with a memory card that has a 100 MB capacity.
 
 == Setting up SPADE ==
 
 Check out SPADE from the source code repository by executing the following command in the terminal window:
 {{{
-svn export -r 956 http://data-provenance.googlecode.com/svn/trunk/SPADE/
+svn checkout http://data-provenance.googlecode.com/svn/trunk/SPADE/
 }}}
 This command will create a new `SPADE` directory and download the required files into it. To compile the SPADE code, navigate to this newly created directory and configure the package before executing the `make` command as follows:
 {{{
