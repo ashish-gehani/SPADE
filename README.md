@@ -5,19 +5,19 @@ Data is continuously transformed by computation. Understanding the origins of a 
 
 # Cross-Platform #
 
-**SPADE** provides a cross-platform distributed data provenance collection, filtration, storage, and querying service. It includes support for collecting provenance from the Linux, Mac OS X, and Windows operating systems. **SPADE** uses the auditing functionality of each operating system, which remains stable across various releases, to transparently record the provenance of all data. Installation can be performed with a pre-built package or from source code. <img  style="float:right" src='../../wiki/img/frontpage_platforms.png'>
+**SPADE** provides a cross-platform distributed data provenance collection, filtration, storage, and querying service. It includes support for collecting provenance from the Linux, Mac OS X, and Windows operating systems. **SPADE** uses the auditing functionality of each operating system, which remains stable across various releases, to transparently record the provenance of all data. Installation can be performed with a pre-built package or from source code. <br /><img  style="float:right" src='../../wiki/img/frontpage_platforms.png'><br />
 
 #Easy to Deploy #
 
-**SPADE** automates the generation and collection of data provenance at the operating system level. It provides a broad view of activity across all the computers it is installed on in a distributed system. **SPADE** does this without requiring applications or the operating systems to be modified. It reports information about the name, owner, group, parent, host, creation time, command line, and environment variables of each process. It also reports the name, path, host, size, and modification time of files read or written during a computation. All this information can be collected with a few simple commands. <img  style="float:right"  src='../../wiki/img/frontpage_easy.png'> 
+**SPADE** automates the generation and collection of data provenance at the operating system level. It provides a broad view of activity across all the computers it is installed on in a distributed system. **SPADE** does this without requiring applications or the operating systems to be modified. It reports information about the name, owner, group, parent, host, creation time, command line, and environment variables of each process. It also reports the name, path, host, size, and modification time of files read or written during a computation. All this information can be collected with a few simple commands. <br /><img  style="float:right"  src='../../wiki/img/frontpage_easy.png'> <br />
 
 #Flexible Querying #
 
-**SPADE** supports the use of Boolean, wildcard, fuzzy, proximity, range, boosting, and group operators when searching local provenance records. It also supports graph and relational (SQL) queries over local provenance. Provenance collected by **SPADE** can also be inspected with third-party tools, such as Neoclipse and SQL Workbench. Finally, the **SPADE** query tool can transparently resolve path and lineage queries that span multiple hosts in a distributed system. <img   style="float:right" src='../../wiki/img/frontpage_query.png'>
+**SPADE** supports the use of Boolean, wildcard, fuzzy, proximity, range, boosting, and group operators when searching local provenance records. It also supports graph and relational (SQL) queries over local provenance. Provenance collected by **SPADE** can also be inspected with third-party tools, such as Neoclipse and SQL Workbench. Finally, the **SPADE** query tool can transparently resolve path and lineage queries that span multiple hosts in a distributed system. <br /><img   style="float:right" src='../../wiki/img/frontpage_query.png'><br />
 
 #Modular and Extensible #
 
-**SPADE** is designed to be extensible in four ways. A _reporter_ can be implemented to collect provenance activity about a new domain of interest. A new _filter_ can be written to perform novel transformations on provenance events. A new _storage_ system can be added to record provenance in a different format. A new _sketch_ can be designed to optimize the distributed querying. <img  style="float:right"  src='../../wiki/img/frontpage_modular.png' width='250px'> 
+**SPADE** is designed to be extensible in four ways. A _reporter_ can be implemented to collect provenance activity about a new domain of interest. A new _filter_ can be written to perform novel transformations on provenance events. A new _storage_ system can be added to record provenance in a different format. A new _sketch_ can be designed to optimize the distributed querying. <br /><img  style="float:right"  src='../../wiki/img/frontpage_modular.png' width='250px'> <br />
 
 #Getting Started #
 
