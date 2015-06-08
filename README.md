@@ -21,13 +21,12 @@ Data is continuously transformed by computation. Understanding the origins of a 
 
 #Getting Started #
 
-Please refer to **SPADE**'s [documentation](../../wiki/Documentation.md) to learn how to use it to collect, integrate, filter, store, and query your provenance metadata.
+Please refer to **SPADE**'s [documentation](../../wiki) to learn how to use it to collect, integrate, filter, store, and query your provenance metadata.
 
 To learn more about **SPADE**, please see:
 
   * Ashish Gehani and Dawood Tariq, **SPADE: Support for Provenance Auditing in Distributed Environments**, _13th ACM/IFIP/USENIX International Conference on Middleware_, 2012. [[PDF](http://www.csl.sri.com/users/gehani/papers/MW-2012.SPADE.pdf)].
 
-ProvBench traces are accessible [here](../../wiki/Traces.md).
 
 
 ---
