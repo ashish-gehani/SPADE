@@ -30,7 +30,7 @@ import java.util.Properties;
  */
 public class Settings {
 
-    private static final String settingsFile = "conf/settings.config";
+    private static final String settingsFile = "cfg/settings.config";
     private final static Properties prop = new Properties();
 
     static {

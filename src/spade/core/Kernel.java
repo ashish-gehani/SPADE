@@ -70,7 +70,7 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static String configFile = SPADE_ROOT + "conf/spade.config";
+    public static String configFile = SPADE_ROOT + "cfg/spade.config";
     /**
      * Path to log files including the prefix.
      */
@@ -153,10 +153,10 @@ public class Kernel {
     public static SSLServerSocketFactory sslServerSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = Settings.getProperty("spade_root") + "conf/ssl/server.public";
-        String serverPrivatePath = Settings.getProperty("spade_root") + "conf/ssl/server.private";
-        String clientPublicPath = Settings.getProperty("spade_root") + "conf/ssl/client.public";
-        String clientPrivatePath = Settings.getProperty("spade_root") + "conf/ssl/client.private";
+        String serverPublicPath = Settings.getProperty("spade_root") + "cfg/ssl/server.public";
+        String serverPrivatePath = Settings.getProperty("spade_root") + "cfg/ssl/server.private";
+        String clientPublicPath = Settings.getProperty("spade_root") + "cfg/ssl/client.public";
+        String clientPrivatePath = Settings.getProperty("spade_root") + "cfg/ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());

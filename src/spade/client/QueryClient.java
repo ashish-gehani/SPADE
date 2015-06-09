@@ -50,7 +50,7 @@ public class QueryClient {
     private static PrintStream SPADEQueryIn;
     private static ObjectInputStream SPADEQueryOut;
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String historyFile = SPADE_ROOT + "conf/query.history";
+    private static final String historyFile = SPADE_ROOT + "cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
     private static HashMap<String, String> graphExpressions;
@@ -61,8 +61,8 @@ public class QueryClient {
     private static SSLSocketFactory sslSocketFactory;
 
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = SPADE_ROOT + "conf/ssl/server.public";
-        String clientPrivatePath = SPADE_ROOT + "conf/ssl/client.private";
+        String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
+        String clientPrivatePath = SPADE_ROOT + "cfg/ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());

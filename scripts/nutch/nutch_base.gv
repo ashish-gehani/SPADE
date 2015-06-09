@@ -98,7 +98,7 @@ execNutch = { args ->
 	    println "exec nutch $args"
 		builder = new WrapperBuilder()
 		// get full path to conf file
-		builder."wrapper.config" = new File("conf/wrapper.nutch.conf").getCanonicalPath()
+		builder."wrapper.config" = new File("cfg/wrapper.nutch.conf").getCanonicalPath()
 		// set the java application args starting with args[1]
 		args.eachWithIndex {arg, i -> if (i>0) builder."wrapper.app.parameter.$i" = arg}
 		// working dir of nutch
@@ -118,7 +118,7 @@ echo = {println it}
 
 // tomcat service
 builder = new WrapperBuilder()
-builder."wrapper.config" = "conf/wrapper.nutch_tomcat.conf"
+builder."wrapper.config" = "cfg/wrapper.nutch_tomcat.conf"
 builder."CATALINA_HOME" = CATALINA_HOME
 tomcat = builder.service()
 // install if not already installed

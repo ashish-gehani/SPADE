@@ -43,10 +43,10 @@ export java_exe
 # show java version
 "$java_exe" -version
 
-conf_file="$wrapper_home"/conf/wrapper.conf
+conf_file="$wrapper_home"/cfg/wrapper.conf
 export conf_file
 
-conf_default_file="$wrapper_home"/conf/wrapper.conf.default
+conf_default_file="$wrapper_home"/cfg/wrapper.conf.default
 export conf_default_file
 
 echo "wrapper home : $wrapper_home"
