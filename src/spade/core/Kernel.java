@@ -1082,17 +1082,20 @@ public class Kernel {
                         reporter.shutdown();
                         removereporters.add(reporter);
                         found = true;
+                        logger.log(Level.INFO, "Shutting down reporter: " + tokens[2]);
                         outputStream.print("Shutting down reporter " + tokens[2] + "... ");
                         while (removereporters.contains(reporter)) {
                             // Wait for other thread to safely remove reporter
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
                         reporterIterator.remove();
+                        logger.log(Level.INFO, "Reporter shut down: " + tokens[2]);
                         outputStream.println("done");
                         break;
                     }
                 }
                 if (!found) {
+                    logger.log(Level.WARNING, "Reporter not found (for shutting down): " + tokens[2]);
                     outputStream.println("Reporter " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("storage")) {
@@ -1110,17 +1113,20 @@ public class Kernel {
                         long edgeCount = storage.edgeCount;
                         removestorages.add(storage);
                         found = true;
+                        logger.log(Level.INFO, "Shutting down storage: " + tokens[2]);
                         outputStream.print("Shutting down storage " + tokens[2] + "... ");
                         while (removestorages.contains(storage)) {
                             // Wait for other thread to safely remove storage
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
                         storageIterator.remove();
+                        logger.log(Level.INFO, "Storage shut down: " + tokens[2] + " (" + vertexCount + " vertices and " + edgeCount + " edges were added)");
                         outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
                         break;
                     }
                 }
                 if (!found) {
+                    logger.log(Level.WARNING, "Storage not found (for shutting down): " + tokens[2]);
                     outputStream.println("Storage " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("filter")) {
@@ -1128,10 +1134,12 @@ public class Kernel {
                 // 1).
                 int index = Integer.parseInt(tokens[2]);
                 if ((index <= 0) || (index >= filters.size())) {
+                    logger.log(Level.WARNING, "Error: Unable to remove filter - bad index");
                     outputStream.println("Error: Unable to remove filter - bad index");
                     return;
                 }
                 String filterName = filters.get(index - 1).getClass().getName();
+                logger.log(Level.INFO, "Removing filter " + filterName.split("\\.")[2]);
                 outputStream.print("Removing filter " + filterName.split("\\.")[2] + "... ");
                 filters.get(index - 1).shutdown();
                 if (index > 1) {
@@ -1144,16 +1152,19 @@ public class Kernel {
                     ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
                 }
                 filters.remove(index - 1);
+                logger.log(Level.INFO, "Filter Removed: " + filterName.split("\\.")[2]);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("transformer")) {
                 // Transformer removal is done by the index number (beginning
                 // from 1).
                 int index = Integer.parseInt(tokens[2]);
                 if ((index <= 0) || (index >= transformers.size())) {
+                    logger.log(Level.WARNING, "Error: Unable to remove transformer - bad index");
                     outputStream.println("Error: Unable to remove transformer - bad index");
                     return;
                 }
                 String filterName = transformers.get(index - 1).getClass().getName();
+                logger.log(Level.INFO, "Removing transformer " + filterName.split("\\.")[2]);
                 outputStream.print("Removing transformer " + filterName.split("\\.")[2] + "... ");
                 transformers.get(index - 1).shutdown();
                 if (index > 1) {
@@ -1166,6 +1177,7 @@ public class Kernel {
                     ((AbstractFilter) transformers.get(index - 2)).setNextFilter((AbstractFilter) transformers.get(index));
                 }
                 transformers.remove(index - 1);
+                logger.log(Level.INFO, "Transformer removed: " + filterName.split("\\.")[2]);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 boolean found = false;
@@ -1174,13 +1186,16 @@ public class Kernel {
                     // Search for the given sketch in the sketches set.
                     if (sketch.getClass().getName().equals("spade.sketch." + tokens[2])) {
                         found = true;
-                        outputStream.print("Removing sketch " + tokens[2] + "... ");
+                        logger.log(Level.INFO, "Removing sketch " + tokens[2]);
+                        outputStream.print("Removing sketch: " + tokens[2] + "... ");
                         sketchIterator.remove();
+                        logger.log(Level.INFO, "Sketch removed: " + tokens[2]);
                         outputStream.println("done");
                         break;
                     }
                 }
                 if (!found) {
+                    logger.log(Level.WARNING, "Sketch not found: " + tokens[2] );
                     outputStream.println("Sketch " + tokens[2] + " not found");
                 }
             } else {
@@ -1200,6 +1215,7 @@ public class Kernel {
      * Method to shut down SPADE completely.
      */
     public static void shutdown() {
+        logger.log(Level.INFO, "Shutting down SPADE....");
         // Shut down filters.
         for (int i = 0; i < filters.size() - 1; i++) {
             filters.get(i).shutdown();
@@ -1216,6 +1232,7 @@ public class Kernel {
                 logger.log(Level.SEVERE, null, ex);
             }
         }
+        logger.log(Level.INFO, "SPADE turned off.");
         System.exit(0);
     }
 }
