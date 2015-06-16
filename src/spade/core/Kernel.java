@@ -752,6 +752,7 @@ public class Kernel {
             String classname = tokens[2];
             String arguments = (tokens.length == 3) ? null : tokens[3];
             // Get the reporter by classname and create a new instance.
+            logger.log(Level.INFO, "Adding reporter: " + classname);
             outputStream.print("Adding reporter " + classname + "... ");
             AbstractReporter reporter;
             try {
@@ -774,6 +775,7 @@ public class Kernel {
                 // SPADE thread to extract buffer elements).
                 reporter.arguments = arguments;
                 reporters.add(reporter);
+                logger.log(Level.INFO, "Reporter added: " + classname);
                 outputStream.println("done");
             } else {
                 outputStream.println("failed");
@@ -787,6 +789,7 @@ public class Kernel {
             String classname = tokens[2];
             String arguments = (tokens.length == 3) ? null : tokens[3];
             // Get the storage by classname and create a new instance.
+            logger.log(Level.INFO, "adding storage: " + classname);
             outputStream.print("Adding storage " + classname + "... ");
             AbstractStorage storage;
             try {
@@ -804,6 +807,7 @@ public class Kernel {
                 storage.vertexCount = 0;
                 storage.edgeCount = 0;
                 storages.add(storage);
+                logger.log(Level.INFO, "Storage added: " + classname);
                 outputStream.println("done");
             } else {
                 outputStream.println("failed");
@@ -816,6 +820,7 @@ public class Kernel {
             }
             String classname = tokens[2];
             String[] parameters = tokens[3].split("\\s+", 2);
+            logger.log(Level.INFO, "Adding filter: " + classname);
             outputStream.print("Adding filter " + classname + "... ");
             int index;
             try {
@@ -853,6 +858,7 @@ public class Kernel {
             }
             // Add filter to the list.
             filters.add(index, filter);
+            logger.log(Level.INFO, "Filter added: " + classname);
             outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("transformer")) {
             if (tokens.length < 4) {
@@ -862,6 +868,7 @@ public class Kernel {
             }
             String classname = tokens[2];
             String[] parameters = tokens[3].split("\\s+", 2);
+            logger.log(Level.INFO, "Adding transformer: " + classname);
             outputStream.print("Adding transformer " + classname + "... ");
             int index;
             try {
@@ -901,6 +908,7 @@ public class Kernel {
             }
             // Add transformer to the list of transformers.
             transformers.add(index, filter);
+            logger.log(Level.INFO, "Filter added: " + classname);
             outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("sketch")) {
             if (tokens.length < 3) {
@@ -910,6 +918,7 @@ public class Kernel {
             }
             String classname = tokens[2];
             // Get the sketch by classname and create a new instance.
+            logger.log(Level.INFO, "Adding sketch: " + classname);
             outputStream.print("Adding sketch " + classname + "... ");
             AbstractSketch sketch;
             try {
@@ -920,6 +929,7 @@ public class Kernel {
                 return;
             }
             sketches.add(sketch);
+            logger.log(Level.INFO, "Sketch added: " + classname);
             outputStream.println("done");
         } else {
             outputStream.println("Usage:");
