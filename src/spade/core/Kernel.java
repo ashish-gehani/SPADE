@@ -74,6 +74,10 @@ public class Kernel {
     /**
      * Path to log files including the prefix.
      */
+    public static String pidFile = "/tmp/spade.pid";
+    /**
+     * Path to log files including the prefix.
+     */
     public static String logPathAndPrefix = SPADE_ROOT + "log/SPADE_";
     /**
      * Date/time suffix pattern for log files.
