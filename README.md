@@ -1,6 +1,6 @@
 Data is continuously transformed by computation. Understanding the origins of a piece of data can help in a variety of circumstances. For example, the data's history can facilitate fault analysis, decide how much the data should be trusted, or aid in profiling applications.
 
-**SPADE** provides functionality to track and analyze the provenance of data that arises from multiple sources, distributed over the wide area, at varied levels of abstraction, and from both discrete and continuous systems.
+**SPADE** provides functionality to track and analyze the provenance of data that arises from multiple sources, distributed over the wide area, and at varied levels of abstraction.
 
 
 # Cross-Platform #
