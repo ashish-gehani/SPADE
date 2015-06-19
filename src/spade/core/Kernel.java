@@ -289,7 +289,7 @@ public class Kernel {
         serverSockets = Collections.synchronizedList(new LinkedList<ServerSocket>());
 
         shutdown = false;
-        flushTransactions = false;
+        flushTransactions = true;
 
         // Initialize the SketchManager and the final commit filter.
         // The FinalCommitFilter acts as a terminator for the filter list
