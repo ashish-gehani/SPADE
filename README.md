@@ -1,6 +1,6 @@
 Data is continuously transformed by computation. Understanding the origins of a piece of data can help in a variety of circumstances. For example, the data's history can facilitate fault analysis, decide how much the data should be trusted, or aid in profiling applications.
 
-**SPADE** provides functionality to track and analyze the provenance of data that arises from multiple sources, distributed over the wide area, at varied levels of abstraction, and from both discrete and continuous systems.
+**SPADE** provides functionality to track and analyze the provenance of data that arises from multiple sources, distributed over the wide area, and at varied levels of abstraction.
 
 
 # Cross-Platform #
@@ -27,7 +27,7 @@ To learn more about **SPADE**, please see:
 
   * Ashish Gehani and Dawood Tariq, **SPADE: Support for Provenance Auditing in Distributed Environments**, _13th ACM/IFIP/USENIX International Conference on Middleware_, 2012. [[PDF](http://www.csl.sri.com/users/gehani/papers/MW-2012.SPADE.pdf)].
 
-
+Please see the lists of [people](../../wiki/people) and [publications](../../wiki/publications) associated with the project for further information.
 
 ---
 
