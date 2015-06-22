@@ -1,0 +1,27 @@
+
+/** @SRIInternational
+    
+   This File contains the change log for the updation of the llvmTracer Function Pass from version 1.0 to version 2.0
+
+   Author: Hashim 
+   Email: hashim.sharif@sri.com
+	
+   llvmTrace version: 2.0
+**/
+
+
+-- Changes:
+
+1) Updatsed the llvmTracer.cpp module to LLVM-3.6 from LLVM-3.2. This included the following major changes:
+     
+   a) Changing the include paths accordingly (Many of the header files have been moved under llvm/IR)
+   b) The writeAsOperand call is now deprecated. Using printAsOperand with printType enabled. 
+
+2) Added support for Function Monitoring:
+
+   The module accepts a File Name argument following the flag "FunctionNames-input". The Filename argument lists the names of the functions that need to be monitored. Specifying the filename results in limited instrumentation whereas only the functions listed are instrumented. However specifying the file name as "-no-monitor" results in instrumentating each function defined in the module.
+
+3) Buffering Support for Provence Strings:
+
+   Version 1.0 prints out the provenance strings onto the socket one every Function Entry and Exit. The Latest version includes support for buffering, whereas the provenance strings are buffered in a cstring until the buffered is filled up and then flushed out to the socket. The buffering and flush functions are implemented in the C++ module "flushModule.cpp" compiled as the "flush.bc" bitcode module.
+  

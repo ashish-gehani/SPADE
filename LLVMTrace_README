@@ -1,0 +1,31 @@
+
+/** @SRIInternational
+    
+   This File contains Instructions for running LLVMTrace used to instrument input bitcode modules.
+   
+   Author: Hashim 
+   Email: hashim.sharif@sri.com
+   
+   llvmTrace version: 2.0
+**/
+
+
+** SYNOPSIS:
+
+	./llvmTrace.sh <inputFile>.bc FunctionNames <outputFile>.bc
+  
+
+** Parameters:
+
+- inputFile: Name of the input bitcode module  (excluding the ".bc" extension)
+
+- FunctionNames: Name of File containing the function names to monitor
+
+- outputFile: Name of the output bitcode module (excluding the ".bc" extension)
+
+
+
+** Internals:
+
+- The llmvTrace.sh scripts executes as a wrapper above the LLVMTrace shared object (LLVMTrace.so) that is loaded with opt. Provided the "FunctionNames" file, a Java module implements reverse reachability analysis given the module callgraph finding the list of functions that need to be monitored. The LLVMTrace pass in turn accepts as an argument a file containing the list of functions to monitor. The bitcode output with the added instrumentation is written to the file "outputFile.bc"
+
