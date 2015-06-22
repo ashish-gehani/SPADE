@@ -48,7 +48,7 @@ REPORTERS = Graphviz DSL Network LLVM Facebook
 .PHONY: build prepare-dirs core reporters filters clients utilities storages android-build
 
 all:	build
-	./generatekeys.sh
+	./bin/generatekeys.sh
 
 help:
 	@echo 'Usage:'
@@ -207,6 +207,7 @@ clean:
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeLinuxAudit
 	@rm -rf conf/ssl
+	@rm -rf log/SPADE_*
 
 DESTDIR = @prefix@
 install:
