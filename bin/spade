@@ -1,5 +1,57 @@
 #!/bin/bash
+#
+#  --------------------------------------------------------------------------------
+#  SPADE - Support for Provenance Auditing in Distributed Environments.
+#  Copyright (C) 2014 SRI International
+
+#  This program is free software: you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation, either version 3 of the
+#  License, or (at your option) any later version.
+
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  General Public License for more details.
+
+#  You should have received a copy of the GNU General Public License
+#  along with this program. If not, see <http://www.gnu.org/licenses/>.
+#  --------------------------------------------------------------------------------
+#  
+
+
+print_help () 
+{
+	echo "spade start | stop | dig | controller | nodaemon"
+	echo "'spade start' : starts SPADE daemon"
+	echo "'spade stop' : stops SPADE daemon"
+	echo "'spade dig' : starts interactive SPADE dig query client"
+	echo "'spade controller' : starts interactive SPADE controller client"
+	echo "'spade nodaemon' : starts SPADE and prints logs to stdout"
+	echo "'spade help' : prints this menu"
+}
+
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 pushd ${SPADE_ROOT} > /dev/null
-java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.utility.Daemonizer "$@"
+
+if [ $# -eq 0 ] ; then 
+	print_help
+else
+
+	if [ $1 = "start" ] ; then
+		java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.utility.Daemonizer "$@"
+	elif [ $1 = "stop" ] ; then
+		java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.utility.Daemonizer "$@"
+	elif [ $1 = "dig" ] ; then
+		java -cp '../build:../lib/*' spade.client.QueryClient
+	elif [ $1 = "controller" ] ; then
+		java -cp './build:./lib/*' spade.client.ControlClient
+	elif [ $1 = "nodaemon" ] ; then
+		java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.core.Kernel
+	else
+		print_help
+	fi	
+
+fi
+
 popd > /dev/null
