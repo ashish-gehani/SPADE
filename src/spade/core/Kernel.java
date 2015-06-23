@@ -74,7 +74,7 @@ public class Kernel {
     /**
      * Path to log files including the prefix.
      */
-    public static String pidFile = "/tmp/spade.pid";
+    public static String pidFile = "spade.pid";
     /**
      * Path to log files including the prefix.
      */
