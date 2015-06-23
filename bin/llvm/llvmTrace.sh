@@ -3,7 +3,7 @@ REPLIB_OSFLAG=-D_LLVMREPORTER_LINUX
 LLVM_SOURCE=$1
 FUNCTION_FILE=$2
 LLVM_TARGET=$3
-SRC_PATH=../src
+SRC_PATH=../../src
 
 gcc -static ${REPLIB_OSFLAG} ${SRC_PATH}/spade/reporter/llvmBridge.c -c -o ${SRC_PATH}/spade/reporter/llvmBridge.o
 
