@@ -4,7 +4,7 @@ LLVM_SOURCE=$1
 FUNCTION_FILE=$2
 LLVM_TARGET=$3
 SRC_PATH=../../src
-LLC=llc
+LLC=llc-3.6
 CC=gcc
 
 $CC -static ${REPLIB_OSFLAG} ${SRC_PATH}/spade/reporter/LLVMTrace/llvmBridge.c -c -o ${SRC_PATH}/spade/reporter/LLVMTrace/llvmBridge.o 
