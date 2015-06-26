@@ -11,6 +11,8 @@ ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
 LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
+LLVM_INCLUDE_PATH=/usr/include/llvm-3.5/llvm
+
 # LLVM_TARGET = nweb
 
 # System and architecture-specific configuration
@@ -148,16 +150,15 @@ build-mac-llvm:
 	$(LLVM_PATH)/bin/clang src/spade/reporter/llvmBridge.o ${LLVM_TARGET}.dylib -o ${LLVM_TARGET}
 
 build-linux-llvm:
-	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
-	g++ src/spade/reporter/llvmTracer.cpp -shared -o lib/llvmTracer.so $(CXX_FLAGS)
-	gcc -static ${REPLIB_OSFLAG} src/spade/reporter/llvmBridge.c -c -o src/spade/reporter/llvmBridge.o
-	$(LLVM_PATH)/bin/clang -c -fPIC -emit-llvm ${LLVM_TARGET}.c -o ${LLVM_TARGET}.bc
-	$(LLVM_PATH)/bin/opt -load lib/llvmTracer.so -provenance ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.bc
-	$(LLVM_PATH)/bin/llc -relocation-model=pic ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.s
-	gcc -fPIC src/spade/reporter/llvmClose.c -c -o src/spade/reporter/llvmClose.o
-	gcc ${LLVM_TARGET}.s -c -o ${LLVM_TARGET}.o
-	gcc ${LLVM_TARGET}.o src/spade/reporter/llvmClose.o -shared -o ${LLVM_TARGET}.so
-	gcc ${LLVM_TARGET}.so src/spade/reporter/llvmBridge.o -o ${LLVM_TARGET}
+	echo llvm[0]: "Compiling llvmTracer.cpp for Release+Asserts build" "(PIC)"
+	clang++ -I$LLVM_INCLUDE_PATH -I./  -D_DEBUG -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -O3 -fomit-frame-pointer -std=c++11 -fvisibility-inlines-hidden -fno-exceptions -fno-rtti -fPIC -ffunction-sections -fdata-sections -Wcast-qual    -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -Wcovered-switch-default -Wno-uninitialized  -Wno-missing-field-initializers -Wno-comment -c -MMD -MP -MF "llvmTracer.d.tmp" -MT "llvmTracer.o" -MT "llvmTracer.d" src/spade/reporter/llvm/llvmTracer.cpp -o src/spade/reporter/llvm/llvmTracer.o ; \
+	echo llvm[0]: Linking "Loadable Module" \
+		  LLVMTrace.so
+	clang++  -O3 -Wl,-R -Wl,'$ORIGIN' -Wl,--gc-sections -rdynamic -L./ -L./  -shared -o bin/llvm/LLVMTrace.so src/spade/reporter/llvm/llvmTracer.o \
+		   -lz -lpthread -ltinfo -ldl -lm 
+	clang -emit-llvm -c src/spade/reporter/llvm/flushModule.c -o bin/llvm/flush.bc
+	
+
 
 # Build for Android
 android-build:
