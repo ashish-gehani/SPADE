@@ -1,12 +1,15 @@
 # default is jdk 7 oravel, change that to oracle 8
 language: 
-	java
+  - java
 jdk: 
-	oraclejdk8
+  - oraclejdk8
 before_install: 
-	sudo apt-get install libaudit-dev auditd libfuse-dev fuse
+  - sudo apt-get install libaudit-dev auditd libfuse-dev fuse
 script: 
-	./configure;
-	make
+  - ./configure;
+  - make
 after_success:
-	make install
+  - make install
+notifications:
+  email:
+    - hasanatkazmi@gmail.com
