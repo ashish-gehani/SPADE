@@ -1,4 +1,4 @@
-!#/bin/bash
+#!/bin/bash
 llvm-link $1 flush.bc -o linked.bc
 functionFile="$2"
 
