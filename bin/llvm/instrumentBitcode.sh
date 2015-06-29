@@ -1,4 +1,4 @@
-
+!#/bin/bash
 llvm-link $1 flush.bc -o linked.bc
 functionFile="$2"
 
@@ -9,4 +9,3 @@ if [ "$functionFile" != "-no-monitor" ]; then
 else
 	opt -load ./LLVMTrace.so -provenance -FunctionNames-input "-no-monitor" linked.bc -o $3 
 fi
-
