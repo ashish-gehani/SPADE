@@ -1,4 +1,3 @@
-# default is jdk 7 oravel, change that to oracle 8
 language: 
   - java
 jdk: 
