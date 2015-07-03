@@ -3,13 +3,11 @@
 
 PortSystem          1.0
 
-fetch.type          svn
-svn.url             http://data-provenance.googlecode.com/svn/trunk/SPADE/
-svn.revision        987
-svn.method          export
+fetch.type          git
+git.url             https://github.com/ashish-gehani/spade
 
 name                spade
-version             2.0-r-${svn.revision}
+version             2.0
 
 categories          sysutils
 maintainers         SRI
@@ -19,7 +17,7 @@ long_description    Support for Provenance Auditing in Distributed Environments
 platforms           darwin
 license             GPL-3
 
-homepage            http://spade.csl.sri.com/
+homepage            https://github.com/ashish-gehani/spade
 
 depends_lib-append  port:fuse4x
 worksrcdir          SPADE
