@@ -19,7 +19,7 @@
  */
 
  /*
- This works across *nix and runs spade as a daemon. bin/spade is a bash script that invokes this daemon.
+ This works across *nix and runs the SPADE kernel as a daemon. bin/spade is a bash script that invokes this daemon.
  */
 package spade.utility;
 
@@ -63,7 +63,7 @@ public class Daemonizer {
 
     public boolean isProcessRunning(int pid) throws IOException {
         String line = "";
-        Process proc = Runtime.getRuntime().exec("ps -ef"); // protable across *nix
+        Process proc = Runtime.getRuntime().exec("ps -ef"); // portable across *nix
         InputStream stream = proc.getInputStream();
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
         while ((line = reader.readLine()) != null) {
@@ -79,7 +79,7 @@ public class Daemonizer {
         Daemon daemon = new Daemon.WithoutChdir();
         if(daemon.isDaemonized()) {
             System.out.println("Starting SPADE as a daemon");
-            System.out.println("To stop it, kill -s SIGINT " + CLibrary.LIBC.getpid());
+            System.out.println("To stop it, use `kill -s SIGINT " + CLibrary.LIBC.getpid()) + " '";
 
             daemon.init(pidFile);
         } else {
@@ -100,7 +100,7 @@ public class Daemonizer {
             try {
                 pidfromfile = getPidFromFile();
             } catch (IOException e) {
-                System.err.println("PID file exists but it not readable.");
+                System.err.println("PID file exists, but is not readable.");
                 System.exit(1);
             }
 
@@ -112,10 +112,10 @@ public class Daemonizer {
             }
 
             if (processRunning) {
-                System.err.println("SPADE is already running. Process ID: " + pidfromfile);
+                System.err.println("SPADE is already running with PID " + pidfromfile);
                 System.exit(1);
             } else {
-                System.err.println("SPADE is not running but PID file exists..... deleting..");
+                System.err.println("SPADE is not running, but PID file exists. Deleting it.");
             }
         }
 
@@ -137,7 +137,7 @@ public class Daemonizer {
             try {
                 pidfromfile = getPidFromFile();
             } catch (IOException e) {
-                System.err.println("PID file exists but it not readable.");
+                System.err.println("PID file exists, but is not readable.");
                 System.exit(1);
             }
 
@@ -151,10 +151,10 @@ public class Daemonizer {
             if (processRunning) {
                 System.err.println("Killing SPADE. Process ID: " + pidfromfile);
                 if (CLibrary.LIBC.kill(pidfromfile, 2) != 0 ) { // SIGINT
-                    System.err.println("SPADE process could not get killed.");
+                    System.err.println("SPADE process could not be killed.");
                 }
             } else {
-                System.err.println("SPADE is not running but PID file exists..... deleting..");
+                System.err.println("SPADE is not running, but PID file exists. Deleting it.");
             }
 
             try {
