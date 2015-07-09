@@ -44,9 +44,9 @@ import spade.vertex.opm.Process;
  *
  * @author Sharjeel Ahmed Qureshi
  */
-public class ProcessThreads extends AbstractFilter {
+public class AndroidThreadAggregator extends AbstractFilter {
 
-    static final Logger logger = Logger.getLogger(ProcessThreads.class.getName());
+    static final Logger logger = Logger.getLogger(AndroidThreadAggregator.class.getName());
 
     private class ShelvedProcess {
 

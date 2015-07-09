@@ -32,7 +32,7 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
-public class ThreadAggregator extends AbstractFilter {
+public class LinuxThreadAggregator extends AbstractFilter {
 
     Set<AbstractVertex> processes = new HashSet<AbstractVertex>();
     Map<String, AbstractVertex> aggregates = new HashMap<String, AbstractVertex>();
