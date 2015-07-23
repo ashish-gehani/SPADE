@@ -103,14 +103,14 @@ public class Neo4j extends AbstractStorage {
             graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
             if (Kernel.reindexLucene) {
                 index = graphDb.index();
+                // Create vertex index
+                vertexIndex = index.forNodes(VERTEX_INDEX);
+                // Create edge index
+                edgeIndex = index.forRelationships(EDGE_INDEX);
+                // Create HashMap to store IDs of incoming vertices
             }
             transactionCount = 0;
             flushCount = 0;
-            // Create vertex index
-            vertexIndex = index.forNodes(VERTEX_INDEX);
-            // Create edge index
-            edgeIndex = index.forRelationships(EDGE_INDEX);
-            // Create HashMap to store IDs of incoming vertices
             vertexMap = new HashMap<String, Long>();
 
             if (START_WEBSERVER) {
@@ -146,9 +146,9 @@ public class Neo4j extends AbstractStorage {
                 graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
                 if (Kernel.reindexLucene) {
                     index = graphDb.index();
+                    vertexIndex = index.forNodes(VERTEX_INDEX);
+                    edgeIndex = index.forRelationships(EDGE_INDEX);
                 }
-                vertexIndex = index.forNodes(VERTEX_INDEX);
-                edgeIndex = index.forRelationships(EDGE_INDEX);
                 flushCount = 0;
                 webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
                 webServer.start();
@@ -193,10 +193,14 @@ public class Neo4j extends AbstractStorage {
                     continue;
                 }
                 newVertex.setProperty(key, value);
-                vertexIndex.add(newVertex, key, value);
+                if (Kernel.reindexLucene) {
+                    vertexIndex.add(newVertex, key, value);
+                }
             }
             newVertex.setProperty(ID_STRING, newVertex.getId());
-            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+            if (Kernel.reindexLucene) {
+                vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+            }
             vertexMap.put(incomingVertex.toString(), newVertex.getId());
             checkTransactionCount();
 
@@ -229,10 +233,14 @@ public class Neo4j extends AbstractStorage {
                     continue;
                 }
                 newEdge.setProperty(key, value);
-                edgeIndex.add(newEdge, key, value);
+                if (Kernel.reindexLucene) {
+                    edgeIndex.add(newEdge, key, value);
+                }
             }
             newEdge.setProperty(ID_STRING, newEdge.getId());
-            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+            if (Kernel.reindexLucene) {
+                edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+            }
             checkTransactionCount();
 
             return true;
