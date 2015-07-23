@@ -114,6 +114,10 @@ public class Kernel {
      * the storages.
      */
     public static volatile boolean flushTransactions;
+    /**
+     * Boolean used to indicate whether the Lucene index should reindexed on next Vertex or Edge commit
+     */
+    public static volatile boolean reindexLucene;    
     private static Thread mainThread;
     private static List<ServerSocket> serverSockets;
     private static Set<AbstractReporter> removereporters;
@@ -290,6 +294,7 @@ public class Kernel {
 
         shutdown = false;
         flushTransactions = true;
+        reindexLucene = false;
 
         // Initialize the SketchManager and the final commit filter.
         // The FinalCommitFilter acts as a terminator for the filter list
