@@ -51,6 +51,7 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
+import spade.core.Kernel;
 
 /**
  * Neo4j storage implementation.
@@ -100,7 +101,9 @@ public class Neo4j extends AbstractStorage {
             // database
             // if it already exists and is an older version
             graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
-            index = graphDb.index();
+            if (Kernel.reindexLucene) {
+                index = graphDb.index();
+            }
             transactionCount = 0;
             flushCount = 0;
             // Create vertex index
@@ -141,7 +144,9 @@ public class Neo4j extends AbstractStorage {
                 logger.log(Level.INFO, "Hard flush limit reached - restarting database");
                 graphDb.shutdown();
                 graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
-                index = graphDb.index();
+                if (Kernel.reindexLucene) {
+                    index = graphDb.index();
+                }
                 vertexIndex = index.forNodes(VERTEX_INDEX);
                 edgeIndex = index.forRelationships(EDGE_INDEX);
                 flushCount = 0;
