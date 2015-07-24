@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2014 2015 International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -30,8 +30,8 @@ import spade.core.AbstractVertex;
 public class FinalCommitFilter extends AbstractFilter {
 
     // Reference to the set of storages maintained by the Kernel.
-    public Set<AbstractStorage> storages = new HashSet<AbstractStorage>();
-    public Set<AbstractSketch> sketches = new HashSet<AbstractSketch>();
+    public Set<AbstractStorage> storages = new HashSet<>();
+    public Set<AbstractSketch> sketches = new HashSet<>();
 
     // This filter is the last filter in the list so any vertices or edges
     // received by it need to be passed to the storages. On receiving any

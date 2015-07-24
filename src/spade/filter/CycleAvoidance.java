@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -27,10 +27,10 @@ import spade.core.AbstractVertex;
 
 public class CycleAvoidance extends AbstractFilter {
 
-    private HashMap<AbstractVertex, HashSet<AbstractVertex>> ancestors;
+    private final HashMap<AbstractVertex, HashSet<AbstractVertex>> ancestors;
 
     public CycleAvoidance() {
-        ancestors = new HashMap<AbstractVertex, HashSet<AbstractVertex>>();
+        ancestors = new HashMap<>();
     }
 
     @Override
@@ -49,7 +49,7 @@ public class CycleAvoidance extends AbstractFilter {
                 putInNextFilter(incomingEdge);
             }
         } else {
-            HashSet<AbstractVertex> tempSet = new HashSet<AbstractVertex>();
+            HashSet<AbstractVertex> tempSet = new HashSet<>();
             tempSet.add(sourceVertex);
             ancestors.put(destinationVertex, tempSet);
             putInNextFilter(incomingEdge);

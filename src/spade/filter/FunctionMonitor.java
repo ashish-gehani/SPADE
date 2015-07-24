@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -17,7 +17,6 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-
 package spade.filter;
 
 import java.io.BufferedReader;
@@ -37,8 +36,6 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
-
-
 public class FunctionMonitor extends AbstractFilter {
 
     HashSet<String> methodsToMonitor; //Set of Methods that we want to monitor
@@ -46,8 +43,8 @@ public class FunctionMonitor extends AbstractFilter {
 
     public FunctionMonitor() {
         try {
-            artifacts = new HashMap<String, Integer>();
-            methodsToMonitor = new HashSet<String>();
+            artifacts = new HashMap<>();
+            methodsToMonitor = new HashSet<>();
         } catch (Exception e) {
             // ADD Exception Handling
         }
@@ -57,10 +54,10 @@ public class FunctionMonitor extends AbstractFilter {
     @Override
     public boolean initialize(String arguments) {
         try {
-            HashMap<String, String> nodes = new HashMap<String, String>(); // HashMap of id vs name for nodes
-            HashMap<String, String> nodesRev = new HashMap<String, String>(); // HashMap of name vs id for nodes
-            HashMap<String, HashSet<String>> edges = new HashMap<String, HashSet<String>>(); // HashMap of HashSet of incoming edges for every node
-            LinkedList<String> queue = new LinkedList<String>();
+            HashMap<String, String> nodes = new HashMap<>(); // HashMap of id vs name for nodes
+            HashMap<String, String> nodesRev = new HashMap<>(); // HashMap of name vs id for nodes
+            HashMap<String, HashSet<String>> edges = new HashMap<>(); // HashMap of HashSet of incoming edges for every node
+            LinkedList<String> queue = new LinkedList<>();
 
             String[] tokens = arguments.split("\\s+");
             BufferedReader br = new BufferedReader(new FileReader(tokens[0]));
@@ -77,7 +74,7 @@ public class FunctionMonitor extends AbstractFilter {
                 } else if (edge.find()) // If Edge Definition
                 {
                     if (!edges.containsKey(edge.group(2))) {
-                        edges.put(edge.group(2), new HashSet<String>());
+                        edges.put(edge.group(2), new HashSet<>());
                     }
                     edges.get(edge.group(2)).add(edge.group(1));
                 }
@@ -101,17 +98,16 @@ public class FunctionMonitor extends AbstractFilter {
                 }
             }
 
+            //--hash-- You can print out methodsToMonitor to a file from here
+            if (tokens.length > 2) {
+                BufferedWriter bw = new BufferedWriter(new FileWriter(tokens[2]));
 
-	    //--hash-- You can print out methodsToMonitor to a file from here
-	    if(tokens.length > 2){
-		BufferedWriter bw = new BufferedWriter(new FileWriter(tokens[2]));
-                		
-		for(String key: methodsToMonitor){
-			bw.write(key + "\n");	
-		}		
-		
-		bw.close();			
-	    }
+                for (String key : methodsToMonitor) {
+                    bw.write(key + "\n");
+                }
+
+                bw.close();
+            }
 
             return true;
         } catch (Exception exception) {
@@ -119,14 +115,13 @@ public class FunctionMonitor extends AbstractFilter {
         }
     }
 
-	
-   //--hash-- The first argument to the function is tokens[0] which is the filename (DOT format)	
+    //--hash-- The first argument to the function is tokens[0] which is the filename (DOT format)	
     public boolean initialize2(String arguments) {
         try {
-            HashMap<String, String> nodes = new HashMap<String, String>(); // HashMap of id vs name for nodes
-            HashMap<String, String> nodesRev = new HashMap<String, String>(); // HashMap of name vs id for nodes
-            HashMap<String, HashSet<String>> edges = new HashMap<String, HashSet<String>>(); // HashMap of HashSet of incoming edges for every node
-            LinkedList<String> queue = new LinkedList<String>();
+            HashMap<String, String> nodes = new HashMap<>(); // HashMap of id vs name for nodes
+            HashMap<String, String> nodesRev = new HashMap<>(); // HashMap of name vs id for nodes
+            HashMap<String, HashSet<String>> edges = new HashMap<>(); // HashMap of HashSet of incoming edges for every node
+            LinkedList<String> queue = new LinkedList<>();
 
             String[] tokens = arguments.split("\\s+");
             BufferedReader br = new BufferedReader(new FileReader(tokens[0]));
@@ -143,21 +138,19 @@ public class FunctionMonitor extends AbstractFilter {
                 } else if (edge.find()) // If Edge Definition
                 {
                     if (!edges.containsKey(edge.group(2))) {
-                        edges.put(edge.group(2), new HashSet<String>());
+                        edges.put(edge.group(2), new HashSet<>());
                     }
                     edges.get(edge.group(2)).add(edge.group(1));
                 }
             }
             br.close();
 
-            
-	    br = new BufferedReader(new FileReader(tokens[1]));
-	    String line;
-	    while((line = br.readLine()) != null){
-	        queue.add(nodes.get(line)); 
-	    }	
-	    br.close();
-
+            br = new BufferedReader(new FileReader(tokens[1]));
+            String line;
+            while ((line = br.readLine()) != null) {
+                queue.add(nodes.get(line));
+            }
+            br.close();
 
             while (queue.size() != 0) //Breadth First Search
             {
@@ -171,26 +164,21 @@ public class FunctionMonitor extends AbstractFilter {
                 }
             }
 
+            //--hash-- You can print out methodsToMonitor to a file from here
+            if (tokens.length > 2) {
 
-	    //--hash-- You can print out methodsToMonitor to a file from here
-	    if(tokens.length > 2){
-
-		BufferedWriter bw = new BufferedWriter(new FileWriter(tokens[2])); 		
-		for(String key: methodsToMonitor){
-			bw.write(key + "\n");	
-		}			
-		bw.close();			
-	    }
+                BufferedWriter bw = new BufferedWriter(new FileWriter(tokens[2]));
+                for (String key : methodsToMonitor) {
+                    bw.write(key + "\n");
+                }
+                bw.close();
+            }
 
             return true;
         } catch (Exception exception) {
             return false;
         }
     }
-	
-
-
-
 
     @Override
     public void putVertex(AbstractVertex incoming) {
@@ -255,22 +243,18 @@ public class FunctionMonitor extends AbstractFilter {
         }
     }
 
+    public static void main(String args[]) {
 
-   public static void main(String args[]){
-	  
-	String dotFileName = args[0];
-	String functionFileName = args[1];
-	String outFileName = args[2];
-	
-	String arguments = dotFileName + " " + functionFileName + " " + outFileName;
+        String dotFileName = args[0];
+        String functionFileName = args[1];
+        String outFileName = args[2];
 
-	FunctionMonitor llvmFilter = new FunctionMonitor();		
-	llvmFilter.initialize2(arguments);		
-	
-	System.out.println("The methods to monitor are written out to the file : " + outFileName); 	
-   }  
+        String arguments = dotFileName + " " + functionFileName + " " + outFileName;
 
+        FunctionMonitor llvmFilter = new FunctionMonitor();
+        llvmFilter.initialize2(arguments);
 
-
+        System.out.println("The methods to monitor are written out to the file : " + outFileName);
+    }
 
 }

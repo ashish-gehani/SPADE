@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -19,7 +19,12 @@
  */
 package spade.client;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -35,7 +40,7 @@ public class AndroidClient {
     private static PrintStream errorStream;
     private static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
-    private static BufferedReader commandReader = new BufferedReader(new InputStreamReader(System.in));
+    private static final BufferedReader commandReader = new BufferedReader(new InputStreamReader(System.in));
     private static volatile boolean shutdown = false;
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
@@ -46,7 +51,7 @@ public class AndroidClient {
         errorStream = System.err;
 
         Runnable outputReader = new Runnable() {
-
+            @Override
             public void run() {
                 try {
                     while (!shutdown) {
@@ -108,7 +113,7 @@ public class AndroidClient {
                     SPADEControlIn.println(line);
                 }
             }
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException exception) {
             exception.printStackTrace(errorStream);
         }
     }

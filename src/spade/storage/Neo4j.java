@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -82,8 +82,8 @@ public class Neo4j extends AbstractStorage {
     private int transactionCount;
     private int flushCount;
     private Map<String, Long> vertexMap;
-    private Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
-    private Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
+    private final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
+    private final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
 
     private enum MyRelationshipTypes implements RelationshipType {
@@ -111,7 +111,7 @@ public class Neo4j extends AbstractStorage {
             }
             transactionCount = 0;
             flushCount = 0;
-            vertexMap = new HashMap<String, Long>();
+            vertexMap = new HashMap<>();
 
             if (START_WEBSERVER) {
                 webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
@@ -362,8 +362,8 @@ public class Neo4j extends AbstractStorage {
     @Override
     public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
         Graph resultGraph = new Graph();
-        Set<Node> sourceNodes = new HashSet<Node>();
-        Set<Node> destinationNodes = new HashSet<Node>();
+        Set<Node> sourceNodes = new HashSet<>();
+        Set<Node> destinationNodes = new HashSet<>();
 
         IndexHits<Node> queryHits = vertexIndex.query(srcVertexExpression);
         for (Node foundNode : queryHits) {
@@ -376,8 +376,8 @@ public class Neo4j extends AbstractStorage {
         }
         queryHits.close();
 
-        Set<Long> addedNodeIds = new HashSet<Long>();
-        Set<Long> addedEdgeIds = new HashSet<Long>();
+        Set<Long> addedNodeIds = new HashSet<>();
+        Set<Long> addedEdgeIds = new HashSet<>();
 
         PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.OUTGOING), maxLength);
         for (Node sourceNode : sourceNodes) {
@@ -425,8 +425,8 @@ public class Neo4j extends AbstractStorage {
         }
 
         Graph resultGraph = new Graph();
-        Set<Node> doneSet = new HashSet<Node>();
-        Set<Node> tempSet = new HashSet<Node>();
+        Set<Node> doneSet = new HashSet<>();
+        Set<Node> tempSet = new HashSet<>();
 
         IndexHits<Node> queryHits = vertexIndex.query(vertexExpression);
         for (Node foundNode : queryHits) {
@@ -438,7 +438,7 @@ public class Neo4j extends AbstractStorage {
         if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
             terminatingExpression = null;
         }
-        Set<Node> terminatingSet = new HashSet<Node>();
+        Set<Node> terminatingSet = new HashSet<>();
         if (terminatingExpression != null) {
             queryHits = vertexIndex.query(terminatingExpression);
             for (Node foundNode : queryHits) {
@@ -453,7 +453,7 @@ public class Neo4j extends AbstractStorage {
                 break;
             }
             doneSet.addAll(tempSet);
-            Set<Node> newTempSet = new HashSet<Node>();
+            Set<Node> newTempSet = new HashSet<>();
             for (Node tempNode : tempSet) {
                 for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
                     Node otherNode = nodeRelationship.getOtherNode(tempNode);
@@ -486,6 +486,7 @@ public class Neo4j extends AbstractStorage {
         return resultGraph;
     }
 
+    @Override
     public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
         return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
     }

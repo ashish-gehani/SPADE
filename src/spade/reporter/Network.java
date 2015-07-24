@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -38,8 +38,8 @@ public class Network extends AbstractReporter implements Runnable {
     PrintStream errorStream = System.err;
     java.lang.Process process;
     boolean shutdown = false;
-    HashMap<String, HashSet<String>> currentPidConnectionMap = new HashMap<String, HashSet<String>>();
-    HashMap<String, HashSet<String>> nextPidConnectionMap = new HashMap<String, HashSet<String>>();
+    HashMap<String, HashSet<String>> currentPidConnectionMap = new HashMap<>();
+    HashMap<String, HashSet<String>> nextPidConnectionMap = new HashMap<>();
 
     @Override
     public boolean launch(String arguments) {
@@ -55,6 +55,7 @@ public class Network extends AbstractReporter implements Runnable {
         return started;
     }
 
+    @Override
     public void run() {
 
         BufferedReader lsofBufferedReader = initialize();
@@ -98,7 +99,7 @@ public class Network extends AbstractReporter implements Runnable {
             if (peekString(lsofBufferedReader, "m")) {
 
                 currentPidConnectionMap = nextPidConnectionMap;
-                nextPidConnectionMap = new HashMap<String, HashSet<String>>();
+                nextPidConnectionMap = new HashMap<>();
                 try {
                     lsofBufferedReader.readLine();
                 } catch (Exception exception) {
@@ -126,7 +127,7 @@ public class Network extends AbstractReporter implements Runnable {
                 if (currentPidConnectionMap.containsKey(pid)) {
                     connectionSet = currentPidConnectionMap.get(pid);
                 } else {
-                    connectionSet = new HashSet<String>();
+                    connectionSet = new HashSet<>();
                 }
                 nextPidConnectionMap.put(pid, connectionSet);
             } else {
@@ -182,12 +183,12 @@ public class Network extends AbstractReporter implements Runnable {
             Date currentTime;
 
             spade.vertex.opm.Process processVertex;
-            spade.vertex.custom.Network networkVertex;
+            spade.vertex.opm.Artifact networkVertex;
             WasGeneratedBy wasGeneratedByEdge;
             Used usedEdge;
 
             // Create process vertex.
-            annotations = new LinkedHashMap<String, String>();
+            annotations = new LinkedHashMap<>();
             annotations.put("pid", pid);
             processVertex = new spade.vertex.opm.Process();
             processVertex.getAnnotations().putAll(annotations);
@@ -197,7 +198,7 @@ public class Network extends AbstractReporter implements Runnable {
             }
 
             // Create network artifact.
-            annotations = new LinkedHashMap<String, String>();
+            annotations = new LinkedHashMap<>();
             endPoints = connection.split("->");
 
             endPoint = endPoints[0].split(":");
@@ -212,7 +213,7 @@ public class Network extends AbstractReporter implements Runnable {
             port = endPoint[1];
             annotations.put("destination port", port);
 
-            networkVertex = new spade.vertex.custom.Network();
+            networkVertex = new spade.vertex.opm.Artifact();
             networkVertex.getAnnotations().putAll(annotations);
 
             if (!putVertex(networkVertex)) {
@@ -221,7 +222,7 @@ public class Network extends AbstractReporter implements Runnable {
 
             // Create an outgoing edge.
             if (InetAddress.getByName(destination).isSiteLocalAddress()) {
-                annotations = new LinkedHashMap<String, String>();
+                annotations = new LinkedHashMap<>();
                 currentTime = new Date();
                 annotations.put("time", currentTime.toString());
                 usedEdge = new Used(processVertex, networkVertex);
@@ -237,11 +238,11 @@ public class Network extends AbstractReporter implements Runnable {
 
             // Create an incoming edge.
             if (InetAddress.getByName(source).isSiteLocalAddress()) {
-                annotations = new LinkedHashMap<String, String>();
+                annotations = new LinkedHashMap<>();
                 currentTime = new Date();
                 annotations.put("time", currentTime.toString());
-                wasGeneratedByEdge =
-                        new WasGeneratedBy(networkVertex, processVertex);
+                wasGeneratedByEdge
+                        = new WasGeneratedBy(networkVertex, processVertex);
                 wasGeneratedByEdge.getAnnotations().putAll(annotations);
                 if (!putEdge(wasGeneratedByEdge)) {
                     errorStream.println("Buffer did not accept incoming "

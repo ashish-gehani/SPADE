@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -41,8 +41,8 @@ public class LLVMFilter extends AbstractFilter {
 
     public LLVMFilter() {
         try {
-            artifacts = new HashMap<String, Integer>();
-            methodsToMonitor = new HashSet<String>();
+            artifacts = new HashMap<>();
+            methodsToMonitor = new HashSet<>();
         } catch (Exception e) {
             // ADD Exception Handling
         }
@@ -51,10 +51,10 @@ public class LLVMFilter extends AbstractFilter {
     @Override
     public boolean initialize(String arguments) {
         try {
-            HashMap<String, String> nodes = new HashMap<String, String>(); // HashMap of id vs name for nodes
-            HashMap<String, String> nodesRev = new HashMap<String, String>(); // HashMap of name vs id for nodes
-            HashMap<String, HashSet<String>> edges = new HashMap<String, HashSet<String>>(); // HashMap of HashSet of incoming edges for every node
-            LinkedList<String> queue = new LinkedList<String>();
+            HashMap<String, String> nodes = new HashMap<>(); // HashMap of id vs name for nodes
+            HashMap<String, String> nodesRev = new HashMap<>(); // HashMap of name vs id for nodes
+            HashMap<String, HashSet<String>> edges = new HashMap<>(); // HashMap of HashSet of incoming edges for every node
+            LinkedList<String> queue = new LinkedList<>();
 
             String[] tokens = arguments.split("\\s+");
             BufferedReader br = new BufferedReader(new FileReader(tokens[0]));
@@ -71,7 +71,7 @@ public class LLVMFilter extends AbstractFilter {
                 } else if (edge.find()) // If Edge Definition
                 {
                     if (!edges.containsKey(edge.group(2))) {
-                        edges.put(edge.group(2), new HashSet<String>());
+                        edges.put(edge.group(2), new HashSet<>());
                     }
                     edges.get(edge.group(2)).add(edge.group(1));
                 }

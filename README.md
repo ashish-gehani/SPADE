@@ -17,7 +17,7 @@ This material is based upon work supported by the National Science Foundation un
 
 <sup>2</sup> NSF Grant 1116414: [Scalable Integration and Analysis of the Provenance of Diverse Scientific Data](http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414), PI: [Ashish Gehani](http://www.csl.sri.com/people/gehani/)
 
-<a href='Hidden comment: 
+<a href='Hidden comment:
 The Apple logo is licensed under the Creative Commons Attribution-Share Alike 3.0 Unported, 2.5 Generic, 2.0 Generic and 1.0 Generic license.
 The Linux Tux logo is (c) Larry Ewing, Simon Budig und Anja Gerwinsk and is licensed under the terms of the GNU General Public License version 3.
 The Windows logo is in the public domain.

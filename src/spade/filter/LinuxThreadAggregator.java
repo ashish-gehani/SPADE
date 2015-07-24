@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -34,8 +34,8 @@ import spade.vertex.opm.Process;
 
 public class LinuxThreadAggregator extends AbstractFilter {
 
-    Set<AbstractVertex> processes = new HashSet<AbstractVertex>();
-    Map<String, AbstractVertex> aggregates = new HashMap<String, AbstractVertex>();
+    Set<AbstractVertex> processes = new HashSet<>();
+    Map<String, AbstractVertex> aggregates = new HashMap<>();
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {

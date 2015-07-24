@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -51,7 +51,7 @@ public class AndroidThreadAggregator extends AbstractFilter {
     private class ShelvedProcess {
 
         private AbstractVertex mainProcess = null;
-        private Map<String, Set<String>> multiAttributes = new HashMap<String, Set<String>>();
+        private Map<String, Set<String>> multiAttributes = new HashMap<>();
 
         public ShelvedProcess(AbstractVertex vertex) {
             mainProcess = vertex;
@@ -83,7 +83,7 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
         public void addAttribute(String key, String value) {
             if (!multiAttributes.containsKey(key)) {
-                multiAttributes.put(key, new HashSet<String>());
+                multiAttributes.put(key, new HashSet<>());
             }
             multiAttributes.get(key).add(value);
         }
@@ -95,14 +95,14 @@ public class AndroidThreadAggregator extends AbstractFilter {
             if (mainProcess == null) {
                 StringBuilder builder = new StringBuilder();
                 for (String k : multiAttributes.keySet()) {
-                    builder.append(k + "=");
+                    builder.append(k).append("=");
                     Set<String> attrs = multiAttributes.get(k);
                     for (String a : attrs) {
-                        builder.append(a + ",");
+                        builder.append(a).append(",");
                     }
                     builder.append(" ");
                 }
-                logger.log(Level.WARNING, "Shelved vertex is null. All attributes: " + builder.toString());
+                logger.log(Level.WARNING, "Shelved vertex is null. All attributes: {0}", builder.toString());
                 logger.log(Level.INFO, mainProcess.getAnnotation("pid"));  // Forcefully throw exception
                 return null;
             }
@@ -115,7 +115,7 @@ public class AndroidThreadAggregator extends AbstractFilter {
                     attrsSet.remove(mainProcess.getAnnotation("pid"));
                 }
 
-                ArrayList<String> attrs = new ArrayList<String>();
+                ArrayList<String> attrs = new ArrayList<>();
                 attrs.addAll(attrsSet);
 
                 if (!attrs.isEmpty()) {
@@ -142,11 +142,11 @@ public class AndroidThreadAggregator extends AbstractFilter {
         }
     }
     // Curernt active process node for merging threads, mapped by PID (String)
-    private Map<String, ShelvedProcess> currentMainProcessNode = new HashMap<String, ShelvedProcess>();
+    private Map<String, ShelvedProcess> currentMainProcessNode = new HashMap<>();
     // Reference to flushed out processes
-    private Map<String, AbstractVertex> flushedOutVertices = new HashMap<String, AbstractVertex>();
-    private ArrayList<AbstractEdge> shelvedEdges = new ArrayList<AbstractEdge>();
-    private Set<AbstractVertex> shelvedThreads = new HashSet<AbstractVertex>();
+    private Map<String, AbstractVertex> flushedOutVertices = new HashMap<>();
+    private ArrayList<AbstractEdge> shelvedEdges = new ArrayList<>();
+    private Set<AbstractVertex> shelvedThreads = new HashSet<>();
 
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
@@ -158,7 +158,7 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
         String dtgid = incomingVertex.getAnnotation("tgid");
         if (dtgid != null && dtgid.equals("492")) {
-            logger.log(Level.INFO, "Processing vertex " + dtgid);
+            logger.log(Level.INFO, "Processing vertex {0}", dtgid);
         }
 
         if (incomingVertex.type().equalsIgnoreCase("Process")) {
@@ -220,7 +220,7 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
         for (String pid : currentMainProcessNode.keySet()) {
 
-            logger.log(Level.INFO, "Flushing vertex: " + pid);
+            logger.log(Level.INFO, "Flushing vertex: {0}", pid);
 
             if (pid.equals("492")) {
                 logger.log(Level.INFO, "Processing 492 now");
@@ -235,20 +235,20 @@ public class AndroidThreadAggregator extends AbstractFilter {
                     // so just add a new dummy node for it 
                     // so that shelved edges will correctly map to a node when flushing out
 
-                    logger.log(Level.WARNING, "Main Process of Thread Group " + pid + " was not set. Adding artificial vertex.");
+                    logger.log(Level.WARNING, "Main Process of Thread Group {0} was not set. Adding artificial vertex.", pid);
                     Process p = new Process();
                     p.addAnnotation("pid", pid);
                     currentMainProcessNode.get(pid).setMainProcess(p);
 
                     if (!flushVertex(pid)) {
-                        logger.log(Level.WARNING, "Something went wrong flushing Thread Group ID " + pid + ". Continuing with rest.");
+                        logger.log(Level.WARNING, "Something went wrong flushing Thread Group ID {0}. Continuing with rest.", pid);
                     }
                 }
 
             }
         }
 
-        logger.log(Level.INFO, "Flushing edges " + Integer.toString(shelvedEdges.size()));
+        logger.log(Level.INFO, "Flushing edges {0}", Integer.toString(shelvedEdges.size()));
 
         for (AbstractEdge incomingEdge : shelvedEdges) {
 

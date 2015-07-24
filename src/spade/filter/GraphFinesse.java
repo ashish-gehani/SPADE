@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or  
  modify it under the terms of the GNU General Public License as  
@@ -28,10 +28,10 @@ import spade.core.AbstractVertex;
 
 public class GraphFinesse extends AbstractFilter {
 
-    private HashMap<AbstractVertex, HashSet<AbstractVertex>> edges;
+    private final HashMap<AbstractVertex, HashSet<AbstractVertex>> edges;
 
     public GraphFinesse() {
-        edges = new HashMap<AbstractVertex, HashSet<AbstractVertex>>();
+        edges = new HashMap<>();
     }
 
     @Override
@@ -51,7 +51,7 @@ public class GraphFinesse extends AbstractFilter {
         }
 
         if (edges.get(destinationVertex) == null) {
-            HashSet<AbstractVertex> tempSet = new HashSet<AbstractVertex>();
+            HashSet<AbstractVertex> tempSet = new HashSet<>();
             tempSet.add(sourceVertex);
             edges.put(destinationVertex, tempSet);
             if (edges.containsKey(sourceVertex)) {

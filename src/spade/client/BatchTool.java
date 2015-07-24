@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -21,6 +21,7 @@ package spade.client;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -34,7 +35,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 import spade.core.Settings;
 
-public class QueryTool {
+public class BatchTool {
 
     private static PrintStream outputStream;
     private static PrintStream SPADEQueryIn;
@@ -90,7 +91,7 @@ public class QueryTool {
             InputStream inStream = remoteSocket.getInputStream();
             SPADEQueryOut = new BufferedReader(new InputStreamReader(inStream));
             SPADEQueryIn = new PrintStream(outStream);
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException exception) {
             System.out.println("Error connecting to SPADE");
             System.exit(-1);
         }

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -34,7 +34,7 @@ public abstract class AbstractEdge implements Serializable {
     /**
      * A map containing the annotations for this edge.
      */
-    protected Map<String, String> annotations = new HashMap<String, String>();
+    protected Map<String, String> annotations = new HashMap<>();
     private AbstractVertex sourceVertex;
     private AbstractVertex destinationVertex;
 

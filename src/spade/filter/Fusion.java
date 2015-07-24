@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -51,17 +51,17 @@ public class Fusion extends AbstractFilter {
         // two reporters respectively. Elements are added and removed using the queue
         // interface but the lists are initialized as LinkedLists to allow for
         // traversal and checking for matching elements
-        leftList = new LinkedList<Object>();
-        rightList = new LinkedList<Object>();
+        leftList = new LinkedList<>();
+        rightList = new LinkedList<>();
 
         // The fusedVertices is a map containing all the previously-fused vertices.
         // This is checked when new vertices and edges are received by this filter
         // for quick replacement
-        fusedVertices = new HashMap<AbstractVertex, AbstractVertex>();
+        fusedVertices = new HashMap<>();
 
         // The rules map is used to store the rules. This is used in the compare
         // function
-        rules = new HashMap<RuleIdentifier, RuleIdentifier>();
+        rules = new HashMap<>();
 
         // Read and process the configuration file. Currently, the file syntax is:
         // -- BEGIN FILE --
@@ -84,7 +84,6 @@ public class Fusion extends AbstractFilter {
         } catch (Exception exception) {
             Logger.getLogger(Fusion.class.getName()).log(Level.SEVERE, null, exception);
         }
-
     }
 
     @Override

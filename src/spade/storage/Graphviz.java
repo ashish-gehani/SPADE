@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -48,7 +48,9 @@ public class Graphviz extends AbstractStorage {
             filePath = arguments;
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
-            outputFile.write("digraph spade2dot {\n" + "graph [rankdir = \"RL\"];\n" + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
+            outputFile.write("digraph spade2dot {\n"
+                    + "graph [rankdir = \"RL\"];\n"
+                    + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
                     + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
             return true;
         } catch (Exception exception) {
