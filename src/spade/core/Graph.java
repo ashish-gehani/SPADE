@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,6 +44,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
@@ -83,13 +85,13 @@ public class Graph extends AbstractStorage implements Serializable {
 
     private Analyzer analyzer = new KeywordAnalyzer();
     private QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
-    private Set<AbstractVertex> vertexSet = new LinkedHashSet<AbstractVertex>();
-    private Map<Integer, AbstractVertex> vertexIdentifiers = new HashMap<Integer, AbstractVertex>();
-    private Map<AbstractVertex, Integer> reverseVertexIdentifiers = new HashMap<AbstractVertex, Integer>();
-    private Set<AbstractEdge> edgeSet = new LinkedHashSet<AbstractEdge>();
-    private Map<Integer, AbstractEdge> edgeIdentifiers = new HashMap<Integer, AbstractEdge>();
-    private Map<AbstractEdge, Integer> reverseEdgeIdentifiers = new HashMap<AbstractEdge, Integer>();
-    private Map<AbstractVertex, Integer> networkMap = new HashMap<AbstractVertex, Integer>();
+    private Set<AbstractVertex> vertexSet = new LinkedHashSet<>();
+    private Map<Integer, AbstractVertex> vertexIdentifiers = new HashMap<>();
+    private Map<AbstractVertex, Integer> reverseVertexIdentifiers = new HashMap<>();
+    private Set<AbstractEdge> edgeSet = new LinkedHashSet<>();
+    private Map<Integer, AbstractEdge> edgeIdentifiers = new HashMap<>();
+    private Map<AbstractEdge, Integer> reverseEdgeIdentifiers = new HashMap<>();
+    private Map<AbstractVertex, Integer> networkMap = new HashMap<>();
     private int serial_number = 1;
     /**
      * For query results spanning multiple hosts, this is used to indicate
@@ -155,7 +157,9 @@ public class Graph extends AbstractStorage implements Serializable {
      * before it is finally committed.
      *
      * @param inputVertex The vertex to be added
+     * @return
      */
+    @Override
     public boolean putVertex(AbstractVertex inputVertex) {
         if (reverseVertexIdentifiers.containsKey(inputVertex)) {
             return false;
@@ -192,7 +196,9 @@ public class Graph extends AbstractStorage implements Serializable {
      * before it is finally committed.
      *
      * @param inputEdge The edge to be added
+     * @return
      */
+    @Override
     public boolean putEdge(AbstractEdge inputEdge) {
         if (reverseEdgeIdentifiers.containsKey(inputEdge)) {
             return false;
@@ -276,8 +282,8 @@ public class Graph extends AbstractStorage implements Serializable {
      */
     public static Graph intersection(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
-        Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
-        Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
+        Set<AbstractVertex> vertices = new HashSet<>();
+        Set<AbstractEdge> edges = new HashSet<>();
 
         vertices.addAll(graph1.vertexSet());
         vertices.retainAll(graph2.vertexSet());
@@ -306,8 +312,8 @@ public class Graph extends AbstractStorage implements Serializable {
      */
     public static Graph union(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
-        Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
-        Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
+        Set<AbstractVertex> vertices = new HashSet<>();
+        Set<AbstractEdge> edges = new HashSet<>();
 
         vertices.addAll(graph1.vertexSet());
         vertices.addAll(graph2.vertexSet());
@@ -335,8 +341,8 @@ public class Graph extends AbstractStorage implements Serializable {
      */
     public static Graph remove(Graph graph1, Graph graph2) {
         Graph resultGraph = new Graph();
-        Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
-        Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
+        Set<AbstractVertex> vertices = new HashSet<>();
+        Set<AbstractEdge> edges = new HashSet<>();
 
         vertices.addAll(graph1.vertexSet());
         vertices.removeAll(graph2.vertexSet());
@@ -363,7 +369,7 @@ public class Graph extends AbstractStorage implements Serializable {
             return null;
         }
         Graph result = new Graph();
-        Map<String, AbstractVertex> vertexMap = new HashMap<String, AbstractVertex>();
+        Map<String, AbstractVertex> vertexMap = new HashMap<>();
         try {
             BufferedReader eventReader = new BufferedReader(new FileReader(path));
             String line;
@@ -487,7 +493,7 @@ public class Graph extends AbstractStorage implements Serializable {
                 if (key.equals(ID_STRING)) {
                     continue;
                 }
-                annotationString.append(key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n");
+                annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\")).append("\\n");
             }
             String vertexString = annotationString.substring(0, annotationString.length() - 2);
             String shape = "box";
@@ -520,7 +526,7 @@ public class Graph extends AbstractStorage implements Serializable {
                 if (key.equals(ID_STRING)) {
                     continue;
                 }
-                annotationString.append(key.replace("\\", "\\\\") + ":" + value.replace("\\", "\\\\") + "\\n");
+                annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\")).append("\\n");
             }
             String color = "black";
             String type = edge.getAnnotation("type");
@@ -561,7 +567,7 @@ public class Graph extends AbstractStorage implements Serializable {
 
     public List<Integer> listVertices(String expression) {
         try {
-            List<Integer> results = new ArrayList<Integer>();
+            List<Integer> results = new ArrayList<>();
             IndexReader reader = IndexReader.open(vertexIndex);
             IndexSearcher searcher = new IndexSearcher(reader);
             ScoreDoc[] hits = searcher.search(queryParser.parse(expression), MAX_QUERY_HITS).scoreDocs;
@@ -575,9 +581,9 @@ public class Graph extends AbstractStorage implements Serializable {
             searcher.close();
             reader.close();
             return results;
-        } catch (Exception exception) {
+        } catch (IOException | ParseException | NumberFormatException exception) {
             logger.log(Level.WARNING, "Error while listing vertices. Returning empty array.", exception);
-            return new ArrayList<Integer>();
+            return new ArrayList<>();
         }
     }
 
@@ -611,113 +617,6 @@ public class Graph extends AbstractStorage implements Serializable {
         Graph a = getLineage(srcVertexExpression, maxLength, DIRECTION_ANCESTORS, null);
         Graph d = getLineage(dstVertexExpression, maxLength, DIRECTION_DESCENDANTS, null);
         return Graph.intersection(a, d);
-        // try {
-        // Set<AbstractVertex> srcVertexSet = new HashSet<AbstractVertex>();
-        // Set<AbstractVertex> dstVertexSet = new HashSet<AbstractVertex>();
-        // Set<AbstractEdge> srcEdgeSet = new HashSet<AbstractEdge>();
-        // Set<AbstractEdge> dstEdgeSet = new HashSet<AbstractEdge>();
-        //
-        // Set<Integer> tempSrcSet = new HashSet<Integer>();
-        // Set<Integer> tempDstSet = new HashSet<Integer>();
-        // IndexReader vertexReader = IndexReader.open(vertexIndex);
-        // IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-        // ScoreDoc[] srcHits =
-        // vertexSearcher.search(queryParser.parse(srcVertexExpression),
-        // MAX_QUERY_HITS).scoreDocs;
-        // for (int i = 0; i < srcHits.length; ++i) {
-        // int docId = srcHits[i].doc;
-        // Document foundDoc = vertexSearcher.doc(docId);
-        // int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-        // tempSrcSet.add(vertex_identifier);
-        // }
-        // ScoreDoc[] dstHits =
-        // vertexSearcher.search(queryParser.parse(dstVertexExpression),
-        // MAX_QUERY_HITS).scoreDocs;
-        // for (int i = 0; i < dstHits.length; ++i) {
-        // int docId = dstHits[i].doc;
-        // Document foundDoc = vertexSearcher.doc(docId);
-        // int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-        // tempDstSet.add(vertex_identifier);
-        // }
-        // vertexSearcher.close();
-        // vertexReader.close();
-        //
-        // IndexReader edgeReader = IndexReader.open(edgeIndex);
-        // IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
-        //
-        // Set<Integer> processedVertices = new HashSet<Integer>();
-        // processedVertices.addAll(tempSrcSet);
-        // for (int i = 0; i <= maxLength; i++) {
-        // Set<Integer> newTempSet = new HashSet<Integer>();
-        // for (Integer currentVertexId : tempSrcSet) {
-        // srcVertexSet.add(vertexIdentifiers.get(currentVertexId));
-        // ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(SRC_VERTEX_ID
-        // + ":\"" + currentVertexId + "\""), MAX_QUERY_HITS).scoreDocs;
-        // for (int j = 0; j < hits.length; ++j) {
-        // int docId = hits[j].doc;
-        // Document foundDoc = edgeSearcher.doc(docId);
-        // int edge_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-        // AbstractEdge edge = edgeIdentifiers.get(edge_identifier);
-        // int vertexId =
-        // reverseVertexIdentifiers.get(edge.getDestinationVertex());
-        // if (processedVertices.add(vertexId)) {
-        // srcEdgeSet.add(edge);
-        // newTempSet.add(vertexId);
-        // }
-        // }
-        // }
-        // if (newTempSet.isEmpty()) {
-        // break;
-        // }
-        // tempSrcSet = newTempSet;
-        // }
-        //
-        // processedVertices = new HashSet<Integer>();
-        // processedVertices.addAll(tempDstSet);
-        // for (int i = 0; i <= maxLength; i++) {
-        // Set<Integer> newTempSet = new HashSet<Integer>();
-        // for (Integer currentVertexId : tempDstSet) {
-        // dstVertexSet.add(vertexIdentifiers.get(currentVertexId));
-        // ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(DST_VERTEX_ID
-        // + ":\"" + currentVertexId + "\""), MAX_QUERY_HITS).scoreDocs;
-        // for (int j = 0; j < hits.length; ++j) {
-        // int docId = hits[j].doc;
-        // Document foundDoc = edgeSearcher.doc(docId);
-        // int edge_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-        // AbstractEdge edge = edgeIdentifiers.get(edge_identifier);
-        // int vertexId = reverseVertexIdentifiers.get(edge.getSourceVertex());
-        // if (processedVertices.add(vertexId)) {
-        // dstEdgeSet.add(edge);
-        // newTempSet.add(vertexId);
-        // }
-        // }
-        // }
-        // if (newTempSet.isEmpty()) {
-        // break;
-        // }
-        // tempDstSet = newTempSet;
-        // }
-        // edgeSearcher.close();
-        // edgeReader.close();
-        //
-        // Graph resultGraph = new Graph();
-        // Set<AbstractVertex> vertexResultSet = srcVertexSet;
-        // vertexResultSet.retainAll(dstVertexSet);
-        // Set<AbstractEdge> edgeResultSet = srcEdgeSet;
-        // edgeResultSet.retainAll(dstEdgeSet);
-        // for (AbstractVertex vertex : vertexResultSet) {
-        // resultGraph.putVertex(vertex);
-        // }
-        // for (AbstractEdge edge : edgeResultSet) {
-        // resultGraph.putEdge(edge);
-        // }
-        //
-        // resultGraph.commitIndex();
-        // return resultGraph;
-        // } catch (Exception exception) {
-        // logger.log(Level.SEVERE, null, exception);
-        // return null;
-        // }
     }
 
     @Override
@@ -741,7 +640,7 @@ public class Graph extends AbstractStorage implements Serializable {
 
             IndexReader vertexReader = IndexReader.open(vertexIndex);
             IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-            Set<Integer> terminatingSet = new HashSet<Integer>();
+            Set<Integer> terminatingSet = new HashSet<>();
             if ((terminatingExpression != null) && (!terminatingExpression.trim().equalsIgnoreCase("null"))) {
                 ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(terminatingExpression), MAX_QUERY_HITS).scoreDocs;
                 for (int i = 0; i < hits.length; ++i) {
@@ -751,7 +650,7 @@ public class Graph extends AbstractStorage implements Serializable {
                     terminatingSet.add(id);
                 }
             }
-            Set<Integer> processedVertices = new HashSet<Integer>();
+            Set<Integer> processedVertices = new HashSet<>();
             ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(vertexExpression), MAX_QUERY_HITS).scoreDocs;
             for (int i = 0; i < hits.length; ++i) {
                 int docId = hits[i].doc;
@@ -763,13 +662,13 @@ public class Graph extends AbstractStorage implements Serializable {
             vertexSearcher.close();
             vertexReader.close();
 
-            Set<Integer> doneVertices = new HashSet<Integer>();
+            Set<Integer> doneVertices = new HashSet<>();
             doneVertices.addAll(processedVertices);
 
             IndexReader edgeReader = IndexReader.open(edgeIndex);
             IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
             for (int i = 0; i <= depth; i++) {
-                Set<Integer> tempProcessedVertices = new HashSet<Integer>();
+                Set<Integer> tempProcessedVertices = new HashSet<>();
                 for (int currentVertexId : processedVertices) {
                     String queryString = null;
                     if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
@@ -809,7 +708,7 @@ public class Graph extends AbstractStorage implements Serializable {
             edgeReader.close();
             resultGraph.commitIndex();
             return resultGraph;
-        } catch (Exception exception) {
+        } catch (IOException | ParseException | NumberFormatException exception) {
             logger.log(Level.SEVERE, null, exception);
             return null;
         }
@@ -843,7 +742,7 @@ public class Graph extends AbstractStorage implements Serializable {
 
             IndexReader vertexReader = IndexReader.open(vertexIndex);
             IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-            Set<Integer> terminatingSet = new HashSet<Integer>();
+            Set<Integer> terminatingSet = new HashSet<>();
             if ((terminatingExpression != null) && (!terminatingExpression.trim().equalsIgnoreCase("null"))) {
                 ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(terminatingExpression), MAX_QUERY_HITS).scoreDocs;
                 for (int i = 0; i < hits.length; ++i) {
@@ -856,19 +755,19 @@ public class Graph extends AbstractStorage implements Serializable {
             vertexSearcher.close();
             vertexReader.close();
 
-            Set<Integer> processedVertices = new HashSet<Integer>();
+            Set<Integer> processedVertices = new HashSet<>();
             for (AbstractVertex vertex : srcGraph.vertexSet()) {
                 resultGraph.putVertex(vertex);
                 processedVertices.add(reverseVertexIdentifiers.get(vertex));
             }
 
-            Set<Integer> doneVertices = new HashSet<Integer>();
+            Set<Integer> doneVertices = new HashSet<>();
             doneVertices.addAll(processedVertices);
 
             IndexReader edgeReader = IndexReader.open(edgeIndex);
             IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
             for (int i = 0; i <= depth; i++) {
-                Set<Integer> tempProcessedVertices = new HashSet<Integer>();
+                Set<Integer> tempProcessedVertices = new HashSet<>();
                 for (int currentVertexId : processedVertices) {
                     String queryString = null;
                     if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
@@ -908,7 +807,7 @@ public class Graph extends AbstractStorage implements Serializable {
             edgeReader.close();
             resultGraph.commitIndex();
             return resultGraph;
-        } catch (Exception exception) {
+        } catch (IOException | ParseException | NumberFormatException exception) {
             logger.log(Level.SEVERE, null, exception);
             return null;
         }

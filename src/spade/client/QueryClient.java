@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -21,6 +21,7 @@ package spade.client;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
@@ -94,8 +95,8 @@ public class QueryClient {
         }
 
         outputStream = System.out;
-        graphObjects = new HashMap<String, Graph>();
-        graphExpressions = new HashMap<String, String>();
+        graphObjects = new HashMap<>();
+        graphExpressions = new HashMap<>();
 
         try {
             String host = "localhost";
@@ -106,7 +107,7 @@ public class QueryClient {
             InputStream inStream = remoteSocket.getInputStream();
             SPADEQueryOut = new ObjectInputStream(inStream);
             SPADEQueryIn = new PrintStream(outStream);
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException exception) {
             outputStream.println("Error connecting to SPADE");
             System.exit(-1);
         }
@@ -162,7 +163,7 @@ public class QueryClient {
                     exception.printStackTrace();
                 }
             }
-        } catch (Exception exception) {
+        } catch (IOException | ClassNotFoundException exception) {
             exception.printStackTrace();
         }
     }
@@ -259,14 +260,14 @@ public class QueryClient {
                     graphExpressions.put(result, queryExpression);
                     return;
                 }
-            } catch (Exception exception) {
+            } catch (IOException | ClassNotFoundException exception) {
                 exception.printStackTrace();
             }
         } else if (showVerticesMatcher.matches()) {
             queryTarget = showVerticesMatcher.group(1);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
             String annotationsArray[] = showVerticesMatcher.group(2).split(", ");
-            Set<String> annotations = new HashSet<String>(Arrays.asList(annotationsArray));
+            Set<String> annotations = new HashSet<>(Arrays.asList(annotationsArray));
             if (!graphObjects.containsKey(queryTarget)) {
                 System.out.println("Error: graph " + queryTarget + " does not exist");
                 return;
@@ -313,7 +314,6 @@ public class QueryClient {
         try {
             if ((queryTarget == null) && (queryString != null)) {
                 long begintime, endtime;
-//                System.out.println("executing query sting: " + queryString);
                 begintime = System.currentTimeMillis();
                 SPADEQueryIn.println(queryString);
                 String resultString = (String) SPADEQueryOut.readObject();
@@ -357,7 +357,7 @@ public class QueryClient {
                     graphExpressions.put(result, queryExpression);
                 }
             }
-        } catch (Exception exception) {
+        } catch (IOException | ClassNotFoundException | NumberFormatException exception) {
             exception.printStackTrace();
         }
     }

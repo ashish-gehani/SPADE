@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -22,6 +22,7 @@ package spade.client;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -98,6 +99,7 @@ public class ControlClient {
         shutdown = false;
 
         Runnable outputReader = new Runnable() {
+            @Override
             public void run() {
                 try {
                     String host = "localhost";
@@ -122,7 +124,7 @@ public class ControlClient {
                         Thread.sleep(THREAD_SLEEP_DELAY);
                     }
                     SPADEControlOut.close();
-                } catch (Exception exception) {
+                } catch (NumberFormatException | IOException | InterruptedException exception) {
                     if (!shutdown) {
                         System.out.println("Error connecting to SPADE");
                     }
@@ -147,27 +149,27 @@ public class ControlClient {
                 // Ignore
             }
 
-            List<Completor> addArguments = new LinkedList<Completor>();
+            List<Completor> addArguments = new LinkedList<>();
             addArguments.add(new SimpleCompletor(new String[]{"add"}));
             addArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
             addArguments.add(new NullCompletor());
 
-            List<Completor> removeArguments = new LinkedList<Completor>();
+            List<Completor> removeArguments = new LinkedList<>();
             removeArguments.add(new SimpleCompletor(new String[]{"remove"}));
             removeArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter"}));
             removeArguments.add(new NullCompletor());
 
-            List<Completor> listArguments = new LinkedList<Completor>();
+            List<Completor> listArguments = new LinkedList<>();
             listArguments.add(new SimpleCompletor(new String[]{"list"}));
             listArguments.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all"}));
             listArguments.add(new NullCompletor());
 
-            List<Completor> configArguments = new LinkedList<Completor>();
+            List<Completor> configArguments = new LinkedList<>();
             configArguments.add(new SimpleCompletor(new String[]{"config"}));
             configArguments.add(new SimpleCompletor(new String[]{"load", "save"}));
             configArguments.add(new NullCompletor());
 
-            List<Completor> completors = new LinkedList<Completor>();
+            List<Completor> completors = new LinkedList<>();
             completors.add(new ArgumentCompletor(addArguments));
             completors.add(new ArgumentCompletor(removeArguments));
             completors.add(new ArgumentCompletor(listArguments));

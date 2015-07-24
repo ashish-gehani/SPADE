@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -115,9 +115,10 @@ public class Kernel {
      */
     public static volatile boolean flushTransactions;
     /**
-     * Boolean used to indicate whether the Lucene index should reindexed on next Vertex or Edge commit
+     * Boolean used to indicate whether the Lucene index should reindexed on
+     * next Vertex or Edge commit
      */
-    public static volatile boolean reindexLucene;    
+    public static volatile boolean reindexLucene;
     private static Thread mainThread;
     private static List<ServerSocket> serverSockets;
     private static Set<AbstractReporter> removereporters;
@@ -133,7 +134,7 @@ public class Kernel {
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter <index>";
-    private static final String LIST_STRING = "list reporters|storages|filters|sketches|all";
+    private static final String LIST_STRING = "list reporters|storages|filters|transformers|sketches|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
@@ -230,7 +231,7 @@ public class Kernel {
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
             Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
             Logger.getLogger("").addHandler(logFileHandler);
-        } catch (Exception exception) {
+        } catch (IOException | SecurityException exception) {
             System.err.println("Error initializing exception logger");
         }
 
@@ -326,6 +327,7 @@ public class Kernel {
         // its buffer are
         // completely flushed.
         Runnable mainRunnable = new Runnable() {
+            @Override
             public void run() {
                 try {
                     while (true) {
@@ -417,6 +419,7 @@ public class Kernel {
         // is read in
         // a loop and the commands are processed.
         Runnable controlRunnable = new Runnable() {
+            @Override
             public void run() {
                 try {
                     ServerSocket serverSocket = null;
@@ -436,7 +439,7 @@ public class Kernel {
                     }
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
-                } catch (Exception exception) {
+                } catch (NumberFormatException | IOException exception) {
                     logger.log(Level.SEVERE, null, exception);
                 }
             }
@@ -445,6 +448,7 @@ public class Kernel {
         controlThread.start();
 
         Runnable queryRunnable = new Runnable() {
+            @Override
             public void run() {
                 try {
                     ServerSocket serverSocket = null;
@@ -464,7 +468,7 @@ public class Kernel {
                     }
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
-                } catch (Exception exception) {
+                } catch (NumberFormatException | IOException exception) {
                     logger.log(Level.SEVERE, null, exception);
                 }
             }
@@ -478,6 +482,7 @@ public class Kernel {
         // object. The
         // remote query server is therefore a multithreaded server.
         Runnable remoteRunnable = new Runnable() {
+            @Override
             public void run() {
                 try {
                     ServerSocket serverSocket = null;
@@ -497,7 +502,7 @@ public class Kernel {
                     }
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
-                } catch (Exception exception) {
+                } catch (NumberFormatException | IOException exception) {
                     logger.log(Level.SEVERE, null, exception);
                 }
             }
@@ -511,6 +516,7 @@ public class Kernel {
         // object. The
         // remote sketch server is therefore a multithreaded server.
         Runnable sketchRunnable = new Runnable() {
+            @Override
             public void run() {
                 try {
                     ServerSocket serverSocket = null;
@@ -530,7 +536,7 @@ public class Kernel {
                     }
                 } catch (SocketException exception) {
                     // Do nothing... this is triggered on shutdown.
-                } catch (Exception exception) {
+                } catch (NumberFormatException | IOException exception) {
                     logger.log(Level.SEVERE, null, exception);
                 }
             }
@@ -683,8 +689,7 @@ public class Kernel {
      * method to retrieve the result before exporting it to the desired path.
      *
      * @param line The query expression.
-     * @param outputStream The output stream on which to print the result or any
-     * output.
+     * @return
      */
     public static Graph queryCommand(String line) {
         Graph resultGraph = Query.executeQuery(line, false);
@@ -696,7 +701,7 @@ public class Kernel {
      * query commands are displayed using separate methods since these commands
      * are issued from different clients.
      *
-     * @param outputStream
+     * @return
      */
     public static String getControlCommands() {
         StringBuilder string = new StringBuilder();
@@ -716,7 +721,7 @@ public class Kernel {
     /**
      * Method to display query commands to the given output stream.
      *
-     * @param outputStream The target output stream.
+     * @return
      */
     public static String getQueryCommands() {
         StringBuilder string = new StringBuilder();
@@ -761,12 +766,12 @@ public class Kernel {
             String classname = tokens[2];
             String arguments = (tokens.length == 3) ? null : tokens[3];
             // Get the reporter by classname and create a new instance.
-            logger.log(Level.INFO, "Adding reporter: " + classname);
+            logger.log(Level.INFO, "Adding reporter: {0}", classname);
             outputStream.print("Adding reporter " + classname + "... ");
             AbstractReporter reporter;
             try {
                 reporter = (AbstractReporter) Class.forName("spade.reporter." + classname).newInstance();
-            } catch (Exception ex) {
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
                 outputStream.println("error: Unable to find/load class");
                 logger.log(Level.SEVERE, null, ex);
                 return;
@@ -784,7 +789,7 @@ public class Kernel {
                 // SPADE thread to extract buffer elements).
                 reporter.arguments = arguments;
                 reporters.add(reporter);
-                logger.log(Level.INFO, "Reporter added: " + classname);
+                logger.log(Level.INFO, "Reporter added: {0}", classname);
                 outputStream.println("done");
             } else {
                 outputStream.println("failed");
@@ -798,12 +803,12 @@ public class Kernel {
             String classname = tokens[2];
             String arguments = (tokens.length == 3) ? null : tokens[3];
             // Get the storage by classname and create a new instance.
-            logger.log(Level.INFO, "adding storage: " + classname);
+            logger.log(Level.INFO, "Adding storage: {0}", classname);
             outputStream.print("Adding storage " + classname + "... ");
             AbstractStorage storage;
             try {
                 storage = (AbstractStorage) Class.forName("spade.storage." + classname).newInstance();
-            } catch (Exception ex) {
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
                 outputStream.println("error: Unable to find/load class");
                 logger.log(Level.SEVERE, null, ex);
                 return;
@@ -816,7 +821,7 @@ public class Kernel {
                 storage.vertexCount = 0;
                 storage.edgeCount = 0;
                 storages.add(storage);
-                logger.log(Level.INFO, "Storage added: " + classname);
+                logger.log(Level.INFO, "Storage added: {0}", classname);
                 outputStream.println("done");
             } else {
                 outputStream.println("failed");
@@ -829,7 +834,7 @@ public class Kernel {
             }
             String classname = tokens[2];
             String[] parameters = tokens[3].split("\\s+", 2);
-            logger.log(Level.INFO, "Adding filter: " + classname);
+            logger.log(Level.INFO, "Adding filter: {0}", classname);
             outputStream.print("Adding filter " + classname + "... ");
             int index;
             try {
@@ -843,7 +848,7 @@ public class Kernel {
             AbstractFilter filter;
             try {
                 filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
-            } catch (Exception ex) {
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
                 outputStream.println("error: Unable to find/load class");
                 logger.log(Level.SEVERE, null, ex);
                 return;
@@ -867,7 +872,7 @@ public class Kernel {
             }
             // Add filter to the list.
             filters.add(index, filter);
-            logger.log(Level.INFO, "Filter added: " + classname);
+            logger.log(Level.INFO, "Filter added: {0}", classname);
             outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("transformer")) {
             if (tokens.length < 4) {
@@ -877,7 +882,7 @@ public class Kernel {
             }
             String classname = tokens[2];
             String[] parameters = tokens[3].split("\\s+", 2);
-            logger.log(Level.INFO, "Adding transformer: " + classname);
+            logger.log(Level.INFO, "Adding transformer: {0}", classname);
             outputStream.print("Adding transformer " + classname + "... ");
             int index;
             try {
@@ -891,7 +896,7 @@ public class Kernel {
             AbstractFilter filter;
             try {
                 filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
-            } catch (Exception ex) {
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
                 outputStream.println("error: Unable to find/load class");
                 logger.log(Level.SEVERE, null, ex);
                 return;
@@ -917,7 +922,7 @@ public class Kernel {
             }
             // Add transformer to the list of transformers.
             transformers.add(index, filter);
-            logger.log(Level.INFO, "Filter added: " + classname);
+            logger.log(Level.INFO, "Filter added: {0}", classname);
             outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("sketch")) {
             if (tokens.length < 3) {
@@ -927,18 +932,18 @@ public class Kernel {
             }
             String classname = tokens[2];
             // Get the sketch by classname and create a new instance.
-            logger.log(Level.INFO, "Adding sketch: " + classname);
+            logger.log(Level.INFO, "Adding sketch: {0}", classname);
             outputStream.print("Adding sketch " + classname + "... ");
             AbstractSketch sketch;
             try {
                 sketch = (AbstractSketch) Class.forName("spade.sketch." + classname).newInstance();
-            } catch (Exception ex) {
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
                 outputStream.println("error: Unable to find/load class");
                 logger.log(Level.SEVERE, null, ex);
                 return;
             }
             sketches.add(sketch);
-            logger.log(Level.INFO, "Sketch added: " + classname);
+            logger.log(Level.INFO, "Sketch added: {0}", classname);
             outputStream.println("done");
         } else {
             outputStream.println("Usage:");
@@ -1063,7 +1068,7 @@ public class Kernel {
             listCommand("list reporters " + verbose_token, outputStream);
             listCommand("list storages " + verbose_token, outputStream);
             listCommand("list filters " + verbose_token, outputStream);
-            // listCommand("list transformers", outputStream);
+            listCommand("list transformers " + verbose_token, outputStream);
             listCommand("list sketches " + verbose_token, outputStream);
         } else {
             outputStream.println("Usage:");
@@ -1101,20 +1106,20 @@ public class Kernel {
                         reporter.shutdown();
                         removereporters.add(reporter);
                         found = true;
-                        logger.log(Level.INFO, "Shutting down reporter: " + tokens[2]);
+                        logger.log(Level.INFO, "Shutting down reporter: {0}", tokens[2]);
                         outputStream.print("Shutting down reporter " + tokens[2] + "... ");
                         while (removereporters.contains(reporter)) {
                             // Wait for other thread to safely remove reporter
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
                         reporterIterator.remove();
-                        logger.log(Level.INFO, "Reporter shut down: " + tokens[2]);
+                        logger.log(Level.INFO, "Reporter shut down: {0}", tokens[2]);
                         outputStream.println("done");
                         break;
                     }
                 }
                 if (!found) {
-                    logger.log(Level.WARNING, "Reporter not found (for shutting down): " + tokens[2]);
+                    logger.log(Level.WARNING, "Reporter not found (for shutting down): {0}", tokens[2]);
                     outputStream.println("Reporter " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("storage")) {
@@ -1132,20 +1137,20 @@ public class Kernel {
                         long edgeCount = storage.edgeCount;
                         removestorages.add(storage);
                         found = true;
-                        logger.log(Level.INFO, "Shutting down storage: " + tokens[2]);
+                        logger.log(Level.INFO, "Shutting down storage: {0}", tokens[2]);
                         outputStream.print("Shutting down storage " + tokens[2] + "... ");
                         while (removestorages.contains(storage)) {
                             // Wait for other thread to safely remove storage
                             Thread.sleep(REMOVE_WAIT_DELAY);
                         }
                         storageIterator.remove();
-                        logger.log(Level.INFO, "Storage shut down: " + tokens[2] + " (" + vertexCount + " vertices and " + edgeCount + " edges were added)");
+                        logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)", new Object[]{tokens[2], vertexCount, edgeCount});
                         outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
                         break;
                     }
                 }
                 if (!found) {
-                    logger.log(Level.WARNING, "Storage not found (for shutting down): " + tokens[2]);
+                    logger.log(Level.WARNING, "Storage not found (for shutting down): {0}", tokens[2]);
                     outputStream.println("Storage " + tokens[2] + " not found");
                 }
             } else if (tokens[1].equalsIgnoreCase("filter")) {
@@ -1158,7 +1163,7 @@ public class Kernel {
                     return;
                 }
                 String filterName = filters.get(index - 1).getClass().getName();
-                logger.log(Level.INFO, "Removing filter " + filterName.split("\\.")[2]);
+                logger.log(Level.INFO, "Removing filter {0}", filterName.split("\\.")[2]);
                 outputStream.print("Removing filter " + filterName.split("\\.")[2] + "... ");
                 filters.get(index - 1).shutdown();
                 if (index > 1) {
@@ -1171,7 +1176,7 @@ public class Kernel {
                     ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
                 }
                 filters.remove(index - 1);
-                logger.log(Level.INFO, "Filter Removed: " + filterName.split("\\.")[2]);
+                logger.log(Level.INFO, "Filter Removed: {0}", filterName.split("\\.")[2]);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("transformer")) {
                 // Transformer removal is done by the index number (beginning
@@ -1183,7 +1188,7 @@ public class Kernel {
                     return;
                 }
                 String filterName = transformers.get(index - 1).getClass().getName();
-                logger.log(Level.INFO, "Removing transformer " + filterName.split("\\.")[2]);
+                logger.log(Level.INFO, "Removing transformer {0}", filterName.split("\\.")[2]);
                 outputStream.print("Removing transformer " + filterName.split("\\.")[2] + "... ");
                 transformers.get(index - 1).shutdown();
                 if (index > 1) {
@@ -1196,7 +1201,7 @@ public class Kernel {
                     ((AbstractFilter) transformers.get(index - 2)).setNextFilter((AbstractFilter) transformers.get(index));
                 }
                 transformers.remove(index - 1);
-                logger.log(Level.INFO, "Transformer removed: " + filterName.split("\\.")[2]);
+                logger.log(Level.INFO, "Transformer removed: {0}", filterName.split("\\.")[2]);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 boolean found = false;
@@ -1205,16 +1210,16 @@ public class Kernel {
                     // Search for the given sketch in the sketches set.
                     if (sketch.getClass().getName().equals("spade.sketch." + tokens[2])) {
                         found = true;
-                        logger.log(Level.INFO, "Removing sketch " + tokens[2]);
+                        logger.log(Level.INFO, "Removing sketch {0}", tokens[2]);
                         outputStream.print("Removing sketch: " + tokens[2] + "... ");
                         sketchIterator.remove();
-                        logger.log(Level.INFO, "Sketch removed: " + tokens[2]);
+                        logger.log(Level.INFO, "Sketch removed: {0}", tokens[2]);
                         outputStream.println("done");
                         break;
                     }
                 }
                 if (!found) {
-                    logger.log(Level.WARNING, "Sketch not found: " + tokens[2] );
+                    logger.log(Level.WARNING, "Sketch not found: {0}", tokens[2]);
                     outputStream.println("Sketch " + tokens[2] + " not found");
                 }
             } else {
@@ -1222,7 +1227,7 @@ public class Kernel {
                 outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING);
                 outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
             }
-        } catch (Exception removeCommandException) {
+        } catch (InterruptedException | NumberFormatException removeCommandException) {
             outputStream.println("Usage:");
             outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING);
             outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
@@ -1290,6 +1295,7 @@ final class NullStream {
         public void write(byte[] b, int off, int len) {
         }
 
+        @Override
         public void write(int b) {
         }
     });
@@ -1303,6 +1309,7 @@ class LocalControlConnection implements Runnable {
         controlSocket = socket;
     }
 
+    @Override
     public void run() {
         try {
             OutputStream outStream = controlSocket.getOutputStream();
@@ -1348,6 +1355,7 @@ class LocalQueryConnection implements Runnable {
         querySocket = socket;
     }
 
+    @Override
     public void run() {
         try {
             OutputStream outStream = querySocket.getOutputStream();

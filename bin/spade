@@ -2,7 +2,7 @@
 #
 #  --------------------------------------------------------------------------------
 #  SPADE - Support for Provenance Auditing in Distributed Environments.
-#  Copyright (C) 2014 SRI International
+#  Copyright (C) 2015 SRI International
 
 #  This program is free software: you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License as
@@ -17,10 +17,10 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program. If not, see <http://www.gnu.org/licenses/>.
 #  --------------------------------------------------------------------------------
-#  
+#
 
 
-print_help () 
+print_help ()
 {
 	echo "spade start | stop | debug | control | dig | help"
 	echo ""
@@ -35,7 +35,7 @@ print_help ()
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 pushd ${SPADE_ROOT} > /dev/null
 
-if [ $# -eq 0 ] ; then 
+if [ $# -eq 0 ] ; then
 	print_help
 else
 
@@ -51,7 +51,7 @@ else
 		java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.core.Kernel
 	else
 		print_help
-	fi	
+	fi
 
 fi
 

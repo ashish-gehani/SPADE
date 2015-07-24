@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -20,6 +20,7 @@
 package spade.core;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
@@ -32,7 +33,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLSocket;
@@ -168,7 +168,6 @@ public class Query {
 
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
-            //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
             ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
             PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
@@ -178,13 +177,12 @@ public class Query {
 
             remoteSocketOut.println("close");
             graphInputStream.close();
-            //graphOutputStream.close();
             remoteSocketOut.close();
             inStream.close();
             outStream.close();
             remoteSocket.close();
             return resultGraph;
-        } catch (Exception badQuery) {
+        } catch (NumberFormatException | IOException | ClassNotFoundException badQuery) {
             logger.log(Level.SEVERE, null, badQuery);
             return null;
         }
@@ -278,7 +276,6 @@ public class Query {
 
                 OutputStream outStream = remoteSocket.getOutputStream();
                 InputStream inStream = remoteSocket.getInputStream();
-                //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
                 ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
                 PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
@@ -288,7 +285,6 @@ public class Query {
 
                 remoteSocketOut.println("close");
                 graphInputStream.close();
-                //graphOutputStream.close();
                 remoteSocketOut.close();
                 inStream.close();
                 outStream.close();
@@ -300,7 +296,6 @@ public class Query {
 
                 outStream = remoteSocket.getOutputStream();
                 inStream = remoteSocket.getInputStream();
-                //graphOutputStream = new ObjectOutputStream(outStream);
                 graphInputStream = new ObjectInputStream(inStream);
                 remoteSocketOut = new PrintWriter(outStream, true);
 
@@ -310,7 +305,6 @@ public class Query {
 
                 remoteSocketOut.println("close");
                 graphInputStream.close();
-                //graphOutputStream.close();
                 remoteSocketOut.close();
                 inStream.close();
                 outStream.close();
@@ -320,7 +314,7 @@ public class Query {
                 Graph resultGraph = Graph.intersection(srcGraph, dstGraph);
                 return resultGraph;
             }
-        } catch (Exception badQuery) {
+        } catch (NumberFormatException | IOException | ClassNotFoundException badQuery) {
             logger.log(Level.SEVERE, null, badQuery);
             return null;
         }
@@ -372,7 +366,7 @@ public class Query {
             //    fragment.
 
             // Current host's network vertices that match downward
-            Set<AbstractVertex> matchingVerticesUp = new HashSet<AbstractVertex>();
+            Set<AbstractVertex> matchingVerticesUp = new HashSet<>();
 
             if (DEBUG_OUTPUT) {
                 logger.log(Level.INFO, "endPathFragment - checking {0} srcVertices", ((Set<AbstractVertex>) inputSketch.objects.get("srcVertices")).size());
@@ -421,7 +415,7 @@ public class Query {
             //    fragment.
 
             // Current host's network vertices that match upward
-            Set<AbstractVertex> matchingVerticesDown = new HashSet<AbstractVertex>();
+            Set<AbstractVertex> matchingVerticesDown = new HashSet<>();
 
             if (DEBUG_OUTPUT) {
                 logger.log(Level.INFO, "endPathFragment - checking {0} dstVertices", ((Set<AbstractVertex>) inputSketch.objects.get("dstVertices")).size());
@@ -496,8 +490,8 @@ public class Query {
 
         //Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
         Graph myNetworkVertices = executeQuery("query Neo4j vertices network:true", false);
-        Set<AbstractVertex> matchingVerticesDown = new HashSet<AbstractVertex>();
-        Set<AbstractVertex> matchingVerticesUp = new HashSet<AbstractVertex>();
+        Set<AbstractVertex> matchingVerticesDown = new HashSet<>();
+        Set<AbstractVertex> matchingVerticesUp = new HashSet<>();
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
         MatrixFilter myMatrixFilter = Kernel.sketches.iterator().next().matrixFilter;
 
@@ -545,7 +539,7 @@ public class Query {
             logger.log(Level.INFO, "pathFragment.g - {0} in up vertices", matchingVerticesUp.size());
         }
 
-        Set<AbstractVertex> matchingVertices = new HashSet<AbstractVertex>();
+        Set<AbstractVertex> matchingVertices = new HashSet<>();
         matchingVertices.addAll(matchingVerticesDown);
         matchingVertices.retainAll(matchingVerticesUp);
 
@@ -606,14 +600,12 @@ public class Query {
         executeQuery(null, false); // To flush transactions
         try {
             AbstractSketch mySketch = Kernel.sketches.iterator().next();
-            //Set<AbstractEdge> usedEdges = storages.iterator().next().getEdges(null, "type:Network", "type:Used").edgeSet();
             Set<AbstractEdge> usedEdges = Kernel.storages.iterator().next().getEdges(null, "network:true", "type:Used").edgeSet();
             for (AbstractEdge currentEdge : usedEdges) {
                 mySketch.putEdge(currentEdge);
                 Thread.sleep(200);
             }
             Thread.sleep(2000);
-            //Set<AbstractEdge> wgbEdges = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").edgeSet();
             Set<AbstractEdge> wgbEdges = Kernel.storages.iterator().next().getEdges("network:true", null, "type:WasGeneratedBy").edgeSet();
             for (AbstractEdge currentEdge : wgbEdges) {
                 mySketch.putEdge(currentEdge);
@@ -649,11 +641,9 @@ public class Query {
 
         currentLevel++;
         executeQuery(null, false); // To flush transactions
-        //Set<AbstractVertex> upVertices = storages.iterator().next().getEdges("type:Network", null, "type:WasGeneratedBy").vertexSet();
         Set<AbstractVertex> upVertices = Kernel.storages.iterator().next().getEdges("network:true", null, "type:WasGeneratedBy").vertexSet();
         // Get all outgoing network vertices.
         for (AbstractVertex currentVertex : upVertices) {
-            //if (!currentVertex.type().equalsIgnoreCase("Network")) {
             if (!currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                 continue;
             }
@@ -698,7 +688,6 @@ public class Query {
         }
 
         executeQuery(null, false); // To flush transactions
-        //Set<AbstractVertex> upVertices = storages.iterator().next().getEdges(null, "type:Network", "type:Used").vertexSet();
         Set<AbstractVertex> upVertices = Kernel.storages.iterator().next().getEdges(null, "network:true", "type:Used").vertexSet();
         // If there are no incoming network vertices to send notifications to,
         // stop notifying and begin propagation.
@@ -713,7 +702,6 @@ public class Query {
         }
         currentLevel--;
         for (AbstractVertex currentVertex : upVertices) {
-            //if (!currentVertex.type().equalsIgnoreCase("Network")) {
             if (!currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                 continue;
             }
@@ -754,8 +742,8 @@ public class Query {
         String dstHost = destination.split(":")[0];
         String dstVertexId = destination.split(":")[1];
 
-        Set<AbstractVertex> sourceNetworkVertices = new HashSet<AbstractVertex>();
-        Set<AbstractVertex> destinationNetworkVertices = new HashSet<AbstractVertex>();
+        Set<AbstractVertex> sourceNetworkVertices = new HashSet<>();
+        Set<AbstractVertex> destinationNetworkVertices = new HashSet<>();
 
         try {
             // Connect to destination host and get all the destination network vertices
@@ -764,11 +752,9 @@ public class Query {
 
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
-            //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
             ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
             PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
-            //String expression = "query Neo4j vertices type:Network";
             String expression = "query Neo4j vertices network:true";
             remoteSocketOut.println(expression);
             // Check whether the remote query server returned a graph in response
@@ -792,7 +778,6 @@ public class Query {
             remoteSocketOut.println("close");
             remoteSocketOut.close();
             graphInputStream.close();
-            //graphOutputStream.close();
             inStream.close();
             outStream.close();
             remoteSocket.close();
@@ -807,11 +792,9 @@ public class Query {
 
             inStream = remoteSocket.getInputStream();
             outStream = remoteSocket.getOutputStream();
-            //graphOutputStream = new ObjectOutputStream(outStream);
             graphInputStream = new ObjectInputStream(inStream);
             remoteSocketOut = new PrintWriter(outStream, true);
 
-            //expression = "query Neo4j vertices type:Network";
             expression = "query Neo4j vertices network:true";
             remoteSocketOut.println(expression);
             // Check whether the remote query server returned a graph in response
@@ -833,7 +816,6 @@ public class Query {
             remoteSocketOut.println("close");
             remoteSocketOut.close();
             graphInputStream.close();
-            //graphOutputStream.close();
             inStream.close();
             outStream.close();
             remoteSocket.close();
@@ -842,7 +824,7 @@ public class Query {
                 logger.log(Level.INFO, "sketchPaths.2 - received data from {0}", srcHost);
             }
 
-            List<String> hostsToContact = new LinkedList<String>();
+            List<String> hostsToContact = new LinkedList<>();
 
             // Determine which hosts need to be contacted for the path fragments:
             //
@@ -871,8 +853,8 @@ public class Query {
 
             // Retrieving path ends
             // Retrieve source end
-            List<Graph> graphResults = new Vector<Graph>();
-            List<Thread> pathThreads = new LinkedList<Thread>();
+            List<Graph> graphResults = new LinkedList<>();
+            List<Thread> pathThreads = new LinkedList<>();
 
             // Start threads to get all path fragments in a multi-threaded manner.
             PathFragment srcFragment = new PathFragment(srcHost, "pathFragment_src", graphResults);
@@ -908,7 +890,7 @@ public class Query {
                 result = Graph.union(result, graphResults.get(i));
             }
 
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException | ClassNotFoundException | InterruptedException exception) {
             logger.log(Level.SEVERE, null, exception);
         }
 
@@ -935,7 +917,7 @@ public class Query {
                 graph.transformed = true;
             }
 
-            List<AbstractVertex> networkVertices = new LinkedList<AbstractVertex>();
+            List<AbstractVertex> networkVertices = new LinkedList<>();
             for (AbstractVertex currentVertex : graph.vertexSet()) {
                 //if (currentVertex.type().equalsIgnoreCase("Network")) {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
@@ -989,7 +971,6 @@ public class Query {
 
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
-            //ObjectOutputStream graphOutputStream = new ObjectOutputStream(outStream);
             ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
             PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
@@ -1026,11 +1007,10 @@ public class Query {
             remoteSocketOut.println("close");
             remoteSocketOut.close();
             graphInputStream.close();
-            //graphOutputStream.close();
             inStream.close();
             outStream.close();
             remoteSocket.close();
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException | ClassNotFoundException exception) {
             logger.log(Level.SEVERE, null, exception);
         }
 
@@ -1047,6 +1027,7 @@ class QueryConnection implements Runnable {
         clientSocket = socket;
     }
 
+    @Override
     public void run() {
         try {
 
@@ -1101,6 +1082,7 @@ class SketchConnection implements Runnable {
         clientSocket = socket;
     }
 
+    @Override
     public void run() {
         try {
 
@@ -1168,7 +1150,7 @@ class SketchConnection implements Runnable {
                 Logger.getLogger(SketchConnection.class.getName()).log(Level.INFO, "Sketch socket closed");
             }
 
-        } catch (Exception ex) {
+        } catch (IOException | ClassNotFoundException | NumberFormatException ex) {
             Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -1191,6 +1173,7 @@ class RebuildSketch implements Runnable {
         remoteHost = host;
     }
 
+    @Override
     public void run() {
         try {
             int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
@@ -1216,7 +1199,7 @@ class RebuildSketch implements Runnable {
             outStream.close();
             inStream.close();
             remoteSocket.close();
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException exception) {
             Logger.getLogger(RebuildSketch.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
@@ -1239,6 +1222,7 @@ class PropagateSketch implements Runnable {
         remoteHost = host;
     }
 
+    @Override
     public void run() {
         try {
             int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
@@ -1264,7 +1248,7 @@ class PropagateSketch implements Runnable {
             inStream.close();
             outStream.close();
             remoteSocket.close();
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException exception) {
             Logger.getLogger(PropagateSketch.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
@@ -1285,6 +1269,7 @@ class PathFragment implements Runnable {
         graphResults = results;
     }
 
+    @Override
     public void run() {
         try {
             int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
@@ -1314,7 +1299,7 @@ class PathFragment implements Runnable {
             }
 
             graphResults.add(tempResultGraph);
-        } catch (Exception exception) {
+        } catch (NumberFormatException | IOException | ClassNotFoundException exception) {
             Logger.getLogger(PathFragment.class.getName()).log(Level.SEVERE, null, exception);
         }
     }

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -30,14 +30,14 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public class Buffer {
 
-    private Queue<Object> queue;
+    private final Queue<Object> queue;
 
     /**
      * Empty constructor for this class.
      *
      */
     public Buffer() {
-        queue = new ConcurrentLinkedQueue<Object>();
+        queue = new ConcurrentLinkedQueue<>();
     }
 
     /**

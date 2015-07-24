@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or  
  modify it under the terms of the GNU General Public License as  
@@ -210,8 +210,8 @@ public class BloomFilter implements Serializable {
     /**
      * Calculates the expected probability of false positives based on the
      * number of expected filter elements and the size of the Bloom filter. <br
-     * /><br /> The value returned by this method is the <i>expected</i> rate of
-     * false positives, assuming the number of inserted elements equals the
+     * /><br /> The value returned by this method is the <i>expected</i> rate
+     * of false positives, assuming the number of inserted elements equals the
      * number of expected elements. If the number of elements in the Bloom
      * filter is less than the expected value, the true probability of false
      * positives will be lower.
@@ -270,7 +270,7 @@ public class BloomFilter implements Serializable {
      * Adds an object to the Bloom filter. The output from the object's
      * toString() method is used as input to the hash functions.
      *
-     * @param element is an element to register in the Bloom filter.
+     * @param vertex is an element to register in the Bloom filter.
      */
     public void add(AbstractVertex vertex) {
         long hash;
@@ -288,7 +288,7 @@ public class BloomFilter implements Serializable {
      * filter. Use getFalsePositiveProbability() to calculate the probability of
      * this being correct.
      *
-     * @param element element to check.
+     * @param vertex element to check.
      * @return true if the element could have been inserted into the Bloom
      * filter.
      */

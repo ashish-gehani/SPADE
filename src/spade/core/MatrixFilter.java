@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or  
  modify it under the terms of the GNU General Public License as  
@@ -74,7 +74,7 @@ public class MatrixFilter implements Serializable {
         this.filtersPerElement = c;
         this.filterSetSize = (int) Math.ceil(c * n);
         numberOfAddedElements = 0;
-        this.filterSet = new LinkedList<BloomFilter>();
+        this.filterSet = new LinkedList<>();
         for (int i = 0; i < this.filterSetSize; i++) {
             this.filterSet.add(new BloomFilter(c, n, k));
         }
@@ -213,8 +213,8 @@ public class MatrixFilter implements Serializable {
     /**
      * Calculates the expected probability of false positives based on the
      * number of expected filter elements and the size of the Bloom filter. <br
-     * /><br /> The value returned by this method is the <i>expected</i> rate of
-     * false positives, assuming the number of inserted elements equals the
+     * /><br /> The value returned by this method is the <i>expected</i> rate
+     * of false positives, assuming the number of inserted elements equals the
      * number of expected elements. If the number of elements in the Bloom
      * filter is less than the expected value, the true probability of false
      * positives will be lower.
@@ -274,6 +274,7 @@ public class MatrixFilter implements Serializable {
      * toString() method is used as input to the hash functions.
      *
      * @param destinationVertex is an element to register in the Bloom filter.
+     * @param sourceVertex
      */
     public void add(AbstractVertex destinationVertex, AbstractVertex sourceVertex) {
         long hash;
@@ -316,7 +317,7 @@ public class MatrixFilter implements Serializable {
      * filter. Use getFalsePositiveProbability() to calculate the probability of
      * this being correct.
      *
-     * @param element element to check.
+     * @param vertex element to check.
      * @return true if the element could have been inserted into the Bloom
      * filter.
      */

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -31,6 +31,7 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 
 import org.deri.iris.Configuration;
+import org.deri.iris.EvaluationException;
 import org.deri.iris.KnowledgeBaseFactory;
 import org.deri.iris.api.IKnowledgeBase;
 import org.deri.iris.api.basics.IPredicate;
@@ -39,6 +40,7 @@ import org.deri.iris.api.basics.IRule;
 import org.deri.iris.api.basics.ITuple;
 import org.deri.iris.api.terms.IVariable;
 import org.deri.iris.compiler.Parser;
+import org.deri.iris.compiler.ParserException;
 import org.deri.iris.storage.IRelation;
 
 /**
@@ -48,9 +50,8 @@ import org.deri.iris.storage.IRelation;
 public class Datalog extends AbstractStorage {
 
     StringBuilder datalogProgram = new StringBuilder();
-    Map<Integer, AbstractVertex> vertexMap = new HashMap<Integer, AbstractVertex>();
-    Map<AbstractVertex, Integer> vertexMapReversed = new HashMap<AbstractVertex, Integer>();
-    int vertexCount = 0;
+    Map<Long, AbstractVertex> vertexMap = new HashMap<>();
+    Map<AbstractVertex, Long> vertexMapReversed = new HashMap<>();
     static final Logger logger = Logger.getLogger(Datalog.class.getName());
 
     @Override
@@ -73,9 +74,9 @@ public class Datalog extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        int srcVertexId = vertexMapReversed.get(incomingEdge.getSourceVertex());
-        int dstVertexId = vertexMapReversed.get(incomingEdge.getDestinationVertex());
-        datalogProgram.append("parent('" + srcVertexId + "', '" + dstVertexId + "')\r\n");
+        long srcVertexId = vertexMapReversed.get(incomingEdge.getSourceVertex());
+        long dstVertexId = vertexMapReversed.get(incomingEdge.getDestinationVertex());
+        datalogProgram.append("parent('").append(srcVertexId).append("', '").append(dstVertexId).append("')\r\n");
         return true;
     }
 
@@ -96,18 +97,18 @@ public class Datalog extends AbstractStorage {
             List<IRule> rules = parser.getRules();
             IKnowledgeBase knowledgeBase = KnowledgeBaseFactory.createKnowledgeBase(facts, rules, configuration);
 
-            List<IVariable> variableBindings = new ArrayList<IVariable>();
+            List<IVariable> variableBindings = new ArrayList<>();
             IQuery query = parser.getQueries().get(0);
             IRelation results = knowledgeBase.execute(query, variableBindings);
 
             for (int t = 0; t < results.size(); ++t) {
                 ITuple tuple = results.get(t);
-                int id = Integer.parseInt(tuple.toString().substring(2, tuple.toString().length() - 2));
+                long id = Integer.parseInt(tuple.toString().substring(2, tuple.toString().length() - 2));
                 AbstractVertex v = vertexMap.get(id);
                 result.putVertex(v);
             }
 
-        } catch (Exception exception) {
+        } catch (ParserException | EvaluationException | NumberFormatException exception) {
             logger.log(Level.SEVERE, null, exception);
             return null;
         }

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,8 +51,6 @@ public class SQL extends AbstractStorage {
     private final String VERTEX_TABLE = "VERTEX";
     private final String EDGE_TABLE = "EDGE";
     private final boolean ENABLE_SANITAZATION = true;
-    private final int BATCH_SIZE = 1;
-    private int statement_count = 0;
     private static final String ID_STRING = Settings.getProperty("storage_identifier");
     private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
@@ -59,69 +58,43 @@ public class SQL extends AbstractStorage {
     // private Statement batch_statement;
     @Override
     public boolean initialize(String arguments) {
-        vertexAnnotations = new HashSet<String>();
-        edgeAnnotations = new HashSet<String>();
+        vertexAnnotations = new HashSet<>();
+        edgeAnnotations = new HashSet<>();
 
-        // Arguments consist of 4 space-separated tokens: 'driver URL username
-        // password'
+        // Arguments consist of 4 space-separated tokens: 'driver URL username password'
         try {
             String[] tokens = arguments.split("\\s+");
-            String driver = (tokens[0].equalsIgnoreCase("default")) ? "org.apache.derby.jdbc.EmbeddedDriver" : tokens[0];
-            String databaseURL = (tokens[1].equalsIgnoreCase("default")) ? "jdbc:derby:/Users/dawood/Desktop/testSPADE/SPADE/bin/derbyDB;create=true" : tokens[1];
-            // String username = tokens[2];
-            // String password = tokens[3];
-            // username = (username.equalsIgnoreCase("null")) ? "" : username;
-            // password = (password.equalsIgnoreCase("null")) ? "" : password;
+            String driver = tokens[0].equalsIgnoreCase("default") ? "org.h2.Driver" : tokens[0];
+            String databaseURL = tokens[1].equalsIgnoreCase("default") ? "jdbc:h2:/tmp/spade.sql" : tokens[1];
+            String username = tokens[2].equalsIgnoreCase("null") ? "" : tokens[2];
+            String password = tokens[3].equalsIgnoreCase("null") ? "" : tokens[3];
 
             Class.forName(driver).newInstance();
-            dbConnection = DriverManager.getConnection(databaseURL);
-            // dbConnection = DriverManager.getConnection(databaseURL, username,
-            // password);
+            dbConnection = DriverManager.getConnection(databaseURL, username, password);
             dbConnection.setAutoCommit(false);
 
             Statement dbStatement = dbConnection.createStatement();
-
             // Create vertex table if it does not already exist
-            String createVertexTable = "CREATE TABLE " + VERTEX_TABLE + " (" + "vertexId INT GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " + "type VARCHAR(32) NOT NULL, "
-                    + "hash INT NOT NULL" + ")";
-            // String createVertexTable = "CREATE TABLE IF NOT EXISTS " +
-            // VERTEX_TABLE + " ("
-            // + "vertexId INT PRIMARY KEY AUTO_INCREMENT, "
-            // + "type VARCHAR(32) NOT NULL, "
-            // + "hash INT NOT NULL"
-            // + ")";
+            String createVertexTable = "CREATE TABLE IF NOT EXISTS "
+                    + VERTEX_TABLE
+                    + " (vertexId INT PRIMARY KEY AUTO_INCREMENT, "
+                    + "type VARCHAR(32) NOT NULL, "
+                    + "hash INT NOT NULL"
+                    + ")";
             dbStatement.execute(createVertexTable);
-
-            // Create edge table if it does not already exist
-            String createEdgeTable = "CREATE TABLE " + EDGE_TABLE + " (" + "edgeId INT GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " + "type VARCHAR(32) NOT NULL ,"
-                    + "hash INT NOT NULL, " + "srcVertexHash INT NOT NULL, " + "dstVertexHash INT NOT NULL" + ")";
-            // String createEdgeTable = "CREATE TABLE IF NOT EXISTS " +
-            // EDGE_TABLE + " ("
-            // + "edgeId INT PRIMARY KEY AUTO_INCREMENT, "
-            // + "type VARCHAR(32) NOT NULL ,"
-            // + "hash INT NOT NULL, "
-            // + "srcVertexHash INT NOT NULL, "
-            // + "dstVertexHash INT NOT NULL"
-            // + ")";
+            String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
+                    + EDGE_TABLE
+                    + " (edgeId INT PRIMARY KEY AUTO_INCREMENT, "
+                    + "type VARCHAR(32) NOT NULL ,"
+                    + "hash INT NOT NULL, "
+                    + "srcVertexHash INT NOT NULL, "
+                    + "dstVertexHash INT NOT NULL"
+                    + ")";
             dbStatement.execute(createEdgeTable);
             dbStatement.close();
 
-            // For performance optimization, create and store procedure to add
-            // columns to tables since this method may be called frequently
-            // ---- PROCEDURES UNSUPPORTED IN H2 ----
-            // String procedureStatement =
-            // "DROP PROCEDURE IF EXISTS addColumn;\n"
-            // +
-            // "CREATE PROCEDURE addColumn(IN myTable VARCHAR(16), IN myColumn VARCHAR(64))\n"
-            // + "BEGIN\n"
-            // +
-            // " SET @newStatement = CONCAT('ALTER TABLE ', myTable, ' ADD COLUMN ', myColumn, ' VARCHAR');\n"
-            // + " PREPARE STMT FROM @newStatement;\n"
-            // + " EXECUTE STMT;\n" + "END;";
-            // dbStatement.execute(procedureStatement);
-            // batch_statement = dbConnection.createStatement();
             return true;
-        } catch (Exception ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | SQLException ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
@@ -130,30 +103,11 @@ public class SQL extends AbstractStorage {
     @Override
     public boolean shutdown() {
         try {
-            // Close the connection to the database
-            // if (++statement_count % BATCH_SIZE > 0) {
-            // batch_statement.executeBatch();
-            // }
-            // batch_statement.close();
-            DriverManager.getConnection("jdbc:derby:;shutdown=true");
             dbConnection.close();
             return true;
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return false;
-        }
-    }
-
-    private int getVertexId(AbstractVertex vertex) {
-        try {
-            // Get the vertexId from the VERTEX table based on the hash value
-            Statement selectStatement = dbConnection.createStatement();
-            ResultSet result = selectStatement.executeQuery("SELECT vertexId FROM " + VERTEX_TABLE + " WHERE hash = " + vertex.hashCode());
-            result.next();
-            return result.getInt("vertexId");
-        } catch (Exception ex) {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-            return 0;
         }
     }
 
@@ -165,8 +119,7 @@ public class SQL extends AbstractStorage {
     }
 
     private boolean addColumn(String table, String column) {
-        // If this column has already been added before for this table, then
-        // return
+        // If this column has already been added before for this table, then return
         if ((table.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column)) {
             return true;
         } else if ((table.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column)) {
@@ -174,23 +127,13 @@ public class SQL extends AbstractStorage {
         }
 
         try {
-            // ---- PROCEDURES UNSUPPORTED IN H2 ----
-            // CallableStatement callStatement =
-            // dbConnection.prepareCall("{CALL addColumn(?, ?)}");
-            // callStatement.setString(1, table);
-            // callStatement.setString(2, column);
-            // callStatement.execute();
-            // callStatement.close();
-            // Add column of type VARCHAR
-            // Statement columnStatement = dbConnection.createStatement();
-            // String statement = "ALTER TABLE " + table +
-            // " ADD IF NOT EXISTS `" + column + "` VARCHAR";
-            Statement s = dbConnection.createStatement();
-            String statement = "ALTER TABLE " + table + " ADD " + column + " VARCHAR(128)";
-            s.execute(statement);
-            s.close();
-            // runStatement(statement);
-            // columnStatement.execute();
+            Statement columnStatement = dbConnection.createStatement();
+            String statement = "ALTER TABLE " + table
+                    + " ADD IF NOT EXISTS `"
+                    + column
+                    + "` VARCHAR";
+            columnStatement.execute(statement);
+            columnStatement.close();
 
             if (table.equalsIgnoreCase(VERTEX_TABLE)) {
                 vertexAnnotations.add(column);
@@ -218,8 +161,7 @@ public class SQL extends AbstractStorage {
             String newAnnotationKey = sanitizeColumn(annotationKey);
 
             // As the annotation keys are being iterated, add them as new
-            // columns
-            // to the table if they do not already exist
+            // columns to the table if they do not already exist
             addColumn(VERTEX_TABLE, newAnnotationKey);
 
             insertStringBuilder.append("");
@@ -227,8 +169,7 @@ public class SQL extends AbstractStorage {
             insertStringBuilder.append(", ");
         }
 
-        // Eliminate the last 2 characters from the string (", ") and begin
-        // adding values
+        // Eliminate the last 2 characters from the string (", ") and begin adding values
         String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
@@ -258,9 +199,8 @@ public class SQL extends AbstractStorage {
             s.execute(insertString);
             s.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, e);
         }
-        // runStatement(insertString);
         return true;
     }
 
@@ -279,8 +219,7 @@ public class SQL extends AbstractStorage {
             String newAnnotationKey = sanitizeColumn(annotationKey);
 
             // As the annotation keys are being iterated, add them as new
-            // columns
-            // to the table if they do not already exist
+            // columns to the table if they do not already exist
             addColumn(EDGE_TABLE, newAnnotationKey);
 
             insertStringBuilder.append("");
@@ -288,8 +227,7 @@ public class SQL extends AbstractStorage {
             insertStringBuilder.append(", ");
         }
 
-        // Eliminate the last 2 characters from the string (", ") and begin
-        // adding values
+        // Eliminate the last 2 characters from the string (", ") and begin adding values
         String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
         insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
 
@@ -323,37 +261,14 @@ public class SQL extends AbstractStorage {
             s.execute(insertString);
             s.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, e);
         }
-        // runStatement(insertString);
         return true;
     }
 
-    // private void runStatement(String statement) {
-    // try {
-    // batch_statement.addBatch(statement);
-    // if (++statement_count % BATCH_SIZE == 0) {
-    // batch_statement.executeBatch();
-    // batch_statement.close();
-    // batch_statement = dbConnection.createStatement();
-    // }
-    // } catch (Exception ex) {
-    // Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-    // }
-    // }
-    // private void flushStatements() {
-    // try {
-    // batch_statement.executeBatch();
-    // batch_statement.close();
-    // batch_statement = dbConnection.createStatement();
-    // } catch (Exception ex) {
-    // Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
-    // }
-    // }
     @Override
     public Graph getVertices(String expression) {
         try {
-            // flushStatements();
             Graph graph = new Graph();
             String query = "SELECT * FROM VERTEX WHERE " + expression;
             Statement vertexStatement = dbConnection.createStatement();
@@ -361,7 +276,7 @@ public class SQL extends AbstractStorage {
             ResultSetMetaData metadata = result.getMetaData();
             int columnCount = metadata.getColumnCount();
 
-            Map<Integer, String> columnLabels = new HashMap<Integer, String>();
+            Map<Integer, String> columnLabels = new HashMap<>();
             for (int i = 1; i <= columnCount; i++) {
                 columnLabels.put(i, metadata.getColumnName(i));
             }
@@ -395,11 +310,11 @@ public class SQL extends AbstractStorage {
         Graph graph = new Graph();
         int vertexColumnCount;
         int edgeColumnCount;
-        Map<Integer, AbstractVertex> vertexLookup = new HashMap<Integer, AbstractVertex>();
-        Map<Integer, String> vertexColumnLabels = new HashMap<Integer, String>();
-        Map<Integer, String> edgeColumnLabels = new HashMap<Integer, String>();
-        Set<Integer> doneSet = new HashSet<Integer>();
-        Set<Integer> tempSet = new HashSet<Integer>();
+        Map<Integer, AbstractVertex> vertexLookup = new HashMap<>();
+        Map<Integer, String> vertexColumnLabels = new HashMap<>();
+        Map<Integer, String> edgeColumnLabels = new HashMap<>();
+        Set<Integer> doneSet = new HashSet<>();
+        Set<Integer> tempSet = new HashSet<>();
 
         // Get the source vertex
         try {
@@ -442,7 +357,7 @@ public class SQL extends AbstractStorage {
 
         Set<Integer> terminatingSet = null;
         if (terminatingExpression != null) {
-            terminatingSet = new HashSet<Integer>();
+            terminatingSet = new HashSet<>();
             try {
                 String query = "SELECT hash FROM VERTEX WHERE " + vertexId;
                 Statement vertexStatement = dbConnection.createStatement();
@@ -470,7 +385,7 @@ public class SQL extends AbstractStorage {
                 break;
             }
             doneSet.addAll(tempSet);
-            Set<Integer> newTempSet = new HashSet<Integer>();
+            Set<Integer> newTempSet = new HashSet<>();
             for (Integer tempVertexHash : tempSet) {
                 // Get edges for this vertex
                 try {

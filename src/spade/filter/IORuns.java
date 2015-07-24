@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -34,14 +34,14 @@ import spade.vertex.opm.Artifact;
 public class IORuns extends AbstractFilter {
 
     private final String artifactKey = "location";
-    private Map<String, HashSet<String>> writes;
-    private Map<String, HashSet<String>> reads;
-    private Queue<AbstractVertex> vertexBuffer;
+    private final Map<String, HashSet<String>> writes;
+    private final Map<String, HashSet<String>> reads;
+    private final Queue<AbstractVertex> vertexBuffer;
 
     public IORuns() {
-        writes = new HashMap<String, HashSet<String>>();
-        reads = new HashMap<String, HashSet<String>>();
-        vertexBuffer = new LinkedList<AbstractVertex>();
+        writes = new HashMap<>();
+        reads = new HashMap<>();
+        vertexBuffer = new LinkedList<>();
     }
 
     @Override
@@ -50,7 +50,6 @@ public class IORuns extends AbstractFilter {
             vertexBuffer.add(incomingVertex);
         } else {
             putInNextFilter(incomingVertex);
-            return;
         }
     }
 
@@ -61,7 +60,7 @@ public class IORuns extends AbstractFilter {
             String fileVertexHash = usedEdge.getDestinationVertex().getAnnotation(artifactKey);
             String processVertexHash = Integer.toString(usedEdge.getSourceVertex().hashCode());
             if (!reads.containsKey(fileVertexHash)) {
-                HashSet<String> tempSet = new HashSet<String>();
+                HashSet<String> tempSet = new HashSet<>();
                 tempSet.add(processVertexHash);
                 reads.put(fileVertexHash, tempSet);
             } else {
@@ -85,7 +84,7 @@ public class IORuns extends AbstractFilter {
             String fileVertexHash = wgb.getSourceVertex().getAnnotation(artifactKey);
             String processVertexHash = Integer.toString(wgb.getDestinationVertex().hashCode());
             if (!writes.containsKey(fileVertexHash)) {
-                HashSet<String> tempSet = new HashSet<String>();
+                HashSet<String> tempSet = new HashSet<>();
                 tempSet.add(processVertexHash);
                 writes.put(fileVertexHash, tempSet);
             } else {
