@@ -44,7 +44,7 @@ else
 	elif [ $1 = "stop" ] ; then
 		java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.utility.Daemonizer "$@"
 	elif [ $1 = "dig" ] ; then
-		java -cp '../build:../lib/*' spade.client.QueryClient
+		java -cp './build:./lib/*' spade.client.QueryClient
 	elif [ $1 = "control" ] ; then
 		java -cp './build:./lib/*' spade.client.ControlClient
 	elif [ $1 = "debug" ] ; then
