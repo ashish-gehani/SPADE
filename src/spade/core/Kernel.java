@@ -295,7 +295,7 @@ public class Kernel {
 
         shutdown = false;
         flushTransactions = true;
-        reindexLucene = false;
+        reindexLucene = true;
 
         // Initialize the SketchManager and the final commit filter.
         // The FinalCommitFilter acts as a terminator for the filter list
