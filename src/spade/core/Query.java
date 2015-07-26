@@ -80,7 +80,7 @@ public class Query {
         try {
             String[] tokens = line.split("\\s+", 4);
             for (AbstractStorage storage : Kernel.storages) {
-                if (storage.getClass().getName().equals("spade.storage." + tokens[1])) {
+                if (tokens.length>1 && storage.getClass().getName().equals("spade.storage." + tokens[1])) {
 
                     if (DEBUG_OUTPUT) {
                         logger.log(Level.INFO, "Executing query line: {0}", line);
