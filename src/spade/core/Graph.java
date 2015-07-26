@@ -83,8 +83,8 @@ public class Graph extends AbstractStorage implements Serializable {
     private static final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
     private static final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
 
-    private Analyzer analyzer = new KeywordAnalyzer();
-    private QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
+    private transient Analyzer analyzer = new KeywordAnalyzer();
+    private transient QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
     private Set<AbstractVertex> vertexSet = new LinkedHashSet<>();
     private Map<Integer, AbstractVertex> vertexIdentifiers = new HashMap<>();
     private Map<AbstractVertex, Integer> reverseVertexIdentifiers = new HashMap<>();
