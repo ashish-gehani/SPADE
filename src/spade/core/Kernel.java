@@ -134,7 +134,7 @@ public class Kernel {
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter <index>";
-    private static final String LIST_STRING = "list reporters|storages|filters|transformers|sketches|all";
+    private static final String LIST_STRING = "list reporters|storages|filters|sketches|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
@@ -1068,7 +1068,7 @@ public class Kernel {
             listCommand("list reporters " + verbose_token, outputStream);
             listCommand("list storages " + verbose_token, outputStream);
             listCommand("list filters " + verbose_token, outputStream);
-            listCommand("list transformers " + verbose_token, outputStream);
+            // listCommand("list transformers " + verbose_token, outputStream);
             listCommand("list sketches " + verbose_token, outputStream);
         } else {
             outputStream.println("Usage:");
