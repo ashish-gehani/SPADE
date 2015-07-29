@@ -35,10 +35,12 @@ import java.util.Calendar;
 import java.util.Date;
 
 import spade.core.AbstractReporter;
+import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.edge.opm.*;
 import spade.reporter.pdu.Pdu;
 import spade.reporter.pdu.PduParser;
 import spade.vertex.opm.Artifact;
@@ -112,20 +114,6 @@ public class Bitcoin extends AbstractReporter {
 		return true;
 	}
     
-    Block fetchBlock(int index) throws Exception{
-    	Block block;
-    	try {
-			block = block_reader.getBlock(block_hash_db.get(index));
-    	} catch (IndexOutOfBoundsException e) {
-    		// block hash not present, call for new hashes
-    		throw e;
-    	} catch (Exception e) {
-    		// block fetching or parsing issue
-			throw e;
-		}
-    	return block;
-    }
-    
     int getLastBlockProcessedFromCache() throws Exception{
     	int last_block = -1;
     	try {
@@ -174,6 +162,82 @@ public class Bitcoin extends AbstractReporter {
     
     void reportBlock(Block block) {
     	
+    	// block artifact
+    	Artifact block_node = new Artifact();
+    	block_node.addAnnotations(new HashMap<String, String>(){
+    		{
+    			put("hash", block.hash); 
+    			put("id", block.id); 
+    			put("height", Integer.toString(block.height)); 
+    			put("confirmations", Integer.toString(block.confirmations));
+    			put("size", Integer.toString(block.size));
+    			put("version", Integer.toString(block.version)); 
+    			put("merkleroot", block.merkleroot);
+    			put("time", Integer.toString(block.time)); 
+    			put("nonce", Integer.toString(block.nonce)); 
+    			put("bits", block.bits); 
+    			put("difficulty", Integer.toString(block.difficulty)); 
+    			put("chainwork", block.chainwork);
+    		}
+    	});
+    	putVertex(block_node);
+    	
+    	// TODO: edge between this and last block
+    	
+    	for(Transaction tx: block.transactions) {
+    		// Tx artifact
+    		Artifact tx_node = new Artifact();
+    		tx_node.addAnnotations(new HashMap<String, String>(){
+    			{
+    				put("id", tx.id);
+    				put("tx", tx.id);
+    				put("version", Integer.toString(tx.version));
+    				put("loctime", Integer.toString(tx.locktime));
+    				put("type", tx.type);
+    			}
+    		});
+    		putVertex(tx_node);
+    		
+    		// Tx edge
+    		WasDerivedFrom tx_edge = new WasDerivedFrom(tx_node, block_node);
+    		putEdge(tx_edge);
+    		
+    		for (Vin vin: tx.vins) {
+    			// Vin Vertex
+    			Process vin_vertex = new Process();
+    			vin_vertex.addAnnotations(new HashMap<String, String>(){
+    				{
+    					put("id", vin.id);
+    					put("pk", vin.id);
+    					put("txtype", vin.type);
+    				}
+    			});
+    			putVertex(vin_vertex);
+    			
+    			// Vin Edge
+    			Used vin_edge = new Used(vin_vertex, tx_node);
+    			putEdge(vin_edge);
+    		}
+    		
+    		for (Vout vout: tx.vouts) {
+    			// Vout Vertex
+    			Process vout_vertex = new Process();
+    			vout_vertex.addAnnotations(new HashMap<String, String>(){
+    				{
+    					put("id", vout.id);
+    					put("pk", vout.id);
+    					put("txtype", vout.type);
+    				}
+    			});
+    			putVertex(vout_vertex);
+    			
+    			// Vout Edge
+    			WasGeneratedBy vout_edge = new WasGeneratedBy(tx_node, vout_vertex);
+    			vout_edge.addAnnotation("value", Double.toString(vout.value));
+    			putEdge(vout_edge);
+    		}
+    	}
+
     }
     
     void runner() {
@@ -204,7 +268,7 @@ public class Bitcoin extends AbstractReporter {
     	while (!shutdown) {
     		Block block = null;
     		try {
-				block = fetchBlock(last_block+1);
+    			block = block_reader.getBlock(block_hash_db.get(last_block+1));
 			} catch (Exception e) {
 				// either the block does not exist or server call fail. Wait and retry
 				try {
@@ -216,7 +280,7 @@ public class Bitcoin extends AbstractReporter {
 				} 
 				continue;
 			}
-
+    		
     		reportBlock(block);
     		reportProgress(block);
     		
@@ -304,7 +368,10 @@ class Transaction {
 		vouts = new ArrayList<Vout>();
 		JSONArray vout_arr = tx.getJSONArray("vout");
 		for (int i=0; i<vout_arr.length(); i++) {
+			try {
 			vouts.add(new Vout(vout_arr.getJSONObject(i)));
+			} catch (Exception e){
+			}
 		}
 	}
 }
@@ -330,9 +397,19 @@ class Vout {
 	double value;
 
 	public Vout(JSONObject vout) throws JSONException {
-		id = vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(0); // there is always one out address 
-		type = vout.getJSONObject("scriptPubKey").getString("type"); //vout type is always txid
-		value = vout.getDouble("value");
+		try {
+			// there is always one out address 
+			id = vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(0); 
+			type = vout.getJSONObject("scriptPubKey").getString("type"); 
+			value = vout.getDouble("value");
+		} catch (JSONException e) {
+			// Reindex required for the transaction
+			// https://bitcoin.org/en/developer-guide#term-null-data
+			// https://bitcoin.org/en/developer-guide#non-standard-transactions
+			// vout type is usuallu txid. When its nonstandard or null data, that indicates that reindexing is required at bitcoind
+			Bitcoin.log(Level.SEVERE, "Transaction "+id+" requires reindexing", e);
+			throw e;
+		}
 	}
 }
 
