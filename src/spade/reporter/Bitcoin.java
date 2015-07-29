@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2014 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -62,7 +62,7 @@ import org.json.*;
 public class Bitcoin extends AbstractReporter {	
     
 	// these variables are set in ~/.bitcoin/bitcoin.conf
-    private String host = "http://45.55.21.155";
+    private String host = "http://127.0.0.1";
     private int port = 8332;
     private String rpcuser = "bitcoinrpc";
     private String rpcpassword = "password";
