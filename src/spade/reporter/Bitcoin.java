@@ -119,6 +119,7 @@ public class Bitcoin extends AbstractReporter {
     	try {
 	    	new File(progress_file).createNewFile(); // only creates if one doesn't exist
 	    	String contents = new String(Files.readAllBytes(Paths.get(progress_file)));
+	    	contents = contents.replace("\n", "").replace("\r", "");
 	    	if (contents.equals("")) { 
 	    		last_block = -1;
 	    	}
@@ -295,8 +296,12 @@ public class Bitcoin extends AbstractReporter {
     }
     
     public static void log(Level level, String msg, Throwable thrown) {
-    	//    	Logger.getLogger(Bitcoin.class.getName()).log(level, msg, thrown); 
-    	System.out.println(msg);
+    	if (level == level.FINE) {
+    		// all FINE level logs are useful for auditing post processing.
+    	} else {
+    		// Logger.getLogger(Bitcoin.class.getName()).log(level, msg, thrown); 
+    		System.out.println(msg);
+    	}
     }
 }
 
@@ -371,6 +376,10 @@ class Transaction {
 			try {
 			vouts.add(new Vout(vout_arr.getJSONObject(i)));
 			} catch (Exception e){
+				// https://bitcoin.org/en/developer-guide#term-null-data
+				// https://bitcoin.org/en/developer-guide#non-standard-transactions
+				// vout type is usually txid. When its not txid, that indicates that reindexing is required at bitcoind or vout address doesnt exist
+				Bitcoin.log(Level.FINE, "Transaction "+id+" requires reindexing", e);
 			}
 		}
 	}
@@ -397,19 +406,10 @@ class Vout {
 	double value;
 
 	public Vout(JSONObject vout) throws JSONException {
-		try {
-			// there is always one out address 
-			id = vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(0); 
-			type = vout.getJSONObject("scriptPubKey").getString("type"); 
-			value = vout.getDouble("value");
-		} catch (JSONException e) {
-			// Reindex required for the transaction
-			// https://bitcoin.org/en/developer-guide#term-null-data
-			// https://bitcoin.org/en/developer-guide#non-standard-transactions
-			// vout type is usuallu txid. When its nonstandard or null data, that indicates that reindexing is required at bitcoind
-			Bitcoin.log(Level.SEVERE, "Transaction "+id+" requires reindexing", e);
-			throw e;
-		}
+		// there is always one out address 
+		id = vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(0); 
+		type = vout.getJSONObject("scriptPubKey").getString("type"); 
+		value = vout.getDouble("value");
 	}
 }
 
