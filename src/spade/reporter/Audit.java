@@ -64,9 +64,6 @@ import spade.vertex.opm.Process;
 public class Audit extends AbstractReporter {
 
     private boolean DEBUG_DUMP_LOG; // Store log for debugging purposes
-    private static boolean ANDROID_PLATFORM = false; // Set to true dyanmically
-    // on Launch if Android
-    // platform is detected
     private boolean SOCKETS_ALREADY_PARSED = true;
     private String DEBUG_DUMP_FILE;
     // //////////////////////////////////////////////////////////////////////////
@@ -119,23 +116,13 @@ public class Audit extends AbstractReporter {
     }
 
     private Thread eventProcessorThread = null;
-    private Thread transactionProcessorThread = null;
     private String auditRules;
-    private static String SPADE_ANDROID_AUDIT_LIBRARY = "/data/spade/android-lib/libspadeAndroidAudit.so";
 
     private static native int initAuditStream();
 
     private static native String readAuditStream();
 
     private static native int closeAuditStream();
-
-    // Load library
-    static {
-        ANDROID_PLATFORM = System.getProperty("java.runtime.name").equalsIgnoreCase("Android Runtime");
-        if (ANDROID_PLATFORM) {
-            System.load(SPADE_ANDROID_AUDIT_LIBRARY);
-        }
-    }
 
     @Override
     public boolean launch(String arguments) {
@@ -153,15 +140,9 @@ public class Audit extends AbstractReporter {
             arguments = "";
         }
 
-        if (ANDROID_PLATFORM) {
-            AUDIT_EXEC_PATH = "spade-audit";
-            ignoreProcesses = "spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm";
-            DEBUG_DUMP_FILE = "/sdcard/spade/output/audit.log";
-        } else {
-            AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeLinuxAudit";
-            ignoreProcesses = "spadeLinuxAudit auditd kauditd java spade-server spade-controller";
-            DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
-        }
+        AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeLinuxAudit";
+        ignoreProcesses = "spadeLinuxAudit auditd kauditd java spade-server spade-controller";
+        DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
 
         Map<String, String> args = parseKeyValPairs(arguments);
         if (args.containsKey("dump")) {
@@ -241,13 +222,6 @@ public class Audit extends AbstractReporter {
         try {
             // Start auditd and clear existing rules.
             Runtime.getRuntime().exec("auditctl -D").waitFor();
-            if (ANDROID_PLATFORM) {
-                int init_status = initAuditStream();
-                if (init_status != 0) {
-                    throw new Exception("Unable to initialize Audit Stream: " + String.valueOf(init_status));
-                }
-            }
-
             Runnable eventProcessor = new Runnable() {
                 public void run() {
                     try {
@@ -258,103 +232,45 @@ public class Audit extends AbstractReporter {
                             dumpWriter = new BufferedWriter(dumpFileWriter);
                         }
 
-                        if (ANDROID_PLATFORM) {
-                            while (!shutdown) {
-                                String line = readAuditStream();
-                                if (line != null && !line.isEmpty()) {
-                                    parseEventLine(line);
-                                    if (DEBUG_DUMP_LOG) {
-                                        dumpWriter.write(line);
-                                        dumpWriter.write(System.getProperty("line.separator"));
-                                        dumpWriter.flush();
-                                    }
-                                }
-                            }
-                            closeAuditStream();
-                        } else {
-                            java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-                            eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
-                            while (!shutdown) {
-                                String line = eventReader.readLine();
-                                if ((line != null) && !line.isEmpty()) {
-                                    if (DEBUG_DUMP_LOG) {
-                                        dumpWriter.write(line);
-                                        dumpWriter.write(System.getProperty("line.separator"));
-                                        dumpWriter.flush();
-                                    }
-                                    parseEventLine(line);
-                                }
-                            }
-                            eventReader.close();
-                            auditProcess.destroy();
-                        }
+			java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
+			eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
+			while (!shutdown) {
+			    String line = eventReader.readLine();
+			    if ((line != null) && !line.isEmpty()) {
+				if (DEBUG_DUMP_LOG) {
+				    dumpWriter.write(line);
+				    dumpWriter.write(System.getProperty("line.separator"));
+				    dumpWriter.flush();
+				}
+				parseEventLine(line);
+			    }
+			}
+			eventReader.close();
+			auditProcess.destroy();
+
                         if (DEBUG_DUMP_LOG) {
                             dumpWriter.close();
                             dumpFileWriter.close();
                         }
                     } catch (Exception exception) {
                         logger.log(Level.SEVERE, null, exception);
-                    } finally {
-                        if (ANDROID_PLATFORM) {
-                            closeAuditStream();
-                        }
                     }
-
                 }
             };
             eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
             eventProcessorThread.start();
 
-            if (ANDROID_PLATFORM) {
-                Runnable transactionProcessor = new Runnable() {
-                    public void run() {
-                        try {
-                            BufferedReader transactionReader = new BufferedReader(new FileReader("/proc/binder/transaction_log"));
-                            String line;
-                            while (!shutdown) {
-                                while ((line = transactionReader.readLine()) != null) {
-                                    Matcher transactionMatcher = binder_transaction.matcher(line);
-                                    if (transactionMatcher.find()) {
-                                        int id = Integer.parseInt(transactionMatcher.group(1));
-                                        String type = transactionMatcher.group(2);
-                                        String frompid = transactionMatcher.group(3);
-                                        String topid = transactionMatcher.group(4);
-                                        if (id > binderTransaction) {
-                                            WasTriggeredBy transaction = new WasTriggeredBy(processes.get(topid), processes.get(frompid));
-                                            transaction.addAnnotation("operation", "binder-" + type);
-                                            putEdge(transaction);
-                                            binderTransaction = id;
-                                        }
-                                    }
-                                }
-                                Thread.sleep(THREAD_SLEEP_DELAY);
-                            }
-                            transactionReader.close();
-                        } catch (Exception exception) {
-                            logger.log(Level.SEVERE, null, exception);
-                        }
-                    }
-                };
-                transactionProcessorThread = new Thread(transactionProcessor, "androidBinder-Thread");
-                transactionProcessorThread.start();
-            }
-
             // Determine pids of processes that are to be ignored. These are
-            // appended
-            // to the audit rule.
+            // appended to the audit rule.
             StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
-            if (ANDROID_PLATFORM) {
-                auditRules = "-a exit,always " + "-S clone -S fork -S vfork -S execve -S open -S close " + "-S read -S readv -S write -S writev -S link -S symlink "
-                        + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid " + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
-                        + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg " + "-S pread64 -S pwrite64 -S truncate -S ftruncate " + "-S pipe2 -F success=1" + ignorePids.toString();
-            } else {
-                auditRules = "-a exit,always ";
-                if (!USE_OPEN_CLOSE) {
-                    auditRules += "-S read -S readv -S write -S writev ";
-                }
-                auditRules += "-S link -S symlink " + "-S clone -S fork -S vfork -S execve -S open -S close " + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-                        + "-S chmod -S fchmod -S pipe -S truncate -S ftruncate " + "-S pipe2 -F success=1" + ignorePids.toString();
-            }
+	    auditRules = "-a exit,always ";
+	    if (!USE_OPEN_CLOSE) {
+		auditRules += "-S read -S readv -S write -S writev ";
+	    }
+	    auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
+		+ "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+		+ "-S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 -F success=1 "
+		+ ignorePids.toString();
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
             logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
         } catch (Exception exception) {
@@ -367,10 +283,8 @@ public class Audit extends AbstractReporter {
 
     static private StringBuilder ignorePidsString(String ignoreProcesses) {
         try {
-            // Only for Linux/Android
             Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
-            String ps_cmd = ANDROID_PLATFORM ? "ps" : "ps axuc";
-            java.lang.Process pidChecker = Runtime.getRuntime().exec(ps_cmd);
+            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps axuc");
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
             pidReader.readLine();
             String line;
@@ -418,7 +332,7 @@ public class Audit extends AbstractReporter {
             fdReader.close();
             return descriptors;
         } catch (Exception exception) {
-            logger.log(Level.WARNING, "unable to retrieve file descriptors for " + pid, exception);
+            logger.log(Level.WARNING, "Unable to retrieve file descriptors for " + pid, exception);
             return null;
         }
     }
@@ -429,9 +343,6 @@ public class Audit extends AbstractReporter {
         shutdown = true;
         try {
             Runtime.getRuntime().exec("auditctl -D").waitFor();
-            if (ANDROID_PLATFORM) {
-                transactionProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
-            }
             eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -529,11 +440,13 @@ public class Audit extends AbstractReporter {
         try {
             // System call numbers are derived from:
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
+	    // TODO: Update the calls to make them linux specific.
 
             if (!eventBuffer.containsKey(eventId)) {
-                // logger.log(Level.WARNING,
-                // "EOE for eventID {0} received with no prior Event Info", new
-                // Object[]{eventId});
+                logger.log(
+		    Level.WARNING,
+		    "EOE for eventID {0} received with no prior Event Info",
+		    new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
@@ -666,9 +579,10 @@ public class Audit extends AbstractReporter {
             // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
             if (!eventBuffer.containsKey(eventId)) {
-                // logger.log(Level.WARNING,
-                // "EOE for eventID {0} received with no prior Event Info", new
-                // Object[]{eventId});
+                logger.log(
+		    Level.WARNING,
+		    "EOE for eventID {0} received with no prior Event Info",
+		    new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
@@ -1550,85 +1464,6 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    /*
-     * Experimental code to run Audit reporter as solo lightweight process
-     * instead of running complete SPADE kernel with all the storages and
-     * filters This is mainly useful for Android where resources are low
-     */
-    private static void run_solo() {
-        try {
-
-            final Audit reporter = new Audit();
-            final Buffer buf = new Buffer();
-
-            List<AbstractFilter> filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
-
-            final Graphviz storage = new Graphviz();
-            storage.initialize("/sdcard/audit.dot");
-
-            FinalCommitFilter commitFilter = new FinalCommitFilter();
-            commitFilter.storages = Collections.synchronizedSet(new HashSet<AbstractStorage>(Arrays.asList(new AbstractStorage[]{storage})));
-
-            final IORuns filter_ioruns = new IORuns();
-            filter_ioruns.setNextFilter(commitFilter);
-
-            reporter.setBuffer(buf);
-            reporter.launch("");
-
-            final Thread mainThread = Thread.currentThread();
-
-            Runtime.getRuntime().addShutdownHook(new Thread() {
-                public void run() {
-                    reporter.shutdown();
-                    mainThread.notify();
-                }
-            });
-
-            Runnable bufferFlusher = new Runnable() {
-                public void run() {
-                    try {
-                        while (true) {
-                            while (!buf.isEmpty()) {
-                                Object bufferelement = buf.getBufferElement();
-                                if (bufferelement instanceof AbstractVertex) {
-                                    AbstractVertex tempVertex = (AbstractVertex) bufferelement;
-                                    int hash = tempVertex.hashCode();
-                                    tempVertex.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
-                                    tempVertex.addAnnotation("unique_id", Integer.toString(hash));
-                                    filter_ioruns.putVertex(tempVertex);
-                                } else if (bufferelement instanceof AbstractEdge) {
-                                    AbstractEdge tempEdge = (AbstractEdge) bufferelement;
-                                    int hash = tempEdge.hashCode();
-                                    tempEdge.addAnnotation("source_reporter", reporter.getClass().getName().split("\\.")[2]);
-                                    tempEdge.addAnnotation("unique_id", Integer.toString(hash));
-                                    filter_ioruns.putEdge(tempEdge);
-                                } else if (bufferelement == null) {
-                                    break;
-                                }
-                            }
-                            storage.flushTransactions();
-                            Thread.currentThread().wait(1000);
-                        }
-                    } catch (InterruptedException e) {
-                        return;
-                    }
-                }
-            };
-            Thread bufferFlusherThread = new Thread(bufferFlusher, "bufferFlusher");
-            bufferFlusherThread.run();
-
-            System.out.println("Now Running");
-            mainThread.wait();
-            System.out.println("Shutdown initiated");
-            bufferFlusher.notify();
-        } catch (Exception e) {
-            System.out.println(e);
-        } finally {
-            closeAuditStream();
-            System.out.println("Shutdown complete");
-        }
-    }
-
     public static void main(String args[]) {
 
         String action = args.length >= 1 ? args[0] : "";
@@ -1641,8 +1476,6 @@ public class Audit extends AbstractReporter {
 
         if (action.equals("dump")) {
             dump_stream(args);
-        } else {
-            run_solo();
         }
     }
 }
