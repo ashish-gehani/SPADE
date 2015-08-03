@@ -36,6 +36,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Arrays;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import spade.core.AbstractReporter;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
@@ -48,7 +50,7 @@ import spade.vertex.opm.Process;
 
 /**
  *
- * @author Dawood Tariq and Sharjeel Qureshi
+ * @author Dawood Tariq, Sharjeel Qureshi and Hasanat Kazmi
  */
 public class Strace extends AbstractReporter {
 
@@ -65,8 +67,8 @@ public class Strace extends AbstractReporter {
     static final Pattern eventCompletorPattern = Pattern.compile("([0-9]+)\\s+.*<... \\w+ resumed> (.*)");
     static final Pattern networkPattern = Pattern.compile("sin_port=htons\\(([0-9]+)\\), sin_addr=inet_addr\\(\"(.*)\"\\)");
     static final Pattern binderTransactionPattern = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
-    String DEBUG_FILE_PATH = "/sdcard/spade/debug.txt";
-    String TEMP_FILE_PATH = "/sdcard/spade/output.txt";
+    String DEBUG_FILE_PATH;
+    String TEMP_FILE_PATH;
     Map<String, String> incompleteEvents = new HashMap<String, String>();
     Map<String, String> socketDescriptors = new HashMap<String, String>();
     Map<String, Map<String, String>> fileDescriptors = new HashMap<String, Map<String, String>>();
@@ -114,9 +116,17 @@ public class Strace extends AbstractReporter {
             }
         }
 
+	if (Files.exists(Paths.get("/sdcard"))) { // Android
+		DEBUG_FILE_PATH = "/sdcard/spade/spade-strace-debug.txt";
+		TEMP_FILE_PATH = "/sdcard/spade/spade-strace-output.txt";
+	} else if (Files.exists(Paths.get("/tmp"))) { // Linux
+        DEBUG_FILE_PATH = "/tmp/spade-strace-debug.txt";
+        TEMP_FILE_PATH = "/tmp/spade-strace-output.txt";
+	}
+
         // Attach strace
         try {
-            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps");
+            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps -e -o uname,pid,cmd");
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
             pidReader.readLine();
             String line;
@@ -124,7 +134,7 @@ public class Strace extends AbstractReporter {
                 String details[] = line.split("\\s+");
                 String user = details[0];
                 String pid = details[1];
-                String name = details[8];
+                String name = details[2];
                 if (argumentsMap.get("name").contains(name) || argumentsMap.get("user").contains(user) || argumentsMap.get("pid").contains(pid)) {
                     if (!argumentsMap.get("!name").contains(name) && !argumentsMap.get("!user").contains(name) && !argumentsMap.get("!pid").contains(name)) {
                         mainPIDs.add(pid);
@@ -190,7 +200,7 @@ public class Strace extends AbstractReporter {
                     try {
                         String straceCmdLine = "strace -e fork,read,write,open,close,link,execve,mknod,rename,dup,dup2,symlink,";
                         straceCmdLine += "clone,vfork,setuid32,setgid32,chmod,fchmod,pipe,truncate,ftruncate,";
-                        straceCmdLine += "pread,readv,pwrite,recv,recvfrom,recvmsg,send,sendto,sendmsg,connect,accept";
+                        straceCmdLine += "readv,recv,recvfrom,recvmsg,send,sendto,sendmsg,connect,accept";
                         straceCmdLine += " -f -F -tt -v -s 200";
                         for (String pid : mainPIDs) {
                             straceCmdLine += " -p " + pid;
@@ -304,8 +314,9 @@ public class Strace extends AbstractReporter {
                     }
                 }
             };
-            new Thread(binderProcessor, "androidBinder-Thread").start();
-
+	    if (Files.exists(Paths.get("/sdcard"))) { // Android
+            	new Thread(binderProcessor, "androidBinder-Thread").start();
+	    }
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -897,6 +908,7 @@ public class Strace extends AbstractReporter {
 
             java.lang.Process pidinfo = Runtime.getRuntime().exec("ls -l /proc/" + pid + "/fd");
             BufferedReader fdReader = new BufferedReader(new InputStreamReader(pidinfo.getInputStream()));
+            fdReader.readLine();
             Map<String, String> descriptors = new HashMap<String, String>();
             while (true) {
                 String line = fdReader.readLine();
