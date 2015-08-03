@@ -160,7 +160,7 @@ public class Daemonizer {
             try {
                 Files.delete(Paths.get(pidFile));
             } catch (Exception e) {
-                System.err.println("Could not delete pid file.");
+                System.err.println("Could not delete PID file.");
             }
         } else {
             System.err.println("PID file does not exist.");
