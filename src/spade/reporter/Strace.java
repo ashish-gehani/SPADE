@@ -78,6 +78,7 @@ public class Strace extends AbstractReporter {
     final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     ArrayList<String> mainPIDs = new ArrayList<String>();
     String templine = null;
+    String cmd;
 
     private void log(String message) {
         logger.log(Level.INFO, message);
@@ -104,25 +105,36 @@ public class Strace extends AbstractReporter {
         argumentsMap.put("!user", new HashSet<String>());
         argumentsMap.put("!pid", new HashSet<String>());
 
-        String[] pairs = arguments.split("\\s+");
-        for (String pair : pairs) {
-            String[] keyvalue = pair.split("=");
-            String key = keyvalue[0];
-            String value = keyvalue[1];
-
-            if (key.equals("name") || key.equals("user") || key.equals("pid")
-                    || key.equals("!name") || key.equals("!user") || key.equals("!pid")) {
-                argumentsMap.get(key).add(value);
-            }
+        String[] keyvalue = arguments.split("=",2);
+        if (keyvalue[0].equals("cmd")) { // cmd is program + args
+        	cmd = keyvalue[1];
+			if (cmd.length()>0 && (cmd.charAt(0) == '"' || cmd.charAt(0) == '\'')) {
+				cmd = cmd.substring(1);
+			}
+			if (cmd.length()>0 && (cmd.charAt(cmd.length()-1) == '"' || cmd.charAt(cmd.length()-1) == '\'')) {
+				cmd = cmd.substring(0, cmd.length()-1);
+			}
+        } else {
+	        String[] pairs = arguments.split("\\s+");
+	        for (String pair : pairs) {
+	            keyvalue = pair.split("=");
+	            String key = keyvalue[0];
+	            String value = keyvalue[1];
+	
+	            if (key.equals("name") || key.equals("user") || key.equals("pid")
+	                    || key.equals("!name") || key.equals("!user") || key.equals("!pid")) {
+	                argumentsMap.get(key).add(value);
+	            }
+	        }
         }
 
-	if (Files.exists(Paths.get("/sdcard"))) { // Android
-		DEBUG_FILE_PATH = "/sdcard/spade/spade-strace-debug.txt";
-		TEMP_FILE_PATH = "/sdcard/spade/spade-strace-output.txt";
-	} else if (Files.exists(Paths.get("/tmp"))) { // Linux
-        DEBUG_FILE_PATH = "/tmp/spade-strace-debug.txt";
-        TEMP_FILE_PATH = "/tmp/spade-strace-output.txt";
-	}
+		if (Files.exists(Paths.get("/sdcard"))) { // Android
+			DEBUG_FILE_PATH = "/sdcard/spade/spade-strace-debug.txt";
+			TEMP_FILE_PATH = "/sdcard/spade/spade-strace-output.txt";
+		} else if (Files.exists(Paths.get("/tmp"))) { // Linux
+			DEBUG_FILE_PATH = "/tmp/spade-strace-debug.txt";
+			TEMP_FILE_PATH = "/tmp/spade-strace-output.txt";
+		}
 
         // Attach strace
         try {
@@ -202,10 +214,14 @@ public class Strace extends AbstractReporter {
                         straceCmdLine += "clone,vfork,setuid32,setgid32,chmod,fchmod,pipe,truncate,ftruncate,";
                         straceCmdLine += "readv,recv,recvfrom,recvmsg,send,sendto,sendmsg,connect,accept";
                         straceCmdLine += " -f -F -tt -v -s 200";
-                        for (String pid : mainPIDs) {
-                            straceCmdLine += " -p " + pid;
-                        }
                         straceCmdLine += " -o " + TEMP_FILE_PATH;
+                        if (cmd.length()>0) {
+                        	straceCmdLine += " " + cmd;
+                        } else {
+	                        for (String pid : mainPIDs) {
+	                            straceCmdLine += " -p " + pid;
+	                        }
+                        }
                         logger.log(Level.INFO, straceCmdLine);
 
                         java.lang.Process straceProcess = Runtime.getRuntime().exec(straceCmdLine);
