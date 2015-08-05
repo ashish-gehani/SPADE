@@ -78,9 +78,7 @@ public class Daemonizer {
     public void runSpadeProcess() throws Exception{
         Daemon daemon = new Daemon.WithoutChdir();
         if(daemon.isDaemonized()) {
-            System.out.println("Starting SPADE as a daemon");
-            System.out.println("To stop it, use `kill -s SIGINT " + CLibrary.LIBC.getpid() + " '");
-
+            System.out.println("Starting SPADE as a daemon with PID: " + CLibrary.LIBC.getpid() );
             daemon.init(pidFile);
         } else {
             // daemon.daemonize(configureJVMArguments());
