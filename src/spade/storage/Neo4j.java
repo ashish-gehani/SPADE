@@ -30,6 +30,7 @@ import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
@@ -85,6 +86,7 @@ public class Neo4j extends AbstractStorage {
     private final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
     private final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
+    private final String neoConfigFile = "cfg/neo4j.properties";
 
     private enum MyRelationshipTypes implements RelationshipType {
 
@@ -97,10 +99,14 @@ public class Neo4j extends AbstractStorage {
             if (arguments == null) {
                 return false;
             }
-            // Create new database given the path as argument. Upgrade the
-            // database
-            // if it already exists and is an older version
-            graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
+            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(arguments);
+            try {
+                graphDbBuilder.loadPropertiesFromFile(neoConfigFile);
+                logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
+            } catch (Exception exception) {
+                logger.log(Level.INFO, "Default Neo4j configurations loaded.");
+            }
+            graphDb = graphDbBuilder.newGraphDatabase();
             if (Kernel.reindexLucene) {
                 index = graphDb.index();
                 // Create vertex index
