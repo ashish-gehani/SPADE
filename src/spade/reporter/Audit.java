@@ -149,7 +149,12 @@ public class Audit extends AbstractReporter {
         }
 
         AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeLinuxAudit";
-        ignoreProcesses = "spadeLinuxAudit auditd kauditd java spade-server spade-controller";
+        // ignoreProcesses = "spadeLinuxAudit auditd kauditd java spade-server spade-controller";
+        /* 
+           	Removed java because that would exclude all other java processes too and removed
+           	'spade-server' and 'spade-controller' because spade invocation method has been changed. 
+        */
+        ignoreProcesses = "spadeLinuxAudit auditd kauditd";
         DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
 
         Map<String, String> args = parseKeyValPairs(arguments);
