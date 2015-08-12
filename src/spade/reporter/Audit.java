@@ -153,8 +153,9 @@ public class Audit extends AbstractReporter {
         /* 
            	Removed java because that would exclude all other java processes too and removed
            	'spade-server' and 'spade-controller' because spade invocation method has been changed. 
+           	Also added audispd to the ignore list.
         */
-        ignoreProcesses = "spadeLinuxAudit auditd kauditd";
+        ignoreProcesses = "spadeLinuxAudit auditd kauditd audispd";
         DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
 
         Map<String, String> args = parseKeyValPairs(arguments);
@@ -314,6 +315,14 @@ public class Audit extends AbstractReporter {
                 }
             }
             pidReader.close();
+            
+            //get pid of the running jvm using /proc/self
+            int selfpid = getSelfPid();
+            if(selfpid != -1){
+            	ignorePids.append(" -F pid!=").append(selfpid);
+            	ignorePids.append(" -F ppid!=").append(selfpid);
+            }
+            
             return ignorePids;
         } catch (IOException e) {
             return new StringBuilder();
