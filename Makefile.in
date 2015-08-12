@@ -207,7 +207,7 @@ clean:
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeLinuxAudit
-	@rm -rf conf/ssl
+	@rm -rf cfg/ssl
 	@rm -rf log/SPADE_*
 
 DESTDIR = @prefix@
@@ -215,5 +215,5 @@ install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR)
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
-	cp -R conf $(DESTDIR)
+	cp -R cfg $(DESTDIR)
 	cp -R log $(DESTDIR)
