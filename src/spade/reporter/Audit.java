@@ -113,9 +113,9 @@ public class Audit extends AbstractReporter {
      *  Added to indicate in the output from where the process info was read. Either from 
      *  1) procfs or directly from 2) audit log. 
      */
-    private static final String PROC_INFO_SRC_KEY = "_SRC",
-    							PROC_INFO_PROCFS = "procfs",
-    							PROC_INFO_AUDIT = "dev_audit";
+    private static final String PROC_INFO_SRC_KEY = "source",
+    							PROC_INFO_PROCFS = "/proc",
+    							PROC_INFO_AUDIT = "/dev/audit";
     
     // //////////////////////////////////////////////////////////////////////////
     private enum SYSCALL {
