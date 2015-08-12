@@ -109,6 +109,14 @@ public class Audit extends AbstractReporter {
     // Binder transaction log pattern
     private static Pattern binder_transaction = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
 
+    /*
+     *  Added to indicate in the output from where the process info was read. Either from 
+     *  1) procfs or directly from 2) audit log. 
+     */
+    private static final String PROC_INFO_SRC_KEY = "_SRC",
+    							PROC_INFO_PROCFS = "procfs",
+    							PROC_INFO_AUDIT = "dev_audit";
+    
     // //////////////////////////////////////////////////////////////////////////
     private enum SYSCALL {
 
@@ -183,6 +191,7 @@ public class Audit extends AbstractReporter {
         String stime = Long.toString(boottime);
         rootVertex.addAnnotation("boottime_unix", stime);
         rootVertex.addAnnotation("boottime_simple", stime_readable);
+        rootVertex.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_PROCFS);
         processes.put("0", rootVertex);
         putVertex(rootVertex);
 
@@ -741,6 +750,7 @@ public class Audit extends AbstractReporter {
         newProcess.addAnnotation("ppid", oldPID);
         newProcess.addAnnotation("uid", uid);
         newProcess.addAnnotation("gid", gid);
+        newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
 
         processes.put(newPID, newProcess);
         putVertex(newProcess);
@@ -1329,6 +1339,7 @@ public class Audit extends AbstractReporter {
             resultProcess.addAnnotation("ppid", ppid);
             resultProcess.addAnnotation("uid", uid);
             resultProcess.addAnnotation("gid", gid);
+            resultProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
         }
         if (link == true) {
             Map<String, String> fds = getFileDescriptors(pid);
@@ -1391,6 +1402,8 @@ public class Audit extends AbstractReporter {
                 newProcess.addAnnotation("starttime_unix", stime);
                 newProcess.addAnnotation("starttime_simple", stime_readable);
                 newProcess.addAnnotation("commandline", cmdline);
+                
+                newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_PROCFS);
                 return newProcess;
             } catch (Exception exception) {
                 logger.log(Level.WARNING, "unable to create process vertex for pid " + pid + " from /proc/", exception);
