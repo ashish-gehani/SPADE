@@ -36,15 +36,10 @@ import java.util.Date;
 
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasDerivedFrom;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
-import spade.edge.opm.*;
 import spade.reporter.pdu.Pdu;
 import spade.reporter.pdu.PduParser;
-import spade.vertex.opm.Artifact;
-import spade.vertex.opm.Process;
+import spade.vertex.prov.*;
+import spade.edge.prov.*;
 
 import java.net.*;
 import java.nio.file.Files;
@@ -93,7 +88,9 @@ public class Bitcoin extends AbstractReporter {
     
     //
     private boolean shutdown=false;
-    
+
+    // ref to last block processed 
+    private Entity last_block_node;
     
             
     @Override
@@ -163,71 +160,63 @@ public class Bitcoin extends AbstractReporter {
     
     void reportBlock(Block block) {
     	
-    	// block artifact
-    	Artifact block_node = new Artifact();
+    	// block
+        Entity block_node = new Entity();
     	block_node.addAnnotations(new HashMap<String, String>(){
     		{
-    			put("hash", block.hash); 
-    			put("id", block.id); 
-    			put("height", Integer.toString(block.height)); 
+                put("blockid", block.hash); 
+    			put("height", Integer.toString(block.height)); // Ashish suggested to remove this
     			put("confirmations", Integer.toString(block.confirmations));
-    			put("size", Integer.toString(block.size));
-    			put("version", Integer.toString(block.version)); 
-    			put("merkleroot", block.merkleroot);
     			put("time", Integer.toString(block.time)); 
-    			put("nonce", Integer.toString(block.nonce)); 
-    			put("bits", block.bits); 
     			put("difficulty", Integer.toString(block.difficulty)); 
     			put("chainwork", block.chainwork);
     		}
     	});
     	putVertex(block_node);
-    	
-    	// TODO: edge between this and last block
-    	
+    	    	
     	for(Transaction tx: block.transactions) {
-    		// Tx artifact
-    		Artifact tx_node = new Artifact();
+    		// Tx
+            Entity tx_node = new Entity();
     		tx_node.addAnnotations(new HashMap<String, String>(){
     			{
-    				put("id", tx.id);
-    				put("tx", tx.id);
-    				put("version", Integer.toString(tx.version));
-    				put("loctime", Integer.toString(tx.locktime));
-    				put("type", tx.type);
+    				put("txid", tx.id);
     			}
     		});
+            if (tx.locktime != 0) {
+                tx_node.addAnnotation("loctime", Integer.toString(tx.locktime));
+            }
+
     		putVertex(tx_node);
     		
     		// Tx edge
-    		WasDerivedFrom tx_edge = new WasDerivedFrom(tx_node, block_node);
+            WasDerivedFrom tx_edge = new WasDerivedFrom(tx_node, block_node);
     		putEdge(tx_edge);
     		
     		for (Vin vin: tx.vins) {
-    			// Vin Vertex
-    			Process vin_vertex = new Process();
+    			// Vin
+                Activity vin_vertex = new Activity();
     			vin_vertex.addAnnotations(new HashMap<String, String>(){
     				{
-    					put("id", vin.id);
-    					put("pk", vin.id);
-    					put("txtype", vin.type);
+                        put("txid", vin.txid);
+                        put("n", Integer.toString(vin.n));
     				}
     			});
-    			putVertex(vin_vertex);
+                // Vin nodes are already present (except few cases)
+                // confirm that system pulls these vertexes from the db
+    			putVertex(vin_vertex); 
     			
     			// Vin Edge
     			Used vin_edge = new Used(vin_vertex, tx_node);
     			putEdge(vin_edge);
     		}
-    		
+
     		for (Vout vout: tx.vouts) {
     			// Vout Vertex
-    			Process vout_vertex = new Process();
+    			Activity vout_vertex = new Activity();
     			vout_vertex.addAnnotations(new HashMap<String, String>(){
     				{
-    					put("id", vout.id);
-    					put("pk", vout.id);
-    					put("txtype", vout.type);
+                        put("txid", tx.id);
+                        put("n", Integer.toString(vout.n));
     				}
     			});
     			putVertex(vout_vertex);
@@ -236,8 +225,30 @@ public class Bitcoin extends AbstractReporter {
     			WasGeneratedBy vout_edge = new WasGeneratedBy(tx_node, vout_vertex);
     			vout_edge.addAnnotation("value", Double.toString(vout.value));
     			putEdge(vout_edge);
+
+                // adresses
+                for (String address: vout.addresses) {
+                    Agent address_vertex = new Agent();
+                    address_vertex.addAnnotations(new HashMap<String, String>(){
+                    {
+                        put("address", address);
+                    }
+                    });
+                    putVertex(address_vertex); 
+
+                    WasAssociatedWith address_edge = new WasAssociatedWith(vout_vertex, address_vertex);
+                    putEdge(address_edge);
+                }
     		}
     	}
+
+        // Edge between this and last block
+        if (last_block_node!=null) {
+            WasDerivedFrom block_edge = new WasDerivedFrom(last_block_node, block_node);
+            putEdge(block_edge);
+
+        }
+        last_block_node = block_node;
 
     }
     
@@ -306,18 +317,13 @@ public class Bitcoin extends AbstractReporter {
 }
 
 class Block {
-    String hash; //=data['hash'],
-    String id; //=data['hash'],
-    int height; //=data['height'],
-    int confirmations; //=data['confirmations'],
-    int size; //=data['size'],
-    int version; //=data['version'],
-    String merkleroot; //=data['merkleroot'],
-    int time; //=data['time'],
-    int nonce; //=data['nonce'],
-    String bits; //=data['bits'],
-    int difficulty; //=data['difficulty'],
-    String chainwork; //=data['chainwork']
+    String hash; 
+    String id; 
+    int height; // Ashish suggested to remove height
+    int confirmations;
+    int time;
+    int difficulty;
+    String chainwork;
     
     ArrayList<Transaction> transactions;
     
@@ -326,12 +332,7 @@ class Block {
 		id = block.getString("hash");
 		height = block.getInt("height");
 		confirmations = block.getInt("confirmations");
-		size = block.getInt("size");
-		version = block.getInt("version");
-		merkleroot = block.getString("merkleroot");
 		time = block.getInt("time");
-		nonce = block.getInt("nonce");
-		bits = block.getString("bits");
 		difficulty = block.getInt("difficulty");
 		chainwork = block.getString("chainwork");
 
@@ -344,25 +345,14 @@ class Block {
 }
 
 class Transaction {
-	String id; //=tx['txid'],
-	String hash; //=tx['txid'],
-	int version; //=tx['version'],
-	int locktime; //=tx['locktime']
-	String type; //='txid' if 'txid' in txin else 'coinbase'
-	
+	String id;
+	int locktime;	
 	ArrayList<Vin> vins;
 	ArrayList<Vout> vouts;
 	
 	public Transaction(JSONObject tx) throws JSONException {
 		id = tx.getString("txid");
-		hash = tx.getString("txid");
-		version = tx.getInt("version");
 		locktime = tx.getInt("locktime");
-		if (tx.has("txid")) {
-			type = "txid"; //='txid' if 'txid' in txin else 'coinbase'			
-		} else {
-			type = "coinbase";
-		}
 		
 		vins = new ArrayList<Vin>();
 		JSONArray vins_arr = tx.getJSONArray("vin");
@@ -374,7 +364,7 @@ class Transaction {
 		JSONArray vout_arr = tx.getJSONArray("vout");
 		for (int i=0; i<vout_arr.length(); i++) {
 			try {
-			vouts.add(new Vout(vout_arr.getJSONObject(i)));
+    			vouts.add(new Vout(vout_arr.getJSONObject(i)));
 			} catch (Exception e){
 				// https://bitcoin.org/en/developer-guide#term-null-data
 				// https://bitcoin.org/en/developer-guide#non-standard-transactions
@@ -386,30 +376,34 @@ class Transaction {
 }
 
 class Vin {
-	String id; //=txin['txid'] if 'txid' in txin else txin['coinbase'],
-	String type;
+	String txid; 
+    int n;
 	
 	public Vin(JSONObject vin) throws JSONException {
 		if (vin.has("txid")) {
-			id = vin.getString("txid");
-			type = "txid"; //='txid' if 'txid' in txin else 'coinbase'
+			txid = vin.getString("txid");
 		} else {
-			id = vin.getString("coinbase");
-			type = "coinbase";
+			txid = vin.getString("coinbase");
 		}
+    	if (vin.has("vout") ) {
+            n = vin.getInt("vout"); 
+        } else {
+    	   n=0;
+    	}
 	}
 }
 
 class Vout {
-	String id; //=txout['scriptPubKey']['addresses'][0], # there is always one address
-	String type; //=txout['scriptPubKey']['type']
 	double value;
+    int n;
+    List<String> addresses = new ArrayList<String>();
 
 	public Vout(JSONObject vout) throws JSONException {
-		// there is always one out address 
-		id = vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(0); 
-		type = vout.getJSONObject("scriptPubKey").getString("type"); 
 		value = vout.getDouble("value");
+        n = vout.getInt("n");
+        for(int i = 0; i < vout.getJSONObject("scriptPubKey").getJSONArray("addresses").length(); i++) { 
+            addresses.add( JSONObject.valueToString( vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(i) ) );
+        }
 	}
 }
 
