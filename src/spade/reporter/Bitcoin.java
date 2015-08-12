@@ -271,6 +271,12 @@ public class Bitcoin extends AbstractReporter {
     	try {
     		block_hash_db = block_hashes.loadBlockHashes();
 			last_block = getLastBlockProcessedFromCache();
+            // we reprocess the last block from last run 
+            // so that we can create the edge between this block 
+            // and the next block that will be created
+            if (last_block!=-1) {
+                last_block--;
+            }
 		} catch (Exception e) {
 			Bitcoin.log(Level.SEVERE, "Couldn't Initialize. Quiting", e);
 			return;
