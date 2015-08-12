@@ -1368,15 +1368,21 @@ public class Audit extends AbstractReporter {
             // The process vertex is created using the proc filesystem.
             try {
                 Process newProcess = new Process();
+                // order of keys in the status file changed. So, now looping through the file to get the necessary ones
+                int keysGottenCount = 0; //used to stop reading the file once all the required keys have been gotten
+                String line = null, nameline = null, ppidline = null, uidline = null, gidline = null;
                 BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
-                String nameline = procReader.readLine();
-                procReader.readLine();
-                procReader.readLine();
-                procReader.readLine();
-                String ppidline = procReader.readLine();
-                procReader.readLine();
-                String uidline = procReader.readLine();
-                String gidline = procReader.readLine();
+                while((line = procReader.readLine()) != null && keysGottenCount < 4){
+                	String tokens[] = line.split(":");
+                	String key = tokens[0].trim().toLowerCase();
+                	switch(key){
+                		case "name": nameline = line; keysGottenCount++; break;
+                		case "ppid": ppidline = line; keysGottenCount++; break;
+                		case "uid" : uidline  = line; keysGottenCount++; break;
+                		case "gid" : gidline  = line; keysGottenCount++; break;
+                		default: break;
+                	}
+                }
                 procReader.close();
 
                 BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
