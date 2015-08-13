@@ -161,7 +161,6 @@ public class Bitcoin extends AbstractReporter {
     void reportBlock(Block block) {
     	
     	// block
-        // Entity block_node = new Entity();
         Activity block_node = new Activity();
     	block_node.addAnnotations(new HashMap<String, String>(){
     		{
@@ -177,7 +176,6 @@ public class Bitcoin extends AbstractReporter {
     	    	
     	for(Transaction tx: block.transactions) {
     		// Tx
-            // Entity tx_node = new Entity();
             Activity tx_node = new Activity();
     		tx_node.addAnnotations(new HashMap<String, String>(){
     			{
@@ -187,21 +185,19 @@ public class Bitcoin extends AbstractReporter {
             if (tx.locktime != 0) {
                 tx_node.addAnnotation("transaction_loctime", Integer.toString(tx.locktime));
             }
-            if (tx.vins.size() == 1 && tx.vins.get(0).isCoinbase) {
-                tx_node.addAnnotation("coinbase", null);
+            if (tx.isCoinbase()) {
+                tx_node.addAnnotation("coinbase", "true");
             }
 
     		putVertex(tx_node);
     		
     		// Tx edge
-            // WasDerivedFrom tx_edge = new WasDerivedFrom(tx_node, block_node);
             WasInformedBy tx_edge = new WasInformedBy(tx_node, block_node);
     		putEdge(tx_edge);
     		
     		for (Vin vin: tx.vins) {
     			// Vin
                 if (vin.isCoinbase == false) {
-                    // Activity vin_vertex = new Activity();
                     Entity vin_vertex = new Entity();
         			vin_vertex.addAnnotations(new HashMap<String, String>(){
         				{
@@ -214,7 +210,6 @@ public class Bitcoin extends AbstractReporter {
         			putVertex(vin_vertex); 
         			
         			// Vin Edge
-                    // Used vin_edge = new Used(vin_vertex, tx_node);
                     Used vin_edge = new Used(tx_node,vin_vertex) ;
         			putEdge(vin_edge);
                 } 
@@ -222,7 +217,6 @@ public class Bitcoin extends AbstractReporter {
 
     		for (Vout vout: tx.vouts) {
     			// Vout Vertex
-                // Activity vout_vertex = new Activity();
                 Entity vout_vertex = new Entity();
     			vout_vertex.addAnnotations(new HashMap<String, String>(){
     				{
@@ -247,7 +241,6 @@ public class Bitcoin extends AbstractReporter {
                     });
                     putVertex(address_vertex); 
 
-                    // WasAssociatedWith address_edge = new WasAssociatedWith(vout_vertex, address_vertex);
                     WasAttributedTo address_edge = new WasAttributedTo(vout_vertex, address_vertex);
                     putEdge(address_edge);
                 }
@@ -256,7 +249,6 @@ public class Bitcoin extends AbstractReporter {
 
         // Edge between this and last block
         if (last_block_node!=null) {
-            // WasDerivedFrom block_edge = new WasDerivedFrom(block_node, last_block_node);
             WasInformedBy block_edge = new WasInformedBy(block_node, last_block_node);
             putEdge(block_edge);
 
@@ -338,7 +330,7 @@ public class Bitcoin extends AbstractReporter {
 class Block {
     String hash; 
     String id; 
-    int height; // Ashish suggested to remove height
+    int height;
     int confirmations;
     int time;
     int difficulty;
@@ -392,6 +384,15 @@ class Transaction {
 			}
 		}
 	}
+
+    public isCoinbase() {
+        for (Vin vin : vins_arr) {
+            if (vin.isCoinbase) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 class Vin {
