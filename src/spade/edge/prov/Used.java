@@ -24,7 +24,7 @@ import spade.vertex.prov.Activity;
 import spade.vertex.prov.Entity;
 
 /**
- * Used edge based on the OPM model.
+ * Used edge based on the PROV model.
  *
  * @author Dawood Tariq
  */

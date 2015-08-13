@@ -24,7 +24,7 @@ import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 
 /**
- * WasControlledBy edge based on the OPM model.
+ * WasControlledBy edge based on the PROV model.
  *
  * @author Dawood Tariq
  */
