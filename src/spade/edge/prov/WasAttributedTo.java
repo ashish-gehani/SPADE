@@ -36,8 +36,8 @@ public class WasAttributedTo extends AbstractEdge {
      * @param entity Entity
      * @param agent Agent
      */
-    public WasInformedBy(Entity entity, Agent agent) {
-        setSourceVertex(age);
+    public WasAttributedTo(Entity entity, Agent agent) {
+        setSourceVertex(agent);
         setDestinationVertex(entity);
         addAnnotation("type", "WasAttributedTo");
     }
