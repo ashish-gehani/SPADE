@@ -385,8 +385,8 @@ class Transaction {
 		}
 	}
 
-    public isCoinbase() {
-        for (Vin vin : vins_arr) {
+    public boolean isCoinbase() {
+        for (Vin vin : vins) {
             if (vin.isCoinbase) {
                 return true;
             }
