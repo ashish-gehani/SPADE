@@ -28,11 +28,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -40,20 +37,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
+
 import spade.core.AbstractReporter;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Buffer;
 import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
-import spade.filter.FinalCommitFilter;
-import spade.filter.IORuns;
-import spade.storage.Graphviz;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -64,7 +54,7 @@ import spade.vertex.opm.Process;
 public class Audit extends AbstractReporter {
 
     private boolean DEBUG_DUMP_LOG; // Store log for debugging purposes
-    private boolean SOCKETS_ALREADY_PARSED = true;
+    private boolean SOCKETS_ALREADY_PARSED = false;
     private String DEBUG_DUMP_FILE;
     // //////////////////////////////////////////////////////////////////////////
     private BufferedReader eventReader;
@@ -75,6 +65,7 @@ public class Audit extends AbstractReporter {
     private long THREAD_CLEANUP_TIMEOUT = 1000;
     private final boolean USE_PROCFS = false;
     private final boolean USE_OPEN_CLOSE = true;
+    private final boolean USE_SOCK_SEND_RCV = false; //to toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean ARCH_32BIT = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -260,6 +251,9 @@ public class Audit extends AbstractReporter {
 				parseEventLine(line);
 			    }
 			}
+			//Added this command here because once the spadeLinuxAudit process has exited any rules involving it cannot be cleared.
+			//So, deleting the rules before destroying the spadeLinuxAudit process.
+			Runtime.getRuntime().exec("auditctl -D").waitFor();
 			eventReader.close();
 			auditProcess.destroy();
 
@@ -280,10 +274,14 @@ public class Audit extends AbstractReporter {
             StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
 	    auditRules = "-a exit,always ";
 	    if (!USE_OPEN_CLOSE) {
-		auditRules += "-S read -S readv -S write -S writev ";
+	    	auditRules += "-S read -S readv -S write -S writev ";
+	    }
+	    if(USE_SOCK_SEND_RCV){
+	    	auditRules += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
 	    }
 	    auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
 		+ "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+	    + "-S connect -S accept "
 		+ "-S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 -F success=1 "
 		+ ignorePids.toString();
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
@@ -365,7 +363,8 @@ public class Audit extends AbstractReporter {
         // Stop the event reader and clear all audit rules.
         shutdown = true;
         try {
-            Runtime.getRuntime().exec("auditctl -D").waitFor();
+        	//The following command is being run from inside the event processor thread that listens to spadeLinuxAudit. Check there for reason.
+            //Runtime.getRuntime().exec("auditctl -D").waitFor();
             eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -1168,6 +1167,7 @@ public class Audit extends AbstractReporter {
         }
         if (location != null) {
             Artifact network = createFileVertex(location, true);
+            network.addAnnotation("subtype", "network");
             putVertex(network);
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
@@ -1200,7 +1200,8 @@ public class Audit extends AbstractReporter {
         } else {
             String saddr = eventData.get("saddr");
             // continue if this is an AF_INET socket address
-            if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            //if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            if(saddr.charAt(1) == '2'){
                 String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
                 int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
                 int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
@@ -1212,6 +1213,7 @@ public class Audit extends AbstractReporter {
         }
         if (location != null) {
             Artifact network = createFileVertex(location, true);
+            network.addAnnotation("subtype", "network");
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
             wgb.addAnnotation("time", time);
@@ -1233,7 +1235,8 @@ public class Audit extends AbstractReporter {
         } else {
             String saddr = eventData.get("saddr");
             // continue if this is an AF_INET socket address
-            if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            //if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            if(saddr.charAt(1) == '2'){
                 String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
                 int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
                 int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
@@ -1245,6 +1248,7 @@ public class Audit extends AbstractReporter {
         }
         if (location != null) {
             Artifact network = createFileVertex(location, false);
+            network.addAnnotation("subtype", "network");
             putVertex(network);
             Used used = new Used(processes.get(pid), network);
             used.addAnnotation("time", time);
@@ -1271,6 +1275,7 @@ public class Audit extends AbstractReporter {
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
             Artifact vertex = createFileVertex(path, true);
+            vertex.addAnnotation("subtype", "network");
             putVertex(vertex);
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", syscall.name().toLowerCase());
@@ -1296,6 +1301,7 @@ public class Audit extends AbstractReporter {
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
             Artifact vertex = createFileVertex(path, false);
+            vertex.addAnnotation("subtype", "network");
             putVertex(vertex);
             Used used = new Used(processes.get(pid), vertex);
             used.addAnnotation("operation", syscall.name().toLowerCase());
