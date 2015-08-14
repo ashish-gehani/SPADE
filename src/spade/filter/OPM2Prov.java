@@ -55,6 +55,8 @@ public class OPM2Prov extends AbstractFilter {
             newEdge = new spade.edge.prov.WasInformedBy((Activity) sourceVertex, (Activity) destinationVertex);
         }
         for (Map.Entry<String, String> entry : incomingEdge.getAnnotations().entrySet()) {
+        	if(entry.getKey().equals("type"))
+        		continue;
             newEdge.addAnnotation(entry.getKey(), entry.getValue());
         }
         putInNextFilter(newEdge);
@@ -70,6 +72,8 @@ public class OPM2Prov extends AbstractFilter {
             newVertex = new spade.vertex.prov.Activity();
         }
         for (Map.Entry<String, String> entry : vertex.getAnnotations().entrySet()) {
+        	if(entry.getKey().equals("type"))
+        		continue;
             newVertex.addAnnotation(entry.getKey(), entry.getValue());
         }
         return newVertex;
