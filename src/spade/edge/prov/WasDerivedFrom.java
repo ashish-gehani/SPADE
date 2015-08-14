@@ -23,7 +23,7 @@ import spade.core.AbstractEdge;
 import spade.vertex.prov.Entity;
 
 /**
- * WasDerivedFrom edge based on the OPM model.
+ * WasDerivedFrom edge based on the PROV model.
  *
  * @author Dawood Tariq
  */

@@ -48,7 +48,7 @@ else
 	elif [ $1 = "control" ] ; then
 		java -cp './build:./lib/*' spade.client.ControlClient
 	elif [ $1 = "debug" ] ; then
-		java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.core.Kernel
+		java -cp "./build:./lib/*" -server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC spade.core.Kernel
 	else
 		print_help
 	fi

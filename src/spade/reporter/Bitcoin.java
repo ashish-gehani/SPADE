@@ -90,7 +90,7 @@ public class Bitcoin extends AbstractReporter {
     private boolean shutdown=false;
 
     // ref to last block processed 
-    private Entity last_block_node;
+    private Activity last_block_node;
     
             
     @Override
@@ -161,69 +161,74 @@ public class Bitcoin extends AbstractReporter {
     void reportBlock(Block block) {
     	
     	// block
-        Entity block_node = new Entity();
+        Activity block_node = new Activity();
     	block_node.addAnnotations(new HashMap<String, String>(){
     		{
-                put("blockid", block.hash); 
-    			put("height", Integer.toString(block.height)); // Ashish suggested to remove this
-    			put("confirmations", Integer.toString(block.confirmations));
-    			put("time", Integer.toString(block.time)); 
-    			put("difficulty", Integer.toString(block.difficulty)); 
-    			put("chainwork", block.chainwork);
+                put("block_hash", block.hash); 
+    			put("block_height", Integer.toString(block.height));
+    			put("block_confirmations", Integer.toString(block.confirmations));
+    			put("block_time", Integer.toString(block.time)); 
+    			put("block_difficulty", Integer.toString(block.difficulty)); 
+    			put("block_chainwork", block.chainwork);
     		}
     	});
     	putVertex(block_node);
     	    	
     	for(Transaction tx: block.transactions) {
     		// Tx
-            Entity tx_node = new Entity();
+            Activity tx_node = new Activity();
     		tx_node.addAnnotations(new HashMap<String, String>(){
     			{
-    				put("txid", tx.id);
+    				put("transaction_hash", tx.id);
     			}
     		});
             if (tx.locktime != 0) {
-                tx_node.addAnnotation("loctime", Integer.toString(tx.locktime));
+                tx_node.addAnnotation("transaction_loctime", Integer.toString(tx.locktime));
+            }
+            if (tx.getCoinbaseValue() != null) {
+                tx_node.addAnnotation("coinbase", tx.getCoinbaseValue());
             }
 
     		putVertex(tx_node);
     		
     		// Tx edge
-            WasDerivedFrom tx_edge = new WasDerivedFrom(tx_node, block_node);
+            WasInformedBy tx_edge = new WasInformedBy(tx_node, block_node);
     		putEdge(tx_edge);
     		
     		for (Vin vin: tx.vins) {
     			// Vin
-                Activity vin_vertex = new Activity();
-    			vin_vertex.addAnnotations(new HashMap<String, String>(){
-    				{
-                        put("txid", vin.txid);
-                        put("n", Integer.toString(vin.n));
-    				}
-    			});
-                // Vin nodes are already present (except few cases)
-                // confirm that system pulls these vertexes from the db
-    			putVertex(vin_vertex); 
-    			
-    			// Vin Edge
-    			Used vin_edge = new Used(vin_vertex, tx_node);
-    			putEdge(vin_edge);
+                if (vin.isCoinbase == false) {
+                    Entity vin_vertex = new Entity();
+        			vin_vertex.addAnnotations(new HashMap<String, String>(){
+        				{
+                            put("transaction_hash", vin.txid);
+                            put("transaction_index", Integer.toString(vin.n));
+        				}
+        			});
+                    // Vin nodes are already present (except few cases)
+                    // confirm that system pulls these vertexes from the db
+        			putVertex(vin_vertex); 
+        			
+        			// Vin Edge
+                    Used vin_edge = new Used(tx_node,vin_vertex) ;
+        			putEdge(vin_edge);
+                } 
     		}
 
     		for (Vout vout: tx.vouts) {
     			// Vout Vertex
-    			Activity vout_vertex = new Activity();
+                Entity vout_vertex = new Entity();
     			vout_vertex.addAnnotations(new HashMap<String, String>(){
     				{
-                        put("txid", tx.id);
-                        put("n", Integer.toString(vout.n));
+                        put("transaction_hash", tx.id);
+                        put("transaction_index", Integer.toString(vout.n));
     				}
     			});
     			putVertex(vout_vertex);
     			
     			// Vout Edge
-    			WasGeneratedBy vout_edge = new WasGeneratedBy(tx_node, vout_vertex);
-    			vout_edge.addAnnotation("value", Double.toString(vout.value));
+                WasGeneratedBy vout_edge = new WasGeneratedBy(vout_vertex, tx_node);
+    			vout_edge.addAnnotation("transaction_value", Double.toString(vout.value));
     			putEdge(vout_edge);
 
                 // adresses
@@ -236,7 +241,7 @@ public class Bitcoin extends AbstractReporter {
                     });
                     putVertex(address_vertex); 
 
-                    WasAssociatedWith address_edge = new WasAssociatedWith(vout_vertex, address_vertex);
+                    WasAttributedTo address_edge = new WasAttributedTo(vout_vertex, address_vertex);
                     putEdge(address_edge);
                 }
     		}
@@ -244,7 +249,7 @@ public class Bitcoin extends AbstractReporter {
 
         // Edge between this and last block
         if (last_block_node!=null) {
-            WasDerivedFrom block_edge = new WasDerivedFrom(last_block_node, block_node);
+            WasInformedBy block_edge = new WasInformedBy(block_node, last_block_node);
             putEdge(block_edge);
 
         }
@@ -325,7 +330,7 @@ public class Bitcoin extends AbstractReporter {
 class Block {
     String hash; 
     String id; 
-    int height; // Ashish suggested to remove height
+    int height;
     int confirmations;
     int time;
     int difficulty;
@@ -379,16 +384,27 @@ class Transaction {
 			}
 		}
 	}
+
+    public String getCoinbaseValue() {
+        for (Vin vin : vins) {
+            if (vin.isCoinbase) {
+                return vin.txid;
+            }
+        }
+        return null;
+    }
 }
 
 class Vin {
 	String txid; 
     int n;
+    boolean isCoinbase = false;
 	
 	public Vin(JSONObject vin) throws JSONException {
 		if (vin.has("txid")) {
 			txid = vin.getString("txid");
 		} else {
+            isCoinbase = true;
 			txid = vin.getString("coinbase");
 		}
     	if (vin.has("vout") ) {

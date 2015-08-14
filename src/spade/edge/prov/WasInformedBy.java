@@ -23,7 +23,7 @@ import spade.core.AbstractEdge;
 import spade.vertex.prov.Activity;
 
 /**
- * WasTriggeredBy edge based on the OPM model.
+ * WasTriggeredBy edge based on the PROV model.
  *
  * @author Dawood Tariq
  */

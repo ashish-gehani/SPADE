@@ -20,25 +20,25 @@
 package spade.edge.prov;
 
 import spade.core.AbstractEdge;
-import spade.vertex.prov.Activity;
 import spade.vertex.prov.Entity;
+import spade.vertex.prov.Agent;
 
 /**
- * WasGeneratedBy edge based on the PROV model.
+ * WasAttributedTo edge based on the PROV model.
  *
- * @author Dawood Tariq
+ * @author Hasanat Kazmi
  */
-public class WasGeneratedBy extends AbstractEdge {
+public class WasAttributedTo extends AbstractEdge {
 
     /**
      * Constructor for Entity->Activity edge
      *
      * @param entity Entity
-     * @param activity Activity
+     * @param agent Agent
      */
-    public WasGeneratedBy(Entity entity, Activity activity) {
-        setSourceVertex(entity);
-        setDestinationVertex(activity);
-        addAnnotation("type", "WasGeneratedBy");
+    public WasAttributedTo(Entity entity, Agent agent) {
+        setSourceVertex(agent);
+        setDestinationVertex(entity);
+        addAnnotation("type", "WasAttributedTo");
     }
 }
