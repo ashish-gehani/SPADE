@@ -185,8 +185,8 @@ public class Bitcoin extends AbstractReporter {
             if (tx.locktime != 0) {
                 tx_node.addAnnotation("transaction_loctime", Integer.toString(tx.locktime));
             }
-            if (tx.isCoinbase()) {
-                tx_node.addAnnotation("coinbase", "true");
+            if (tx.getCoinbaseValue() != null) {
+                tx_node.addAnnotation("coinbase", tx.getCoinbaseValue());
             }
 
     		putVertex(tx_node);
@@ -385,13 +385,13 @@ class Transaction {
 		}
 	}
 
-    public boolean isCoinbase() {
+    public String getCoinbaseValue() {
         for (Vin vin : vins) {
             if (vin.isCoinbase) {
-                return true;
+                return vin.txid;
             }
         }
-        return false;
+        return null;
     }
 }
 
