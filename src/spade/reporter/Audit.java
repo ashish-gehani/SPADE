@@ -64,8 +64,8 @@ public class Audit extends AbstractReporter {
     private long THREAD_SLEEP_DELAY = 100;
     private long THREAD_CLEANUP_TIMEOUT = 1000;
     private final boolean USE_PROCFS = false;
-    private final boolean USE_OPEN_CLOSE = true;
-    private final boolean USE_SOCK_SEND_RCV = false; //to toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
+    private boolean USE_OPEN_CLOSE = true;
+    private boolean USE_SOCK_SEND_RCV = false; //to toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean ARCH_32BIT = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -157,6 +157,18 @@ public class Audit extends AbstractReporter {
             }
         } else {
             DEBUG_DUMP_LOG = false;
+        }
+        
+        //check if file IO and net IO is also asked by the user to be turned on
+        if(args.containsKey("fileio")){
+        	if("true".equals(args.get("fileio"))){
+        		USE_OPEN_CLOSE = false;
+        	}
+        }
+        if(args.containsKey("netio")){
+        	if("true".equals(args.get("netio"))){
+        		USE_SOCK_SEND_RCV = true;
+        	}
         }
 
         // Get system boot time from /proc/stat. This is later used to determine
