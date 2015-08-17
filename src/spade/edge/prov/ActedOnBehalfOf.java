@@ -35,7 +35,7 @@ public class ActedOnBehalfOf extends AbstractEdge {
      * @param agent Agent
      * @param agent Agent
      */
-    public WasInformedBy(Agent sourceAgent, Agent destinationAgent) {
+    public ActedOnBehalfOf(Agent sourceAgent, Agent destinationAgent) {
         setSourceVertex(sourceAgent);
         setDestinationVertex(destinationAgent);
         addAnnotation("type", "ActedOnBehalfOf");
