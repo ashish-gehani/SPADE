@@ -98,13 +98,13 @@ lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
 
 # Build the LinuxAudit reporter.
-build-linuxaudit: build/spade/reporter/Audit.class lib/spadeLinuxAudit 
+build-linuxaudit: build/spade/reporter/Audit.class lib/spadeSocketBridge
 	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
-	@echo '----->            sudo chown root lib/spadeLinuxAudit'
-	@echo '----->            sudo chmod ug+s lib/spadeLinuxAudit'
+	@echo '----->            sudo chown root lib/spadeSocketBridge'
+	@echo '----->            sudo chmod ug+s lib/spadeSocketBridge'
 	@echo ''
-lib/spadeLinuxAudit: src/spade/reporter/spadeLinuxAudit.c
-	gcc -o lib/spadeLinuxAudit src/spade/reporter/spadeLinuxAudit.c
+lib/spadeSocketBridge: src/spade/reporter/spadeSocketBridge.c
+	gcc -o lib/spadeSocketBridge src/spade/reporter/spadeSocketBridge.c
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/libLinuxFUSE.h lib/libLinuxFUSE.so
@@ -206,7 +206,7 @@ clean:
 	@rm -rf build android-build android-lib
 	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
-	@rm -rf lib/spadeOpenBSM lib/spadeLinuxAudit
+	@rm -rf lib/spadeOpenBSM lib/spadeSocketBridge
 	@rm -rf cfg/ssl
 	@rm -rf log/SPADE_*
 

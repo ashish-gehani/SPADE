@@ -138,14 +138,14 @@ public class Audit extends AbstractReporter {
             arguments = "";
         }
 
-        AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeLinuxAudit";
-        // ignoreProcesses = "spadeLinuxAudit auditd kauditd java spade-server spade-controller";
+        AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeSocketBridge";
+        // ignoreProcesses = "spadeSocketBridge auditd kauditd java spade-server spade-controller";
         /* 
            	Removed java because that would exclude all other java processes too and removed
            	'spade-server' and 'spade-controller' because spade invocation method has been changed. 
            	Also added audispd to the ignore list.
         */
-        ignoreProcesses = "spadeLinuxAudit auditd kauditd audispd";
+        ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
         DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
 
         Map<String, String> args = parseKeyValPairs(arguments);
@@ -262,8 +262,8 @@ public class Audit extends AbstractReporter {
 				parseEventLine(line);
 			    }
 			}
-			//Added this command here because once the spadeLinuxAudit process has exited any rules involving it cannot be cleared.
-			//So, deleting the rules before destroying the spadeLinuxAudit process.
+			//Added this command here because once the spadeSocketBridge process has exited any rules involving it cannot be cleared.
+			//So, deleting the rules before destroying the spadeSocketBridge process.
 			Runtime.getRuntime().exec("auditctl -D").waitFor();
 			eventReader.close();
 			auditProcess.destroy();
@@ -374,7 +374,7 @@ public class Audit extends AbstractReporter {
         // Stop the event reader and clear all audit rules.
         shutdown = true;
         try {
-        	//The following command is being run from inside the event processor thread that listens to spadeLinuxAudit. Check there for reason.
+        	//The following command is being run from inside the event processor thread that listens to spadeSocketBridge. Check there for reason.
             //Runtime.getRuntime().exec("auditctl -D").waitFor();
             eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
         } catch (Exception exception) {
