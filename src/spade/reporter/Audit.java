@@ -1167,7 +1167,8 @@ public class Audit extends AbstractReporter {
         } else {
             String saddr = eventData.get("saddr");
             // continue if this is an AF_INET socket address
-            if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            //if ((saddr.length() == 16) && (saddr.charAt(1) == '2')) {
+            if(saddr.charAt(1) == '2'){
                 String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
                 int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
                 int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
