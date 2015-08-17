@@ -63,7 +63,7 @@ public class Audit extends AbstractReporter {
     private long THREAD_SLEEP_DELAY = 100;
     private long THREAD_CLEANUP_TIMEOUT = 1000;
     private final boolean USE_PROCFS = false;
-    private boolean USE_OPEN_CLOSE = true;
+    private boolean USE_READ_WRITE = false;
     private boolean USE_SOCK_SEND_RCV = false; //to toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean ARCH_32BIT = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
@@ -161,7 +161,7 @@ public class Audit extends AbstractReporter {
         //check if file IO and net IO is also asked by the user to be turned on
         if(args.containsKey("fileio")){
         	if("true".equals(args.get("fileio"))){
-        		USE_OPEN_CLOSE = false;
+        		USE_READ_WRITE = true;
         	}
         }
         if(args.containsKey("netio")){
@@ -284,7 +284,7 @@ public class Audit extends AbstractReporter {
             // appended to the audit rule.
             StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
 	    auditRules = "-a exit,always ";
-	    if (!USE_OPEN_CLOSE) {
+	    if (USE_READ_WRITE) {
 	    	auditRules += "-S read -S readv -S write -S writev ";
 	    }
 	    if(USE_SOCK_SEND_RCV){
@@ -838,7 +838,7 @@ public class Audit extends AbstractReporter {
         }
         addDescriptor(pid, fd, path);
 
-        if (USE_OPEN_CLOSE) {
+        if (!USE_READ_WRITE) {
             String flags = eventData.get("a1");
             Map<String, String> newData = new HashMap<String, String>();
             newData.put("pid", pid);
