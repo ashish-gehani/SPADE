@@ -192,7 +192,7 @@ public class Audit extends AbstractReporter {
 
         // Create root vertex
         Process rootVertex = new spade.vertex.opm.Process();
-        rootVertex.addAnnotation("pidname", "BOOT");
+        rootVertex.addAnnotation("pidname", "Boot");
         rootVertex.addAnnotation("pid", "0");
         rootVertex.addAnnotation("ppid", "0");
         String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(boottime));
