@@ -17,6 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
+
 package spade.filter;
 
 import java.io.BufferedReader;
@@ -26,6 +27,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -36,8 +38,8 @@ import spade.vertex.opm.Process;
 
 public class LLVMFilter extends AbstractFilter {
 
-    HashSet<String> methodsToMonitor; //Set of Methods that we want to monitor
-    HashMap<String, Integer> artifacts; //Buffer for Artifacts
+    protected HashSet<String> methodsToMonitor; //Set of Methods that we want to monitor
+    protected HashMap<String, Integer> artifacts; //Buffer for Artifacts
 
     public LLVMFilter() {
         try {
@@ -58,6 +60,7 @@ public class LLVMFilter extends AbstractFilter {
 
             String[] tokens = arguments.split("\\s+");
             BufferedReader br = new BufferedReader(new FileReader(tokens[0]));
+	    System.out.println("tokens0 :" + tokens[0]);	
             String s;
             Pattern nodeDef = Pattern.compile("([^ \t]+) .*label=\"[{]?([^{}]*)[}]?\".*;"); // Format for node definition in DOT file
             Pattern edgeDef = Pattern.compile("([^ \t]+) -> ([^ \t]+);"); // Format for edge definition in DOT file
@@ -78,9 +81,16 @@ public class LLVMFilter extends AbstractFilter {
             }
             br.close();
 
-            String traceFunctions[] = tokens[1].split("\\s+");
-            for (int i = 0; i < traceFunctions.length; i++) {
-                queue.add(nodes.get(traceFunctions[i]));
+            ArrayList<String> traceFunctions = new ArrayList<>();	    
+	    BufferedReader functionFile = new BufferedReader(new FileReader(tokens[1]));
+	
+	    String functionName;
+	    while((functionName = functionFile.readLine()) != null){
+	    	traceFunctions.add(functionName);			
+	    }
+
+            for (int i = 0; i < traceFunctions.size(); i++) {
+                queue.add(nodes.get(traceFunctions.get(i)));
             }
 
             while (queue.size() != 0) //Breadth First Search
@@ -88,6 +98,7 @@ public class LLVMFilter extends AbstractFilter {
                 String name = queue.removeFirst();
                 String actualName = nodesRev.get(name);
                 if (!methodsToMonitor.contains(actualName)) {
+		    System.out.println("method name: " + actualName);
                     methodsToMonitor.add(actualName);
                     if (edges.containsKey(name)) {
                         queue.addAll(edges.get(name));
