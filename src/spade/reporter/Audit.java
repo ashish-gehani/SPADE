@@ -159,13 +159,13 @@ public class Audit extends AbstractReporter {
         }
         
         //check if file IO and net IO is also asked by the user to be turned on
-        if(args.containsKey("fileio")){
-        	if("true".equals(args.get("fileio"))){
+        if(args.containsKey("fileIO")){
+        	if("true".equals(args.get("fileIO"))){
         		USE_READ_WRITE = true;
         	}
         }
-        if(args.containsKey("netio")){
-        	if("true".equals(args.get("netio"))){
+        if(args.containsKey("netIO")){
+        	if("true".equals(args.get("netIO"))){
         		USE_SOCK_SEND_RCV = true;
         	}
         }
