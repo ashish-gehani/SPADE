@@ -31,7 +31,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
-import spade.edge.opm.*;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasControlledBy;
+import spade.edge.opm.WasDerivedFrom;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
@@ -449,7 +453,7 @@ public class LinuxFUSE extends AbstractReporter {
         // 'done' is used to indicate whether this is a pre-rename or a post-rename
         // call. In pre-rename, a Used edge is created from the process to the old
         // file. In post-rename, a WasGeneratedBy edge is created from the process
-        // to the new file and a WasDerivedEdge created between the two file
+        // to the new file and a WasDerivedFrom created between the two file
         // artifacts.
         if (done == 0) {
             // Create file artifact depending on whether this is a link or not.
