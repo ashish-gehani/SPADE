@@ -83,7 +83,7 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
         public void addAttribute(String key, String value) {
             if (!multiAttributes.containsKey(key)) {
-                multiAttributes.put(key, new HashSet<>());
+                multiAttributes.put(key, new HashSet<String>());
             }
             multiAttributes.get(key).add(value);
         }

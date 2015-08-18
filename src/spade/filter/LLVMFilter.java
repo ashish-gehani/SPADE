@@ -71,7 +71,7 @@ public class LLVMFilter extends AbstractFilter {
                 } else if (edge.find()) // If Edge Definition
                 {
                     if (!edges.containsKey(edge.group(2))) {
-                        edges.put(edge.group(2), new HashSet<>());
+                        edges.put(edge.group(2), new HashSet<String>());
                     }
                     edges.get(edge.group(2)).add(edge.group(1));
                 }
