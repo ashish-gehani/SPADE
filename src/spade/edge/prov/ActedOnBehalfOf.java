@@ -23,7 +23,7 @@ import spade.core.AbstractEdge;
 import spade.vertex.prov.Agent;
 
 /**
- * WasAttributedTo edge based on the PROV model.
+ * ActedOnBehalfOf edge based on the PROV model.
  *
  * @author Hasanat Kazmi
  */
