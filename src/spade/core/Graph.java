@@ -112,16 +112,14 @@ public class Graph extends AbstractStorage implements Serializable {
      */
     public Graph() {
         // Lucene initialization
-        if (Kernel.reindexLucene) {
-            try {
-                vertexIndex = new RAMDirectory();
-                edgeIndex = new RAMDirectory();
-                vertexIndexWriter = new IndexWriter(vertexIndex, new IndexWriterConfig(Version.LUCENE_35, analyzer));
-                edgeIndexWriter = new IndexWriter(edgeIndex, new IndexWriterConfig(Version.LUCENE_35, analyzer));
-                queryParser.setAllowLeadingWildcard(true);
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-            }
+        try {
+            vertexIndex = new RAMDirectory();
+            edgeIndex = new RAMDirectory();
+            vertexIndexWriter = new IndexWriter(vertexIndex, new IndexWriterConfig(Version.LUCENE_35, analyzer));
+            edgeIndexWriter = new IndexWriter(edgeIndex, new IndexWriterConfig(Version.LUCENE_35, analyzer));
+            queryParser.setAllowLeadingWildcard(true);
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
         }
     }
 
@@ -165,28 +163,26 @@ public class Graph extends AbstractStorage implements Serializable {
             return false;
         }
         // Add vertex to Lucene index
-        if (Kernel.reindexLucene) {
-            try {
-                Document doc = new Document();
-                for (Map.Entry<String, String> currentEntry : inputVertex.getAnnotations().entrySet()) {
-                    String key = currentEntry.getKey();
-                    String value = currentEntry.getValue();
-                    if (key.equals(ID_STRING)) {
-                        continue;
-                    }
-                    doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
+        try {
+            Document doc = new Document();
+            for (Map.Entry<String, String> currentEntry : inputVertex.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equals(ID_STRING)) {
+                    continue;
                 }
-                doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-                vertexIndexWriter.addDocument(doc);
-                // vertexIndexWriter.commit();
-
-                vertexIdentifiers.put(serial_number, inputVertex);
-                reverseVertexIdentifiers.put(inputVertex, serial_number);
-                vertexSet.add(inputVertex);
-                serial_number++;
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
+                doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
+            doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
+            vertexIndexWriter.addDocument(doc);
+            // vertexIndexWriter.commit();
+
+            vertexIdentifiers.put(serial_number, inputVertex);
+            reverseVertexIdentifiers.put(inputVertex, serial_number);
+            vertexSet.add(inputVertex);
+            serial_number++;
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
         }
         return true;
     }
@@ -204,42 +200,38 @@ public class Graph extends AbstractStorage implements Serializable {
             return false;
         }
         // Add edge to Lucene index
-        if (Kernel.reindexLucene) {
-            try {
-                Document doc = new Document();
-                for (Map.Entry<String, String> currentEntry : inputEdge.getAnnotations().entrySet()) {
-                    String key = currentEntry.getKey();
-                    String value = currentEntry.getValue();
-                    if (key.equals(ID_STRING)) {
-                        continue;
-                    }
-                    doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
+        try {
+            Document doc = new Document();
+            for (Map.Entry<String, String> currentEntry : inputEdge.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equals(ID_STRING)) {
+                    continue;
                 }
-                doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-                doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getSourceVertex())), Field.Store.YES, Field.Index.ANALYZED));
-                doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getDestinationVertex())), Field.Store.YES, Field.Index.ANALYZED));
-                edgeIndexWriter.addDocument(doc);
-                // edgeIndexWriter.commit();
-
-                edgeIdentifiers.put(serial_number, inputEdge);
-                reverseEdgeIdentifiers.put(inputEdge, serial_number);
-                edgeSet.add(inputEdge);
-                serial_number++;
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
+                doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
+            doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getSourceVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getDestinationVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            edgeIndexWriter.addDocument(doc);
+            // edgeIndexWriter.commit();
+
+            edgeIdentifiers.put(serial_number, inputEdge);
+            reverseEdgeIdentifiers.put(inputEdge, serial_number);
+            edgeSet.add(inputEdge);
+            serial_number++;
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
         }
         return true;
     }
 
     public void commitIndex() {
-        if (Kernel.reindexLucene) {
-            try {
-                vertexIndexWriter.commit();
-                edgeIndexWriter.commit();
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-            }
+        try {
+            vertexIndexWriter.commit();
+            edgeIndexWriter.commit();
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, null, exception);
         }
     }
 

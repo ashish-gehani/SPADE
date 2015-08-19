@@ -57,22 +57,22 @@ import org.json.*;
 public class Bitcoin extends AbstractReporter {	
     
 	// these variables are set in ~/.bitcoin/bitcoin.conf
-    private String host = "http://127.0.0.1";
-    private int port = 8332;
-    private String rpcuser = "bitcoinrpc";
-    private String rpcpassword = "password";
+    private String HOST = "http://127.0.0.1";
+    private int PORT = 8332;
+    private String RPC_USER = "bitcoinrpc";
+    private String RPC_PASSWORD = "password";
     
-    // request_jump is number of hash requests packed together into one RPC call.
-    private final int request_jump = 1000;
+    // REQUEST_JUMP is number of hash requests packed together into one RPC call.
+    private final int REQUEST_JUMP = 1000;
     
-    // pause_time is the time interval thread sleeps before quering the server for new blocks
-    private final int pause_time = 10000;
+    // PAUSE_TIME is the time interval thread sleeps before quering the server for new blocks
+    private final int PAUSE_TIME = 10000;
     
     // local block index <-> block hash cache
-    private String path_to_hash_file = "/tmp/hashfile.json";
+    private String HASH_FILE_PATH = "/tmp/hashfile.json";
     
     // file used to save block index, i such that block 0 to i have been processed
-    private String progress_file = "/tmp/bitcoin.reporter.progress";
+    private String PROGRESS_FILE = "/tmp/bitcoin.reporter.progress";
 
     //
     private BlockHashDb block_hashes;
@@ -114,8 +114,8 @@ public class Bitcoin extends AbstractReporter {
     int getLastBlockProcessedFromCache() throws Exception{
     	int last_block = -1;
     	try {
-	    	new File(progress_file).createNewFile(); // only creates if one doesn't exist
-	    	String contents = new String(Files.readAllBytes(Paths.get(progress_file)));
+	    	new File(PROGRESS_FILE).createNewFile(); // only creates if one doesn't exist
+	    	String contents = new String(Files.readAllBytes(Paths.get(PROGRESS_FILE)));
 	    	contents = contents.replace("\n", "").replace("\r", "");
 	    	if (contents.equals("")) { 
 	    		last_block = -1;
@@ -124,7 +124,7 @@ public class Bitcoin extends AbstractReporter {
 	    		last_block = Integer.parseInt(contents);
 	    	}
 		} catch (IOException e) {
-			Bitcoin.log(Level.SEVERE, "Couldn't open progress file or progress file has unexpected content. Path: " + progress_file, e);
+			Bitcoin.log(Level.SEVERE, "Couldn't open progress file or progress file has unexpected content. Path: " + PROGRESS_FILE, e);
 			throw e;
 		}
     	return last_block;
@@ -132,12 +132,12 @@ public class Bitcoin extends AbstractReporter {
     
     void writeBlockProgressToCache(int index) throws Exception{
     	try {
-	    	new File(progress_file).createNewFile(); // only creates if one doesn't exist
-	    	Writer wr = new FileWriter(progress_file);
+	    	new File(PROGRESS_FILE).createNewFile(); // only creates if one doesn't exist
+	    	Writer wr = new FileWriter(PROGRESS_FILE);
 	    	wr.write(String.valueOf(index));
 	    	wr.close();
 		} catch (IOException e) {
-			Bitcoin.log(Level.SEVERE, "Couldn't open progress file or write to it. Path: " + progress_file, e);
+			Bitcoin.log(Level.SEVERE, "Couldn't open progress file or write to it. Path: " + PROGRESS_FILE, e);
 			throw e;
 		}    	
     }
@@ -260,15 +260,15 @@ public class Bitcoin extends AbstractReporter {
     void runner() {
     	// init
     	block_hashes = new BlockHashDb(
-    			host, 
-    			port, 
-    			rpcuser, 
-    			rpcpassword, 
-    			request_jump, 
-    			path_to_hash_file);
+    			HOST, 
+    			PORT, 
+    			RPC_USER, 
+    			RPC_PASSWORD, 
+    			REQUEST_JUMP, 
+    			HASH_FILE_PATH);
     	block_reader = new BlockReader(
-    			host,
-    			port);
+    			HOST,
+    			PORT);
     	
     	date =  Calendar.getInstance().getTime();
     	
@@ -295,7 +295,7 @@ public class Bitcoin extends AbstractReporter {
 			} catch (Exception e) {
 				// either the block does not exist or server call fail. Wait and retry
 				try {
-					Thread.sleep(pause_time); // wait for 1 sec
+					Thread.sleep(PAUSE_TIME); // wait for 1 sec
 					block_hash_db = block_hashes.loadBlockHashes(); // get fresh hashes from server
 				} catch (Exception e1) {
 					Bitcoin.log(Level.SEVERE, "Failure to get new hashes from server. Quiting", e);
@@ -472,16 +472,16 @@ class BlockHashDb {
     private int port;
     private String rpcuser;
     private String rpcpassword;
-    private int request_jump;
-    private String path_to_hash_file;
+    private int REQUEST_JUMP;
+    private String HASH_FILE_PATH;
        
-    BlockHashDb(String host, int port, String rpcuser,  String rpcpassword, int request_jump, String path_to_hash_file) {
+    BlockHashDb(String host, int port, String rpcuser,  String rpcpassword, int REQUEST_JUMP, String HASH_FILE_PATH) {
         this.host = host;
         this.port = port;
         this.rpcuser = rpcuser;
         this.rpcpassword = rpcpassword;
-        this.request_jump = request_jump;
-        this.path_to_hash_file = path_to_hash_file;    
+        this.REQUEST_JUMP = REQUEST_JUMP;
+        this.HASH_FILE_PATH = HASH_FILE_PATH;    
     }
     
     private HttpURLConnection getConnection() throws Exception{
@@ -578,15 +578,15 @@ class BlockHashDb {
     	Map<Integer, String> hashes = new HashMap<Integer, String>();
     	
     	while (true) {
-        	String blk_hashes = requestHashesFromServer(start_block, start_block+request_jump);
+        	String blk_hashes = requestHashesFromServer(start_block, start_block+REQUEST_JUMP);
         	Map<Integer, String> hashset = parseBlockHashes(blk_hashes);
-        	if (hashset.size() < request_jump) {
+        	if (hashset.size() < REQUEST_JUMP) {
         		// end of block count
         		hashes.putAll(hashset);
         		break;
         	}
         	hashes.putAll(hashset);    		
-        	start_block = start_block + request_jump;
+        	start_block = start_block + REQUEST_JUMP;
     	}
     	
     	return hashes;
@@ -598,10 +598,10 @@ class BlockHashDb {
     public Map<Integer, String> loadBlockHashes() throws Exception {
     	String hash_file_contents;
     	try {
-	    	new File(path_to_hash_file).createNewFile(); // only creates if one doesn't exist
-			hash_file_contents = new String(Files.readAllBytes(Paths.get(path_to_hash_file)));
+	    	new File(HASH_FILE_PATH).createNewFile(); // only creates if one doesn't exist
+			hash_file_contents = new String(Files.readAllBytes(Paths.get(HASH_FILE_PATH)));
 		} catch (IOException e) {
-			Bitcoin.log(Level.SEVERE, "Couldn't open local hash file. Path: " + path_to_hash_file, e);
+			Bitcoin.log(Level.SEVERE, "Couldn't open local hash file. Path: " + HASH_FILE_PATH, e);
 			throw e;
 		}
     	    	
@@ -629,13 +629,13 @@ class BlockHashDb {
     	if (newHashes.size()!=0) {
 			FileWriter fw;
 			try {
-				fw = new FileWriter(new File(path_to_hash_file), false);
+				fw = new FileWriter(new File(HASH_FILE_PATH), false);
 				for (int i=0; i<hashes.size(); i++) {
 					fw.write(i+"\t"+hashes.get(i)+"\n");
 				}
 				fw.close();
 			} catch (IOException e) {
-				Bitcoin.log(Level.SEVERE, "Couldn't write to local hash file. Path: " + path_to_hash_file, e);
+				Bitcoin.log(Level.SEVERE, "Couldn't write to local hash file. Path: " + HASH_FILE_PATH, e);
 				throw e;
 			}
     	}

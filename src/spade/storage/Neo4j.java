@@ -86,7 +86,7 @@ public class Neo4j extends AbstractStorage {
     private final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
     private final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
-    private final String neoConfigFile = "cfg/neo4j.properties";
+    private final String NEO_CONFIG_FILE = "cfg/neo4j.properties";
 
     private enum MyRelationshipTypes implements RelationshipType {
 
@@ -101,20 +101,18 @@ public class Neo4j extends AbstractStorage {
             }
             GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(arguments);
             try {
-                graphDbBuilder.loadPropertiesFromFile(neoConfigFile);
+                graphDbBuilder.loadPropertiesFromFile(NEO_CONFIG_FILE);
                 logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
             } catch (Exception exception) {
                 logger.log(Level.INFO, "Default Neo4j configurations loaded.");
             }
             graphDb = graphDbBuilder.newGraphDatabase();
-            if (Kernel.reindexLucene) {
-                index = graphDb.index();
-                // Create vertex index
-                vertexIndex = index.forNodes(VERTEX_INDEX);
-                // Create edge index
-                edgeIndex = index.forRelationships(EDGE_INDEX);
-                // Create HashMap to store IDs of incoming vertices
-            }
+            index = graphDb.index();
+            // Create vertex index
+            vertexIndex = index.forNodes(VERTEX_INDEX);
+            // Create edge index
+            edgeIndex = index.forRelationships(EDGE_INDEX);
+            // Create HashMap to store IDs of incoming vertices
             transactionCount = 0;
             flushCount = 0;
             vertexMap = new HashMap<>();
@@ -150,11 +148,9 @@ public class Neo4j extends AbstractStorage {
                 logger.log(Level.INFO, "Hard flush limit reached - restarting database");
                 graphDb.shutdown();
                 graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
-                if (Kernel.reindexLucene) {
-                    index = graphDb.index();
-                    vertexIndex = index.forNodes(VERTEX_INDEX);
-                    edgeIndex = index.forRelationships(EDGE_INDEX);
-                }
+                index = graphDb.index();
+                vertexIndex = index.forNodes(VERTEX_INDEX);
+                edgeIndex = index.forRelationships(EDGE_INDEX);
                 flushCount = 0;
                 webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
                 webServer.start();
@@ -199,14 +195,10 @@ public class Neo4j extends AbstractStorage {
                     continue;
                 }
                 newVertex.setProperty(key, value);
-                if (Kernel.reindexLucene) {
-                    vertexIndex.add(newVertex, key, value);
-                }
+                vertexIndex.add(newVertex, key, value);
             }
             newVertex.setProperty(ID_STRING, newVertex.getId());
-            if (Kernel.reindexLucene) {
-                vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-            }
+            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
             vertexMap.put(incomingVertex.toString(), newVertex.getId());
             checkTransactionCount();
 
@@ -239,14 +231,10 @@ public class Neo4j extends AbstractStorage {
                     continue;
                 }
                 newEdge.setProperty(key, value);
-                if (Kernel.reindexLucene) {
-                    edgeIndex.add(newEdge, key, value);
-                }
+                edgeIndex.add(newEdge, key, value);
             }
             newEdge.setProperty(ID_STRING, newEdge.getId());
-            if (Kernel.reindexLucene) {
-                edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-            }
+            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
             checkTransactionCount();
 
             return true;
