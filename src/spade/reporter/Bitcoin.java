@@ -334,7 +334,7 @@ public class Bitcoin extends AbstractReporter {
 
         // progress loop
         while (!shutdown) {
-            if (end_block <= last_block) { // user set end block reached
+            if (end_block <= last_block && end_block != -1) { // user set end block reached
                 Bitcoin.log(Level.INFO, "Last block pushed in database. You can detach reporter and database safely.", null);
                 break;
             } 
