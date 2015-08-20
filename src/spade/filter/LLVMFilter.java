@@ -59,14 +59,14 @@ public class LLVMFilter extends AbstractFilter {
             LinkedList<String> queue = new LinkedList<>();
 
             String[] tokens = arguments.split("\\s+");
-            BufferedReader br = new BufferedReader(new FileReader(tokens[0]));
+            BufferedReader graphReader = new BufferedReader(new FileReader(tokens[0]));
 	    System.out.println("tokens0 :" + tokens[0]);	
-            String s;
+            String line;
             Pattern nodeDef = Pattern.compile("([^ \t]+) .*label=\"[{]?([^{}]*)[}]?\".*;"); // Format for node definition in DOT file
             Pattern edgeDef = Pattern.compile("([^ \t]+) -> ([^ \t]+);"); // Format for edge definition in DOT file
-            while ((s = br.readLine()) != null) {
-                Matcher node = nodeDef.matcher(s);
-                Matcher edge = edgeDef.matcher(s);
+            while ((line = graphReader.readLine()) != null) {
+                Matcher node = nodeDef.matcher(line);
+                Matcher edge = edgeDef.matcher(line);
                 if (node.find()) // If Node Definition
                 {
                     nodes.put(node.group(2), node.group(1));
@@ -79,7 +79,7 @@ public class LLVMFilter extends AbstractFilter {
                     edges.get(edge.group(2)).add(edge.group(1));
                 }
             }
-            br.close();
+            graphReader.close();
 
             ArrayList<String> traceFunctions = new ArrayList<>();	    
 	    BufferedReader functionFile = new BufferedReader(new FileReader(tokens[1]));
@@ -89,8 +89,8 @@ public class LLVMFilter extends AbstractFilter {
 	    	traceFunctions.add(functionName);			
 	    }
 
-            for (int i = 0; i < traceFunctions.size(); i++) {
-                queue.add(nodes.get(traceFunctions.get(i)));
+            for (int functionCount = 0; functionCount < traceFunctions.size(); functionCount++) {
+                queue.add(nodes.get(traceFunctions.get(functionCount)));
             }
 
             while (queue.size() != 0) //Breadth First Search
