@@ -31,14 +31,14 @@ import spade.vertex.prov.Agent;
 public class WasAttributedTo extends AbstractEdge {
 
     /**
-     * Constructor for Entity->Activity edge
+     * Constructor for Entity->Agent edge
      *
      * @param entity Entity
      * @param agent Agent
      */
     public WasAttributedTo(Entity entity, Agent agent) {
-        setSourceVertex(agent);
-        setDestinationVertex(entity);
+        setSourceVertex(entity);
+        setDestinationVertex(agent);
         addAnnotation("type", "WasAttributedTo");
     }
 }
