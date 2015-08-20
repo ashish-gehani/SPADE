@@ -59,7 +59,7 @@ public class FunctionMonitor extends LLVMFilter {
 	    bw.close();
 	}
 	catch(IOException exception){
-	    System.err.println("Error while reading file with list of functions to monitor.");
+	    System.err.println("Error while writing file with list of functions to monitor.");
 	    return false;		
 	}	
 	
