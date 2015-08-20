@@ -41,9 +41,9 @@ import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
-import org.neo4j.kernel.AbstractGraphDatabase;
 import org.neo4j.kernel.Traversal;
-import org.neo4j.server.WrappingNeoServerBootstrapper;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.DynamicLabel;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -74,8 +74,6 @@ public class Neo4j extends AbstractStorage {
     private static final String VERTEX_INDEX = "vertexIndex";
     private static final String EDGE_INDEX = "edgeIndex";
     private GraphDatabaseService graphDb;
-    private WrappingNeoServerBootstrapper webServer;
-    private static final boolean START_WEBSERVER = Boolean.parseBoolean(Settings.getProperty("neo4j_webserver"));
     private IndexManager index;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
@@ -93,6 +91,8 @@ public class Neo4j extends AbstractStorage {
         EDGE
     }
 
+    private final Label VERTEX = DynamicLabel.label("VERTEX");
+
     @Override
     public boolean initialize(String arguments) {
         try {
@@ -107,20 +107,18 @@ public class Neo4j extends AbstractStorage {
                 logger.log(Level.INFO, "Default Neo4j configurations loaded.");
             }
             graphDb = graphDbBuilder.newGraphDatabase();
-            index = graphDb.index();
-            // Create vertex index
-            vertexIndex = index.forNodes(VERTEX_INDEX);
-            // Create edge index
-            edgeIndex = index.forRelationships(EDGE_INDEX);
+            try ( Transaction tx = graphDb.beginTx() ) {
+                index = graphDb.index();
+                // Create vertex index
+                vertexIndex = index.forNodes(VERTEX_INDEX);
+                // Create edge index
+                edgeIndex = index.forRelationships(EDGE_INDEX);
+                tx.success();
+            }
             // Create HashMap to store IDs of incoming vertices
             transactionCount = 0;
             flushCount = 0;
             vertexMap = new HashMap<>();
-
-            if (START_WEBSERVER) {
-                webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
-                webServer.start();
-            }
 
             return true;
         } catch (Exception exception) {
@@ -144,7 +142,6 @@ public class Neo4j extends AbstractStorage {
             flushCount++;
             // If hard flush limit is reached, restart the database
             if (flushCount == HARD_FLUSH_LIMIT) {
-                webServer.stop();
                 logger.log(Level.INFO, "Hard flush limit reached - restarting database");
                 graphDb.shutdown();
                 graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
@@ -152,8 +149,6 @@ public class Neo4j extends AbstractStorage {
                 vertexIndex = index.forNodes(VERTEX_INDEX);
                 edgeIndex = index.forRelationships(EDGE_INDEX);
                 flushCount = 0;
-                webServer = new WrappingNeoServerBootstrapper((AbstractGraphDatabase) graphDb);
-                webServer.start();
             }
         }
     }
@@ -187,7 +182,7 @@ public class Neo4j extends AbstractStorage {
             if (transactionCount == 0) {
                 transaction = graphDb.beginTx();
             }
-            Node newVertex = graphDb.createNode();
+            Node newVertex = graphDb.createNode(VERTEX);
             for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
