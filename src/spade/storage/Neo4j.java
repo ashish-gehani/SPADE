@@ -146,8 +146,11 @@ public class Neo4j extends AbstractStorage {
                 graphDb.shutdown();
                 graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
                 index = graphDb.index();
-                vertexIndex = index.forNodes(VERTEX_INDEX);
-                edgeIndex = index.forRelationships(EDGE_INDEX);
+                try ( Transaction tx = graphDb.beginTx() ) {
+                    vertexIndex = index.forNodes(VERTEX_INDEX);
+                    edgeIndex = index.forRelationships(EDGE_INDEX);
+                    tx.success();
+                }
                 flushCount = 0;
             }
         }
