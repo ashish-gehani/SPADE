@@ -207,8 +207,8 @@ public class Audit extends AbstractReporter {
         // Directories
         // which have a numeric name represent processes.
         String path = "/proc";
-        java.io.File folder = new java.io.File(path);
-        java.io.File[] listOfFiles = folder.listFiles();
+        java.io.File directory = new java.io.File(path);
+        java.io.File[] listOfFiles = directory.listFiles();
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isDirectory()) {
 
@@ -325,23 +325,24 @@ public class Audit extends AbstractReporter {
             }
             pidReader.close();
             
-            //get pid of the running jvm using /proc/self
-            /*int selfpid = getSelfPid();
-            if(selfpid != -1){
-            	ignorePids.append(" -F pid!=").append(selfpid);
-            	ignorePids.append(" -F ppid!=").append(selfpid);
+            // Get the PID of SPADE's JVM from /proc/self
+            /*int selfPid = getSelfPid();
+            if(selfPid != -1){
+            	ignorePids.append(" -F pid!=").append(selfPid);
+            	ignorePids.append(" -F ppid!=").append(selfPid);
             }*/
             
-            //getting pids of all the threads in SPADE too along with it's pid
-            File[] procTaskFolders = new File("/proc/self/task").listFiles();
-            for(File procTaskFolder : procTaskFolders){
-            	String pid = procTaskFolder.getCanonicalFile().getName();
+            // Get the PIDs of SPADE's main task and threads
+            File[] procTaskDirectories = new File("/proc/self/task").listFiles();
+            for(File procTaskDirectory : procTaskDirectories){
+            	String pid = procTaskDirectory.getCanonicalFile().getName();
             	ignorePids.append(" -F pid!=").append(pid);
                 ignorePids.append(" -F ppid!=").append(pid);
             }
             
             return ignorePids;
-        } catch (IOException e) {
+        } catch (IOException exception) {
+            logger.log(Level.WARNING, "Error while building list of processes to ignore. Partial list: " + ignorePids, exception);
             return new StringBuilder();
         }
     }
