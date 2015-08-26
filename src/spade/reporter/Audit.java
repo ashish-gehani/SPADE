@@ -326,10 +326,18 @@ public class Audit extends AbstractReporter {
             pidReader.close();
             
             //get pid of the running jvm using /proc/self
-            int selfpid = getSelfPid();
+            /*int selfpid = getSelfPid();
             if(selfpid != -1){
             	ignorePids.append(" -F pid!=").append(selfpid);
             	ignorePids.append(" -F ppid!=").append(selfpid);
+            }*/
+            
+            //getting pids of all the threads in SPADE too along with it's pid
+            File[] procTaskFolders = new File("/proc/self/task").listFiles();
+            for(File procTaskFolder : procTaskFolders){
+            	String pid = procTaskFolder.getCanonicalFile().getName();
+            	ignorePids.append(" -F pid!=").append(pid);
+                ignorePids.append(" -F ppid!=").append(pid);
             }
             
             return ignorePids;
