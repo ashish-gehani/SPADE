@@ -170,15 +170,15 @@ public class LinuxFUSE extends AbstractReporter {
 
             String path = "/proc";
             String currentProcess;
-            java.io.File folder = new java.io.File(path);
-            java.io.File[] listOfFiles = folder.listFiles();
+            java.io.File directory = new java.io.File(path);
+            java.io.File[] listOfDirectories = directory.listFiles();
 
             // Build the process tree using the directories under /proc/. Directories
             // which have a numeric name represent processes.
-            for (int i = 0; i < listOfFiles.length; i++) {
-                if (listOfFiles[i].isDirectory()) {
+            for (int i = 0; i < listOfDirectories.length; i++) {
+                if (listOfDirectories[i].isDirectory()) {
 
-                    currentProcess = listOfFiles[i].getName();
+                    currentProcess = listOfDirectories[i].getName();
                     try {
                         Integer.parseInt(currentProcess);
                         Process processVertex = createProcessVertex(currentProcess);
