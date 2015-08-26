@@ -43,7 +43,6 @@ import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.kernel.Traversal;
 import org.neo4j.graphdb.Label;
-import org.neo4j.graphdb.DynamicLabel;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -86,12 +85,9 @@ public class Neo4j extends AbstractStorage {
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
     private final String NEO_CONFIG_FILE = "cfg/neo4j.properties";
 
-    private enum MyRelationshipTypes implements RelationshipType {
+    private enum MyRelationshipTypes implements RelationshipType { EDGE }
 
-        EDGE
-    }
-
-    private final Label VERTEX = DynamicLabel.label("VERTEX");
+    private enum MyNodeTypes implements Label { VERTEX }
 
     @Override
     public boolean initialize(String arguments) {
@@ -185,7 +181,7 @@ public class Neo4j extends AbstractStorage {
             if (transactionCount == 0) {
                 transaction = graphDb.beginTx();
             }
-            Node newVertex = graphDb.createNode(VERTEX);
+            Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
             for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
