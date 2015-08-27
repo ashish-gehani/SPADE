@@ -10,9 +10,9 @@ Please see the lists of [people](../../wiki/people) and [publications](../../wik
 
 ---
 
-The current status of the repository is:
+This is the current status of the _master_ branch of the repository:
 
-          [![Build Status](https://travis-ci.org/ashish-gehani/SPADE.svg?branch=master)](https://travis-ci.org/ashish-gehani/SPADE)
+[![Build Status](https://travis-ci.org/ashish-gehani/SPADE.svg?branch=master)](https://travis-ci.org/ashish-gehani/SPADE)
 
 ---
 
