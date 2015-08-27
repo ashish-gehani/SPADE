@@ -306,13 +306,13 @@ public class Audit extends AbstractReporter {
     }
 
     static private StringBuilder ignorePidsString(String ignoreProcesses) {
+    	StringBuilder ignorePids = new StringBuilder();
         try {
             Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
             java.lang.Process pidChecker = Runtime.getRuntime().exec("ps axuc");
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
             pidReader.readLine();
             String line;
-            StringBuilder ignorePids = new StringBuilder();
             while ((line = pidReader.readLine()) != null) {
                 String details[] = line.split("\\s+");
                 String user = details[0];
