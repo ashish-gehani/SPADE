@@ -8,8 +8,9 @@ To learn more about **SPADE**, please see:
 
 Please see the lists of [people](../../wiki/people) and [publications](../../wiki/publications) associated with the project for further information.
 
----
+[![Build Status](https://travis-ci.org/ashish-gehani/SPADE.svg?branch=master)](https://travis-ci.org/ashish-gehani/SPADE)
 
+---
 
 This material is based upon work supported by the National Science Foundation under Grants [OCI-0722068](http://www.nsf.gov/awardsearch/showAward?AWD_ID=0722068)<sup>1</sup> and [IIS-1116414](http://www.nsf.gov/awardsearch/showAward?AWD_ID=1116414)<sup>2</sup>. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
 
