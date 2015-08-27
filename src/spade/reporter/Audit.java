@@ -27,7 +27,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -308,20 +307,15 @@ public class Audit extends AbstractReporter {
     static private StringBuilder ignorePidsString(String ignoreProcesses) {
     	StringBuilder ignorePids = new StringBuilder();
         try {
-            Set<String> ignoreProcessSet = new HashSet<String>(Arrays.asList(ignoreProcesses.split("\\s+")));
-            java.lang.Process pidChecker = Runtime.getRuntime().exec("ps axuc");
+        	
+        	//using pidof command now to get all pids of the mentioned processes
+        	java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
-            pidReader.readLine();
-            String line;
-            while ((line = pidReader.readLine()) != null) {
-                String details[] = line.split("\\s+");
-                String user = details[0];
-                String pid = details[1];
-                String name = details[details.length - 1].trim();
-                if (user.equals("root") && ignoreProcessSet.contains(name)) {
-                    ignorePids.append(" -F pid!=").append(pid);
-                    ignorePids.append(" -F ppid!=").append(pid);
-                }
+            String pidline = pidReader.readLine();
+            String ppidline = pidline;
+            if(pidline != null){
+            	ignorePids.append(" -F pid!=" + pidline.replace(" ", " -F pid!="));
+            	ignorePids.append(" -F ppid!=" + ppidline.replace(" ", " -F ppid!="));
             }
             pidReader.close();
             
