@@ -8,7 +8,11 @@ To learn more about **SPADE**, please see:
 
 Please see the lists of [people](../../wiki/people) and [publications](../../wiki/publications) associated with the project for further information.
 
-[![Build Status](https://travis-ci.org/ashish-gehani/SPADE.svg?branch=master)](https://travis-ci.org/ashish-gehani/SPADE)
+---
+
+The current status of the repository is:
+
+          [![Build Status](https://travis-ci.org/ashish-gehani/SPADE.svg?branch=master)](https://travis-ci.org/ashish-gehani/SPADE)
 
 ---
 
