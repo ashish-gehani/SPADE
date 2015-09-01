@@ -16,7 +16,7 @@ General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-CODE DERIVED FROM THE FOLLOWING:
+Code derived from:
 http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 --------------------------------------------------------------------------------
  */
@@ -26,46 +26,54 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <errno.h>
 
 #define SERVER_PATH     "/var/run/audispd_events"
 #define BUFFER_LENGTH   10000
 #define FALSE           0
+#define TRUE		1
 
 /*
-  Connecting to the audispd socket to receive audit records and printing them 
-  to STDOUT so that Audit.java (SPADE reporter) can read them.
+  Java does not support reading from Unix domain sockets.
+
+  This utility reads audit records from the audispd socket and writes them
+  to the standard output stream.
+
+  The Audit Reporter can invoke this utility and read from its standard
+  output to obtain a stream of audit records.
 */
 
 int main(int argc, char *argv[]) {
-    int sd = -1, rc, bytesReceived;
+    char *programName = argv[0];
+    int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
     char buffer[BUFFER_LENGTH];
-    struct sockaddr_un serveraddr;
+    struct sockaddr_un serverAddress;
 
     do {
-        sd = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (sd < 0) {
-            //perror("socket() failed");
+        audispdSocketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (audispdSocketDescriptor < 0) {
+            fprintf(stderr, "%s: Unable to construct a socket. Error: %s\n", programName, strerror(errno));
             break;
         }
 
-        memset(&serveraddr, 0, sizeof (serveraddr));
-        serveraddr.sun_family = AF_UNIX;
-        strcpy(serveraddr.sun_path, SERVER_PATH);
+        memset(&serverAddress, 0, sizeof (serverAddress));
+        serverAddress.sun_family = AF_UNIX;
+        strcpy(serverAddress.sun_path, SERVER_PATH);
 
-        rc = connect(sd, (struct sockaddr *) &serveraddr, SUN_LEN(&serveraddr));
-        if (rc < 0) {
-            //perror("connect() failed");
+        charactersRead = connect(audispdSocketDescriptor, (struct sockaddr *) &serverAddress, SUN_LEN(&serverAddress));
+        if (charactersRead < 0) {
+            fprintf(stderr, "%s: Unable to connect to the socket. Error: %s\n", programName, strerror(errno));
             break;
         }
 
-        while (1) {
+        while (TRUE) {
             memset(&buffer, 0, BUFFER_LENGTH);
-            rc = recv(sd, & buffer[0], BUFFER_LENGTH - 1, 0);
-            if (rc < 0) {
-                //perror("recv() failed");
+            charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
+            if (charactersRead < 0) {
+                fprintf(stderr, "%s: Error while reading from the socket. Error: %s\n", programName, strerror(errno));
                 break;
-            } else if (rc == 0) {
-                //printf("The server closed the connection\n");
+            } else if (charactersRead == 0) {
+		fprintf(stderr, "%s: Server closed the connection. Errror: %s\n", programName, strerror(errno));
                 break;
             }
 
@@ -73,7 +81,6 @@ int main(int argc, char *argv[]) {
         }
     } while (FALSE);
 
-    if (sd != -1) close(sd);
+    if (audispdSocketDescriptor != -1) close(audispdSocketDescriptor);
     return 0;
-
 }
