@@ -875,6 +875,7 @@ public class Audit extends AbstractReporter {
         // - EOE
         String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
+        String returnValue = eventData.get("exit");
         checkProcessVertex(eventData, true, false);
 
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
@@ -890,6 +891,7 @@ public class Audit extends AbstractReporter {
             Used used = new Used(processes.get(pid), vertex);
             used.addAnnotation("operation", "read");
             used.addAnnotation("time", time);
+            used.addAnnotation("size", returnValue);
             putEdge(used);
         } else {
             // logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}",
@@ -907,6 +909,7 @@ public class Audit extends AbstractReporter {
         String hexFD = eventData.get("a0");
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         String time = eventData.get("time");
+        String returnValue = eventData.get("exit");
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
@@ -915,6 +918,7 @@ public class Audit extends AbstractReporter {
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", "write");
             wgb.addAnnotation("time", time);
+            wgb.addAnnotation("size", returnValue);
             putEdge(wgb);
         } else {
             // logger.log(Level.WARNING,
@@ -1267,6 +1271,7 @@ public class Audit extends AbstractReporter {
         String hexFD = eventData.get("a0");
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         String time = eventData.get("time");
+        String returnValue = eventData.get("exit");
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
@@ -1276,6 +1281,7 @@ public class Audit extends AbstractReporter {
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", syscall.name().toLowerCase());
             wgb.addAnnotation("time", time);
+            wgb.addAnnotation("size", returnValue);
             putEdge(wgb);
         } else {
             // logger.log(Level.WARNING, "send(): fd {0} not found for pid {1}",
@@ -1293,6 +1299,7 @@ public class Audit extends AbstractReporter {
         String hexFD = eventData.get("a0");
         String fd = Integer.toString(Integer.parseInt(hexFD, 16));
         String time = eventData.get("time");
+        String returnValue = eventData.get("exit");
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
@@ -1302,6 +1309,7 @@ public class Audit extends AbstractReporter {
             Used used = new Used(processes.get(pid), vertex);
             used.addAnnotation("operation", syscall.name().toLowerCase());
             used.addAnnotation("time", time);
+            used.addAnnotation("size", returnValue);
             putEdge(used);
         } else {
             // logger.log(Level.WARNING, "recv(): fd {0} not found for pid {1}",
