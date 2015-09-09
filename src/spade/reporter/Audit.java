@@ -52,99 +52,79 @@ import spade.vertex.opm.Process;
  */
 public class Audit extends AbstractReporter {
 
-    private boolean DEBUG_DUMP_LOG; // Store log for debugging purposes
+    static final Logger logger = Logger.getLogger(Audit.class.getName());
+
+    // Store log for debugging purposes
+    private boolean DEBUG_DUMP_LOG;
     private String DEBUG_DUMP_FILE;
-    // //////////////////////////////////////////////////////////////////////////
     private BufferedReader eventReader;
     private volatile boolean shutdown = false;
     private long boottime = 0;
-    private int binderTransaction = 0;
-    private long THREAD_SLEEP_DELAY = 100;
-    private long THREAD_CLEANUP_TIMEOUT = 1000;
+    private final long THREAD_CLEANUP_TIMEOUT = 1000;
     private final boolean USE_PROCFS = false;
     private boolean USE_READ_WRITE = false;
-    private boolean USE_SOCK_SEND_RCV = false; //to toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
+    // To toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
+    private boolean USE_SOCK_SEND_RCV = false;
     private boolean ARCH_32BIT = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     private String AUDIT_EXEC_PATH;
     // Process map based on <pid, vertex> pairs
-    private Map<String, Process> processes = new HashMap<String, Process>();
+    private final Map<String, Process> processes = new HashMap<>();
     // File descriptor map based on <pid <fd, path>> pairs
-    private Map<String, Map<String, String>> fileDescriptors = new HashMap<String, Map<String, String>>();
+    private final Map<String, Map<String, String>> fileDescriptors = new HashMap<>();
     // Event buffer map based on <audit_record_id <key, value>> pairs
-    private Map<String, Map<String, String>> eventBuffer = new HashMap<String, Map<String, String>>();
+    private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
     // File version map based on <path, version> pairs
-    private Map<String, Integer> fileVersions = new HashMap<String, Integer>();
+    private final Map<String, Integer> fileVersions = new HashMap<>();
     // Set to cache paths that have received ioctl calls
-    private Set<String> ioctlPaths = new HashSet<String>();
-    // List of processes to ignore
-    private String ignoreProcesses;
-    static final Logger logger = Logger.getLogger(Audit.class.getName());
-    // //////////////////////////////////////////////////////////////////////////
+    private final Set<String> ioctlPaths = new HashSet<>();
+    private Thread eventProcessorThread = null;
+    private String auditRules;
+
     // Group 1: key
     // Group 2: value
-    private static Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
+    private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
+
     // Group 1: node
     // Group 2: type
     // Group 3: time
     // Group 4: recordid
-    private static Pattern pattern_message_start = Pattern.compile("node=(\\S+) type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+    private static final Pattern pattern_message_start = Pattern.compile("node=(\\S+) type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+
     // Group 1: cwd
-    private static Pattern pattern_cwd = Pattern.compile("cwd=\"*((?<=\")[^\"]*(?=\"))\"*");
+    private static final Pattern pattern_cwd = Pattern.compile("cwd=\"*((?<=\")[^\"]*(?=\"))\"*");
+
     // Group 1: item number
     // Group 2: name
-    private static Pattern pattern_path = Pattern.compile("item=([0-9]*)\\s*name=\"*((?<=\")[^\"]*(?=\"))\"*");
-    // Binder transaction log pattern
-    private static Pattern binder_transaction = Pattern.compile("([0-9]+): ([a-z]+)\\s*from ([0-9]+):[0-9]+ to ([0-9]+):[0-9]+");
+    private static final Pattern pattern_path = Pattern.compile("item=([0-9]*)\\s*name=\"*((?<=\")[^\"]*(?=\"))\"*");
 
-    /*
-     *  Added to indicate in the output from where the process info was read. Either from 
-     *  1) procfs or directly from 2) audit log. 
-     */
+    //  Added to indicate in the output from where the process info was read. Either from 
+    //  1) procfs or directly from 2) audit log. 
     private static final String PROC_INFO_SRC_KEY = "source",
-    							PROC_INFO_PROCFS = "/proc",
-    							PROC_INFO_AUDIT = "/dev/audit";
-    
-    // //////////////////////////////////////////////////////////////////////////
+            PROC_INFO_PROCFS = "/proc",
+            PROC_INFO_AUDIT = "/dev/audit";
+
     private enum SYSCALL {
 
         FORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, TRUNCATE, FTRUNCATE
     }
 
-    private Thread eventProcessorThread = null;
-    private String auditRules;
-
-    private static native int initAuditStream();
-
-    private static native String readAuditStream();
-
-    private static native int closeAuditStream();
-
     @Override
     public boolean launch(String arguments) {
+
+        arguments = arguments == null ? "" : arguments;
 
         try {
             InputStream archStream = Runtime.getRuntime().exec("uname -i").getInputStream();
             BufferedReader archReader = new BufferedReader(new InputStreamReader(archStream));
             String archLine = archReader.readLine().trim();
             ARCH_32BIT = archLine.equals("i686");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-
-        if (arguments == null) {
-            arguments = "";
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "error reading the system architecture", e);
         }
 
         AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeSocketBridge";
-        // ignoreProcesses = "spadeSocketBridge auditd kauditd java spade-server spade-controller";
-        /* 
-           	Removed java because that would exclude all other java processes too and removed
-           	'spade-server' and 'spade-controller' because spade invocation method has been changed. 
-           	Also added audispd to the ignore list.
-        */
-        ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
         DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
 
         Map<String, String> args = parseKeyValPairs(arguments);
@@ -156,22 +136,21 @@ public class Audit extends AbstractReporter {
         } else {
             DEBUG_DUMP_LOG = false;
         }
-        
-        //check if file IO and net IO is also asked by the user to be turned on
-        if(args.containsKey("fileIO")){
-        	if("true".equals(args.get("fileIO"))){
-        		USE_READ_WRITE = true;
-        	}
+
+        // Check if file IO and net IO is also asked by the user to be turned on
+        if (args.containsKey("fileIO")) {
+            if ("true".equals(args.get("fileIO"))) {
+                USE_READ_WRITE = true;
+            }
         }
-        if(args.containsKey("netIO")){
-        	if("true".equals(args.get("netIO"))){
-        		USE_SOCK_SEND_RCV = true;
-        	}
+        if (args.containsKey("netIO")) {
+            if ("true".equals(args.get("netIO"))) {
+                USE_SOCK_SEND_RCV = true;
+            }
         }
 
         // Get system boot time from /proc/stat. This is later used to determine
-        // the start
-        // time for processes.
+        // the start time for processes.
         try {
             BufferedReader boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
             String line;
@@ -180,31 +159,15 @@ public class Audit extends AbstractReporter {
                 if (st.nextToken().equals("btime")) {
                     boottime = Long.parseLong(st.nextToken()) * 1000;
                     break;
-                } else {
-                    continue;
                 }
             }
             boottimeReader.close();
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, "error reading boot time information from /proc/", exception);
+        } catch (IOException | NumberFormatException e) {
+            logger.log(Level.SEVERE, "error reading boot time information from /proc/", e);
         }
 
-        // Create root vertex
-        Process rootVertex = new spade.vertex.opm.Process();
-        rootVertex.addAnnotation("pidname", "Boot");
-        rootVertex.addAnnotation("pid", "0");
-        rootVertex.addAnnotation("ppid", "0");
-        String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(boottime));
-        String stime = Long.toString(boottime);
-        rootVertex.addAnnotation("boottime_unix", stime);
-        rootVertex.addAnnotation("boottime_simple", stime_readable);
-        rootVertex.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_PROCFS);
-        processes.put("0", rootVertex);
-        putVertex(rootVertex);
-
         // Build the process tree using the directories under /proc/.
-        // Directories
-        // which have a numeric name represent processes.
+        // Directories which have a numeric name represent processes.
         String path = "/proc";
         java.io.File directory = new java.io.File(path);
         java.io.File[] listOfFiles = directory.listFiles();
@@ -214,23 +177,24 @@ public class Audit extends AbstractReporter {
                 String currentPID = listOfFiles[i].getName();
                 try {
                     // Parse the current directory name to make sure it is
-                    // numeric. If not,
-                    // ignore and continue.
+                    // numeric. If not, ignore and continue.
                     Integer.parseInt(currentPID);
-                    Process processVertex = createProcessFromProc(currentPID);
+                    Process processVertex = createProcess(currentPID);
                     processes.put(currentPID, processVertex);
                     Process parentVertex = processes.get(processVertex.getAnnotation("ppid"));
                     putVertex(processVertex);
-                    WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
-                    putEdge(wtb);
+                    if (parentVertex != null) {
+                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
+                        putEdge(wtb);
+                    }
 
                     // Get existing file descriptors for this process
                     Map<String, String> descriptors = getFileDescriptors(currentPID);
                     if (descriptors != null) {
                         fileDescriptors.put(currentPID, descriptors);
                     }
-                } catch (Exception exception) {
-                    continue;
+                } catch (Exception e) {
+                    // Continue
                 }
             }
         }
@@ -248,31 +212,30 @@ public class Audit extends AbstractReporter {
                             dumpWriter = new BufferedWriter(dumpFileWriter);
                         }
 
-			java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-			eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
-			while (!shutdown) {
-			    String line = eventReader.readLine();
-			    if ((line != null) && !line.isEmpty()) {
-				if (DEBUG_DUMP_LOG) {
-				    dumpWriter.write(line);
-				    dumpWriter.write(System.getProperty("line.separator"));
-				    dumpWriter.flush();
-				}
-				parseEventLine(line);
-			    }
-			}
-			//Added this command here because once the spadeSocketBridge process has exited any rules involving it cannot be cleared.
-			//So, deleting the rules before destroying the spadeSocketBridge process.
-			Runtime.getRuntime().exec("auditctl -D").waitFor();
-			eventReader.close();
-			auditProcess.destroy();
-
+                        java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
+                        eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
+                        while (!shutdown) {
+                            String line = eventReader.readLine();
+                            if ((line != null) && !line.isEmpty()) {
+                                if (DEBUG_DUMP_LOG) {
+                                    dumpWriter.write(line);
+                                    dumpWriter.write(System.getProperty("line.separator"));
+                                    dumpWriter.flush();
+                                }
+                                parseEventLine(line);
+                            }
+                        }
+                        //Added this command here because once the spadeSocketBridge process has exited any rules involving it cannot be cleared.
+                        //So, deleting the rules before destroying the spadeSocketBridge process.
+                        Runtime.getRuntime().exec("auditctl -D").waitFor();
+                        eventReader.close();
+                        auditProcess.destroy();
                         if (DEBUG_DUMP_LOG) {
                             dumpWriter.close();
                             dumpFileWriter.close();
                         }
-                    } catch (Exception exception) {
-                        logger.log(Level.SEVERE, null, exception);
+                    } catch (IOException | InterruptedException e) {
+                        logger.log(Level.SEVERE, "error launching main runnable thread", e);
                     }
                 }
             };
@@ -281,23 +244,23 @@ public class Audit extends AbstractReporter {
 
             // Determine pids of processes that are to be ignored. These are
             // appended to the audit rule.
+            String ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
             StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
-	    auditRules = "-a exit,always ";
-	    if (USE_READ_WRITE) {
-	    	auditRules += "-S read -S readv -S write -S writev ";
-	    }
-	    if(USE_SOCK_SEND_RCV){
-	    	auditRules += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
-	    }
-	    auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
-		+ "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-	    + "-S connect -S accept "
-		+ "-S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 -F success=1 "
-		+ ignorePids.toString();
+            auditRules = "-a exit,always ";
+            if (USE_READ_WRITE) {
+                auditRules += "-S read -S readv -S write -S writev ";
+            }
+            if (USE_SOCK_SEND_RCV) {
+                auditRules += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
+            }
+            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
+                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
+                    + "-F success=1 " + ignorePids.toString();
             Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
             logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
+        } catch (IOException | InterruptedException e) {
+            logger.log(Level.SEVERE, "error configuring audit rules", e);
             return false;
         }
 
@@ -305,38 +268,30 @@ public class Audit extends AbstractReporter {
     }
 
     static private StringBuilder ignorePidsString(String ignoreProcesses) {
-    	StringBuilder ignorePids = new StringBuilder();
+        StringBuilder ignorePids = new StringBuilder();
         try {
-        	
-        	//using pidof command now to get all pids of the mentioned processes
-        	java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
+            // Using pidof command now to get all pids of the mentioned processes
+            java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
             String pidline = pidReader.readLine();
             String ppidline = pidline;
-            if(pidline != null){
-            	ignorePids.append(" -F pid!=" + pidline.replace(" ", " -F pid!="));
-            	ignorePids.append(" -F ppid!=" + ppidline.replace(" ", " -F ppid!="));
+            if (pidline != null) {
+                ignorePids.append(" -F pid!=").append(pidline.replace(" ", " -F pid!="));
+                ignorePids.append(" -F ppid!=").append(ppidline.replace(" ", " -F ppid!="));
             }
             pidReader.close();
-            
+
             // Get the PID of SPADE's JVM from /proc/self
-            /*int selfPid = getSelfPid();
-            if(selfPid != -1){
-            	ignorePids.append(" -F pid!=").append(selfPid);
-            	ignorePids.append(" -F ppid!=").append(selfPid);
-            }*/
-            
-            // Get the PIDs of SPADE's main task and threads
             File[] procTaskDirectories = new File("/proc/self/task").listFiles();
-            for(File procTaskDirectory : procTaskDirectories){
-            	String pid = procTaskDirectory.getCanonicalFile().getName();
-            	ignorePids.append(" -F pid!=").append(pid);
+            for (File procTaskDirectory : procTaskDirectories) {
+                String pid = procTaskDirectory.getCanonicalFile().getName();
+                ignorePids.append(" -F pid!=").append(pid);
                 ignorePids.append(" -F ppid!=").append(pid);
             }
-            
+
             return ignorePids;
-        } catch (IOException exception) {
-            logger.log(Level.WARNING, "Error while building list of processes to ignore. Partial list: " + ignorePids, exception);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "error building list of processes to ignore. partial list: " + ignorePids, e);
             return new StringBuilder();
         }
     }
@@ -350,7 +305,7 @@ public class Audit extends AbstractReporter {
         try {
             java.lang.Process fdInfo = Runtime.getRuntime().exec("ls -l /proc/" + pid + "/fd");
             BufferedReader fdReader = new BufferedReader(new InputStreamReader(fdInfo.getInputStream()));
-            Map<String, String> descriptors = new HashMap<String, String>();
+            Map<String, String> descriptors = new HashMap<>();
             while (true) {
                 String line = fdReader.readLine();
                 if (line == null) {
@@ -366,22 +321,19 @@ public class Audit extends AbstractReporter {
             }
             fdReader.close();
             return descriptors;
-        } catch (Exception exception) {
-            logger.log(Level.WARNING, "Unable to retrieve file descriptors for " + pid, exception);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "unable to retrieve file descriptors for pid: " + pid, e);
             return null;
         }
     }
 
     @Override
     public boolean shutdown() {
-        // Stop the event reader and clear all audit rules.
         shutdown = true;
         try {
-        	//The following command is being run from inside the event processor thread that listens to spadeSocketBridge. Check there for reason.
-            //Runtime.getRuntime().exec("auditctl -D").waitFor();
             eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "error shutting down", e);
         }
         return true;
     }
@@ -401,9 +353,7 @@ public class Audit extends AbstractReporter {
                 eventBuffer.put(eventId, eventData);
             } else {
                 if (!eventBuffer.containsKey(eventId)) {
-                    // logger.log(Level.WARNING,
-                    // "eventid {0} not found for message: {1}", new
-                    // Object[]{eventId, line});
+                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
                     return;
                 }
                 if (type.equals("EOE")) {
@@ -441,7 +391,7 @@ public class Audit extends AbstractReporter {
                         eventBuffer.get(eventId).put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
                     }
                 } else if (type.equals("SOCKADDR")) {
-                	Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
                     while (key_value_matcher.find()) {
                         eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
                     }
@@ -461,7 +411,7 @@ public class Audit extends AbstractReporter {
      */
     private static Map<String, String> parseKeyValPairs(String messageData) {
         Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-        Map<String, String> keyValPairs = new HashMap<String, String>();
+        Map<String, String> keyValPairs = new HashMap<>();
         while (key_value_matcher.find()) {
             keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
         }
@@ -472,13 +422,10 @@ public class Audit extends AbstractReporter {
         try {
             // System call numbers are derived from:
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
-	    // TODO: Update the calls to make them linux specific.
+            // TODO: Update the calls to make them linux specific.
 
             if (!eventBuffer.containsKey(eventId)) {
-                logger.log(
-		    Level.WARNING,
-		    "EOE for eventID {0} received with no prior Event Info",
-		    new Object[]{eventId});
+                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
@@ -592,7 +539,6 @@ public class Audit extends AbstractReporter {
                 case 285: // accept()
                     processAccept(eventData);
 
-                // ////////////////////////////////////////////////////////////////
                 case 281: // socket()
                     break;
 
@@ -600,8 +546,8 @@ public class Audit extends AbstractReporter {
                     break;
             }
             eventBuffer.remove(eventId);
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "error processing finish syscall event", e);
         }
     }
 
@@ -611,10 +557,7 @@ public class Audit extends AbstractReporter {
             // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
             if (!eventBuffer.containsKey(eventId)) {
-                logger.log(
-		    Level.WARNING,
-		    "EOE for eventID {0} received with no prior Event Info",
-		    new Object[]{eventId});
+                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
                 return;
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
@@ -734,26 +677,33 @@ public class Audit extends AbstractReporter {
                     break;
             }
             eventBuffer.remove(eventId);
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "error processing finish syscall event", e);
         }
     }
 
-    private Artifact createFileVertex(String path, boolean update) {
-        Artifact fileArtifact = new Artifact();
+    private Artifact createNetworkArtifact(String path, boolean update) {
+        Artifact artifact = createFileArtifact(path, update);
+        artifact.addAnnotation("subtype", "network");
+        return artifact;
+    }
+
+    private Artifact createFileArtifact(String path, boolean update) {
+        Artifact artifact = new Artifact();
+        artifact.addAnnotation("subtype", "file");
         path = path.replace("//", "/");
-        fileArtifact.addAnnotation("path", path);
+        artifact.addAnnotation("path", path);
         String[] filename = path.split("/");
         if (filename.length > 0) {
-            fileArtifact.addAnnotation("filename", filename[filename.length - 1]);
+            artifact.addAnnotation("filename", filename[filename.length - 1]);
         }
         int version = fileVersions.containsKey(path) ? fileVersions.get(path) : 0;
         if (update && path.startsWith("/") && !path.startsWith("/dev/")) {
             version++;
         }
-        fileArtifact.addAnnotation("version", Integer.toString(version));
+        artifact.addAnnotation("version", Integer.toString(version));
         fileVersions.put(path, version);
-        return fileArtifact;
+        return artifact;
     }
 
     private void processForkClone(Map<String, String> eventData, SYSCALL syscall) {
@@ -782,7 +732,7 @@ public class Audit extends AbstractReporter {
         wtb.addAnnotation("time", time);
         putEdge(wtb); // Copy file descriptors from old process to new one
         if (fileDescriptors.containsKey(oldPID)) {
-            Map<String, String> newfds = new HashMap<String, String>();
+            Map<String, String> newfds = new HashMap<>();
             for (Map.Entry<String, String> entry : fileDescriptors.get(oldPID).entrySet()) {
                 newfds.put(entry.getKey(), entry.getValue());
             }
@@ -843,7 +793,7 @@ public class Audit extends AbstractReporter {
 
         if (!USE_READ_WRITE) {
             String flags = eventData.get("a1");
-            Map<String, String> newData = new HashMap<String, String>();
+            Map<String, String> newData = new HashMap<>();
             newData.put("pid", pid);
             newData.put("a0", Integer.toHexString(Integer.parseInt(fd)));
             newData.put("time", eventData.get("time"));
@@ -884,7 +834,7 @@ public class Audit extends AbstractReporter {
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
             boolean put = !fileVersions.containsKey(path);
-            Artifact vertex = createFileVertex(path, false);
+            Artifact vertex = createFileArtifact(path, false);
             if (put) {
                 putVertex(vertex);
             }
@@ -894,8 +844,7 @@ public class Audit extends AbstractReporter {
             used.addAnnotation("size", bytesRead);
             putEdge(used);
         } else {
-            // logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}",
-            // new Object[]{fd, pid});
+            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -913,7 +862,7 @@ public class Audit extends AbstractReporter {
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = createFileVertex(path, true);
+            Artifact vertex = createFileArtifact(path, true);
             putVertex(vertex);
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", "write");
@@ -921,8 +870,7 @@ public class Audit extends AbstractReporter {
             wgb.addAnnotation("size", bytesWritten);
             putEdge(wgb);
         } else {
-            // logger.log(Level.WARNING,
-            // "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -944,14 +892,12 @@ public class Audit extends AbstractReporter {
             if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
                 path = fileDescriptors.get(pid).get(fd);
             } else {
-                // logger.log(Level.WARNING,
-                // "truncate(): fd {0} not found for pid {1}", new Object[]{fd,
-                // pid});
+                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
                 return;
             }
         }
 
-        Artifact vertex = createFileVertex(path, true);
+        Artifact vertex = createFileArtifact(path, true);
         putVertex(vertex);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
         wgb.addAnnotation("operation", syscall.name().toLowerCase());
@@ -982,8 +928,7 @@ public class Audit extends AbstractReporter {
             wgb.addAnnotation("time", time);
             putEdge(wgb);
         } else {
-            // logger.log(Level.WARNING,
-            // "ioctl(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+            logger.log(Level.WARNING, "ioctl(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -1038,7 +983,7 @@ public class Audit extends AbstractReporter {
         String dstpath = joinPaths(cwd, eventData.get("path3"));
 
         boolean put = !fileVersions.containsKey(srcpath);
-        Artifact srcVertex = createFileVertex(srcpath, false);
+        Artifact srcVertex = createFileArtifact(srcpath, false);
         if (put) {
             putVertex(srcVertex);
         }
@@ -1047,7 +992,7 @@ public class Audit extends AbstractReporter {
         used.addAnnotation("time", time);
         putEdge(used);
 
-        Artifact dstVertex = createFileVertex(dstpath, true);
+        Artifact dstVertex = createFileArtifact(dstpath, true);
         putVertex(dstVertex);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, processes.get(pid));
         wgb.addAnnotation("operation", "write");
@@ -1058,19 +1003,6 @@ public class Audit extends AbstractReporter {
         wdf.addAnnotation("operation", "rename");
         wdf.addAnnotation("time", time);
         putEdge(wdf);
-    }
-
-    private void processUnlink(Map<String, String> eventData) {
-        // link() and symlink() receive the following message(s):
-        // - SYSCALL
-        // - CWD
-        // - PATH 0 is directory containing the link
-        // - PATH 1 is file that is linked
-        // - EOE
-        // we use path 1
-        // -----------------------------------------------------------
-        // NOTHING TO DO: NO PROVENANCE SEMANTICS
-        // -----------------------------------------------------------
     }
 
     private void processLink(Map<String, String> eventData) {
@@ -1091,7 +1023,7 @@ public class Audit extends AbstractReporter {
         String dstpath = joinPaths(cwd, eventData.get("path2"));
 
         boolean put = !fileVersions.containsKey(srcpath);
-        Artifact srcVertex = createFileVertex(srcpath, false);
+        Artifact srcVertex = createFileArtifact(srcpath, false);
         if (put) {
             putVertex(srcVertex);
         }
@@ -1100,7 +1032,7 @@ public class Audit extends AbstractReporter {
         used.addAnnotation("time", time);
         putEdge(used);
 
-        Artifact dstVertex = createFileVertex(dstpath, true);
+        Artifact dstVertex = createFileArtifact(dstpath, true);
         putVertex(dstVertex);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, processes.get(pid));
         wgb.addAnnotation("operation", "write");
@@ -1135,7 +1067,7 @@ public class Audit extends AbstractReporter {
                 path = fileDescriptors.get(pid).get(fd);
             }
         }
-        Artifact vertex = createFileVertex(path, true);
+        Artifact vertex = createFileArtifact(path, true);
         putVertex(vertex);
 
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
@@ -1166,7 +1098,7 @@ public class Audit extends AbstractReporter {
         String location = null;
         String saddr = eventData.get("saddr");
         // continue if this is an AF_INET socket address
-        if(saddr.charAt(1) == '2'){
+        if (saddr.charAt(1) == '2') {
             String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
             int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
             int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
@@ -1176,8 +1108,7 @@ public class Audit extends AbstractReporter {
             location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
-            Artifact network = createFileVertex(location, true);
-            network.addAnnotation("subtype", "network");
+            Artifact network = createNetworkArtifact(location, true);
             putVertex(network);
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
@@ -1207,7 +1138,7 @@ public class Audit extends AbstractReporter {
         String location = null;
         String saddr = eventData.get("saddr");
         // continue if this is an AF_INET socket address
-        if(saddr.charAt(1) == '2'){
+        if (saddr.charAt(1) == '2') {
             String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
             int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
             int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
@@ -1217,8 +1148,7 @@ public class Audit extends AbstractReporter {
             location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
-            Artifact network = createFileVertex(location, true);
-            network.addAnnotation("subtype", "network");
+            Artifact network = createNetworkArtifact(location, true);
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
             wgb.addAnnotation("time", time);
@@ -1237,7 +1167,7 @@ public class Audit extends AbstractReporter {
         String location = null;
         String saddr = eventData.get("saddr");
         // continue if this is an AF_INET socket address
-        if(saddr.charAt(1) == '2'){
+        if (saddr.charAt(1) == '2') {
             String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
             int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
             int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
@@ -1247,8 +1177,7 @@ public class Audit extends AbstractReporter {
             location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
-            Artifact network = createFileVertex(location, false);
-            network.addAnnotation("subtype", "network");
+            Artifact network = createNetworkArtifact(location, false);
             putVertex(network);
             Used used = new Used(processes.get(pid), network);
             used.addAnnotation("time", time);
@@ -1275,8 +1204,7 @@ public class Audit extends AbstractReporter {
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = createFileVertex(path, true);
-            vertex.addAnnotation("subtype", "network");
+            Artifact vertex = createNetworkArtifact(path, true);
             putVertex(vertex);
             WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
             wgb.addAnnotation("operation", syscall.name().toLowerCase());
@@ -1284,8 +1212,7 @@ public class Audit extends AbstractReporter {
             wgb.addAnnotation("size", bytesSent);
             putEdge(wgb);
         } else {
-            // logger.log(Level.WARNING, "send(): fd {0} not found for pid {1}",
-            // new Object[]{fd, pid});
+            logger.log(Level.WARNING, "send(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -1303,8 +1230,7 @@ public class Audit extends AbstractReporter {
 
         if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
             String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = createFileVertex(path, false);
-            vertex.addAnnotation("subtype", "network");
+            Artifact vertex = createNetworkArtifact(path, false);
             putVertex(vertex);
             Used used = new Used(processes.get(pid), vertex);
             used.addAnnotation("operation", syscall.name().toLowerCase());
@@ -1312,8 +1238,7 @@ public class Audit extends AbstractReporter {
             used.addAnnotation("size", bytesReceived);
             putEdge(used);
         } else {
-            // logger.log(Level.WARNING, "recv(): fd {0} not found for pid {1}",
-            // new Object[]{fd, pid});
+            logger.log(Level.WARNING, "recv(): fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -1331,7 +1256,7 @@ public class Audit extends AbstractReporter {
         if (fileDescriptors.containsKey(pid)) {
             fileDescriptors.get(pid).put(fd, path);
         } else {
-            Map<String, String> fdMap = new HashMap<String, String>();
+            Map<String, String> fdMap = new HashMap<>();
             fdMap.put(fd, path);
             fileDescriptors.put(pid, fdMap);
         }
@@ -1341,9 +1266,7 @@ public class Audit extends AbstractReporter {
         if (fileDescriptors.containsKey(pid)) {
             fileDescriptors.get(pid).remove(fd);
         } else {
-            // logger.log(Level.WARNING,
-            // "remove descriptor: fd {0} not found for pid {1}", new
-            // Object[]{fd, pid});
+            logger.log(Level.WARNING, "remove descriptor: fd {0} not found for pid {1}", new Object[]{fd, pid});
         }
     }
 
@@ -1352,7 +1275,7 @@ public class Audit extends AbstractReporter {
         if (processes.containsKey(pid) && !refresh) {
             return processes.get(pid);
         }
-        Process resultProcess = USE_PROCFS ? createProcessFromProc(pid) : null;
+        Process resultProcess = USE_PROCFS ? createProcess(pid) : null;
         if (resultProcess == null) {
             resultProcess = new Process();
             String ppid = eventData.get("ppid");
@@ -1381,7 +1304,7 @@ public class Audit extends AbstractReporter {
         return resultProcess;
     }
 
-    private Process createProcessFromProc(String pid) {
+    private Process createProcess(String pid) {
         // Check if this pid exists in the /proc/ filesystem
         if ((new java.io.File("/proc/" + pid).exists())) {
             // The process vertex is created using the proc filesystem.
@@ -1391,16 +1314,29 @@ public class Audit extends AbstractReporter {
                 int keysGottenCount = 0; //used to stop reading the file once all the required keys have been gotten
                 String line = null, nameline = null, ppidline = null, uidline = null, gidline = null;
                 BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
-                while((line = procReader.readLine()) != null && keysGottenCount < 4){
-                	String tokens[] = line.split(":");
-                	String key = tokens[0].trim().toLowerCase();
-                	switch(key){
-                		case "name": nameline = line; keysGottenCount++; break;
-                		case "ppid": ppidline = line; keysGottenCount++; break;
-                		case "uid" : uidline  = line; keysGottenCount++; break;
-                		case "gid" : gidline  = line; keysGottenCount++; break;
-                		default: break;
-                	}
+                while ((line = procReader.readLine()) != null && keysGottenCount < 4) {
+                    String tokens[] = line.split(":");
+                    String key = tokens[0].trim().toLowerCase();
+                    switch (key) {
+                        case "name":
+                            nameline = line;
+                            keysGottenCount++;
+                            break;
+                        case "ppid":
+                            ppidline = line;
+                            keysGottenCount++;
+                            break;
+                        case "uid":
+                            uidline = line;
+                            keysGottenCount++;
+                            break;
+                        case "gid":
+                            gidline = line;
+                            keysGottenCount++;
+                            break;
+                        default:
+                            break;
+                    }
                 }
                 procReader.close();
 
@@ -1429,96 +1365,18 @@ public class Audit extends AbstractReporter {
                 newProcess.addAnnotation("ppid", ppid);
                 newProcess.addAnnotation("uid", uid);
                 newProcess.addAnnotation("gid", gid);
-                newProcess.addAnnotation("starttime_unix", stime);
-                newProcess.addAnnotation("starttime_simple", stime_readable);
-                newProcess.addAnnotation("commandline", cmdline);
-                
+                // newProcess.addAnnotation("starttime_unix", stime);
+                // newProcess.addAnnotation("starttime_simple", stime_readable);
+                // newProcess.addAnnotation("commandline", cmdline);
+
                 newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_PROCFS);
                 return newProcess;
-            } catch (Exception exception) {
-                logger.log(Level.WARNING, "unable to create process vertex for pid " + pid + " from /proc/", exception);
+            } catch (IOException | NumberFormatException e) {
+                logger.log(Level.WARNING, "unable to create process vertex for pid " + pid + " from /proc/", e);
                 return null;
             }
         } else {
             return null;
-        }
-    }
-
-    private static Integer getSelfPid() {
-        try {
-            return Integer.parseInt((new File("/proc/self")).getCanonicalFile().getName());
-        } catch (Exception e) {
-            return -1;
-        }
-    }
-
-    /*
-     * Simply reads audit stream and dumps it on stdout Mainly for testing and
-     * analysis
-     */
-    public static void dump_stream(String args[]) {
-
-        System.out.println("Dumping Stream! :-");
-
-        try {
-            String auditRules = "-a exit,always " + "-S clone -S fork -S vfork -S execve -S open -S close " + "-S read -S readv -S write -S writev -S link -S symlink "
-                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid " + "-S setreuid32 -S setresuid32 -S setuid32 -S chmod -S fchmod -S pipe "
-                    + "-S connect -S accept -S sendto -S sendmsg -S recvfrom -S recvmsg " + "-S pread64 -S pwrite64 -S truncate -S ftruncate " + "-S pipe2 -F success=1 "
-                    + ignorePidsString("spade-audit auditd kauditd /sbin/adbd /system/bin/qemud /system/bin/sh dalvikvm");
-            System.out.println("Settings rules: " + auditRules);
-            Runtime.getRuntime().exec("auditctl -D").waitFor();
-            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
-
-        String outBuf = "";
-        int status = initAuditStream();
-        if (status != 0) {
-            System.out.println("Unable to to open audit stream: " + String.valueOf(status));
-        } else {
-            System.out.println("Stream initalization");
-        }
-
-        try {
-            while (true) {
-
-                String audstream = readAuditStream();
-                if (audstream != null) {
-                    if (!audstream.isEmpty()) {
-                        outBuf = outBuf + "\n" + audstream;
-                    }
-                } else {
-                    break;
-                }
-
-                if (outBuf.length() > 5000) {
-                    // Flush
-                    System.out.println(outBuf);
-                    outBuf = "";
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            System.out.println("End of stream!");
-            closeAuditStream();
-        }
-    }
-
-    public static void main(String args[]) {
-
-        String action = args.length >= 1 ? args[0] : "";
-
-        System.out.println("Provided args:");
-        for (int i = 0; i < args.length; ++i) {
-            System.out.println(args[i]);
-        }
-        System.out.println("---");
-
-        if (action.equals("dump")) {
-            dump_stream(args);
         }
     }
 }
