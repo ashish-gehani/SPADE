@@ -28,9 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -77,8 +75,6 @@ public class Audit extends AbstractReporter {
     private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
     // File version map based on <path, version> pairs
     private final Map<String, Integer> fileVersions = new HashMap<>();
-    // Set to cache paths that have received ioctl calls
-    private final Set<String> ioctlPaths = new HashSet<>();
     private Thread eventProcessorThread = null;
     private String auditRules;
 
@@ -465,10 +461,6 @@ public class Audit extends AbstractReporter {
                     processWrite(eventData);
                     break;
 
-                case 54: // ioctl()
-                    processIoctl(eventData);
-                    break;
-
                 case 9: // link()
                 case 83: // symlink()
                     processLink(eventData);
@@ -595,10 +587,6 @@ public class Audit extends AbstractReporter {
                 case 20: // writev()
                 case 18: // pwrite64()
                     processWrite(eventData);
-                    break;
-
-                case 16: // ioctl()
-                    processIoctl(eventData);
                     break;
 
                 case 86: // link()
@@ -903,33 +891,6 @@ public class Audit extends AbstractReporter {
         wgb.addAnnotation("operation", syscall.name().toLowerCase());
         wgb.addAnnotation("time", time);
         putEdge(wgb);
-    }
-
-    private void processIoctl(Map<String, String> eventData) {
-        // ioctl() receives the following message(s):
-        // - SYSCALL
-        // - EOE
-        String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
-
-        String hexFD = eventData.get("a0");
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
-        String time = eventData.get("time");
-
-        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-            String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = new Artifact();
-            vertex.addAnnotation("path", path);
-            if (ioctlPaths.add(path)) {
-                putVertex(vertex);
-            }
-            WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-            wgb.addAnnotation("operation", "ioctl");
-            wgb.addAnnotation("time", time);
-            putEdge(wgb);
-        } else {
-            logger.log(Level.WARNING, "ioctl(): fd {0} not found for pid {1}", new Object[]{fd, pid});
-        }
     }
 
     private void processDup(Map<String, String> eventData) {
