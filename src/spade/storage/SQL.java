@@ -128,10 +128,10 @@ public class SQL extends AbstractStorage {
 
         try {
             Statement columnStatement = dbConnection.createStatement();
-            String statement = "ALTER TABLE " + table
-                    + " ADD IF NOT EXISTS `"
-                    + column
-                    + "` VARCHAR";
+            String statement = "ALTER TABLE `" + table 
+                        + "` ADD COLUMN `" 
+                        + column 
+                        + "` VARCHAR(256);";
             columnStatement.execute(statement);
             columnStatement.close();
 
@@ -142,10 +142,23 @@ public class SQL extends AbstractStorage {
             }
 
             return true;
+        } catch (SQLException ex) {
+            // column duplicate already present error codes 
+            // MySQL = 1060 
+            // H2 = 42121
+            if (ex.getErrorCode() == 1060 || ex.getErrorCode() == 42121) { 
+                if (table.equalsIgnoreCase(VERTEX_TABLE)) {
+                    vertexAnnotations.add(column);
+                } else if (table.equalsIgnoreCase(EDGE_TABLE)) {
+                    edgeAnnotations.add(column);
+                }     
+                return true;
+            }
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
+        return false;
     }
 
     @Override
