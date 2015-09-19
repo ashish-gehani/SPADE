@@ -50,6 +50,7 @@ import org.json.JSONException;
 
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
+import spade.core.Graph;
 import spade.reporter.pdu.Pdu;
 import spade.reporter.pdu.PduParser;
 import spade.vertex.prov.Activity;
@@ -60,6 +61,12 @@ import spade.edge.prov.Used;
 import spade.edge.prov.WasGeneratedBy;
 import spade.edge.prov.WasAttributedTo;
 
+import spade.utility.bitcoin.Vin;
+import spade.utility.bitcoin.Vout;
+import spade.utility.bitcoin.Transaction;
+import spade.utility.bitcoin.Block;
+import spade.utility.bitcoin.RPCManager;
+
 
 /**
  * Bitcoin reporter for SPADE
@@ -68,28 +75,13 @@ import spade.edge.prov.WasAttributedTo;
  */
 public class Bitcoin extends AbstractReporter { 
     
-    // these variables are set in ~/.bitcoin/bitcoin.conf
-    private String host = "http://127.0.0.1";
-    private int port = 8332;
-    private String rpcuser = "bitcoinrpc";
-    private String rpcpassword = "password";
-    
-    // request_jump is number of hash requests packed together into one RPC call.
-    private final int request_jump = 1000;
-    
     // pause_time is the time interval thread sleeps before quering the server for new blocks
     private final int pause_time = 10000;
-    
-    // local block index <-> block hash cache
-    private String path_to_hash_file = "/tmp/hashfile.json";
     
     // file used to save block index, i such that block 0 to i have been processed
     private String progress_file = "/tmp/bitcoin.reporter.progress";
 
-    //
-    private BlockHashDb block_hashes;
-    private BlockReader block_reader;
-    private Map<Integer, String> block_hash_db;
+    private RPCManager block_reader;
     
     // for rate monitoring
     private int total_blocks_processed = 0;
@@ -184,9 +176,9 @@ public class Bitcoin extends AbstractReporter {
     
     void reportProgress(final Block block) {
         recent_blocks_processed++;
-        recent_tx_processed += block.transactions.size();
+        recent_tx_processed += block.getTransactions().size();
         total_blocks_processed++;
-        total_tx_processed += block.transactions.size();
+        total_tx_processed += block.getTransactions().size();
         long diff = Calendar.getInstance().getTime().getTime() - date.getTime();
         if (diff > 60000) {
             Bitcoin.log(Level.INFO, "Rate: " + (int) recent_blocks_processed/(diff/60000) +" blocks/min. Total in the session: " + total_blocks_processed, null);
@@ -204,26 +196,26 @@ public class Bitcoin extends AbstractReporter {
         Activity block_node = new Activity();
         block_node.addAnnotations(new HashMap<String, String>(){
             {
-                put("block_hash", block.hash); 
-                put("block_height", Integer.toString(block.height));
-                put("block_confirmations", Integer.toString(block.confirmations));
-                put("block_time", Integer.toString(block.time)); 
-                put("block_difficulty", Integer.toString(block.difficulty)); 
-                put("block_chainwork", block.chainwork);
+                put("blockHash", block.getHash()); 
+                put("blockHeight", Integer.toString(block.getHeight()));
+                put("blockConfirmations", Integer.toString(block.getConfirmations()));
+                put("blockTime", Integer.toString(block.getTime())); 
+                put("blockDifficulty", Integer.toString(block.getDifficulty())); 
+                put("blockChainwork", block.getChainwork());
             }
         });
         putVertex(block_node);
                 
-        for(final Transaction tx: block.transactions) {
+        for(final Transaction tx: block.getTransactions()) {
             // Tx
             Activity tx_node = new Activity();
             tx_node.addAnnotations(new HashMap<String, String>(){
                 {
-                    put("transaction_hash", tx.id);
+                    put("transactionHash", tx.getId());
                 }
             });
-            if (tx.locktime != 0) {
-                tx_node.addAnnotation("transaction_loctime", Integer.toString(tx.locktime));
+            if (tx.getLocktime() != 0) {
+                tx_node.addAnnotation("transactionLoctime", Integer.toString(tx.getLocktime()));
             }
             if (tx.getCoinbaseValue() != null) {
                 tx_node.addAnnotation("coinbase", tx.getCoinbaseValue());
@@ -235,14 +227,14 @@ public class Bitcoin extends AbstractReporter {
             WasInformedBy tx_edge = new WasInformedBy(tx_node, block_node);
             putEdge(tx_edge);
             
-            for (final Vin vin: tx.vins) {
+            for (final Vin vin: tx.getVins()) {
                 // Vin
-                if (vin.isCoinbase == false) {
+                if (vin.isCoinbase() == false) {
                     Entity vin_vertex = new Entity();
                     vin_vertex.addAnnotations(new HashMap<String, String>(){
                         {
-                            put("transaction_hash", vin.txid);
-                            put("transaction_index", Integer.toString(vin.n));
+                            put("transactionHash", vin.getTxid());
+                            put("transactionIndex", Integer.toString(vin.getN()));
                         }
                     });
                     // Vin nodes are already present (except few cases)
@@ -255,24 +247,24 @@ public class Bitcoin extends AbstractReporter {
                 } 
             }
 
-            for (final Vout vout: tx.vouts) {
+            for (final Vout vout: tx.getVouts()) {
                 // Vout Vertex
                 Entity vout_vertex = new Entity();
                 vout_vertex.addAnnotations(new HashMap<String, String>(){
                     {
-                        put("transaction_hash", tx.id);
-                        put("transaction_index", Integer.toString(vout.n));
+                        put("transactionHash", tx.getId());
+                        put("transactionIndex", Integer.toString(vout.getN()));
                     }
                 });
                 putVertex(vout_vertex);
                 
                 // Vout Edge
                 WasGeneratedBy vout_edge = new WasGeneratedBy(vout_vertex, tx_node);
-                vout_edge.addAnnotation("transaction_value", Double.toString(vout.value));
+                vout_edge.addAnnotation("transactionValue", Double.toString(vout.getValue()));
                 putEdge(vout_edge);
 
                 // adresses
-                for (final String address: vout.addresses) {
+                for (final String address: vout.getAddresses()) {
                     Agent address_vertex = new Agent();
                     address_vertex.addAnnotations(new HashMap<String, String>(){
                     {
@@ -287,7 +279,27 @@ public class Bitcoin extends AbstractReporter {
             }
         }
 
-        // Edge between this and last block
+        if (last_block_node==null) {
+            // TODO: the edge between first block generated with bitcoin reporter and last block from bitcoin importer
+            // get block from db
+            // Graph graph = new Graph().getVertices("blockHeight:" + block.getHeight() );
+
+            // last_block_node = (Activity) graph.getVertex(0);
+
+            // System.out.println("duh + " + last_block_node.getAnnotation("blockHash"));
+            // last_block_node = new Activity();
+            // last_block_node.addAnnotations(new HashMap<String, String>(){
+            //     {
+            //         put("blockHash", block.getHash()); 
+            //         put("blockHeight", Integer.toString(block.getHeight()));
+            //         put("blockConfirmations", Integer.toString(block.getConfirmations()));
+            //         put("blockTime", Integer.toString(block.getTime())); 
+            //         put("blockDifficulty", Integer.toString(block.getDifficulty())); 
+            //         put("blockChainwork", block.getChainwork());
+            //     }
+            // });
+
+        }
         if (last_block_node!=null) {
             WasInformedBy block_edge = new WasInformedBy(block_node, last_block_node);
             putEdge(block_edge);
@@ -299,16 +311,7 @@ public class Bitcoin extends AbstractReporter {
     
     void runner(int start_block, int end_block) {
         // init
-        block_hashes = new BlockHashDb(
-                host, 
-                port, 
-                rpcuser, 
-                rpcpassword, 
-                request_jump, 
-                path_to_hash_file);
-        block_reader = new BlockReader(
-                host,
-                port);
+        block_reader = new RPCManager();
         
         date =  Calendar.getInstance().getTime();
         
@@ -318,7 +321,7 @@ public class Bitcoin extends AbstractReporter {
         }
         else { // or pick from last shutdown
             try {
-                block_hash_db = block_hashes.loadBlockHashes();
+                // block_hash_db = block_hashes.loadBlockHashes();
                 last_block = getLastBlockProcessedFromCache();
                 // we reprocess the last block from last run 
                 // so that we can create the edge between this block 
@@ -341,12 +344,11 @@ public class Bitcoin extends AbstractReporter {
 
             Block block = null;
             try {
-                block = block_reader.getBlock(block_hash_db.get(last_block+1));
+                block = block_reader.getBlock(last_block+1);
             } catch (Exception e) {
                 // either the block does not exist or server call fail. Wait and retry
                 try {
                     Thread.sleep(pause_time); // wait for 1 sec
-                    block_hash_db = block_hashes.loadBlockHashes(); // get fresh hashes from server
                 } catch (Exception e1) {
                     Bitcoin.log(Level.SEVERE, "Failure to get new hashes from server. Quiting", e);
                     return;
@@ -375,322 +377,4 @@ public class Bitcoin extends AbstractReporter {
             System.out.println(msg);
         }
     }
-}
-
-class Block {
-    String hash; 
-    String id; 
-    int height;
-    int confirmations;
-    int time;
-    int difficulty;
-    String chainwork;
-    
-    ArrayList<Transaction> transactions;
-    
-    public Block(JSONObject block) throws JSONException {
-        hash = block.getString("hash");
-        id = block.getString("hash");
-        height = block.getInt("height");
-        confirmations = block.getInt("confirmations");
-        time = block.getInt("time");
-        difficulty = block.getInt("difficulty");
-        chainwork = block.getString("chainwork");
-
-        transactions = new ArrayList<Transaction>();
-        JSONArray txes = block.getJSONArray("tx");
-        for (int i=0; i<txes.length(); i++) {
-            transactions.add(new Transaction(txes.getJSONObject(i)));
-        }
-    }
-}
-
-class Transaction {
-    String id;
-    int locktime;   
-    ArrayList<Vin> vins;
-    ArrayList<Vout> vouts;
-    
-    public Transaction(JSONObject tx) throws JSONException {
-        id = tx.getString("txid");
-        locktime = tx.getInt("locktime");
-        
-        vins = new ArrayList<Vin>();
-        JSONArray vins_arr = tx.getJSONArray("vin");
-        for (int i=0; i<vins_arr.length(); i++) {
-            vins.add(new Vin(vins_arr.getJSONObject(i)));
-        }
-        
-        vouts = new ArrayList<Vout>();
-        JSONArray vout_arr = tx.getJSONArray("vout");
-        for (int i=0; i<vout_arr.length(); i++) {
-            try {
-                vouts.add(new Vout(vout_arr.getJSONObject(i)));
-            } catch (Exception e){
-                // https://bitcoin.org/en/developer-guide#term-null-data
-                // https://bitcoin.org/en/developer-guide#non-standard-transactions
-                // vout type is usually txid. When its not txid, that indicates that reindexing is required at bitcoind or vout address doesnt exist
-                Bitcoin.log(Level.FINE, "Transaction "+id+" requires reindexing", e);
-            }
-        }
-    }
-
-    public String getCoinbaseValue() {
-        for (Vin vin : vins) {
-            if (vin.isCoinbase) {
-                return vin.txid;
-            }
-        }
-        return null;
-    }
-}
-
-class Vin {
-    String txid; 
-    int n;
-    boolean isCoinbase = false;
-    
-    public Vin(JSONObject vin) throws JSONException {
-        if (vin.has("txid")) {
-            txid = vin.getString("txid");
-        } else {
-            isCoinbase = true;
-            txid = vin.getString("coinbase");
-        }
-        if (vin.has("vout") ) {
-            n = vin.getInt("vout"); 
-        } else {
-           n=0;
-        }
-    }
-}
-
-class Vout {
-    double value;
-    int n;
-    List<String> addresses = new ArrayList<String>();
-
-    public Vout(JSONObject vout) throws JSONException {
-        value = vout.getDouble("value");
-        n = vout.getInt("n");
-        for(int i = 0; i < vout.getJSONObject("scriptPubKey").getJSONArray("addresses").length(); i++) { 
-            addresses.add( JSONObject.valueToString( vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(i) ) );
-        }
-    }
-}
-
-class BlockReader {
-    private String host;
-    private int port;
-    private String block_index;
-    
-    public BlockReader(String host, int port) {
-        this.host = host;
-        this.port = port;
-    }
-    
-    public Block getBlock(String hash) throws Exception{
-        String raw_block = requestBlockFromServer(hash);
-        return new Block(new JSONObject(raw_block));
-    }
-        
-    private String requestBlockFromServer(String hash) throws Exception{
-        String line;
-        StringBuffer jsonString = new StringBuffer();
-        HttpURLConnection conn;
-        BufferedReader br;
-        try {
-            conn =  (HttpURLConnection) new URL(
-                        host+":"+port+"/rest/block/"+hash+".json"
-                    ).openConnection();
-            br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            while ((line = br.readLine()) != null) {
-                jsonString.append(line);
-            }
-            br.close();
-        } catch (IOException e) {
-            Bitcoin.log(Level.SEVERE, "Couldn't open connection / get inputstream to the server for fetching Block", e);
-            throw e;
-        }
-        conn.disconnect();
-        return jsonString.toString();
-    }   
-}
-
-class BlockHashDb { 
-    private String host;
-    private int port;
-    private String rpcuser;
-    private String rpcpassword;
-    private int request_jump;
-    private String path_to_hash_file;
-       
-    BlockHashDb(String host, int port, String rpcuser,  String rpcpassword, int request_jump, String path_to_hash_file) {
-        this.host = host;
-        this.port = port;
-        this.rpcuser = rpcuser;
-        this.rpcpassword = rpcpassword;
-        this.request_jump = request_jump;
-        this.path_to_hash_file = path_to_hash_file;    
-    }
-    
-    private HttpURLConnection getConnection() throws Exception{
-        HttpURLConnection blockHashConn;
-        try {
-            blockHashConn = (HttpURLConnection) new URL(host+":"+port).openConnection();
-            blockHashConn.setRequestMethod("POST");
-        } catch (IOException e1) {
-            Bitcoin.log(Level.SEVERE, "Couldn't open connection to the server for fetching block hashes using URL: "+host+":"+port, e1);
-            throw e1;
-        }
-
-        blockHashConn.setDoInput(true);
-        blockHashConn.setDoOutput(true);
-        String userpass = rpcuser + ":" + rpcpassword;
-        // String basicAuth = "Basic " + new String(Base64.getEncoder().encode(userpass.getBytes()));
-        String basicAuth = "Basic " + new String(DatatypeConverter.printBase64Binary(userpass.getBytes()));
-        blockHashConn.setRequestProperty ("Authorization", basicAuth);
-        return blockHashConn;
-    }
-   
-    private String generateReqStr(int start_index, int end_index) throws JSONException{
-        JSONArray ja = new JSONArray();
-        for (int index=start_index; index<end_index; index++) {
-            JSONObject blk_hash_req = new JSONObject();
-            blk_hash_req.put("jsonrpc","1.0");
-            blk_hash_req.put("id",index);
-            blk_hash_req.put("method","getblockhash");
-            ArrayList<Integer> list = new ArrayList<Integer>();
-            list.add(index);
-            blk_hash_req.put("params", list);
-            
-            ja.put(blk_hash_req);
-        }
-        return ja.toString();
-    }
-    
-    private String requestHashesFromServer(int start_index, int end_index) throws Exception{
-            String line;
-            StringBuffer jsonString = new StringBuffer();
-            HttpURLConnection blockHashConn =  getConnection();
-            OutputStreamWriter writer;
-            try {
-                writer = new OutputStreamWriter(blockHashConn.getOutputStream(), "UTF-8");
-                writer.write(generateReqStr(start_index, end_index));
-                writer.close();
-            } catch (IOException e) {
-                Bitcoin.log(Level.SEVERE, "Couldn't open connection / get outputstream to the server for fetching block hashes using URL: "+host+":"+port, e);
-                throw e;
-            }
-
-            BufferedReader br;
-            try {
-                br = new BufferedReader(new InputStreamReader(blockHashConn.getInputStream()));
-                while ((line = br.readLine()) != null) {
-                    jsonString.append(line);
-                }
-                br.close();
-
-            } catch (IOException e) {
-                Bitcoin.log(Level.SEVERE, "Couldn't open connection / get inputstream to the server for fetching block hashes using URL: "+host+":"+port, e);
-                throw e;
-            }
-
-            blockHashConn.disconnect();
-            return jsonString.toString();
-    }
-    
-    private Map<Integer, String> parseBlockHashes(String rawBlockHashs) throws Exception{
-        
-        Map<Integer, String> map = new HashMap<Integer, String>();
-        
-        JSONArray ja = new JSONArray(rawBlockHashs);
-        for (int i=0; i<ja.length(); i++) {
-            JSONObject jo = ja.getJSONObject(i);
-            int block_index = jo.getInt("id");
-            try {
-                String block_hash = jo.getString("result");
-                map.put(block_index, block_hash);
-            } catch (Exception e) {
-                if (jo.getJSONObject("error").getInt("code") == -8) {
-                    // block height reached
-                    return map;
-                }
-                if (map.isEmpty()) {
-                    Bitcoin.log(Level.SEVERE, "Unexpected json returned from the server", e);
-                    throw e;
-                }
-            }
-        }
-        return map;
-    }
-    
-    private Map<Integer, String> requestHashesFromServer(int start_block) throws Exception{
-        Map<Integer, String> hashes = new HashMap<Integer, String>();
-        
-        while (true) {
-            String blk_hashes = requestHashesFromServer(start_block, start_block+request_jump);
-            Map<Integer, String> hashset = parseBlockHashes(blk_hashes);
-            if (hashset.size() < request_jump) {
-                // end of block count
-                hashes.putAll(hashset);
-                break;
-            }
-            hashes.putAll(hashset);         
-            start_block = start_block + request_jump;
-        }
-        
-        return hashes;
-    }
-    
-    /*
-     * Loads all Hashes for Blocks from cache and from the bitcoind RPC server.
-     */
-    public Map<Integer, String> loadBlockHashes() throws Exception {
-        String hash_file_contents;
-        try {
-            new File(path_to_hash_file).createNewFile(); // only creates if one doesn't exist
-            hash_file_contents = new String(Files.readAllBytes(Paths.get(path_to_hash_file)));
-        } catch (IOException e) {
-            Bitcoin.log(Level.SEVERE, "Couldn't open local hash file. Path: " + path_to_hash_file, e);
-            throw e;
-        }
-                
-        Map<Integer, String> hashes = new HashMap<Integer, String>();
-        for (String line : hash_file_contents.split("\n")) {
-            if (line.compareTo("")!=0) {
-                String[] s = line.split("\t");
-                int i = Integer.parseInt(s[0]);
-                String hash = s[1];
-                hashes.put(i, hash);
-            }
-        }
-        int block_start_from = hashes.size();
-            
-        Map<Integer, String> newHashes = null;
-        try {
-            newHashes = requestHashesFromServer(block_start_from);
-        } catch (Exception e1) {
-            throw e1;
-        }
-        for (int index: newHashes.keySet()) {
-            hashes.put(index, newHashes.get(index));
-        }   
-
-        if (newHashes.size()!=0) {
-            FileWriter fw;
-            try {
-                fw = new FileWriter(new File(path_to_hash_file), false);
-                for (int i=0; i<hashes.size(); i++) {
-                    fw.write(i+"\t"+hashes.get(i)+"\n");
-                }
-                fw.close();
-            } catch (IOException e) {
-                Bitcoin.log(Level.SEVERE, "Couldn't write to local hash file. Path: " + path_to_hash_file, e);
-                throw e;
-            }
-        }
-        return hashes;
-    }
-
 }
