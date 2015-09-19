@@ -40,7 +40,7 @@ SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ && pwd )"
 download_tools()
 {
 	if [ ! -d $SPADE_ROOT/../$NEO4J_FILE ] ; then
-		wget --progress=bar -P /tmp/ http://dist.neo4j.org/$NEO4J_FILE-unix.tar.gz
+		curl http://dist.neo4j.org/$NEO4J_FILE-unix.tar.gz -o /tmp/$NEO4J_FILE-unix.tar.gz
 		cd /tmp/
 		tar -xvvf $NEO4J_FILE-unix.tar.gz
 		mv $NEO4J_FILE $SPADE_ROOT/../
