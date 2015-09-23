@@ -46,6 +46,7 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
@@ -225,6 +226,8 @@ public class Kernel {
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
             Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
+	    logFileHandler.setFormatter(new SimpleFormatter());
+
             Logger.getLogger("").addHandler(logFileHandler);
         } catch (IOException | SecurityException exception) {
             System.err.println("Error initializing exception logger");
