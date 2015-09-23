@@ -19,7 +19,7 @@
  */
 
  /*
- This file open log/latest_log_file and prints all log messages
+ This is XML parser for log files. If log files are written as XML, this opens log/latest_log_file and prints all log messages
  */
 package spade.utility;
 
