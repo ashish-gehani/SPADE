@@ -208,7 +208,8 @@ clean:
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeSocketBridge
 	@rm -rf cfg/ssl
-	@rm -rf log/SPADE_*
+	@rm -rf log
+	@rm -rf tmp
 
 DESTDIR = @prefix@
 install:

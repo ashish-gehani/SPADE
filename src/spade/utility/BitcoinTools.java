@@ -62,13 +62,131 @@ import java.io.OutputStreamWriter;
 import java.io.FileInputStream;
 import java.io.Writer;
 
-import spade.utility.bitcoin.Block;
-import spade.utility.bitcoin.RPCManager;
-import spade.utility.bitcoin.Transaction;
-import spade.utility.bitcoin.Vin;
-import spade.utility.bitcoin.Vout;
+import spade.reporter.bitcoin.Block;
+import spade.reporter.bitcoin.Transaction;
+import spade.reporter.bitcoin.Vin;
+import spade.reporter.bitcoin.Vout;
+import spade.reporter.Bitcoin;
 
-public class BitcoinInit {
+public class BitcoinTools {
+
+    public final String BITCOIN_RPC_TOTAL_BLOCKS = "bitcoin-cli getblockcount";
+    public final String BITCOIN_RPC_GET_BLOCK_HASH_FORMAT = "bitcoin-cli getblockhash %1$1s";
+    public final String BITCOIN_REST_GET_BLOCK_FORMAT = "http://localhost:8332/rest/block/%1$1s.json";
+    public final boolean BLOCK_JSON_DUMP_ENABLED = true;
+    public String BLOCK_JSON_DUMP_PATH = Bitcoin.BITCOIN_STAGING_DIR + "/blockcache/";
+    public String BLOCK_JSON_FILE_FORMAT = Bitcoin.BITCOIN_STAGING_DIR + "/blockcache/%1$1s.json";
+
+    public static String execCmd(String cmd) throws IOException {
+        Scanner s = new Scanner(Runtime.getRuntime().exec(cmd).getInputStream()).useDelimiter("\\A");
+        return s.hasNext() ? s.next() : "";
+    }
+
+
+    public boolean dumpBlock(int blockIndex) {
+
+        String blockHash;
+        try {
+            blockHash = execCmd(new Formatter().format(BITCOIN_RPC_GET_BLOCK_HASH_FORMAT, blockIndex).toString());
+            blockHash = blockHash.trim();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running");
+            return false;
+        }
+
+        try {
+            FileUtils.copyURLToFile(new URL(new Formatter().format(BITCOIN_REST_GET_BLOCK_FORMAT, blockHash).toString()), 
+                        new File(new Formatter().format(BLOCK_JSON_FILE_FORMAT, blockIndex).toString()));
+        } catch (MalformedURLException ex) {
+            System.out.println("\n\n\n\n");
+            ex.printStackTrace();
+            System.out.println("\n\n\n\n");
+            return false;
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            System.out.println("REST URL can not be opened or IO error occured");
+            return false;
+        }
+        return true;
+    }
+
+
+    public boolean dumpBlocks() {
+        int totalBlocksToDownload=-1;
+        int totalBlocksDownloaded=-1;
+        try {
+            String totalBlocksStr = execCmd(BITCOIN_RPC_TOTAL_BLOCKS);
+            totalBlocksToDownload = Integer.parseInt(totalBlocksStr.trim());
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running");
+            return false;
+        }
+
+        try {
+            File blockDumpDir = new File(BLOCK_JSON_DUMP_PATH);
+            if (!blockDumpDir.exists()) {
+                blockDumpDir.mkdir();
+                totalBlocksDownloaded = 0;
+            } else {
+                totalBlocksDownloaded = new File(BLOCK_JSON_DUMP_PATH).list().length;
+            }
+        } catch (SecurityException ex) {
+            ex.printStackTrace();
+            System.out.println("Can not create directory for dumping block json files");
+            return false;
+        } 
+
+        String pattern = "#.##";
+        DecimalFormat decimalFormat = new DecimalFormat(pattern);
+        for (int i = 0; i < totalBlocksToDownload; i++) {
+            String file_path = new Formatter().format(BLOCK_JSON_FILE_FORMAT, i).toString();
+            File f = new File(file_path);
+            if (!f.exists()) {
+                dumpBlock(i);
+                System.out.print("| Total Blocks To Download: " + totalBlocksToDownload
+                                 + " | Currently Downloading Block: " + i
+                                 + " | Percentage Completed: " + decimalFormat.format(i*100.0/totalBlocksToDownload)
+                                 + " |\r");
+            }
+        }
+
+        System.out.println("\n\ndone!");
+        return true;
+    }
+
+    public Block getBlock(int blockIndex) throws JSONException {
+        String file_path = new Formatter().format(BLOCK_JSON_FILE_FORMAT, blockIndex).toString();
+        File f = new File(file_path);
+        if (!f.exists()) {
+            dumpBlock(blockIndex);
+        }
+
+        String line;
+        StringBuffer jsonString = new StringBuffer();
+        BufferedReader br;
+        try {
+            br = new BufferedReader(new InputStreamReader(new FileInputStream(file_path)));
+            while ((line = br.readLine()) != null) {
+                jsonString.append(line);
+            }
+            br.close();
+        } catch (IOException e) {
+            // LOG THIS
+            System.out.println("Can't open and read file");
+        }
+
+        if(BLOCK_JSON_DUMP_ENABLED==false) {
+            try {
+                Files.deleteIfExists(Paths.get(file_path));
+            } catch (IOException ex) {
+
+            }
+        }
+
+        return new Block(new JSONObject(jsonString.toString()));
+    }    
 
     public static void main(String[] arguments) {
         try{
@@ -86,8 +204,8 @@ public class BitcoinInit {
                 String value = keyvalue[1];
 
                 if (key.equals("mode") && value.equals("downloadBlocksOnly")) {
-                    RPCManager rpcManager = new RPCManager();
-                    rpcManager.dumpBlocks();
+                    BitcoinTools bitcoinTools = new BitcoinTools();
+                    bitcoinTools.dumpBlocks();
                     break;
                 }
 
@@ -96,7 +214,7 @@ public class BitcoinInit {
                     try {
                         CSVWriter csvWriter = new CSVWriter(0,upto);
                         csvWriter.writeBlocksToCSV(0,upto);
-                        csvWriter.closeCvses();
+                        csvWriter.closeCsves();
                     } catch (IOException ex) {
                         ex.printStackTrace();
                     }
@@ -105,20 +223,6 @@ public class BitcoinInit {
         } catch (NullPointerException e) {
 
         }
-
-
-        // BitcoinInit bcinit = new BitcoinInit();
-        // bcinit.dumpBlocks();
-        // RPCManager rpcManager = new RPCManager();
-
-
-        // try {
-        //     CSVWriter csvWriter = new CSVWriter(0,10);
-        //     csvWriter.writeBlocksToCSV(0,10);
-        //     csvWriter.closeCvses();
-        // } catch (IOException ex) {
-        //     ex.printStackTrace();
-        // }
     }
 }
 
@@ -129,11 +233,11 @@ class CSVWriter {
     final int ADDRESS_CSV = 4;
     final int EDGES_CSV = 5;
 
-    public String CSV_FILE_BLOCKS = "~/csves/blocks_%1$1s_%2$1s.csv";
-    public String CSV_FILE_TX = "~/csves/txes_%1$1s_%2$1s.csv";
-    public String CSV_FILE_PAYMENT = "~/csves/payments_%1$1s_%2$1s.csv"; // this is either vin or vout
-    public String CSV_FILE_ADDRESS = "~/csves/addresses_%1$1s_%2$1s.csv";
-    public String CSV_FILE_EDGES = "~/csves/edges_%1$1s_%2$1s.csv";
+    public String CSV_FILE_BLOCKS = Bitcoin.BITCOIN_STAGING_DIR +"/CSV/blocks_%1$1s_%2$1s.csv";
+    public String CSV_FILE_TX = Bitcoin.BITCOIN_STAGING_DIR +"/CSV/txes_%1$1s_%2$1s.csv";
+    public String CSV_FILE_PAYMENT = Bitcoin.BITCOIN_STAGING_DIR +"/CSV/payments_%1$1s_%2$1s.csv"; // this is either vin or vout
+    public String CSV_FILE_ADDRESS = Bitcoin.BITCOIN_STAGING_DIR +"/CSV/addresses_%1$1s_%2$1s.csv";
+    public String CSV_FILE_EDGES = Bitcoin.BITCOIN_STAGING_DIR +"/CSV/edges_%1$1s_%2$1s.csv";
 
     FileWriter nodesFileObj;
     FileWriter txFileObj;
@@ -142,21 +246,18 @@ class CSVWriter {
     FileWriter edgesFileObj;
 
     public CSVWriter(int startIndex, int endIndex) throws IOException {
+
         CSV_FILE_BLOCKS = new Formatter().format(
-                            CSV_FILE_BLOCKS.replaceFirst("^~",System.getProperty("user.home")),
-                            startIndex, endIndex).toString();
+                            CSV_FILE_BLOCKS, startIndex, endIndex).toString();
         CSV_FILE_TX = new Formatter().format(
-                            CSV_FILE_TX.replaceFirst("^~",System.getProperty("user.home")),
-                            startIndex, endIndex).toString();
+                            CSV_FILE_TX, startIndex, endIndex).toString();
         CSV_FILE_PAYMENT = new Formatter().format(
-                            CSV_FILE_PAYMENT.replaceFirst("^~",System.getProperty("user.home")),
-                            startIndex, endIndex).toString();
+                            CSV_FILE_PAYMENT, startIndex, endIndex).toString();
         CSV_FILE_ADDRESS = new Formatter().format(
-                            CSV_FILE_ADDRESS.replaceFirst("^~",System.getProperty("user.home")),
-                            startIndex, endIndex).toString();
+                            CSV_FILE_ADDRESS, startIndex, endIndex).toString();
         CSV_FILE_EDGES = new Formatter().format(
-                            CSV_FILE_EDGES.replaceFirst("^~",System.getProperty("user.home")),
-                            startIndex, endIndex).toString();
+                            CSV_FILE_EDGES, startIndex, endIndex).toString();
+    
 
         nodesFileObj = new FileWriter(CSV_FILE_BLOCKS, false);
         txFileObj = new FileWriter(CSV_FILE_TX, false);
@@ -192,7 +293,7 @@ class CSVWriter {
         }
     }
 
-    public void closeCvses() throws IOException {
+    public void closeCsves() throws IOException {
         nodesFileObj.flush();
         nodesFileObj.close();
         txFileObj.flush();
@@ -328,14 +429,14 @@ class CSVWriter {
     public void writeBlocksToCSV(int startIndex, int endIndex) {
         // Block block, int lastBlockId
         int lastBlockId = -1;
-        RPCManager rpcManager = new RPCManager();
+        BitcoinTools bitcoinTools = new BitcoinTools();
 
         String pattern = "#.##";
         DecimalFormat decimalFormat = new DecimalFormat(pattern);
 
         for (int i=startIndex; i<endIndex; i++) {
             try {
-                lastBlockId = writeBlockToCSV(rpcManager.getBlock(i), lastBlockId);
+                lastBlockId = writeBlockToCSV(bitcoinTools.getBlock(i), lastBlockId);
 
                 System.out.print("| Total Blocks To Process: " + (endIndex - startIndex)
                         + " | Currently at Block: " + (i-startIndex+1)
@@ -344,7 +445,7 @@ class CSVWriter {
 
             } catch (JSONException ex) {
                 System.out.println("Block " + i + " has invalid json. Redownloading.");
-                rpcManager.dumpBlock(i);
+                bitcoinTools.dumpBlock(i);
                 i=i-1;
                 continue;
             } catch (IOException ex) {

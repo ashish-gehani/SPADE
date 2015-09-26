@@ -51,6 +51,7 @@ import org.json.JSONException;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.core.Settings;
 import spade.reporter.pdu.Pdu;
 import spade.reporter.pdu.PduParser;
 import spade.vertex.prov.Activity;
@@ -61,11 +62,11 @@ import spade.edge.prov.Used;
 import spade.edge.prov.WasGeneratedBy;
 import spade.edge.prov.WasAttributedTo;
 
-import spade.utility.bitcoin.Vin;
-import spade.utility.bitcoin.Vout;
-import spade.utility.bitcoin.Transaction;
-import spade.utility.bitcoin.Block;
-import spade.utility.bitcoin.RPCManager;
+import spade.reporter.bitcoin.Vin;
+import spade.reporter.bitcoin.Vout;
+import spade.reporter.bitcoin.Transaction;
+import spade.reporter.bitcoin.Block;
+import spade.utility.BitcoinTools;
 
 
 /**
@@ -74,14 +75,18 @@ import spade.utility.bitcoin.RPCManager;
  * @author Hasanat Kazmi
  */
 public class Bitcoin extends AbstractReporter { 
+
+    private static final String SPADE_ROOT = Settings.getProperty("spade_root");    
     
+    public static String BITCOIN_STAGING_DIR = SPADE_ROOT + "/tmp/bitcoin/";
+
     // pause_time is the time interval thread sleeps before quering the server for new blocks
     private final int pause_time = 10000;
     
     // file used to save block index, i such that block 0 to i have been processed
-    private String progress_file = "/tmp/bitcoin.reporter.progress";
+    private String progress_file = spade.reporter.Bitcoin.BITCOIN_STAGING_DIR + "progress";
 
-    private RPCManager block_reader;
+    private BitcoinTools block_reader;
     
     // for rate monitoring
     private int total_blocks_processed = 0;
@@ -311,7 +316,7 @@ public class Bitcoin extends AbstractReporter {
     
     void runner(int start_block, int end_block) {
         // init
-        block_reader = new RPCManager();
+        block_reader = new BitcoinTools();
         
         date =  Calendar.getInstance().getTime();
         
