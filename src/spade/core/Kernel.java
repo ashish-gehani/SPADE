@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -77,9 +78,13 @@ public class Kernel {
      */
     public static String pidFile = "spade.pid";
     /**
+     * Path to log files.
+     */
+    public static String logPath = SPADE_ROOT + "log/";
+    /**
      * Path to log files including the prefix.
      */
-    public static String logPathAndPrefix = SPADE_ROOT + "log/SPADE_";
+    public static String logPathAndPrefix = logPath + "/SPADE_";
     /**
      * Date/time suffix pattern for log files.
      */
@@ -223,6 +228,7 @@ public class Kernel {
         }
 
         try {
+	    new File(logPath).mkdirs();
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
             Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
