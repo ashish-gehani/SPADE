@@ -18,49 +18,33 @@
 #  along with this program. If not, see <http://www.gnu.org/licenses/>.
 #  --------------------------------------------------------------------------------
 #
+# Author: Hasanat Kazmi <hasanatkazmi@gmail.com>
 
 
 print_help ()
 {
-	echo "bitcoin dumpblocks | createcsv <end block> | createdb <path> | init <endblock> <path> | downloadtools | clean | help"
+	echo "bitcoin dumpblocks | createcsv <end block height> | createdb <path> | init <endblock> <path> | downloadtools | clean | help"
 	echo ""
-    echo "'bitcoin init <end block> <path>' : combines createcsv and createdb operations defined above"
-	echo "'bitcoin Download' : Dumps all blocks from RPC server to local cache (~/blockdump)"
-	echo "'bitcoin createcsv <end block>' : create CSV files (~/csves) required for database generation. CSV files contain blockchain information upto <end block>"
-	echo "'bitcoin createdb <end block> <path>' : creates Neo4j database using already created CSV files. Database is saved at <path>"
-	echo "'bitcoin clean' : deletes ~/blockdump and ~/csves."
-#	echo "'bitcoin downloadtools' : downloads Neo4j to ~. Required for csv->Neo4j database creation"
+	echo "'bitcoin init <end block height> <path>' : combines createcsv and createdb operations defined above."
+	echo "'bitcoin download' : Download all blocks."
+	echo "'bitcoin createcsv <end block height>' : Convert blocks into CSV representation."
+	echo "'bitcoin createdb <end block height> <path>' : Convert CSV files into Neo4j database at <path>."
+	echo "'bitcoin clean' : Delete cached blocks and CSV files."
 	echo "'bitcoin help' : Prints this message"
 }
 
 JAVA_ARGS="-server -Xms8G -Xmx16G"
-#NEO4J_FILE="neo4j-community-2.2.4"
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 BITCOIN_STAGING_DIR=$SPADE_ROOT/tmp/bitcoin/
 
-#download_tools()
-#{
-#	if [ ! -d $SPADE_ROOT/../$NEO4J_FILE ] ; then
-#		curl http://dist.neo4j.org/$NEO4J_FILE-unix.tar.gz -o /tmp/$NEO4J_FILE-unix.tar.gz
-#		cd /tmp/
-#		tar -xvvf $NEO4J_FILE-unix.tar.gz
-#		mv $NEO4J_FILE $SPADE_ROOT/../
-#		cd -
-#	fi
-#}
-
 create_csv()
 {
-	#mkdir -p ~/csves
 	mkdir -p $BITCOIN_STAGING_DIR/CSV/
 	java -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=createCSVes upto=$1	
 }
 
 create_db()
 {
-	#download_tools
-	#$SPADE_ROOT/../$NEO4J_FILE/bin/neo4j-import --into $2 --nodes ~/csves/addresses_0_$1.csv --nodes ~/csves/blocks_0_$1.csv --nodes ~/csves/payments_0_$1.csv --nodes  ~/csves/txes_0_$1.csv --relationships ~/csves/edges_0_$1.csv 
-	#$SPADE_ROOT/../$NEO4J_FILE/bin/neo4j-import --into $2 --nodes $BITCOIN_STAGING_DIR/CSV/addresses_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/blocks_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/payments_0_$1.csv --nodes  $BITCOIN_STAGING_DIR/CSV/txes_0_$1.csv --relationships $BITCOIN_STAGING_DIR/CSV/edges_0_$1.csv
 	java -Dfile.encoding=UTF-8  -Djava.library.path="./lib/" -cp "./build:./lib/*" org.neo4j.tooling.ImportTool  --into $2 --nodes $BITCOIN_STAGING_DIR/CSV/addresses_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/blocks_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/payments_0_$1.csv --nodes  $BITCOIN_STAGING_DIR/CSV/txes_0_$1.csv --relationships $BITCOIN_STAGING_DIR/CSV/edges_0_$1.csv
 }
 
@@ -88,8 +72,6 @@ else
 		else
 			echo "Another file/directory is present at $3. Please delete or change path"
 		fi
-	#elif [ $1 = "downloadtools" ] ; then
-	#	download_tools
 	elif [ $1 = "createdb" ] ; then
 		create_db $2 $3
 	elif [ $1 = "createcsv" ] ; then

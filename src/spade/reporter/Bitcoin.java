@@ -284,27 +284,6 @@ public class Bitcoin extends AbstractReporter {
             }
         }
 
-        if (last_block_node==null) {
-            // TODO: the edge between first block generated with bitcoin reporter and last block from bitcoin importer
-            // get block from db
-            // Graph graph = new Graph().getVertices("blockHeight:" + block.getHeight() );
-
-            // last_block_node = (Activity) graph.getVertex(0);
-
-            // System.out.println("duh + " + last_block_node.getAnnotation("blockHash"));
-            // last_block_node = new Activity();
-            // last_block_node.addAnnotations(new HashMap<String, String>(){
-            //     {
-            //         put("blockHash", block.getHash()); 
-            //         put("blockHeight", Integer.toString(block.getHeight()));
-            //         put("blockConfirmations", Integer.toString(block.getConfirmations()));
-            //         put("blockTime", Integer.toString(block.getTime())); 
-            //         put("blockDifficulty", Integer.toString(block.getDifficulty())); 
-            //         put("blockChainwork", block.getChainwork());
-            //     }
-            // });
-
-        }
         if (last_block_node!=null) {
             WasInformedBy block_edge = new WasInformedBy(block_node, last_block_node);
             putEdge(block_edge);
@@ -326,11 +305,8 @@ public class Bitcoin extends AbstractReporter {
         }
         else { // or pick from last shutdown
             try {
-                // block_hash_db = block_hashes.loadBlockHashes();
                 last_block = getLastBlockProcessedFromCache();
-                // we reprocess the last block from last run 
-                // so that we can create the edge between this block 
-                // and the next block that will be created
+
                 if (last_block!=-1) {
                     last_block--;
                 }
@@ -371,15 +347,12 @@ public class Bitcoin extends AbstractReporter {
             }
             last_block++;
         }
-        
     }
     
     public static void log(Level level, String msg, Throwable thrown) {
         if (level == level.FINE) {
-            // all FINE level logs are useful for auditing post processing.
         } else {
-            // Logger.getLogger(Bitcoin.class.getName()).log(level, msg, thrown); 
-            System.out.println(msg);
+            Logger.getLogger(Bitcoin.class.getName()).log(level, msg, thrown); 
         }
     }
 }

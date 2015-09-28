@@ -90,8 +90,7 @@ public class BitcoinTools {
             blockHash = execCmd(new Formatter().format(BITCOIN_RPC_GET_BLOCK_HASH_FORMAT, blockIndex).toString());
             blockHash = blockHash.trim();
         } catch (IOException e) {
-            e.printStackTrace();
-            System.out.println("Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running");
+            Bitcoin.log(Level.SEVERE, "Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running.", e);
             return false;
         }
 
@@ -99,13 +98,10 @@ public class BitcoinTools {
             FileUtils.copyURLToFile(new URL(new Formatter().format(BITCOIN_REST_GET_BLOCK_FORMAT, blockHash).toString()), 
                         new File(new Formatter().format(BLOCK_JSON_FILE_FORMAT, blockIndex).toString()));
         } catch (MalformedURLException ex) {
-            System.out.println("\n\n\n\n");
-            ex.printStackTrace();
-            System.out.println("\n\n\n\n");
+            Bitcoin.log(Level.SEVERE, "REST URL can not be opened or IO error occured.", ex);
             return false;
         } catch (IOException ex) {
-            ex.printStackTrace();
-            System.out.println("REST URL can not be opened or IO error occured");
+            Bitcoin.log(Level.SEVERE, "REST URL can not be opened or IO error occured.", ex);
             return false;
         }
         return true;
@@ -119,8 +115,7 @@ public class BitcoinTools {
             String totalBlocksStr = execCmd(BITCOIN_RPC_TOTAL_BLOCKS);
             totalBlocksToDownload = Integer.parseInt(totalBlocksStr.trim());
         } catch (IOException e) {
-            e.printStackTrace();
-            System.out.println("Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running");
+            Bitcoin.log(Level.SEVERE, "Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running.", e);
             return false;
         }
 
@@ -133,8 +128,7 @@ public class BitcoinTools {
                 totalBlocksDownloaded = new File(BLOCK_JSON_DUMP_PATH).list().length;
             }
         } catch (SecurityException ex) {
-            ex.printStackTrace();
-            System.out.println("Can not create directory for dumping block json files");
+            Bitcoin.log(Level.SEVERE, "Can not create directory for dumping block json files.", ex);
             return false;
         } 
 
@@ -173,15 +167,14 @@ public class BitcoinTools {
             }
             br.close();
         } catch (IOException e) {
-            // LOG THIS
-            System.out.println("Can't open and read file");
+            Bitcoin.log(Level.SEVERE, "Can't open and read file.", e);
         }
 
         if(BLOCK_JSON_DUMP_ENABLED==false) {
             try {
                 Files.deleteIfExists(Paths.get(file_path));
             } catch (IOException ex) {
-
+                Bitcoin.log(Level.SEVERE, "IO issue.", ex);
             }
         }
 
@@ -216,12 +209,12 @@ public class BitcoinTools {
                         csvWriter.writeBlocksToCSV(0,upto);
                         csvWriter.closeCsves();
                     } catch (IOException ex) {
-                        ex.printStackTrace();
+                        Bitcoin.log(Level.SEVERE, "", ex);
                     }
                 }
             }
         } catch (NullPointerException e) {
-
+            Bitcoin.log(Level.SEVERE, "", e);
         }
     }
 }
@@ -444,13 +437,12 @@ class CSVWriter {
                         + " |\r");
 
             } catch (JSONException ex) {
-                System.out.println("Block " + i + " has invalid json. Redownloading.");
+                Bitcoin.log(Level.SEVERE, "Block " + i + " has invalid json. Redownloading.", ex);
                 bitcoinTools.dumpBlock(i);
                 i=i-1;
                 continue;
             } catch (IOException ex) {
-                System.out.println("Unexpected IOException. Stopping CSV creation.");
-                ex.printStackTrace();
+                Bitcoin.log(Level.SEVERE, "Unexpected IOException. Stopping CSV creation.", ex);
                 break;
             }
         }
