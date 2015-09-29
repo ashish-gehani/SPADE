@@ -38,6 +38,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.io.IOException;
+import java.lang.ArrayIndexOutOfBoundsException;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.File;
@@ -76,15 +77,14 @@ import spade.utility.BitcoinTools;
  */
 public class Bitcoin extends AbstractReporter { 
 
-    private static final String SPADE_ROOT = Settings.getProperty("spade_root");    
-    
-    public static String BITCOIN_STAGING_DIR = SPADE_ROOT + "/tmp/bitcoin/";
+    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
 
-    // pause_time is the time interval thread sleeps before quering the server for new blocks
+    public static String BITCOIN_STAGING_DIR = Paths.get(SPADE_ROOT, "tmp/bitcoin/").toString();
+
     private final int pause_time = 10000;
-    
+
     // file used to save block index, i such that block 0 to i have been processed
-    private String progress_file = spade.reporter.Bitcoin.BITCOIN_STAGING_DIR + "progress";
+    private String progress_file = Paths.get(BITCOIN_STAGING_DIR, "progress").toString();
 
     private BitcoinTools block_reader;
     
@@ -116,24 +116,36 @@ public class Bitcoin extends AbstractReporter {
         Runnable eventThread = new Runnable() {
             public void run() {
                 int start_block=-1;
-                int end_block=-1;
-                try {
+		        int end_block=Integer.MAX_VALUE;
+                
+                try{
                     String[] pairs = arguments.split("\\s+");
-                    for (String pair : pairs) {
-                        String[] keyvalue = pair.split("=");
-                        String key = keyvalue[0];
-                        int value = Integer.parseInt(keyvalue[1]);
-
-                        if (key.equals("start")) {
+                    for (String pair : pairs) {			        
+                       	String[] keyvalue = pair.split("=");
+                       	String key = keyvalue[0];
+                       	int value = Integer.parseInt(keyvalue[1]);
+	
+        	            if (key.equals("start")) {
                             start_block = value;
-                        }
-                        if (key.equals("end")) {
+                       	}
+                        
+				        if (key.equals("end")) {
                             end_block = value;
                         }
-                    }
+		            }
                 } catch (NullPointerException e) {
-
+                } catch (ArrayIndexOutOfBoundsException e) {
                 }
+
+                if (start_block==-1) {
+                    try {
+                        start_block = getLastBlockProcessedFromCache() + 1;
+                    } catch (Exception e) {
+                        Bitcoin.log(Level.INFO, "No process file present. Reporting to start from genesis block.", null);
+                        start_block = 0;
+                    }
+                }
+                
                 runner(start_block, end_block);
             }
         };
@@ -161,7 +173,7 @@ public class Bitcoin extends AbstractReporter {
                 last_block = Integer.parseInt(contents);
             }
         } catch (IOException e) {
-            Bitcoin.log(Level.SEVERE, "Couldn't open progress file or progress file has unexpected content. Path: " + progress_file, e);
+            //Bitcoin.log(Level.SEVERE, "Couldn't open progress file or progress file has unexpected content. Path: " + progress_file, e);
             throw e;
         }
         return last_block;
@@ -299,54 +311,41 @@ public class Bitcoin extends AbstractReporter {
         
         date =  Calendar.getInstance().getTime();
         
-        int last_block=-1;
-        if (start_block != -1) { // set start block to user input
-            last_block  = start_block-1;
-        }
-        else { // or pick from last shutdown
-            try {
-                last_block = getLastBlockProcessedFromCache();
-
-                if (last_block!=-1) {
-                    last_block--;
-                }
-            } catch (Exception e) {
-                Bitcoin.log(Level.SEVERE, "Couldn't Initialize. Quiting", e);
-                return;
-            }
-        }
-
-        // progress loop
-        while (!shutdown) {
-            if (end_block <= last_block && end_block != -1) { // user set end block reached
-                Bitcoin.log(Level.INFO, "Last block pushed in database. You can detach reporter and database safely.", null);
-                break;
-            } 
+        Bitcoin.log(Level.INFO, "Initializing reporter from block " + start_block + " to block " + end_block , null);
+                        
+        for (int curr_block = start_block; curr_block <= end_block; curr_block++) {
 
             Block block = null;
-            try {
-                block = block_reader.getBlock(last_block+1);
-            } catch (Exception e) {
-                // either the block does not exist or server call fail. Wait and retry
+            // we wait upto 20 mins for new block (twice expected time)
+            for (int attempts=1; attempts < (2*10*60*1000 / pause_time); attempts++) {
                 try {
-                    Thread.sleep(pause_time); // wait for 1 sec
-                } catch (Exception e1) {
-                    Bitcoin.log(Level.SEVERE, "Failure to get new hashes from server. Quiting", e);
-                    return;
-                } 
-                continue;
+                    block = block_reader.getBlock(curr_block);
+                    break;
+                } catch (Exception e) {
+                    // either the block does not exist or server call fail. Wait and retry
+                    try {
+                        Thread.sleep(pause_time); 
+                    } catch (Exception e1) {
+                        Bitcoin.log(Level.SEVERE, "Failure to get new hashes from server. Quiting", e);
+                        return;
+                    }
+                }
+            }
+
+            if (block==null) {
+                Bitcoin.log(Level.SEVERE, "Timeout. Failure to get new hashes from server. Quiting", null);
+                return;
             }
             
             reportBlock(block);
             reportProgress(block);
             
             try {
-                writeBlockProgressToCache(last_block+1);
+                writeBlockProgressToCache(curr_block);
             } catch (Exception e) {
-                // shouldn't happen
             }
-            last_block++;
         }
+        Bitcoin.log(Level.INFO, "Last block pushed in database. You can detach reporter and database safely.", null);
     }
     
     public static void log(Level level, String msg, Throwable thrown) {
