@@ -733,10 +733,10 @@ public class Audit extends AbstractReporter {
                 	break;
                 case 42: // connect()
                     processConnect(eventData);
-
+                    break;
                 case 43: // accept()
                     processAccept(eventData);
-
+                    break;
                 // ////////////////////////////////////////////////////////////////
                 case 41: // socket()
                     break;
