@@ -270,14 +270,18 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public Graph getVertices(String expression) {
-        Graph resultGraph = new Graph();
-        IndexHits<Node> queryHits = vertexIndex.query(expression);
-        for (Node foundNode : queryHits) {
-            resultGraph.putVertex(convertNodeToVertex(foundNode));
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+            Graph resultGraph = new Graph();
+            IndexHits<Node> queryHits = vertexIndex.query(expression);
+            for (Node foundNode : queryHits) {
+                resultGraph.putVertex(convertNodeToVertex(foundNode));
+            }
+            queryHits.close();
+            tx.success();
+            resultGraph.commitIndex();
+            return resultGraph;
         }
-        queryHits.close();
-        resultGraph.commitIndex();
-        return resultGraph;
     }
 
     @Override
@@ -299,36 +303,39 @@ public class Neo4j extends AbstractStorage {
                 destinationSet = getVertices(destinationExpression).vertexSet();
             }
         }
-        IndexHits<Relationship> queryHits = edgeIndex.query(edgeExpression);
-        for (Relationship foundRelationship : queryHits) {
-            AbstractVertex sourceVertex = convertNodeToVertex(foundRelationship.getStartNode());
-            AbstractVertex destinationVertex = convertNodeToVertex(foundRelationship.getEndNode());
-            AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
-            if ((sourceExpression != null) && (destinationExpression != null)) {
-                if (sourceSet.contains(tempEdge.getSourceVertex()) && destinationSet.contains(tempEdge.getDestinationVertex())) {
+        try( Transaction tx = graphDb.beginTx() ){
+            IndexHits<Relationship> queryHits = edgeIndex.query(edgeExpression);
+            for (Relationship foundRelationship : queryHits) {
+                AbstractVertex sourceVertex = convertNodeToVertex(foundRelationship.getStartNode());
+                AbstractVertex destinationVertex = convertNodeToVertex(foundRelationship.getEndNode());
+                AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
+                if ((sourceExpression != null) && (destinationExpression != null)) {
+                    if (sourceSet.contains(tempEdge.getSourceVertex()) && destinationSet.contains(tempEdge.getDestinationVertex())) {
+                        resultGraph.putVertex(sourceVertex);
+                        resultGraph.putVertex(destinationVertex);
+                        resultGraph.putEdge(tempEdge);
+                    }
+                } else if ((sourceExpression != null) && (destinationExpression == null)) {
+                    if (sourceSet.contains(tempEdge.getSourceVertex())) {
+                        resultGraph.putVertex(sourceVertex);
+                        resultGraph.putVertex(destinationVertex);
+                        resultGraph.putEdge(tempEdge);
+                    }
+                } else if ((sourceExpression == null) && (destinationExpression != null)) {
+                    if (destinationSet.contains(tempEdge.getDestinationVertex())) {
+                        resultGraph.putVertex(sourceVertex);
+                        resultGraph.putVertex(destinationVertex);
+                        resultGraph.putEdge(tempEdge);
+                    }
+                } else if ((sourceExpression == null) && (destinationExpression == null)) {
                     resultGraph.putVertex(sourceVertex);
                     resultGraph.putVertex(destinationVertex);
                     resultGraph.putEdge(tempEdge);
                 }
-            } else if ((sourceExpression != null) && (destinationExpression == null)) {
-                if (sourceSet.contains(tempEdge.getSourceVertex())) {
-                    resultGraph.putVertex(sourceVertex);
-                    resultGraph.putVertex(destinationVertex);
-                    resultGraph.putEdge(tempEdge);
-                }
-            } else if ((sourceExpression == null) && (destinationExpression != null)) {
-                if (destinationSet.contains(tempEdge.getDestinationVertex())) {
-                    resultGraph.putVertex(sourceVertex);
-                    resultGraph.putVertex(destinationVertex);
-                    resultGraph.putEdge(tempEdge);
-                }
-            } else if ((sourceExpression == null) && (destinationExpression == null)) {
-                resultGraph.putVertex(sourceVertex);
-                resultGraph.putVertex(destinationVertex);
-                resultGraph.putEdge(tempEdge);
             }
+            queryHits.close();
+            tx.success();
         }
-        queryHits.close();
         resultGraph.commitIndex();
         return resultGraph;
     }
@@ -336,13 +343,16 @@ public class Neo4j extends AbstractStorage {
     @Override
     public Graph getEdges(int srcVertexId, int dstVertexId) {
         Graph resultGraph = new Graph();
-        IndexHits<Relationship> queryHits = edgeIndex.query("type:*", graphDb.getNodeById(srcVertexId), graphDb.getNodeById(dstVertexId));
-        for (Relationship currentRelationship : queryHits) {
-            resultGraph.putVertex(convertNodeToVertex(currentRelationship.getStartNode()));
-            resultGraph.putVertex(convertNodeToVertex(currentRelationship.getEndNode()));
-            resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
+        try( Transaction tx = graphDb.beginTx() ){
+            IndexHits<Relationship> queryHits = edgeIndex.query("type:*", graphDb.getNodeById(srcVertexId), graphDb.getNodeById(dstVertexId));
+            for (Relationship currentRelationship : queryHits) {
+                resultGraph.putVertex(convertNodeToVertex(currentRelationship.getStartNode()));
+                resultGraph.putVertex(convertNodeToVertex(currentRelationship.getEndNode()));
+                resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
+            }
+            queryHits.close();
+            tx.success();
         }
-        queryHits.close();
         resultGraph.commitIndex();
         return resultGraph;
     }
@@ -353,16 +363,22 @@ public class Neo4j extends AbstractStorage {
         Set<Node> sourceNodes = new HashSet<>();
         Set<Node> destinationNodes = new HashSet<>();
 
-        IndexHits<Node> queryHits = vertexIndex.query(srcVertexExpression);
-        for (Node foundNode : queryHits) {
-            sourceNodes.add(foundNode);
+        try ( Transaction tx = graphDb.beginTx() ) {
+            IndexHits<Node> queryHits = vertexIndex.query(srcVertexExpression);
+            for (Node foundNode : queryHits) {
+                sourceNodes.add(foundNode);
+            }
+            queryHits.close();
+            tx.success();
         }
-        queryHits.close();
-        queryHits = vertexIndex.query(dstVertexExpression);
-        for (Node foundNode : queryHits) {
-            destinationNodes.add(foundNode);
+        try ( Transaction tx = graphDb.beginTx() ) {
+            IndexHits<Node> queryHits = vertexIndex.query(dstVertexExpression);
+            for (Node foundNode : queryHits) {
+                destinationNodes.add(foundNode);              
+            }
+            queryHits.close();
+            tx.success();
         }
-        queryHits.close();
 
         Set<Long> addedNodeIds = new HashSet<>();
         Set<Long> addedEdgeIds = new HashSet<>();
@@ -370,19 +386,22 @@ public class Neo4j extends AbstractStorage {
         PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.OUTGOING), maxLength);
         for (Node sourceNode : sourceNodes) {
             for (Node destinationNode : destinationNodes) {
-                for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
-                    for (Node currentNode : currentPath.nodes()) {
-                        if (!addedNodeIds.contains(currentNode.getId())) {
-                            resultGraph.putVertex(convertNodeToVertex(currentNode));
-                            addedNodeIds.add(currentNode.getId());
+                try ( Transaction tx = graphDb.beginTx() ) {
+                    for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
+                        for (Node currentNode : currentPath.nodes()) {
+                            if (!addedNodeIds.contains(currentNode.getId())) {       
+                                resultGraph.putVertex(convertNodeToVertex(currentNode));
+                                addedNodeIds.add(currentNode.getId());
+                            }
+                        }
+                        for (Relationship currentRelationship : currentPath.relationships()) {
+                            if (!addedEdgeIds.contains(currentRelationship.getId())) {              
+                                resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
+                                addedEdgeIds.add(currentRelationship.getId());
+                            }
                         }
                     }
-                    for (Relationship currentRelationship : currentPath.relationships()) {
-                        if (!addedEdgeIds.contains(currentRelationship.getId())) {
-                            resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
-                            addedEdgeIds.add(currentRelationship.getId());
-                        }
-                    }
+                    tx.success();
                 }
             }
         }
@@ -416,23 +435,29 @@ public class Neo4j extends AbstractStorage {
         Set<Node> doneSet = new HashSet<>();
         Set<Node> tempSet = new HashSet<>();
 
-        IndexHits<Node> queryHits = vertexIndex.query(vertexExpression);
-        for (Node foundNode : queryHits) {
-            resultGraph.putVertex(convertNodeToVertex(foundNode));
-            tempSet.add(foundNode);
+        try ( Transaction tx = graphDb.beginTx() ) {
+            IndexHits<Node> queryHits = vertexIndex.query(vertexExpression);
+            for (Node foundNode : queryHits) {
+                resultGraph.putVertex(convertNodeToVertex(foundNode));
+                tempSet.add(foundNode);
+            }
+            queryHits.close();
+            tx.success();
         }
-        queryHits.close();
 
         if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
             terminatingExpression = null;
         }
         Set<Node> terminatingSet = new HashSet<>();
         if (terminatingExpression != null) {
-            queryHits = vertexIndex.query(terminatingExpression);
-            for (Node foundNode : queryHits) {
-                terminatingSet.add(foundNode);
+            try ( Transaction tx = graphDb.beginTx() ) {
+                IndexHits<Node> queryHits = vertexIndex.query(terminatingExpression);
+                for (Node foundNode : queryHits) {
+                    terminatingSet.add(foundNode);
+                }
+                queryHits.close();
+                tx.success();
             }
-            queryHits.close();
         }
 
         int currentDepth = 0;
@@ -443,25 +468,28 @@ public class Neo4j extends AbstractStorage {
             doneSet.addAll(tempSet);
             Set<Node> newTempSet = new HashSet<>();
             for (Node tempNode : tempSet) {
-                for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
-                    Node otherNode = nodeRelationship.getOtherNode(tempNode);
-                    if (terminatingSet.contains(otherNode)) {
-                        continue;
-                    }
-                    if (!doneSet.contains(otherNode)) {
-                        newTempSet.add(otherNode);
-                    }
-                    resultGraph.putVertex(convertNodeToVertex(otherNode));
-                    resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
-                    // Add network artifacts to the network map of the graph.
-                    // This is needed to resolve remote queries
-                    try {
-                        if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("network")) {
-                            resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+                try ( Transaction tx = graphDb.beginTx() ) {
+                    for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
+                        Node otherNode = nodeRelationship.getOtherNode(tempNode);
+                        if (terminatingSet.contains(otherNode)) {
+                            continue;
                         }
-                    } catch (Exception exception) {
-                        // Ignore
+                        if (!doneSet.contains(otherNode)) {
+                            newTempSet.add(otherNode);
+                        }
+                        resultGraph.putVertex(convertNodeToVertex(otherNode));
+                        resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
+                        // Add network artifacts to the network map of the graph.
+                        // This is needed to resolve remote queries
+                        try {
+                            if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("network")) {
+                                resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
+                            }
+                        } catch (Exception exception) {
+                            // Ignore
+                        }
                     }
+                    tx.success();
                 }
             }
             tempSet.clear();
