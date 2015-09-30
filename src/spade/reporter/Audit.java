@@ -179,7 +179,8 @@ public class Audit extends AbstractReporter {
     			public void run(){
     				BufferedReader inputLogReader = null;
     	        	try{
-                        inputLogReader = new BufferedReader(new FileReader(inputAuditLogFile));
+    	        		java.lang.Process ausearchProcess = Runtime.getRuntime().exec("ausearch --input " + inputAuditLogFile);
+    	        		inputLogReader = new BufferedReader(new InputStreamReader(ausearchProcess.getInputStream()));
     	        		String line = null;
     	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
     	        			parseEventLine(line);
