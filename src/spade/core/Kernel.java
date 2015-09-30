@@ -142,13 +142,14 @@ public class Kernel {
     // Strings for query client
     private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
     private static final String QUERY_EDGE1_STRING = "<result> = getEdges(source vertex id, destination vertex id)";
-    private static final String QUERY_EDGE2_STRING = "<result> = getEdges(source vertex expression, destination vertex expression, edge expression)";
-    private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id)";
-    private static final String QUERY_LINEAGE1_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
-    private static final String QUERY_LINEAGE2_STRING = "<result> = getLineage(result, depth, direction, terminating expression)";
-    private static final String QUERY_CHILDREN_STRING = "<result> = getChildren(expression)";
-    private static final String QUERY_PARENTS_STRING = "<result> = getParents(expression)";
-    private static final String QUERY_SHOWVERTICES_STRING = "showVertices(annotations)";
+    private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id, maximum length)";
+    private static final String QUERY_LINEAGE1_STRING = "<result> = getLineage(vertex id, depth, direction)";
+    private static final String QUERY_LINEAGE2_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
+    private static final String QUERY_LINEAGE3_STRING = "<result> = getLineage(<result>, depth, direction)";
+    private static final String QUERY_LINEAGE4_STRING = "<result> = getLineage(<result>, depth, direction, terminating expression)";
+    private static final String QUERY_CHILDREN_STRING = "<result> = <result>.getChildren(expression)";
+    private static final String QUERY_PARENTS_STRING = "<result> = <result>.getParents(expression)";
+    private static final String QUERY_SHOWVERTICES_STRING = "<result>.showVertices(annotation 1, annotation 2, ....)";
     private static final String QUERY_LIST_STRING = "list";
     private static final String QUERY_EXPORT_STRING = "export <result> <path>";
     private static final String QUERY_EXIT_STRING = "exit";
@@ -731,10 +732,11 @@ public class Kernel {
         string.append("Available commands:\n");
         string.append("\t" + QUERY_VERTEX_STRING + "\n");
         string.append("\t" + QUERY_EDGE1_STRING + "\n");
-        string.append("\t" + QUERY_EDGE2_STRING + "\n");
         string.append("\t" + QUERY_PATHS_STRING + "\n");
         string.append("\t" + QUERY_LINEAGE1_STRING + "\n");
         string.append("\t" + QUERY_LINEAGE2_STRING + "\n");
+        string.append("\t" + QUERY_LINEAGE3_STRING + "\n");
+        string.append("\t" + QUERY_LINEAGE4_STRING + "\n");
         string.append("\t" + QUERY_CHILDREN_STRING + "\n");
         string.append("\t" + QUERY_PARENTS_STRING + "\n");
         string.append("\t" + QUERY_SHOWVERTICES_STRING + "\n");

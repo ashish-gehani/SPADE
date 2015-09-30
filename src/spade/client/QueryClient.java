@@ -181,6 +181,7 @@ public class QueryClient {
     }
 
     private static void parseQuery(String input) {
+System.out.println("hello " + input);
         // Accepts input of the following form and generates the corresponding
         // query expression to pass to the Query class:
         //      function(arguments)
@@ -193,13 +194,13 @@ public class QueryClient {
         //      showVertices(annotations)
         //      getChildren(expression)
         //      getParents(expression)
-        Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
-        Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
-        Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
-        Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)?getLineage\\(\\s*([a-zA-Z0-9]+)\\s*,\\s*(\\d+)\\s*,\\s*([a-zA-Z]+)\\s*(,\\s*.+)?\\s*\\)[;]?");
+        Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
+        Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
+        Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
+        Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getLineage\\(\\s*([a-zA-Z0-9]+)\\s*,\\s*(\\d+)\\s*,\\s*([a-zA-Z]+)\\s*(,\\s*.+)?\\s*\\)[;]?");
         Pattern showVerticesPattern = Pattern.compile("([a-zA-Z0-9]+\\.)showVertices\\((.+)\\)[;]?");
-        Pattern childrenPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)getChildren\\((.+)\\)[;]?");
-        Pattern parentsPattern = Pattern.compile("([a-zA-Z0-9]+)\\s+=\\s+([a-zA-Z0-9]+\\.)getParents\\((.+)\\)[;]?");
+        Pattern childrenPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)getChildren\\((.+)\\)[;]?");
+        Pattern parentsPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)getParents\\((.+)\\)[;]?");
 
         Matcher vertexMatcher = vertexPattern.matcher(input);
         Matcher edgeMatcher = edgePattern.matcher(input);
@@ -266,7 +267,10 @@ public class QueryClient {
         } else if (showVerticesMatcher.matches()) {
             queryTarget = showVerticesMatcher.group(1);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
-            String annotationsArray[] = showVerticesMatcher.group(2).split(", ");
+            String annotationsArray[] = showVerticesMatcher.group(2).split(",");
+            for(int i=0; i<annotationsArray.length; i++) {
+                annotationsArray[i] = annotationsArray[i].trim();
+            }
             Set<String> annotations = new HashSet<>(Arrays.asList(annotationsArray));
             if (!graphObjects.containsKey(queryTarget)) {
                 System.out.println("Error: graph " + queryTarget + " does not exist");
@@ -298,16 +302,16 @@ public class QueryClient {
             queryTarget = childrenMatcher.group(2);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
             String expression = childrenMatcher.group(3);
-            parseQuery(result + "=getLineage(" + queryTarget + ", 1, desc)");
-            parseQuery(result + "=" + result + ".getVertices(" + expression + ")");
+            parseQuery(result + " = getLineage(" + queryTarget + ", 1, desc)");
+            parseQuery(result + " = " + result + ".getVertices(" + expression + ")");
             return;
         } else if (parentsMatcher.matches()) {
             result = parentsMatcher.group(1);
             queryTarget = parentsMatcher.group(2);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
             String expression = parentsMatcher.group(3);
-            parseQuery(result + "=getLineage(" + queryTarget + ", 1, anc)");
-            parseQuery(result + "=" + result + ".getVertices(" + expression + ")");
+            parseQuery(result + " = getLineage(" + queryTarget + ", 1, anc)");
+            parseQuery(result + " = " + result + ".getVertices(" + expression + ")");
             return;
         }
 
