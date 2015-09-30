@@ -86,7 +86,7 @@ public class Audit extends AbstractReporter {
     // Group 2: type
     // Group 3: time
     // Group 4: recordid
-    private static final Pattern pattern_message_start = Pattern.compile("node=(\\S+) type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+    private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
 
     // Group 1: cwd
     private static final Pattern pattern_cwd = Pattern.compile("cwd=\"*((?<=\")[^\"]*(?=\"))\"*");
@@ -100,11 +100,16 @@ public class Audit extends AbstractReporter {
     private static final String PROC_INFO_SRC_KEY = "source",
             PROC_INFO_PROCFS = "/proc",
             PROC_INFO_AUDIT = "/dev/audit";
+    
+    private String lastEventId = null;
+    private Thread auditLogThread = null;
 
     private enum SYSCALL {
 
         FORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, TRUNCATE, FTRUNCATE
     }
+    
+    private BufferedWriter dumpWriter = null;
 
     @Override
     public boolean launch(String arguments) {
@@ -124,25 +129,26 @@ public class Audit extends AbstractReporter {
         DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
 
         Map<String, String> args = parseKeyValPairs(arguments);
-        if (args.containsKey("dump")) {
+        if (args.containsKey("outputLog")) {
             DEBUG_DUMP_LOG = true;
-            if (!args.get("dump").isEmpty()) {
-                DEBUG_DUMP_FILE = args.get("dump");
+            if (!args.get("outputLog").isEmpty()) {
+                DEBUG_DUMP_FILE = args.get("outputLog");
+            }
+            try{
+            	dumpWriter = new BufferedWriter(new FileWriter(DEBUG_DUMP_FILE));
+            }catch(Exception e){
+            	logger.log(Level.WARNING, "Failed to create output log writer");
             }
         } else {
             DEBUG_DUMP_LOG = false;
         }
-
+        
         // Check if file IO and net IO is also asked by the user to be turned on
-        if (args.containsKey("fileIO")) {
-            if ("true".equals(args.get("fileIO"))) {
-                USE_READ_WRITE = true;
-            }
+        if ("true".equals(args.get("fileIO"))) {
+            USE_READ_WRITE = true;
         }
-        if (args.containsKey("netIO")) {
-            if ("true".equals(args.get("netIO"))) {
-                USE_SOCK_SEND_RCV = true;
-            }
+        if ("true".equals(args.get("netIO"))) {
+            USE_SOCK_SEND_RCV = true;
         }
 
         // Get system boot time from /proc/stat. This is later used to determine
@@ -161,105 +167,127 @@ public class Audit extends AbstractReporter {
         } catch (IOException | NumberFormatException e) {
             logger.log(Level.SEVERE, "error reading boot time information from /proc/", e);
         }
+        
+        String inputAuditLogFile = args.get("inputLog");
+        if(inputAuditLogFile != null){ //if a path is passed but it is not a valid file then throw an error
+        	if(!new File(inputAuditLogFile).exists()){
+        		logger.log(Level.SEVERE, "File at specified path doesn't exist.");
+        		return false;
+        	}
+        	
+        	auditLogThread = new Thread(new Runnable(){
+    			public void run(){
+    				BufferedReader inputLogReader = null;
+    	        	try{
+    	        		java.lang.Process ausearchProcess = Runtime.getRuntime().exec("ausearch --input " + inputAuditLogFile);
+    	        		inputLogReader = new BufferedReader(new InputStreamReader(ausearchProcess.getInputStream()));
+    	        		String line = null;
+    	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
+    	        			parseEventLine(line);
+    	        		}
+						while(!shutdown){
+							//wait for user to shut it down
+						}
+    	        	}catch(Exception e){
+    	        		logger.log(Level.SEVERE, "Failed to read input audit log file", e);
+    	        	}finally{
+    	        		try{
+    	        			if(inputLogReader != null){
+    	        				inputLogReader.close();
+    	        			}
+    	        		}catch(Exception e){
+    	        			//ignore exception
+    	        		}
+    	        	}
+    			}
+    		});
+        	auditLogThread.start();
+        	
+        }else{
 
-        // Build the process tree using the directories under /proc/.
-        // Directories which have a numeric name represent processes.
-        String path = "/proc";
-        java.io.File directory = new java.io.File(path);
-        java.io.File[] listOfFiles = directory.listFiles();
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isDirectory()) {
+	        // Build the process tree using the directories under /proc/.
+	        // Directories which have a numeric name represent processes.
+	        String path = "/proc";
+	        java.io.File directory = new java.io.File(path);
+	        java.io.File[] listOfFiles = directory.listFiles();
+	        for (int i = 0; i < listOfFiles.length; i++) {
+	            if (listOfFiles[i].isDirectory()) {
+	
+	                String currentPID = listOfFiles[i].getName();
+	                try {
+	                    // Parse the current directory name to make sure it is
+	                    // numeric. If not, ignore and continue.
+	                    Integer.parseInt(currentPID);
+	                    Process processVertex = createProcess(currentPID);
+	                    processes.put(currentPID, processVertex);
+	                    Process parentVertex = processes.get(processVertex.getAnnotation("ppid"));
+	                    putVertex(processVertex);
+	                    if (parentVertex != null) {
+	                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
+	                        putEdge(wtb);
+	                    }
+	
+	                    // Get existing file descriptors for this process
+	                    Map<String, String> descriptors = getFileDescriptors(currentPID);
+	                    if (descriptors != null) {
+	                        fileDescriptors.put(currentPID, descriptors);
+	                    }
+	                } catch (Exception e) {
+	                    // Continue
+	                }
+	            }
+	        }
+	
+	        try {
+	            // Start auditd and clear existing rules.
+	            Runtime.getRuntime().exec("auditctl -D").waitFor();
+	            Runnable eventProcessor = new Runnable() {
+	                public void run() {
+	                    try {
+	                        java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
+	                        eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
+	                        while (!shutdown) {
+	                            String line = eventReader.readLine();
+	                            if ((line != null) && !line.isEmpty()) {
+	                                parseEventLine(line);
+	                            }
+	                        }
+	                        //Added this command here because once the spadeSocketBridge process has exited any rules involving it cannot be cleared.
+	                        //So, deleting the rules before destroying the spadeSocketBridge process.
+	                        Runtime.getRuntime().exec("auditctl -D").waitFor();
+	                        eventReader.close();
+	                        auditProcess.destroy();
+	                    } catch (IOException | InterruptedException e) {
+	                        logger.log(Level.SEVERE, "error launching main runnable thread", e);
+	                    }
+	                }
+	            };
+	            eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
+	            eventProcessorThread.start();
+	
+	            // Determine pids of processes that are to be ignored. These are
+	            // appended to the audit rule.
+	            String ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
+	            StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
+	            auditRules = "-a exit,always ";
+	            if (USE_READ_WRITE) {
+	                auditRules += "-S read -S readv -S write -S writev ";
+	            }
+	            if (USE_SOCK_SEND_RCV) {
+	                auditRules += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
+	            }
+	            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
+	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
+	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
+	                    + "-F success=1 " + ignorePids.toString();
+	            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
+	            logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
+	        } catch (IOException | InterruptedException e) {
+	            logger.log(Level.SEVERE, "error configuring audit rules", e);
+	            return false;
+	        }
 
-                String currentPID = listOfFiles[i].getName();
-                try {
-                    // Parse the current directory name to make sure it is
-                    // numeric. If not, ignore and continue.
-                    Integer.parseInt(currentPID);
-                    Process processVertex = createProcess(currentPID);
-                    processes.put(currentPID, processVertex);
-                    Process parentVertex = processes.get(processVertex.getAnnotation("ppid"));
-                    putVertex(processVertex);
-                    if (parentVertex != null) {
-                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
-                        putEdge(wtb);
-                    }
-
-                    // Get existing file descriptors for this process
-                    Map<String, String> descriptors = getFileDescriptors(currentPID);
-                    if (descriptors != null) {
-                        fileDescriptors.put(currentPID, descriptors);
-                    }
-                } catch (Exception e) {
-                    // Continue
-                }
-            }
         }
-
-        try {
-            // Start auditd and clear existing rules.
-            Runtime.getRuntime().exec("auditctl -D").waitFor();
-            Runnable eventProcessor = new Runnable() {
-                public void run() {
-                    try {
-                        FileWriter dumpFileWriter = null;
-                        BufferedWriter dumpWriter = null;
-                        if (DEBUG_DUMP_LOG) {
-                            dumpFileWriter = new FileWriter(DEBUG_DUMP_FILE);
-                            dumpWriter = new BufferedWriter(dumpFileWriter);
-                        }
-
-                        java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-                        eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
-                        while (!shutdown) {
-                            String line = eventReader.readLine();
-                            if ((line != null) && !line.isEmpty()) {
-                                if (DEBUG_DUMP_LOG) {
-                                    dumpWriter.write(line);
-                                    dumpWriter.write(System.getProperty("line.separator"));
-                                    dumpWriter.flush();
-                                }
-                                parseEventLine(line);
-                            }
-                        }
-                        //Added this command here because once the spadeSocketBridge process has exited any rules involving it cannot be cleared.
-                        //So, deleting the rules before destroying the spadeSocketBridge process.
-                        Runtime.getRuntime().exec("auditctl -D").waitFor();
-                        eventReader.close();
-                        auditProcess.destroy();
-                        if (DEBUG_DUMP_LOG) {
-                            dumpWriter.close();
-                            dumpFileWriter.close();
-                        }
-                    } catch (IOException | InterruptedException e) {
-                        logger.log(Level.SEVERE, "error launching main runnable thread", e);
-                    }
-                }
-            };
-            eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
-            eventProcessorThread.start();
-
-            // Determine pids of processes that are to be ignored. These are
-            // appended to the audit rule.
-            String ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
-            StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
-            auditRules = "-a exit,always ";
-            if (USE_READ_WRITE) {
-                auditRules += "-S read -S readv -S write -S writev ";
-            }
-            if (USE_SOCK_SEND_RCV) {
-                auditRules += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
-            }
-            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
-                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
-                    + "-F success=1 " + ignorePids.toString();
-            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-            logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
-        } catch (IOException | InterruptedException e) {
-            logger.log(Level.SEVERE, "error configuring audit rules", e);
-            return false;
-        }
-
         return true;
     }
 
@@ -327,7 +355,15 @@ public class Audit extends AbstractReporter {
     public boolean shutdown() {
         shutdown = true;
         try {
-            eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
+        	if(dumpWriter != null){
+        		dumpWriter.close();
+        	}
+        	if(eventProcessorThread != null){
+        		eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
+        	}
+        	if(auditLogThread != null){
+        		auditLogThread.join(THREAD_CLEANUP_TIMEOUT);
+        	}
         } catch (Exception e) {
             logger.log(Level.SEVERE, "error shutting down", e);
         }
@@ -335,6 +371,24 @@ public class Audit extends AbstractReporter {
     }
 
     private void parseEventLine(String line) {
+    	
+    	if (DEBUG_DUMP_LOG) {
+    		try{
+    			dumpWriter.write(line + System.getProperty("line.separator"));
+            	dumpWriter.flush();
+    		}catch(Exception e){
+    			logger.log(Level.WARNING, "Failed to write to output log", e);
+    		}
+        }
+    	
+    	if(lastEventId != null && line !=null && line.trim().equals("----")){
+    		if (ARCH_32BIT) {
+                finishEvent32(lastEventId);
+            } else {
+                finishEvent64(lastEventId);
+            }
+    	}
+    	
         Matcher event_start_matcher = pattern_message_start.matcher(line);
         if (event_start_matcher.find()) {
             String node = event_start_matcher.group(1);
@@ -343,6 +397,8 @@ public class Audit extends AbstractReporter {
             String eventId = event_start_matcher.group(4);
             String messageData = line.substring(event_start_matcher.end());
 
+            lastEventId = eventId;
+            
             if (type.equals("SYSCALL")) {
                 Map<String, String> eventData = parseKeyValPairs(messageData);
                 eventData.put("time", time);
@@ -452,13 +508,17 @@ public class Audit extends AbstractReporter {
                 case 3: // read()
                 case 145: // readv()
                 case 180: // pread64()
-                    processRead(eventData);
+                	if(USE_READ_WRITE){
+                		processRead(eventData);
+                	}
                     break;
 
                 case 4: // write()
                 case 146: // writev()
                 case 181: // pwrite64()
-                    processWrite(eventData);
+                	if(USE_READ_WRITE){
+                		processWrite(eventData);
+                	}
                     break;
 
                 case 9: // link()
@@ -514,23 +574,31 @@ public class Audit extends AbstractReporter {
                     break;
 
                 case 290: // sendto()
-                    processSend(eventData, SYSCALL.SENDTO);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processSend(eventData, SYSCALL.SENDTO);
+                	}
+                    break;
                 case 296: // sendmsg()
-                    processSend(eventData, SYSCALL.SENDMSG);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processSend(eventData, SYSCALL.SENDMSG);
+                	}
+                	break;
                 case 292: // recvfrom()
-                    processRecv(eventData, SYSCALL.RECVFROM);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processRecv(eventData, SYSCALL.RECVFROM);
+                	}
+                	break;
                 case 297: // recvmsg()
-                    processRecv(eventData, SYSCALL.RECVMSG);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processRecv(eventData, SYSCALL.RECVMSG);
+                	}
+                	break;
                 case 283: // connect()
                     processConnect(eventData);
-
+                    break;
                 case 285: // accept()
                     processAccept(eventData);
-
+                    break;
                 case 281: // socket()
                     break;
 
@@ -580,13 +648,17 @@ public class Audit extends AbstractReporter {
                 case 0: // read()
                 case 19: // readv()
                 case 17: // pread64()
-                    processRead(eventData);
+                	if(USE_READ_WRITE){
+                		processRead(eventData);
+                	}
                     break;
 
                 case 1: // write()
                 case 20: // writev()
                 case 18: // pwrite64()
-                    processWrite(eventData);
+                	if(USE_READ_WRITE){
+                		processWrite(eventData);
+                	}
                     break;
 
                 case 86: // link()
@@ -640,17 +712,25 @@ public class Audit extends AbstractReporter {
 //                    processSocketCall(eventData);
 //                    break;
                 case 44: // sendto()
-                    processSend(eventData, SYSCALL.SENDTO);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processSend(eventData, SYSCALL.SENDTO);
+                	}
+                	break;
                 case 46: // sendmsg()
-                    processSend(eventData, SYSCALL.SENDMSG);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processSend(eventData, SYSCALL.SENDMSG);
+                	}
+                	break;
                 case 45: // recvfrom()
-                    processRecv(eventData, SYSCALL.RECVFROM);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processRecv(eventData, SYSCALL.RECVFROM);
+                	}
+                	break;
                 case 47: // recvmsg()
-                    processRecv(eventData, SYSCALL.RECVMSG);
-
+                	if(USE_SOCK_SEND_RCV){
+                		processRecv(eventData, SYSCALL.RECVMSG);
+                	}
+                	break;
                 case 42: // connect()
                     processConnect(eventData);
 
