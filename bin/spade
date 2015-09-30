@@ -34,6 +34,11 @@ print_help ()
 }
 
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
+FORMATTER="-Djava.util.logging.SimpleFormatter.format=%1\$tY-%1\$tm-%1\$td %1\$tH:%1\$tM:%1\$tS %4\$s %2\$s %5\$s%6\$s%n"
+CLASSPATH="-Djava.library.path=$SPADE_ROOT/lib/ -cp $SPADE_ROOT/build:$SPADE_ROOT/lib/*"
+JVMARGS="-server -Xms128M -Xmx512M"
+JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
+
 pushd ${SPADE_ROOT} > /dev/null
 
 if [ $# -eq 0 ] ; then
@@ -41,15 +46,15 @@ if [ $# -eq 0 ] ; then
 else
 
 	if [ $1 = "start" ] ; then
-		java -Djava.library.path="./lib/" -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.utility.Daemonizer "$@"
+		java $CLASSPATH $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
 	elif [ $1 = "stop" ] ; then
-		java -cp "./build:./lib/*" -server -Xms128M -Xmx512M spade.utility.Daemonizer "$@"
+		java $CLASSPATH $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
 	elif [ $1 = "dig" ] ; then
-		java -cp './build:./lib/*' spade.client.QueryClient
+		java $CLASSPATH "$FORMATTER" spade.client.QueryClient
 	elif [ $1 = "control" ] ; then
-		java -cp './build:./lib/*' spade.client.ControlClient
+		java $CLASSPATH "$FORMATTER" spade.client.ControlClient
 	elif [ $1 = "debug" ] ; then
-		java -Djava.library.path="./lib/" -cp "./build:./lib/*" -server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC spade.core.Kernel
+		java $CLASSPATH $JVMARGSDEBUG "$FORMATTER" spade.core.Kernel
 	else
 		print_help
 	fi

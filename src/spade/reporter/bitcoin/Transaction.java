@@ -19,12 +19,15 @@
  * @author  Hasanat Kazmi
 
  */
-package spade.utility.bitcoin;
+package spade.reporter.bitcoin;
 
 import java.util.ArrayList;
+import java.util.logging.Level;
 import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
+
+import spade.reporter.Bitcoin;
 
 public class Transaction {
     String id;
@@ -51,8 +54,7 @@ public class Transaction {
                 // https://bitcoin.org/en/developer-guide#term-null-data
                 // https://bitcoin.org/en/developer-guide#non-standard-transactions
                 // vout type is usually txid. When its not txid, that indicates that reindexing is required at bitcoind or vout address doesnt exist
-                // LOG THIS
-                // Bitcoin.log(Level.FINE, "Transaction "+id+" requires reindexing", e);
+                Bitcoin.log(Level.FINE, "Transaction " + id + " requires reindexing", e);
             }
         }
     }

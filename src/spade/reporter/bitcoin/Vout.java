@@ -19,7 +19,7 @@
  * @author  Hasanat Kazmi
 
  */
-package spade.utility.bitcoin;
+package spade.reporter.bitcoin;
 
 import java.util.ArrayList;
 import java.util.List;

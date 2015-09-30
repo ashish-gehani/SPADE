@@ -19,13 +19,13 @@
  * @author  Hasanat Kazmi
 
  */
-package spade.utility.bitcoin;
+package spade.reporter.bitcoin;
 
 import java.util.ArrayList;
 import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
-import spade.utility.bitcoin.Transaction;
+import spade.reporter.bitcoin.Transaction;
 
 public class Block {
     String hash; 

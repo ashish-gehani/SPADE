@@ -19,7 +19,7 @@
  * @author  Hasanat Kazmi
 
  */
-package spade.utility.bitcoin;
+package spade.reporter.bitcoin;
 
 import org.json.JSONObject;
 import org.json.JSONException;
