@@ -168,7 +168,7 @@ public class Audit extends AbstractReporter {
             logger.log(Level.SEVERE, "error reading boot time information from /proc/", e);
         }
         
-        String inputAuditLogFile = args.get("inputLog");
+        final String inputAuditLogFile = args.get("inputLog");
         if(inputAuditLogFile != null){ //if a path is passed but it is not a valid file then throw an error
         	if(!new File(inputAuditLogFile).exists()){
         		logger.log(Level.SEVERE, "File at specified path doesn't exist.");
