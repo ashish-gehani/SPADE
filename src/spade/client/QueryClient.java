@@ -181,7 +181,6 @@ public class QueryClient {
     }
 
     private static void parseQuery(String input) {
-System.out.println("hello " + input);
         // Accepts input of the following form and generates the corresponding
         // query expression to pass to the Query class:
         //      function(arguments)
