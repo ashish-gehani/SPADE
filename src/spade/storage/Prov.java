@@ -24,14 +24,14 @@ import spade.core.AbstractVertex;
 
 public class Prov extends AbstractStorage{
 
-	public Logger logger = Logger.getLogger(this.getClass().getName());
+    public Logger logger = Logger.getLogger(this.getClass().getName());
 	
-	public static enum ProvFormat { PROVO, PROVN }
+    public static enum ProvFormat { PROVO, PROVN }
+
+    private ProvFormat provOutputFormat;
 	
-	private ProvFormat provOutputFormat;
-	
-	private FileWriter outputFile;
-	private final int TRANSACTION_LIMIT = 1000;
+    private FileWriter outputFile;
+    private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
     private String filePath;
     
@@ -39,7 +39,7 @@ public class Prov extends AbstractStorage{
     private final String provNamespaceURI = "http://www.w3.org/ns/prov#";
     
     private final String defaultNamespacePrefix = "data";
-    private final String defaultNamespaceURI 	= "http://spade.data.com#";
+    private final String defaultNamespaceURI 	= "http://spade.csl.sri.com/#";
     
     private Map<String, Set<String>> annotationToNamespaceMap = new HashMap<String, Set<String>>();
     private Map<String, String> namespacePrefixToURIMap = new HashMap<String, String>();
@@ -158,7 +158,7 @@ public class Prov extends AbstractStorage{
 			String serializedVertex = getSerializedVertex(incomingVertex);
 			outputFile.write(serializedVertex);
 			checkTransactions();
-			vertexCount++;
+			//vertexCount++; filecommitfilter is doing this increment already
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
@@ -172,7 +172,7 @@ public class Prov extends AbstractStorage{
 			String serializedEdge = getSerializedEdge(incomingEdge);
 			outputFile.write(serializedEdge);
 			checkTransactions();
-			vertexCount++;
+			//edgeCount++; filecommitfilter is doing this increment already
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
