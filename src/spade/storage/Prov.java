@@ -44,7 +44,7 @@ public class Prov extends AbstractStorage{
     private Map<String, Set<String>> annotationToNamespaceMap = new HashMap<String, Set<String>>();
     private Map<String, String> namespacePrefixToURIMap = new HashMap<String, String>();
     
-    private final String OUTFILE_KEY = "outFile";
+    private final String OUTFILE_KEY = "output";
     
     private final String TAB = "\t", NEWLINE = "\n";
     
