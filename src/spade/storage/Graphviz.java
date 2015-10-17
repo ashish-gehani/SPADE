@@ -85,9 +85,9 @@ public class Graphviz extends AbstractStorage {
                 if (key == null || value == null) {
                     continue;
                 }
-                annotationString.append(key.replace("\\", "\\\\"));
+                annotationString.append(key);
                 annotationString.append(":");
-                annotationString.append(value.replace("\\", "\\\\"));
+                annotationString.append(value);
                 annotationString.append("\\n");
             }
             String vertexString = annotationString.substring(0, annotationString.length() - 2);
@@ -135,9 +135,9 @@ public class Graphviz extends AbstractStorage {
                 if (key == null || value == null) {
                     continue;
                 }
-                annotationString.append(key.replace("\\", "\\\\"));
+                annotationString.append(key);
                 annotationString.append(":");
-                annotationString.append(value.replace("\\", "\\\\"));
+                annotationString.append(value);
                 annotationString.append("\\n");
             }
             String color = "black";
