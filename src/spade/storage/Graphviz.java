@@ -146,9 +146,9 @@ public class Graphviz extends AbstractStorage {
                 color = "green";
             } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
                 color = "red";
-            } else if (type.equalsIgnoreCase("WasTriggeredBy")) {
+            } else if (type.equalsIgnoreCase("WasTriggeredBy") || type.equalsIgnoreCase("WasInformedBy")) {
                 color = "blue";
-            } else if (type.equalsIgnoreCase("WasControlledBy")) {
+            } else if (type.equalsIgnoreCase("WasControlledBy") || type.equalsIgnoreCase("WasAssociatedWith")) {
                 color = "purple";
             } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
                 color = "orange";
