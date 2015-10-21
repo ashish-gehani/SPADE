@@ -34,8 +34,11 @@ public class Vout {
     public Vout(JSONObject vout) throws JSONException {
         value = vout.getDouble("value");
         n = vout.getInt("n");
+        String address;
         for(int i = 0; i < vout.getJSONObject("scriptPubKey").getJSONArray("addresses").length(); i++) { 
-            addresses.add( JSONObject.valueToString( vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(i) ) );
+            // addresses.add( JSONObject.valueToString( vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(i) ) );
+            address = JSONObject.valueToString( vout.getJSONObject("scriptPubKey").getJSONArray("addresses").getString(i) );
+            addresses.add( address.substring(1, address.length()-1) );
         }
     }
 
