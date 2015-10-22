@@ -103,6 +103,7 @@ public class SQL extends AbstractStorage {
     @Override
     public boolean shutdown() {
         try {
+            dbConnection.commit();
             dbConnection.close();
             return true;
         } catch (Exception ex) {
@@ -210,7 +211,8 @@ public class SQL extends AbstractStorage {
         try {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
-            s.close();
+            // s.close();
+            s.closeOnCompletion();
         } catch (Exception e) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, e);
         }
