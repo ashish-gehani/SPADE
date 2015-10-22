@@ -286,7 +286,8 @@ public class SQL extends AbstractStorage {
         try {
             dbConnection.commit();
             Graph graph = new Graph();
-            String query = "SELECT * FROM VERTEX WHERE " + expression;
+            // assuming that expression is single key value only
+            String query = "SELECT * FROM VERTEX WHERE " + expression.replace(":","=");
             Statement vertexStatement = dbConnection.createStatement();
             ResultSet result = vertexStatement.executeQuery(query);
             ResultSetMetaData metadata = result.getMetaData();
