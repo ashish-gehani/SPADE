@@ -27,7 +27,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
@@ -63,7 +67,7 @@ public class Audit extends AbstractReporter {
     private boolean USE_READ_WRITE = false;
     // To toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean USE_SOCK_SEND_RCV = false;
-    private boolean ARCH_32BIT = true;
+    private Boolean ARCH_32BIT = true;
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     private String AUDIT_EXEC_PATH;
@@ -101,7 +105,7 @@ public class Audit extends AbstractReporter {
             PROC_INFO_PROCFS = "/proc",
             PROC_INFO_AUDIT = "/dev/audit";
     
-    private String lastEventId = null;
+//    private String lastEventId = null;
     private Thread auditLogThread = null;
 
     private enum SYSCALL {
@@ -110,7 +114,7 @@ public class Audit extends AbstractReporter {
     }
     
     private BufferedWriter dumpWriter = null;
-
+    
     @Override
     public boolean launch(String arguments) {
 
@@ -170,19 +174,28 @@ public class Audit extends AbstractReporter {
         
         final String inputAuditLogFile = args.get("inputLog");
         if(inputAuditLogFile != null){ //if a path is passed but it is not a valid file then throw an error
+        	
         	if(!new File(inputAuditLogFile).exists()){
         		logger.log(Level.SEVERE, "File at specified path doesn't exist.");
+        		return false;
+        	}
+        	        	
+        	ARCH_32BIT = "32".equals(args.get("arch")) ? true : "64".equals(args.get("arch")) ? false : null;
+        	
+        	if(ARCH_32BIT == null){
+        		logger.log(Level.SEVERE, "Must specify whether the system on which log was collected was 32 bit or 64 bit");
         		return false;
         	}
         	
         	auditLogThread = new Thread(new Runnable(){
     			public void run(){
-    				BufferedReader inputLogReader = null;
+    				BatchReader inputLogBatchReader = null;
+    				java.lang.Process ausearchProcess = null;
     	        	try{
-    	        		java.lang.Process ausearchProcess = Runtime.getRuntime().exec("ausearch --input " + inputAuditLogFile);
-    	        		inputLogReader = new BufferedReader(new InputStreamReader(ausearchProcess.getInputStream()));
+    	        		ausearchProcess = Runtime.getRuntime().exec("ausearch --input " + inputAuditLogFile);
+    	        		inputLogBatchReader = new BatchReader(new BufferedReader(new InputStreamReader(ausearchProcess.getInputStream())));
     	        		String line = null;
-    	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
+    	        		while(!shutdown && (line = inputLogBatchReader.readLine()) != null){
     	        			parseEventLine(line);
     	        		}
 						while(!shutdown){
@@ -192,11 +205,18 @@ public class Audit extends AbstractReporter {
     	        		logger.log(Level.SEVERE, "Failed to read input audit log file", e);
     	        	}finally{
     	        		try{
-    	        			if(inputLogReader != null){
-    	        				inputLogReader.close();
+    	        			if(ausearchProcess != null){
+    	        				ausearchProcess.destroy();
     	        			}
     	        		}catch(Exception e){
-    	        			//ignore exception
+    	        			logger.log(Level.SEVERE, "Failed to destroy ausearch process.", e);
+    	        		}
+    	        		try{
+    	        			if(inputLogBatchReader != null){
+    	        				inputLogBatchReader.close();
+    	        			}
+    	        		}catch(Exception e){
+    	        			logger.log(Level.SEVERE, "Failed to close audit input log reader", e);
     	        		}
     	        	}
     			}
@@ -290,7 +310,7 @@ public class Audit extends AbstractReporter {
         }
         return true;
     }
-
+    
     static private StringBuilder ignorePidsString(String ignoreProcesses) {
         StringBuilder ignorePids = new StringBuilder();
         try {
@@ -381,14 +401,6 @@ public class Audit extends AbstractReporter {
     		}
         }
     	
-    	if(lastEventId != null && line !=null && line.trim().equals("----")){
-    		if (ARCH_32BIT) {
-                finishEvent32(lastEventId);
-            } else {
-                finishEvent64(lastEventId);
-            }
-    	}
-    	
         Matcher event_start_matcher = pattern_message_start.matcher(line);
         if (event_start_matcher.find()) {
             String node = event_start_matcher.group(1);
@@ -396,61 +408,60 @@ public class Audit extends AbstractReporter {
             String time = event_start_matcher.group(3);
             String eventId = event_start_matcher.group(4);
             String messageData = line.substring(event_start_matcher.end());
-
-            lastEventId = eventId;
+            
+            if(eventBuffer.get(eventId) == null){
+            	eventBuffer.put(eventId, new HashMap<String, String>());
+            }
             
             if (type.equals("SYSCALL")) {
                 Map<String, String> eventData = parseKeyValPairs(messageData);
                 eventData.put("time", time);
-                eventBuffer.put(eventId, eventData);
-            } else {
-                if (!eventBuffer.containsKey(eventId)) {
-                    logger.log(Level.WARNING, "eventid {0} not found for message: {1}", new Object[]{eventId, line});
-                    return;
-                }
-                if (type.equals("EOE")) {
-                    if (ARCH_32BIT) {
-                        finishEvent32(eventId);
-                    } else {
-                        finishEvent64(eventId);
-                    }
-                } else if (type.equals("CWD")) {
-                    Matcher cwd_matcher = pattern_cwd.matcher(messageData);
-                    if (cwd_matcher.find()) {
-                        String cwd = cwd_matcher.group(1);
-                        eventBuffer.get(eventId).put("cwd", cwd);
-                    }
-                } else if (type.equals("PATH")) {
-                    Matcher path_matcher = pattern_path.matcher(messageData);
-                    if (path_matcher.find()) {
-                        String item = path_matcher.group(1);
-                        String name = path_matcher.group(2);
-                        eventBuffer.get(eventId).put("path" + item, name);
-                    }
-                } else if (type.equals("EXECVE")) {
-                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                    while (key_value_matcher.find()) {
-                        eventBuffer.get(eventId).put("execve_" + key_value_matcher.group(1), key_value_matcher.group(2));
-                    }
-                } else if (type.equals("FD_PAIR")) {
-                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                    while (key_value_matcher.find()) {
-                        eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
-                    }
-                } else if (type.equals("SOCKETCALL")) {
-                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                    while (key_value_matcher.find()) {
-                        eventBuffer.get(eventId).put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
-                    }
-                } else if (type.equals("SOCKADDR")) {
-                    Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                    while (key_value_matcher.find()) {
-                        eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
-                    }
+            	eventBuffer.get(eventId).putAll(eventData);
+            } else if (type.equals("EOE")) {
+                if (ARCH_32BIT) {
+                    finishEvent32(eventId);
                 } else {
-                    logger.log(Level.WARNING, "unknown type {0} for message: {1}", new Object[]{type, line});
+                    finishEvent64(eventId);
                 }
+            } else if (type.equals("CWD")) {
+                Matcher cwd_matcher = pattern_cwd.matcher(messageData);
+                if (cwd_matcher.find()) {
+                    String cwd = cwd_matcher.group(1);
+                    eventBuffer.get(eventId).put("cwd", cwd);
+                }
+            } else if (type.equals("PATH")) {
+                Matcher path_matcher = pattern_path.matcher(messageData);
+                if (path_matcher.find()) {
+                    String item = path_matcher.group(1);
+                    String name = path_matcher.group(2);
+                    eventBuffer.get(eventId).put("path" + item, name);
+                }
+            } else if (type.equals("EXECVE")) {
+                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                while (key_value_matcher.find()) {
+                    eventBuffer.get(eventId).put("execve_" + key_value_matcher.group(1), key_value_matcher.group(2));
+                }
+            } else if (type.equals("FD_PAIR")) {
+                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                while (key_value_matcher.find()) {
+                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                }
+            } else if (type.equals("SOCKETCALL")) {
+                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                while (key_value_matcher.find()) {
+                    eventBuffer.get(eventId).put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
+                }
+            } else if (type.equals("SOCKADDR")) {
+                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                while (key_value_matcher.find()) {
+                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                }
+            } else if(type.equals("PROCTITLE")){
+            	//event type not being handled at the moment. TO-DO
+            } else {
+                logger.log(Level.WARNING, "unknown type {0} for message: {1}", new Object[]{type, line});
             }
+            
         } else {
             logger.log(Level.WARNING, "unable to match line: {0}", line);
         }
@@ -482,6 +493,11 @@ public class Audit extends AbstractReporter {
             }
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
+            
+            if("no".equals(eventData.get("success"))){ //in case the audit log is being read from a user provided file.
+            	eventBuffer.remove(eventId);
+            	return;
+            }
 
             switch (syscall) {
                 case 2: // fork()
@@ -607,7 +623,7 @@ public class Audit extends AbstractReporter {
             }
             eventBuffer.remove(eventId);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "error processing finish syscall event", e);
+            logger.log(Level.SEVERE, "error processing finish syscall event with eventid '"+eventId+"'", e);
         }
     }
 
@@ -623,6 +639,11 @@ public class Audit extends AbstractReporter {
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
 
+            if("no".equals(eventData.get("success"))){ //in case the audit log is being read from a user provided file.
+            	eventBuffer.remove(eventId);
+            	return;
+            }
+            
             switch (syscall) {
                 case 57: // fork()
                 case 58: // vfork()
@@ -746,7 +767,7 @@ public class Audit extends AbstractReporter {
             }
             eventBuffer.remove(eventId);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "error processing finish syscall event", e);
+            logger.log(Level.SEVERE, "error processing finish syscall event with eventid '"+eventId+"'", e);
         }
     }
 
@@ -825,12 +846,17 @@ public class Audit extends AbstractReporter {
         if (!newProcess.getAnnotations().containsKey("commandline")) {
             // Unable to retrieve complete process information; generate vertex
             // based on audit information
-            int argc = Integer.parseInt(eventData.get("execve_argc"));
-            String commandline = "";
-            for (int i = 0; i < argc; i++) {
-                commandline += eventData.get("execve_a" + i) + " ";
+            String commandline = null;
+            if(eventData.get("execve_argc") != null){
+            	int argc = Integer.parseInt(eventData.get("execve_argc"));
+            	commandline = "";
+            	for(int i = 0; i < argc; i++){
+            		commandline += eventData.get("execve_a" + i) + " ";
+            	}
+            	commandline = commandline.trim();
+            }else{
+            	commandline = "[Record Missing]";
             }
-            commandline = commandline.trim();
             newProcess.addAnnotation("cwd", eventData.get("cwd"));
             newProcess.addAnnotation("commandline", commandline);
         }
@@ -850,7 +876,7 @@ public class Audit extends AbstractReporter {
         // - EOE
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
-        String path = eventData.get("path0");
+        String path = eventData.get("path1") == null ? eventData.get("path0") : eventData.get("path1"); 
         String fd = eventData.get("exit");
         checkProcessVertex(eventData, true, false);
 
@@ -863,7 +889,7 @@ public class Audit extends AbstractReporter {
             String flags = eventData.get("a1");
             Map<String, String> newData = new HashMap<>();
             newData.put("pid", pid);
-            newData.put("a0", Integer.toHexString(Integer.parseInt(fd)));
+            newData.put("a0", new BigInteger(fd, 16).toString());
             newData.put("time", eventData.get("time"));
             if (flags.charAt(flags.length() - 1) == '0') {
                 // read
@@ -883,7 +909,7 @@ public class Audit extends AbstractReporter {
         String hexFD = eventData.get("a0");
         checkProcessVertex(eventData, true, false);
 
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String fd = new BigInteger(hexFD, 16).toString();
         removeDescriptor(pid, fd);
     }
 
@@ -896,24 +922,25 @@ public class Audit extends AbstractReporter {
         String bytesRead = eventData.get("exit");
         checkProcessVertex(eventData, true, false);
 
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String fd = new BigInteger(hexFD, 16).toString();
         String time = eventData.get("time");
-
-        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-            String path = fileDescriptors.get(pid).get(fd);
-            boolean put = !fileVersions.containsKey(path);
-            Artifact vertex = createFileArtifact(path, false);
-            if (put) {
-                putVertex(vertex);
-            }
-            Used used = new Used(processes.get(pid), vertex);
-            used.addAnnotation("operation", "read");
-            used.addAnnotation("time", time);
-            used.addAnnotation("size", bytesRead);
-            putEdge(used);
-        } else {
-            logger.log(Level.WARNING, "read(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+        
+        if(!(fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd))){
+        	addMissingFD(pid, fd);
         }
+
+        String path = fileDescriptors.get(pid).get(fd);
+        boolean put = !fileVersions.containsKey(path);
+        Artifact vertex = createFileArtifact(path, false);
+        if (put) {
+            putVertex(vertex);
+        }
+        Used used = new Used(processes.get(pid), vertex);
+        used.addAnnotation("operation", "read");
+        used.addAnnotation("time", time);
+        used.addAnnotation("size", bytesRead);
+        putEdge(used);
+        
     }
 
     private void processWrite(Map<String, String> eventData) {
@@ -924,22 +951,22 @@ public class Audit extends AbstractReporter {
         checkProcessVertex(eventData, true, false);
 
         String hexFD = eventData.get("a0");
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String fd = new BigInteger(hexFD, 16).toString();
         String time = eventData.get("time");
         String bytesWritten = eventData.get("exit");
 
-        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-            String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = createFileArtifact(path, true);
-            putVertex(vertex);
-            WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-            wgb.addAnnotation("operation", "write");
-            wgb.addAnnotation("time", time);
-            wgb.addAnnotation("size", bytesWritten);
-            putEdge(wgb);
-        } else {
-            logger.log(Level.WARNING, "write(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+        if(!(fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd))){
+        	addMissingFD(pid, fd);
         }
+        
+        String path = fileDescriptors.get(pid).get(fd);
+        Artifact vertex = createFileArtifact(path, true);
+        putVertex(vertex);
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+        wgb.addAnnotation("operation", "write");
+        wgb.addAnnotation("time", time);
+        wgb.addAnnotation("size", bytesWritten);
+        putEdge(wgb);
     }
 
     private void processTruncate(Map<String, String> eventData, SYSCALL syscall) {
@@ -956,13 +983,13 @@ public class Audit extends AbstractReporter {
             path = joinPaths(eventData.get("cwd"), eventData.get("path0"));
         } else if (syscall == SYSCALL.FTRUNCATE) {
             String hexFD = eventData.get("a0");
-            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
-            if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-                path = fileDescriptors.get(pid).get(fd);
-            } else {
-                logger.log(Level.WARNING, "truncate(): fd {0} not found for pid {1}", new Object[]{fd, pid});
-                return;
+            String fd = new BigInteger(hexFD, 16).toString();
+            
+            if(!(fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd))){
+            	addMissingFD(pid, fd);
             }
+            
+            path = fileDescriptors.get(pid).get(fd);
         }
 
         Artifact vertex = createFileArtifact(path, true);
@@ -981,12 +1008,15 @@ public class Audit extends AbstractReporter {
         checkProcessVertex(eventData, true, false);
 
         String hexFD = eventData.get("a0");
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String fd = new BigInteger(hexFD, 16).toString();
         String newFD = eventData.get("exit");
-        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-            String path = fileDescriptors.get(pid).get(fd);
-            fileDescriptors.get(pid).put(newFD, path);
+        
+        if(!(fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd))){
+        	addMissingFD(pid, fd);
         }
+        
+        String path = fileDescriptors.get(pid).get(fd);
+        fileDescriptors.get(pid).put(newFD, path);
     }
 
     private void processSetuid(Map<String, String> eventData) {
@@ -1096,7 +1126,7 @@ public class Audit extends AbstractReporter {
         String pid = eventData.get("pid");
         checkProcessVertex(eventData, true, false);
         // mode is in hex format in <a1>
-        String mode = Integer.toOctalString(Integer.parseInt(eventData.get("a1"), 16));
+        String mode = new BigInteger(eventData.get("a1"), 16).toString(8);
         // if syscall is chmod, then path is <path0> relative to <cwd>
         // if syscall is fchmod, look up file descriptor which is <a0>
         String path = null;
@@ -1104,9 +1134,12 @@ public class Audit extends AbstractReporter {
             path = joinPaths(eventData.get("cwd"), eventData.get("path0"));
         } else if (syscall == SYSCALL.FCHMOD) {
             String fd = eventData.get("a0");
-            if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-                path = fileDescriptors.get(pid).get(fd);
+            
+            if(!(fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd))){
+            	addMissingFD(pid, fd); //add the missing fd and continue
             }
+            
+            path = fileDescriptors.get(pid).get(fd);
         }
         Artifact vertex = createFileArtifact(path, true);
         putVertex(vertex);
@@ -1168,7 +1201,7 @@ public class Audit extends AbstractReporter {
             }
             // update file descriptor table
             String hexFD = eventData.get("a0");
-            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+            String fd = new BigInteger(hexFD, 16).toString();
             addDescriptor(pid, fd, location);
         }
     }
@@ -1197,7 +1230,7 @@ public class Audit extends AbstractReporter {
             putEdge(wgb);
             // update file descriptor table
             String hexFD = eventData.get("a0");
-            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+            String fd = new BigInteger(hexFD, 16).toString();
             addDescriptor(pid, fd, location);
         }
     }
@@ -1226,7 +1259,7 @@ public class Audit extends AbstractReporter {
             putEdge(used);
             // update file descriptor table
             String hexFD = eventData.get("a0");
-            String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+            String fd = new BigInteger(hexFD, 16).toString();
             addDescriptor(pid, fd, location);
         }
     }
@@ -1239,22 +1272,22 @@ public class Audit extends AbstractReporter {
         checkProcessVertex(eventData, true, false);
 
         String hexFD = eventData.get("a0");
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String fd = new BigInteger(hexFD, 16).toString();
         String time = eventData.get("time");
         String bytesSent = eventData.get("exit");
-
-        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-            String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = createNetworkArtifact(path, true);
-            putVertex(vertex);
-            WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-            wgb.addAnnotation("operation", syscall.name().toLowerCase());
-            wgb.addAnnotation("time", time);
-            wgb.addAnnotation("size", bytesSent);
-            putEdge(wgb);
-        } else {
-            logger.log(Level.WARNING, "send(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+        
+        if(!(fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd))){
+        	addMissingFD(pid, fd);
         }
+
+        String path = fileDescriptors.get(pid).get(fd);
+        Artifact vertex = createNetworkArtifact(path, true);
+        putVertex(vertex);
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+        wgb.addAnnotation("operation", syscall.name().toLowerCase());
+        wgb.addAnnotation("time", time);
+        wgb.addAnnotation("size", bytesSent);
+        putEdge(wgb);
     }
 
     private void processRecv(Map<String, String> eventData, SYSCALL syscall) {
@@ -1265,22 +1298,22 @@ public class Audit extends AbstractReporter {
         checkProcessVertex(eventData, true, false);
 
         String hexFD = eventData.get("a0");
-        String fd = Integer.toString(Integer.parseInt(hexFD, 16));
+        String fd = new BigInteger(hexFD, 16).toString();
         String time = eventData.get("time");
         String bytesReceived = eventData.get("exit");
 
-        if (fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd)) {
-            String path = fileDescriptors.get(pid).get(fd);
-            Artifact vertex = createNetworkArtifact(path, false);
-            putVertex(vertex);
-            Used used = new Used(processes.get(pid), vertex);
-            used.addAnnotation("operation", syscall.name().toLowerCase());
-            used.addAnnotation("time", time);
-            used.addAnnotation("size", bytesReceived);
-            putEdge(used);
-        } else {
-            logger.log(Level.WARNING, "recv(): fd {0} not found for pid {1}", new Object[]{fd, pid});
+        if(!(fileDescriptors.containsKey(pid) && fileDescriptors.get(pid).containsKey(fd))){
+        	addMissingFD(pid, fd);
         }
+        
+        String path = fileDescriptors.get(pid).get(fd);
+        Artifact vertex = createNetworkArtifact(path, false);
+        putVertex(vertex);
+        Used used = new Used(processes.get(pid), vertex);
+        used.addAnnotation("operation", syscall.name().toLowerCase());
+        used.addAnnotation("time", time);
+        used.addAnnotation("size", bytesReceived);
+        putEdge(used);
     }
 
     private String joinPaths(String path1, String path2) {
@@ -1419,5 +1452,127 @@ public class Audit extends AbstractReporter {
         } else {
             return null;
         }
+    }
+    
+    //for cases when open syscall wasn't gotten in the log for the fd being used.
+    public void addMissingFD(String pid, String fd){
+    	addDescriptor(pid, fd, "/unknown/"+pid+"_"+fd);
+    }
+    
+    private class BatchReader{
+    	
+    	private final Pattern event_line_pattern = Pattern.compile("msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+    	private BufferedReader br = null;
+    	
+    	private Map<Long, AuditEvent> auditEventsMap = new HashMap<Long, AuditEvent>();
+    	private LinkedList<AuditEvent> auditEventsQ = new LinkedList<AuditEvent>();
+    	
+    	private AuditEvent nextBatch = null;
+    	
+    	public BatchReader(BufferedReader br){
+    		this.br = br;
+    	}
+    	
+    	public String readLine() throws IOException{
+    		if(nextBatch == null){ 
+	    		String line = null;
+	    		String lastTimestamp = null;
+	    		while((line = br.readLine()) != null){
+	    			Matcher matcher = event_line_pattern.matcher(line);
+	    			if(matcher.find()){
+	    				String timestamp = matcher.group(1);
+	    				Long eventId = Long.parseLong(matcher.group(2));
+
+	    				if(lastTimestamp == null){
+	    					lastTimestamp = timestamp;
+	    				}
+	    				
+	    				if(!lastTimestamp.equals(timestamp)){ //new
+	    					nextBatch = new AuditEvent(eventId, timestamp);
+	    					nextBatch.addLine(line);
+	    					auditEventsQ.addAll(auditEventsMap.values());
+	    					Collections.sort(auditEventsQ, new Comparator<AuditEvent>(){
+	    						public int compare(AuditEvent a, AuditEvent b){
+	    							return a.getEventId().compareTo(b.getEventId());
+	    						}
+	    					});
+	    					return getLine();
+	    				}else{//current
+	    					if(auditEventsMap.get(eventId) == null){
+	    						auditEventsMap.put(eventId, new AuditEvent(eventId, timestamp));
+		    				}
+		    				
+	    					auditEventsMap.get(eventId).addLine(line);
+	    				}
+    				
+	    			}
+	    		}
+	    		//end of file reached
+	    		nextBatch = new AuditEvent(null, null);
+	    		auditEventsQ.addAll(auditEventsMap.values());
+				Collections.sort(auditEventsQ, new Comparator<AuditEvent>(){
+					public int compare(AuditEvent a, AuditEvent b){
+						return a.getEventId().compareTo(b.getEventId());
+					}
+				});
+	    		return getLine();
+    		}else{
+    			return getLine();
+    		}
+    	}
+    	
+    	private String getLine(){
+    		if(auditEventsQ.size() == 1 && auditEventsQ.getFirst().getLines().isEmpty()){
+        		String eoeLine = "type=EOE msg=audit("+auditEventsQ.getFirst().getTimestamp()+":"+auditEventsQ.getFirst().getEventId()+"):";
+        		auditEventsMap.clear();
+        		auditEventsQ.clear();
+        		if(nextBatch.getEventId() == null){//means end of file was reached in readLine function
+        			
+        		}else{
+	        		auditEventsMap.put(nextBatch.getEventId(), nextBatch);
+	        		nextBatch = null;
+        		}
+				return eoeLine;
+    		}else if(auditEventsQ.isEmpty()){//end of file reached and last batch completely written out
+    			return null;
+    		}else {
+    			if(auditEventsQ.getFirst().getLines().isEmpty()){
+    				AuditEvent auditEvent = auditEventsQ.removeFirst();
+    				auditEventsMap.remove(auditEvent.getEventId());
+    				String eoeLine = "type=EOE msg=audit("+auditEvent.getTimestamp()+":"+auditEvent.getEventId()+"):";
+    				return eoeLine;
+    			}else{
+    				return auditEventsQ.getFirst().getLines().removeFirst();
+    			}
+    		}
+    	} 
+    	
+    	public void close() throws IOException{
+    		br.close();
+    	}
+    
+    	
+    	private class AuditEvent{
+    		private Long eventId;
+    		private String timestamp;
+    		private LinkedList<String> lines;
+    		public AuditEvent(Long eventId, String timestamp){
+    			this.eventId = eventId;
+    			this.timestamp = timestamp;
+    			this.lines = new LinkedList<String>();
+    		}
+    		public Long getEventId(){
+    			return eventId;
+    		}
+    		public String getTimestamp(){
+    			return timestamp;
+    		}
+    		public LinkedList<String> getLines(){
+    			return lines;
+    		}
+    		public void addLine(String line){
+    			lines.add(line);
+    		}
+    	}
     }
 }
