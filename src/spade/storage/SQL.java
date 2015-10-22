@@ -284,6 +284,7 @@ public class SQL extends AbstractStorage {
     @Override
     public Graph getVertices(String expression) {
         try {
+            dbConnection.commit();
             Graph graph = new Graph();
             String query = "SELECT * FROM VERTEX WHERE " + expression;
             Statement vertexStatement = dbConnection.createStatement();
@@ -333,6 +334,7 @@ public class SQL extends AbstractStorage {
 
         // Get the source vertex
         try {
+            dbConnection.commit();
             String query = "SELECT * FROM VERTEX WHERE vertexId = " + vertexId;
             Statement vertexStatement = dbConnection.createStatement();
             ResultSet result = vertexStatement.executeQuery(query);
@@ -462,6 +464,7 @@ public class SQL extends AbstractStorage {
 
     private AbstractVertex getVertexFromHash(int hash, int columnCount, Map<Integer, String> columnLabels) {
         try {
+            dbConnection.commit();
             String query = "SELECT * FROM VERTEX WHERE hash = " + hash;
             Statement vertexStatement = dbConnection.createStatement();
             ResultSet result = vertexStatement.executeQuery(query);
