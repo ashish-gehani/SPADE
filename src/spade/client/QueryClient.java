@@ -147,8 +147,8 @@ public class QueryClient {
                         }
                         System.out.println("-------------------------------------------------");
                         System.out.println();
-                    } else if (line.startsWith("storage")) {
-                        String[] tokens = line.split("\\s+");
+                    } else if (line.trim().startsWith("storage")) {
+                        String[] tokens = line.trim().split("\\s+");
                         QUERY_STORAGE = tokens[1];
                     } else if (line.startsWith("export")) {
                         String[] tokens = line.split("\\s+");
