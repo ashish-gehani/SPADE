@@ -21,6 +21,14 @@ import org.apache.jena.util.FileManager;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
+import spade.edge.prov.Used;
+import spade.edge.prov.WasAssociatedWith;
+import spade.edge.prov.WasDerivedFrom;
+import spade.edge.prov.WasGeneratedBy;
+import spade.edge.prov.WasInformedBy;
+import spade.vertex.prov.Activity;
+import spade.vertex.prov.Agent;
+import spade.vertex.prov.Entity;
 
 public class Prov extends AbstractStorage{
 
@@ -56,7 +64,30 @@ public class Prov extends AbstractStorage{
             keyValPairs.put(key_value_matcher.group(1).trim(), key_value_matcher.group(2).trim());
         }
         return keyValPairs;
-    }  
+    }
+    
+    private final Map<String, String> provOStringFormatsForEdgeTypes = new HashMap<String, String>(){
+		{
+			put("spade.edge.prov.Used", "%s:%s %s:qualifiedUsage [\n\ta %s:Usage;\n\t%s:entity %s:%s;\n%s]; .\n\n");
+			put("spade.edge.prov.WasAssociatedWith", "%s:%s %s:qualifiedAssociation [\n\ta %s:Association;\n\t%s:agent %s:%s;\n%s]; .\n\n");
+			put("spade.edge.prov.WasDerivedFrom", "%s:%s %s:qualifiedDerivation [\n\ta %s:Derivation;\n\t%s:entity %s:%s;\n%s]; .\n\n");
+			put("spade.edge.prov.WasGeneratedBy", "%s:%s %s:qualifiedGeneration [\n\ta %s:Generation;\n\t%s:activity %s:%s;\n%s]; .\n\n");
+			put("spade.edge.prov.WasInformedBy", "%s:%s %s:qualifiedCommunication [\n\ta %s:Communication;\n\t%s:activity %s:%s;\n%s]; .\n\n");
+		}
+	};
+	
+	private final Map<String, String> provNStringFormatsForEdgeTypes = new HashMap<String, String>(){
+		{
+			put("spade.edge.prov.Used", "\tused(%s:%s,%s:%s, - ,%s)\n");
+			put("spade.edge.prov.WasAssociatedWith", "\twasAssociatedWith(%s:%s,%s:%s, - ,%s)\n");
+			put("spade.edge.prov.WasDerivedFrom", "\twasDerivedFrom(%s:%s,%s:%s,%s)\n");
+			put("spade.edge.prov.WasGeneratedBy", "\twasGeneratedBy(%s:%s,%s:%s, - ,%s)\n");
+			put("spade.edge.prov.WasInformedBy", "\twasInformedBy(%s:%s,%s:%s,%s)\n");
+		}
+	};
+
+	private final String provOStringFormatForVertex = "%s:%s\n\ta %s:%s;\n%s .\n\n";
+	private final String provNStringFormatForVertex = "\t%s(%s:%s,%s)\n";
 	
     @Override
 	public boolean initialize(String arguments) {
@@ -158,7 +189,7 @@ public class Prov extends AbstractStorage{
 			String serializedVertex = getSerializedVertex(incomingVertex);
 			outputFile.write(serializedVertex);
 			checkTransactions();
-			//vertexCount++; filecommitfilter is doing this increment already
+			//vertexCount++; finalcommitfilter is doing this increment already
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
@@ -172,7 +203,7 @@ public class Prov extends AbstractStorage{
 			String serializedEdge = getSerializedEdge(incomingEdge);
 			outputFile.write(serializedEdge);
 			checkTransactions();
-			//edgeCount++; filecommitfilter is doing this increment already
+			//edgeCount++; finalcommitfilter is doing this increment already
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
@@ -191,118 +222,62 @@ public class Prov extends AbstractStorage{
 	}
 	
 	public String getSerializedVertex(AbstractVertex vertex){
-		StringBuffer vertexString = new StringBuffer();
+		String vertexString = null;
 		switch (provOutputFormat) {
 			case PROVO:
 				
-				vertexString.append(defaultNamespacePrefix).append(":").append(DigestUtils.sha256Hex(vertex.toString())).append(NEWLINE);
-				vertexString.append(TAB).append("a ").append(provNamespacePrefix).append(":").append(vertex.getClass().getSimpleName()).append(";").append(NEWLINE);
-				for(Map.Entry<String, String> currentEntry : vertex.getAnnotations().entrySet()){
-					vertexString.append(TAB).append(getNSPrefixForAnnotation(currentEntry.getKey())).append(":").append(currentEntry.getKey())
-					.append(" \"").append(currentEntry.getValue()).append("\";")
-					.append(NEWLINE);
-				}
-				vertexString.append(".").append(NEWLINE).append(NEWLINE);
-				
+				vertexString = String.format(provOStringFormatForVertex, 
+													defaultNamespacePrefix, 
+													DigestUtils.sha256Hex(vertex.toString()), 
+													provNamespacePrefix, 
+													vertex.getClass().getSimpleName(), 
+													getProvOFormattedKeyValPair(vertex.getAnnotations()));
+								
 				break;
 			case PROVN:
+
+				vertexString = String.format(provNStringFormatForVertex, 
+													vertex.getClass().getSimpleName().toLowerCase(),
+													defaultNamespacePrefix,
+													DigestUtils.sha256Hex(vertex.toString()),
+													getProvNFormattedKeyValPair(vertex.getAnnotations()));
 				
-				vertexString.append(TAB);
-				vertexString.append(vertex.getClass().getSimpleName().toLowerCase());
-				vertexString.append("(").append(defaultNamespacePrefix).append(":").append(DigestUtils.sha256Hex(vertex.toString()))
-					.append(",").append(getProvNFormattedKeyValPair(vertex.getAnnotations())).append(")");
-				vertexString.append(NEWLINE);
 				break;
 			default:
 				break;
 		}
-		return vertexString.toString();
+		return vertexString;
 	}
 	
 	public String getSerializedEdge(AbstractEdge edge){
-		StringBuffer edgeString = new StringBuffer();
+		String srcVertexKey = DigestUtils.sha256Hex(edge.getSourceVertex().toString());
+		String destVertexKey = DigestUtils.sha256Hex(edge.getDestinationVertex().toString());
+		String edgeString = null;
 		switch (provOutputFormat) {
 			case PROVO:
-				edgeString.append(getProvOSerializedEdge(edge));
+				edgeString = String.format(provOStringFormatsForEdgeTypes.get(edge.getClass().getName()),
+													defaultNamespacePrefix,
+													srcVertexKey,
+													provNamespacePrefix,
+													provNamespacePrefix,
+													provNamespacePrefix,
+													defaultNamespacePrefix,
+													destVertexKey,
+													getProvOFormattedKeyValPair(edge.getAnnotations()));
+				
 				break;
 			case PROVN:
-				edgeString.append(getProvNSerializedEdge(edge));
+				edgeString = String.format(provNStringFormatsForEdgeTypes.get(edge.getClass().getName()), 
+													defaultNamespacePrefix, 
+													srcVertexKey, 
+													defaultNamespacePrefix, 
+													destVertexKey,
+													getProvNFormattedKeyValPair(edge.getAnnotations()));
 				break;
 			default:
 				break;
 		}
-		return edgeString.toString();
-	}
-	
-	public String getProvOSerializedEdge(AbstractEdge edge){
-		String srcVertexKey = DigestUtils.sha256Hex(edge.getSourceVertex().toString());
-		String destVertexKey = DigestUtils.sha256Hex(edge.getDestinationVertex().toString());
-
-		StringBuilder edgeString = new StringBuilder();
-		
-		edgeString.append(defaultNamespacePrefix).append(":").append(srcVertexKey).append(" ").append(provNamespacePrefix);
-		
-		if(edge instanceof spade.edge.prov.Used){
-			edgeString.append(":qualifiedUsage [").append(NEWLINE);
-			edgeString.append(TAB).append("a ").append(provNamespacePrefix).append(":Usage;").append(NEWLINE);
-			edgeString.append(TAB).append(provNamespacePrefix).append(":entity ").append(defaultNamespacePrefix).append(":").append(destVertexKey).append(";").append(NEWLINE);
-		}else if(edge instanceof spade.edge.prov.WasAssociatedWith){
-			edgeString.append(":qualifiedAssociation [").append(NEWLINE);
-			edgeString.append(TAB).append("a ").append(provNamespacePrefix).append(":Association;").append(NEWLINE);
-			edgeString.append(TAB).append(provNamespacePrefix).append(":agent ").append(defaultNamespacePrefix).append(":").append(destVertexKey).append(";").append(NEWLINE);
-		}else if(edge instanceof spade.edge.prov.WasDerivedFrom){
-			edgeString.append(":qualifiedDerivation [").append(NEWLINE);
-			edgeString.append(TAB).append("a ").append(provNamespacePrefix).append(":Derivation;").append(NEWLINE);
-			edgeString.append(TAB).append(provNamespacePrefix).append(":entity ").append(defaultNamespacePrefix).append(":").append(destVertexKey).append(";").append(NEWLINE);
-		}else if(edge instanceof spade.edge.prov.WasGeneratedBy){
-			edgeString.append(":qualifiedGeneration [").append(NEWLINE);
-			edgeString.append(TAB).append("a ").append(provNamespacePrefix).append(":Generation;").append(NEWLINE);
-			edgeString.append(TAB).append(provNamespacePrefix).append(":activity ").append(defaultNamespacePrefix).append(":").append(destVertexKey).append(";").append(NEWLINE);
-		}else if(edge instanceof spade.edge.prov.WasInformedBy){
-			edgeString.append(":qualifiedCommunication [").append(NEWLINE);
-			edgeString.append(TAB).append("a ").append(provNamespacePrefix).append(":Communication;").append(NEWLINE);
-			edgeString.append(TAB).append(provNamespacePrefix).append(":activity ").append(defaultNamespacePrefix).append(":").append(destVertexKey).append(";").append(NEWLINE);
-		}
-		
-		if(edge.getAnnotations().size() > 0){
-			for(Map.Entry<String, String> currentEntry : edge.getAnnotations().entrySet()){
-				edgeString.append(TAB).append(getNSPrefixForAnnotation(currentEntry.getKey())).append(":").append(currentEntry.getKey()).append(" \"").append(currentEntry.getValue()).append("\";").append(NEWLINE);
-			}
-		}
-		
-		edgeString.append("]; .").append(NEWLINE).append(NEWLINE);
-		
-		return edgeString.toString();
-	}
-	
-	public String getProvNSerializedEdge(AbstractEdge edge){
-		StringBuffer edgeString = new StringBuffer();
-		
-		String srcVertexKey = DigestUtils.sha256Hex(edge.getSourceVertex().toString());
-		String destVertexKey = DigestUtils.sha256Hex(edge.getDestinationVertex().toString());
-
-		edgeString.append(TAB);
-		
-		if(edge instanceof spade.edge.prov.Used){
-			edgeString.append("used(").append(defaultNamespacePrefix).append(":").append(srcVertexKey).append(",").append(defaultNamespacePrefix).append(":").append(destVertexKey)
-			.append(", - ,").append(getProvNFormattedKeyValPair(edge.getAnnotations())).append(")");
-		}else if(edge instanceof spade.edge.prov.WasAssociatedWith){
-			edgeString.append("wasAssociatedWith(").append(defaultNamespacePrefix).append(":").append(srcVertexKey).append(",").append(defaultNamespacePrefix).append(":").append(destVertexKey)
-			.append(", - ,").append(getProvNFormattedKeyValPair(edge.getAnnotations())).append(")");
-		}else if(edge instanceof spade.edge.prov.WasDerivedFrom){
-			edgeString.append("wasDerivedFrom(").append(defaultNamespacePrefix).append(":").append(srcVertexKey).append(",").append(defaultNamespacePrefix).append(":").append(destVertexKey)
-			.append(",").append(getProvNFormattedKeyValPair(edge.getAnnotations())).append(")");
-		}else if(edge instanceof spade.edge.prov.WasGeneratedBy){
-			edgeString.append("wasGeneratedBy(").append(defaultNamespacePrefix).append(":").append(srcVertexKey).append(",").append(defaultNamespacePrefix).append(":").append(destVertexKey)
-			.append(", - ,").append(getProvNFormattedKeyValPair(edge.getAnnotations())).append(")");
-		}else if(edge instanceof spade.edge.prov.WasInformedBy){
-			edgeString.append("wasInformedBy(").append(defaultNamespacePrefix).append(":").append(srcVertexKey).append(",").append(defaultNamespacePrefix).append(":").append(destVertexKey)
-			.append(",").append(getProvNFormattedKeyValPair(edge.getAnnotations())).append(")");
-		}
-				
-		edgeString.append(NEWLINE);
-		
-		return edgeString.toString();
+		return edgeString;
 	}
 	
 	private String getProvNFormattedKeyValPair(Map<String, String> keyvals){
@@ -315,6 +290,16 @@ public class Prov extends AbstractStorage{
 		string.deleteCharAt(string.length() - 1);
 		string.append("]");
 		return string.toString();
+	}
+	
+	private String getProvOFormattedKeyValPair(Map<String, String> keyvals){
+		StringBuffer annotationsString = new StringBuffer();
+		if(keyvals.size() > 0){
+			for(Map.Entry<String, String> currentEntry : keyvals.entrySet()){
+				annotationsString.append(TAB).append(getNSPrefixForAnnotation(currentEntry.getKey())).append(":").append(currentEntry.getKey()).append(" \"").append(currentEntry.getValue()).append("\";").append(NEWLINE);
+			}
+		}
+		return annotationsString.toString();
 	}
 	
 	private String getNSPrefixForAnnotation(String annotation){
@@ -379,5 +364,50 @@ public class Prov extends AbstractStorage{
 		
 		return true;
 				
+	}
+	
+	public static void main(String [] args) throws Exception{
+		Activity a = new Activity();
+		a.addAnnotation("name", "a1");
+		Activity b = new Activity();
+		b.addAnnotation("name", "a2");
+		WasInformedBy e = new WasInformedBy(b, a);
+		e.addAnnotation("operation", "forked");
+		Entity f1 = new Entity();
+		f1.addAnnotation("filename", "file_f1");
+		Entity f2 = new Entity();
+		f2.addAnnotation("filename", "file_f2");
+		WasGeneratedBy e2 = new WasGeneratedBy(f1, a);
+		e2.addAnnotation("operation", "write");
+		WasDerivedFrom e3 = new WasDerivedFrom(f2, f1);
+		e3.addAnnotation("operation", "rename");
+		Agent agent = new Agent();
+		agent.addAnnotation("user", "spade");
+		WasAssociatedWith e4 = new WasAssociatedWith(a, agent);
+		e4.addAnnotation("test", "anno");
+		Used e5 = new Used(b, f2);
+		e5.addAnnotation("operation", "read");
+				
+		Prov ttl = new Prov();
+		ttl.initialize("output=/home/ubwork/prov.ttl audit=/home/ubwork/Desktop/audit.rdfs");
+		Prov provn = new Prov();
+		provn.initialize("output=/home/ubwork/prov.provn audit=/home/ubwork/Desktop/audit.rdfs");
+		
+		Prov provs[] = new Prov[]{ttl, provn};
+		
+		for(int cc = 0; cc<provs.length; cc++){
+			Prov prov = provs[cc];
+			prov.putVertex(a);
+			prov.putVertex(b);
+			prov.putVertex(f1);
+			prov.putVertex(f2);
+			prov.putVertex(agent);
+			prov.putEdge(e);
+			prov.putEdge(e2);
+			prov.putEdge(e3);
+			prov.putEdge(e4);
+			prov.putEdge(e5);
+			prov.shutdown();
+		}
 	}
 }
