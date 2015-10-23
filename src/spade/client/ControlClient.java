@@ -115,15 +115,19 @@ public class ControlClient {
                         // This thread keeps reading from the output pipe and
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
+                        
                         if (outputLine != null) {
                             outputStream.println(outputLine);
                         }
-                        if (outputLine.equals("")) {
+                        
+                        if ("".equals(outputLine)) {
                             outputStream.print(COMMAND_PROMPT);
                         }
+                        
                         Thread.sleep(THREAD_SLEEP_DELAY);
                     }
                     SPADEControlOut.close();
+                    SPADEControlIn.close();
                 } catch (NumberFormatException | IOException | InterruptedException exception) {
                     if (!shutdown) {
                         System.out.println("Error connecting to SPADE");
@@ -135,12 +139,15 @@ public class ControlClient {
         new Thread(outputReader).start();
 
         try {
-            Thread.sleep(2000);
-
-            outputStream.println("");
+    
+        	Thread.sleep(2000);
+        	
+        	outputStream.println("");
             outputStream.println("SPADE 2.0 Control Client");
             outputStream.println("");
-
+            
+            SPADEControlIn.println(""); 
+        	
             // Set up command history and tab completion.
             ConsoleReader commandReader = new ConsoleReader();
             try {
@@ -176,24 +183,21 @@ public class ControlClient {
             completors.add(new ArgumentCompletor(configArguments));
 
             commandReader.addCompletor(new MultiCompletor(completors));
-
-            SPADEControlIn.println("");
+            
             while (true) {
                 String line = commandReader.readLine();
-                if (line.equalsIgnoreCase("exit")) {
-                    shutdown = true;
+                if (line == null || line.equalsIgnoreCase("exit")) {
                     SPADEControlIn.println("exit");
-                    SPADEControlIn.close();
                     break;
                 } else if (line.equalsIgnoreCase("shutdown")) {
-                    shutdown = true;
                     SPADEControlIn.println("shutdown");
-                    SPADEControlIn.close();
                     break;
                 } else {
                     SPADEControlIn.println(line);
                 }
-            }
+            }   
+            Thread.sleep(1000);
+            shutdown = true;
         } catch (Exception exception) {
             exception.printStackTrace(errorStream);
         }
