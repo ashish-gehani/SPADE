@@ -211,8 +211,8 @@ public class SQL extends AbstractStorage {
         try {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
-            // s.close();
-            s.closeOnCompletion();
+            s.close();
+            // s.closeOnCompletion();
         } catch (Exception e) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, e);
         }
