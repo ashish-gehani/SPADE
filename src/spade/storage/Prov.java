@@ -66,7 +66,7 @@ public class Prov extends AbstractStorage{
         return keyValPairs;
     }
     
-    private final Map<String, String> provOStringFormatsForEdgeTypes = new HashMap<String, String>(){
+    private final Map<String, String> provoStringFormatsForEdgeTypes = new HashMap<String, String>(){
 		{
 			put("spade.edge.prov.Used", "%s:%s %s:qualifiedUsage [\n\ta %s:Usage;\n\t%s:entity %s:%s;\n%s]; .\n\n");
 			put("spade.edge.prov.WasAssociatedWith", "%s:%s %s:qualifiedAssociation [\n\ta %s:Association;\n\t%s:agent %s:%s;\n%s]; .\n\n");
@@ -76,7 +76,7 @@ public class Prov extends AbstractStorage{
 		}
 	};
 	
-	private final Map<String, String> provNStringFormatsForEdgeTypes = new HashMap<String, String>(){
+	private final Map<String, String> provnStringFormatsForEdgeTypes = new HashMap<String, String>(){
 		{
 			put("spade.edge.prov.Used", "\tused(%s:%s,%s:%s, - ,%s)\n");
 			put("spade.edge.prov.WasAssociatedWith", "\twasAssociatedWith(%s:%s,%s:%s, - ,%s)\n");
@@ -86,8 +86,8 @@ public class Prov extends AbstractStorage{
 		}
 	};
 
-	private final String provOStringFormatForVertex = "%s:%s\n\ta %s:%s;\n%s .\n\n";
-	private final String provNStringFormatForVertex = "\t%s(%s:%s,%s)\n";
+	private final String provoStringFormatForVertex = "%s:%s\n\ta %s:%s;\n%s .\n\n";
+	private final String provnStringFormatForVertex = "\t%s(%s:%s,%s)\n";
 	
     @Override
 	public boolean initialize(String arguments) {
@@ -226,7 +226,7 @@ public class Prov extends AbstractStorage{
 		switch (provOutputFormat) {
 			case PROVO:
 				
-				vertexString = String.format(provOStringFormatForVertex, 
+				vertexString = String.format(provoStringFormatForVertex, 
 													defaultNamespacePrefix, 
 													DigestUtils.sha256Hex(vertex.toString()), 
 													provNamespacePrefix, 
@@ -236,7 +236,7 @@ public class Prov extends AbstractStorage{
 				break;
 			case PROVN:
 
-				vertexString = String.format(provNStringFormatForVertex, 
+				vertexString = String.format(provnStringFormatForVertex, 
 													vertex.getClass().getSimpleName().toLowerCase(),
 													defaultNamespacePrefix,
 													DigestUtils.sha256Hex(vertex.toString()),
@@ -255,7 +255,7 @@ public class Prov extends AbstractStorage{
 		String edgeString = null;
 		switch (provOutputFormat) {
 			case PROVO:
-				edgeString = String.format(provOStringFormatsForEdgeTypes.get(edge.getClass().getName()),
+				edgeString = String.format(provoStringFormatsForEdgeTypes.get(edge.getClass().getName()),
 													defaultNamespacePrefix,
 													srcVertexKey,
 													provNamespacePrefix,
@@ -267,7 +267,7 @@ public class Prov extends AbstractStorage{
 				
 				break;
 			case PROVN:
-				edgeString = String.format(provNStringFormatsForEdgeTypes.get(edge.getClass().getName()), 
+				edgeString = String.format(provnStringFormatsForEdgeTypes.get(edge.getClass().getName()), 
 													defaultNamespacePrefix, 
 													srcVertexKey, 
 													defaultNamespacePrefix, 
