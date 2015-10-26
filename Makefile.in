@@ -21,7 +21,7 @@ LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 # LLVM_TARGET = nweb
 
 # System and architecture-specific configuration
-p
+
 OS_NAME = $(shell uname)
 OS_ARCH = $(shell uname -m)
 ifeq ($(OS_NAME), Darwin)
@@ -140,7 +140,7 @@ build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.jav
 llvm:
 	@make $(LLVM_RULE)
 
-p
+
 build-mac-llvm:
 	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
 	$(eval C_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cflags))
