@@ -1,5 +1,5 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
-# Copyright (C) 2011 SRI International.
+# Copyright (C) 2015 SRI International.
 
 JAVAC=@JAVAC@
 JAVAH=@JAVAH@
@@ -10,12 +10,18 @@ JAVAC_OPTIONS = -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
-LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
-LLVM_INCLUDE_PATH=/usr/include/llvm-3.5/llvm
+#
+# In Ubuntu, when you install llvm headers, it puts llvm and llvm-c inside version folder.
+# sudo ln -s  llvm-3.6/llvm/ llvm
+# sudo ln -s  llvm-c-3.6/llvm-c/ llvm-c
+#
+LLVM_INCLUDE_PATH=/usr/include/
 
+LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 # LLVM_TARGET = nweb
 
 # System and architecture-specific configuration
+p
 OS_NAME = $(shell uname)
 OS_ARCH = $(shell uname -m)
 ifeq ($(OS_NAME), Darwin)
@@ -134,6 +140,7 @@ build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.jav
 llvm:
 	@make $(LLVM_RULE)
 
+p
 build-mac-llvm:
 	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
 	$(eval C_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cflags))
@@ -154,8 +161,7 @@ build-linux-llvm:
 	clang++ -I$(LLVM_INCLUDE_PATH) -I./  -D_DEBUG -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -O3 -fomit-frame-pointer -std=c++11 -fvisibility-inlines-hidden -fno-exceptions -fno-rtti -fPIC -ffunction-sections -fdata-sections -Wcast-qual    -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -Wcovered-switch-default -Wno-uninitialized  -Wno-missing-field-initializers -Wno-comment -c -MMD -MP -MF "llvmTracer.d.tmp" -MT "llvmTracer.o" -MT "llvmTracer.d" src/spade/reporter/llvm/llvmTracer.cpp -o src/spade/reporter/llvm/llvmTracer.o ; \
 	echo llvm[0]: Linking "Loadable Module" \
 		  LLVMTrace.so
-	clang++  -O3 -Wl,-R -Wl,'$ORIGIN' -Wl,--gc-sections -rdynamic -L./ -L./  -shared -o bin/llvm/LLVMTrace.so src/spade/reporter/llvm/llvmTracer.o \
-		   -lz -lpthread -ltinfo -ldl -lm 
+	clang++  -O3 -Wl,-R -Wl,'$ORIGIN' -Wl,--gc-sections -rdynamic -L./ -L./  -shared -o bin/llvm/LLVMTrace.so src/spade/reporter/llvm/llvmTracer.o -lpthread -ltinfo -ldl -lm 
 	clang -emit-llvm -c src/spade/reporter/llvm/flushModule.c -o bin/llvm/flush.bc
 	
 
