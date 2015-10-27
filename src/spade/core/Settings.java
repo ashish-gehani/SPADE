@@ -50,6 +50,7 @@ public class Settings {
             setProperty("storage_identifier", "storageID");
             setProperty("default_query_storage", "Neo4j");
             setProperty("neo4j_webserver", "true");
+            setProperty("opm2provtc_filter_config_filepath", "cfg/opm2provtc-filter.config");
         }
     }
 
