@@ -19,6 +19,11 @@
  */
 package spade.storage;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -26,23 +31,25 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+
+import org.apache.commons.codec.digest.DigestUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
+import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.kernel.Traversal;
-import org.neo4j.graphdb.Label;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -51,7 +58,6 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
-import spade.core.Kernel;
 
 /**
  * Neo4j storage implementation.
@@ -79,7 +85,7 @@ public class Neo4j extends AbstractStorage {
     private Transaction transaction;
     private int transactionCount;
     private int flushCount;
-    private Map<String, Long> vertexMap;
+    private Map<String, Long> spadeNeo4jCache;
     private final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
     private final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
@@ -88,14 +94,18 @@ public class Neo4j extends AbstractStorage {
     private enum MyRelationshipTypes implements RelationshipType { EDGE }
 
     private enum MyNodeTypes implements Label { VERTEX }
+    
+    private String neo4jDatabaseDirectoryPath = null;
+    private String spadeNeo4jCacheFilePath = "spade-neo4j-cache";
 
     @Override
     public boolean initialize(String arguments) {
         try {
-            if (arguments == null) {
+        	neo4jDatabaseDirectoryPath = arguments;
+            if (neo4jDatabaseDirectoryPath == null) {
                 return false;
             }
-            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(arguments);
+            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
             try {
                 graphDbBuilder.loadPropertiesFromFile(NEO_CONFIG_FILE);
                 logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
@@ -114,13 +124,38 @@ public class Neo4j extends AbstractStorage {
             // Create HashMap to store IDs of incoming vertices
             transactionCount = 0;
             flushCount = 0;
-            vertexMap = new HashMap<>();
-
+            spadeNeo4jCache = new HashMap<String, Long>();
+            
+            loadSpadeNeo4jCache();
+            
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
+    }
+    
+    private void loadSpadeNeo4jCache(){
+    	File spadeNeo4jCacheFile = new File(neo4jDatabaseDirectoryPath + File.separatorChar + spadeNeo4jCacheFilePath);
+    	if(spadeNeo4jCacheFile.exists()){
+    		long start = System.currentTimeMillis();
+    		ObjectInputStream cacheObjectInputStream = null;
+    		try{
+    			cacheObjectInputStream = new ObjectInputStream(new FileInputStream(spadeNeo4jCacheFile));
+    			spadeNeo4jCache = (Map<String, Long>)cacheObjectInputStream.readObject();
+    		}catch(Exception e){
+    			logger.log(Level.SEVERE, "Failed to read the spade-neo4j cache", e);
+    		}finally{
+    			try{
+    				if(cacheObjectInputStream != null){
+    					cacheObjectInputStream.close();
+    				}
+    			}catch(Exception e){
+    				logger.log(Level.SEVERE, "Failed to close cache file reader", e);
+    			}
+    		}
+    		logger.log(Level.WARNING, "Loaded cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
+    	}
     }
 
     private void checkTransactionCount() {
@@ -129,7 +164,7 @@ public class Neo4j extends AbstractStorage {
             // If transaction limit is reached, commit the transactions
             try {
                 transaction.success();
-                transaction.finish();
+                transaction.close();
             } catch (Exception exception) {
                 logger.log(Level.SEVERE, null, exception);
             }
@@ -158,7 +193,7 @@ public class Neo4j extends AbstractStorage {
         // whenever a query is executed
         if (transaction != null) {
             transaction.success();
-            transaction.finish();
+            transaction.close();
             transactionCount = 0;
         }
         return true;
@@ -169,14 +204,42 @@ public class Neo4j extends AbstractStorage {
         // Flush all transactions before shutting down the database
         if (transaction != null) {
             transaction.success();
-            transaction.finish();
+            transaction.close();
         }
         graphDb.shutdown();
+        saveSpadeNeo4jCache();
         return true;
+    }
+    
+    private void saveSpadeNeo4jCache(){
+    	ObjectOutputStream cacheObjectOutputStream = null;
+    	try{
+	    	File spadeNeo4jCacheFile = new File(neo4jDatabaseDirectoryPath + File.separator + spadeNeo4jCacheFilePath);
+	    	if(spadeNeo4jCacheFile.exists()){
+	    		spadeNeo4jCacheFile.delete();
+	    	}
+	    	long start = System.currentTimeMillis();
+	    	cacheObjectOutputStream = new ObjectOutputStream(new FileOutputStream(spadeNeo4jCacheFile));
+	    	cacheObjectOutputStream.writeObject(spadeNeo4jCache);
+	    	logger.log(Level.WARNING, "Saved cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
+    	}catch(Exception e){
+    		logger.log(Level.SEVERE, "Failed to save spade neo4j cache", e);
+    	}finally{
+    		try{
+    			if(cacheObjectOutputStream != null){
+    				cacheObjectOutputStream.close();
+    			}
+    		}catch(Exception e){
+    			logger.log(Level.SEVERE, "Failed to close cache output writer", e);
+    		}
+    	}
     }
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
+    	if(spadeNeo4jCache.get(getHashOfVertex(incomingVertex)) != null){
+    		return false;
+    	}
         try {
             if (transactionCount == 0) {
                 transaction = graphDb.beginTx();
@@ -193,7 +256,7 @@ public class Neo4j extends AbstractStorage {
             }
             newVertex.setProperty(ID_STRING, newVertex.getId());
             vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-            vertexMap.put(incomingVertex.toString(), newVertex.getId());
+            spadeNeo4jCache.put(getHashOfVertex(incomingVertex), newVertex.getId());
             checkTransactionCount();
 
             return true;
@@ -205,17 +268,20 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
+    	if(spadeNeo4jCache.get(getHashOfEdge(incomingEdge)) != null){
+    		return false;
+    	}
         try {
             AbstractVertex srcVertex = incomingEdge.getSourceVertex();
             AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-            if (!vertexMap.containsKey(srcVertex.toString()) || !vertexMap.containsKey(dstVertex.toString())) {
+            if (!spadeNeo4jCache.containsKey(getHashOfVertex(srcVertex)) || !spadeNeo4jCache.containsKey(getHashOfVertex(dstVertex))) {
                 return false;
             }
             if (transactionCount == 0) {
                 transaction = graphDb.beginTx();
             }
-            Node srcNode = graphDb.getNodeById(vertexMap.get(srcVertex.toString()));
-            Node dstNode = graphDb.getNodeById(vertexMap.get(dstVertex.toString()));
+            Node srcNode = graphDb.getNodeById(spadeNeo4jCache.get(getHashOfVertex(srcVertex)));
+            Node dstNode = graphDb.getNodeById(spadeNeo4jCache.get(getHashOfVertex(dstVertex)));
 
             Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
             for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
@@ -229,6 +295,7 @@ public class Neo4j extends AbstractStorage {
             }
             newEdge.setProperty(ID_STRING, newEdge.getId());
             edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+            spadeNeo4jCache.put(getHashOfEdge(incomingEdge), newEdge.getId());
             checkTransactionCount();
 
             return true;
@@ -505,5 +572,14 @@ public class Neo4j extends AbstractStorage {
     @Override
     public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
         return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
+    }
+    
+    public String getHashOfEdge(AbstractEdge edge){
+    	String completeEdgeString = edge.getSourceVertex().toString() + edge.toString() + edge.getDestinationVertex().toString();
+    	return DigestUtils.sha256Hex(completeEdgeString);
+    }
+    
+    public String getHashOfVertex(AbstractVertex vertex){
+    	return DigestUtils.sha256Hex(vertex.toString());
     }
 }
