@@ -180,7 +180,13 @@ public class Audit extends AbstractReporter {
         		return false;
         	}
         	        	
-        	ARCH_32BIT = "32".equals(args.get("arch")) ? true : "64".equals(args.get("arch")) ? false : null;
+        	ARCH_32BIT = null;
+        	
+        	if("32".equals(args.get("arch"))){
+        		ARCH_32BIT = true;
+        	}else if("64".equals(args.get("arch"))){
+        		ARCH_32BIT = false;
+        	}
         	
         	if(ARCH_32BIT == null){
         		logger.log(Level.SEVERE, "Must specify whether the system on which log was collected was 32 bit or 64 bit");
@@ -782,12 +788,8 @@ public class Audit extends AbstractReporter {
         artifact.addAnnotation("subtype", "file");
         path = path.replace("//", "/");
         artifact.addAnnotation("path", path);
-        String[] filename = path.split("/");
-        if (filename.length > 0) {
-            artifact.addAnnotation("filename", filename[filename.length - 1]);
-        }
         int version = fileVersions.containsKey(path) ? fileVersions.get(path) : 0;
-        if (update && path.startsWith("/") && !path.startsWith("/dev/")) {
+        if (update && path.startsWith("/") && !path.startsWith("/dev/")) { //socket?
             version++;
         }
         artifact.addAnnotation("version", Integer.toString(version));
