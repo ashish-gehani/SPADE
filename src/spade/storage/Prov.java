@@ -1,12 +1,15 @@
 package spade.storage;
 
 import java.io.FileWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -89,6 +92,8 @@ public class Prov extends AbstractStorage{
 	private final String provoStringFormatForVertex = "%s:%s\n\ta %s:%s;\n%s .\n\n";
 	private final String provnStringFormatForVertex = "\t%s(%s:%s,%s)\n";
 	
+	public SimpleDateFormat iso8601TimeFormat;
+	
     @Override
 	public boolean initialize(String arguments) {
 		Map<String, String> args = parseKeyValPairs(arguments);
@@ -131,6 +136,8 @@ public class Prov extends AbstractStorage{
 							default:
 								break;
 			            }
+			            iso8601TimeFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+			            iso8601TimeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 			            return true;
 			        } catch (Exception exception) {
 			            logger.log(Level.SEVERE, "Error while writing to file", exception);
@@ -284,8 +291,13 @@ public class Prov extends AbstractStorage{
 		StringBuffer string = new StringBuffer();
 		string.append("[ ");
 		for(String key : keyvals.keySet()){
-			String value = keyvals.get(key);
-			string.append(getNSPrefixForAnnotation(key)).append(":").append(key).append("=\"").append(value).append("\",");
+			if(!key.equals("type")){
+				String value = keyvals.get(key);
+				if(key.equals("time")){
+					value = convertUnixTimeToISO8601(value);
+				}
+				string.append(getNSPrefixForAnnotation(key)).append(":").append(key).append("=\"").append(value).append("\",");
+			}
 		}
 		string.deleteCharAt(string.length() - 1);
 		string.append("]");
@@ -294,12 +306,26 @@ public class Prov extends AbstractStorage{
 	
 	private String getProvOFormattedKeyValPair(Map<String, String> keyvals){
 		StringBuffer annotationsString = new StringBuffer();
-		if(keyvals.size() > 0){
-			for(Map.Entry<String, String> currentEntry : keyvals.entrySet()){
-				annotationsString.append(TAB).append(getNSPrefixForAnnotation(currentEntry.getKey())).append(":").append(currentEntry.getKey()).append(" \"").append(currentEntry.getValue()).append("\";").append(NEWLINE);
+		for(Map.Entry<String, String> currentEntry : keyvals.entrySet()){
+			if(!currentEntry.getKey().equals("type")){
+				String value = currentEntry.getValue();
+				if(currentEntry.getKey().equals("time")){
+					value = convertUnixTimeToISO8601(value);
+				}
+				annotationsString.append(TAB).append(getNSPrefixForAnnotation(currentEntry.getKey())).append(":").append(currentEntry.getKey()).append(" \"").append(value).append("\";").append(NEWLINE);
 			}
 		}
 		return annotationsString.toString();
+	}
+	
+	public String convertUnixTimeToISO8601(String timeAsString){
+		try{
+			Date timeAsDateObject = new Date((long)(Double.parseDouble(timeAsString)*1000));
+			return iso8601TimeFormat.format(timeAsDateObject);
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to parse time", e);
+			return "";
+		}		
 	}
 	
 	private String getNSPrefixForAnnotation(String annotation){
