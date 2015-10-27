@@ -173,9 +173,11 @@ public class QueryClient {
         if (graph == null) {
             System.out.println("Graph " + var + " does not exist");
             return;
+        } else {
+            System.out.println("Storage Id\tHash Code\tAnnotation(s)");
         }
         for (AbstractVertex vertex : graph.vertexSet()) {
-            System.out.println("[" + vertex.toString() + "]");
+            System.out.println(vertex.getAnnotation("storageID") + "\t" + vertex.hashCode() +"\t" + "[" + vertex.toString() + "]");
         }
         System.out.println(graph.vertexSet().size() + " vertices found\n");
     }
