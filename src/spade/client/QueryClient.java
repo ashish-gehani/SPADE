@@ -263,11 +263,8 @@ public class QueryClient {
                 return;
             }
             Graph target = graphObjects.get(queryTarget);
-            System.out.println("Total Vertices" + " : " + target.vertexSet().size());
+            System.out.println("Total Vertices" + " : " + target.vertexSet().size() + "\n");
             for (AbstractVertex vertex : target.vertexSet()) {
-                if (vertex.getAnnotations().containsKey("storageID")) {
-                    System.out.println("\nvertex ID" + " : " + vertex.getAnnotations().get("storageID"));
-                }
                 for (Map.Entry<String, String> entry : vertex.getAnnotations().entrySet()) {
                     String annotation = entry.getKey();
                     String value = entry.getValue();
@@ -275,12 +272,10 @@ public class QueryClient {
                         System.out.println("\t" + annotation + " : " + value);
                     }
                 }
+                System.out.println();
             }
-            System.out.println("\n\nTotal Edges" + " : " + target.edgeSet().size());
+            System.out.println("\n\nTotal Edges" + " : " + target.edgeSet().size() + "\n");
             for (AbstractEdge edge : target.edgeSet()) {
-                if (edge.getAnnotations().containsKey("storageID")) {
-                    System.out.println("edge ID" + " : " + edge.getAnnotations().get("storageID"));
-                }
                 for (Map.Entry<String, String> entry : edge.getAnnotations().entrySet()) {
                     String annotation = entry.getKey();
                     String value = entry.getValue();
@@ -288,6 +283,7 @@ public class QueryClient {
                         System.out.println("\t" + annotation + " : " + value);
                     }
                 }
+                System.out.println();
             }
             return;
         } else if (childrenMatcher.matches()) {
