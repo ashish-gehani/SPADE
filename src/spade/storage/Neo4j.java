@@ -86,6 +86,7 @@ public class Neo4j extends AbstractStorage {
     private int transactionCount;
     private int flushCount;
     private Map<String, Long> spadeNeo4jCache;
+    private Map<String, Long> uncommittedSpadeNeo4jCache;
     private final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
     private final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
@@ -125,7 +126,7 @@ public class Neo4j extends AbstractStorage {
             transactionCount = 0;
             flushCount = 0;
             spadeNeo4jCache = new HashMap<String, Long>();
-            
+            uncommittedSpadeNeo4jCache = new HashMap<String, Long>();
             loadSpadeNeo4jCache();
             
             return true;
@@ -162,14 +163,8 @@ public class Neo4j extends AbstractStorage {
         transactionCount++;
         if (transactionCount == TRANSACTION_LIMIT) {
             // If transaction limit is reached, commit the transactions
-            try {
-                transaction.success();
-                transaction.close();
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-            }
-            // Reset transaction count and increase flush count
-            transactionCount = 0;
+            commitTransaction(transaction);
+            //increase flush count
             flushCount++;
             // If hard flush limit is reached, restart the database
             if (flushCount == HARD_FLUSH_LIMIT) {
@@ -186,26 +181,33 @@ public class Neo4j extends AbstractStorage {
             }
         }
     }
+    
+    private void commitTransaction(Transaction transaction){
+    	boolean success = false;
+    	try{
+    		transaction.success();
+    		transaction.close();
+    		success = true;
+    	}catch(Exception e){
+    		logger.log(Level.SEVERE, null, e);
+    	}
+    	commitCache(success);
+    	// Reset transaction count
+    	transactionCount = 0;
+    }
 
     @Override
     public boolean flushTransactions() {
         // Flush any pending transactions. This method is called by the Kernel
         // whenever a query is executed
-        if (transaction != null) {
-            transaction.success();
-            transaction.close();
-            transactionCount = 0;
-        }
+    	commitTransaction(transaction);
         return true;
     }
 
     @Override
     public boolean shutdown() {
         // Flush all transactions before shutting down the database
-        if (transaction != null) {
-            transaction.success();
-            transaction.close();
-        }
+    	commitTransaction(transaction);
         graphDb.shutdown();
         saveSpadeNeo4jCache();
         return true;
@@ -237,7 +239,7 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-    	if(spadeNeo4jCache.get(getHashOfVertex(incomingVertex)) != null){
+    	if(existsInCache(getHashOfVertex(incomingVertex))){
     		return false;
     	}
         try {
@@ -256,7 +258,7 @@ public class Neo4j extends AbstractStorage {
             }
             newVertex.setProperty(ID_STRING, newVertex.getId());
             vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-            spadeNeo4jCache.put(getHashOfVertex(incomingVertex), newVertex.getId());
+            putInCache(getHashOfVertex(incomingVertex), newVertex.getId());
             checkTransactionCount();
 
             return true;
@@ -268,20 +270,20 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-    	if(spadeNeo4jCache.get(getHashOfEdge(incomingEdge)) != null){
+    	if(existsInCache(getHashOfEdge(incomingEdge))){
     		return false;
     	}
         try {
             AbstractVertex srcVertex = incomingEdge.getSourceVertex();
             AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-            if (!spadeNeo4jCache.containsKey(getHashOfVertex(srcVertex)) || !spadeNeo4jCache.containsKey(getHashOfVertex(dstVertex))) {
+            if (!existsInCache(getHashOfVertex(srcVertex)) || !existsInCache(getHashOfVertex(dstVertex))) {
                 return false;
             }
             if (transactionCount == 0) {
                 transaction = graphDb.beginTx();
             }
-            Node srcNode = graphDb.getNodeById(spadeNeo4jCache.get(getHashOfVertex(srcVertex)));
-            Node dstNode = graphDb.getNodeById(spadeNeo4jCache.get(getHashOfVertex(dstVertex)));
+            Node srcNode = graphDb.getNodeById(getFromCache(getHashOfVertex(srcVertex)));
+            Node dstNode = graphDb.getNodeById(getFromCache(getHashOfVertex(dstVertex)));
 
             Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
             for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
@@ -295,7 +297,7 @@ public class Neo4j extends AbstractStorage {
             }
             newEdge.setProperty(ID_STRING, newEdge.getId());
             edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-            spadeNeo4jCache.put(getHashOfEdge(incomingEdge), newEdge.getId());
+            putInCache(getHashOfEdge(incomingEdge), newEdge.getId());
             checkTransactionCount();
 
             return true;
@@ -581,5 +583,28 @@ public class Neo4j extends AbstractStorage {
     
     public String getHashOfVertex(AbstractVertex vertex){
     	return DigestUtils.sha256Hex(vertex.toString());
+    }
+    
+    private boolean existsInCache(String hash){
+    	return spadeNeo4jCache.get(hash) != null || uncommittedSpadeNeo4jCache.get(hash) != null;
+    }
+    
+    private void putInCache(String hash, Long id){
+    	uncommittedSpadeNeo4jCache.put(hash, id);
+    }
+    
+    private Long getFromCache(String hash){
+    	Long value = spadeNeo4jCache.get(hash);
+    	if(value == null){
+    		value = uncommittedSpadeNeo4jCache.get(hash);
+    	}
+    	return value;
+    }
+    
+    private void commitCache(boolean success){
+    	if(success){
+    		spadeNeo4jCache.putAll(uncommittedSpadeNeo4jCache);
+    	}
+    	uncommittedSpadeNeo4jCache.clear();
     }
 }
