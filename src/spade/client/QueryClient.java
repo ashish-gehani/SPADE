@@ -42,6 +42,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 import jline.ConsoleReader;
 import spade.core.AbstractVertex;
+import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.core.Settings;
 
@@ -153,9 +154,6 @@ public class QueryClient {
                     } else if (line.startsWith("export")) {
                         String[] tokens = line.split("\\s+");
                         graphObjects.get(tokens[1]).exportGraph(tokens[2]);
-                    } else if (line.startsWith("vertices")) {
-                        String[] tokens = line.split("\\s+");
-                        listVertices(tokens[1]);
                     } else {
                         parseQuery(line);
                     }
@@ -168,20 +166,6 @@ public class QueryClient {
         }
     }
 
-    private static void listVertices(String var) {
-        Graph graph = graphObjects.get(var);
-        if (graph == null) {
-            System.out.println("Graph " + var + " does not exist");
-            return;
-        } else {
-            System.out.println("Storage Id\tHash Code\tAnnotation(s)");
-        }
-        for (AbstractVertex vertex : graph.vertexSet()) {
-            System.out.println(vertex.getAnnotation("storageID") + "\t" + vertex.hashCode() +"\t" + "[" + vertex.toString() + "]");
-        }
-        System.out.println(graph.vertexSet().size() + " vertices found\n");
-    }
-
     private static void parseQuery(String input) {
         // Accepts input of the following form and generates the corresponding
         // query expression to pass to the Query class:
@@ -192,14 +176,14 @@ public class QueryClient {
         //      getPaths(src_id, dst_id, maxlength)
         //      getLineage(id/graph, depth, direction)
         //      getLineage(id/graph, depth, direction, expression)
-        //      showVertices(annotations)
+        //      show(annotations)
         //      getChildren(expression)
         //      getParents(expression)
         Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
         Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
         Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
         Pattern lineagePattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getLineage\\(\\s*([a-zA-Z0-9]+)\\s*,\\s*(\\d+)\\s*,\\s*([a-zA-Z]+)\\s*(,\\s*.+)?\\s*\\)[;]?");
-        Pattern showVerticesPattern = Pattern.compile("([a-zA-Z0-9]+\\.)showVertices\\((.+)\\)[;]?");
+        Pattern printPattern = Pattern.compile("([a-zA-Z0-9]+\\.)print\\((.*)\\)[;]?");
         Pattern childrenPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)getChildren\\((.+)\\)[;]?");
         Pattern parentsPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)getParents\\((.+)\\)[;]?");
 
@@ -207,7 +191,7 @@ public class QueryClient {
         Matcher edgeMatcher = edgePattern.matcher(input);
         Matcher pathMatcher = pathPattern.matcher(input);
         Matcher lineageMatcher = lineagePattern.matcher(input);
-        Matcher showVerticesMatcher = showVerticesPattern.matcher(input);
+        Matcher printMatcher = printPattern.matcher(input);
         Matcher childrenMatcher = childrenPattern.matcher(input);
         Matcher parentsMatcher = parentsPattern.matcher(input);
 
@@ -265,37 +249,45 @@ public class QueryClient {
             } catch (IOException | ClassNotFoundException exception) {
                 exception.printStackTrace();
             }
-        } else if (showVerticesMatcher.matches()) {
-            queryTarget = showVerticesMatcher.group(1);
+        } else if (printMatcher.matches()) {
+            queryTarget = printMatcher.group(1);
             queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
-            String annotationsArray[] = showVerticesMatcher.group(2).split(",");
+            String annotationsArray[] = printMatcher.group(2).split(",");
             for(int i=0; i<annotationsArray.length; i++) {
                 annotationsArray[i] = annotationsArray[i].trim();
             }
             Set<String> annotations = new HashSet<>(Arrays.asList(annotationsArray));
+            annotations.removeAll(Arrays.asList("", null));
             if (!graphObjects.containsKey(queryTarget)) {
                 System.out.println("Error: graph " + queryTarget + " does not exist");
                 return;
             }
             Graph target = graphObjects.get(queryTarget);
+            System.out.println("Total Vertices" + " : " + target.vertexSet().size());
             for (AbstractVertex vertex : target.vertexSet()) {
-                StringBuilder vertexString = new StringBuilder();
-                vertexString.append("[");
+                if (vertex.getAnnotations().containsKey("storageID")) {
+                    System.out.println("\nvertex ID" + " : " + vertex.getAnnotations().get("storageID"));
+                }
                 for (Map.Entry<String, String> entry : vertex.getAnnotations().entrySet()) {
                     String annotation = entry.getKey();
                     String value = entry.getValue();
-                    if (annotations.contains(annotation)) {
-                        vertexString.append(annotation);
-                        vertexString.append("=");
-                        vertexString.append(value);
-                        vertexString.append(", ");
+                    if (annotations.size()==0 || annotations.contains(annotation)) {
+                        System.out.println("\t" + annotation + " : " + value);
                     }
                 }
-                if (vertexString.length() > 3) {
-                    vertexString.delete(vertexString.length() - 2, vertexString.length());
+            }
+            System.out.println("\n\nTotal Edges" + " : " + target.edgeSet().size());
+            for (AbstractEdge edge : target.edgeSet()) {
+                if (edge.getAnnotations().containsKey("storageID")) {
+                    System.out.println("edge ID" + " : " + edge.getAnnotations().get("storageID"));
                 }
-                vertexString.append("]");
-                System.out.println("\t" + vertexString);
+                for (Map.Entry<String, String> entry : edge.getAnnotations().entrySet()) {
+                    String annotation = entry.getKey();
+                    String value = entry.getValue();
+                    if (annotations.size()==0 || annotations.contains(annotation)) {
+                        System.out.println("\t" + annotation + " : " + value);
+                    }
+                }
             }
             return;
         } else if (childrenMatcher.matches()) {

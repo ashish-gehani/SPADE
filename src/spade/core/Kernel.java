@@ -149,10 +149,9 @@ public class Kernel {
     private static final String QUERY_LINEAGE4_STRING = "<result> = getLineage(<result>, depth, direction, terminating expression)";
     private static final String QUERY_CHILDREN_STRING = "<result> = <result>.getChildren(expression)";
     private static final String QUERY_PARENTS_STRING = "<result> = <result>.getParents(expression)";
-    private static final String QUERY_SHOWVERTICES_STRING = "<result>.showVertices(annotation 1, annotation 2, ....)";
+    private static final String QUERY_PRINT_STRING = "<result>.print(annotation 1, annotation 2, ....)";
     private static final String QUERY_LIST_STRING = "list";
     private static final String QUERY_SELECT_STORAGE = "storage Neo4j|SQL (default: Neo4j)";    
-    private static final String QUERY_LIST_VERTICES_STRING = "vertices <result>";
     private static final String QUERY_EXPORT_STRING = "export <result> <path>";
     private static final String QUERY_EXIT_STRING = "exit";
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
@@ -741,10 +740,9 @@ public class Kernel {
         string.append("\t" + QUERY_LINEAGE4_STRING + "\n");
         string.append("\t" + QUERY_CHILDREN_STRING + "\n");
         string.append("\t" + QUERY_PARENTS_STRING + "\n");
-        string.append("\t" + QUERY_SHOWVERTICES_STRING + "\n");
+        string.append("\t" + QUERY_PRINT_STRING + "\n");
         string.append("\t" + QUERY_LIST_STRING + "\n");
-        string.append("\t" + QUERY_SELECT_STORAGE + "\n");
-        string.append("\t" + QUERY_LIST_VERTICES_STRING + "\n");
+        // string.append("\t" + QUERY_SELECT_STORAGE + "\n");
         string.append("\t" + QUERY_EXPORT_STRING + "\n");
         string.append("\t" + QUERY_EXIT_STRING);
         return string.toString();
