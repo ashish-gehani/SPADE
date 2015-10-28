@@ -34,8 +34,8 @@ public class OPM2ProvTC extends OPM2Prov{
 			annotationMapFileReader = new BufferedReader(new FileReader(annotationMapFile));
 			String line = null;
 			while((line = annotationMapFileReader.readLine()) != null){
-				String tokens[] = line.split("=");
-				if(tokens.length == 2){
+				String tokens[] = line.split("=>");
+				if(tokens.length == 2 && !tokens[1].trim().isEmpty()){
 					annotationConversionMap.put(tokens[0].trim(), tokens[1].trim());
 				}
 			}
