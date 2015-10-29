@@ -171,14 +171,21 @@ public class QueryClient {
         // query expression to pass to the Query class:
         //      function(arguments)
         // Examples:
-        //      getVertices(expression)
-        //      getEdges(src_id, dst_id)
-        //      getPaths(src_id, dst_id, maxlength)
-        //      getLineage(id/graph, depth, direction)
-        //      getLineage(id/graph, depth, direction, expression)
-        //      show(annotations)
-        //      getChildren(expression)
-        //      getParents(expression)
+        //   <result> = getVertices(expression)
+        //   <result> = getEdges(source vertex id, destination vertex id)
+        //   <result> = getPaths(source vertex id, destination vertex id, maximum length)
+        //   <result> = getLineage(vertex id, depth, direction)
+        //   <result> = getLineage(vertex id, depth, direction, terminating expression)
+        //   <result> = getLineage(<result>, depth, direction)
+        //   <result> = getLineage(<result>, depth, direction, terminating expression)
+        //   <result> = <result>.getChildren(expression)
+        //   <result> = <result>.getParents(expression)
+
+        //   <result>.print(annotations)
+        //   export <result> <path>
+        //   list
+        //   exit
+
         Pattern vertexPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getVertices\\((.+)\\)[;]?");
         Pattern edgePattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getEdges\\((.+)\\)[;]?");
         Pattern pathPattern = Pattern.compile("([a-zA-Z0-9]+)\\s*=\\s*([a-zA-Z0-9]+\\.)?getPaths\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)[;]?");
