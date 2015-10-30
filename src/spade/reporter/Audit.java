@@ -777,9 +777,39 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    private Artifact createNetworkArtifact(String path, boolean update) {
+    private Artifact createNetworkArtifact(String path, boolean update, String operation) {
         Artifact artifact = createFileArtifact(path, update);
         artifact.addAnnotation("subtype", "network");
+        
+        if(!path.startsWith(File.separator)){ //i.e. not a unix domain socket even though they aren't being handled in this reporter yet
+        	//format of path = address:%s, port:%s
+        	String tokens[] = path.split(",");
+        	if(tokens.length == 2){
+        		String addressToken = tokens[0].trim();
+        		String address = addressToken.substring(addressToken.indexOf(":") + 1);
+        		String portToken = tokens[1].trim();
+        		String port = portToken.substring(portToken.indexOf(":") + 1);
+        		
+        		String hostAnnotation = null, portAnnotation = null;
+        		
+        		if(operation.equals("accept") || operation.equals("recvfrom") || operation.equals("recvmsg")){ //source
+        			hostAnnotation = "source host";
+        			portAnnotation = "source port";
+        		}else if(operation.equals("connect") || operation.equals("sendto") || operation.equals("sendmsg")){ //destination
+        			hostAnnotation = "destination host";
+        			portAnnotation = "destination port";
+        		}
+        		
+        		if(hostAnnotation == null || portAnnotation == null){
+        			
+        		}else{
+        			artifact.addAnnotation(hostAnnotation, address);
+        			artifact.addAnnotation(portAnnotation, port);
+        			artifact.removeAnnotation("path");
+        		}
+        	}
+        }
+        
         return artifact;
     }
 
@@ -1184,18 +1214,20 @@ public class Audit extends AbstractReporter {
             location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
-            Artifact network = createNetworkArtifact(location, true);
-            putVertex(network);
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
             if (callType == 3) {
                 // connect()
+            	Artifact network = createNetworkArtifact(location, true, "connect");
+            	putVertex(network);
                 WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
                 wgb.addAnnotation("time", time);
                 wgb.addAnnotation("operation", "connect");
                 putEdge(wgb);
             } else if (callType == 5) {
                 // accept()
+            	Artifact network = createNetworkArtifact(location, true, "accept");
+            	putVertex(network);
                 Used used = new Used(processes.get(pid), network);
                 used.addAnnotation("time", time);
                 used.addAnnotation("operation", "accept");
@@ -1224,7 +1256,7 @@ public class Audit extends AbstractReporter {
             location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
-            Artifact network = createNetworkArtifact(location, true);
+            Artifact network = createNetworkArtifact(location, true, "connect");
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
             wgb.addAnnotation("time", time);
@@ -1253,7 +1285,7 @@ public class Audit extends AbstractReporter {
             location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
-            Artifact network = createNetworkArtifact(location, false);
+            Artifact network = createNetworkArtifact(location, false, "accept");
             putVertex(network);
             Used used = new Used(processes.get(pid), network);
             used.addAnnotation("time", time);
@@ -1283,7 +1315,7 @@ public class Audit extends AbstractReporter {
         }
 
         String path = fileDescriptors.get(pid).get(fd);
-        Artifact vertex = createNetworkArtifact(path, true);
+        Artifact vertex = createNetworkArtifact(path, true, syscall.name().toLowerCase());
         putVertex(vertex);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
         wgb.addAnnotation("operation", syscall.name().toLowerCase());
@@ -1309,7 +1341,7 @@ public class Audit extends AbstractReporter {
         }
         
         String path = fileDescriptors.get(pid).get(fd);
-        Artifact vertex = createNetworkArtifact(path, false);
+        Artifact vertex = createNetworkArtifact(path, false, syscall.name().toLowerCase());
         putVertex(vertex);
         Used used = new Used(processes.get(pid), vertex);
         used.addAnnotation("operation", syscall.name().toLowerCase());
