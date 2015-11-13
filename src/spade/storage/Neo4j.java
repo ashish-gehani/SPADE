@@ -184,13 +184,16 @@ public class Neo4j extends AbstractStorage {
     
     private void commitTransaction(Transaction transaction){
     	boolean success = false;
-    	try{
-    		transaction.success();
-    		transaction.close();
-    		success = true;
-    	}catch(Exception e){
-    		logger.log(Level.SEVERE, null, e);
-    	}
+        if (transaction != null) {
+        	try{
+        		transaction.success();
+        		success = true;
+        	}catch(Exception e){
+        		logger.log(Level.SEVERE, null, e);
+        	} finally {
+                transaction.close();
+            }
+        }
     	commitCache(success);
     	// Reset transaction count
     	transactionCount = 0;
@@ -246,21 +249,23 @@ public class Neo4j extends AbstractStorage {
             if (transactionCount == 0) {
                 transaction = graphDb.beginTx();
             }
-            Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
-            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
+            try ( Transaction tx = graphDb.beginTx() ) {
+                Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
+                for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+                    String key = currentEntry.getKey();
+                    String value = currentEntry.getValue();
+                    if (key.equalsIgnoreCase(ID_STRING)) {
+                        continue;
+                    }
+                    newVertex.setProperty(key, value);
+                    vertexIndex.add(newVertex, key, value);
                 }
-                newVertex.setProperty(key, value);
-                vertexIndex.add(newVertex, key, value);
-            }
-            newVertex.setProperty(ID_STRING, newVertex.getId());
-            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-            putInCache(getHashOfVertex(incomingVertex), newVertex.getId());
-            checkTransactionCount();
-
+                newVertex.setProperty(ID_STRING, newVertex.getId());
+                vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+                putInCache(getHashOfVertex(incomingVertex), newVertex.getId());
+                checkTransactionCount();
+                tx.success();
+            } 
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -282,24 +287,27 @@ public class Neo4j extends AbstractStorage {
             if (transactionCount == 0) {
                 transaction = graphDb.beginTx();
             }
-            Node srcNode = graphDb.getNodeById(getFromCache(getHashOfVertex(srcVertex)));
-            Node dstNode = graphDb.getNodeById(getFromCache(getHashOfVertex(dstVertex)));
+            try ( Transaction tx = graphDb.beginTx() ) {
+                Node srcNode = graphDb.getNodeById(getFromCache(getHashOfVertex(srcVertex)));
+                Node dstNode = graphDb.getNodeById(getFromCache(getHashOfVertex(dstVertex)));
 
-            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
+                Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+                for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                    String key = currentEntry.getKey();
+                    String value = currentEntry.getValue();
+                    if (key.equalsIgnoreCase(ID_STRING)) {
+                        continue;
+                    }
+                    newEdge.setProperty(key, value);
+                    edgeIndex.add(newEdge, key, value);
                 }
-                newEdge.setProperty(key, value);
-                edgeIndex.add(newEdge, key, value);
-            }
-            newEdge.setProperty(ID_STRING, newEdge.getId());
-            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-            putInCache(getHashOfEdge(incomingEdge), newEdge.getId());
-            checkTransactionCount();
-
+                newEdge.setProperty(ID_STRING, newEdge.getId());
+                edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+                putInCache(getHashOfEdge(incomingEdge), newEdge.getId());
+                checkTransactionCount();
+                tx.success();
+            } 
+            
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
