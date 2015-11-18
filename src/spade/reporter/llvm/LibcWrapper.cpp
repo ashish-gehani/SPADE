@@ -39,7 +39,6 @@ using namespace std;
 
     virtual bool runOnModule(Module & M) {
 
-	
 	//Read a standard list of libc functions into the program
         ifstream fin("libcAPI");
 	string funcName;
@@ -50,20 +49,22 @@ using namespace std;
 		
 	
 	for (Module::iterator F = M.begin(), Fend = M.end(); F != Fend; ++F) {
-      		
-	      string functionName = F->getName().str();
+      	
+	      string functionName = F->getName().str();     	
 
-	      //If the function name is declared in the application and defined in glibkc
+	      //If the function name is declared in the application and defined in gliblc
 	      if(libcFunctions.find(functionName) != libcFunctions.end() ){
 	          
+		  
+      		 cout<<"-Wl,-wrap,"<<functionName<<"  "<<std::flush;			
+	
 		  StringRef strRef("__wrap_" + functionName); 
 		  F->setName(strRef);
 		  F->deleteBody();
 		  
 		  FunctionType * ft = F->getFunctionType();	
 		  		 
-		  Function* realFunction = Function::Create(ft, GlobalValue::ExternalLinkage, "__real_" + functionName, &M); 	 
-		  errs()<<"-Wl,-wrap,"<<functionName<<" ";		
+		  Function* realFunction = Function::Create(ft, GlobalValue::ExternalLinkage, "__real_" + functionName, &M); 	 	
 			
 		  BasicBlock* entryBlock = BasicBlock::Create(F->getContext(), "entry", F);	 
 		  
