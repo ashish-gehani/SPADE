@@ -1,11 +1,16 @@
 #!/bin/bash
-llvm-link $1 flush.bc -o linked.bc
+BASE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+llvm-link $1 $BASE/flush.bc -o $BASE/linked.bc
 functionFile="$2"
 
 if [ "$functionFile" != "-no-monitor" ]; then
-	opt -dot-callgraph linked.bc -o callgraph.bc	
-	java -cp ../../build  spade/utility/FunctionMonitor callgraph.dot $2 functionsOut
-	opt -load ./LLVMTrace.so -provenance -FunctionNames-input functionsOut linked.bc -o $3 
+	opt -dot-callgraph $BASE/linked.bc -o $BASE/callgraph.bc	
+	java -cp $BASE/../../build  spade/utility/FunctionMonitor $BASE/callgraph.dot $2 functionsOut
+	opt -load $BASE/LLVMTrace.so -provenance -FunctionNames-input functionsOut $BASE/linked.bc -o $3 
 else
-	opt -load ./LLVMTrace.so -provenance -FunctionNames-input "-no-monitor" linked.bc -o $3 
+	opt -load $BASE/LLVMTrace.so -provenance -FunctionNames-input "-no-monitor" $BASE/linked.bc -o $3 
 fi
+
+
+mkdir -p $BASEDIR/../../bins/instrumented/
+cp -r $BASEDIR/../../staging/coreutils-8.24 $BASEDIR/../../bins/instrumented/coreutils-8.24

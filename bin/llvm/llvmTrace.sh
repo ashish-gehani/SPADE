@@ -3,7 +3,8 @@ REPLIB_OSFLAG=-D_LLVMREPORTER_LINUX
 LLVM_SOURCE=$1
 FUNCTION_FILE=$2
 LLVM_TARGET=$3
-SRC_PATH=../../src
+BASE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SRC_PATH=$BASE/../../src
 LLC=llc
 CC=gcc
 
@@ -13,12 +14,12 @@ LD_FLAGS=""
 if [[ $* == *-instrument-libc* ]]
 then
   echo "### Wrapping libc calls" 
-  LD_FLAGS="$(opt -load ./LibcWrapper.so -wrapper ${LLVM_SOURCE}.bc -o ${LLVM_TARGET}.bc)"
+  LD_FLAGS="$(opt -load $BASE/LibcWrapper.so -wrapper ${LLVM_SOURCE}.bc -o ${LLVM_TARGET}.bc)"
   echo $LD_FLAGS
   mv ${LLVM_TARGET}.bc ${LLVM_SOURCE}2.bc
 fi
 
-bash instrumentBitcode.sh ${LLVM_SOURCE}2.bc ${FUNCTION_FILE} ${LLVM_TARGET}.bc
+bash $BASE/instrumentBitcode.sh ${LLVM_SOURCE}2.bc ${FUNCTION_FILE} ${LLVM_TARGET}.bc
 
 $LLC -relocation-model=pic ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.s
 $CC -static ${REPLIB_OSFLAG} ${SRC_PATH}/spade/reporter/llvm/llvmBridge.c -c -o ${SRC_PATH}/spade/reporter/llvm/llvmBridge.o 
