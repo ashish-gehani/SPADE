@@ -12,5 +12,3 @@ else
 fi
 
 
-mkdir -p $BASEDIR/../../bins/instrumented/
-cp -r $BASEDIR/../../staging/coreutils-8.24 $BASEDIR/../../bins/instrumented/coreutils-8.24
