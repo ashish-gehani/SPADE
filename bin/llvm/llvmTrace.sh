@@ -19,7 +19,18 @@ then
   mv ${LLVM_TARGET}.bc ${LLVM_SOURCE}2.bc
 fi
 
-bash $BASE/instrumentBitcode.sh ${LLVM_SOURCE}2.bc ${FUNCTION_FILE} ${LLVM_TARGET}.bc
+### 
+llvm-link ${LLVM_SOURCE}2.bc $BASE/flush.bc -o $BASE/linked.bc
+
+if [ "$FUNCTION_FILE" != "-no-monitor" ]; then
+	opt -dot-callgraph $BASE/linked.bc -o $BASE/callgraph.bc	
+	java -cp $BASE/../../build  spade/utility/FunctionMonitor $BASE/callgraph.dot ${FUNCTION_FILE} functionsOut
+	opt -load $BASE/LLVMTrace.so -provenance -FunctionNames-input functionsOut $BASE/linked.bc -o ${LLVM_TARGET}.bc 
+else
+	opt -load $BASE/LLVMTrace.so -provenance -FunctionNames-input "-no-monitor" $BASE/linked.bc -o ${LLVM_TARGET}.bc 
+fi
+###
+
 
 $LLC -relocation-model=pic ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.s
 $CC -static ${REPLIB_OSFLAG} ${SRC_PATH}/spade/reporter/llvm/llvmBridge.c -c -o ${SRC_PATH}/spade/reporter/llvm/llvmBridge.o 
