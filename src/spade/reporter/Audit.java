@@ -71,8 +71,10 @@ public class Audit extends AbstractReporter {
     private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     private String AUDIT_EXEC_PATH;
-    // Process map based on <pid, vertex> pairs
-    private final Map<String, Process> processes = new HashMap<>();
+    // Process map based on <pid, stack of vertices> pairs
+    private final Map<String, LinkedList<Process>> processUnitStack = new HashMap<String, LinkedList<Process>>();
+    // Process version map. Versioning based on units
+    private final Map<String, Long> processVersions = new HashMap<String, Long>();
     // File descriptor map based on <pid <fd, path>> pairs
     private final Map<String, Map<String, String>> fileDescriptors = new HashMap<>();
     // Event buffer map based on <audit_record_id <key, value>> pairs
@@ -127,6 +129,9 @@ public class Audit extends AbstractReporter {
     }
     
     private BufferedWriter dumpWriter = null;
+    private boolean log_successful_events_only = true; 
+    
+    private boolean CREATE_BEEP_UNITS = false;
     
     @Override
     public boolean launch(String arguments) {
@@ -166,6 +171,9 @@ public class Audit extends AbstractReporter {
         }
         if ("true".equals(args.get("netIO"))) {
             USE_SOCK_SEND_RCV = true;
+        }
+        if("true".equals(args.get("createBeepUnits"))){
+        	CREATE_BEEP_UNITS = true;
         }
 
         // Get system boot time from /proc/stat. This is later used to determine
@@ -264,8 +272,8 @@ public class Audit extends AbstractReporter {
 	                    // numeric. If not, ignore and continue.
 	                    Integer.parseInt(currentPID);
 	                    Process processVertex = createProcess(currentPID);
-	                    processes.put(currentPID, processVertex);
-	                    Process parentVertex = processes.get(processVertex.getAnnotation("ppid"));
+	                    addProcess(currentPID, processVertex);
+	                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
 	                    putVertex(processVertex);
 	                    if (parentVertex != null) {
 	                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
@@ -324,7 +332,7 @@ public class Audit extends AbstractReporter {
 	            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
 	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
 	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
-	                    + "-F success=1 " + ignorePids.toString();
+	                    + (log_successful_events_only ? "-F success=1 " : "") + ignorePids.toString();
 	            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
 	            logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
 	        } catch (IOException | InterruptedException e) {
@@ -547,7 +555,7 @@ public class Audit extends AbstractReporter {
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
             
-            if("no".equals(eventData.get("success"))){ //in case the audit log is being read from a user provided file.
+            if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 129){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
             	eventBuffer.remove(eventId);
             	return;
             }
@@ -670,7 +678,9 @@ public class Audit extends AbstractReporter {
                     break;
                 case 281: // socket()
                     break;
-
+                case 129:
+                	processKill(eventData);
+                	break;
                 default:
                     break;
             }
@@ -692,7 +702,7 @@ public class Audit extends AbstractReporter {
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
 
-            if("no".equals(eventData.get("success"))){ //in case the audit log is being read from a user provided file.
+            if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 62){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
             	eventBuffer.remove(eventId);
             	return;
             }
@@ -814,7 +824,9 @@ public class Audit extends AbstractReporter {
                 // ////////////////////////////////////////////////////////////////
                 case 41: // socket()
                     break;
-
+                case 62:
+                	processKill(eventData);
+                	break;
                 default:
                     break;
             }
@@ -824,6 +836,34 @@ public class Audit extends AbstractReporter {
         }
     }
 
+    private void processKill(Map<String, String> eventData){
+    	if(!CREATE_BEEP_UNITS){
+    		return;
+    	}
+    	BigInteger arg0;
+    	Integer arg1;
+    	try{
+    		arg0 = new BigInteger(eventData.get("a0"), 16);
+    		arg1 = Integer.parseInt(eventData.get("a1"));
+    	}catch(Exception e){
+    		logger.log(Level.WARNING, "Failed to process kill syscall", e);
+    		return;
+    	}
+    	if(arg0.intValue() == -100 && arg1 == 1){
+    		Process addedUnit = pushUnitOnStack(eventData.get("pid"));
+    		if(addedUnit == null){ //failed to add because there was no process
+    			//add a process first using the info here and then add the unit
+    			Process process = checkProcessVertex(eventData, false, false);
+    			addProcess(eventData.get("pid"), process);
+    			addedUnit = pushUnitOnStack(eventData.get("pid"));
+    		}
+    		putVertex(addedUnit);
+    	}else if(arg0.intValue() == -101 && arg1 == 1){
+    		//remove the last added unit
+    		popUnitFromStack(eventData.get("pid"));
+    	}
+    }
+    
     private Artifact createNetworkArtifact(String path, boolean update, String operation) {
         Artifact artifact = createFileArtifact(path, update);
         artifact.addAnnotation("subtype", "network");
@@ -896,9 +936,9 @@ public class Audit extends AbstractReporter {
         newProcess.addAnnotation("gid", gid);
         newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
 
-        processes.put(newPID, newProcess);
+        addProcess(newPID, newProcess);
         putVertex(newProcess);
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(oldPID));
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(oldPID));
         wtb.addAnnotation("operation", syscall.name().toLowerCase());
         wtb.addAnnotation("time", time);
         putEdge(wtb); // Copy file descriptors from old process to new one
@@ -943,11 +983,11 @@ public class Audit extends AbstractReporter {
             newProcess.addAnnotation("commandline", commandline);
         }
         putVertex(newProcess);
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(pid));
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
         wtb.addAnnotation("operation", "execve");
         wtb.addAnnotation("time", time);
         putEdge(wtb);
-        processes.put(pid, newProcess);
+        addProcess(pid, newProcess);
         
         //adding a used edge from the binary file to the process 
         String programName = eventData.get("exe");
@@ -1027,7 +1067,7 @@ public class Audit extends AbstractReporter {
         if (put) {
             putVertex(vertex);
         }
-        Used used = new Used(processes.get(pid), vertex);
+        Used used = new Used(getProcess(pid), vertex);
         used.addAnnotation("operation", "read");
         used.addAnnotation("time", time);
         used.addAnnotation("size", bytesRead);
@@ -1054,7 +1094,7 @@ public class Audit extends AbstractReporter {
         String path = fileDescriptors.get(pid).get(fd);
         Artifact vertex = createFileArtifact(path, true);
         putVertex(vertex);
-        WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", "write");
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", bytesWritten);
@@ -1086,7 +1126,7 @@ public class Audit extends AbstractReporter {
 
         Artifact vertex = createFileArtifact(path, true);
         putVertex(vertex);
-        WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", syscall.name().toLowerCase());
         wgb.addAnnotation("time", time);
         putEdge(wgb);
@@ -1120,11 +1160,11 @@ public class Audit extends AbstractReporter {
         checkProcessVertex(eventData, true, false);
         Process newProcess = checkProcessVertex(eventData, false, false);
         putVertex(newProcess);
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, processes.get(pid));
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
         wtb.addAnnotation("operation", "setuid");
         wtb.addAnnotation("time", time);
         putEdge(wtb);
-        processes.put(pid, newProcess);
+        addProcess(pid, newProcess);
     }
 
     private void processRename(Map<String, String> eventData) {
@@ -1150,14 +1190,14 @@ public class Audit extends AbstractReporter {
         if (put) {
             putVertex(srcVertex);
         }
-        Used used = new Used(processes.get(pid), srcVertex);
+        Used used = new Used(getProcess(pid), srcVertex);
         used.addAnnotation("operation", "read");
         used.addAnnotation("time", time);
         putEdge(used);
 
         Artifact dstVertex = createFileArtifact(dstpath, true);
         putVertex(dstVertex);
-        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, processes.get(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
         wgb.addAnnotation("operation", "write");
         wgb.addAnnotation("time", time);
         putEdge(wgb);
@@ -1190,14 +1230,14 @@ public class Audit extends AbstractReporter {
         if (put) {
             putVertex(srcVertex);
         }
-        Used used = new Used(processes.get(pid), srcVertex);
+        Used used = new Used(getProcess(pid), srcVertex);
         used.addAnnotation("operation", "read");
         used.addAnnotation("time", time);
         putEdge(used);
 
         Artifact dstVertex = createFileArtifact(dstpath, true);
         putVertex(dstVertex);
-        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, processes.get(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
         wgb.addAnnotation("operation", "write");
         wgb.addAnnotation("time", time);
         putEdge(wgb);
@@ -1236,7 +1276,7 @@ public class Audit extends AbstractReporter {
         Artifact vertex = createFileArtifact(path, true);
         putVertex(vertex);
 
-        WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", syscall.name().toLowerCase());
         wgb.addAnnotation("mode", mode);
         wgb.addAnnotation("time", time);
@@ -1280,7 +1320,7 @@ public class Audit extends AbstractReporter {
                 // connect()
             	Artifact network = createNetworkArtifact(location, true, "connect");
             	putVertex(network);
-                WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
+                WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
                 wgb.addAnnotation("time", time);
                 wgb.addAnnotation("operation", "connect");
                 putEdge(wgb);
@@ -1288,7 +1328,7 @@ public class Audit extends AbstractReporter {
                 // accept()
             	Artifact network = createNetworkArtifact(location, true, "accept");
             	putVertex(network);
-                Used used = new Used(processes.get(pid), network);
+                Used used = new Used(getProcess(pid), network);
                 used.addAnnotation("time", time);
                 used.addAnnotation("operation", "accept");
                 putEdge(used);
@@ -1318,7 +1358,7 @@ public class Audit extends AbstractReporter {
         if (location != null) {
             Artifact network = createNetworkArtifact(location, true, "connect");
             putVertex(network);
-            WasGeneratedBy wgb = new WasGeneratedBy(network, processes.get(pid));
+            WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
             wgb.addAnnotation("time", time);
             wgb.addAnnotation("operation", "connect");
             putEdge(wgb);
@@ -1347,7 +1387,7 @@ public class Audit extends AbstractReporter {
         if (location != null) {
             Artifact network = createNetworkArtifact(location, false, "accept");
             putVertex(network);
-            Used used = new Used(processes.get(pid), network);
+            Used used = new Used(getProcess(pid), network);
             used.addAnnotation("time", time);
             used.addAnnotation("operation", "accept");
             putEdge(used);
@@ -1397,7 +1437,7 @@ public class Audit extends AbstractReporter {
     
     private void putSocketSendEdge(String path, String syscall, String time, String size, String pid){
     	Artifact vertex = createNetworkArtifact(path, false, syscall);
-        WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", syscall);
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", size);
@@ -1423,7 +1463,7 @@ public class Audit extends AbstractReporter {
         String path = fileDescriptors.get(pid).get(fd);
         Artifact vertex = createNetworkArtifact(path, false, syscall.name().toLowerCase());
         putVertex(vertex);
-        Used used = new Used(processes.get(pid), vertex);
+        Used used = new Used(getProcess(pid), vertex);
         used.addAnnotation("operation", syscall.name().toLowerCase());
         used.addAnnotation("time", time);
         used.addAnnotation("size", bytesReceived);
@@ -1460,8 +1500,8 @@ public class Audit extends AbstractReporter {
 
     private Process checkProcessVertex(Map<String, String> eventData, boolean link, boolean refresh) {
         String pid = eventData.get("pid");
-        if (processes.containsKey(pid) && !refresh) {
-            return processes.get(pid);
+        if (getProcess(pid) != null && !refresh) {
+            return getProcess(pid);
         }
         Process resultProcess = USE_PROCFS ? createProcess(pid) : null;
         if (resultProcess == null) {
@@ -1482,10 +1522,10 @@ public class Audit extends AbstractReporter {
                 fileDescriptors.put(pid, fds);
             }
             putVertex(resultProcess);
-            processes.put(pid, resultProcess);
+            addProcess(pid, resultProcess);
             String ppid = resultProcess.getAnnotation("ppid");
-            if (processes.containsKey(ppid)) {
-                WasTriggeredBy wtb = new WasTriggeredBy(resultProcess, processes.get(ppid));
+            if (getProcess(ppid) != null) {
+                WasTriggeredBy wtb = new WasTriggeredBy(resultProcess, getProcess(ppid));
                 putEdge(wtb);
             }
         }
@@ -1571,6 +1611,51 @@ public class Audit extends AbstractReporter {
     //for cases when open syscall wasn't gotten in the log for the fd being used.
     public void addMissingFD(String pid, String fd){
     	addDescriptor(pid, fd, "/unknown/"+pid+"_"+fd);
+    }
+    
+    private Long getNextProcessVersion(String pid){
+    	if(processVersions.get(pid) == null){
+    		processVersions.put(pid, -1L);
+    	}
+    	processVersions.put(pid, processVersions.get(pid) + 1);
+    	return processVersions.get(pid);
+    }
+    
+    private void addProcess(String pid, Process process){ 
+    	processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
+    	processUnitStack.get(pid).addLast(process);
+    }
+    
+    private Process getProcess(String pid){
+    	if(processUnitStack.get(pid) != null && !processUnitStack.get(pid).isEmpty()){
+    		Process process = processUnitStack.get(pid).peekLast();
+    		return process;
+    	}
+    	return null;
+    }
+    
+    private Process pushUnitOnStack(String pid){
+    	if(processUnitStack.get(pid) == null || processUnitStack.get(pid).isEmpty()){ //stack must always contain one element which needs to be the original process
+    		return null;
+    	}
+    	Process newUnit = createCopyOfProcess(processUnitStack.get(pid).peekFirst()); //first element is always the main process vertex
+    	newUnit.addAnnotation("version", String.valueOf(getNextProcessVersion(pid)));
+    	processUnitStack.get(pid).addLast(newUnit);
+    	
+    	return newUnit;
+    }
+    
+    private Process popUnitFromStack(String pid){
+    	if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){ //first element is the main process and not the unit so there for a unit to exist there must be two processes at least
+    		return processUnitStack.get(pid).removeLast();
+    	}
+    	return null;
+    }
+    
+    private Process createCopyOfProcess(Process process){
+    	Process copy = new Process();
+    	copy.addAnnotations(process.getAnnotations());
+    	return copy;
     }
     
     private class BatchReader{
