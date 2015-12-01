@@ -91,6 +91,9 @@ public class Audit extends AbstractReporter {
     	}
     };
     private final static long MAX_BYTES_PER_NETWORK_ARTIFACT = 100;
+    
+    //maintained to be able to draw an edge from process to an executable file which was executed
+    private Map<String, Artifact> filepathToArtifactMap = new HashMap<String, Artifact>();
 
     // Group 1: key
     // Group 2: value
@@ -868,6 +871,9 @@ public class Audit extends AbstractReporter {
         }
         artifact.addAnnotation("version", Integer.toString(version));
         fileVersions.put(path, version);
+        if(filepathToArtifactMap.get(path) == null || update){
+        	filepathToArtifactMap.put(path, artifact);
+        }
         return artifact;
     }
 
@@ -942,6 +948,16 @@ public class Audit extends AbstractReporter {
         wtb.addAnnotation("time", time);
         putEdge(wtb);
         processes.put(pid, newProcess);
+        
+        //adding a used edge from the binary file to the process 
+        String programName = eventData.get("exe");
+        Artifact programArtifact = null;
+        if((programArtifact = filepathToArtifactMap.get(programName)) != null){
+        	Used usedEdge = new Used(newProcess, programArtifact);
+        	usedEdge.addAnnotation("operation", "read");
+        	usedEdge.addAnnotation("time", time);
+        	putEdge(usedEdge);
+        }
     }
 
     private void processOpen(Map<String, String> eventData) {
