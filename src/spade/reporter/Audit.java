@@ -203,13 +203,19 @@ public class Audit extends AbstractReporter {
         		return false;
         	}
         	
+        	final int timestampColumnNo = getColumnNumberOfAuditTimestamp(inputAuditLogFile);
+    		if(timestampColumnNo < 1){
+    			logger.log(Level.SEVERE, "Malformed audit log file");
+        		return false;
+    		}
+        	
         	auditLogThread = new Thread(new Runnable(){
     			public void run(){
     				BatchReader inputLogBatchReader = null;
-    				java.lang.Process ausearchProcess = null;
+    				java.lang.Process sortProcess = null;
     	        	try{
-    	        		ausearchProcess = Runtime.getRuntime().exec("ausearch --input " + inputAuditLogFile);
-    	        		inputLogBatchReader = new BatchReader(new BufferedReader(new InputStreamReader(ausearchProcess.getInputStream())));
+    	        		sortProcess = Runtime.getRuntime().exec("sort -k" + timestampColumnNo + " " + inputAuditLogFile);
+    	        		inputLogBatchReader = new BatchReader(new BufferedReader(new InputStreamReader(sortProcess.getInputStream())));
     	        		String line = null;
     	        		while(!shutdown && (line = inputLogBatchReader.readLine()) != null){
     	        			parseEventLine(line);
@@ -221,8 +227,8 @@ public class Audit extends AbstractReporter {
     	        		logger.log(Level.SEVERE, "Failed to read input audit log file", e);
     	        	}finally{
     	        		try{
-    	        			if(ausearchProcess != null){
-    	        				ausearchProcess.destroy();
+    	        			if(sortProcess != null){
+    	        				sortProcess.destroy();
     	        			}
     	        		}catch(Exception e){
     	        			logger.log(Level.SEVERE, "Failed to destroy ausearch process.", e);
@@ -325,6 +331,34 @@ public class Audit extends AbstractReporter {
 
         }
         return true;
+    }
+    
+    //read the first line in the file and get the column number for the audit timestamp
+    public int getColumnNumberOfAuditTimestamp(String filepath){
+    	BufferedReader br = null;
+    	try{
+    		br = new BufferedReader(new FileReader(filepath));
+    		String line = br.readLine();
+    		String[] toks = line.split(" ");
+    		int a = 0;
+    		for(String tok : toks){
+    			a++;
+    			if(tok.startsWith("msg=audit")){
+    				return a;
+    			}
+    		}
+    	}catch(Exception e){
+    		logger.log(Level.SEVERE, "Failed to read file '"+filepath+"'" + e);
+    	}finally{
+    		try{
+    			if(br != null){
+    				br.close();
+    			}
+    		}catch(Exception e){
+    			logger.log(Level.SEVERE, "Failed to close bufferedreader", e);
+    		}
+    	}
+    	return -1;
     }
     
     static private StringBuilder ignorePidsString(String ignoreProcesses) {
