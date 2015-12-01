@@ -81,6 +81,16 @@ public class Audit extends AbstractReporter {
     private final Map<String, Integer> fileVersions = new HashMap<>();
     private Thread eventProcessorThread = null;
     private String auditRules;
+    
+    private Map<String, Long> networkLocationToBytesWrittenMap = new HashMap<String, Long>(){
+    	public Long get(Object key){
+    		if(super.get(key) == null){
+    			super.put(String.valueOf(key), 0L);
+    		}
+    		return super.get(key);
+    	}
+    };
+    private final static long MAX_BYTES_PER_NETWORK_ARTIFACT = 100;
 
     // Group 1: key
     // Group 2: value
@@ -1315,12 +1325,32 @@ public class Audit extends AbstractReporter {
         }
 
         String path = fileDescriptors.get(pid).get(fd);
-        Artifact vertex = createNetworkArtifact(path, true, syscall.name().toLowerCase());
-        putVertex(vertex);
+        
+        long bytesRemaining = Long.parseLong(bytesSent);
+        while(bytesRemaining > 0){
+        	long currSize = networkLocationToBytesWrittenMap.get(path);
+        	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
+        	if(leftTillNext > bytesRemaining){
+        		putSocketSendEdge(path, syscall.name().toLowerCase(), time, String.valueOf(bytesRemaining), pid);
+        		networkLocationToBytesWrittenMap.put(path, currSize + bytesRemaining);
+        		bytesRemaining = 0;
+        	}else{ //greater or equal
+        		putSocketSendEdge(path, syscall.name().toLowerCase(), time, String.valueOf(leftTillNext), pid);
+        		networkLocationToBytesWrittenMap.put(path, 0L);
+        		fileVersions.put(path, fileVersions.get(path) + 1);
+        		//new version of network artifact for this path created. call putVertex here just once for that vertex.
+        		putVertex(createNetworkArtifact(path, false, syscall.name().toLowerCase()));
+        		bytesRemaining -= leftTillNext;
+        	}
+        }
+    }
+    
+    private void putSocketSendEdge(String path, String syscall, String time, String size, String pid){
+    	Artifact vertex = createNetworkArtifact(path, false, syscall);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, processes.get(pid));
-        wgb.addAnnotation("operation", syscall.name().toLowerCase());
+        wgb.addAnnotation("operation", syscall);
         wgb.addAnnotation("time", time);
-        wgb.addAnnotation("size", bytesSent);
+        wgb.addAnnotation("size", size);
         putEdge(wgb);
     }
 
