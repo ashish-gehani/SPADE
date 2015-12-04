@@ -840,6 +840,7 @@ public class Audit extends AbstractReporter {
     	if(!CREATE_BEEP_UNITS){
     		return;
     	}
+    	String pid = eventData.get("pid");
     	BigInteger arg0;
     	Integer arg1;
     	try{
@@ -850,17 +851,24 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	if(arg0.intValue() == -100 && arg1 == 1){
-    		Process addedUnit = pushUnitOnStack(eventData.get("pid"));
+    		Process addedUnit = pushUnitOnStack(pid);
     		if(addedUnit == null){ //failed to add because there was no process
     			//add a process first using the info here and then add the unit
     			Process process = checkProcessVertex(eventData, false, false);
-    			addProcess(eventData.get("pid"), process);
-    			addedUnit = pushUnitOnStack(eventData.get("pid"));
+    			addProcess(pid, process);
+    			addedUnit = pushUnitOnStack(pid);
     		}
     		putVertex(addedUnit);
+    		//add edge between the new unit and the parent process to keep the graph connected
+    		String ppid = null;
+    		if((ppid = getProcess(pid).getAnnotation("ppid")) != null){
+	        	WasTriggeredBy wtb = new WasTriggeredBy(getProcess(pid), getProcess(ppid));
+	        	wtb.addAnnotation("time", eventData.get("time"));
+	        	putEdge(wtb);
+    		}
     	}else if(arg0.intValue() == -101 && arg1 == 1){
     		//remove the last added unit
-    		popUnitFromStack(eventData.get("pid"));
+    		popUnitFromStack(pid);
     	}
     }
     
