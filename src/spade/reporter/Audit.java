@@ -172,7 +172,7 @@ public class Audit extends AbstractReporter {
         if ("true".equals(args.get("netIO"))) {
             USE_SOCK_SEND_RCV = true;
         }
-        if("true".equals(args.get("createBeepUnits"))){
+        if("true".equals(args.get("units"))){
         	CREATE_BEEP_UNITS = true;
         }
 
