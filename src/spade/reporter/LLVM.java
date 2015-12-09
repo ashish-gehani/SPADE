@@ -46,9 +46,35 @@ public class LLVM extends AbstractReporter {
     public static final int THREAD_SLEEP_DELAY = 500;
     public static LLVM Reporter = null;
     public final int SocketNumber = 5000;
+    EventHandler eventHandler;
+    boolean forcedRemoval = true;
 
     @Override
     public boolean launch(String arguments) {
+        /*
+        * argument can be 'forcedremoval=true' (default) or 'forcedremoval=false'
+        * if forcedremoval is specified as false, on removal of the reporter, reporter won't 
+        * shutdown unless the socket buffer from where instrumented programs sends in 
+        * provenance data is empitited.
+        * if forcedremoval is true, it will discard this buffer and proceed to shutdown
+        */
+        try{
+            String[] pairs = arguments.split("\\s+");
+            for (String pair : pairs) {                 
+                String[] keyvalue = pair.split("=");
+                String key = keyvalue[0];
+                String value = keyvalue[1];
+    
+                if (key.equals("forcedremoval") && value.equals("false")) {
+                    forcedRemoval = false;
+                }
+                        
+            }
+            } catch (NullPointerException e) {
+            } catch (ArrayIndexOutOfBoundsException e) {
+        }
+
+
         Reporter = this;
         try {
             Server = new ServerSocket(SocketNumber);
@@ -67,7 +93,7 @@ public class LLVM extends AbstractReporter {
                     while (!shutdown) {
                         try {
                             Socket connected = Server.accept();
-                            EventHandler eventHandler = new EventHandler(connected);
+                            eventHandler = new EventHandler(connected);
                             new Thread(eventHandler).start();
                             Thread.sleep(THREAD_SLEEP_DELAY);
                         } catch (Exception exception) {
@@ -87,6 +113,13 @@ public class LLVM extends AbstractReporter {
     @Override
     public boolean shutdown() {
         shutdown = true;
+        if (forcedRemoval==false) {
+            try {
+                while (eventHandler.inFromClient.ready()){
+                    Thread.sleep(LLVM.THREAD_SLEEP_DELAY); 
+                }
+            } catch (Exception exception) {}
+        }
         return true;
     }
 }
@@ -95,6 +128,7 @@ class EventHandler implements Runnable {
 
     Socket threadSocket;
     int FunctionId = 0;
+    BufferedReader inFromClient;
 
     EventHandler(Socket socket) {
         threadSocket = socket;
@@ -103,13 +137,11 @@ class EventHandler implements Runnable {
     @Override
     public void run() {
         try {
-            BufferedReader inFromClient = new BufferedReader(new InputStreamReader(threadSocket.getInputStream()));
-            while (!LLVM.shutdown) {
-                if (inFromClient.ready()) {
-                    String line = inFromClient.readLine();
-                    if (line != null) {
-                        parseEvent(line);
-                    }
+            inFromClient = new BufferedReader(new InputStreamReader(threadSocket.getInputStream()));
+            while (!LLVM.shutdown || inFromClient.ready() ) {
+                String line = inFromClient.readLine();
+                if (line != null) {
+                    parseEvent(line);
                 }
                 Thread.sleep(LLVM.THREAD_SLEEP_DELAY); // Reduce busy waiting load
             }
