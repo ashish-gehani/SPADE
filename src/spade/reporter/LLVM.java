@@ -46,8 +46,9 @@ public class LLVM extends AbstractReporter {
     public static final int THREAD_SLEEP_DELAY = 500;
     public static LLVM Reporter = null;
     public final int SocketNumber = 5000;
-    EventHandler eventHandler;
+    EventHandler eventHandler = null;
     boolean forcedRemoval = true;
+    Socket socket = null;
 
     @Override
     public boolean launch(String arguments) {
@@ -92,8 +93,8 @@ public class LLVM extends AbstractReporter {
                 public void run() {
                     while (!shutdown) {
                         try {
-                            Socket connected = Server.accept();
-                            eventHandler = new EventHandler(connected);
+                            socket = Server.accept();
+                            eventHandler = new EventHandler(socket);
                             new Thread(eventHandler).start();
                             Thread.sleep(THREAD_SLEEP_DELAY);
                         } catch (Exception exception) {
@@ -115,10 +116,20 @@ public class LLVM extends AbstractReporter {
         shutdown = true;
         if (forcedRemoval==false) {
             try {
-                while (eventHandler.inFromClient.ready()){
-                    Thread.sleep(LLVM.THREAD_SLEEP_DELAY); 
+                if (eventHandler != null) {
+                    while (eventHandler.inFromClient.ready()){
+                        Thread.sleep(LLVM.THREAD_SLEEP_DELAY); 
+                    }
                 }
             } catch (Exception exception) {}
+        }
+        try {
+            if (socket != null) {
+                socket.setReuseAddress(true);
+                socket.close();
+            }
+        } catch (Exception exception) {
+
         }
         return true;
     }
@@ -143,7 +154,7 @@ class EventHandler implements Runnable {
                 if (line != null) {
                     parseEvent(line);
                 }
-                Thread.sleep(LLVM.THREAD_SLEEP_DELAY); // Reduce busy waiting load
+                //Thread.sleep(LLVM.THREAD_SLEEP_DELAY); // Reduce busy waiting load
             }
             inFromClient.close();
         } catch (Exception exception) {
