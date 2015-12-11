@@ -42,10 +42,10 @@ public class LLVM extends AbstractReporter {
 
     public static volatile boolean shutdown;
     public Map<String, Stack> functionStackMap; // Each Stack holds the function call stack for a thread.
-    ServerSocket Server;
-    public static final int THREAD_SLEEP_DELAY = 500;
-    public static LLVM Reporter = null;
-    public final int SocketNumber = 5000;
+    ServerSocket server;
+    public static final int THREAD_SLEEP_DELAY = 400;
+    public static LLVM reporter = null;
+    public final int socketNumber = 5000;
     EventHandler eventHandler = null;
     boolean forcedRemoval = true;
     Socket socket = null;
@@ -76,9 +76,10 @@ public class LLVM extends AbstractReporter {
         }
 
 
-        Reporter = this;
+        reporter = this;
         try {
-            Server = new ServerSocket(SocketNumber);
+            server = new ServerSocket(socketNumber);
+            server.setReuseAddress(true);
             shutdown = false;
         } catch (Exception e) {
             e.printStackTrace(System.err);
@@ -93,7 +94,7 @@ public class LLVM extends AbstractReporter {
                 public void run() {
                     while (!shutdown) {
                         try {
-                            socket = Server.accept();
+                            socket = server.accept();
                             eventHandler = new EventHandler(socket);
                             new Thread(eventHandler).start();
                             Thread.sleep(THREAD_SLEEP_DELAY);
@@ -125,11 +126,11 @@ public class LLVM extends AbstractReporter {
         }
         try {
             if (socket != null) {
-                socket.setReuseAddress(true);
                 socket.close();
             }
         } catch (Exception exception) {
 
+        } finally {
         }
         return true;
     }
@@ -149,12 +150,19 @@ class EventHandler implements Runnable {
     public void run() {
         try {
             inFromClient = new BufferedReader(new InputStreamReader(threadSocket.getInputStream()));
+            int adaptitive_pause_step = 10;
+            int adaptitive_pause = 10;
             while (!LLVM.shutdown || inFromClient.ready() ) {
                 String line = inFromClient.readLine();
                 if (line != null) {
                     parseEvent(line);
+                    adaptitive_pause=0;
+                } else {
+                    Thread.sleep(adaptitive_pause);
+                    if (adaptitive_pause < LLVM.THREAD_SLEEP_DELAY) {
+                        adaptitive_pause += adaptitive_pause_step;
+                    }
                 }
-                //Thread.sleep(LLVM.THREAD_SLEEP_DELAY); // Reduce busy waiting load
             }
             inFromClient.close();
         } catch (Exception exception) {
@@ -177,8 +185,8 @@ class EventHandler implements Runnable {
                 tid = line.substring(0, index);
 
                 // if the functionStackMap does not contain a stack for that thread, create a new stack.
-                if (!LLVM.Reporter.functionStackMap.containsKey(tid)) {
-                    LLVM.Reporter.functionStackMap.put(tid, new Stack());
+                if (!LLVM.reporter.functionStackMap.containsKey(tid)) {
+                    LLVM.reporter.functionStackMap.put(tid, new Stack());
                 }
                 //Gets EventType - Entry or Exit
                 line = line.substring(index + 1);
@@ -206,7 +214,7 @@ class EventHandler implements Runnable {
                     function.addAnnotation("FunctionName", functionName);
                     function.addAnnotation("ThreadID", tid);
 
-                    LLVM.Reporter.putVertex(function);
+                    LLVM.reporter.putVertex(function);
                     while (items.find()) {
                         argument = new Artifact();
 
@@ -223,20 +231,20 @@ class EventHandler implements Runnable {
                         String ArgVal = items.group(4);
                         argument.addAnnotation("ArgVal", ArgVal);
 
-                        LLVM.Reporter.putVertex(argument);
+                        LLVM.reporter.putVertex(argument);
 
-                        if (!LLVM.Reporter.functionStackMap.get(tid).empty()) {
-                            edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
-                            LLVM.Reporter.putEdge(edge);
+                        if (!LLVM.reporter.functionStackMap.get(tid).empty()) {
+                            edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.reporter.functionStackMap.get(tid).peek());
+                            LLVM.reporter.putEdge(edge);
                         }
                         edge = new Used((Process) function, (Artifact) argument);
-                        LLVM.Reporter.putEdge(edge);
+                        LLVM.reporter.putEdge(edge);
                     }
-                    if (!LLVM.Reporter.functionStackMap.get(tid).empty()) {
-                        edge = new WasTriggeredBy((Process) function, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
-                        LLVM.Reporter.putEdge(edge);
+                    if (!LLVM.reporter.functionStackMap.get(tid).empty()) {
+                        edge = new WasTriggeredBy((Process) function, (Process) LLVM.reporter.functionStackMap.get(tid).peek());
+                        LLVM.reporter.putEdge(edge);
                     }
-                    LLVM.Reporter.functionStackMap.get(tid).push(function);
+                    LLVM.reporter.functionStackMap.get(tid).push(function);
                     FunctionId++;
                 } else // in case of EventType being Return
                 {
@@ -251,11 +259,11 @@ class EventHandler implements Runnable {
                         String RetVal = items.group(3);
                         argument.addAnnotation("ReturnVal", RetVal);
 
-                        LLVM.Reporter.putVertex(argument);
-                        edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
-                        LLVM.Reporter.putEdge(edge);
+                        LLVM.reporter.putVertex(argument);
+                        edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.reporter.functionStackMap.get(tid).peek());
+                        LLVM.reporter.putEdge(edge);
                     }
-                    LLVM.Reporter.functionStackMap.get(tid).pop();
+                    LLVM.reporter.functionStackMap.get(tid).pop();
                 }
 
             }
