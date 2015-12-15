@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import spade.core.AbstractEdge;
@@ -46,9 +47,8 @@ public class LLVM extends AbstractReporter {
     public static final int THREAD_SLEEP_DELAY = 400;
     public static LLVM reporter = null;
     public final int socketNumber = 5000;
-    EventHandler eventHandler = null;
+    public static volatile ArrayList<BufferedReader> threadBufferReaders;
     boolean forcedRemoval = true;
-    Socket socket = null;
 
     @Override
     public boolean launch(String arguments) {
@@ -75,7 +75,7 @@ public class LLVM extends AbstractReporter {
             } catch (ArrayIndexOutOfBoundsException e) {
         }
 
-
+        threadBufferReaders = new ArrayList<BufferedReader>();
         reporter = this;
         try {
             server = new ServerSocket(socketNumber);
@@ -94,12 +94,12 @@ public class LLVM extends AbstractReporter {
                 public void run() {
                     while (!shutdown) {
                         try {
-                            socket = server.accept();
-                            eventHandler = new EventHandler(socket);
+                            Socket socket = server.accept();
+                            EventHandler eventHandler = new EventHandler(socket);
                             new Thread(eventHandler).start();
                             Thread.sleep(THREAD_SLEEP_DELAY);
                         } catch (Exception exception) {
-                            exception.printStackTrace(System.err);
+                            // exception.printStackTrace(System.err);
                         }
                     }
                 }
@@ -117,16 +117,16 @@ public class LLVM extends AbstractReporter {
         shutdown = true;
         if (forcedRemoval==false) {
             try {
-                if (eventHandler != null) {
-                    while (eventHandler.inFromClient.ready()){
-                        Thread.sleep(LLVM.THREAD_SLEEP_DELAY); 
+                for (BufferedReader br : threadBufferReaders) {
+                    while (br.ready()) {
+                        Thread.sleep(LLVM.THREAD_SLEEP_DELAY);
                     }
                 }
             } catch (Exception exception) {}
         }
         try {
-            if (socket != null) {
-                socket.close();
+            if (server != null) {
+                server.close();
             }
         } catch (Exception exception) {
 
@@ -150,6 +150,7 @@ class EventHandler implements Runnable {
     public void run() {
         try {
             inFromClient = new BufferedReader(new InputStreamReader(threadSocket.getInputStream()));
+            LLVM.threadBufferReaders.add(inFromClient);
             int adaptitive_pause_step = 10;
             int adaptitive_pause = 10;
             while (!LLVM.shutdown || inFromClient.ready() ) {
@@ -164,7 +165,9 @@ class EventHandler implements Runnable {
                     }
                 }
             }
+            LLVM.threadBufferReaders.add(inFromClient);
             inFromClient.close();
+            threadSocket.close();
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
         }
