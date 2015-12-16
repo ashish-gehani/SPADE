@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import spade.core.AbstractEdge;
@@ -42,16 +43,43 @@ public class LLVM extends AbstractReporter {
 
     public static volatile boolean shutdown;
     public Map<String, Stack> functionStackMap; // Each Stack holds the function call stack for a thread.
-    ServerSocket Server;
-    public static final int THREAD_SLEEP_DELAY = 500;
-    public static LLVM Reporter = null;
-    public final int SocketNumber = 5000;
+    ServerSocket server;
+    public static final int THREAD_SLEEP_DELAY = 400;
+    public static LLVM reporter = null;
+    public final int socketNumber = 5000;
+    public static volatile ArrayList<BufferedReader> threadBufferReaders;
+    boolean forcedRemoval = true;
 
     @Override
     public boolean launch(String arguments) {
-        Reporter = this;
+        /*
+        * argument can be 'forcedremoval=true' (default) or 'forcedremoval=false'
+        * if forcedremoval is specified as false, on removal of the reporter, reporter won't 
+        * shutdown unless the socket buffer from where instrumented programs sends in 
+        * provenance data is empitited.
+        * if forcedremoval is true, it will discard this buffer and proceed to shutdown
+        */
+        try{
+            String[] pairs = arguments.split("\\s+");
+            for (String pair : pairs) {                 
+                String[] keyvalue = pair.split("=");
+                String key = keyvalue[0];
+                String value = keyvalue[1];
+    
+                if (key.equals("forcedremoval") && value.equals("false")) {
+                    forcedRemoval = false;
+                }
+                        
+            }
+            } catch (NullPointerException e) {
+            } catch (ArrayIndexOutOfBoundsException e) {
+        }
+
+        threadBufferReaders = new ArrayList<BufferedReader>();
+        reporter = this;
         try {
-            Server = new ServerSocket(SocketNumber);
+            server = new ServerSocket(socketNumber);
+            server.setReuseAddress(true);
             shutdown = false;
         } catch (Exception e) {
             e.printStackTrace(System.err);
@@ -66,12 +94,12 @@ public class LLVM extends AbstractReporter {
                 public void run() {
                     while (!shutdown) {
                         try {
-                            Socket connected = Server.accept();
-                            EventHandler eventHandler = new EventHandler(connected);
+                            Socket socket = server.accept();
+                            EventHandler eventHandler = new EventHandler(socket);
                             new Thread(eventHandler).start();
                             Thread.sleep(THREAD_SLEEP_DELAY);
                         } catch (Exception exception) {
-                            exception.printStackTrace(System.err);
+                            // exception.printStackTrace(System.err);
                         }
                     }
                 }
@@ -87,6 +115,23 @@ public class LLVM extends AbstractReporter {
     @Override
     public boolean shutdown() {
         shutdown = true;
+        if (forcedRemoval==false) {
+            try {
+                for (BufferedReader br : threadBufferReaders) {
+                    while (br.ready()) {
+                        Thread.sleep(LLVM.THREAD_SLEEP_DELAY);
+                    }
+                }
+            } catch (Exception exception) {}
+        }
+        try {
+            if (server != null) {
+                server.close();
+            }
+        } catch (Exception exception) {
+
+        } finally {
+        }
         return true;
     }
 }
@@ -95,6 +140,7 @@ class EventHandler implements Runnable {
 
     Socket threadSocket;
     int FunctionId = 0;
+    BufferedReader inFromClient;
 
     EventHandler(Socket socket) {
         threadSocket = socket;
@@ -103,17 +149,25 @@ class EventHandler implements Runnable {
     @Override
     public void run() {
         try {
-            BufferedReader inFromClient = new BufferedReader(new InputStreamReader(threadSocket.getInputStream()));
-            while (!LLVM.shutdown) {
-                if (inFromClient.ready()) {
-                    String line = inFromClient.readLine();
-                    if (line != null) {
-                        parseEvent(line);
+            inFromClient = new BufferedReader(new InputStreamReader(threadSocket.getInputStream()));
+            LLVM.threadBufferReaders.add(inFromClient);
+            int adaptitive_pause_step = 10;
+            int adaptitive_pause = 10;
+            while (!LLVM.shutdown || inFromClient.ready() ) {
+                String line = inFromClient.readLine();
+                if (line != null) {
+                    parseEvent(line);
+                    adaptitive_pause=0;
+                } else {
+                    Thread.sleep(adaptitive_pause);
+                    if (adaptitive_pause < LLVM.THREAD_SLEEP_DELAY) {
+                        adaptitive_pause += adaptitive_pause_step;
                     }
                 }
-                Thread.sleep(LLVM.THREAD_SLEEP_DELAY); // Reduce busy waiting load
             }
+            LLVM.threadBufferReaders.add(inFromClient);
             inFromClient.close();
+            threadSocket.close();
         } catch (Exception exception) {
             exception.printStackTrace(System.err);
         }
@@ -134,8 +188,8 @@ class EventHandler implements Runnable {
                 tid = line.substring(0, index);
 
                 // if the functionStackMap does not contain a stack for that thread, create a new stack.
-                if (!LLVM.Reporter.functionStackMap.containsKey(tid)) {
-                    LLVM.Reporter.functionStackMap.put(tid, new Stack());
+                if (!LLVM.reporter.functionStackMap.containsKey(tid)) {
+                    LLVM.reporter.functionStackMap.put(tid, new Stack());
                 }
                 //Gets EventType - Entry or Exit
                 line = line.substring(index + 1);
@@ -163,7 +217,7 @@ class EventHandler implements Runnable {
                     function.addAnnotation("FunctionName", functionName);
                     function.addAnnotation("ThreadID", tid);
 
-                    LLVM.Reporter.putVertex(function);
+                    LLVM.reporter.putVertex(function);
                     while (items.find()) {
                         argument = new Artifact();
 
@@ -180,20 +234,20 @@ class EventHandler implements Runnable {
                         String ArgVal = items.group(4);
                         argument.addAnnotation("ArgVal", ArgVal);
 
-                        LLVM.Reporter.putVertex(argument);
+                        LLVM.reporter.putVertex(argument);
 
-                        if (!LLVM.Reporter.functionStackMap.get(tid).empty()) {
-                            edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
-                            LLVM.Reporter.putEdge(edge);
+                        if (!LLVM.reporter.functionStackMap.get(tid).empty()) {
+                            edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.reporter.functionStackMap.get(tid).peek());
+                            LLVM.reporter.putEdge(edge);
                         }
                         edge = new Used((Process) function, (Artifact) argument);
-                        LLVM.Reporter.putEdge(edge);
+                        LLVM.reporter.putEdge(edge);
                     }
-                    if (!LLVM.Reporter.functionStackMap.get(tid).empty()) {
-                        edge = new WasTriggeredBy((Process) function, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
-                        LLVM.Reporter.putEdge(edge);
+                    if (!LLVM.reporter.functionStackMap.get(tid).empty()) {
+                        edge = new WasTriggeredBy((Process) function, (Process) LLVM.reporter.functionStackMap.get(tid).peek());
+                        LLVM.reporter.putEdge(edge);
                     }
-                    LLVM.Reporter.functionStackMap.get(tid).push(function);
+                    LLVM.reporter.functionStackMap.get(tid).push(function);
                     FunctionId++;
                 } else // in case of EventType being Return
                 {
@@ -208,11 +262,11 @@ class EventHandler implements Runnable {
                         String RetVal = items.group(3);
                         argument.addAnnotation("ReturnVal", RetVal);
 
-                        LLVM.Reporter.putVertex(argument);
-                        edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.Reporter.functionStackMap.get(tid).peek());
-                        LLVM.Reporter.putEdge(edge);
+                        LLVM.reporter.putVertex(argument);
+                        edge = new WasGeneratedBy((Artifact) argument, (Process) LLVM.reporter.functionStackMap.get(tid).peek());
+                        LLVM.reporter.putEdge(edge);
                     }
-                    LLVM.Reporter.functionStackMap.get(tid).pop();
+                    LLVM.reporter.functionStackMap.get(tid).pop();
                 }
 
             }
