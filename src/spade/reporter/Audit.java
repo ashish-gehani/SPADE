@@ -73,7 +73,7 @@ public class Audit extends AbstractReporter {
     // Process map based on <pid, stack of vertices> pairs
     private final Map<String, LinkedList<Process>> processUnitStack = new HashMap<String, LinkedList<Process>>();
     // Process version map. Versioning based on units
-    private final Map<String, Long> processVersions = new HashMap<String, Long>();
+    private final Map<String, Long> unitNumber = new HashMap<String, Long>();
     // File descriptor map based on <pid <fd, path>> pairs
     private final Map<String, Map<String, String>> fileDescriptors = new HashMap<>();
     // Event buffer map based on <audit_record_id <key, value>> pairs
@@ -930,13 +930,17 @@ public class Audit extends AbstractReporter {
     private Artifact createMemoryArtifact(String memAddress, boolean update){
     	Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", "memory");
-        artifact.addAnnotation("memory_address", memAddress);
-        int version = fileVersions.get(memAddress) != null ? fileVersions.get(memAddress) : 0;
-        if (update) {
-            version++;
+        artifact.addAnnotation("memory address", memAddress);
+        Integer version = 0;
+        if((version = fileVersions.get(memAddress)) == null){
+        	version = 0;
+        }else{
+        	if(update){
+        		version++;
+        		fileVersions.put(memAddress, version);
+        	}
         }
         artifact.addAnnotation("version", Integer.toString(version));
-        fileVersions.put(memAddress, version);
         return artifact;
     }    
     
@@ -982,12 +986,16 @@ public class Audit extends AbstractReporter {
         artifact.addAnnotation("subtype", "file");
         path = path.replace("//", "/");
         artifact.addAnnotation("path", path);
-        int version = fileVersions.containsKey(path) ? fileVersions.get(path) : 0;
-        if (update && path.startsWith("/") && !path.startsWith("/dev/")) { //socket?
-            version++;
+        Integer version = 0;
+        if((version = fileVersions.get(path)) == null){
+        	version = 0;
+        }else{
+        	if(update && path.startsWith("/") && !path.startsWith("/dev/")){
+        		version++;
+        		fileVersions.put(path, version);
+        	}
         }
         artifact.addAnnotation("version", Integer.toString(version));
-        fileVersions.put(path, version);
         if(filepathToArtifactMap.get(path) == null || update){
         	filepathToArtifactMap.put(path, artifact);
         }
@@ -1719,16 +1727,20 @@ public class Audit extends AbstractReporter {
     	addDescriptor(pid, fd, "/unknown/"+pid+"_"+fd);
     }
     
-    private Long getNextProcessVersion(String pid){
-    	if(processVersions.get(pid) == null){
-    		processVersions.put(pid, -1L);
+    private Long getNextUnitNumber(String pid){
+    	if(unitNumber.get(pid) == null){
+    		unitNumber.put(pid, -1L);
     	}
-    	processVersions.put(pid, processVersions.get(pid) + 1);
-    	return processVersions.get(pid);
+    	unitNumber.put(pid, unitNumber.get(pid) + 1);
+    	return unitNumber.get(pid);
     }
     
     private void addProcess(String pid, Process process){ 
+    	unitNumber.remove(pid); //start unit count from start
     	processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
+    	if(CREATE_BEEP_UNITS){
+    		process.addAnnotation("unit", String.valueOf(getNextUnitNumber(pid)));
+    	}
     	processUnitStack.get(pid).addLast(process);
     }
     
@@ -1745,7 +1757,7 @@ public class Audit extends AbstractReporter {
     		return null;
     	}
     	Process newUnit = createCopyOfProcess(processUnitStack.get(pid).peekFirst()); //first element is always the main process vertex
-    	newUnit.addAnnotation("version", String.valueOf(getNextProcessVersion(pid)));
+    	newUnit.addAnnotation("unit", String.valueOf(getNextUnitNumber(pid)));
     	processUnitStack.get(pid).addLast(newUnit);
     	
     	return newUnit;
