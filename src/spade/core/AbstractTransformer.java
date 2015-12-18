@@ -28,8 +28,8 @@ public abstract class AbstractTransformer {
 	}
 	
 	public boolean shutdown() {
-        return true;
-    }
+        	return true;
+    	}
 	
 	public Graph putGraph(Graph graph){
 		return graph;
