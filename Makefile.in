@@ -6,7 +6,7 @@ JAVAH=@JAVAH@
 CC=@CC@
 JAR=@JAR@
 JAVAC_CP = build:lib/*
-JAVAC_OPTIONS = -g -Xlint:none -proc:none
+JAVAC_OPTIONS = -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
