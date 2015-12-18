@@ -155,7 +155,7 @@ public class Neo4j extends AbstractStorage {
     				logger.log(Level.SEVERE, "Failed to close cache file reader", e);
     			}
     		}
-    		logger.log(Level.INFO, "Loaded cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
+    		//logger.log(Level.INFO, "Loaded cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
     	}
     }
 
@@ -226,7 +226,7 @@ public class Neo4j extends AbstractStorage {
 	    	long start = System.currentTimeMillis();
 	    	cacheObjectOutputStream = new ObjectOutputStream(new FileOutputStream(spadeNeo4jCacheFile));
 	    	cacheObjectOutputStream.writeObject(spadeNeo4jCache);
-	    	logger.log(Level.INFO, "Saved cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
+	    	//logger.log(Level.INFO, "Saved cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
     	}catch(Exception e){
     		logger.log(Level.SEVERE, "Failed to save spade neo4j cache", e);
     	}finally{
