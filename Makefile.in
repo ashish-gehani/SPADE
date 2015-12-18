@@ -6,7 +6,7 @@ JAVAH=@JAVAH@
 CC=@CC@
 JAR=@JAR@
 JAVAC_CP = build:lib/*
-JAVAC_OPTIONS = -Xlint:none -proc:none
+JAVAC_OPTIONS = -g -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
@@ -69,7 +69,7 @@ help:
 
 build: | prepare-dirs 
 build: build-java $$(OS_BUILD) lib/spade.jar
-build-java: core clients utilities storages filters sketches reporters
+build-java: core clients utilities storages filters sketches transformers reporters
 
 .SUFFIXES : .class .java
 
@@ -99,6 +99,9 @@ filters:
 sketches:
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/sketch/*.java
 	@echo "--- Built Sketches ---"
+transformers:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/transformer/*.java
+	@echo "--- Built Transformers ---"
 
 lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .

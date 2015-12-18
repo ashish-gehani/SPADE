@@ -104,7 +104,7 @@ public class Kernel {
     /**
      * Set of transformers active on the local SPADE instance.
      */
-    public static List<AbstractFilter> transformers;
+    public static List<AbstractTransformer> transformers;
     /**
      * Set of sketches active on the local SPADE instance.
      */
@@ -127,15 +127,15 @@ public class Kernel {
     private static final int BATCH_BUFFER_ELEMENTS = 10000;
     private static final int MAIN_THREAD_SLEEP_DELAY = 10;
     private static final int REMOVE_WAIT_DELAY = 100;
-    private static final int FIRST_TRANSFORMER = 0;
+    //private static final int FIRST_TRANSFORMER = 0;
     private static final int FIRST_FILTER = 0;
     // Strings for control client
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
-    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter <class name> <index> <initialization arguments>";
+    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> <index> <initialization arguments>";
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
-    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter <index>";
-    private static final String LIST_STRING = "list reporters|storages|filters|sketches|all";
+    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <index>";
+    private static final String LIST_STRING = "list reporters|storages|filters|sketches|transformer|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
@@ -293,7 +293,7 @@ public class Kernel {
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
         removereporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
         removestorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
-        transformers = Collections.synchronizedList(new LinkedList<AbstractFilter>());
+        transformers = Collections.synchronizedList(new LinkedList<AbstractTransformer>());
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
         remoteSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
@@ -314,8 +314,8 @@ public class Kernel {
 
         // The final transformer is used to send vertex and edge objects to
         // their corresponding result Graph.
-        FinalTransformer finalTransformer = new FinalTransformer();
-        transformers.add(finalTransformer);
+        // FinalTransformer finalTransformer = new FinalTransformer();
+        // transformers.add(finalTransformer);
 
         // Initialize the main thread. This thread performs critical
         // provenance-related
@@ -565,9 +565,9 @@ public class Kernel {
      *
      * @param vertex The vertex to be transformed.
      */
-    public static void sendToTransformers(AbstractVertex vertex) {
-        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putVertex(vertex);
-    }
+//    public static void sendToTransformers(AbstractVertex vertex) {
+//        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putVertex(vertex);
+//    }
 
     /**
      * Method called by a Graph object to send edges to transformers before they
@@ -575,9 +575,9 @@ public class Kernel {
      *
      * @param edge The edge to be transformed.
      */
-    public static void sendToTransformers(AbstractEdge edge) {
-        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putEdge(edge);
-    }
+//    public static void sendToTransformers(AbstractEdge edge) {
+//        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putEdge(edge);
+//    }
 
     /**
      * All command strings are passed to this function which subsequently calls
@@ -632,8 +632,9 @@ public class Kernel {
         // Determine whether the command is a load or a save.
         if (tokens[1].equalsIgnoreCase("load")) {
             outputStream.print("Loading configuration... ");
+            BufferedReader configReader = null;
             try {
-                BufferedReader configReader = new BufferedReader(new FileReader(tokens[2]));
+                configReader = new BufferedReader(new FileReader(tokens[2]));
                 String configLine;
                 while ((configLine = configReader.readLine()) != null) {
                     addCommand("add " + configLine, outputStream);
@@ -642,6 +643,14 @@ public class Kernel {
                 outputStream.println("error! Unable to open configuration file for reading");
                 logger.log(Level.SEVERE, null, exception);
                 return;
+            }finally{
+            	try{
+            		if(configReader != null){
+            			configReader.close();
+            		}
+            	}catch(Exception e){
+            		logger.log(Level.SEVERE, "Failed to close config reader");
+            	}
             }
             outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("save")) {
@@ -676,6 +685,16 @@ public class Kernel {
                     }
                     configWriter.write("\n");
                 }
+                synchronized (transformers) {
+                	for(int i = 0; i<transformers.size(); i++){
+                		String arguments = transformers.get(i).arguments;
+                		configWriter.write("transformer " + transformers.get(i).getClass().getName().split("\\.")[2] + " " + (i + 1));
+                		if(arguments != null){
+                			configWriter.write(" " + arguments);
+                		}
+                		configWriter.write("\n");
+                	}
+				}
                 configWriter.close();
             } catch (Exception exception) {
                 outputStream.println("error! Unable to open configuration file for writing");
@@ -846,7 +865,7 @@ public class Kernel {
             outputStream.print("Adding filter " + classname + "... ");
             int index;
             try {
-                index = Integer.parseInt(parameters[0]);
+                index = Integer.parseInt(parameters[0]) - 1;
             } catch (NumberFormatException numberFormatException) {
                 outputStream.println("error: Index must be a number");
                 return;
@@ -894,43 +913,36 @@ public class Kernel {
             outputStream.print("Adding transformer " + classname + "... ");
             int index;
             try {
-                index = Integer.parseInt(parameters[0]);
+                index = Integer.parseInt(parameters[0]) - 1;
             } catch (NumberFormatException numberFormatException) {
                 outputStream.println("error: Index must be a number");
                 return;
             }
             String arguments = (parameters.length == 1) ? null : parameters[1];
             // Get the transformer by classname and create a new instance.
-            AbstractFilter filter;
+            AbstractTransformer transformer;
             try {
-                filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
+            	transformer = (AbstractTransformer) Class.forName("spade.transformer." + classname).newInstance();
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
                 outputStream.println("error: Unable to find/load class");
                 logger.log(Level.SEVERE, null, ex);
                 return;
             }
             // Initialize filter if arguments are provided
-            filter.initialize(arguments);
-            filter.arguments = arguments;
+            transformer.initialize(arguments);
+            transformer.arguments = arguments;
             // The argument is the index at which the transformer is to be
             // inserted.
-            if (index >= transformers.size()) {
+            if (index > transformers.size() || index < 0) {
                 outputStream.println("error: Invalid index");
                 return;
             }
-            // Set the next transformer of this newly added transformer.
-            filter.setNextFilter((AbstractFilter) transformers.get(index));
-            if (index > 0) {
-                // If the newly added transformer is not the first in the list,
-                // then
-                // then configure the previous transformer in the list to point
-                // to this
-                // newly added transformer as its next.
-                ((AbstractFilter) transformers.get(index - 1)).setNextFilter(filter);
-            }
-            // Add transformer to the list of transformers.
-            transformers.add(index, filter);
-            logger.log(Level.INFO, "Filter added: {0}", classname);
+           
+            synchronized (transformers) {
+				transformers.add(index, transformer);
+			}
+            
+            logger.log(Level.INFO, "Transformer added: {0}", classname);
             outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("sketch")) {
             if (tokens.length < 3) {
@@ -1036,29 +1048,25 @@ public class Kernel {
                 outputStream.println();
             }
         } else if (tokens[1].equalsIgnoreCase("transformers")) {
-            if (transformers.size() == 1) {
-                // The size of the transformers list will always be at least 1
-                // because
-                // of the FinalTransformer. The user is not made aware of the
-                // presence of this filter and it is only used for committing
-                // provenance data to the result Graph. Therefore, there is
-                // nothing
-                // to list if the size of the filters list is 1.
+            if (transformers.size() == 0) {
                 outputStream.println("No transformers added");
                 return;
             }
-            outputStream.println((transformers.size() - 1) + " transformer(s) added:");
-            for (int i = 0; i < transformers.size() - 1; i++) {
-                // Loop through the transformers list, printing their names
-                // (except
-                // for the last FinalTransformer).
-                String arguments = transformers.get(i).arguments;
-                outputStream.print("\t" + (i + 1) + ". " + transformers.get(i).getClass().getName().split("\\.")[2]);
-                if (arguments != null) {
-                    outputStream.print(" (" + arguments + ")");
+            outputStream.println((transformers.size()) + " transformer(s) added:");
+            StringBuffer transformersListString = new StringBuffer();
+            synchronized (transformers) {
+            	for (int i = 0; i < transformers.size(); i++) {
+                    // Loop through the transformers list, printing their names
+                    // (except
+                    // for the last FinalTransformer).
+            		transformersListString.append("\t").append((i + 1)).append(". ").append(transformers.get(i).getClass().getName().split("\\.")[2]);
+                    if (transformers.get(i).arguments != null) {
+                        transformersListString.append(" (" + transformers.get(i).arguments + ")");
+                    }
+                    transformersListString.append("\n");
                 }
-                outputStream.println();
-            }
+			}
+            outputStream.print(transformersListString);
         } else if (tokens[1].equalsIgnoreCase("sketches")) {
             if (sketches.isEmpty()) {
                 // Nothing to list if the set of sketches is empty.
@@ -1076,7 +1084,7 @@ public class Kernel {
             listCommand("list reporters " + verbose_token, outputStream);
             listCommand("list storages " + verbose_token, outputStream);
             listCommand("list filters " + verbose_token, outputStream);
-            // listCommand("list transformers " + verbose_token, outputStream);
+            listCommand("list transformers " + verbose_token, outputStream);
             listCommand("list sketches " + verbose_token, outputStream);
         } else {
             outputStream.println("Usage:");
@@ -1187,29 +1195,30 @@ public class Kernel {
                 logger.log(Level.INFO, "Filter Removed: {0}", filterName.split("\\.")[2]);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("transformer")) {
-                // Transformer removal is done by the index number (beginning
-                // from 1).
-                int index = Integer.parseInt(tokens[2]);
-                if ((index <= 0) || (index >= transformers.size())) {
+            	int index;
+            	try{
+            		index = Integer.parseInt(tokens[2]) - 1;
+            	}catch(Exception e){
+            		logger.log(Level.WARNING, "Error: Invalid index (Not a number)");
+                    outputStream.println("Error: Invalid index (Not a number)");
+            		return;
+            	}
+                if ((index < 0) || (index >= transformers.size())) {
                     logger.log(Level.WARNING, "Error: Unable to remove transformer - bad index");
                     outputStream.println("Error: Unable to remove transformer - bad index");
                     return;
                 }
-                String filterName = transformers.get(index - 1).getClass().getName();
-                logger.log(Level.INFO, "Removing transformer {0}", filterName.split("\\.")[2]);
-                outputStream.print("Removing transformer " + filterName.split("\\.")[2] + "... ");
-                transformers.get(index - 1).shutdown();
-                if (index > 1) {
-                    // Update the internal links between transformers by calling
-                    // the setNextFilter
-                    // method on the transformer just before the one being
-                    // removed. The (index-1)
-                    // check is used because this method is not to be called on
-                    // the first transformer.
-                    ((AbstractFilter) transformers.get(index - 2)).setNextFilter((AbstractFilter) transformers.get(index));
+                String transformerName = transformers.get(index).getClass().getName().split("\\.")[2];
+                logger.log(Level.INFO, "Removing transformer {0}", transformerName);
+                outputStream.print("Removing transformer " + transformerName + "... ");
+                AbstractTransformer removed = null;
+                synchronized (transformers) {
+                	removed = transformers.remove(index);
+				}
+                if(removed != null){
+                	removed.shutdown();
                 }
-                transformers.remove(index - 1);
-                logger.log(Level.INFO, "Transformer removed: {0}", filterName.split("\\.")[2]);
+                logger.log(Level.INFO, "Transformer removed: {0}", transformerName);
                 outputStream.println("done");
             } else if (tokens[1].equalsIgnoreCase("sketch")) {
                 boolean found = false;
@@ -1338,6 +1347,7 @@ class LocalControlConnection implements Runnable {
                     controlOutputStream.println("");
                 }
             } catch (IOException e) {
+            	Logger.getLogger(LocalControlConnection.class.getName()).log(Level.SEVERE, null, e);
                 // Connection broken?
             } finally {
                 controlInputStream.close();
@@ -1379,6 +1389,11 @@ class LocalQueryConnection implements Runnable {
                 } else {
                     Graph resultGraph = Query.executeQuery(line, false);
                     if (resultGraph != null) {
+                    	synchronized (Kernel.transformers) {
+                    		for(AbstractTransformer transformer : Kernel.transformers){
+                        		resultGraph = transformer.putGraph(resultGraph);
+                        	}
+						}                    	
                         queryOutputStream.writeObject("graph");
                         queryOutputStream.writeObject(resultGraph);
                     } else {
