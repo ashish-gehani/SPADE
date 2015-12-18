@@ -1393,7 +1393,7 @@ class LocalQueryConnection implements Runnable {
                     		for(AbstractTransformer transformer : Kernel.transformers){
                         		resultGraph = transformer.putGraph(resultGraph);
                         	}
-						}                    	
+			}                    	
                         queryOutputStream.writeObject("graph");
                         queryOutputStream.writeObject(resultGraph);
                     } else {
