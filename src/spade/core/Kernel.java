@@ -135,7 +135,7 @@ public class Kernel {
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <index>";
-    private static final String LIST_STRING = "list reporters|storages|filters|sketches|transformer|all";
+    private static final String LIST_STRING = "list reporters|storages|filters|sketches|transformers|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "shutdown";
