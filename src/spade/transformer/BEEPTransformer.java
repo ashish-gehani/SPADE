@@ -40,7 +40,7 @@ public class BEEPTransformer extends AbstractTransformer {
 			if(getAnnotationSafe(edge.getSourceVertex(), "subtype").equals("memory") || getAnnotationSafe(edge.getDestinationVertex(), "subtype").equals("memory")){
 				continue;
 			}
-			AbstractEdge newEdge = createNewWithoutAnnotations(edge, "unit", SRC_VERTEX_ID, DST_VERTEX_ID, ID_STRING);
+			AbstractEdge newEdge = createNewWithoutAnnotations(edge, "unit", SRC_VERTEX_ID, DST_VERTEX_ID, ID_STRING, "version");
 			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
 				if(!graphContainsVertex(resultGraph, newEdge.getSourceVertex())){
 					resultGraph.putVertex(newEdge.getSourceVertex());
