@@ -158,17 +158,17 @@ public class ControlClient {
 
             List<Completor> addArguments = new LinkedList<>();
             addArguments.add(new SimpleCompletor(new String[]{"add"}));
-            addArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter", "transformer"}));
+            addArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter",  "transformer"}));
             addArguments.add(new NullCompletor());
 
             List<Completor> removeArguments = new LinkedList<>();
             removeArguments.add(new SimpleCompletor(new String[]{"remove"}));
-            removeArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter", "transformer"}));
+            removeArguments.add(new SimpleCompletor(new String[]{"filter", "storage", "reporter",  "transformer"}));
             removeArguments.add(new NullCompletor());
 
             List<Completor> listArguments = new LinkedList<>();
             listArguments.add(new SimpleCompletor(new String[]{"list"}));
-            listArguments.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all", "transformer"}));
+            listArguments.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all",  "transformer"}));
             listArguments.add(new NullCompletor());
 
             List<Completor> configArguments = new LinkedList<>();
