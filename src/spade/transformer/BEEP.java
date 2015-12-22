@@ -29,7 +29,7 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
 
-public class BEEPTransformer extends AbstractTransformer {
+public class BEEP extends AbstractTransformer {
 	
 	private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
     private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
