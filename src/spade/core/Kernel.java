@@ -1388,15 +1388,17 @@ class LocalQueryConnection implements Runnable {
                     break;
                 } else {
                     Graph resultGraph = Query.executeQuery(line, false);
-                    if (resultGraph != null) {
-                    	synchronized (Kernel.transformers) {
-                    		for(AbstractTransformer transformer : Kernel.transformers){
-                        		resultGraph = transformer.putGraph(resultGraph);
-                        	}
-			}                    	
+                    synchronized (Kernel.transformers) {
+                		for(AbstractTransformer transformer : Kernel.transformers){
+                			if(resultGraph != null){
+                				resultGraph = transformer.putGraph(resultGraph);
+                			}
+                    	}
+                	} 
+                    if(resultGraph != null){
                         queryOutputStream.writeObject("graph");
                         queryOutputStream.writeObject(resultGraph);
-                    } else {
+                	}else {
                         queryOutputStream.writeObject(Kernel.getQueryCommands());
                     }
                 }
