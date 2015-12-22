@@ -888,6 +888,7 @@ public class Audit extends AbstractReporter {
     		String ppid = null;
     		if((ppid = getProcess(pid).getAnnotation("ppid")) != null){
 	        	WasTriggeredBy wtb = new WasTriggeredBy(getProcess(pid), getProcess(ppid));
+	        	wtb.addAnnotation("operation", "unit");
 	        	wtb.addAnnotation("time", eventData.get("time"));
 	        	putEdge(wtb);
     		}
@@ -1299,7 +1300,7 @@ public class Audit extends AbstractReporter {
             putVertex(srcVertex);
         }
         Used used = new Used(getProcess(pid), srcVertex);
-        used.addAnnotation("operation", "read");
+        used.addAnnotation("operation", "rename_oldpath");
         used.addAnnotation("time", time);
         putEdge(used);
 
@@ -1307,7 +1308,7 @@ public class Audit extends AbstractReporter {
         putVertex(dstVertex);
         putVersionUpdateEdge(dstVertex, time);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
-        wgb.addAnnotation("operation", "write");
+        wgb.addAnnotation("operation", "rename_newpath");
         wgb.addAnnotation("time", time);
         putEdge(wgb);
 
