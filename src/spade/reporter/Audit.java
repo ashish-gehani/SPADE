@@ -986,6 +986,7 @@ public class Audit extends AbstractReporter {
         Integer version = 0;
         if((version = fileVersions.get(path)) == null){
         	version = 0;
+        	fileVersions.put(path, version);
         }else{
         	if(update && path.startsWith("/") && !path.startsWith("/dev/")){
         		version++;
@@ -1126,7 +1127,7 @@ public class Audit extends AbstractReporter {
             String flags = eventData.get("a1");
             Map<String, String> newData = new HashMap<>();
             newData.put("pid", pid);
-            newData.put("a0", new BigInteger(fd, 16).toString());
+            newData.put("a0", Integer.toHexString(Integer.parseInt(fd)));
             newData.put("time", eventData.get("time"));
             if (flags.charAt(flags.length() - 1) == '0') {
                 // read
