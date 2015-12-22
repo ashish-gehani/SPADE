@@ -93,9 +93,6 @@ public class Audit extends AbstractReporter {
     };
     private final static long MAX_BYTES_PER_NETWORK_ARTIFACT = 100;
     
-    //maintained to be able to draw an edge from process to an executable file which was executed
-    private Map<String, Artifact> filepathToArtifactMap = new HashMap<String, Artifact>();
-
     // Group 1: key
     // Group 2: value
     private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
@@ -996,9 +993,6 @@ public class Audit extends AbstractReporter {
         	}
         }
         artifact.addAnnotation("version", Integer.toString(version));
-        if(filepathToArtifactMap.get(path) == null || update){
-        	filepathToArtifactMap.put(path, artifact);
-        }
         return artifact;
     }
 
@@ -1074,15 +1068,38 @@ public class Audit extends AbstractReporter {
         putEdge(wtb);
         addProcess(pid, newProcess);
         
-        //adding a used edge from the binary file to the process 
-        String programName = eventData.get("exe");
-        Artifact programArtifact = null;
-        if((programArtifact = filepathToArtifactMap.get(programName)) != null){
-        	Used usedEdge = new Used(newProcess, programArtifact);
-        	usedEdge.addAnnotation("operation", "read");
-        	usedEdge.addAnnotation("time", time);
-        	putEdge(usedEdge);
-        }
+        //add used edge to the paths in the event data
+        String cwd = eventData.get("cwd");
+        String path0 = eventData.get("path0");
+        String path1 = eventData.get("path1"); 
+        putUsedEdge(cwd, path0, newProcess, time);
+        putUsedEdge(cwd, path1, newProcess, time);
+    }
+    
+    private void putUsedEdge(String cwd, String path, Process process, String time){
+    	if(path == null){
+    		return;
+    	}
+    	boolean joinPaths = false;
+    	if(path.startsWith("./")){ //path of the following format : ./helloworld
+    		path = path.substring(2);
+    	 	joinPaths = true;
+    	}else if(!path.startsWith(".") && !path.startsWith("/")){
+    		joinPaths = true;
+    	}
+    	if(joinPaths){
+    		if(cwd == null){
+    			return;
+    		}else{
+    			path = joinPaths(cwd, path);
+    		}
+    	}
+    	Artifact usedArtifact = createFileArtifact(path, false);
+    	Used usedEdge = new Used(process, usedArtifact);
+    	usedEdge.addAnnotation("time", time);
+    	usedEdge.addAnnotation("operation", "read");
+    	putVertex(usedArtifact);
+    	putEdge(usedEdge);
     }
 
     private void processOpen(Map<String, String> eventData) {
