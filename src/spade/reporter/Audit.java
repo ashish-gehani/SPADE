@@ -884,14 +884,11 @@ public class Audit extends AbstractReporter {
     			addedUnit = pushUnitOnStack(pid);
     		}
     		putVertex(addedUnit);
-    		//add edge between the new unit and the parent process to keep the graph connected
-    		String ppid = null;
-    		if((ppid = getProcess(pid).getAnnotation("ppid")) != null){
-	        	WasTriggeredBy wtb = new WasTriggeredBy(getProcess(pid), getProcess(ppid));
-	        	wtb.addAnnotation("operation", "unit");
-	        	wtb.addAnnotation("time", eventData.get("time"));
-	        	putEdge(wtb);
-    		}
+    		//add edge between the new unit and the main unit to keep the graph connected
+    		WasTriggeredBy wtb = new WasTriggeredBy(addedUnit, getUnitForPid(pid, 0));
+        	wtb.addAnnotation("operation", "unit");
+        	wtb.addAnnotation("time", eventData.get("time"));
+        	putEdge(wtb);
     	}else if(arg0.intValue() == -101 && arg1.intValue() == 1){ //unit end
     		//remove the last added unit
     		popUnitFromStack(pid);
@@ -932,6 +929,7 @@ public class Audit extends AbstractReporter {
         Integer version = 0;
         if((version = fileVersions.get(memAddress)) == null){
         	version = 0;
+        	fileVersions.put("version", version);
         }else{
         	if(update){
         		version++;
@@ -1744,6 +1742,13 @@ public class Audit extends AbstractReporter {
     //for cases when open syscall wasn't gotten in the log for the fd being used.
     public void addMissingFD(String pid, String fd){
     	addDescriptor(pid, fd, "/unknown/"+pid+"_"+fd);
+    }
+    
+    private Process getUnitForPid(String pid, Integer unitNumber){
+    	if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > unitNumber && unitNumber > -1){
+    		return processUnitStack.get(pid).get(unitNumber);
+    	}
+    	return null;
     }
     
     private Long getNextUnitNumber(String pid){
