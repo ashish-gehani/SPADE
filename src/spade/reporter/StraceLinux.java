@@ -86,6 +86,8 @@ public class StraceLinux extends AbstractReporter {
             return false;
         }
 
+        final String command = arguments;
+
         fileDescriptors.put("0", "stdin");
         fileDescriptors.put("1", "stdout");
         fileDescriptors.put("2", "stderr");
@@ -104,7 +106,7 @@ public class StraceLinux extends AbstractReporter {
                         straceCmdLine += " -f -F -tt -v -s 200";
 
                         straceCmdLine += " -o " + TEMP_FILE_PATH;
-                        straceCmdLine += " " + arguments;
+                        straceCmdLine += " " + command;
                         logger.log(Level.INFO, straceCmdLine);
 
                         java.lang.Process straceProcess = Runtime.getRuntime().exec(straceCmdLine);
