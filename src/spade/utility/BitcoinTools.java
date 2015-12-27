@@ -216,7 +216,7 @@ public class BitcoinTools {
                 }
 
                 if (key.equals("path")) {
-                    spade.storage.Neo4j.index(value);
+                    spade.storage.Neo4j.index(value, true);
                     break;
                 }
 
