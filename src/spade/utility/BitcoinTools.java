@@ -186,8 +186,9 @@ public class BitcoinTools {
             for (String pair : arguments) {
                 if (pair.equals("help")) {
                     System.out.println("mode=downloadBlocksOnly|createCSVes [upto=<block index>]");
-                    System.out.println("mode=downloadBlocksOnly - Downloads blocks json files in local cache");
-                    System.out.println("mode=createCSVes - Creates CSV files required for batch importer. Must be accompanied with 'upto' opiton");
+                    System.out.println("mode=downloadBlocksOnly - Downloads blocks json files in local cache.");
+                    System.out.println("mode=createCSVes - Creates CSV files required for batch importer. Must be accompanied with 'upto' opiton.");
+                    System.out.println("mode=createIndexes path=<path to Neo4j database> - Creates indexes for given Neo4j database.");
                     System.out.println("help - prints help menu");
                     break;
                 }
@@ -211,7 +212,14 @@ public class BitcoinTools {
                     } catch (IOException ex) {
                         Bitcoin.log(Level.SEVERE, "", ex);
                     }
+                    break;
                 }
+
+                if (key.equals("path")) {
+                    spade.storage.Neo4j.index(value);
+                    break;
+                }
+
             }
         } catch (NullPointerException e) {
             Bitcoin.log(Level.SEVERE, "", e);
