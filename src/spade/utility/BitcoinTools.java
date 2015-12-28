@@ -26,6 +26,7 @@ import java.io.FileFilter;
 import java.util.Scanner;
 import java.io.IOException;
 import java.lang.SecurityException;
+import java.lang.InterruptedException;
 import java.util.Formatter;
 import java.text.DecimalFormat;
 import org.apache.commons.io.FileUtils;
@@ -49,11 +50,15 @@ import java.util.Arrays;
 import javax.xml.bind.DatatypeConverter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.File;
@@ -107,18 +112,34 @@ public class BitcoinTools {
         return true;
     }
 
-
     public boolean dumpBlocks() {
         int totalBlocksToDownload=-1;
-        int totalBlocksDownloaded=-1;
         try {
             String totalBlocksStr = execCmd(BITCOIN_RPC_TOTAL_BLOCKS);
             totalBlocksToDownload = Integer.parseInt(totalBlocksStr.trim());
         } catch (IOException e) {
             Bitcoin.log(Level.SEVERE, "Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running.", e);
             return false;
+        }    
+
+        return dumpBlocks(totalBlocksToDownload);
+    }
+
+    public boolean dumpBlocks(int totalBlocksToDownload) {
+        int totalBlocksAvaliable=-1;
+        try {
+            String totalBlocksStr = execCmd(BITCOIN_RPC_TOTAL_BLOCKS);
+            totalBlocksAvaliable = Integer.parseInt(totalBlocksStr.trim());
+        } catch (IOException e) {
+            Bitcoin.log(Level.SEVERE, "Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running.", e);
+            return false;
         }
 
+        if (totalBlocksAvaliable < totalBlocksToDownload) {
+            totalBlocksToDownload = totalBlocksAvaliable;
+        }
+
+        int totalBlocksDownloaded=-1;
         try {
             File blockDumpDir = new File(BLOCK_JSON_DUMP_PATH);
             if (!blockDumpDir.exists()) {
@@ -134,11 +155,14 @@ public class BitcoinTools {
 
         String pattern = "#.##";
         DecimalFormat decimalFormat = new DecimalFormat(pattern);
+
         for (int i = 0; i < totalBlocksToDownload; i++) {
             String file_path = new Formatter().format(BLOCK_JSON_FILE_FORMAT, i).toString();
             File f = new File(file_path);
             if (!f.exists()) {
+
                 dumpBlock(i);
+
                 System.out.print("| Total Blocks To Download: " + totalBlocksToDownload
                                  + " | Currently Downloading Block: " + i
                                  + " | Percentage Completed: " + decimalFormat.format(i*100.0/totalBlocksToDownload)
@@ -146,7 +170,7 @@ public class BitcoinTools {
             }
         }
 
-        System.out.println("\n\ndone!");
+        System.out.println("\n\ndone with dumping blocks!");
         return true;
     }
 
@@ -183,12 +207,16 @@ public class BitcoinTools {
 
     public static void main(String[] arguments) {
         try{
+            HashMap<String, String> args = new HashMap<String, String>(); 
             for (String pair : arguments) {
                 if (pair.equals("help")) {
-                    System.out.println("mode=downloadBlocksOnly|createCSVes [upto=<block index>]");
+                    System.out.println("mode=downloadBlocksOnly [upto=<block index>]");
+                    System.out.println("mode=createCSVes upto=<block index>");
+                    System.out.println("mode=createIndexes path=<path to Neo4j database>");
+
                     System.out.println("mode=downloadBlocksOnly - Downloads blocks json files in local cache.");
                     System.out.println("mode=createCSVes - Creates CSV files required for batch importer. Must be accompanied with 'upto' opiton.");
-                    System.out.println("mode=createIndexes path=<path to Neo4j database> - Creates indexes for given Neo4j database.");
+                    System.out.println("mode=createIndexes Creates indexes for given Neo4j database.");
                     System.out.println("help - prints help menu");
                     break;
                 }
@@ -197,31 +225,37 @@ public class BitcoinTools {
                 String key = keyvalue[0];
                 String value = keyvalue[1];
 
-                if (key.equals("mode") && value.equals("downloadBlocksOnly")) {
-                    BitcoinTools bitcoinTools = new BitcoinTools();
-                    bitcoinTools.dumpBlocks();
-                    break;
-                }
-
-                if (key.equals("upto")) {
-                    int upto = Integer.parseInt(value);
-                    try {
-                        CSVWriter csvWriter = new CSVWriter(0,upto);
-                        csvWriter.writeBlocksToCSV(0,upto);
-                        csvWriter.closeCsves();
-                    } catch (IOException ex) {
-                        Bitcoin.log(Level.SEVERE, "", ex);
-                    }
-                    break;
-                }
-
-                if (key.equals("path")) {
-                    spade.storage.Neo4j.index(value, true);
-                    break;
-                }
+                args.put(key, value);
 
             }
-        } catch (NullPointerException e) {
+
+            if (args.get("mode").equals("downloadBlocksOnly")) {
+                BitcoinTools bitcoinTools = new BitcoinTools();
+                if (args.get("upto") == null) {
+                    bitcoinTools.dumpBlocks();
+                } else {
+                    int upto = Integer.parseInt(args.get("upto"));
+                    bitcoinTools.dumpBlocks(upto);
+                }
+            }
+
+            if (args.get("mode").equals("createCSVes")) {
+                int upto = Integer.parseInt(args.get("upto"));
+                try {
+                    CSVWriter csvWriter = new CSVWriter(0,upto);
+                    csvWriter.writeBlocksToCSV(0,upto);
+                    csvWriter.closeCsves();
+                } catch (IOException ex) {
+                    Bitcoin.log(Level.SEVERE, "", ex);
+                }
+            }
+            
+            if (args.get("mode").equals("createIndexes")) {
+                String path = args.get("path");
+                spade.storage.Neo4j.index(path, true);
+            }
+            
+        } catch (Exception e) {
             Bitcoin.log(Level.SEVERE, "", e);
         }
     }
@@ -454,7 +488,7 @@ class CSVWriter {
                 break;
             }
         }
-        System.out.println("\n\ndone!");
+        System.out.println("\n\ndone with creating CSVes!");
 
     }
 
