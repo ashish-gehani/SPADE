@@ -1741,7 +1741,15 @@ public class Audit extends AbstractReporter {
     
     //for cases when open syscall wasn't gotten in the log for the fd being used.
     public void addMissingFD(String pid, String fd){
-    	addDescriptor(pid, fd, "/unknown/"+pid+"_"+fd);
+    	String path = "/unknown/"+pid+"_"+fd;
+    	if("0".equals(fd)){
+    		path = "stdin";
+    	}else if("1".equals(fd)){
+    		path = "stdout";
+    	}else if("2".equals(fd)){
+    		path = "stderr";
+    	}
+    	addDescriptor(pid, fd, path);
     }
     
     private Process getUnitForPid(String pid, Integer unitNumber){
