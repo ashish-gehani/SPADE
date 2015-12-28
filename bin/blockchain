@@ -25,9 +25,9 @@ print_help ()
 {
 	echo "$0 dumpblocks <<end block height>> | createcsv <end block height> | createdb <path> | indexdb <path> | init <endblock> <path> | height <path> | clean | help"
 	echo ""
-	echo "'$0 init <path> |<end block height>|' : combines createcsv and createdb operations defined below. By default, <end block height> is maximun height bitcoind reports."
+	echo "'$0 init <path> |<end block height>|' : combines download, createcsv, createdb and indexdb operations defined below. By default, <end block height> is maximun height bitcoind reports."
 	echo "'$0 height <path>' : prints last block in Neo4j database saved at <path> "
-	echo "'$0 download |<end block height>|' : Download all blocks till block height. If no height is provided, it downloads till max reported height by bitcoind."
+	echo "'$0 download |<end block height>|' : Download all blocks till block height. By default, <end block height> is maximun height bitcoind reports."
 	echo "'$0 createcsv <end block height>' : Convert blocks into CSV representation."
 	echo "'$0 createdb <end block height> <path>' : Convert CSV files into Neo4j database at <path>."
 	echo "'$0 indexdb <path>' : Creates indexes for Neo4j database at <path>."
