@@ -929,7 +929,7 @@ public class Audit extends AbstractReporter {
         Integer version = 0;
         if((version = fileVersions.get(memAddress)) == null){
         	version = 0;
-        	fileVersions.put("version", version);
+        	fileVersions.put(memAddress, version);
         }else{
         	if(update){
         		version++;
