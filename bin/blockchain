@@ -30,6 +30,7 @@ print_help ()
 	echo "'$0 download' : Download all blocks."
 	echo "'$0 createcsv <end block height>' : Convert blocks into CSV representation."
 	echo "'$0 createdb <end block height> <path>' : Convert CSV files into Neo4j database at <path>."
+	echo "'$0 indexdb <path>' : Creates indexes for Neo4j database at <path>."
 	echo "'$0 clean' : Delete cached blocks and CSV files."
 	echo "'$0 help' : Prints this message"
 }
@@ -49,6 +50,10 @@ create_db()
 	java -Dfile.encoding=UTF-8  -Djava.library.path="./lib/" -cp "./build:./lib/*" org.neo4j.tooling.ImportTool  --into $2 --nodes $BITCOIN_STAGING_DIR/CSV/addresses_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/blocks_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/payments_0_$1.csv --nodes  $BITCOIN_STAGING_DIR/CSV/txes_0_$1.csv --relationships $BITCOIN_STAGING_DIR/CSV/edges_0_$1.csv
 }
 
+index_db()
+{
+	java -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=createIndexes path=$1
+}
 
 pushd ${SPADE_ROOT} > /dev/null
 
@@ -66,19 +71,24 @@ else
 				height=`bitcoin-cli getblockcount`
 				echo "Implicitly setting following block range in datastore: [0, $height]"
 			fi
-			echo "Step 1/2 - Creating CSV"
+			echo "Step 1/3 - Creating CSV"
 			echo "CSV creation started at: " `date`
 			create_csv $height
 			echo "CSV creation completed at: " `date`
-			echo "Step 2/2 = Creating Neo4j database"
+			echo "Step 2/3 = Creating Neo4j database"
 			echo "Neo4j database creation started at: " `date`
 			create_db $height $2
 			echo "Neo4j database creation completed at: " `date`
 			echo $height > ${2%%/}/height.meta
-			echo "All set. Database created!"
+			echo "Step 3/3 - Creating Indexes for databate"
+			echo "Indexing started at: " `date`
+			index_db $2
+			echo "All set. Database and indexes creation completed at `date`!"
 		else
 			echo "Another file/directory is present at $3. Please delete or change path."
 		fi
+	elif [ $1 = "indexdb" ] ; then
+		index_db $2
 	elif [ $1 = "createdb" ] ; then
 		create_db $2 $3
 	elif [ $1 = "createcsv" ] ; then

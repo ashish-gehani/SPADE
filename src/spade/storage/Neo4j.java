@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2015 SRI International
+ Copyright (C) 2016 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -50,6 +50,8 @@ import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.kernel.Traversal;
+import org.neo4j.tooling.GlobalGraphOperations;
+import org.neo4j.helpers.collection.IteratorUtil;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -614,5 +616,73 @@ public class Neo4j extends AbstractStorage {
     		spadeNeo4jCache.putAll(uncommittedSpadeNeo4jCache);
     	}
     	uncommittedSpadeNeo4jCache.clear();
+    }
+
+    public static void index(String dbpath, boolean printProgress) {
+        GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabase( dbpath );
+
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+
+            int total = IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllNodes()) + IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllRelationships());
+            int count = 0;
+            int percentageCompleted = 0;
+
+            // index nodes
+            Index<Node> vertexIndex = graphDb.index().forNodes(spade.storage.Neo4j.VERTEX_INDEX);
+            for ( Node node : GlobalGraphOperations.at(graphDb).getAllNodes() ) {
+                for ( String key : node.getPropertyKeys() ) {
+                    String value = (String) node.getProperty( key );
+                    vertexIndex.add(node, key, value);
+                }
+                node.setProperty(spade.storage.Neo4j.ID_STRING, node.getId());
+                vertexIndex.add(node, spade.storage.Neo4j.ID_STRING, Long.toString(node.getId()));
+
+                if (printProgress) {
+                    count = count +1;
+
+                    if (((count*100)/total)+1 >= percentageCompleted) {
+                        System.out.print("| Total Objects (nodes + relationships) to Index: " + total
+                                + " | Currently at Object: " + count
+                                + " | Percentage Completed: " + percentageCompleted
+                                + " |\r");
+                    }
+
+                    percentageCompleted = (count*100)/total;
+                }
+            }
+
+            // index edges
+            RelationshipIndex edgeIndex = graphDb.index().forRelationships(spade.storage.Neo4j.EDGE_INDEX);
+            for ( Relationship relationship : GlobalGraphOperations.at(graphDb).getAllRelationships() ) {
+                for ( String key : relationship.getPropertyKeys() ) {
+                    String value = (String) relationship.getProperty( key );
+                    edgeIndex.add(relationship, key, value);
+                }
+                relationship.setProperty(spade.storage.Neo4j.ID_STRING, relationship.getId());
+                edgeIndex.add(relationship, spade.storage.Neo4j.ID_STRING, Long.toString(relationship.getId()));
+
+                // code repetition
+                if (printProgress) {
+                    count = count +1;
+
+                    if (((count*100)/total)+1 >= percentageCompleted) {
+                        System.out.print("| Total Objects (nodes + relationships) to Index: " + total
+                                + " | Currently at Object: " + count
+                                + " | Percentage Completed: " + (percentageCompleted + 1)
+                                + " |\r");
+                    }
+
+                    percentageCompleted = (count*100)/total;
+                }                
+            }
+
+            if (printProgress) {
+                System.out.println();
+            }
+            tx.success();
+        }
+
+        graphDb.shutdown();
     }
 }
