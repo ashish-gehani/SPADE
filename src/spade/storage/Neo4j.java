@@ -33,6 +33,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -626,21 +627,36 @@ public class Neo4j extends AbstractStorage {
 
     public static void index(String dbpath, boolean printProgress) {
 
-        ConcurrentLinkedQueue<PropertyContainer> taskQueue = new ConcurrentLinkedQueue<PropertyContainer>();
         int totalThreads = 10;
+        final ConcurrentLinkedQueue<PropertyContainer> taskQueue = new ConcurrentLinkedQueue<PropertyContainer>();
+        final ReentrantReadWriteLock rwlock = new ReentrantReadWriteLock();
+        final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabase( dbpath );
+        final Index<Node> vertexIndex;
+        final RelationshipIndex edgeIndex;
+
+        // clear already present indexes
+        try ( Transaction tx = graphDb.beginTx() ) {
+            graphDb.index().forNodes(spade.storage.Neo4j.VERTEX_INDEX).delete();
+            tx.success();
+        }
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+            graphDb.index().forRelationships(spade.storage.Neo4j.EDGE_INDEX).delete();
+            tx.success();
+        }
+        //
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+            vertexIndex = graphDb.index().forNodes(spade.storage.Neo4j.VERTEX_INDEX);
+            tx.success();
+        }
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+            edgeIndex = graphDb.index().forRelationships(spade.storage.Neo4j.EDGE_INDEX);
+            tx.success();
+        }
 
         class NodeIndexer implements Runnable {
-
-            Index<Node> vertexIndex;
-            GraphDatabaseService graphDb;
-
-            public NodeIndexer(GraphDatabaseService graphDb) {
-                this.graphDb = graphDb;
-                try ( Transaction tx = graphDb.beginTx() ) {
-                    this.vertexIndex = this.graphDb.index().forNodes(spade.storage.Neo4j.VERTEX_INDEX);
-                    tx.success();
-                }
-            }
 
             public void run() {
 
@@ -655,16 +671,18 @@ public class Neo4j extends AbstractStorage {
                         } else {
                             for ( String key : node.getPropertyKeys() ) {
                                 String value = (String) node.getProperty( key );
-                                this.vertexIndex.add(node, key, value);
+                                vertexIndex.add(node, key, value);
                             }
                             node.setProperty(spade.storage.Neo4j.ID_STRING, node.getId());
-                            this.vertexIndex.add(node, spade.storage.Neo4j.ID_STRING, Long.toString(node.getId())); 
+                            vertexIndex.add(node, spade.storage.Neo4j.ID_STRING, Long.toString(node.getId())); 
                             
                             counter++;
-                            if (counter%1000==0){
+                            if (counter > 1000 && rwlock.writeLock().tryLock()){
                                 tx.success();
                                 tx.close();
                                 tx = graphDb.beginTx();
+                                counter =0;
+                                rwlock.writeLock().unlock();
                             }                       
                         }
                     } 
@@ -673,22 +691,12 @@ public class Neo4j extends AbstractStorage {
                 } finally {
                     tx.success();
                     tx.close();
+                    rwlock.writeLock().unlock();
                 }
             }
         }
 
         class RelationshipIndexer implements Runnable {
-
-            RelationshipIndex edgeIndex;
-            GraphDatabaseService graphDb;
-
-            public RelationshipIndexer(GraphDatabaseService graphDb) {
-                this.graphDb = graphDb;
-                try ( Transaction tx = graphDb.beginTx() ) {
-                    this.edgeIndex = this.graphDb.index().forRelationships(spade.storage.Neo4j.EDGE_INDEX);
-                    tx.success();
-                }
-            }
 
             public void run() {
 
@@ -703,17 +711,19 @@ public class Neo4j extends AbstractStorage {
                         } else {
                             for ( String key : relationship.getPropertyKeys() ) {
                                 String value = (String) relationship.getProperty( key );
-                                this.edgeIndex.add(relationship, key, value);
+                                edgeIndex.add(relationship, key, value);
                             }
                             relationship.setProperty(spade.storage.Neo4j.ID_STRING, relationship.getId());
-                            this.edgeIndex.add(relationship, spade.storage.Neo4j.ID_STRING, Long.toString(relationship.getId()));                        
+                            edgeIndex.add(relationship, spade.storage.Neo4j.ID_STRING, Long.toString(relationship.getId()));                        
 
                             counter++;
-                            if (counter%1000==0){
+                            if (counter > 1000 && rwlock.writeLock().tryLock()){
                                 tx.success();
                                 tx.close();
                                 tx = graphDb.beginTx();
-                            } 
+                                counter =0;
+                                rwlock.writeLock().unlock();
+                            }
                         }
                     } 
                 } catch (InterruptedException exception) {
@@ -721,29 +731,15 @@ public class Neo4j extends AbstractStorage {
                 } finally {
                     tx.success();
                     tx.close();
+                    rwlock.writeLock().unlock();
                 }
 
             }
         }
 
-        GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabase( dbpath );
-
-        // clear already present indexes
-        try ( Transaction tx = graphDb.beginTx() ) {
-            graphDb.index().forNodes(spade.storage.Neo4j.VERTEX_INDEX).delete();
-            tx.success();
-        }
-
-        try ( Transaction tx = graphDb.beginTx() ) {
-            graphDb.index().forRelationships(spade.storage.Neo4j.EDGE_INDEX).delete();
-            tx.success();
-        }
-
-        //
-
         ArrayList<Thread> workers = new ArrayList<Thread>();
         for (int i=0; i<totalThreads; i++) {
-            Thread th = new Thread(new NodeIndexer(graphDb));
+            Thread th = new Thread(new NodeIndexer());
             workers.add(th);
             th.start();
         }
@@ -765,7 +761,6 @@ public class Neo4j extends AbstractStorage {
                 if (printProgress) {
                     count = count +1;
 
-                    // if (((count*100)/total)+1 >= percentageCompleted) {
                     if (((count*100)/total) > percentageCompleted) {
                         System.out.print("| Total Objects (nodes + relationships) to Index: " + total
                                 + " | Currently at Object: " + count
@@ -813,7 +808,7 @@ public class Neo4j extends AbstractStorage {
         workers.clear();
 
         for (int i=0; i<totalThreads; i++) {
-            Thread th = new Thread(new RelationshipIndexer(graphDb));
+            Thread th = new Thread(new RelationshipIndexer());
             workers.add(th);
             th.start();
         }
@@ -826,7 +821,6 @@ public class Neo4j extends AbstractStorage {
                 if (printProgress) {
                     count = count +1;
 
-                    // if (((count*100)/total)+1 >= percentageCompleted) {
                     if (((count*100)/total) > percentageCompleted) {
                         System.out.print("| Total Objects (nodes + relationships) to Index: " + total
                                 + " | Currently at Object: " + count
