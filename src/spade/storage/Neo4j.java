@@ -32,6 +32,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -56,6 +57,7 @@ import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.kernel.Traversal;
 import org.neo4j.tooling.GlobalGraphOperations;
 import org.neo4j.helpers.collection.IteratorUtil;
+import org.neo4j.graphdb.factory.GraphDatabaseSettings;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -627,12 +629,17 @@ public class Neo4j extends AbstractStorage {
 
     public static void index(String dbpath, boolean printProgress) {
 
-        int totalThreads = 10;
-        final ConcurrentLinkedQueue<PropertyContainer> taskQueue = new ConcurrentLinkedQueue<PropertyContainer>();
-        final ReentrantReadWriteLock rwlock = new ReentrantReadWriteLock();
-        final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabase( dbpath );
+        int totalThreads = Runtime.getRuntime().availableProcessors();
+        final ConcurrentLinkedQueue<Node> nodeTaskQueue = new ConcurrentLinkedQueue<Node>();
+        final ConcurrentLinkedQueue<Relationship> edgeTaskQueue = new ConcurrentLinkedQueue<Relationship>();
+        final ReentrantReadWriteLock nodeRwlock = new ReentrantReadWriteLock();
+        final ReentrantReadWriteLock edgeRwlock = new ReentrantReadWriteLock();
         final Index<Node> vertexIndex;
         final RelationshipIndex edgeIndex;
+        final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder( dbpath )
+            .setConfig(GraphDatabaseSettings.pagecache_memory, "20G")
+            // .setConfig(GraphDatabaseSettings.keep_logical_logs, "false")
+            .newGraphDatabase();
 
         // clear already present indexes
         try ( Transaction tx = graphDb.beginTx() ) {
@@ -664,34 +671,38 @@ public class Neo4j extends AbstractStorage {
                 int counter = 0;
                 try {
                     while (true) {
-                        Node node = (Node)taskQueue.poll();
+                        Node node = nodeTaskQueue.poll();
                         if (node==null) {
                             Thread.sleep(1000);
                             continue;
-                        } else {
+                        } 
+
+                        if (counter < 10000) {
                             for ( String key : node.getPropertyKeys() ) {
-                                String value = (String) node.getProperty( key );
-                                vertexIndex.add(node, key, value);
+                                vertexIndex.add(node, key, (String) node.getProperty( key ));
                             }
                             node.setProperty(spade.storage.Neo4j.ID_STRING, node.getId());
                             vertexIndex.add(node, spade.storage.Neo4j.ID_STRING, Long.toString(node.getId())); 
                             
                             counter++;
-                            if (counter > 1000 && rwlock.writeLock().tryLock()){
-                                tx.success();
-                                tx.close();
-                                tx = graphDb.beginTx();
-                                counter =0;
-                                rwlock.writeLock().unlock();
-                            }                       
                         }
+
+                        if (counter > 1000 && nodeRwlock.writeLock().tryLock()){
+                            tx.success();
+                            tx.close();
+                            tx = graphDb.beginTx();
+                            nodeRwlock.writeLock().unlock();
+                            counter =0;
+                        }                         
                     } 
                 } catch (InterruptedException exception) {
 
                 } finally {
                     tx.success();
                     tx.close();
-                    rwlock.writeLock().unlock();
+                    if (nodeRwlock.writeLock().isHeldByCurrentThread()) {
+                        nodeRwlock.writeLock().unlock();
+                    }
                 }
             }
         }
@@ -704,26 +715,28 @@ public class Neo4j extends AbstractStorage {
                 int counter = 0;
                 try {
                     while (true) {
-                        Relationship relationship = (Relationship)taskQueue.poll();
+                        Relationship relationship = edgeTaskQueue.poll();
                         if (relationship==null) {
                             Thread.sleep(1000);
                             continue;
-                        } else {
+                        } 
+
+                        if (counter < 10000) {
                             for ( String key : relationship.getPropertyKeys() ) {
-                                String value = (String) relationship.getProperty( key );
-                                edgeIndex.add(relationship, key, value);
+                                edgeIndex.add(relationship, key, (String) relationship.getProperty( key ));
                             }
                             relationship.setProperty(spade.storage.Neo4j.ID_STRING, relationship.getId());
                             edgeIndex.add(relationship, spade.storage.Neo4j.ID_STRING, Long.toString(relationship.getId()));                        
 
                             counter++;
-                            if (counter > 1000 && rwlock.writeLock().tryLock()){
-                                tx.success();
-                                tx.close();
-                                tx = graphDb.beginTx();
-                                counter =0;
-                                rwlock.writeLock().unlock();
-                            }
+                        }
+
+                        if (counter > 1000 && edgeRwlock.writeLock().tryLock()){
+                            tx.success();
+                            tx.close();
+                            tx = graphDb.beginTx();
+                            edgeRwlock.writeLock().unlock();
+                            counter =0;
                         }
                     } 
                 } catch (InterruptedException exception) {
@@ -731,16 +744,25 @@ public class Neo4j extends AbstractStorage {
                 } finally {
                     tx.success();
                     tx.close();
-                    rwlock.writeLock().unlock();
+                    if (edgeRwlock.writeLock().isHeldByCurrentThread()) {
+                        edgeRwlock.writeLock().unlock();
+                    }
                 }
 
             }
         }
 
-        ArrayList<Thread> workers = new ArrayList<Thread>();
-        for (int i=0; i<totalThreads; i++) {
+        ArrayList<Thread> nodeWorkers = new ArrayList<Thread>();
+        for (int i=0; i<totalThreads/2; i++) {
             Thread th = new Thread(new NodeIndexer());
-            workers.add(th);
+            nodeWorkers.add(th);
+            th.start();
+        }
+
+        ArrayList<Thread> edgeWorkers = new ArrayList<Thread>();
+        for (int i=0; i<totalThreads/2; i++) {
+            Thread th = new Thread(new RelationshipIndexer());
+            edgeWorkers.add(th);
             th.start();
         }
 
@@ -757,112 +779,74 @@ public class Neo4j extends AbstractStorage {
         try ( Transaction tx = graphDb.beginTx() ) {
 
             // index nodes
-            for ( Node node : GlobalGraphOperations.at(graphDb).getAllNodes() ) {
+            Iterator<Node> nodeIterator = GlobalGraphOperations.at(graphDb).getAllNodes().iterator();
+            Iterator<Relationship> edgeIterator = GlobalGraphOperations.at(graphDb).getAllRelationships().iterator();
+
+            while (edgeIterator.hasNext() || nodeIterator.hasNext()) {
+
+                if (nodeIterator.hasNext() && nodeTaskQueue.size()<10000) {
+                    nodeTaskQueue.add(nodeIterator.next());
+                    count = count+1;
+                }
+
+                if (edgeIterator.hasNext() && edgeTaskQueue.size()<10000) {
+                    edgeTaskQueue.add(edgeIterator.next());
+                    count = count+1;
+                }
+
                 if (printProgress) {
-                    count = count +1;
 
                     if (((count*100)/total) > percentageCompleted) {
-                        System.out.print("| Total Objects (nodes + relationships) to Index: " + total
+                        Runtime rt = Runtime.getRuntime();
+                        long totalMemory = rt.totalMemory()/ 1024 / 1024;
+                        long freeMemory = rt.freeMemory()/ 1024 / 1024;
+                        long usedMemory = totalMemory - freeMemory;
+                        System.out.print("| Total Cores: " + rt.availableProcessors()
+                                + " | Total Threads: " + totalThreads
+                                + " | Heap (MB) - total: " + totalMemory + ", free: " + freeMemory + ", used: " + usedMemory + ", %age free: " + (freeMemory*100)/totalMemory
+                                + " | Total Objects (nodes + relationships) to Index: " + total
                                 + " | Currently at Object: " + count
                                 + " | Percentage Completed: " + percentageCompleted
                                 + " |\r");
                     }
 
                     percentageCompleted = (count*100)/total;
-                }
+                }            
 
-                while (taskQueue.size()>10000) {
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException exception) {
-
-                    }
-                }
-
-                taskQueue.add(node);
             }
 
             tx.success();
         }
 
         try {
-            while (taskQueue.size()!=0) {
+            while (nodeTaskQueue.size()!=0 || edgeTaskQueue.size()!=0) {
                 Thread.sleep(1000);
             }
         } catch (InterruptedException exception) {
 
         }
 
-        for (int i=0; i<totalThreads; i++) {
-            workers.get(i).interrupt();
+
+        for (int i=0; i<totalThreads/2; i++) {
+            nodeWorkers.get(i).interrupt();
         }
 
-        for (int i=0; i<totalThreads; i++) {
+        for (int i=0; i<totalThreads/2; i++) {
+            edgeWorkers.get(i).interrupt();
+        }
+
+
+        for (int i=0; i<totalThreads/2; i++) {
             try {
-                workers.get(i).join();
+                nodeWorkers.get(i).join();
             } catch (InterruptedException exception) {
 
             }
         }  
 
-        workers.clear();
-
-        for (int i=0; i<totalThreads; i++) {
-            Thread th = new Thread(new RelationshipIndexer());
-            workers.add(th);
-            th.start();
-        }
-
-        try ( Transaction tx = graphDb.beginTx() ) {
-            // index edges
-            for ( Relationship relationship : GlobalGraphOperations.at(graphDb).getAllRelationships() ) {
-
-                // code repetition
-                if (printProgress) {
-                    count = count +1;
-
-                    if (((count*100)/total) > percentageCompleted) {
-                        System.out.print("| Total Objects (nodes + relationships) to Index: " + total
-                                + " | Currently at Object: " + count
-                                + " | Percentage Completed: " + (percentageCompleted + 1)
-                                + " |\r");
-                    }
-
-                    percentageCompleted = (count*100)/total;
-                }             
-
-                while (taskQueue.size()>10000) {
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException exception) {
-
-                    }
-                }
-
-                taskQueue.add(relationship);
-            }
-
-            if (printProgress) {
-                System.out.println();
-            }
-            tx.success();
-        }
-
-        try {
-            while (taskQueue.size()!=0) {
-                Thread.sleep(1000);
-            }
-        } catch (InterruptedException exception) {
-
-        }
-
-        for (int i=0; i<totalThreads; i++) {
-            workers.get(i).interrupt();
-        }
-
-        for (int i=0; i<totalThreads; i++) {
+        for (int i=0; i<totalThreads/2; i++) {
             try {
-                workers.get(i).join();
+                edgeWorkers.get(i).join();
             } catch (InterruptedException exception) {
 
             }
