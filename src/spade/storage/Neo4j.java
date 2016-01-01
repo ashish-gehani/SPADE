@@ -638,6 +638,7 @@ public class Neo4j extends AbstractStorage {
         final RelationshipIndex edgeIndex;
         final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder( dbpath )
             .setConfig(GraphDatabaseSettings.pagecache_memory, "20G")
+            // .setConfig(GraphDatabaseSettings.mapped_memory_page_size, "20G")
             // .setConfig(GraphDatabaseSettings.keep_logical_logs, "false")
             .newGraphDatabase();
 
@@ -801,12 +802,12 @@ public class Neo4j extends AbstractStorage {
                         long totalMemory = rt.totalMemory()/ 1024 / 1024;
                         long freeMemory = rt.freeMemory()/ 1024 / 1024;
                         long usedMemory = totalMemory - freeMemory;
-                        System.out.print("| Total Cores: " + rt.availableProcessors()
-                                + " | Total Threads: " + totalThreads
-                                + " | Heap (MB) - total: " + totalMemory + ", free: " + freeMemory + ", used: " + usedMemory + ", %age free: " + (freeMemory*100)/totalMemory
-                                + " | Total Objects (nodes + relationships) to Index: " + total
-                                + " | Currently at Object: " + count
-                                + " | Percentage Completed: " + percentageCompleted
+                        System.out.print("| Cores: " + rt.availableProcessors()
+                                + " | Threads: " + totalThreads
+                                + " | Heap (MB) - total: " + totalMemory + " , " + (freeMemory*100)/totalMemory +  "% free" 
+                                // + " | Total Objects (nodes + relationships) to Index: " + total
+                                + " | Indexing Object (nodes + relationships): " + count  + " / " + total
+                                + " | Completed: " + percentageCompleted + " %"
                                 + " |\r");
                     }
 
@@ -817,6 +818,8 @@ public class Neo4j extends AbstractStorage {
 
             tx.success();
         }
+
+        System.out.println("Indexing completed.");
 
         try {
             while (nodeTaskQueue.size()!=0 || edgeTaskQueue.size()!=0) {
@@ -829,28 +832,21 @@ public class Neo4j extends AbstractStorage {
 
         for (int i=0; i<totalThreads/2; i++) {
             nodeWorkers.get(i).interrupt();
-        }
-
-        for (int i=0; i<totalThreads/2; i++) {
-            edgeWorkers.get(i).interrupt();
-        }
-
-
-        for (int i=0; i<totalThreads/2; i++) {
             try {
                 nodeWorkers.get(i).join();
             } catch (InterruptedException exception) {
 
             }
-        }  
+        }
 
         for (int i=0; i<totalThreads/2; i++) {
+            edgeWorkers.get(i).interrupt();
             try {
                 edgeWorkers.get(i).join();
             } catch (InterruptedException exception) {
 
             }
-        }  
+        } 
 
         graphDb.shutdown();
     }

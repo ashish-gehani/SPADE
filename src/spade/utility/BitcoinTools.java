@@ -55,6 +55,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
@@ -464,30 +466,103 @@ class CSVWriter {
     public void writeBlocksToCSV(int startIndex, int endIndex) {
         // Block block, int lastBlockId
         int lastBlockId = -1;
-        BitcoinTools bitcoinTools = new BitcoinTools();
+        final BitcoinTools bitcoinTools = new BitcoinTools();
 
         String pattern = "#.##";
         DecimalFormat decimalFormat = new DecimalFormat(pattern);
 
+        final ConcurrentHashMap<Integer, Block> blockMap = new ConcurrentHashMap<Integer, Block>();
+        final AtomicInteger currentBlock = new AtomicInteger(startIndex);
+        final int stopIndex = endIndex;
+        int totalThreads = Runtime.getRuntime().availableProcessors();
+
+        class BlockFetcher implements Runnable {
+
+            public void run() {
+
+                while (true) {
+                    if (blockMap.size() > totalThreads * 5) { // max objects to hold in memory max 1 MB * totalThreads * factor
+                        try {
+                            Thread.sleep(100);
+                            continue;
+                        } catch (Exception exception) {
+
+                        }
+                    } 
+
+                    int blockToFetch = currentBlock.getAndIncrement();
+                    try {
+                        blockMap.put(blockToFetch, bitcoinTools.getBlock(blockToFetch));
+                    } catch (JSONException exception) {
+                        Bitcoin.log(Level.SEVERE, "Block " + blockToFetch + " has invalid json. Redownloading.", exception);
+                        try {
+                            blockMap.put(blockToFetch, bitcoinTools.getBlock(blockToFetch));
+                        } catch (JSONException ex) {
+                            Bitcoin.log(Level.SEVERE, "Block " + blockToFetch + " couldn't be included in CSV.", ex);
+                        }
+                    }
+                    if (blockToFetch >= stopIndex) {
+                        break;
+                    }
+                
+                } 
+
+            }
+        }
+
+        ArrayList<Thread> workers = new ArrayList<Thread>();
+        for (int i=0; i<totalThreads; i++) {
+            Thread th = new Thread(new BlockFetcher());
+            workers.add(th);
+            th.start();
+        }        
+
+        int percentageCompleted = 0;
+
         for (int i=startIndex; i<endIndex; i++) {
+
             try {
-                lastBlockId = writeBlockToCSV(bitcoinTools.getBlock(i), lastBlockId);
 
-                System.out.print("| Total Blocks To Process: " + (endIndex - startIndex)
-                        + " | Currently at Block: " + (i-startIndex+1)
-                        + " | Percentage Completed: " + decimalFormat.format((i-startIndex+1)*100.0/(endIndex-startIndex))
-                        + " |\r");
+                Block block;
+                while (!blockMap.containsKey(i)) {
 
-            } catch (JSONException ex) {
-                Bitcoin.log(Level.SEVERE, "Block " + i + " has invalid json. Redownloading.", ex);
-                bitcoinTools.dumpBlock(i);
-                i=i-1;
-                continue;
+                }
+                block = blockMap.get(i);
+                blockMap.remove(i);
+
+                lastBlockId = writeBlockToCSV(block, lastBlockId);
+
+                if ((((i-startIndex+1)*100)/(endIndex-startIndex)) > percentageCompleted) {
+                    Runtime rt = Runtime.getRuntime();
+                    long totalMemory = rt.totalMemory()/ 1024 / 1024;
+                    long freeMemory = rt.freeMemory()/ 1024 / 1024;
+                    long usedMemory = totalMemory - freeMemory;
+                    System.out.print("| Cores: " + rt.availableProcessors()
+                            + " | Threads: " + totalThreads
+                            + " | Heap (MB) - total: " + totalMemory + ", %age free: " + (freeMemory*100)/totalMemory
+                            + " | At Block: " + (i-startIndex+1) + " / " + (endIndex - startIndex)
+                            + " | Percentage Completed: " + percentageCompleted
+                            + " |\r");
+                }
+
+                percentageCompleted = ((i-startIndex+1)*100)/(endIndex-startIndex);
+
             } catch (IOException ex) {
                 Bitcoin.log(Level.SEVERE, "Unexpected IOException. Stopping CSV creation.", ex);
                 break;
             }
         }
+
+
+        for (int i=0; i<totalThreads; i++) {
+            try {
+                workers.get(i).interrupt();
+                workers.get(i).join();
+            } catch (InterruptedException exception) {
+                
+            }
+        } 
+
         System.out.println("\n\ndone with creating CSVes!");
 
     }
