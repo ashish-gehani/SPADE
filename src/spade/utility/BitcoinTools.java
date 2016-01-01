@@ -474,7 +474,7 @@ class CSVWriter {
         final ConcurrentHashMap<Integer, Block> blockMap = new ConcurrentHashMap<Integer, Block>();
         final AtomicInteger currentBlock = new AtomicInteger(startIndex);
         final int stopIndex = endIndex;
-        int totalThreads = Runtime.getRuntime().availableProcessors();
+        final int totalThreads = Runtime.getRuntime().availableProcessors();
 
         class BlockFetcher implements Runnable {
 
