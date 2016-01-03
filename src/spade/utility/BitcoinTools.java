@@ -345,22 +345,40 @@ class CSVWriter {
 
     int lastnodeId = -1;
     HashMap<Integer,Integer> nodeHashDict = new HashMap<Integer, Integer>();
-    public int writeNodeToCSVIfRequired(final int csvFile, String line) throws IOException {
-        Integer index = nodeHashDict.get(line.hashCode());
+    public int writeNodeToCSV(final int csvFile, String line) throws IOException {
+        return writeNodeToCSV(csvFile, line, line.hashCode());
+    }
+
+    public int writeNodeToCSV(final int csvFile, String line, int lineHash) throws IOException {
+        // the whole point of this function is to stop recalculating line hash
+        lastnodeId = lastnodeId + 1;
+        nodeHashDict.put(lineHash, lastnodeId);
+        writeRow(csvFile,
+            lastnodeId + "," +
+            line
+            );
+        return lastnodeId;
+    }
+
+    public int writeNodeToCSVIfRequired(final int csvFile, String line, boolean occursOnce) throws IOException {
+        int lineHash = line.hashCode();
+        Integer index = nodeHashDict.get(lineHash);
         if (index == null) {
-            lastnodeId = lastnodeId + 1;
-            nodeHashDict.put(line.hashCode(), lastnodeId);
-            writeRow(csvFile,
-                lastnodeId + "," +
-                line
-                );
-            return lastnodeId;
+            return writeNodeToCSV(csvFile, line, lineHash);
+        } else if (occursOnce) {
+            // payment case
+            nodeHashDict.remove(lineHash);
         }
         return index.intValue();
     }
 
+    public int writeNodeToCSVIfRequired(final int csvFile, String line) throws IOException {
+        return writeNodeToCSVIfRequired(csvFile, line, false);
+    }
+
+
     public int writeBlockToCSV(Block block, int lastBlockId) throws IOException {
-        int block_id = writeNodeToCSVIfRequired(BLOCKS_CSV,
+        int block_id = writeNodeToCSV(BLOCKS_CSV,
             "Activity," + 
             block.getHash() + "," +
             block.getHeight() + "," +
@@ -375,7 +393,7 @@ class CSVWriter {
             String coinbase_value = tx.getCoinbaseValue();
             int tx_id;
             if (coinbase_value != null) {
-                tx_id = writeNodeToCSVIfRequired(TX_CSV,
+                tx_id = writeNodeToCSV(TX_CSV,
                     "Activity," + 
                     ","+
                     tx.getLocktime() + "," + 
@@ -383,7 +401,7 @@ class CSVWriter {
                     "VERTEX"
                     );
             } else {
-                tx_id = writeNodeToCSVIfRequired(TX_CSV,
+                tx_id = writeNodeToCSV(TX_CSV,
                     "Activity," +
                     tx.getId() + "," +
                     tx.getLocktime() + "," + 
@@ -406,7 +424,7 @@ class CSVWriter {
                         vin.getTxid() + "," +
                         vin.getN() + "," +
                         "VERTEX"
-                        );
+                        , true);
 
                     writeRow(EDGES_CSV,
                         tx_id + "," +
@@ -418,7 +436,7 @@ class CSVWriter {
             }
 
             for (Vout vout: tx.getVouts()) {
-                int payment_id = writeNodeToCSVIfRequired(PAYMENT_CSV,
+                int payment_id = writeNodeToCSV(PAYMENT_CSV,
                     "Entity," + 
                     tx.getId() + "," +
                     vout.getN() + "," +
@@ -434,6 +452,7 @@ class CSVWriter {
                     );
 
                 for (String address: vout.getAddresses()) {
+                    // remove this once you have get it back. 
                     int address_id = writeNodeToCSVIfRequired(ADDRESS_CSV,
                         "Agent," +
                         address + "," +
@@ -542,7 +561,8 @@ class CSVWriter {
                             + " | Heap (MB) - total: " + totalMemory + ", %age free: " + (freeMemory*100)/totalMemory
                             + " | At Block: " + (i-startIndex+1) + " / " + (endIndex - startIndex)
                             + " | Percentage Completed: " + percentageCompleted
-                            + " |\r");
+                            // + " |\r");
+                            + " |\n");
                 }
 
                 percentageCompleted = ((i-startIndex+1)*100)/(endIndex-startIndex);
