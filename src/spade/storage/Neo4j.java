@@ -636,12 +636,13 @@ public class Neo4j extends AbstractStorage {
         final ReentrantReadWriteLock edgeRwlock = new ReentrantReadWriteLock();
         final Index<Node> vertexIndex;
         final RelationshipIndex edgeIndex;
+        System.out.println("Loading database...");
         final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder( dbpath )
-            .setConfig(GraphDatabaseSettings.pagecache_memory, "20G")
-            // .setConfig(GraphDatabaseSettings.mapped_memory_page_size, "20G")
+            .setConfig(GraphDatabaseSettings.pagecache_memory, "" + (Runtime.getRuntime().totalMemory()*9)/10)
             // .setConfig(GraphDatabaseSettings.keep_logical_logs, "false")
             .newGraphDatabase();
 
+        System.out.println("Loaded");
         // clear already present indexes
         try ( Transaction tx = graphDb.beginTx() ) {
             graphDb.index().forNodes(spade.storage.Neo4j.VERTEX_INDEX).delete();
@@ -654,6 +655,8 @@ public class Neo4j extends AbstractStorage {
         }
         //
 
+        System.out.println("Creating Indexing discriptors...");
+
         try ( Transaction tx = graphDb.beginTx() ) {
             vertexIndex = graphDb.index().forNodes(spade.storage.Neo4j.VERTEX_INDEX);
             tx.success();
@@ -664,6 +667,8 @@ public class Neo4j extends AbstractStorage {
             tx.success();
         }
 
+        System.out.println("Created");        
+
         class NodeIndexer implements Runnable {
 
             public void run() {
@@ -671,14 +676,14 @@ public class Neo4j extends AbstractStorage {
                 Transaction tx = graphDb.beginTx();
                 int counter = 0;
                 try {
-                    while (true) {
-                        Node node = nodeTaskQueue.poll();
-                        if (node==null) {
-                            Thread.sleep(1000);
-                            continue;
-                        } 
+                    while (!Thread.currentThread().isInterrupted()) {
 
                         if (counter < 10000) {
+                            Node node = nodeTaskQueue.poll();
+                            if (node==null) {
+                                continue;
+                            } 
+
                             for ( String key : node.getPropertyKeys() ) {
                                 vertexIndex.add(node, key, (String) node.getProperty( key ));
                             }
@@ -694,12 +699,12 @@ public class Neo4j extends AbstractStorage {
                             tx = graphDb.beginTx();
                             nodeRwlock.writeLock().unlock();
                             counter =0;
-                        }                         
+                        } 
+
                     } 
-                } catch (InterruptedException exception) {
 
                 } finally {
-                    tx.success();
+                    // tx.success();
                     tx.close();
                     if (nodeRwlock.writeLock().isHeldByCurrentThread()) {
                         nodeRwlock.writeLock().unlock();
@@ -715,14 +720,14 @@ public class Neo4j extends AbstractStorage {
                 Transaction tx = graphDb.beginTx();
                 int counter = 0;
                 try {
-                    while (true) {
-                        Relationship relationship = edgeTaskQueue.poll();
-                        if (relationship==null) {
-                            Thread.sleep(1000);
-                            continue;
-                        } 
+                    while (!Thread.currentThread().isInterrupted()) {
 
                         if (counter < 10000) {
+                            Relationship relationship = edgeTaskQueue.poll();
+                            if (relationship==null) {
+                                continue;
+                            } 
+
                             for ( String key : relationship.getPropertyKeys() ) {
                                 edgeIndex.add(relationship, key, (String) relationship.getProperty( key ));
                             }
@@ -739,11 +744,11 @@ public class Neo4j extends AbstractStorage {
                             edgeRwlock.writeLock().unlock();
                             counter =0;
                         }
+
                     } 
-                } catch (InterruptedException exception) {
 
                 } finally {
-                    tx.success();
+                    // tx.success();
                     tx.close();
                     if (edgeRwlock.writeLock().isHeldByCurrentThread()) {
                         edgeRwlock.writeLock().unlock();
@@ -767,12 +772,15 @@ public class Neo4j extends AbstractStorage {
             th.start();
         }
 
+
+        System.out.println("Counted Nodes and Relationships to index...");
         final int total;
         
         try ( Transaction tx = graphDb.beginTx() ) {
             total = IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllNodes()) + IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllRelationships());
             tx.success();
         }
+        System.out.println("done.\n");
 
         int percentageCompleted = 0;
         int count = 0;
@@ -819,7 +827,7 @@ public class Neo4j extends AbstractStorage {
             tx.success();
         }
 
-        System.out.println("Indexing completed.");
+        System.out.println("\n\nIndexing completed. Waiting for queues to clear...");
 
         try {
             while (nodeTaskQueue.size()!=0 || edgeTaskQueue.size()!=0) {
@@ -829,6 +837,7 @@ public class Neo4j extends AbstractStorage {
 
         }
 
+        System.out.println("Queues cleared. Threads teardown started...");
 
         for (int i=0; i<totalThreads/2; i++) {
             nodeWorkers.get(i).interrupt();
@@ -848,6 +857,7 @@ public class Neo4j extends AbstractStorage {
             }
         } 
 
+        System.out.println("Database shutdown started...");
         graphDb.shutdown();
     }
 }
