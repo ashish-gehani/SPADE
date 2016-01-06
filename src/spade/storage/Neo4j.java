@@ -738,7 +738,7 @@ public class Neo4j extends AbstractStorage {
                         }
 
                         if (counter > 1000 && edgeRwlock.writeLock().tryLock()){
-                            tx.success();
+                            // tx.success();
                             tx.close();
                             tx = graphDb.beginTx();
                             edgeRwlock.writeLock().unlock();
