@@ -1426,6 +1426,9 @@ class LocalQueryConnection implements Runnable {
 					graph.setQueryParams(queryParams);
 					try{
 						graph = transformer.putGraph(graph);
+						if(graph != null){
+							graph.commitIndex(); //commit after every transformer to enable reading without error
+						}
 					}catch(Exception e){
 						Logger.getLogger(getClass().getName()).log(Level.SEVERE, null, e);
 					}
