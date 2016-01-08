@@ -932,21 +932,24 @@ public class Kernel {
                 return;
             }
             // Initialize filter if arguments are provided
-            transformer.initialize(arguments);
-            transformer.arguments = arguments;
-            // The argument is the index at which the transformer is to be
-            // inserted.
-            if (index > transformers.size() || index < 0) {
-                outputStream.println("error: Invalid index");
-                return;
+            if(transformer.initialize(arguments)){
+	            transformer.arguments = arguments;
+	            // The argument is the index at which the transformer is to be
+	            // inserted.
+	            if (index > transformers.size() || index < 0) {
+	                outputStream.println("error: Invalid index");
+	                return;
+	            }
+	           
+	            synchronized (transformers) {
+					transformers.add(index, transformer);
+				}
+	            
+	            logger.log(Level.INFO, "Transformer added: {0}", classname);
+	            outputStream.println("done");
+            }else{
+            	outputStream.println("failed");
             }
-           
-            synchronized (transformers) {
-				transformers.add(index, transformer);
-			}
-            
-            logger.log(Level.INFO, "Transformer added: {0}", classname);
-            outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("sketch")) {
             if (tokens.length < 3) {
                 outputStream.println("Usage:");
