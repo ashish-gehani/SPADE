@@ -128,6 +128,31 @@ public class Graph extends AbstractStorage implements Serializable {
             logger.log(Level.SEVERE, null, exception);
         }
     }
+    
+    public void closeIndexWriters(){
+    	closeVertexIndexWriter();
+    	closeEdgeIndexWriter();
+    }
+    
+    public void closeVertexIndexWriter(){
+    	try{
+    		if(vertexIndexWriter != null){
+    			vertexIndexWriter.close();
+    		}
+    	}catch(Exception e){
+    		logger.log(Level.SEVERE, "failed to close vertex index writer", e);
+    	}
+    }
+    
+    public void closeEdgeIndexWriter(){
+    	try{
+    		if(edgeIndexWriter != null){
+    			edgeIndexWriter.close();
+    		}
+    	}catch(Exception e){
+    		logger.log(Level.SEVERE, "failed to close edge index writer", e);
+    	}
+    }
 
     public void setQueryParam(QueryParams key, Object value){
     	queryParams.put(key, value);
