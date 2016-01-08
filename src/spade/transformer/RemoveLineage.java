@@ -31,6 +31,9 @@ public class RemoveLineage extends AbstractTransformer{
 	private String vertexExpression;
 	
 	public boolean initialize(String arguments){
+		if(arguments == null || arguments.trim().isEmpty()){
+			return false;
+		}
 		vertexExpression = arguments;
 		return true;
 	}
@@ -68,7 +71,9 @@ public class RemoveLineage extends AbstractTransformer{
 		
 		Graph toRemoveGraph = graph.getLineage(this.vertexExpression, depth, direction, null);
 		
-		removeEdges(resultGraph, graph, toRemoveGraph);
+		if(toRemoveGraph != null){
+			removeEdges(resultGraph, graph, toRemoveGraph);
+		}	
 		
 		return resultGraph;
 	}
