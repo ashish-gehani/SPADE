@@ -1725,7 +1725,7 @@ public class Audit extends AbstractReporter {
     	Integer oldVersion = null;
     	try{
     		oldVersion = Integer.parseInt(newArtifact.getAnnotation("version")) - 1;
-    		if(oldVersion <= 0){ //i.e. no previous one, it is the first artifact for the path
+    		if(oldVersion < 0){ //i.e. no previous one, it is the first artifact for the path
     			return;
     		}
     	}catch(Exception e){
