@@ -69,8 +69,6 @@ public class RemoveLineage extends AbstractTransformer{
 		
 		Graph resultGraph = new Graph();
 		
-		graph.closeIndexWriters();
-		
 		Graph toRemoveGraph = graph.getLineage(this.vertexExpression, depth, direction, null);
 		
 		if(toRemoveGraph != null){
