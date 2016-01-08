@@ -20,129 +20,133 @@
 package spade.transformer;
 
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
-import spade.core.AbstractVertex;
-import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Settings;
-import spade.core.Vertex;
+import spade.core.Graph.QueryParams;
 
 public class BEEP extends AbstractTransformer {
 	
-	private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
-    private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
-    private static final String ID_STRING = Settings.getProperty("storage_identifier");
-    
+	private final Logger logger = Logger.getLogger(getClass().getName()); 
+	
+	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+	
+	private AbstractTransformer[] forwardSearchTransformers = null;
+	private AbstractTransformer[] backwardSearchTransformers = null;
+	
+	public boolean initializeTransformer(AbstractTransformer transformer, String arguments){
+		boolean success = transformer.initialize(arguments);
+		if(!success){
+			logger.log(Level.SEVERE, "Failed to initialize transformer " + transformer.getClass().getName());
+		}
+		return success;
+	}
+	
+	public boolean initialize(String arguments){
+		boolean success = true;
+		//always the first for now until the issue is resolved
+		AbstractTransformer removeSudoLineage = new RemoveLineage();
+		success = success && initializeTransformer(removeSudoLineage, "name:sudo");
+		
+		AbstractTransformer removeBeepUnits = new RemoveBEEPUnits();
+		success = success && initializeTransformer(removeBeepUnits, arguments);
+		
+		AbstractTransformer removeMemoryVertices = new RemoveMemoryVertices();
+		success = success && initializeTransformer(removeMemoryVertices, arguments);
+		
+		AbstractTransformer removeRenameLinkUpdateEdges = new ReplaceRenameLinkWithWrite();
+		success = success && initializeTransformer(removeRenameLinkUpdateEdges, arguments);
+		
+		AbstractTransformer collapseArtifactVersions = new CollapseArtifactVersions();
+		success = success && initializeTransformer(collapseArtifactVersions, arguments);
+		
+		AbstractTransformer mergeIOEdges = new MergeIOEdges();
+		success = success && initializeTransformer(mergeIOEdges, arguments);
+		
+		AbstractTransformer mergeForkCloneAndExecveEdges = new MergeForkCloneAndExecveEdges(); 
+		success = success && initializeTransformer(mergeForkCloneAndExecveEdges, arguments);
+		
+		AbstractTransformer removeFiles = new RemoveFiles();
+		success = success && initializeTransformer(removeFiles, arguments);
+		
+		AbstractTransformer removeFileReadIfReadOnlyForwardSearch = new RemoveFileReadIfReadOnly();
+		success = success && initializeTransformer(removeFileReadIfReadOnlyForwardSearch, arguments);
+		
+		AbstractTransformer removeFileReadIfReadOnlyBackwardSearch = new RemoveFileReadIfReadOnly();
+		success = success && initializeTransformer(removeFileReadIfReadOnlyBackwardSearch, arguments);
+		
+		AbstractTransformer removeFileWriteIfWriteOnly = new RemoveFileWriteIfWriteOnly();
+		success = success && initializeTransformer(removeFileWriteIfWriteOnly, arguments);
+		
+		if(!success){
+			return false;
+		}
+		
+		forwardSearchTransformers = new AbstractTransformer[] {
+				removeSudoLineage,
+				removeBeepUnits,
+				removeMemoryVertices,
+				removeRenameLinkUpdateEdges,
+				collapseArtifactVersions,
+				mergeIOEdges,
+				mergeForkCloneAndExecveEdges,
+				removeFiles,
+				removeFileReadIfReadOnlyForwardSearch,
+				//removeFileWriteIfWriteOnly
+		};
+		
+		backwardSearchTransformers = new AbstractTransformer[]{
+				removeSudoLineage,
+				removeBeepUnits,
+				removeMemoryVertices,
+				removeRenameLinkUpdateEdges,
+				collapseArtifactVersions,
+				mergeIOEdges,
+				mergeForkCloneAndExecveEdges,
+				removeFiles,
+				removeFileReadIfReadOnlyBackwardSearch,
+				removeFileWriteIfWriteOnly
+		};
+		return true;
+	}
+	
 	@Override
 	public Graph putGraph(Graph graph) {
-		Graph resultGraph = new Graph();
-		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge.getSourceVertex(), "subtype").equals("memory") || getAnnotationSafe(edge.getDestinationVertex(), "subtype").equals("memory")
-					|| isFileSTDIO(edge.getSourceVertex()) || isFileSTDIO(edge.getDestinationVertex())
-					|| getAnnotationSafe(edge, "operation").equals("rename") || getAnnotationSafe(edge, "operation").equals("rename_oldpath")
-					|| getAnnotationSafe(edge, "operation").equals("update")
-					|| getAnnotationSafe(edge, "operation").equals("unit")
-					|| isFilePathUnkown(edge.getSourceVertex()) || isFilePathUnkown(edge.getDestinationVertex())){
-				continue;
-			}
-			AbstractEdge newEdge = createNewWithoutAnnotations(edge, "unit", SRC_VERTEX_ID, DST_VERTEX_ID, ID_STRING, "version", "time", "size");
-			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
-				if(!graphContainsVertex(resultGraph, newEdge.getSourceVertex())){
-					resultGraph.putVertex(newEdge.getSourceVertex());
-				}
-				if(!graphContainsVertex(resultGraph, newEdge.getDestinationVertex())){
-					resultGraph.putVertex(newEdge.getDestinationVertex());
-				}
-				if(!graphContainsEdge(resultGraph, newEdge)){
-					resultGraph.putEdge(newEdge);
-				}	
-			}
+		
+		Map<QueryParams, Object> queryParams = null;
+		String direction = null;
+		if(graph != null){
+			queryParams = graph.getQueryParams();
+			direction = String.valueOf(graph.getQueryParam(QueryParams.DIRECTION));
+		}else{
+			return graph;
 		}
-		return resultGraph;
-	}
-	
-	private boolean isFileSTDIO(AbstractVertex vertex){
-		if(getAnnotationSafe(vertex, "subtype").equals("file")){
-			String path = getAnnotationSafe(vertex, "path");
-			if(path.startsWith("/unknown")){
-				String[] toks = path.split("_");
-				if(toks.length == 2){
-					try{
-						if(Integer.parseInt(toks[1]) < 3){
-							return true;
-						}
-					}catch(Exception e){
-						//no need to catch this exception
-					}
-				}
+		
+		AbstractTransformer[] transformers = null;
+		
+		if(DIRECTION_ANCESTORS.startsWith(direction)){
+			transformers = backwardSearchTransformers;
+		}else if(DIRECTION_DESCENDANTS.startsWith(direction)){
+			transformers = forwardSearchTransformers;
+		}else{
+			//do nothing
+			return graph;
+		}			
+		
+		for(AbstractTransformer transformer : transformers){
+			if(graph != null){
+				graph.setQueryParams(queryParams);
+				graph = transformer.putGraph(graph);
+			}else{
+				break;
 			}
 		}
-		return false;
+		
+		return graph;
 	}
 	
-	private boolean isFilePathUnkown(AbstractVertex vertex){
-		String path = null;
-		if((path = getAnnotationSafe(vertex, "path")) != null){
-			return path.startsWith("/unknown/");
-		}
-		return false;
-	}
-	
-	private String getAnnotationSafe(AbstractVertex vertex, String annotation){
-		if(vertex != null){
-			return getAnnotationSafe(vertex.getAnnotations(), annotation);
-		}
-		return "";
-	}
-	
-	private String getAnnotationSafe(AbstractEdge edge, String annotation){
-		if(edge != null){
-			return getAnnotationSafe(edge.getAnnotations(), annotation);
-		}
-		return "";
-	}
-	
-	private String getAnnotationSafe(Map<String, String> annotations, String annotation){
-		if(annotations != null){
-			String value = null;
-			if((value = annotations.get(annotation)) != null){
-				return value;
-			}
-		}
-		return "";
-	}
-	
-	private AbstractVertex createNewWithoutAnnotations(AbstractVertex vertex, String... annotations){
-		AbstractVertex newVertex = new Vertex();
-		newVertex.addAnnotations(vertex.getAnnotations());
-		if(annotations != null){
-			for(String annotation : annotations){
-				newVertex.removeAnnotation(annotation);
-			}
-		}
-		return newVertex;
-	}
-	
-	private AbstractEdge createNewWithoutAnnotations(AbstractEdge edge, String... annotations){
-		AbstractVertex newSource = createNewWithoutAnnotations(edge.getSourceVertex(), annotations);
-		AbstractVertex newDestination = createNewWithoutAnnotations(edge.getDestinationVertex(), annotations);
-		AbstractEdge newEdge = new Edge(newSource, newDestination);
-		newEdge.addAnnotations(edge.getAnnotations());
-		if(annotations != null){
-			for(String annotation : annotations){
-				newEdge.removeAnnotation(annotation);
-			}
-		}
-		return newEdge;
-	}
-	
-	private boolean graphContainsVertex(Graph graph, AbstractVertex vertex){
-		return graph.vertexSet().contains(vertex);
-	}
-	
-	private boolean graphContainsEdge(Graph graph, AbstractEdge edge){
-		return graph.edgeSet().contains(edge);
-	}
 }
