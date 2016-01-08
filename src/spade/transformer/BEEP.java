@@ -141,6 +141,9 @@ public class BEEP extends AbstractTransformer {
 			if(graph != null){
 				graph.setQueryParams(queryParams);
 				graph = transformer.putGraph(graph);
+				if(graph != null){
+					graph.commitIndex();
+				}
 			}else{
 				break;
 			}
