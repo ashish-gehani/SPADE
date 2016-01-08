@@ -20,10 +20,10 @@
 package spade.core;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -48,12 +48,15 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
+
+import spade.core.Graph.QueryParams;
 import spade.filter.FinalCommitFilter;
 
 /**
@@ -1388,13 +1391,7 @@ class LocalQueryConnection implements Runnable {
                     break;
                 } else {
                     Graph resultGraph = Query.executeQuery(line, false);
-                    synchronized (Kernel.transformers) {
-                		for(AbstractTransformer transformer : Kernel.transformers){
-                			if(resultGraph != null){
-                				resultGraph = transformer.putGraph(resultGraph);
-                			}
-                    	}
-                	} 
+                    resultGraph = iterateTransformers(resultGraph);
                     if(resultGraph != null){
                         queryOutputStream.writeObject("graph");
                         queryOutputStream.writeObject(resultGraph);
@@ -1413,4 +1410,28 @@ class LocalQueryConnection implements Runnable {
             Logger.getLogger(LocalQueryConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+    
+    public Graph iterateTransformers(Graph graph){
+		Map<QueryParams, Object> queryParams = null;
+		if(graph != null){
+			queryParams = graph.getQueryParams();
+		}
+		synchronized (Kernel.transformers) {
+			for(int i = 0; i< Kernel.transformers.size(); i++){
+				AbstractTransformer transformer = Kernel.transformers.get(i);
+				if(graph != null){
+					graph.setQueryParams(queryParams);
+					try{
+						graph = transformer.putGraph(graph);
+					}catch(Exception e){
+						Logger.getLogger(getClass().getName()).log(Level.SEVERE, null, e);
+					}
+				}else{
+					break;
+				}
+			}
+		} 
+		
+		return graph;
+	}
 }
