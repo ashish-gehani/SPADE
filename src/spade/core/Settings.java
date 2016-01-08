@@ -52,6 +52,8 @@ public class Settings {
             setProperty("neo4j_webserver", "true");
             setProperty("opm2provtc_filter_config_filepath", "cfg/opm2provtc-filter.config");
             setProperty("filefilter_config_filepath", "cfg/filefilter.config");
+            setProperty("removefiles_transformer_config_filepath", "cfg/removefilestransformer.config");
+            setProperty("removegarbagefiles_transformer_config_filepath", "cfg/removegarbagefilestransformer.config");
         }
     }
 
