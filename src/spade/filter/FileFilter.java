@@ -21,6 +21,7 @@
 package spade.filter;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -28,6 +29,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+
+import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
@@ -44,31 +47,13 @@ public class FileFilter extends AbstractFilter{
 	
 	public boolean initialize(String arguments){
 		
-		String configFilepath = Settings.getProperty("filefilter_config_filepath");
-		
-		BufferedReader configFileReader = null;
-		
 		try{
-			configFileReader = new BufferedReader(new FileReader(configFilepath));
-			String line = configFileReader.readLine();
-			line = line == null ? "" : line;
-			fileExclusionPattern = Pattern.compile(line);
+			fileExclusionPattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("filefilter_config_filepath"))).get(0));
 			return true;
-		}catch(PatternSyntaxException pse){
-			logger.log(Level.SEVERE, "Invalid regex in config file", pse);
-		}catch(IOException e){
-			logger.log(Level.SEVERE, "Failed to read/open file '"+configFilepath+"'", e);
-		}finally{
-			try{
-				if(configFileReader != null){
-					configFileReader.close();
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to close file reader", e);
-			}
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
+			return false;
 		}
-		
-		return false;
 	}
 	
 	private boolean isVertexInExclusionPattern(AbstractVertex incomingVertex){
