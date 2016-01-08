@@ -1339,7 +1339,7 @@ public class Audit extends AbstractReporter {
             putVertex(srcVertex);
         }
         Used used = new Used(getProcess(pid), srcVertex);
-        used.addAnnotation("operation", "read");
+        used.addAnnotation("operation", "link_oldpath");
         used.addAnnotation("time", time);
         putEdge(used);
 
@@ -1347,7 +1347,7 @@ public class Audit extends AbstractReporter {
         putVertex(dstVertex);
         putVersionUpdateEdge(dstVertex, time);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
-        wgb.addAnnotation("operation", "write");
+        wgb.addAnnotation("operation", "link_newpath");
         wgb.addAnnotation("time", time);
         putEdge(wgb);
 
