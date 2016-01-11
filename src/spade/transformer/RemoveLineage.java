@@ -73,9 +73,12 @@ public class RemoveLineage extends AbstractTransformer{
 		
 		if(toRemoveGraph != null){
 			removeEdges(resultGraph, graph, toRemoveGraph);
-		}	
+			return resultGraph;
+		}else{
+			return graph;
+		}
 		
-		return resultGraph;
+		
 	}
 	
 	
