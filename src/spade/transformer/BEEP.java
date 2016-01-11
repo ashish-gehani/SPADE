@@ -74,10 +74,10 @@ public class BEEP extends AbstractTransformer {
 		success = success && initializeTransformer(removeFiles, arguments);
 		
 		AbstractTransformer removeFileReadIfReadOnlyForwardSearch = new RemoveFileReadIfReadOnly();
-		success = success && initializeTransformer(removeFileReadIfReadOnlyForwardSearch, arguments);
+		success = success && initializeTransformer(removeFileReadIfReadOnlyForwardSearch, null);
 		
 		AbstractTransformer removeFileReadIfReadOnlyBackwardSearch = new RemoveFileReadIfReadOnly();
-		success = success && initializeTransformer(removeFileReadIfReadOnlyBackwardSearch, arguments);
+		success = success && initializeTransformer(removeFileReadIfReadOnlyBackwardSearch, "true");
 		
 		AbstractTransformer removeFileWriteIfWriteOnly = new RemoveFileWriteIfWriteOnly();
 		success = success && initializeTransformer(removeFileWriteIfWriteOnly, arguments);

@@ -42,16 +42,20 @@ public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 	
 	private Pattern ignoreFilesPattern = null;
 	
+	// argument = true means that every file in the graph should be checked against the pattern in the regex file. otherwise don't check against it
 	public boolean initialize(String arguments){
 		
-		try{
-			ignoreFilesPattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("removegarbagefiles_transformer_config_filepath"))).get(0));
-			return true;
-		}catch(Exception e){
-			Logger.getLogger(getClass().getName()).log(Level.WARNING, null, e);
-			return false;
+		if(arguments != null && arguments.trim().equals("true")){		
+			try{
+				ignoreFilesPattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("removegarbagefiles_transformer_config_filepath"))).get(0));
+				return true;
+			}catch(Exception e){
+				Logger.getLogger(getClass().getName()).log(Level.WARNING, null, e);
+				return false;
+			}
 		}
 		
+		return true;
 	}
 
 	public Graph putGraph(Graph graph){
