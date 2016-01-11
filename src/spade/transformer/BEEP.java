@@ -19,14 +19,19 @@
  */
 package spade.transformer;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.io.FileUtils;
+
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
-import spade.core.Settings;
 import spade.core.Graph.QueryParams;
+import spade.core.Settings;
 
 public class BEEP extends AbstractTransformer {
 	
@@ -35,82 +40,48 @@ public class BEEP extends AbstractTransformer {
 	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
 	
-	private AbstractTransformer[] forwardSearchTransformers = null;
-	private AbstractTransformer[] backwardSearchTransformers = null;
-	
-	public boolean initializeTransformer(AbstractTransformer transformer, String arguments){
-		boolean success = transformer.initialize(arguments);
-		if(!success){
-			logger.log(Level.SEVERE, "Failed to initialize transformer " + transformer.getClass().getName());
+	private List<AbstractTransformer> forwardSearchTransformers = null;
+	private List<AbstractTransformer> backwardSearchTransformers = null;
+		
+	public List<AbstractTransformer> loadTransformersFromFile(String filepath){
+		try{
+			List<AbstractTransformer> transformers = new ArrayList<AbstractTransformer>();
+			List<String> transformersFileLines = FileUtils.readLines(new File(filepath));
+			if(transformersFileLines == null || transformersFileLines.isEmpty()){
+				logger.log(Level.SEVERE, "Transformer file list is missing or is malformed");
+				return null;
+			}
+			for(String line : transformersFileLines){
+				String tokens[] = line.split("\\s+");
+				String transformerClassName = tokens[0];
+				String transformerArguments = tokens.length == 2 ? tokens[1] : null;
+				AbstractTransformer transformer = (AbstractTransformer) Class.forName("spade.transformer." + transformerClassName).newInstance();
+				if(!transformer.initialize(transformerArguments)){
+					logger.log(Level.SEVERE, "Failed to initialize transformer " + transformer.getClass().getName());
+					return null;
+				}
+				transformers.add(transformer);
+			}
+			return transformers;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, null, e);
+			return null;
 		}
-		return success;
 	}
 	
 	public boolean initialize(String arguments){
-		boolean success = true;
-		//always the first for now until the issue is resolved
-		AbstractTransformer removeSudoLineage = new RemoveLineage();
-		success = success && initializeTransformer(removeSudoLineage, "name:sudo");
+		forwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("forward_search_transformers_list_filepath"));
 		
-		AbstractTransformer removeBeepUnits = new RemoveBEEPUnits();
-		success = success && initializeTransformer(removeBeepUnits, arguments);
-		
-		AbstractTransformer removeMemoryVertices = new RemoveMemoryVertices();
-		success = success && initializeTransformer(removeMemoryVertices, arguments);
-		
-		AbstractTransformer removeRenameLinkUpdateEdges = new ReplaceRenameLinkWithWrite();
-		success = success && initializeTransformer(removeRenameLinkUpdateEdges, arguments);
-		
-		AbstractTransformer collapseArtifactVersions = new CollapseArtifactVersions();
-		success = success && initializeTransformer(collapseArtifactVersions, arguments);
-		
-		AbstractTransformer mergeIOEdges = new MergeIOEdges();
-		success = success && initializeTransformer(mergeIOEdges, arguments);
-		
-		AbstractTransformer mergeForkCloneAndExecveEdges = new MergeForkCloneAndExecveEdges(); 
-		success = success && initializeTransformer(mergeForkCloneAndExecveEdges, arguments);
-		
-		AbstractTransformer removeFiles = new RemoveFiles();
-		success = success && initializeTransformer(removeFiles, arguments);
-		
-		AbstractTransformer removeFileReadIfReadOnlyForwardSearch = new RemoveFileReadIfReadOnly();
-		success = success && initializeTransformer(removeFileReadIfReadOnlyForwardSearch, null);
-		
-		AbstractTransformer removeFileReadIfReadOnlyBackwardSearch = new RemoveFileReadIfReadOnly();
-		success = success && initializeTransformer(removeFileReadIfReadOnlyBackwardSearch, "true");
-		
-		AbstractTransformer removeFileWriteIfWriteOnly = new RemoveFileWriteIfWriteOnly();
-		success = success && initializeTransformer(removeFileWriteIfWriteOnly, arguments);
-		
-		if(!success){
+		if(forwardSearchTransformers == null){
 			return false;
 		}
 		
-		forwardSearchTransformers = new AbstractTransformer[] {
-				removeSudoLineage,
-				removeBeepUnits,
-				removeMemoryVertices,
-				removeRenameLinkUpdateEdges,
-				collapseArtifactVersions,
-				mergeIOEdges,
-				mergeForkCloneAndExecveEdges,
-				removeFiles,
-				removeFileReadIfReadOnlyForwardSearch,
-				//removeFileWriteIfWriteOnly
-		};
+		backwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("backward_search_transformers_list_filepath"));
 		
-		backwardSearchTransformers = new AbstractTransformer[]{
-				removeSudoLineage,
-				removeBeepUnits,
-				removeMemoryVertices,
-				removeRenameLinkUpdateEdges,
-				collapseArtifactVersions,
-				mergeIOEdges,
-				mergeForkCloneAndExecveEdges,
-				removeFiles,
-				removeFileReadIfReadOnlyBackwardSearch,
-				removeFileWriteIfWriteOnly
-		};
+		if(backwardSearchTransformers == null){
+			return false;
+		}
+				
 		return true;
 	}
 	
@@ -126,7 +97,7 @@ public class BEEP extends AbstractTransformer {
 			return graph;
 		}
 		
-		AbstractTransformer[] transformers = null;
+		List<AbstractTransformer> transformers = null;
 		
 		if(DIRECTION_ANCESTORS.startsWith(direction)){
 			transformers = backwardSearchTransformers;

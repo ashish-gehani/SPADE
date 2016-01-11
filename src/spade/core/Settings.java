@@ -54,6 +54,8 @@ public class Settings {
             setProperty("filefilter_config_filepath", "cfg/filefilter.config");
             setProperty("removefiles_transformer_config_filepath", "cfg/removefilestransformer.config");
             setProperty("removegarbagefiles_transformer_config_filepath", "cfg/removegarbagefilestransformer.config");
+            setProperty("forward_search_transformers_list_filepath", "cfg/forwardsearchtransformers.config");
+            setProperty("backward_search_transformers_list_filepath", "cfg/backwardsearchtransformers.config");
         }
     }
 
