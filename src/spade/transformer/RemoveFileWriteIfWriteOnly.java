@@ -27,11 +27,12 @@ import java.util.Set;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 public class RemoveFileWriteIfWriteOnly extends AbstractTransformer {
 
-	public Graph putGraph(Graph graph){
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		
 		Map<AbstractVertex, Set<String>> fileReadBy = new HashMap<AbstractVertex, Set<String>>();
 		

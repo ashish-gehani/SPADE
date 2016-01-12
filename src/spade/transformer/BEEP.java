@@ -22,15 +22,14 @@ package spade.transformer;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractTransformer;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
-import spade.core.Graph.QueryParams;
 import spade.core.Settings;
 
 public class BEEP extends AbstractTransformer {
@@ -86,32 +85,25 @@ public class BEEP extends AbstractTransformer {
 	}
 	
 	@Override
-	public Graph putGraph(Graph graph) {
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams) {
 		
-		Map<QueryParams, Object> queryParams = null;
-		String direction = null;
-		if(graph != null){
-			queryParams = graph.getQueryParams();
-			direction = String.valueOf(graph.getQueryParam(QueryParams.DIRECTION));
-		}else{
+		if(digQueryParams == null || digQueryParams.getDirection() == null){
 			return graph;
 		}
 		
 		List<AbstractTransformer> transformers = null;
 		
-		if(DIRECTION_ANCESTORS.startsWith(direction)){
+		if(DIRECTION_ANCESTORS.startsWith(digQueryParams.getDirection())){
 			transformers = backwardSearchTransformers;
-		}else if(DIRECTION_DESCENDANTS.startsWith(direction)){
+		}else if(DIRECTION_DESCENDANTS.startsWith(digQueryParams.getDirection())){
 			transformers = forwardSearchTransformers;
 		}else{
-			//do nothing
 			return graph;
 		}			
 		
 		for(AbstractTransformer transformer : transformers){
 			if(graph != null){
-				graph.setQueryParams(queryParams);
-				graph = transformer.putGraph(graph);
+				graph = transformer.putGraph(graph, digQueryParams);
 				if(graph != null){
 					graph.commitIndex();
 				}

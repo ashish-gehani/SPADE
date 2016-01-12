@@ -63,7 +63,6 @@ import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
-import spade.core.Graph.QueryParams;
 import spade.core.Settings;
 import spade.core.Vertex;
 
@@ -589,25 +588,7 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
-    	Set<AbstractVertex> vertices = new HashSet<AbstractVertex>();
-        try ( Transaction tx = graphDb.beginTx() ) {
-            IndexHits<Node> queryHits = vertexIndex.query(ID_STRING + ":" + vertexId);
-            for (Node foundNode : queryHits) {
-                AbstractVertex vertex = convertNodeToVertex(foundNode);
-                vertices.add(vertex);
-            }
-            queryHits.close();
-            tx.success();
-        }catch(Exception e){
-        	logger.log(Level.SEVERE, "Failed to get Vertex with id " + vertexId, e);
-        }
-        
-        Graph resultGraph = getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
-        resultGraph.setQueryParam(QueryParams.VERTEX_SET, vertices);
-        resultGraph.setQueryParam(QueryParams.DEPTH, depth);
-        resultGraph.setQueryParam(QueryParams.DIRECTION, direction);
-        resultGraph.setQueryParam(QueryParams.TERMINATING_EXPRESSION, terminatingExpression);
-        return resultGraph;
+    	return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
     }
     
     public String getHashOfEdge(AbstractEdge edge){

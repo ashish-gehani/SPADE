@@ -56,7 +56,6 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
-import spade.core.Graph.QueryParams;
 import spade.filter.FinalCommitFilter;
 
 /**
@@ -1394,8 +1393,8 @@ class LocalQueryConnection implements Runnable {
                     break;
                 } else {
                     Graph resultGraph = Query.executeQuery(line, false);
-                    resultGraph = iterateTransformers(resultGraph);
                     if(resultGraph != null){
+                    	resultGraph = iterateTransformers(resultGraph, line);
                         queryOutputStream.writeObject("graph");
                         queryOutputStream.writeObject(resultGraph);
                 	}else {
@@ -1414,18 +1413,14 @@ class LocalQueryConnection implements Runnable {
         }
     }
     
-    public Graph iterateTransformers(Graph graph){
-		Map<QueryParams, Object> queryParams = null;
-		if(graph != null){
-			queryParams = graph.getQueryParams();
-		}
+    public Graph iterateTransformers(Graph graph, String query){
 		synchronized (Kernel.transformers) {
+			DigQueryParams digQueryParams = DigQueryParams.parseQuery(query);
 			for(int i = 0; i< Kernel.transformers.size(); i++){
 				AbstractTransformer transformer = Kernel.transformers.get(i);
 				if(graph != null){
-					graph.setQueryParams(queryParams);
 					try{
-						graph = transformer.putGraph(graph);
+						graph = transformer.putGraph(graph, digQueryParams);
 						if(graph != null){
 							graph.commitIndex(); //commit after every transformer to enable reading without error
 						}

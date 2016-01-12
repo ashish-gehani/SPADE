@@ -23,8 +23,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractTransformer;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
-import spade.core.Graph.QueryParams;
 
 public class RemoveLineage extends AbstractTransformer{
 	
@@ -39,10 +39,7 @@ public class RemoveLineage extends AbstractTransformer{
 	}
 
 	@Override
-	public Graph putGraph(Graph graph){
-		
-		Integer depth = null;
-		String direction = null;
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		
 		try{
 			
@@ -50,15 +47,11 @@ public class RemoveLineage extends AbstractTransformer{
 				throw new IllegalArgumentException("VertexExpression cannot be null");
 			}
 			
-			depth = (Integer)graph.getQueryParam(QueryParams.DEPTH);
-			
-			if(depth == null){
+			if(digQueryParams.getDepth() == null){
 				throw new IllegalArgumentException("Depth cannot be null");
 			}
 			
-			direction = (String)graph.getQueryParam(QueryParams.DIRECTION);
-			
-			if(direction == null){
+			if(digQueryParams.getDirection() == null){
 				throw new IllegalArgumentException("Direction cannot be null");
 			}
 			
@@ -69,7 +62,7 @@ public class RemoveLineage extends AbstractTransformer{
 		
 		Graph resultGraph = new Graph();
 		
-		Graph toRemoveGraph = graph.getLineage(this.vertexExpression, depth, direction, null);
+		Graph toRemoveGraph = graph.getLineage(this.vertexExpression, digQueryParams.getDepth(), digQueryParams.getDirection(), digQueryParams.getTerminatingExpression());
 		
 		if(toRemoveGraph != null){
 			removeEdges(resultGraph, graph, toRemoveGraph);

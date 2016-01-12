@@ -30,7 +30,7 @@ public abstract class AbstractTransformer {
 	private static final String ID_STRING = Settings.getProperty("storage_identifier");
 		
 	public String arguments;
-
+	
 	public boolean initialize(String arguments){
 		return true;
 	}
@@ -39,9 +39,7 @@ public abstract class AbstractTransformer {
        	return true;
     }
 	
-	public Graph putGraph(Graph graph){
-		return graph;
-	}
+	public abstract Graph putGraph(Graph graph, DigQueryParams digQueryParams);
 	
 	public static String getAnnotationSafe(AbstractVertex vertex, String annotation){
 		if(vertex != null){

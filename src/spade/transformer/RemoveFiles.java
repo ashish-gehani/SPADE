@@ -20,7 +20,6 @@
 package spade.transformer;
 
 import java.io.File;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -30,8 +29,8 @@ import org.apache.commons.io.FileUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
-import spade.core.Graph.QueryParams;
 import spade.core.Settings;
 
 public class RemoveFiles extends AbstractTransformer{
@@ -50,21 +49,19 @@ public class RemoveFiles extends AbstractTransformer{
 		
 	}
 	
-	public Graph putGraph(Graph graph){
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Graph resultGraph = new Graph();
 		
-		Set<AbstractVertex> queryVertices = null;
+		AbstractVertex queriedVertex = null;
 		
-		try{
-			queryVertices = (Set<AbstractVertex>)graph.getQueryParam(QueryParams.VERTEX_SET);
-		}catch(Exception e){
-			Logger.getLogger(getClass().getName()).log(Level.WARNING, "Expected value to be of type Set<AbstractVertex>", e);
+		if(digQueryParams != null){
+			queriedVertex = digQueryParams.getVertex();
 		}
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			String srcFilepath = getAnnotationSafe(edge.getSourceVertex(), "path");
 			String dstFilepath = getAnnotationSafe(edge.getDestinationVertex(), "path");
-			if(!(fileExistsInSet(srcFilepath, queryVertices) || fileExistsInSet(dstFilepath, queryVertices))){
+			if(!(fileEqualsVertex(srcFilepath, queriedVertex) || fileEqualsVertex(dstFilepath, queriedVertex))){
 				if(isFileToBeRemoved(srcFilepath) 
 					|| isFileToBeRemoved(dstFilepath)){
 					continue;
@@ -87,16 +84,14 @@ public class RemoveFiles extends AbstractTransformer{
 		return false;
 	}
 	
-	private boolean fileExistsInSet(String path, Set<AbstractVertex> vertices){
-		if(path == null || vertices == null || vertices.size() == 0){
+	private boolean fileEqualsVertex(String path, AbstractVertex vertex){
+		if(path == null || vertex == null){
 			return false;
 		}
-		for(AbstractVertex vertex : vertices){
-			if(getAnnotationSafe(vertex, "subtype").equals("file")){
-				String vpath = getAnnotationSafe(vertex, "path");
-				if(path.equals(vpath)){
-					return true;
-				}
+		if(getAnnotationSafe(vertex, "subtype").equals("file")){
+			String vpath = getAnnotationSafe(vertex, "path");
+			if(path.equals(vpath)){
+				return true;
 			}
 		}
 		return false;

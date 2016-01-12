@@ -34,9 +34,9 @@ import org.apache.commons.io.FileUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
-import spade.core.Graph.QueryParams;
 
 public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 	
@@ -58,13 +58,12 @@ public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 		return true;
 	}
 
-	public Graph putGraph(Graph graph){
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		
-		Set<AbstractVertex> vertices = null;
-		try{
-			vertices = (Set<AbstractVertex>)graph.getQueryParam(QueryParams.VERTEX_SET);
-		}catch(Exception e){
-			Logger.getLogger(getClass().getName()).log(Level.WARNING, "Expected value to be of type Set<AbstractVertex>", e);
+		AbstractVertex queriedVertex = null;
+		
+		if(digQueryParams != null){
+			queriedVertex = digQueryParams.getVertex();
 		}
 		
 		Map<AbstractVertex, Set<String>> fileWrittenBy = new HashMap<AbstractVertex, Set<String>>();
@@ -91,7 +90,7 @@ public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 					&& getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
 				AbstractVertex vertex = newEdge.getDestinationVertex();
 				String path = getAnnotationSafe(vertex, "path");
-				if(!fileExistsInSet(path, vertices)){ //if file passed as an argument then always log it otherwise check further
+				if(!pathEqualsVertex(path, queriedVertex)){ //if file passed as an argument then always log it otherwise check further
 					if(isPathInIgnoreFilesPattern(path)){ //if file is not in ignore list then always log it otherwise check further
 						if((fileWrittenBy.get(vertex) == null) || (fileWrittenBy.get(vertex).size() == 1 
 								&& fileWrittenBy.get(vertex).toArray()[0].equals(getAnnotationSafe(newEdge.getSourceVertex(), "pid")))){
@@ -110,16 +109,14 @@ public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 		
 	}
 	
-	private boolean fileExistsInSet(String path, Set<AbstractVertex> vertices){
-		if(path == null || vertices == null || vertices.size() == 0){
+	private boolean pathEqualsVertex(String path, AbstractVertex vertex){
+		if(path == null || vertex == null){
 			return false;
 		}
-		for(AbstractVertex vertex : vertices){
-			if(getAnnotationSafe(vertex, "subtype").equals("file")){
-				String vpath = getAnnotationSafe(vertex, "path");
-				if(path.equals(vpath)){
-					return true;
-				}
+		if(getAnnotationSafe(vertex, "subtype").equals("file")){
+			String vpath = getAnnotationSafe(vertex, "path");
+			if(path.equals(vpath)){
+				return true;
 			}
 		}
 		return false;

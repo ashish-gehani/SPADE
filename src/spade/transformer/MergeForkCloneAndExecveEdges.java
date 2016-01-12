@@ -27,11 +27,12 @@ import java.util.Set;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 public class MergeForkCloneAndExecveEdges extends AbstractTransformer {
 
-	public Graph putGraph(Graph graph){
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Map<String, AbstractEdge> forkcloneEdges = new HashMap<String, AbstractEdge>();
 		Map<String, AbstractEdge> execveEdges = new HashMap<String, AbstractEdge>();
 		for(AbstractEdge edge : graph.edgeSet()){

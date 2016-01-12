@@ -21,11 +21,12 @@ package spade.transformer;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 public class MergeIOEdges extends AbstractTransformer{
 
-	public Graph putGraph(Graph graph){
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge, "time", "size");

@@ -69,12 +69,6 @@ import spade.vertex.opm.Process;
  */
 public class Graph extends AbstractStorage implements Serializable {
 	
-	public enum QueryParams{
-		STORAGE, OPERATION, EXPRESSION, SRC_VERTEX_SET, DST_VERTEX_LIST, VERTEX_SET, MAX_LENGTH, DEPTH, DIRECTION, TERMINATING_EXPRESSION
-	}
-	
-	private Map<QueryParams, Object> queryParams = new HashMap<QueryParams, Object>();
-
     private static final Logger logger = Logger.getLogger(Graph.class.getName());
     private static final int MAX_QUERY_HITS = 1000;
     private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
@@ -127,22 +121,6 @@ public class Graph extends AbstractStorage implements Serializable {
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
-    }
-
-    public void setQueryParam(QueryParams key, Object value){
-    	queryParams.put(key, value);
-    }
-    
-    public Object getQueryParam(QueryParams key){
-    	return queryParams.get(key);
-    } 
-    
-    public Map<QueryParams, Object> getQueryParams(){
-    	return queryParams;
-    }
-    
-    public void setQueryParams(Map<QueryParams, Object> queryParams){
-    	this.queryParams = queryParams;
     }
     
     public AbstractVertex getVertex(int id) {
