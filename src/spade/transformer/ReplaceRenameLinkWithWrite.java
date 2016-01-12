@@ -29,19 +29,19 @@ public class ReplaceRenameLinkWithWrite extends AbstractTransformer{
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
 			if(getAnnotationSafe(edge, "operation").equals("rename") 
-					|| getAnnotationSafe(edge, "operation").equals("rename_oldpath")
+					|| getAnnotationSafe(edge, "operation").equals("rename_read")
 					//|| getAnnotationSafe(edge, "operation").equals("rename_newpath")
 					|| getAnnotationSafe(edge, "operation").equals("link") 
-					|| getAnnotationSafe(edge, "operation").equals("link_oldpath")){
+					|| getAnnotationSafe(edge, "operation").equals("link_read")){
 					//|| getAnnotationSafe(edge, "operation").equals("link_newpath")
 					//|| getAnnotationSafe(edge, "operation").equals("update")){
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(getAnnotationSafe(newEdge, "operation").equals("link_newpath") 
-					|| getAnnotationSafe(newEdge, "operation").equals("rename_newpath")){
-				newEdge.addAnnotation("operation", "write");
-			}
+//			if(getAnnotationSafe(newEdge, "operation").equals("link_newpath") 
+//					|| getAnnotationSafe(newEdge, "operation").equals("rename_newpath")){
+//				newEdge.addAnnotation("operation", "write");
+//			}
 			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
 				resultGraph.putVertex(newEdge.getSourceVertex());
 				resultGraph.putVertex(newEdge.getDestinationVertex());

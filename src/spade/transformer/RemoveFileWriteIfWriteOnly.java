@@ -55,7 +55,7 @@ public class RemoveFileWriteIfWriteOnly extends AbstractTransformer {
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(getAnnotationSafe(newEdge, "operation").equals("write") 
+			if((getAnnotationSafe(newEdge, "operation").equals("write") || getAnnotationSafe(newEdge, "operation").equals("rename_write") || getAnnotationSafe(newEdge, "operation").equals("link_write"))
 					&& getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")){
 				AbstractVertex vertex = newEdge.getSourceVertex();
 				if((fileReadBy.get(vertex) == null) || (fileReadBy.get(vertex).size() == 1 

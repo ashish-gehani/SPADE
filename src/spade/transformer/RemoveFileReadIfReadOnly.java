@@ -35,7 +35,6 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.core.Graph.QueryParams;
 import spade.core.Settings;
 
 public class RemoveFileReadIfReadOnly extends AbstractTransformer {
@@ -74,7 +73,7 @@ public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 			if(getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")
 					|| getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
 				String operation = getAnnotationSafe(newEdge, "operation");
-				if(operation.equals("write")){
+				if(operation.equals("write") || operation.equals("rename_write") || operation.equals("link_write")){
 					if(fileWrittenBy.get(newEdge.getSourceVertex()) == null){
 						fileWrittenBy.put(newEdge.getSourceVertex(), new HashSet<String>());
 					}
