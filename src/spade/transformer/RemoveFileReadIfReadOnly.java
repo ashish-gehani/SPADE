@@ -36,6 +36,7 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.core.Graph.QueryParams;
 
 public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 	
