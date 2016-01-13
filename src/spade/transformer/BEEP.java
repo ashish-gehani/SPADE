@@ -69,13 +69,13 @@ public class BEEP extends AbstractTransformer {
 	}
 	
 	public boolean initialize(String arguments){
-		forwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("forward_search_transformers_list_filepath"));
+		forwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("beep_forward_search_transformers_list_filepath"));
 		
 		if(forwardSearchTransformers == null){
 			return false;
 		}
 		
-		backwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("backward_search_transformers_list_filepath"));
+		backwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("beep_backward_search_transformers_list_filepath"));
 		
 		if(backwardSearchTransformers == null){
 			return false;

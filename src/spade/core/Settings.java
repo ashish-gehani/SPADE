@@ -54,8 +54,8 @@ public class Settings {
             setProperty("blacklist_filter_config_filepath", "cfg/blacklist.filter.config");
             setProperty("blacklist_transformer_config_filepath", "cfg/blacklist.transformer.config");
             setProperty("removegarbagefiles_transformer_config_filepath", "cfg/removegarbagefilestransformer.config");
-            setProperty("forward_search_transformers_list_filepath", "cfg/forwardsearchtransformers.config");
-            setProperty("backward_search_transformers_list_filepath", "cfg/backwardsearchtransformers.config");
+            setProperty("beep_forward_search_transformers_list_filepath", "cfg/beep.forwardsearch.transformers.config");
+            setProperty("beep_backward_search_transformers_list_filepath", "cfg/beep.backwardsearch.transformers.config");
         }
     }
 
