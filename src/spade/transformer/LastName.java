@@ -24,7 +24,7 @@ import spade.core.AbstractTransformer;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 
-public class ReplaceRenameLinkWithWrite extends AbstractTransformer{
+public class LastName extends AbstractTransformer{
 
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Graph resultGraph = new Graph();
