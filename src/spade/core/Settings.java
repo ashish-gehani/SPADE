@@ -52,7 +52,7 @@ public class Settings {
             setProperty("neo4j_webserver", "true");
             setProperty("opm2provtc_filter_config_filepath", "cfg/opm2provtc-filter.config");
             setProperty("blacklist_filter_config_filepath", "cfg/blacklist.filter.config");
-            setProperty("removefiles_transformer_config_filepath", "cfg/removefilestransformer.config");
+            setProperty("blacklist_transformer_config_filepath", "cfg/blacklist.transformer.config");
             setProperty("removegarbagefiles_transformer_config_filepath", "cfg/removegarbagefilestransformer.config");
             setProperty("forward_search_transformers_list_filepath", "cfg/forwardsearchtransformers.config");
             setProperty("backward_search_transformers_list_filepath", "cfg/backwardsearchtransformers.config");

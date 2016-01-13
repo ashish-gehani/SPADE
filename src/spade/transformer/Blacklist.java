@@ -33,14 +33,14 @@ import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 
-public class RemoveFiles extends AbstractTransformer{
+public class Blacklist extends AbstractTransformer{
 	
 	private Pattern filesToRemovePattern = null;
 	
 	public boolean initialize(String arguments){
 		
 		try{
-			filesToRemovePattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("removefiles_transformer_config_filepath"))).get(0));
+			filesToRemovePattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("blacklist_transformer_config_filepath"))).get(0));
 			return true;
 		}catch(Exception e){
 			Logger.getLogger(getClass().getName()).log(Level.WARNING, null, e);
