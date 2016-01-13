@@ -3,7 +3,9 @@ package spade.utility;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
@@ -47,6 +49,40 @@ public class FileUtility {
 			regex = regex.substring(0, regex.length() - 1);
 		}
 		return Pattern.compile(regex);
+	}
+	
+	public static Map<String, String> readOPM2ProvTCFile(String filepath) throws Exception{
+		Map<String, String> map = new HashMap<String, String>();
+		List<String> lines = FileUtils.readLines(new File(filepath));
+		for(String line : lines){
+			line = line.trim();
+			if(!line.isEmpty()){
+				String tokens[] = line.split("=>");
+				if(tokens.length == 2){
+					String from = tokens[0].trim();
+					String to = tokens[1].trim();
+					map.put(from, to);
+				}
+			}
+		}		
+		return map;
+	}
+	
+	public static Map<String, String> readOPM2ProvTCFileReversed(String filepath) throws Exception{
+		Map<String, String> map = new HashMap<String, String>();
+		List<String> lines = FileUtils.readLines(new File(filepath));
+		for(String line : lines){
+			line = line.trim();
+			if(!line.isEmpty()){
+				String tokens[] = line.split("=>");
+				if(tokens.length == 2){
+					String from = tokens[1].trim();
+					String to = tokens[0].trim();
+					map.put(from, to);
+				}
+			}
+		}		
+		return map;
 	}
 	
 	//test

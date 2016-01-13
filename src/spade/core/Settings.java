@@ -50,7 +50,7 @@ public class Settings {
             setProperty("storage_identifier", "storageID");
             setProperty("default_query_storage", "Neo4j");
             setProperty("neo4j_webserver", "true");
-            setProperty("opm2provtc_filter_config_filepath", "cfg/opm2provtc-filter.config");
+            setProperty("opm&provtc_mapping_filepath", "cfg/opmprovtc.mapping");
             setProperty("blacklist_filter_config_filepath", "cfg/blacklist.filter.config");
             setProperty("blacklist_transformer_config_filepath", "cfg/blacklist.transformer.config");
             setProperty("removegarbagefiles_transformer_config_filepath", "cfg/removegarbagefilestransformer.config");
