@@ -20,15 +20,11 @@
  
 package spade.filter;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 import org.apache.commons.io.FileUtils;
 
@@ -39,16 +35,16 @@ import spade.core.Settings;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Entity;
 
-public class FileFilter extends AbstractFilter{
+public class Blacklist extends AbstractFilter{
 	
-	private static final Logger logger = Logger.getLogger(FileFilter.class.getName());
+	private static final Logger logger = Logger.getLogger(Blacklist.class.getName());
 	
 	private Pattern fileExclusionPattern;
 	
 	public boolean initialize(String arguments){
 		
 		try{
-			fileExclusionPattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("filefilter_config_filepath"))).get(0));
+			fileExclusionPattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("blacklist_filter_config_filepath"))).get(0));
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
