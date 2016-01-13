@@ -25,7 +25,7 @@ import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 //remove units and edges to units
-public class RemoveBEEPUnits extends AbstractTransformer{
+public class NoUnits extends AbstractTransformer{
 
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Graph resultGraph = new Graph();
