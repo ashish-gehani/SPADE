@@ -24,7 +24,7 @@ import spade.core.AbstractTransformer;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 
-public class MergeIOEdges extends AbstractTransformer{
+public class MergeIO extends AbstractTransformer{
 
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Graph resultGraph = new Graph();
