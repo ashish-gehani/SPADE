@@ -221,11 +221,9 @@ public class Audit extends AbstractReporter {
     	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
     	        			parseEventLine(line);
     	        		}
-						while(!shutdown){
-							//wait for user to shut it down
-						}
+    	        		logger.log(Level.INFO, "Audit log processed successfully : " + inputAuditLogFile);
     	        	}catch(Exception e){
-    	        		logger.log(Level.SEVERE, "Failed to read input audit log file", e);
+    	        		logger.log(Level.INFO, "Audit log halted because of ERROR : " + inputAuditLogFile, e);
     	        	}finally{
     	        		try{
     	        			if(inputLogReader != null){
@@ -235,6 +233,9 @@ public class Audit extends AbstractReporter {
     	        			logger.log(Level.SEVERE, "Failed to close audit input log reader", e);
     	        		}
     	        	}
+    	        	while(!shutdown){
+						//wait for user to shut it down
+					}
     			}
     		});
         	auditLogThread.start();
