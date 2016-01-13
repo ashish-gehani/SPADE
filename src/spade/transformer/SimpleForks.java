@@ -30,7 +30,7 @@ import spade.core.AbstractVertex;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 
-public class MergeForkCloneAndExecveEdges extends AbstractTransformer {
+public class SimpleForks extends AbstractTransformer {
 
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Map<String, AbstractEdge> forkcloneEdges = new HashMap<String, AbstractEdge>();
