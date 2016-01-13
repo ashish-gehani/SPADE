@@ -19,7 +19,6 @@
  */
 package spade.transformer;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,14 +28,13 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.io.FileUtils;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.utility.FileUtility;
 
 public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 	
@@ -47,7 +45,11 @@ public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 		
 		if(arguments != null && arguments.trim().equals("true")){		
 			try{
-				ignoreFilesPattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("removegarbagefiles_transformer_config_filepath"))).get(0));
+				String filepath = Settings.getProperty("removegarbagefiles_transformer_config_filepath");
+				ignoreFilesPattern = FileUtility.constructRegexFromFile(filepath);
+				if(ignoreFilesPattern == null){
+					throw new Exception("Regex read from file '"+filepath+"' cannot be null");
+				}
 				return true;
 			}catch(Exception e){
 				Logger.getLogger(getClass().getName()).log(Level.WARNING, null, e);

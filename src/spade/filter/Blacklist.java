@@ -20,18 +20,16 @@
  
 package spade.filter;
 
-import java.io.File;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.io.FileUtils;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
+import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Entity;
 
@@ -44,7 +42,11 @@ public class Blacklist extends AbstractFilter{
 	public boolean initialize(String arguments){
 		
 		try{
-			fileExclusionPattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("blacklist_filter_config_filepath"))).get(0));
+			String filepath = Settings.getProperty("blacklist_filter_config_filepath");
+			fileExclusionPattern = FileUtility.constructRegexFromFile(filepath);
+			if(fileExclusionPattern == null){
+				throw new Exception("Regex read from file '"+filepath+"' cannot be null");
+			}
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);

@@ -19,12 +19,9 @@
  */
 package spade.transformer;
 
-import java.io.File;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-
-import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
@@ -32,6 +29,7 @@ import spade.core.AbstractVertex;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.utility.FileUtility;
 
 public class Blacklist extends AbstractTransformer{
 	
@@ -40,7 +38,11 @@ public class Blacklist extends AbstractTransformer{
 	public boolean initialize(String arguments){
 		
 		try{
-			filesToRemovePattern = Pattern.compile(FileUtils.readLines(new File(Settings.getProperty("blacklist_transformer_config_filepath"))).get(0));
+			String filepath = Settings.getProperty("blacklist_transformer_config_filepath");
+			filesToRemovePattern = FileUtility.constructRegexFromFile(filepath);
+			if(filesToRemovePattern == null){
+				throw new Exception("Regex read from file '"+filepath+"' cannot be null");
+			}
 			return true;
 		}catch(Exception e){
 			Logger.getLogger(getClass().getName()).log(Level.WARNING, null, e);
