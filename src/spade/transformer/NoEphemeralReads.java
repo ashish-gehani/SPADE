@@ -36,7 +36,7 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.FileUtility;
 
-public class RemoveFileReadIfReadOnly extends AbstractTransformer {
+public class NoEphemeralReads extends AbstractTransformer {
 	
 	private Pattern ignoreFilesPattern = null;
 	
@@ -45,7 +45,7 @@ public class RemoveFileReadIfReadOnly extends AbstractTransformer {
 		
 		if(arguments != null && arguments.trim().equals("true")){		
 			try{
-				String filepath = Settings.getProperty("removegarbagefiles_transformer_config_filepath");
+				String filepath = Settings.getProperty("garbage_transformer_config_filepath");
 				ignoreFilesPattern = FileUtility.constructRegexFromFile(filepath);
 				if(ignoreFilesPattern == null){
 					throw new Exception("Regex read from file '"+filepath+"' cannot be null");
