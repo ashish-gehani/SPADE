@@ -30,7 +30,7 @@ import spade.core.AbstractVertex;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 
-public class RemoveFileWriteIfWriteOnly extends AbstractTransformer {
+public class NoTemp extends AbstractTransformer {
 
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		
