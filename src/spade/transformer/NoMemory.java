@@ -25,7 +25,7 @@ import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 //remove memory artifacts along with edges
-public class RemoveMemoryVertices extends AbstractTransformer{
+public class NoMemory extends AbstractTransformer{
 
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Graph resultGraph = new Graph();
