@@ -221,9 +221,9 @@ public class Audit extends AbstractReporter {
     	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
     	        			parseEventLine(line);
     	        		}
-    	        		logger.log(Level.INFO, "Audit log processed successfully : " + inputAuditLogFile);
+    	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
     	        	}catch(Exception e){
-    	        		logger.log(Level.INFO, "Audit log halted because of ERROR : " + inputAuditLogFile, e);
+    	        		logger.log(Level.WARNING, "Audit log processing failed: " + inputAuditLogFile, e);
     	        	}finally{
     	        		try{
     	        			if(inputLogReader != null){

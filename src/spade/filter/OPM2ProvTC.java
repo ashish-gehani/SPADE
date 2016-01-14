@@ -20,10 +20,6 @@
  
 package spade.filter;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,47 +27,22 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
+import spade.utility.FileUtility;
 
 public class OPM2ProvTC extends OPM2Prov{
 
-	private Logger logger = Logger.getLogger(this.getClass().getName());
+	private final static Logger logger = Logger.getLogger(OPM2ProvTC.class.getName());
 	
-	private Map<String, String> annotationConversionMap = new HashMap<String, String>(); 
+	private Map<String, String> annotationConversionMap = null; 
 	
 	public boolean initialize(String arguments){
-		String annotationsMappingFilePath = Settings.getProperty("opm2provtc_filter_config_filepath");
-		if(annotationsMappingFilePath == null || annotationsMappingFilePath.trim().isEmpty()){
-			logger.log(Level.SEVERE, "Config file path missing in settings.");
-			return false;
-		}
-		File annotationMapFile = new File(annotationsMappingFilePath);
-		if(!annotationMapFile.exists()){
-			logger.log(Level.SEVERE, "Config file at path '"+annotationsMappingFilePath+"' doesn't exist.");
-			return false;
-		}
-		BufferedReader annotationMapFileReader = null;
 		try{
-			annotationMapFileReader = new BufferedReader(new FileReader(annotationMapFile));
-			String line = null;
-			while((line = annotationMapFileReader.readLine()) != null){
-				String tokens[] = line.split("=>");
-				if(tokens.length == 2 && !tokens[1].trim().isEmpty()){
-					annotationConversionMap.put(tokens[0].trim(), tokens[1].trim());
-				}
-			}
+			annotationConversionMap = FileUtility.readOPM2ProvTCFile(Settings.getProperty("opm&provtc_mapping_filepath"));
 			return true;
 		}catch(Exception e){
-			e.printStackTrace();
-		}finally{
-			try{
-				if(annotationMapFileReader != null){
-					annotationMapFileReader.close();
-				}
-			}catch(Exception e){
-				e.printStackTrace();
-			}
+			logger.log(Level.SEVERE, "Failed to read the file: " + Settings.getProperty("opm&provtc_mapping_filepath"), e);
+			return false;
 		}
-		return false;
 	}
 	
 	@Override

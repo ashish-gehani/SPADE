@@ -26,7 +26,7 @@ import spade.core.AbstractTransformer;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 
-public class RemoveLineage extends AbstractTransformer{
+public class Prune extends AbstractTransformer{
 	
 	private String vertexExpression;
 	
