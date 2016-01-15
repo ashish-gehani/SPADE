@@ -1424,6 +1424,14 @@ public class Audit extends AbstractReporter {
             int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
             String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
             location = String.format("address:%s, port:%s", address, port);
+        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
+        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
+        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
+        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
+        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
+        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
+        	location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
@@ -1466,6 +1474,14 @@ public class Audit extends AbstractReporter {
             int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
             String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
             location = String.format("address:%s, port:%s", address, port);
+        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
+        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
+        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
+        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
+        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
+        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
+        	location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
             Artifact network = createNetworkArtifact(location, true, "connect");
@@ -1495,6 +1511,14 @@ public class Audit extends AbstractReporter {
             int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
             String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
             location = String.format("address:%s, port:%s", address, port);
+        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
+        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
+        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
+        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
+        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
+        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
+        	location = String.format("address:%s, port:%s", address, port);
         }
         if (location != null) {
             Artifact network = createNetworkArtifact(location, false, "accept");
