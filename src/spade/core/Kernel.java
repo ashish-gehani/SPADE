@@ -20,10 +20,10 @@
 package spade.core;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -48,12 +48,14 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
+
 import spade.filter.FinalCommitFilter;
 
 /**
@@ -143,10 +145,7 @@ public class Kernel {
     private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
     private static final String QUERY_EDGE1_STRING = "<result> = getEdges(source vertex id, destination vertex id)";
     private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id, maximum length)";
-    private static final String QUERY_LINEAGE1_STRING = "<result> = getLineage(vertex id, depth, direction)";
-    private static final String QUERY_LINEAGE2_STRING = "<result> = getLineage(vertex id, depth, direction, terminating expression)";
-    private static final String QUERY_LINEAGE3_STRING = "<result> = getLineage(<result>, depth, direction)";
-    private static final String QUERY_LINEAGE4_STRING = "<result> = getLineage(<result>, depth, direction, terminating expression)";
+    private static final String QUERY_LINEAGE_STRING = "<result> = getLineage(vertex id|<result>, depth, direction[, terminating expression])";
     private static final String QUERY_CHILDREN_STRING = "<result> = <result>.getChildren(expression)";
     private static final String QUERY_PARENTS_STRING = "<result> = <result>.getParents(expression)";
     private static final String QUERY_PRINT_STRING = "<result>.print(annotations)";
@@ -753,10 +752,7 @@ public class Kernel {
         string.append("\t" + QUERY_VERTEX_STRING + "\n");
         string.append("\t" + QUERY_EDGE1_STRING + "\n");
         string.append("\t" + QUERY_PATHS_STRING + "\n");
-        string.append("\t" + QUERY_LINEAGE1_STRING + "\n");
-        string.append("\t" + QUERY_LINEAGE2_STRING + "\n");
-        string.append("\t" + QUERY_LINEAGE3_STRING + "\n");
-        string.append("\t" + QUERY_LINEAGE4_STRING + "\n");
+        string.append("\t" + QUERY_LINEAGE_STRING + "\n");
         string.append("\t" + QUERY_CHILDREN_STRING + "\n");
         string.append("\t" + QUERY_PARENTS_STRING + "\n");
         string.append("\n");        
@@ -929,21 +925,24 @@ public class Kernel {
                 return;
             }
             // Initialize filter if arguments are provided
-            transformer.initialize(arguments);
-            transformer.arguments = arguments;
-            // The argument is the index at which the transformer is to be
-            // inserted.
-            if (index > transformers.size() || index < 0) {
-                outputStream.println("error: Invalid index");
-                return;
+            if(transformer.initialize(arguments)){
+	            transformer.arguments = arguments;
+	            // The argument is the index at which the transformer is to be
+	            // inserted.
+	            if (index > transformers.size() || index < 0) {
+	                outputStream.println("error: Invalid index");
+	                return;
+	            }
+	           
+	            synchronized (transformers) {
+					transformers.add(index, transformer);
+				}
+	            
+	            logger.log(Level.INFO, "Transformer added: {0}", classname);
+	            outputStream.println("done");
+            }else{
+            	outputStream.println("failed");
             }
-           
-            synchronized (transformers) {
-				transformers.add(index, transformer);
-			}
-            
-            logger.log(Level.INFO, "Transformer added: {0}", classname);
-            outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("sketch")) {
             if (tokens.length < 3) {
                 outputStream.println("Usage:");
@@ -1388,14 +1387,8 @@ class LocalQueryConnection implements Runnable {
                     break;
                 } else {
                     Graph resultGraph = Query.executeQuery(line, false);
-                    synchronized (Kernel.transformers) {
-                		for(AbstractTransformer transformer : Kernel.transformers){
-                			if(resultGraph != null){
-                				resultGraph = transformer.putGraph(resultGraph);
-                			}
-                    	}
-                	} 
                     if(resultGraph != null){
+                    	resultGraph = iterateTransformers(resultGraph, line);
                         queryOutputStream.writeObject("graph");
                         queryOutputStream.writeObject(resultGraph);
                 	}else {
@@ -1413,4 +1406,27 @@ class LocalQueryConnection implements Runnable {
             Logger.getLogger(LocalQueryConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+    
+    public Graph iterateTransformers(Graph graph, String query){
+		synchronized (Kernel.transformers) {
+			DigQueryParams digQueryParams = DigQueryParams.parseQuery(query);
+			for(int i = 0; i< Kernel.transformers.size(); i++){
+				AbstractTransformer transformer = Kernel.transformers.get(i);
+				if(graph != null){
+					try{
+						graph = transformer.putGraph(graph, digQueryParams);
+						if(graph != null){
+							graph.commitIndex(); //commit after every transformer to enable reading without error
+						}
+					}catch(Exception e){
+						Logger.getLogger(getClass().getName()).log(Level.SEVERE, null, e);
+					}
+				}else{
+					break;
+				}
+			}
+		} 
+		
+		return graph;
+	}
 }

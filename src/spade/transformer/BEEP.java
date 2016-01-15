@@ -19,130 +19,100 @@
  */
 package spade.transformer;
 
-import java.util.Map;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import spade.core.AbstractEdge;
+import org.apache.commons.io.FileUtils;
+
 import spade.core.AbstractTransformer;
-import spade.core.AbstractVertex;
-import spade.core.Edge;
+import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
-import spade.core.Vertex;
 
 public class BEEP extends AbstractTransformer {
 	
-	private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
-    private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
-    private static final String ID_STRING = Settings.getProperty("storage_identifier");
-    
+	private final Logger logger = Logger.getLogger(getClass().getName()); 
+	
+	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+	
+	private List<AbstractTransformer> forwardSearchTransformers = null;
+	private List<AbstractTransformer> backwardSearchTransformers = null;
+		
+	public List<AbstractTransformer> loadTransformersFromFile(String filepath){
+		try{
+			List<AbstractTransformer> transformers = new ArrayList<AbstractTransformer>();
+			List<String> transformersFileLines = FileUtils.readLines(new File(filepath));
+			if(transformersFileLines == null || transformersFileLines.isEmpty()){
+				logger.log(Level.SEVERE, "Transformer file list is missing or is malformed");
+				return null;
+			}
+			for(String line : transformersFileLines){
+				String tokens[] = line.split("\\s+");
+				String transformerClassName = tokens[0];
+				String transformerArguments = tokens.length == 2 ? tokens[1] : null;
+				AbstractTransformer transformer = (AbstractTransformer) Class.forName("spade.transformer." + transformerClassName).newInstance();
+				if(!transformer.initialize(transformerArguments)){
+					logger.log(Level.SEVERE, "Failed to initialize transformer " + transformer.getClass().getName());
+					return null;
+				}
+				transformers.add(transformer);
+			}
+			return transformers;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, null, e);
+			return null;
+		}
+	}
+	
+	public boolean initialize(String arguments){
+		forwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("beep_forward_search_transformers_list_filepath"));
+		
+		if(forwardSearchTransformers == null){
+			return false;
+		}
+		
+		backwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("beep_backward_search_transformers_list_filepath"));
+		
+		if(backwardSearchTransformers == null){
+			return false;
+		}
+				
+		return true;
+	}
+	
 	@Override
-	public Graph putGraph(Graph graph) {
-		Graph resultGraph = new Graph();
-		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge.getSourceVertex(), "subtype").equals("memory") || getAnnotationSafe(edge.getDestinationVertex(), "subtype").equals("memory")
-					|| isFileSTDIO(edge.getSourceVertex()) || isFileSTDIO(edge.getDestinationVertex())
-					|| getAnnotationSafe(edge, "operation").equals("rename") || getAnnotationSafe(edge, "operation").equals("rename_oldpath")
-					|| getAnnotationSafe(edge, "operation").equals("update")
-					|| getAnnotationSafe(edge, "operation").equals("unit")
-					|| isFilePathUnkown(edge.getSourceVertex()) || isFilePathUnkown(edge.getDestinationVertex())){
-				continue;
-			}
-			AbstractEdge newEdge = createNewWithoutAnnotations(edge, "unit", SRC_VERTEX_ID, DST_VERTEX_ID, ID_STRING, "version", "time", "size");
-			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
-				if(!graphContainsVertex(resultGraph, newEdge.getSourceVertex())){
-					resultGraph.putVertex(newEdge.getSourceVertex());
+	public Graph putGraph(Graph graph, DigQueryParams digQueryParams) {
+		
+		if(digQueryParams == null || digQueryParams.getDirection() == null){
+			return graph;
+		}
+		
+		List<AbstractTransformer> transformers = null;
+		
+		if(DIRECTION_ANCESTORS.startsWith(digQueryParams.getDirection())){
+			transformers = backwardSearchTransformers;
+		}else if(DIRECTION_DESCENDANTS.startsWith(digQueryParams.getDirection())){
+			transformers = forwardSearchTransformers;
+		}else{
+			return graph;
+		}			
+		
+		for(AbstractTransformer transformer : transformers){
+			if(graph != null){
+				graph = transformer.putGraph(graph, digQueryParams);
+				if(graph != null){
+					graph.commitIndex();
 				}
-				if(!graphContainsVertex(resultGraph, newEdge.getDestinationVertex())){
-					resultGraph.putVertex(newEdge.getDestinationVertex());
-				}
-				if(!graphContainsEdge(resultGraph, newEdge)){
-					resultGraph.putEdge(newEdge);
-				}	
+			}else{
+				break;
 			}
 		}
-		return resultGraph;
+		
+		return graph;
 	}
 	
-	private boolean isFileSTDIO(AbstractVertex vertex){
-		if(getAnnotationSafe(vertex, "subtype").equals("file")){
-			String path = getAnnotationSafe(vertex, "path");
-			if(path.startsWith("/unknown")){
-				String[] toks = path.split("_");
-				if(toks.length == 2){
-					try{
-						if(Integer.parseInt(toks[1]) < 3){
-							return true;
-						}
-					}catch(Exception e){
-						//no need to catch this exception
-					}
-				}
-			}
-		}
-		return false;
-	}
-	
-	private boolean isFilePathUnkown(AbstractVertex vertex){
-		String path = null;
-		if((path = getAnnotationSafe(vertex, "path")) != null){
-			return path.startsWith("/unknown/");
-		}
-		return false;
-	}
-	
-	private String getAnnotationSafe(AbstractVertex vertex, String annotation){
-		if(vertex != null){
-			return getAnnotationSafe(vertex.getAnnotations(), annotation);
-		}
-		return "";
-	}
-	
-	private String getAnnotationSafe(AbstractEdge edge, String annotation){
-		if(edge != null){
-			return getAnnotationSafe(edge.getAnnotations(), annotation);
-		}
-		return "";
-	}
-	
-	private String getAnnotationSafe(Map<String, String> annotations, String annotation){
-		if(annotations != null){
-			String value = null;
-			if((value = annotations.get(annotation)) != null){
-				return value;
-			}
-		}
-		return "";
-	}
-	
-	private AbstractVertex createNewWithoutAnnotations(AbstractVertex vertex, String... annotations){
-		AbstractVertex newVertex = new Vertex();
-		newVertex.addAnnotations(vertex.getAnnotations());
-		if(annotations != null){
-			for(String annotation : annotations){
-				newVertex.removeAnnotation(annotation);
-			}
-		}
-		return newVertex;
-	}
-	
-	private AbstractEdge createNewWithoutAnnotations(AbstractEdge edge, String... annotations){
-		AbstractVertex newSource = createNewWithoutAnnotations(edge.getSourceVertex(), annotations);
-		AbstractVertex newDestination = createNewWithoutAnnotations(edge.getDestinationVertex(), annotations);
-		AbstractEdge newEdge = new Edge(newSource, newDestination);
-		newEdge.addAnnotations(edge.getAnnotations());
-		if(annotations != null){
-			for(String annotation : annotations){
-				newEdge.removeAnnotation(annotation);
-			}
-		}
-		return newEdge;
-	}
-	
-	private boolean graphContainsVertex(Graph graph, AbstractVertex vertex){
-		return graph.vertexSet().contains(vertex);
-	}
-	
-	private boolean graphContainsEdge(Graph graph, AbstractEdge edge){
-		return graph.edgeSet().contains(edge);
-	}
 }

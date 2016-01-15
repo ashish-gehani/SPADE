@@ -221,11 +221,9 @@ public class Audit extends AbstractReporter {
     	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
     	        			parseEventLine(line);
     	        		}
-						while(!shutdown){
-							//wait for user to shut it down
-						}
+    	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
     	        	}catch(Exception e){
-    	        		logger.log(Level.SEVERE, "Failed to read input audit log file", e);
+    	        		logger.log(Level.WARNING, "Audit log processing failed: " + inputAuditLogFile, e);
     	        	}finally{
     	        		try{
     	        			if(inputLogReader != null){
@@ -235,6 +233,9 @@ public class Audit extends AbstractReporter {
     	        			logger.log(Level.SEVERE, "Failed to close audit input log reader", e);
     	        		}
     	        	}
+    	        	while(!shutdown){
+						//wait for user to shut it down
+					}
     			}
     		});
         	auditLogThread.start();
@@ -1298,7 +1299,7 @@ public class Audit extends AbstractReporter {
             putVertex(srcVertex);
         }
         Used used = new Used(getProcess(pid), srcVertex);
-        used.addAnnotation("operation", "rename_oldpath");
+        used.addAnnotation("operation", "rename_read");
         used.addAnnotation("time", time);
         putEdge(used);
 
@@ -1306,7 +1307,7 @@ public class Audit extends AbstractReporter {
         putVertex(dstVertex);
         putVersionUpdateEdge(dstVertex, time);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
-        wgb.addAnnotation("operation", "rename_newpath");
+        wgb.addAnnotation("operation", "rename_write");
         wgb.addAnnotation("time", time);
         putEdge(wgb);
 
@@ -1339,7 +1340,7 @@ public class Audit extends AbstractReporter {
             putVertex(srcVertex);
         }
         Used used = new Used(getProcess(pid), srcVertex);
-        used.addAnnotation("operation", "read");
+        used.addAnnotation("operation", "link_read");
         used.addAnnotation("time", time);
         putEdge(used);
 
@@ -1347,7 +1348,7 @@ public class Audit extends AbstractReporter {
         putVertex(dstVertex);
         putVersionUpdateEdge(dstVertex, time);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
-        wgb.addAnnotation("operation", "write");
+        wgb.addAnnotation("operation", "link_write");
         wgb.addAnnotation("time", time);
         putEdge(wgb);
 
@@ -1725,7 +1726,7 @@ public class Audit extends AbstractReporter {
     	Integer oldVersion = null;
     	try{
     		oldVersion = Integer.parseInt(newArtifact.getAnnotation("version")) - 1;
-    		if(oldVersion <= 0){ //i.e. no previous one, it is the first artifact for the path
+    		if(oldVersion < 0){ //i.e. no previous one, it is the first artifact for the path
     			return;
     		}
     	}catch(Exception e){

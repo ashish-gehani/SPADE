@@ -24,17 +24,17 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -49,15 +49,14 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
+import org.neo4j.graphdb.factory.GraphDatabaseSettings;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
-import org.neo4j.graphdb.PropertyContainer;
+import org.neo4j.helpers.collection.IteratorUtil;
 import org.neo4j.kernel.Traversal;
 import org.neo4j.tooling.GlobalGraphOperations;
-import org.neo4j.helpers.collection.IteratorUtil;
-import org.neo4j.graphdb.factory.GraphDatabaseSettings;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -589,7 +588,7 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
-        return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
+    	return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
     }
     
     public String getHashOfEdge(AbstractEdge edge){

@@ -50,8 +50,12 @@ public class Settings {
             setProperty("storage_identifier", "storageID");
             setProperty("default_query_storage", "Neo4j");
             setProperty("neo4j_webserver", "true");
-            setProperty("opm2provtc_filter_config_filepath", "cfg/opm2provtc-filter.config");
-            setProperty("filefilter_config_filepath", "cfg/filefilter.config");
+            setProperty("opm&provtc_mapping_filepath", "cfg/opmprovtc.mapping");
+            setProperty("blacklist_filter_config_filepath", "cfg/blacklist.filter.config");
+            setProperty("blacklist_transformer_config_filepath", "cfg/blacklist.transformer.config");
+            setProperty("garbage_transformer_config_filepath", "cfg/garbage.transformer.config");
+            setProperty("beep_forward_search_transformers_list_filepath", "cfg/beep.forward_search.transformers.config");
+            setProperty("beep_backward_search_transformers_list_filepath", "cfg/beep.backward_search.transformers.config");
         }
     }
 

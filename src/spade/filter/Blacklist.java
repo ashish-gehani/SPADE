@@ -20,55 +20,38 @@
  
 package spade.filter;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
+import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Entity;
 
-public class FileFilter extends AbstractFilter{
+public class Blacklist extends AbstractFilter{
 	
-	private static final Logger logger = Logger.getLogger(FileFilter.class.getName());
+	private static final Logger logger = Logger.getLogger(Blacklist.class.getName());
 	
 	private Pattern fileExclusionPattern;
 	
 	public boolean initialize(String arguments){
 		
-		String configFilepath = Settings.getProperty("filefilter_config_filepath");
-		
-		BufferedReader configFileReader = null;
-		
 		try{
-			configFileReader = new BufferedReader(new FileReader(configFilepath));
-			String line = configFileReader.readLine();
-			line = line == null ? "" : line;
-			fileExclusionPattern = Pattern.compile(line);
-			return true;
-		}catch(PatternSyntaxException pse){
-			logger.log(Level.SEVERE, "Invalid regex in config file", pse);
-		}catch(IOException e){
-			logger.log(Level.SEVERE, "Failed to read/open file '"+configFilepath+"'", e);
-		}finally{
-			try{
-				if(configFileReader != null){
-					configFileReader.close();
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to close file reader", e);
+			String filepath = Settings.getProperty("blacklist_filter_config_filepath");
+			fileExclusionPattern = FileUtility.constructRegexFromFile(filepath);
+			if(fileExclusionPattern == null){
+				throw new Exception("Regex read from file '"+filepath+"' cannot be null");
 			}
+			return true;
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
+			return false;
 		}
-		
-		return false;
 	}
 	
 	private boolean isVertexInExclusionPattern(AbstractVertex incomingVertex){

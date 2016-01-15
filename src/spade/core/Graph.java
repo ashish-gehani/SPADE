@@ -68,7 +68,7 @@ import spade.vertex.opm.Process;
  * @author Dawood Tariq
  */
 public class Graph extends AbstractStorage implements Serializable {
-
+	
     private static final Logger logger = Logger.getLogger(Graph.class.getName());
     private static final int MAX_QUERY_HITS = 1000;
     private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
@@ -102,7 +102,7 @@ public class Graph extends AbstractStorage implements Serializable {
     private Directory edgeIndex;
     private transient IndexWriter vertexIndexWriter;
     private transient IndexWriter edgeIndexWriter;
-
+    
     public void mergeThreads() {
 
     }
@@ -122,7 +122,7 @@ public class Graph extends AbstractStorage implements Serializable {
             logger.log(Level.SEVERE, null, exception);
         }
     }
-
+    
     public AbstractVertex getVertex(int id) {
         return vertexIdentifiers.get(id);
     }
