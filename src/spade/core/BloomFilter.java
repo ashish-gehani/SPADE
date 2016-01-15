@@ -2,26 +2,21 @@
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
  Copyright (C) 2015 SRI International
-
  This program is free software: you can redistribute it and/or  
  modify it under the terms of the GNU General Public License as  
  published by the Free Software Foundation, either version 3 of the  
  License, or (at your option) any later version.
-
  This program is distributed in the hope that it will be useful,  
  but WITHOUT ANY WARRANTY; without even the implied warranty of  
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU  
  General Public License for more details.
-
  You should have received a copy of the GNU General Public License  
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
-
  Based on the Bloom filter implementation by Magnus Skjegstad:
  http://code.google.com/p/java-bloomfilter/
  
  Author: Magnus Skjegstad <magnus@skjegstad.com>
-
  --------------------------------------------------------------------------------
  */
 package spade.core;
@@ -31,19 +26,35 @@ import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
+import java.util.Collection;
 
-public class BloomFilter implements Serializable {
-
+/**
+ * Implementation of a Bloom-filter, as described here:
+ * http://en.wikipedia.org/wiki/Bloom_filter
+ *
+ * For updates and bugfixes, see http://github.com/magnuss/java-bloomfilter
+ *
+ * Inspired by the SimpleBloomFilter-class written by Ian Clarke. This
+ * implementation provides a more evenly distributed Hash-function by
+ * using a proper digest instead of the Java RNG. Many of the changes
+ * were proposed in comments in his blog:
+ * http://blog.locut.us/2008/01/12/a-decent-stand-alone-java-bloom-filter-implementation/
+ *
+ * @param <E> Object type that is to be inserted into the Bloom filter, e.g. String or Integer.
+ * @author Magnus Skjegstad <magnus@skjegstad.com>
+ */
+public class BloomFilter<E> implements Serializable {
     private BitSet bitset;
     private int bitSetSize;
     private double bitsPerElement;
     private int expectedNumberOfFilterElements; // expected (maximum) number of elements to be added
     private int numberOfAddedElements; // number of elements actually added to the Bloom filter
     private int k; // number of hash functions
+
     static final Charset charset = Charset.forName("UTF-8"); // encoding used for storing hash values as strings
+
     static final String hashName = "MD5"; // MD5 gives good enough accuracy in most circumstances. Change to SHA1 if it's needed
     static final MessageDigest digestFunction;
-
     static { // The digest method is reused between instances
         MessageDigest tmp;
         try {
@@ -55,62 +66,55 @@ public class BloomFilter implements Serializable {
     }
 
     /**
-     * Constructs an empty Bloom filter. The total length of the Bloom filter
-     * will be c*n.
-     *
-     * @param c is the number of bits used per element.
-     * @param n is the expected number of elements the filter will contain.
-     * @param k is the number of hash functions used.
-     */
+      * Constructs an empty Bloom filter. The total length of the Bloom filter will be
+      * c*n.
+      *
+      * @param c is the number of bits used per element.
+      * @param n is the expected number of elements the filter will contain.
+      * @param k is the number of hash functions used.
+      */
     public BloomFilter(double c, int n, int k) {
-        this.expectedNumberOfFilterElements = n;
-        this.k = k;
-        this.bitsPerElement = c;
-        this.bitSetSize = (int) Math.ceil(c * n);
-        numberOfAddedElements = 0;
-        this.bitset = new BitSet(bitSetSize);
+      this.expectedNumberOfFilterElements = n;
+      this.k = k;
+      this.bitsPerElement = c;
+      this.bitSetSize = (int)Math.ceil(c * n);
+      numberOfAddedElements = 0;
+      this.bitset = new BitSet(bitSetSize);
     }
 
     /**
-     * Constructs an empty Bloom filter. The optimal number of hash functions
-     * (k) is estimated from the total size of the Bloom and the number of
-     * expected elements.
+     * Constructs an empty Bloom filter. The optimal number of hash functions (k) is estimated from the total size of the Bloom
+     * and the number of expected elements.
      *
-     * @param bitSetSize defines how many bits should be used in total for the
-     * filter.
-     * @param expectedNumberOElements defines the maximum number of elements the
-     * filter is expected to contain.
+     * @param bitSetSize defines how many bits should be used in total for the filter.
+     * @param expectedNumberOElements defines the maximum number of elements the filter is expected to contain.
      */
     public BloomFilter(int bitSetSize, int expectedNumberOElements) {
-        this(bitSetSize / (double) expectedNumberOElements,
-                expectedNumberOElements,
-                (int) Math.round((bitSetSize / (double) expectedNumberOElements) * Math.log(2.0)));
+        this(bitSetSize / (double)expectedNumberOElements,
+             expectedNumberOElements,
+             (int) Math.round((bitSetSize / (double)expectedNumberOElements) * Math.log(2.0)));
     }
 
     /**
-     * Constructs an empty Bloom filter with a given false positive probability.
-     * The number of bits per element and the number of hash functions is
-     * estimated to match the false positive probability.
+     * Constructs an empty Bloom filter with a given false positive probability. The number of bits per
+     * element and the number of hash functions is estimated
+     * to match the false positive probability.
      *
-     * @param falsePositiveProbability is the desired false positive
-     * probability.
-     * @param expectedNumberOfElements is the expected number of elements in the
-     * Bloom filter.
+     * @param falsePositiveProbability is the desired false positive probability.
+     * @param expectedNumberOfElements is the expected number of elements in the Bloom filter.
      */
     public BloomFilter(double falsePositiveProbability, int expectedNumberOfElements) {
         this(Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2))) / Math.log(2), // c = k / ln(2)
-                expectedNumberOfElements,
-                (int) Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2)))); // k = ceil(-log_2(false prob.))
+             expectedNumberOfElements,
+             (int)Math.ceil(-(Math.log(falsePositiveProbability) / Math.log(2)))); // k = ceil(-log_2(false prob.))
     }
 
     /**
      * Construct a new Bloom filter based on existing Bloom filter data.
      *
      * @param bitSetSize defines how many bits should be used for the filter.
-     * @param expectedNumberOfFilterElements defines the maximum number of
-     * elements the filter is expected to contain.
-     * @param actualNumberOfFilterElements specifies how many elements have been
-     * inserted into the <code>filterData</code> BitSet.
+     * @param expectedNumberOfFilterElements defines the maximum number of elements the filter is expected to contain.
+     * @param actualNumberOfFilterElements specifies how many elements have been inserted into the <code>filterData</code> BitSet.
      * @param filterData a BitSet representing an existing Bloom filter.
      */
     public BloomFilter(int bitSetSize, int expectedNumberOfFilterElements, int actualNumberOfFilterElements, BitSet filterData) {
@@ -126,18 +130,17 @@ public class BloomFilter implements Serializable {
      * @param charset specifies the encoding of the input data.
      * @return digest as long.
      */
-    public static long createHash(String val, Charset charset) {
+    public static int createHash(String val, Charset charset) {
         return createHash(val.getBytes(charset));
     }
 
     /**
      * Generates a digest based on the contents of a String.
      *
-     * @param val specifies the input data. The encoding is expected to be
-     * UTF-8.
+     * @param val specifies the input data. The encoding is expected to be UTF-8.
      * @return digest as long.
      */
-    public static long createHash(String val) {
+    public static int createHash(String val) {
         return createHash(val, charset);
     }
 
@@ -147,19 +150,43 @@ public class BloomFilter implements Serializable {
      * @param data specifies input data.
      * @return digest as long.
      */
-    public static long createHash(byte[] data) {
-        long h = 0;
-        byte[] res;
+    public static int createHash(byte[] data) {
+        return createHashes(data, 1)[0];
+    }
 
-        synchronized (digestFunction) {
-            res = digestFunction.digest(data);
-        }
+    /**
+     * Generates digests based on the contents of an array of bytes and splits the result into 4-byte int's and store them in an array. The
+     * digest function is called until the required number of int's are produced. For each call to digest a salt
+     * is prepended to the data. The salt is increased by 1 for each call.
+     *
+     * @param data specifies input data.
+     * @param hashes number of hashes/int's to produce.
+     * @return array of int-sized hashes
+     */
+    public static int[] createHashes(byte[] data, int hashes) {
+        int[] result = new int[hashes];
 
-        for (int i = 0; i < 4; i++) {
-            h <<= 8;
-            h |= ((int) res[i]) & 0xFF;
+        int k = 0;
+        byte salt = 0;
+        while (k < hashes) {
+            byte[] digest;
+            synchronized (digestFunction) {
+                digestFunction.update(salt);
+                salt++;
+                digest = digestFunction.digest(data);                
+            }
+        
+            for (int i = 0; i < digest.length/4 && k < hashes; i++) {
+                int h = 0;
+                for (int j = (i*4); j < (i*4)+4; j++) {
+                    h <<= 8;
+                    h |= ((int) digest[j]) & 0xFF;
+                }
+                result[k] = h;
+                k++;
+            }
         }
-        return h;
+        return result;
     }
 
     /**
@@ -176,7 +203,7 @@ public class BloomFilter implements Serializable {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        final BloomFilter other = (BloomFilter) obj;
+        final BloomFilter<E> other = (BloomFilter<E>) obj;        
         if (this.expectedNumberOfFilterElements != other.expectedNumberOfFilterElements) {
             return false;
         }
@@ -194,7 +221,6 @@ public class BloomFilter implements Serializable {
 
     /**
      * Calculates a hash code for this class.
-     *
      * @return hash code representing the contents of an instance of this class.
      */
     @Override
@@ -207,14 +233,15 @@ public class BloomFilter implements Serializable {
         return hash;
     }
 
+
     /**
-     * Calculates the expected probability of false positives based on the
-     * number of expected filter elements and the size of the Bloom filter. <br
-     * /><br /> The value returned by this method is the <i>expected</i> rate
-     * of false positives, assuming the number of inserted elements equals the
-     * number of expected elements. If the number of elements in the Bloom
-     * filter is less than the expected value, the true probability of false
-     * positives will be lower.
+     * Calculates the expected probability of false positives based on
+     * the number of expected filter elements and the size of the Bloom filter.
+     * <br /><br />
+     * The value returned by this method is the <i>expected</i> rate of false
+     * positives, assuming the number of inserted elements equals the number of
+     * expected elements. If the number of elements in the Bloom filter is less
+     * than the expected value, the true probability of false positives will be lower.
      *
      * @return expected probability of false positives.
      */
@@ -223,8 +250,8 @@ public class BloomFilter implements Serializable {
     }
 
     /**
-     * Calculate the probability of a false positive given the specified number
-     * of inserted elements.
+     * Calculate the probability of a false positive given the specified
+     * number of inserted elements.
      *
      * @param numberOfElements number of inserted elements.
      * @return probability of a false positive.
@@ -232,14 +259,13 @@ public class BloomFilter implements Serializable {
     public double getFalsePositiveProbability(double numberOfElements) {
         // (1 - e^(-k * n / m)) ^ k
         return Math.pow((1 - Math.exp(-k * (double) numberOfElements
-                / (double) bitSetSize)), k);
+                        / (double) bitSetSize)), k);
 
     }
 
     /**
-     * Get the current probability of a false positive. The probability is
-     * calculated from the size of the Bloom filter and the current number of
-     * elements added to it.
+     * Get the current probability of a false positive. The probability is calculated from
+     * the size of the Bloom filter and the current number of elements added to it.
      *
      * @return probability of false positives.
      */
@@ -247,10 +273,12 @@ public class BloomFilter implements Serializable {
         return getFalsePositiveProbability(numberOfAddedElements);
     }
 
+
     /**
-     * Returns the value chosen for K.<br /> <br /> K is the optimal number of
-     * hash functions based on the size of the Bloom filter and the expected
-     * number of inserted elements.
+     * Returns the value chosen for K.<br />
+     * <br />
+     * K is the optimal number of hash functions based on the size
+     * of the Bloom filter and the expected number of inserted elements.
      *
      * @return optimal k.
      */
@@ -270,35 +298,57 @@ public class BloomFilter implements Serializable {
      * Adds an object to the Bloom filter. The output from the object's
      * toString() method is used as input to the hash functions.
      *
-     * @param vertex is an element to register in the Bloom filter.
+     * @param element is an element to register in the Bloom filter.
      */
-    public void add(AbstractVertex vertex) {
-        long hash;
-        String valString = sketchString(vertex);
-        for (int x = 0; x < k; x++) {
-            hash = createHash(valString + Integer.toString(x));
-            hash = hash % (long) bitSetSize;
-            bitset.set(Math.abs((int) hash), true);
-        }
-        numberOfAddedElements++;
+    public void add(E element) {
+       add(element.toString().getBytes(charset));
     }
 
     /**
-     * Returns true if the element could have been inserted into the Bloom
-     * filter. Use getFalsePositiveProbability() to calculate the probability of
-     * this being correct.
+     * Adds an array of bytes to the Bloom filter.
      *
-     * @param vertex element to check.
-     * @return true if the element could have been inserted into the Bloom
-     * filter.
+     * @param bytes array of bytes to add to the Bloom filter.
      */
-    public boolean contains(AbstractVertex vertex) {
-        long hash;
-        String valString = sketchString(vertex);
-        for (int x = 0; x < k; x++) {
-            hash = createHash(valString + Integer.toString(x));
-            hash = hash % (long) bitSetSize;
-            if (!bitset.get(Math.abs((int) hash))) {
+    public void add(byte[] bytes) {
+       int[] hashes = createHashes(bytes, k);
+       for (int hash : hashes)
+           bitset.set(Math.abs(hash % bitSetSize), true);
+       numberOfAddedElements ++;
+    }
+
+    /**
+     * Adds all elements from a Collection to the Bloom filter.
+     * @param c Collection of elements.
+     */
+    public void addAll(Collection<? extends E> c) {
+        for (E element : c)
+            add(element);
+    }
+        
+    /**
+     * Returns true if the element could have been inserted into the Bloom filter.
+     * Use getFalsePositiveProbability() to calculate the probability of this
+     * being correct.
+     *
+     * @param element element to check.
+     * @return true if the element could have been inserted into the Bloom filter.
+     */
+    public boolean contains(E element) {
+        return contains(element.toString().getBytes(charset));
+    }
+
+    /**
+     * Returns true if the array of bytes could have been inserted into the Bloom filter.
+     * Use getFalsePositiveProbability() to calculate the probability of this
+     * being correct.
+     *
+     * @param bytes array of bytes to check.
+     * @return true if the array could have been inserted into the Bloom filter.
+     */
+    public boolean contains(byte[] bytes) {
+        int[] hashes = createHashes(bytes, k);
+        for (int hash : hashes) {
+            if (!bitset.get(Math.abs(hash % bitSetSize))) {
                 return false;
             }
         }
@@ -306,8 +356,21 @@ public class BloomFilter implements Serializable {
     }
 
     /**
+     * Returns true if all the elements of a Collection could have been inserted
+     * into the Bloom filter. Use getFalsePositiveProbability() to calculate the
+     * probability of this being correct.
+     * @param c elements to check.
+     * @return true if all the elements in c could have been inserted into the Bloom filter.
+     */
+    public boolean containsAll(Collection<? extends E> c) {
+        for (E element : c)
+            if (!contains(element))
+                return false;
+        return true;
+    }
+
+    /**
      * Read a single bit from the Bloom filter.
-     *
      * @param bit the bit to read.
      * @return true if the bit is set, false if it is not.
      */
@@ -317,7 +380,6 @@ public class BloomFilter implements Serializable {
 
     /**
      * Set a single bit in the Bloom filter.
-     *
      * @param bit is the bit to set.
      * @param value If true, the bit is set. If false, the bit is cleared.
      */
@@ -327,7 +389,6 @@ public class BloomFilter implements Serializable {
 
     /**
      * Return the bit set used to store the Bloom filter.
-     *
      * @return bit set representing the Bloom filter.
      */
     public BitSet getBitSet() {
@@ -345,8 +406,8 @@ public class BloomFilter implements Serializable {
     }
 
     /**
-     * Returns the number of elements added to the Bloom filter after it was
-     * constructed or after clear() was called.
+     * Returns the number of elements added to the Bloom filter after it
+     * was constructed or after clear() was called.
      *
      * @return number of elements added to the Bloom filter.
      */
@@ -365,9 +426,8 @@ public class BloomFilter implements Serializable {
     }
 
     /**
-     * Get expected number of bits per element when the Bloom filter is full.
-     * This value is set by the constructor when the Bloom filter is created.
-     * See also getBitsPerElement().
+     * Get expected number of bits per element when the Bloom filter is full. This value is set by the constructor
+     * when the Bloom filter is created. See also getBitsPerElement().
      *
      * @return expected number of bits per element.
      */
@@ -376,25 +436,12 @@ public class BloomFilter implements Serializable {
     }
 
     /**
-     * Get actual number of bits per element based on the number of elements
-     * that have currently been inserted and the length of the Bloom filter. See
-     * also getExpectedBitsPerElement().
+     * Get actual number of bits per element based on the number of elements that have currently been inserted and the length
+     * of the Bloom filter. See also getExpectedBitsPerElement().
      *
      * @return number of bits per element.
      */
     public double getBitsPerElement() {
-        return this.bitSetSize / (double) numberOfAddedElements;
-    }
-
-    public String sketchString(AbstractVertex vertex) {
-        String result = "";
-        if ((vertex.getAnnotation("source host")).compareTo(vertex.getAnnotation("destination host")) < 0) {
-            result += vertex.getAnnotation("source host") + vertex.getAnnotation("source port");
-            result += vertex.getAnnotation("destination host") + vertex.getAnnotation("destination port");
-        } else {
-            result += vertex.getAnnotation("destination host") + vertex.getAnnotation("destination port");
-            result += vertex.getAnnotation("source host") + vertex.getAnnotation("source port");
-        }
-        return result;
+        return this.bitSetSize / (double)numberOfAddedElements;
     }
 }

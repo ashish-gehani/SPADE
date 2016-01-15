@@ -81,7 +81,8 @@ public class Bitcoin extends AbstractReporter {
 
     public static String BITCOIN_STAGING_DIR = Paths.get(SPADE_ROOT, "tmp/bitcoin/").toString();
 
-    private final int pause_time = 10000;
+    private final int PAUSE_TIME = 10;
+    private final int MAX_BUFFER_SIZE = 1000000;
 
     // file used to save block index, i such that block 0 to i have been processed
     private String progress_file = Paths.get(BITCOIN_STAGING_DIR, "progress").toString();
@@ -200,6 +201,7 @@ public class Bitcoin extends AbstractReporter {
         if (diff > 60000) {
             Bitcoin.log(Level.INFO, "Rate: " + (int) recent_blocks_processed/(diff/60000) +" blocks/min. Total in the session: " + total_blocks_processed, null);
             Bitcoin.log(Level.INFO, "Rate: " + (int) recent_tx_processed/(diff/60000) +" txes/min. Total in the session: " + total_tx_processed, null);
+            Bitcoin.log(Level.INFO, "Process Buffer size: " + getBuffer().size(), null);
             
             date = Calendar.getInstance().getTime();
             recent_blocks_processed = 0;
@@ -315,16 +317,22 @@ public class Bitcoin extends AbstractReporter {
                         
         for (int curr_block = start_block; curr_block <= end_block; curr_block++) {
 
+	while (getBuffer().size() > MAX_BUFFER_SIZE) {
+	    try{
+	        Thread.sleep(PAUSE_TIME);
+	    } catch (Exception exception){}
+	}
+
             Block block = null;
             // we wait upto 20 mins for new block (twice expected time)
-            for (int attempts=1; attempts < (2*10*60*1000 / pause_time); attempts++) {
+            for (int attempts=1; attempts < (2*10*60*1000 / PAUSE_TIME); attempts++) {
                 try {
                     block = block_reader.getBlock(curr_block);
                     break;
                 } catch (Exception e) {
                     // either the block does not exist or server call fail. Wait and retry
                     try {
-                        Thread.sleep(pause_time); 
+                        Thread.sleep(PAUSE_TIME); 
                     } catch (Exception e1) {
                         Bitcoin.log(Level.SEVERE, "Failure to get new hashes from server. Quiting", e);
                         return;

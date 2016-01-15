@@ -51,6 +51,7 @@ public class OPM2ProvTC extends OPM2Prov{
 		for(String annotation : annotations.keySet()){
 			if(newMapping.get(annotation) != null){
 				annotations.put(newMapping.get(annotation), annotations.get(annotation));
+				annotations.remove(annotation);
 			}
 		}
 	}
