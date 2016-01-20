@@ -835,6 +835,7 @@ public class Audit extends AbstractReporter {
                 case 42: // connect()
                     processConnect(eventData);
                     break;
+                case 288: //accept4()
                 case 43: // accept()
                     processAccept(eventData);
                     break;
@@ -1528,8 +1529,7 @@ public class Audit extends AbstractReporter {
             used.addAnnotation("operation", "accept");
             putEdge(used);
             // update file descriptor table
-            String hexFD = eventData.get("a0");
-            String fd = new BigInteger(hexFD, 16).toString();
+            String fd = eventData.get("exit");
             addDescriptor(pid, fd, location);
         }
     }
