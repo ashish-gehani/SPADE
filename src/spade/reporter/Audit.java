@@ -1035,12 +1035,18 @@ public class Audit extends AbstractReporter {
         wtb.addAnnotation("operation", syscall.name().toLowerCase());
         wtb.addAnnotation("time", time);
         putEdge(wtb); // Copy file descriptors from old process to new one
-        if (fileDescriptors.containsKey(oldPID)) {
-            Map<String, String> newfds = new HashMap<>();
-            for (Map.Entry<String, String> entry : fileDescriptors.get(oldPID).entrySet()) {
-                newfds.put(entry.getKey(), entry.getValue());
-            }
-            fileDescriptors.put(newPID, newfds);
+        
+        if(syscall == SYSCALL.CLONE){ //share file descriptors when clone
+        	if(fileDescriptors.get(oldPID) == null){
+        		fileDescriptors.put(oldPID, new HashMap<String, String>());
+        	}
+        	fileDescriptors.put(newPID, fileDescriptors.get(oldPID));
+        }else if(syscall == SYSCALL.FORK){ //copy file descriptors just once here when fork
+	        if (fileDescriptors.get(oldPID) != null) {
+	            Map<String, String> newfds = new HashMap<>();
+	            newfds.putAll(fileDescriptors.get(oldPID));
+	            fileDescriptors.put(newPID, newfds);
+	        }
         }
     }
 
@@ -1088,6 +1094,13 @@ public class Audit extends AbstractReporter {
         String path1 = eventData.get("path1"); 
         putUsedEdge(cwd, path0, newProcess, time);
         putUsedEdge(cwd, path1, newProcess, time);
+        
+        //unlink the fds of the calling process from the parent of the process
+        if(fileDescriptors.get(pid) != null){
+        	Map<String, String> fdsCopy = new HashMap<String, String>();
+        	fdsCopy.putAll(fileDescriptors.get(pid));
+        	fileDescriptors.put(pid, fdsCopy);
+        }
     }
     
     private void putUsedEdge(String cwd, String path, Process process, String time){
