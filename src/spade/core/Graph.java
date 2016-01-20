@@ -500,6 +500,11 @@ public class Graph extends AbstractStorage implements Serializable {
             } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity")) {
                 shape = "ellipse";
                 color = "khaki1";
+                String subtype = vertex.getAnnotation("subtype");
+                if ("network".equalsIgnoreCase(subtype)) {
+                    shape = "diamond";
+                    color = "palegreen1";
+                }
             }
 
             String key = Integer.toString(reverseVertexIdentifiers.get(vertex));
