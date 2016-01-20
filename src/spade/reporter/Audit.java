@@ -1016,6 +1016,18 @@ public class Audit extends AbstractReporter {
         newProcess.addAnnotation("uid", uid);
         newProcess.addAnnotation("gid", gid);
         newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
+        
+        Process oldProcess = getProcess(oldPID);
+        if(oldProcess != null){
+        	String commandline = oldProcess.getAnnotation("commandline");
+        	String name = oldProcess.getAnnotation("name");
+    		if(commandline != null){
+    			newProcess.addAnnotation("commandline", commandline);
+    		}
+    		if(name != null){
+    			newProcess.addAnnotation("name", name);
+    		}
+        }
 
         addProcess(newPID, newProcess);
         putVertex(newProcess);
