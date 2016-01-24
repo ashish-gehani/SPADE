@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +36,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.LinkedList;
+import java.util.Calendar;
+import java.util.Date;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -65,19 +69,15 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
+import spade.core.BloomFilter;
 
 /**
  * Neo4j storage implementation.
  *
- * @author Dawood Tariq
+ * @author Dawood Tariq and Hasanat Kazmi
  */
 public class Neo4j extends AbstractStorage {
 
-    // Number of transactions to buffer before committing to database
-    private static final int TRANSACTION_LIMIT = 10000;
-    // Number of transaction flushes before the database is shutdown and
-    // restarted
-    private static final int HARD_FLUSH_LIMIT = 10;
     // Identifying annotation to add to each edge/vertex
     private static final String ID_STRING = Settings.getProperty("storage_identifier");
     private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
@@ -89,22 +89,23 @@ public class Neo4j extends AbstractStorage {
     private IndexManager index;
     private Index<Node> vertexIndex;
     private RelationshipIndex edgeIndex;
-    private Transaction transaction;
-    private int transactionCount;
-    private int flushCount;
-    private Map<String, Long> spadeNeo4jCache;
-    private Map<String, Long> uncommittedSpadeNeo4jCache;
-    private final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
-    private final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
     private final String NEO_CONFIG_FILE = "cfg/neo4j.properties";
 
     private enum MyRelationshipTypes implements RelationshipType { EDGE }
-
-    private enum MyNodeTypes implements Label { VERTEX }
-    
+    private enum MyNodeTypes implements Label { VERTEX }    
     private String neo4jDatabaseDirectoryPath = null;
-    private String spadeNeo4jCacheFilePath = "spade-neo4j-cache";
+
+	public final String NODE_HASHCODE_LABEL = "hashCode";
+	// private int TRUST_DATA_LEVEL = 4; // HIGH : trust all edges to be unique and having vertexes already in db 
+	private double falsePositiveProbability = 0.0001;
+	private int expectedNumberOfElements = Integer.MAX_VALUE;
+	private BloomFilter<Integer> nodeBloomFilter; 
+	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
+	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
+	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 100000;
+
+	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
 
     @Override
     public boolean initialize(String arguments) {
@@ -113,7 +114,10 @@ public class Neo4j extends AbstractStorage {
             if (neo4jDatabaseDirectoryPath == null) {
                 return false;
             }
-            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
+            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath)
+            	// this options caches in memeory before dumping it on disk
+	            // .setConfig(GraphDatabaseSettings.pagecache_memory, "" + 1024*1024*1024)
+            ;
             try {
                 graphDbBuilder.loadPropertiesFromFile(NEO_CONFIG_FILE);
                 logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
@@ -121,6 +125,7 @@ public class Neo4j extends AbstractStorage {
                 logger.log(Level.INFO, "Default Neo4j configurations loaded.");
             }
             graphDb = graphDbBuilder.newGraphDatabase();
+
             try ( Transaction tx = graphDb.beginTx() ) {
                 index = graphDb.index();
                 // Create vertex index
@@ -129,12 +134,12 @@ public class Neo4j extends AbstractStorage {
                 edgeIndex = index.forRelationships(EDGE_INDEX);
                 tx.success();
             }
-            // Create HashMap to store IDs of incoming vertices
-            transactionCount = 0;
-            flushCount = 0;
-            spadeNeo4jCache = new HashMap<String, Long>();
-            uncommittedSpadeNeo4jCache = new HashMap<String, Long>();
-            loadSpadeNeo4jCache();
+
+            nodeBloomFilter = loadBloomFilter(NODE_BLOOMFILTER);
+
+            logger.log(Level.INFO, "nodeBloomFilter size: " + nodeBloomFilter.count());
+
+            reportProgressDate = Calendar.getInstance().getTime();
             
             return true;
         } catch (Exception exception) {
@@ -142,184 +147,219 @@ public class Neo4j extends AbstractStorage {
             return false;
         }
     }
-    
-    private void loadSpadeNeo4jCache(){
-    	File spadeNeo4jCacheFile = new File(neo4jDatabaseDirectoryPath + File.separatorChar + spadeNeo4jCacheFilePath);
-    	if(spadeNeo4jCacheFile.exists()){
-    		long start = System.currentTimeMillis();
-    		ObjectInputStream cacheObjectInputStream = null;
-    		try{
-    			cacheObjectInputStream = new ObjectInputStream(new FileInputStream(spadeNeo4jCacheFile));
-    			spadeNeo4jCache = (Map<String, Long>)cacheObjectInputStream.readObject();
-    		}catch(Exception e){
-    			logger.log(Level.SEVERE, "Failed to read the spade-neo4j cache", e);
-    		}finally{
-    			try{
-    				if(cacheObjectInputStream != null){
-    					cacheObjectInputStream.close();
-    				}
-    			}catch(Exception e){
-    				logger.log(Level.SEVERE, "Failed to close cache file reader", e);
-    			}
-    		}
-    		//logger.log(Level.INFO, "Loaded cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
-    	}
+
+    private BloomFilter loadBloomFilter(String fileName) {
+
+    	try {
+    		File filePath = new File(neo4jDatabaseDirectoryPath, fileName);
+    		if (filePath.exists()) {
+	    		FileInputStream fileInputStream = new FileInputStream(
+	    			filePath.toString() 
+				);
+	    		ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
+	    		BloomFilter bloomFilter = (BloomFilter<Integer>) objectInputStream.readObject();
+	    		objectInputStream.close();
+	    		fileInputStream.close();
+	    		return bloomFilter;
+	    	}
+    	} catch (IOException exception) {
+    		logger.log(Level.SEVERE, "Failed to load spade neo4j bloomfilter cache", exception);
+    	} catch(ClassNotFoundException exception) {
+        	exception.printStackTrace();
+      	}
+      	return new BloomFilter<Integer>(falsePositiveProbability, expectedNumberOfElements);
     }
 
-    private void checkTransactionCount() {
-        transactionCount++;
-        if (transactionCount == TRANSACTION_LIMIT) {
-            // If transaction limit is reached, commit the transactions
-            commitTransaction(transaction);
-            //increase flush count
-            flushCount++;
-            // If hard flush limit is reached, restart the database
-            if (flushCount == HARD_FLUSH_LIMIT) {
-                logger.log(Level.INFO, "Hard flush limit reached - restarting database");
-                graphDb.shutdown();
-                graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(arguments);
-                index = graphDb.index();
-                try ( Transaction tx = graphDb.beginTx() ) {
-                    vertexIndex = index.forNodes(VERTEX_INDEX);
-                    edgeIndex = index.forRelationships(EDGE_INDEX);
-                    tx.success();
-                }
-                flushCount = 0;
-            }
-        }
-    }
-    
-    private void commitTransaction(Transaction transaction){
-    	boolean success = false;
-        if (transaction != null) {
-        	try{
-        		transaction.success();
-        		success = true;
-        	}catch(Exception e){
-        		logger.log(Level.SEVERE, null, e);
-        	} finally {
-                transaction.close();
-            }
-        }
-    	commitCache(success);
-    	// Reset transaction count
-    	transactionCount = 0;
+    private void saveBloomFilter(String fileName, BloomFilter bloomFilter) {
+
+    	try {
+    		FileOutputStream fileOutputStream = new FileOutputStream(
+    			new File(neo4jDatabaseDirectoryPath, fileName).toString() 
+			);
+    		ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+    		objectOutputStream.writeObject(bloomFilter);
+    		objectOutputStream.close();
+    		fileOutputStream.close();
+    	} catch (IOException exception) {
+    		logger.log(Level.SEVERE, "Failed to save spade neo4j bloomfilter cache", exception);
+    	}
+
     }
 
     @Override
     public boolean flushTransactions() {
         // Flush any pending transactions. This method is called by the Kernel
         // whenever a query is executed
-    	commitTransaction(transaction);
         return true;
     }
 
     @Override
     public boolean shutdown() {
+    	logger.log(Level.INFO, "shutdown initiated for Neo4j");
         // Flush all transactions before shutting down the database
-    	commitTransaction(transaction);
-        graphDb.shutdown();
-        saveSpadeNeo4jCache();
+        // make sure buffers are done, and stop and join all threads
+        graphDb.shutdown(); // look at register shutdownhook in http://neo4j.com/docs/stable/tutorials-java-embedded-setup.html 
+        logger.log(Level.INFO, "database shutdown");
+        saveBloomFilter(NODE_BLOOMFILTER, nodeBloomFilter);
+        logger.log(Level.INFO, "all chores completed!");
         return true;
     }
-    
-    private void saveSpadeNeo4jCache(){
-    	ObjectOutputStream cacheObjectOutputStream = null;
-    	try{
-	    	File spadeNeo4jCacheFile = new File(neo4jDatabaseDirectoryPath + File.separator + spadeNeo4jCacheFilePath);
-	    	if(spadeNeo4jCacheFile.exists()){
-	    		spadeNeo4jCacheFile.delete();
-	    	}
-	    	long start = System.currentTimeMillis();
-	    	cacheObjectOutputStream = new ObjectOutputStream(new FileOutputStream(spadeNeo4jCacheFile));
-	    	cacheObjectOutputStream.writeObject(spadeNeo4jCache);
-	    	//logger.log(Level.INFO, "Saved cache size = " + spadeNeo4jCache.size() + " in time " + (System.currentTimeMillis() - start) + " ms");
-    	}catch(Exception e){
-    		logger.log(Level.SEVERE, "Failed to save spade neo4j cache", e);
-    	}finally{
-    		try{
-    			if(cacheObjectOutputStream != null){
-    				cacheObjectOutputStream.close();
-    			}
-    		}catch(Exception e){
-    			logger.log(Level.SEVERE, "Failed to close cache output writer", e);
-    		}
-    	}
+
+    //
+    // variables used to track starts
+    //
+	int totalVertices = 0;
+	int totalEdges = 0;
+    int dbHitCountForVertex = 0;
+    int dbHitCountForEdge = 0;
+    int nodeFoundInLocalCacheCount = 0;
+    int foundInDbCount = 0;
+    int falsePositiveCount = 0;
+    Date reportProgressDate;
+
+	int totalVerticesTmp = 0;
+	int totalEdgesTmp = 0;
+    int dbHitCountForVertexTmp = 0;
+    int dbHitCountForEdgeTmp = 0;
+    int nodeFoundInLocalCacheCountTmp = 0;
+    int foundInDbCountTmp = 0;
+    int falsePositiveCountTmp = 0;
+
+    int reportProgressAverageTime = 60000; //ms
+
+    void reportProgress() {
+        long diff = Calendar.getInstance().getTime().getTime() - reportProgressDate.getTime();
+        if (diff > reportProgressAverageTime) {
+            logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false +tive/min. Bloom filter probability: " + nodeBloomFilter.getFalsePositiveProbability());
+            logger.log(Level.INFO, "Node L2: Rate: " + (int) (nodeFoundInLocalCacheCount - nodeFoundInLocalCacheCountTmp)/(diff/reportProgressAverageTime) +" node detection from local cache/min. Total: " + nodeFoundInLocalCacheCount);
+            logger.log(Level.INFO, "Node L2: Rate: " + (int) (100.0*localNodeHashQueue.size()/NODE_VERTEX_LOCAL_CACHE_SIZE) +" % local node cache filled. Total: " + NODE_VERTEX_LOCAL_CACHE_SIZE);
+            logger.log(Level.INFO, "Node L3: Rate: " + (int) (dbHitCountForVertex - dbHitCountForVertexTmp)/(diff/reportProgressAverageTime) +" db hit for vertexes from getVertices /min. Total: " + dbHitCountForVertex);
+            logger.log(Level.INFO, "Node L3: Rate: " + (int) (foundInDbCount - foundInDbCountTmp)/(diff/reportProgressAverageTime) +" detection from db/min. Total: " + foundInDbCount);
+
+            logger.log(Level.INFO, "Edges Rate: " + (int) (dbHitCountForEdge - dbHitCountForEdgeTmp)/(diff/reportProgressAverageTime) +" db hit for vertices from getEdges /min. Total: " + dbHitCountForEdge);
+            logger.log(Level.INFO, "Count Vertices: " + (int) (totalVertices - totalVerticesTmp)/(diff/reportProgressAverageTime) +" nodes/min. Total: " + totalVertices);
+            logger.log(Level.INFO, "Count Edges: " + (int) (totalEdges - totalEdgesTmp)/(diff/reportProgressAverageTime) +" edges/min. Total: " + totalEdges);
+
+            reportProgressDate = Calendar.getInstance().getTime();
+
+            totalVerticesTmp = totalVertices;
+            totalEdgesTmp = totalEdges;
+            dbHitCountForVertexTmp = dbHitCountForVertex;
+            nodeFoundInLocalCacheCountTmp = nodeFoundInLocalCacheCount;
+            foundInDbCountTmp = foundInDbCount;
+            dbHitCountForEdgeTmp = dbHitCountForEdge;
+            falsePositiveCountTmp = falsePositiveCount;
+        }
     }
+
+    public void putInLocalCache(Node vertex, int hashCode) {
+		if (localNodeHashQueue.size() > NODE_VERTEX_LOCAL_CACHE_SIZE) {
+		    localNodeCache.remove(localNodeHashQueue.removeFirst());
+		}
+		localNodeHashQueue.add(hashCode);
+		localNodeCache.put(hashCode, vertex);
+	}
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-    	if(existsInCache(getHashOfVertex(incomingVertex))){
-    		return false;
-    	}
-        try {
-            if (transactionCount == 0) {
-                transaction = graphDb.beginTx();
-            }
-            try ( Transaction tx = graphDb.beginTx() ) {
-                Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
-                for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
-                    String key = currentEntry.getKey();
-                    String value = currentEntry.getValue();
-                    if (key.equalsIgnoreCase(ID_STRING)) {
-                        continue;
-                    }
-                    newVertex.setProperty(key, value);
-                    vertexIndex.add(newVertex, key, value);
-                }
-                newVertex.setProperty(ID_STRING, newVertex.getId());
-                vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-                putInCache(getHashOfVertex(incomingVertex), newVertex.getId());
-                checkTransactionCount();
-                tx.success();
+    	totalVertices++;
+    	reportProgress();
+
+    	int hashCode = incomingVertex.hashCode();
+        if (nodeBloomFilter.contains(hashCode)) { // L1
+        	if (localNodeCache.containsKey(hashCode)) { // L2
+            	nodeFoundInLocalCacheCount++;
+                return false;
             } 
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
+            dbHitCountForVertex++;
+
+			try ( Transaction tx = graphDb.beginTx() ) {
+				Node newVertex;
+				newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
+            	if (newVertex != null) { // L3, false positive check
+					putInLocalCache(newVertex, hashCode);
+                	foundInDbCount++;
+                	return false;
+            	} else {
+                	falsePositiveCount++;
+            	}
+			tx.success();
+			}
+        } 
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+
+            Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equalsIgnoreCase(ID_STRING)) {
+                    continue;
+                }
+                newVertex.setProperty(key, value);
+                vertexIndex.add(newVertex, key, value);
+            }
+            // does findNode check in index or in db directly? if in db only, then we need to uncomment this line
+            newVertex.setProperty(NODE_HASHCODE_LABEL, hashCode);
+            vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
+            newVertex.setProperty(ID_STRING, newVertex.getId());
+            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+            nodeBloomFilter.add(hashCode);
+            putInLocalCache(newVertex, hashCode);
+                
+            tx.success();
+        } 
+        return true;
     }
+
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-    	if(existsInCache(getHashOfEdge(incomingEdge))){
-    		return false;
-    	}
-        try {
-            AbstractVertex srcVertex = incomingEdge.getSourceVertex();
-            AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
-            if (!existsInCache(getHashOfVertex(srcVertex)) || !existsInCache(getHashOfVertex(dstVertex))) {
-                return false;
-            }
-            if (transactionCount == 0) {
-                transaction = graphDb.beginTx();
-            }
-            try ( Transaction tx = graphDb.beginTx() ) {
-                Node srcNode = graphDb.getNodeById(getFromCache(getHashOfVertex(srcVertex)));
-                Node dstNode = graphDb.getNodeById(getFromCache(getHashOfVertex(dstVertex)));
+    	totalEdges++;
+    	reportProgress();
 
-                Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-                for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-                    String key = currentEntry.getKey();
-                    String value = currentEntry.getValue();
-                    if (key.equalsIgnoreCase(ID_STRING)) {
-                        continue;
-                    }
-                    newEdge.setProperty(key, value);
-                    edgeIndex.add(newEdge, key, value);
+        AbstractVertex srcVertex = incomingEdge.getSourceVertex();
+        AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
+
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+
+            int srcVertexHashCode = srcVertex.hashCode();
+            int dstVertexHashCode = dstVertex.hashCode();
+        	Node srcNode = localNodeCache.get(srcVertexHashCode);
+        	Node dstNode = localNodeCache.get(dstVertexHashCode);
+
+            if (srcNode == null) {
+            	dbHitCountForEdge++;
+
+                srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
+                putInLocalCache(srcNode, srcVertexHashCode);
+
+            }
+            if (dstNode == null) {
+            	dbHitCountForEdge++;
+
+                dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
+                putInLocalCache(dstNode, dstVertexHashCode);
+            }
+
+            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equalsIgnoreCase(ID_STRING)) {
+                    continue;
                 }
-                newEdge.setProperty(ID_STRING, newEdge.getId());
-                edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-                putInCache(getHashOfEdge(incomingEdge), newEdge.getId());
-                checkTransactionCount();
-                tx.success();
-            } 
-            
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
+                newEdge.setProperty(key, value);
+                edgeIndex.add(newEdge, key, value);
+            }
+            newEdge.setProperty(ID_STRING, newEdge.getId());
+            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+
+            tx.success();
+        } 
+        
+        return true;
     }
 
     private AbstractVertex convertNodeToVertex(Node node) {
@@ -600,32 +640,6 @@ public class Neo4j extends AbstractStorage {
     	return DigestUtils.sha256Hex(vertex.toString());
     }
     
-    private boolean existsInCache(String hash){
-    	return spadeNeo4jCache.get(hash) != null || uncommittedSpadeNeo4jCache.get(hash) != null;
-    }
-    
-    private void putInCache(String hash, Long id){
-    	uncommittedSpadeNeo4jCache.put(hash, id);
-    }
-    
-    private Long getFromCache(String hash){
-    	Long value = spadeNeo4jCache.get(hash);
-    	if(value == null){
-    		value = uncommittedSpadeNeo4jCache.get(hash);
-    	}
-    	return value;
-    }
-    
-    private void commitCache(boolean success){
-    	if(success){
-    		spadeNeo4jCache.putAll(uncommittedSpadeNeo4jCache);
-    	}
-    	uncommittedSpadeNeo4jCache.clear();
-    }
-
-
-
-
     public static void index(String dbpath, boolean printProgress) {
 
         int totalThreads = Runtime.getRuntime().availableProcessors();
@@ -858,5 +872,5 @@ public class Neo4j extends AbstractStorage {
 
         System.out.println("Database shutdown started...");
         graphDb.shutdown();
-    }
+	}
 }
