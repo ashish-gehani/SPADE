@@ -91,16 +91,6 @@ public class Audit extends AbstractReporter {
     		return super.get(key);
     	}
     };
-    
-    private Map<String, Long> networkLocationToBytesReadMap = new HashMap<String, Long>(){
-    	public Long get(Object key){
-    		if(super.get(key) == null){
-    			super.put(String.valueOf(key), 0L);
-    		}
-    		return super.get(key);
-    	}
-    };
-    
     private final static long MAX_BYTES_PER_NETWORK_ARTIFACT = 100;
     
     // Group 1: key
@@ -231,21 +221,6 @@ public class Audit extends AbstractReporter {
     	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
     	        			parseEventLine(line);
     	        		}
-    	        		boolean printed = false;
-        	        	while(!shutdown){
-        	        		if(!printed && getBuffer().size() == 0){//buffer processed
-        	        			printed = true;
-        	        			logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
-        	        		}
-        	        		try{
-        	        			Thread.sleep(500);
-        	        		}catch(Exception e){
-        	        			logger.log(Level.SEVERE, null, e);
-        	        		}
-    					}
-        	        	if(!printed){
-        	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
-        	        	}
     	        	}catch(Exception e){
     	        		logger.log(Level.WARNING, "Audit log processing failed: " + inputAuditLogFile, e);
     	        	}finally{
@@ -256,6 +231,17 @@ public class Audit extends AbstractReporter {
     	        		}catch(Exception e){
     	        			logger.log(Level.SEVERE, "Failed to close audit input log reader", e);
     	        		}
+    	        	}
+    	        	boolean printed = false;
+    	        	while(!shutdown){
+    	        		if(!printed && getBuffer().size() == 0){//buffer processed
+    	        			printed = true;
+    	        			logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
+    	        		}
+						//wait for user to shut it down
+					}
+    	        	if(!printed){
+    	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
     	        	}
     			}
     		});
@@ -1643,32 +1629,12 @@ public class Audit extends AbstractReporter {
         }
         
         String path = fileDescriptors.get(pid).get(fd);
-        
-        long bytesRemaining = Long.parseLong(bytesReceived);
-        while(bytesRemaining > 0){
-        	long currSize = networkLocationToBytesReadMap.get(path);
-        	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
-        	if(leftTillNext > bytesRemaining){
-        		putSocketRecvEdge(path, syscall.name().toLowerCase(), time, String.valueOf(bytesRemaining), pid);
-        		networkLocationToBytesReadMap.put(path, currSize + bytesRemaining);
-        		bytesRemaining = 0;
-        	}else{ //greater or equal
-        		putSocketRecvEdge(path, syscall.name().toLowerCase(), time, String.valueOf(leftTillNext), pid);
-        		networkLocationToBytesReadMap.put(path, 0L);
-        		fileVersions.put(path, fileVersions.get(path) + 1);
-        		//new version of network artifact for this path created. call putVertex here just once for that vertex.
-        		putVertex(createNetworkArtifact(path, false, syscall.name().toLowerCase()));
-        		bytesRemaining -= leftTillNext;
-        	}
-        }
-    }
-    
-    private void putSocketRecvEdge(String path, String syscall, String time, String size, String pid){
-    	Artifact vertex = createNetworkArtifact(path, false, syscall);
-    	Used used = new Used(getProcess(pid), vertex);
-        used.addAnnotation("operation", syscall);
+        Artifact vertex = createNetworkArtifact(path, false, syscall.name().toLowerCase());
+        putVertex(vertex);
+        Used used = new Used(getProcess(pid), vertex);
+        used.addAnnotation("operation", syscall.name().toLowerCase());
         used.addAnnotation("time", time);
-        used.addAnnotation("size", size);
+        used.addAnnotation("size", bytesReceived);
         putEdge(used);
     }
 
