@@ -9,8 +9,7 @@ before_install:
 script: 
   - ./configure;
   - make
-after_success:
-  - make install
+  - sudo make install
 notifications:
   email:
     - hasanatkazmi@gmail.com
