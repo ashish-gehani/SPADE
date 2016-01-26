@@ -221,6 +221,21 @@ public class Audit extends AbstractReporter {
     	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
     	        			parseEventLine(line);
     	        		}
+    	        		boolean printed = false;
+        	        	while(!shutdown){
+        	        		if(!printed && getBuffer().size() == 0){//buffer processed
+        	        			printed = true;
+        	        			logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
+        	        		}
+        	        		try{
+        	        			Thread.sleep(500);
+        	        		}catch(Exception e){
+        	        			logger.log(Level.SEVERE, null, e);
+        	        		}
+    					}
+        	        	if(!printed){
+        	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
+        	        	}
     	        	}catch(Exception e){
     	        		logger.log(Level.WARNING, "Audit log processing failed: " + inputAuditLogFile, e);
     	        	}finally{
@@ -231,17 +246,6 @@ public class Audit extends AbstractReporter {
     	        		}catch(Exception e){
     	        			logger.log(Level.SEVERE, "Failed to close audit input log reader", e);
     	        		}
-    	        	}
-    	        	boolean printed = false;
-    	        	while(!shutdown){
-    	        		if(!printed && getBuffer().size() == 0){//buffer processed
-    	        			printed = true;
-    	        			logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
-    	        		}
-						//wait for user to shut it down
-					}
-    	        	if(!printed){
-    	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
     	        	}
     			}
     		});
