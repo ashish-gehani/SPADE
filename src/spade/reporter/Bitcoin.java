@@ -80,6 +80,8 @@ public class Bitcoin extends AbstractReporter {
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
 
     public static String BITCOIN_STAGING_DIR = Paths.get(SPADE_ROOT, "tmp/bitcoin/").toString();
+	public static String BITCOIN_TOOLS_PATH_FILE = Paths.get(SPADE_ROOT, "cfg/bitcoin.path").toString();
+
 
     private final int PAUSE_TIME = 10;
     private final int MAX_BUFFER_SIZE = 1000000;
