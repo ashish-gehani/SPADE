@@ -260,6 +260,58 @@ public class Neo4j extends AbstractStorage {
 		localNodeCache.put(hashCode, vertex);
 	}
 
+	int txcount = 0;
+	Transaction globalTx;
+
+	private void txCommit() {
+		try {
+			if (txcount == 0) {
+				globalTx = graphDb.beginTx();
+			}
+			txcount++;
+			if (txcount >= 100) {
+				globalTx.success();
+				// globalTx = graphDb.beginTx();
+				txcount = 0;
+				vertexIndexToCommit = new HashMap<String, HashMap<String, Node>>();
+			}
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, "globalTx failure", exception);
+			// try again?
+		}
+	}
+
+	private HashMap<String, HashMap<String, Node>> vertexIndexToCommit = new HashMap<String, HashMap<String, Node>>();
+    private void addToVertexIndex(Node node, String key, String value) {
+		if (vertexIndexToCommit.containsKey(key)==false) {
+			vertexIndexToCommit.put(key, new HashMap<String, Node>());
+		}
+		vertexIndexToCommit.get(key).put(value, node);
+		try {
+			vertexIndex.add(node, key, value);
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, "couldn't add to node index", exception);
+		}
+		txCommit();
+    }
+
+    private Node getFromVertexIndex(String key, String value) {
+    	Node toReturn = null;
+    	if (vertexIndexToCommit.containsKey(key)) {
+	    	toReturn = (Node)((HashMap)vertexIndexToCommit.get(key)).get(value);
+	    }
+    	if (toReturn == null) {
+    		txCommit();
+    		try {
+	    		return vertexIndex.get(key, value).getSingle();
+	    	} catch (Exception exception) {
+	    		logger.log(Level.SEVERE, "couldnt get from node index", exception);
+	    	}
+    	}
+    	return toReturn;
+    }
+
+
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
     	totalVertices++;
@@ -273,9 +325,10 @@ public class Neo4j extends AbstractStorage {
             } 
             dbHitCountForVertex++;
 
-			try ( Transaction tx = graphDb.beginTx() ) {
+			// try ( Transaction tx = graphDb.beginTx() ) {
 				Node newVertex;
-				newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
+				// newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
+				newVertex = getFromVertexIndex(NODE_HASHCODE_LABEL, Long.toString(hashCode));
             	if (newVertex != null) { // L3, false positive check
 					putInLocalCache(newVertex, hashCode);
                 	foundInDbCount++;
@@ -283,12 +336,13 @@ public class Neo4j extends AbstractStorage {
             	} else {
                 	falsePositiveCount++;
             	}
-			tx.success();
-			}
-        } 
+			// tx.success();
+			// }
+        }
 
-        try ( Transaction tx = graphDb.beginTx() ) {
-
+        // try ( Transaction tx = graphDb.beginTx() ) {
+        try {
+        	txCommit();
             Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
             for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
@@ -297,18 +351,24 @@ public class Neo4j extends AbstractStorage {
                     continue;
                 }
                 newVertex.setProperty(key, value);
-                vertexIndex.add(newVertex, key, value);
+                // vertexIndex.add(newVertex, key, value);
+                addToVertexIndex(newVertex, key, value);
             }
             // does findNode check in index or in db directly? if in db only, then we need to uncomment this line
             newVertex.setProperty(NODE_HASHCODE_LABEL, hashCode);
-            vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
+            // vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
+            addToVertexIndex(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
             newVertex.setProperty(ID_STRING, newVertex.getId());
-            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+            // vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+            addToVertexIndex(newVertex, ID_STRING, Long.toString(newVertex.getId()));
             nodeBloomFilter.add(hashCode);
             putInLocalCache(newVertex, hashCode);
                 
-            tx.success();
-        } 
+            // tx.success();
+        // } 
+        } catch (Exception exception) {
+        	logger.log(Level.SEVERE, "problem!", exception);
+        }
         return true;
     }
 
