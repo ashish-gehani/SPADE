@@ -33,16 +33,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.LinkedList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -111,9 +107,6 @@ public class Neo4j extends AbstractStorage {
 
 	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
 
-    private final int DB_INSERT_QUEUE_SIZE = 200;
-    private final int TOTAL_THREADS = 20;
-
     @Override
     public boolean initialize(String arguments) {
         try {
@@ -147,13 +140,7 @@ public class Neo4j extends AbstractStorage {
             logger.log(Level.INFO, "nodeBloomFilter size: " + nodeBloomFilter.count());
 
             reportProgressDate = Calendar.getInstance().getTime();
-
-            for (int i=0; i<TOTAL_THREADS; i++) {
-                Thread th = new Thread(new Worker());
-                workers.add(th);
-                th.start();
-            }
-                    
+            
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -209,29 +196,6 @@ public class Neo4j extends AbstractStorage {
     @Override
     public boolean shutdown() {
     	logger.log(Level.INFO, "shutdown initiated for Neo4j");
-
-        while (currentlyProcessingNodes.size()!=0 && dbInsertQueue.size()!=0) {
-        	try {
-	            Thread.sleep(100);
-	        } catch (InterruptedException exception) {
-	        	
-	        }
-        }
-
-        logger.log(Level.INFO, "local Neo4j buffers cleared");
-
-        for (int i=0; i<TOTAL_THREADS; i++) {
-            workers.get(i).interrupt();
-        }
-
-        for (int i=0; i<TOTAL_THREADS; i++) {
-            try {
-                workers.get(i).join();
-            } catch (InterruptedException exception) {
-
-            }
-        }
-
         // Flush all transactions before shutting down the database
         // make sure buffers are done, and stop and join all threads
         graphDb.shutdown(); // look at register shutdownhook in http://neo4j.com/docs/stable/tutorials-java-embedded-setup.html 
@@ -296,47 +260,10 @@ public class Neo4j extends AbstractStorage {
 		localNodeCache.put(hashCode, vertex);
 	}
 
-    private final LinkedBlockingQueue<Object> dbInsertQueue = new LinkedBlockingQueue<Object>(DB_INSERT_QUEUE_SIZE);
-    private final ReentrantLock lock = new ReentrantLock();
-    private final ArrayList<Object> currentlyProcessingNodes = new ArrayList<Object>();
-
-    private ArrayList<Thread> workers = new ArrayList<Thread>();
-
-    class Worker implements Runnable {
-        public void run() {
-
-            while (!Thread.currentThread().isInterrupted()) {
-                Object obj = dbInsertQueue.poll();
-                    if (obj instanceof AbstractVertex) {
-                        currentlyProcessingNodes.add(obj);
-                        putVertexSync((AbstractVertex) obj);
-                        currentlyProcessingNodes.remove(obj);
-                    } else if (obj instanceof AbstractEdge) {
-                        while (currentlyProcessingNodes.contains(((AbstractEdge)obj).getSourceVertex()) ||
-                            currentlyProcessingNodes.contains(((AbstractEdge)obj).getDestinationVertex())) {
-                        }
-
-                        putEdgeSync((AbstractEdge)obj);
-                }
-            }
-        }
-    }
-
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-
-        totalVertices++;
-        reportProgress();
-
-        try {
-            dbInsertQueue.put(incomingVertex);
-        } catch (InterruptedException exception) {
-
-        }
-        return true;
-    }
-
-    public boolean putVertexSync(AbstractVertex incomingVertex) {
+    	totalVertices++;
+    	reportProgress();
 
     	int hashCode = incomingVertex.hashCode();
         if (nodeBloomFilter.contains(hashCode)) { // L1
@@ -388,18 +315,8 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-
-        totalEdges++;
-
-        try {
-            dbInsertQueue.put(incomingEdge);
-        } catch (InterruptedException exception) {
-
-        }
-        return true;
-    }
-
-    public boolean putEdgeSync(AbstractEdge incomingEdge) {
+    	totalEdges++;
+    	reportProgress();
 
         AbstractVertex srcVertex = incomingEdge.getSourceVertex();
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();

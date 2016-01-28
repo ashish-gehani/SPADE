@@ -13,3 +13,6 @@ hs_err_pid*
 
 # Mac's indexing files
 .DS_Store
+
+# tmp directory is created for staging purposes
+tmp
