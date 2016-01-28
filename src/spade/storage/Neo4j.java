@@ -97,14 +97,13 @@ public class Neo4j extends AbstractStorage {
     private String neo4jDatabaseDirectoryPath = null;
 
 	public final String NODE_HASHCODE_LABEL = "hashCode";
-	// private int TRUST_DATA_LEVEL = 4; // HIGH : trust all edges to be unique and having vertexes already in db 
 	private double falsePositiveProbability = 0.0001;
 	private int expectedNumberOfElements = Integer.MAX_VALUE;
 	private BloomFilter<Integer> nodeBloomFilter; 
 	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
 	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
 	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 100000;
-
+    private final int FLUSH_TX_COUNT = 10000;
 	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
 
     @Override
@@ -269,7 +268,7 @@ public class Neo4j extends AbstractStorage {
 				globalTx = graphDb.beginTx();
 			}
 			txcount++;
-			if (txcount >= 100) {
+			if (txcount >= FLUSH_TX_COUNT) {
 				globalTx.success();
 				// globalTx = graphDb.beginTx();
 				txcount = 0;
@@ -310,6 +309,37 @@ public class Neo4j extends AbstractStorage {
     	}
     	return toReturn;
     }
+
+    private HashMap<String, HashMap<String, Relationship>> edgeIndexToCommit = new HashMap<String, HashMap<String, Relationship>>();
+    private void addToEdgeIndex(Relationship edge, String key, String value) {
+        if (edgeIndexToCommit.containsKey(key)==false) {
+            edgeIndexToCommit.put(key, new HashMap<String, Relationship>());
+        }
+        edgeIndexToCommit.get(key).put(value, edge);
+        try {
+            edgeIndex.add(edge, key, value);
+        } catch (Exception exception) {
+            logger.log(Level.SEVERE, "couldn't add to edge index", exception);
+        }
+        txCommit();
+    }
+
+    private Relationship getFromEdgeIndex(String key, String value) {
+        Relationship toReturn = null;
+        if (edgeIndexToCommit.containsKey(key)) {
+            toReturn = (Relationship)((HashMap)edgeIndexToCommit.get(key)).get(value);
+        }
+        if (toReturn == null) {
+            txCommit();
+            try {
+                return edgeIndex.get(key, value).getSingle();
+            } catch (Exception exception) {
+                logger.log(Level.SEVERE, "couldnt get from edge index", exception);
+            }
+        }
+        return toReturn;
+    }
+
 
 
     @Override
@@ -382,42 +412,60 @@ public class Neo4j extends AbstractStorage {
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
 
 
-        try ( Transaction tx = graphDb.beginTx() ) {
+        // try ( Transaction tx = graphDb.beginTx() ) {
 
             int srcVertexHashCode = srcVertex.hashCode();
             int dstVertexHashCode = dstVertex.hashCode();
+
+            if (!nodeBloomFilter.contains(srcVertexHashCode)) {
+                putVertex(srcVertex);
+            }
+
+            if (!nodeBloomFilter.contains(dstVertexHashCode)) {
+                putVertex(dstVertex);
+            }
+
         	Node srcNode = localNodeCache.get(srcVertexHashCode);
         	Node dstNode = localNodeCache.get(dstVertexHashCode);
 
             if (srcNode == null) {
             	dbHitCountForEdge++;
 
-                srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
+                // srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
+                srcNode = getFromVertexIndex(NODE_HASHCODE_LABEL, Long.toString(srcVertexHashCode));
                 putInLocalCache(srcNode, srcVertexHashCode);
 
             }
             if (dstNode == null) {
             	dbHitCountForEdge++;
 
-                dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
+                // dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
+                dstNode = getFromVertexIndex(NODE_HASHCODE_LABEL, Long.toString(dstVertexHashCode));
                 putInLocalCache(dstNode, dstVertexHashCode);
             }
 
-            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
+            txCommit();
+            try{
+                // TODO: edge duplication checks! right now another edge will be added
+                Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+                for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                    String key = currentEntry.getKey();
+                    String value = currentEntry.getValue();
+                    if (key.equalsIgnoreCase(ID_STRING)) {
+                        continue;
+                    }
+                    newEdge.setProperty(key, value);
+                    // edgeIndex.add(newEdge, key, value);
+                    addToEdgeIndex(newEdge, key, value);
                 }
-                newEdge.setProperty(key, value);
-                edgeIndex.add(newEdge, key, value);
+                newEdge.setProperty(ID_STRING, newEdge.getId());
+                // edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+                addToEdgeIndex(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+            } catch (Exception exception) {
+                logger.log(Level.SEVERE, "problem!", exception);
             }
-            newEdge.setProperty(ID_STRING, newEdge.getId());
-            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-
-            tx.success();
-        } 
+            // tx.success();
+        // } 
         
         return true;
     }
