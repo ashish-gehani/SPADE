@@ -116,7 +116,7 @@ public class Prov extends AbstractStorage{
 		
 		Map<String, String> nsPrefixToFileMap = new HashMap<String, String>();
 		nsPrefixToFileMap.putAll(args);
-		nsPrefixToFileMap.remove(OUTFILE_KEY);
+		nsPrefixToFileMap.remove(OUTFILE_KEY); //removing the key which contains the path of the output file as the key from this map which contains rdfs files to read from
 		if(!nsPrefixToFileMap.containsKey(provNamespacePrefix) && !nsPrefixToFileMap.containsKey(defaultNamespacePrefix)){ //i.e. this prefix is reserved
 			if(loadAnnotationsFromRDFs(nsPrefixToFileMap)){
 				filePath = args.get(OUTFILE_KEY);
