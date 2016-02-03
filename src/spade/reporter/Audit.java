@@ -1479,12 +1479,9 @@ public class Audit extends AbstractReporter {
         descriptors.addDescriptor(pid, fd0, pipeInfo);
         descriptors.addDescriptor(pid, fd1, pipeInfo);
     }
-
-    private void processSocketCall(Map<String, String> eventData) {
-        String time = eventData.get("time");
-        String pid = eventData.get("pid");
-        String saddr = eventData.get("saddr");
-        ArtifactInfo artifactInfo = null;
+    
+    private ArtifactInfo parseSaddr(String saddr){
+    	ArtifactInfo artifactInfo = null;
     	if (saddr.charAt(1) == '2') {
             String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
             int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
@@ -1501,7 +1498,24 @@ public class Audit extends AbstractReporter {
         	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
         	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
         	artifactInfo = new SocketInfo(address, port);
+        }else if(saddr.charAt(1) == '1'){
+        	String path = "";
+        	for(int a = 4; a<saddr.length() && saddr.charAt(a) != '0'; a+=2){
+        		char c = (char)(Integer.parseInt(saddr.substring(a, a+2), 16));
+        		path += c;
+        	}
+        	if(!path.isEmpty()){
+        		artifactInfo = new UnixSocketInfo(path);
+        	}
         }
+    	return artifactInfo;
+    }
+
+    private void processSocketCall(Map<String, String> eventData) {
+        String time = eventData.get("time");
+        String pid = eventData.get("pid");
+        String saddr = eventData.get("saddr");
+        ArtifactInfo artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
@@ -1533,24 +1547,7 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
-        ArtifactInfo artifactInfo = null;
-    	if (saddr.charAt(1) == '2') {
-            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-            artifactInfo = new SocketInfo(address, port);
-        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
-        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
-        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
-        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
-        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
-        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
-        	artifactInfo = new SocketInfo(address, port);
-        }
+        ArtifactInfo artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
             Artifact network = createNetworkArtifact(artifactInfo, SYSCALL.CONNECT);
             putVertex(network);
@@ -1569,24 +1566,7 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
-        ArtifactInfo artifactInfo = null;
-    	if (saddr.charAt(1) == '2') {
-            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-            artifactInfo = new SocketInfo(address, port);
-        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
-        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
-        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
-        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
-        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
-        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
-        	artifactInfo = new SocketInfo(address, port);
-        }
+        ArtifactInfo artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
             Artifact network = createNetworkArtifact(artifactInfo, SYSCALL.ACCEPT);
             putVertex(network);
