@@ -3,7 +3,6 @@ package spade.reporter.audit;
 public class SocketInfo implements ArtifactInfo {
 
 	private String host, port;
-	private boolean isRead;
 	
 	public SocketInfo(String host, String port){
 		this.host = host;
@@ -21,6 +20,10 @@ public class SocketInfo implements ArtifactInfo {
 	@Override
 	public String getStringFormattedValue() {
 		return "address: " + host + ", port: " + port; 
+	}
+	
+	public String getSubtype(){
+		return SUBTYPE_SOCKET;
 	}
 
 	@Override

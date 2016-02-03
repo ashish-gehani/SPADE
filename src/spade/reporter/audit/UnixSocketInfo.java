@@ -6,4 +6,8 @@ public class UnixSocketInfo extends FileInfo{
 		super(path);
 	}
 	
+	public String getSubtype(){
+		return SUBTYPE_SOCKET;
+	}
+	
 }

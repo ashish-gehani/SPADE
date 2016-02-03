@@ -17,6 +17,10 @@ public class FileInfo implements ArtifactInfo{
 		return path;
 	}
 	
+	public String getSubtype(){
+		return SUBTYPE_FILE;
+	}
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;

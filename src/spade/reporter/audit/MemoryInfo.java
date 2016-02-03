@@ -16,6 +16,10 @@ public class MemoryInfo implements ArtifactInfo{
 	public String getStringFormattedValue() {
 		return "0x"+memoryAddress;
 	}
+	
+	public String getSubtype(){
+		return SUBTYPE_MEMORY;
+	}
 
 	@Override
 	public int hashCode() {

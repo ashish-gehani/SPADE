@@ -21,6 +21,10 @@ public class PipeInfo implements ArtifactInfo{
 		return "pipe:["+fd1+"-"+fd2+"]";
 	}
 
+	public String getSubtype(){
+		return SUBTYPE_PIPE;
+	}
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;

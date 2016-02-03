@@ -51,6 +51,7 @@ import spade.reporter.audit.MemoryInfo;
 import spade.reporter.audit.PipeInfo;
 import spade.reporter.audit.SocketInfo;
 import spade.reporter.audit.UnixSocketInfo;
+import spade.reporter.audit.UnknownInfo;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -132,7 +133,7 @@ public class Audit extends AbstractReporter {
 
     private enum SYSCALL {
 
-        FORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, TRUNCATE, FTRUNCATE, READ, WRITE
+        FORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, TRUNCATE, FTRUNCATE, READ, WRITE, ACCEPT, ACCEPT4, CONNECT
     }
     
     private BufferedWriter dumpWriter = null;
@@ -658,7 +659,7 @@ public class Audit extends AbstractReporter {
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
         ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
-    	if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo){ 
+    	if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo || artifactInfo instanceof UnknownInfo){ 
     		if(USE_SOCK_SEND_RCV){
     			switch (syscall) {
     				case 1: // write()
@@ -712,7 +713,7 @@ public class Audit extends AbstractReporter {
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
         ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
-    	if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo){ 
+    	if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo || artifactInfo instanceof UnknownInfo){ 
     		if(USE_SOCK_SEND_RCV){
     			switch (syscall) {
     				case 1: // write()
@@ -946,22 +947,22 @@ public class Audit extends AbstractReporter {
     	}
     }
     
-    private Artifact createMemoryArtifact(MemoryInfo memoryInfo, boolean update){
+    private Artifact createMemoryArtifact(ArtifactInfo artifactInfo, boolean update){
     	Artifact artifact = new Artifact();
-        artifact.addAnnotation("subtype", "memory");
-        artifact.addAnnotation("memory address", memoryInfo.getStringFormattedValue());
-        Integer version = getVersion(artifactVersions, memoryInfo, update);
+        artifact.addAnnotation("subtype", artifactInfo.getSubtype());
+        artifact.addAnnotation("memory address", artifactInfo.getStringFormattedValue());
+        Integer version = getVersion(artifactVersions, artifactInfo, update);
         artifact.addAnnotation("version", Integer.toString(version));
         return artifact;
     }        
     
-    private Artifact createNetworkArtifact(ArtifactInfo artifactInfo, String operation) {
+    private Artifact createNetworkArtifact(ArtifactInfo artifactInfo, SYSCALL syscall) {
         Artifact artifact = new Artifact();
-        artifact.addAnnotation("subtype", "network");
+        artifact.addAnnotation("subtype", artifactInfo.getSubtype());
         
         String hostAnnotation = null, portAnnotation = null;
     	Map<ArtifactInfo, Integer> versionMap = null;
-        Boolean isRead = isSocketRead(operation);
+        Boolean isRead = isSocketRead(syscall);
         if(isRead == null){
         	return null; 
         }else if(isRead){
@@ -982,35 +983,34 @@ public class Audit extends AbstractReporter {
 			
         }else if(artifactInfo instanceof UnixSocketInfo){ //or unix socket
         	
-        	artifact.addAnnotation("path", ((UnixSocketInfo) artifactInfo).getPath());
+        	artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
         	
         }
         
         return artifact;
     }
     
-    //true is read, false is write, null is neither read nor write
-    private Boolean isSocketRead(String syscall){
-    	syscall = syscall.trim().toLowerCase();
-       	if((syscall.equals("accept4") || syscall.equals("accept") || syscall.equals("recvfrom") || syscall.equals("recvmsg") || syscall.equals("read"))){
-       		return true;
-       	}else if(syscall.equals("connect") || syscall.equals("sendto") || syscall.equals("sendmsg") || syscall.equals("write")){
-       		return false;
-       	}
-       	return null;
-    }
-    
-    private Artifact createFileArtifact(FileInfo fileInfo, boolean update) {
+    private Artifact createFileArtifact(ArtifactInfo artifactInfo, boolean update) {
         Artifact artifact = new Artifact();
-        artifact.addAnnotation("subtype", "file");
-        artifact.addAnnotation("path", fileInfo.getPath());
-        if(update && fileInfo.getPath().startsWith("/dev/")){
+        artifact.addAnnotation("subtype", artifactInfo.getSubtype());
+        artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
+        if(update && artifactInfo.getStringFormattedValue().startsWith("/dev/")){
         	update = false;
         }
-        Integer version = getVersion(artifactVersions, fileInfo, update);
+        Integer version = getVersion(artifactVersions, artifactInfo, update);
         artifact.addAnnotation("version", Integer.toString(version));
         return artifact;
     }
+    
+    //true is read, false is write, null is neither read nor write
+    private Boolean isSocketRead(SYSCALL syscall){
+       	if((syscall == SYSCALL.ACCEPT4 || syscall == SYSCALL.ACCEPT || syscall == SYSCALL.RECVFROM || syscall == SYSCALL.RECVMSG || syscall == SYSCALL.READ )){
+       		return true;
+       	}else if(syscall == SYSCALL.CONNECT || syscall == SYSCALL.SENDTO || syscall == SYSCALL.SENDMSG || syscall == SYSCALL.WRITE){
+       		return false;
+       	}
+       	return null;
+    }   
     
     private Integer getVersion(Map<ArtifactInfo, Integer> versionMap, ArtifactInfo artifactInfo, boolean update){
     	Integer version = 0;
@@ -1486,7 +1486,7 @@ public class Audit extends AbstractReporter {
             // socketcall number is derived from /usr/include/linux/net.h
             if (callType == 3) {
                 // connect()
-            	Artifact network = createNetworkArtifact(artifactInfo, "connect");
+            	Artifact network = createNetworkArtifact(artifactInfo, SYSCALL.CONNECT);
             	putVertex(network);
                 WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
                 wgb.addAnnotation("time", time);
@@ -1494,7 +1494,7 @@ public class Audit extends AbstractReporter {
                 putEdge(wgb);
             } else if (callType == 5) {
                 // accept()
-            	Artifact network = createNetworkArtifact(artifactInfo, "accept");
+            	Artifact network = createNetworkArtifact(artifactInfo, SYSCALL.ACCEPT);
             	putVertex(network);
                 Used used = new Used(getProcess(pid), network);
                 used.addAnnotation("time", time);
@@ -1531,7 +1531,7 @@ public class Audit extends AbstractReporter {
         	artifactInfo = new SocketInfo(address, port);
         }
         if (artifactInfo != null) {
-            Artifact network = createNetworkArtifact(artifactInfo, "connect");
+            Artifact network = createNetworkArtifact(artifactInfo, SYSCALL.CONNECT);
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
             wgb.addAnnotation("time", time);
@@ -1567,7 +1567,7 @@ public class Audit extends AbstractReporter {
         	artifactInfo = new SocketInfo(address, port);
         }
         if (artifactInfo != null) {
-            Artifact network = createNetworkArtifact(artifactInfo, "accept");
+            Artifact network = createNetworkArtifact(artifactInfo, SYSCALL.ACCEPT);
             putVertex(network);
             Used used = new Used(getProcess(pid), network);
             used.addAnnotation("time", time);
@@ -1602,24 +1602,24 @@ public class Audit extends AbstractReporter {
         	long currSize = networkLocationToBytesWrittenMap.get(artifactInfo);
         	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
         	if(leftTillNext > bytesRemaining){
-        		putSocketSendEdge(artifactInfo, syscall.name().toLowerCase(), time, String.valueOf(bytesRemaining), pid);
+        		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid);
         		networkLocationToBytesWrittenMap.put(artifactInfo, currSize + bytesRemaining);
         		bytesRemaining = 0;
         	}else{ //greater or equal
-        		putSocketSendEdge(artifactInfo, syscall.name().toLowerCase(), time, String.valueOf(leftTillNext), pid);
+        		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid);
         		networkLocationToBytesWrittenMap.put(artifactInfo, 0L);
         		socketWriteVersions.put(artifactInfo, socketWriteVersions.get(artifactInfo) + 1);
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
-        		putVertex(createNetworkArtifact(artifactInfo, syscall.name().toLowerCase()));
+        		putVertex(createNetworkArtifact(artifactInfo, syscall));
         		bytesRemaining -= leftTillNext;
         	}
         }
     }
     
-    private void putSocketSendEdge(ArtifactInfo artifactInfo, String syscall, String time, String size, String pid){
+    private void putSocketSendEdge(ArtifactInfo artifactInfo, SYSCALL syscall, String time, String size, String pid){
     	Artifact vertex = createNetworkArtifact(artifactInfo, syscall);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
-        wgb.addAnnotation("operation", syscall);
+        wgb.addAnnotation("operation", syscall.toString().toLowerCase());
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", size);
         putEdge(wgb);
@@ -1642,7 +1642,7 @@ public class Audit extends AbstractReporter {
         }
 
         ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
-        Artifact vertex = createNetworkArtifact(artifactInfo, syscall.name().toLowerCase());
+        Artifact vertex = createNetworkArtifact(artifactInfo, syscall);
         putVertex(vertex);
         Used used = new Used(getProcess(pid), vertex);
         used.addAnnotation("operation", syscall.name().toLowerCase());
@@ -1793,15 +1793,7 @@ public class Audit extends AbstractReporter {
     
     //for cases when open syscall wasn't gotten in the log for the fd being used.
     private void addMissingFD(String pid, String fd){
-    	String path = "/unknown/"+pid+"_"+fd;
-    	if("0".equals(fd)){
-    		path = "stdin";
-    	}else if("1".equals(fd)){
-    		path = "stdout";
-    	}else if("2".equals(fd)){
-    		path = "stderr";
-    	}
-    	descriptors.addDescriptor(pid, fd, new FileInfo(path));
+    	descriptors.addDescriptor(pid, fd, new UnknownInfo(pid, fd));
     }
         
     private Process getUnitForPid(String pid, Integer unitNumber){
