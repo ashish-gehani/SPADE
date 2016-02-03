@@ -105,6 +105,16 @@ public class Audit extends AbstractReporter {
     		return super.get(key);
     	}
     };
+    
+    private Map<ArtifactInfo, Long> networkLocationToBytesReadMap = new HashMap<ArtifactInfo, Long>(){
+    	public Long get(Object key){
+    		if(super.get(key) == null){
+    			super.put((ArtifactInfo)key, 0L);
+    		}
+    		return super.get(key);
+    	}
+    };
+    
     private final static long MAX_BYTES_PER_NETWORK_ARTIFACT = 100;
     
     // Group 1: key
@@ -968,6 +978,7 @@ public class Audit extends AbstractReporter {
     	}
     }
     
+    //handles memoryinfo
     private Artifact createMemoryArtifact(ArtifactInfo artifactInfo, boolean update){
     	Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
@@ -977,6 +988,7 @@ public class Audit extends AbstractReporter {
         return artifact;
     }        
     
+    //handles socketinfo, unixsocketinfo, unknowninfo
     private Artifact createNetworkArtifact(ArtifactInfo artifactInfo, SYSCALL syscall) {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
@@ -1002,7 +1014,7 @@ public class Audit extends AbstractReporter {
     		artifact.addAnnotation(hostAnnotation, ((SocketInfo) artifactInfo).getHost());
 			artifact.addAnnotation(portAnnotation, ((SocketInfo) artifactInfo).getPort());
 			
-        }else if(artifactInfo instanceof UnixSocketInfo){ //or unix socket
+        }else if(artifactInfo instanceof UnixSocketInfo || artifactInfo instanceof UnknownInfo){ //or unix socket
         	
         	artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
         	
@@ -1011,6 +1023,7 @@ public class Audit extends AbstractReporter {
         return artifact;
     }
     
+    //handles fileinfo, pipeinfo, unknowninfo
     private Artifact createFileArtifact(ArtifactInfo artifactInfo, boolean update) {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
@@ -1625,7 +1638,7 @@ public class Audit extends AbstractReporter {
         wgb.addAnnotation("size", size);
         putEdge(wgb);
     }
-
+    
     private void processRecv(Map<String, String> eventData, SYSCALL syscall) {
         // sendto()/sendmsg() receive the following message(s):
         // - SYSCALL
@@ -1637,18 +1650,37 @@ public class Audit extends AbstractReporter {
         String fd = new BigInteger(hexFD, 16).toString();
         String time = eventData.get("time");
         String bytesReceived = eventData.get("exit");
-        
+
         if(descriptors.getDescriptor(pid, fd) == null){
         	addMissingFD(pid, fd);
         }
-
-        ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
-        Artifact vertex = createNetworkArtifact(artifactInfo, syscall);
-        putVertex(vertex);
-        Used used = new Used(getProcess(pid), vertex);
-        used.addAnnotation("operation", syscall.name().toLowerCase());
+        
+        ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);        
+        long bytesRemaining = Long.parseLong(bytesReceived);
+        while(bytesRemaining > 0){
+        	long currSize = networkLocationToBytesReadMap.get(artifactInfo);
+        	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
+        	if(leftTillNext > bytesRemaining){
+        		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid);
+        		networkLocationToBytesReadMap.put(artifactInfo, currSize + bytesRemaining);
+        		bytesRemaining = 0;
+        	}else{ //greater or equal
+        		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid);
+        		networkLocationToBytesReadMap.put(artifactInfo, 0L);
+        		socketReadVersions.put(artifactInfo, socketReadVersions.get(artifactInfo) + 1);
+        		//new version of network artifact for this path created. call putVertex here just once for that vertex.
+        		putVertex(createNetworkArtifact(artifactInfo, syscall));
+        		bytesRemaining -= leftTillNext;
+        	}
+        }
+    }
+    
+    private void putSocketRecvEdge(ArtifactInfo artifactInfo, SYSCALL syscall, String time, String size, String pid){
+    	Artifact vertex = createNetworkArtifact(artifactInfo, syscall);
+    	Used used = new Used(getProcess(pid), vertex);
+        used.addAnnotation("operation", syscall.toString().toLowerCase());
         used.addAnnotation("time", time);
-        used.addAnnotation("size", bytesReceived);
+        used.addAnnotation("size", size);
         putEdge(used);
     }
 
