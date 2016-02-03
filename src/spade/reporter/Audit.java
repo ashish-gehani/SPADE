@@ -30,6 +30,7 @@ import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
@@ -52,6 +53,7 @@ import spade.reporter.audit.PipeInfo;
 import spade.reporter.audit.SocketInfo;
 import spade.reporter.audit.UnixSocketInfo;
 import spade.reporter.audit.UnknownInfo;
+import spade.utility.CommandUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -380,35 +382,54 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    private Map<String, ArtifactInfo> getFileDescriptors(String pid) {
-        // Check if this pid exists in the /proc/ filesystem
-        if (!(new java.io.File("/proc/" + pid).exists())) {
-            return null;
-        }
-        // Get file descriptors for this process from /proc/
-        try {
-            java.lang.Process fdInfo = Runtime.getRuntime().exec("ls -l /proc/" + pid + "/fd");
-            BufferedReader fdReader = new BufferedReader(new InputStreamReader(fdInfo.getInputStream()));
-            Map<String, ArtifactInfo> descriptors = new HashMap<>();
-            while (true) {
-                String line = fdReader.readLine();
-                if (line == null) {
-                    break;
-                }
-                String tokens[] = line.split("\\s+");
-                int toks = tokens.length;
-                if (toks > 3) {
-                    String fd = tokens[toks - 3];
-                    String location = tokens[toks - 1];
-                    descriptors.put(fd, new FileInfo(location));
-                }
-            }
-            fdReader.close();
-            return descriptors;
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "unable to retrieve file descriptors for pid: " + pid, e);
-            return null;
-        }
+	private Map<String, ArtifactInfo> getFileDescriptors(String pid){
+    	
+    	Map<String, ArtifactInfo> fds = new HashMap<String, ArtifactInfo>();
+    	
+    	Map<String, String> inodefd0 = new HashMap<String, String>();
+    	
+    	try{
+    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -p " + pid);
+    		if(lines != null && lines.size() > 1){
+    			lines.remove(0); //remove the heading line
+    			for(String line : lines){
+    				String tokens[] = line.split("\\s+");
+    				if(tokens.length >= 9){
+    					String type = tokens[4].toLowerCase().trim();
+    					String fd = tokens[3].trim();
+    					fd = fd.substring(0, fd.length() - 1); //last character is either r (read), w(write) or u(read and write)
+    					if(isAnInteger(fd)){
+	    					if("fifo".equals(type)){
+	    						String inode = tokens[7];
+	    						if(inodefd0.get(inode) == null){
+	    							inodefd0.put(inode, fd);
+	    						}else{
+	    							PipeInfo pipeInfo = new PipeInfo(fd, inodefd0.get(inode));
+	    							fds.put(fd, pipeInfo);
+	    							fds.put(inodefd0.get(inode), pipeInfo);
+	    							inodefd0.remove(inode);
+	    						}
+	    					}else if("ipv4".equals(type) || "ipv6".equals(type)){
+	    						String[] hostport = tokens[8].split("->")[0].split(":");
+	    						fds.put(fd, new SocketInfo(hostport[0], hostport[1]));
+	    					}else if("reg".equals(type) || "chr".equals(type)){
+	    						String path = tokens[8];
+	    						fds.put(fd, new FileInfo(path));  						
+	    					}else if("unix".equals(type)){
+	    						String path = tokens[8];
+	    						if(!path.equals("socket")){
+	    							fds.put(fd, new UnixSocketInfo(path));
+	    						}
+	    					}
+    					}
+    				}
+    			}
+    		}
+    	}catch(Exception e){
+    		logger.log(Level.SEVERE, null, e);
+    	}
+    	
+    	return fds;
     }
     
     public boolean isAnInteger(String string){
