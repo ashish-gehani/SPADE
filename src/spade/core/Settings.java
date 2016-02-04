@@ -56,6 +56,7 @@ public class Settings {
             setProperty("garbage_transformer_config_filepath", "cfg/garbage.transformer.config");
             setProperty("beep_forward_search_transformers_list_filepath", "cfg/beep.forward_search.transformers.config");
             setProperty("beep_backward_search_transformers_list_filepath", "cfg/beep.backward_search.transformers.config");
+            setProperty("no_annotations_transformer_filepath", "cfg/noannotations.transformer.config");
         }
     }
 
