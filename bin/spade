@@ -39,7 +39,7 @@ CLASSPATH="-Djava.library.path=$SPADE_ROOT/lib/ -cp $SPADE_ROOT/build:$SPADE_ROO
 JVMARGS="-server -Xms128M -Xmx512M"
 JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
 
-pushd ${SPADE_ROOT} > /dev/null
+pushd "${SPADE_ROOT}" > /dev/null
 
 if [ $# -eq 0 ] ; then
 	print_help
