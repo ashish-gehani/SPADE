@@ -28,6 +28,7 @@ import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
+import spade.core.AbstractVertex;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
@@ -63,12 +64,15 @@ public class NoAnnotations extends AbstractTransformer{
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		Graph resultGraph = new Graph();
 	
+		for(AbstractVertex vertex : graph.vertexSet()){
+			AbstractVertex newVertex = createNewWithoutAnnotations(vertex, annotationsToRemove);
+			resultGraph.putVertex(newVertex);
+		}
+		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge, annotationsToRemove);
-			resultGraph.putVertex(newEdge.getSourceVertex());
-			resultGraph.putVertex(newEdge.getDestinationVertex());
 			resultGraph.putEdge(newEdge);
-		}
+		}			
 
 		return resultGraph;
 	}
