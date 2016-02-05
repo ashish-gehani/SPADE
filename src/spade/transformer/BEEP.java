@@ -51,9 +51,12 @@ public class BEEP extends AbstractTransformer {
 				return null;
 			}
 			for(String line : transformersFileLines){
-				String tokens[] = line.split("\\s+");
-				String transformerClassName = tokens[0];
-				String transformerArguments = tokens.length == 2 ? tokens[1] : null;
+				int blankCharIndex = line.indexOf(' ');
+				if(blankCharIndex == -1){
+					blankCharIndex = line.length();
+				}
+				String transformerClassName = line.substring(0, blankCharIndex);
+				String transformerArguments = line.substring(blankCharIndex);
 				AbstractTransformer transformer = (AbstractTransformer) Class.forName("spade.transformer." + transformerClassName).newInstance();
 				if(!transformer.initialize(transformerArguments)){
 					logger.log(Level.SEVERE, "Failed to initialize transformer " + transformer.getClass().getName());

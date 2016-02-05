@@ -233,4 +233,3 @@ install:
 	cp -R bin $(DESTDIR)
 	cp -R lib $(DESTDIR)
 	cp -R cfg $(DESTDIR)
-	cp -R log $(DESTDIR)

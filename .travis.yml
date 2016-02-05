@@ -5,12 +5,11 @@ jdk:
   - oraclejdk7
 before_install: 
   - sudo apt-get update
-  - sudo apt-get install libaudit-dev auditd libfuse-dev fuse
+  - sudo apt-get install libaudit-dev auditd libfuse-dev fuse pkg-config
 script: 
   - ./configure;
   - make
-after_success:
-  - make install
+  - sudo make install
 notifications:
   email:
     - hasanatkazmi@gmail.com

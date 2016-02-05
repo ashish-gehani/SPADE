@@ -65,6 +65,7 @@ import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.FileReader;
 import java.io.OutputStreamWriter;
 import java.io.FileInputStream;
 import java.io.Writer;
@@ -74,15 +75,34 @@ import spade.reporter.bitcoin.Transaction;
 import spade.reporter.bitcoin.Vin;
 import spade.reporter.bitcoin.Vout;
 import spade.reporter.Bitcoin;
+import spade.core.Settings;
 
 public class BitcoinTools {
 
-    public final String BITCOIN_RPC_TOTAL_BLOCKS = "bitcoin-cli getblockcount";
-    public final String BITCOIN_RPC_GET_BLOCK_HASH_FORMAT = "bitcoin-cli getblockhash %1$1s";
+	private String BITCOIN_TOOLS_PATH;
+    public final String BITCOIN_RPC_TOTAL_BLOCKS;
+    public final String BITCOIN_RPC_GET_BLOCK_HASH_FORMAT;
     public final String BITCOIN_REST_GET_BLOCK_FORMAT = "http://localhost:8332/rest/block/%1$1s.json";
     public final boolean BLOCK_JSON_DUMP_ENABLED = true;
     public String BLOCK_JSON_DUMP_PATH = Bitcoin.BITCOIN_STAGING_DIR + "/blockcache/";
     public String BLOCK_JSON_FILE_FORMAT = Bitcoin.BITCOIN_STAGING_DIR + "/blockcache/%1$1s.json";
+
+    public BitcoinTools() {
+		File bitcoinToolsFilePath = new File(Bitcoin.BITCOIN_TOOLS_PATH_FILE);
+		BITCOIN_TOOLS_PATH = "";
+		if(bitcoinToolsFilePath.exists() && !bitcoinToolsFilePath.isDirectory()) { 
+			try {
+			    BufferedReader br = new BufferedReader(new FileReader(bitcoinToolsFilePath));
+			    BITCOIN_TOOLS_PATH = br.readLine() + "/";
+			} catch (Exception exception) {
+				
+			}
+		}    
+
+    	BITCOIN_RPC_TOTAL_BLOCKS = BITCOIN_TOOLS_PATH + "bitcoin-cli getblockcount";
+    	BITCOIN_RPC_GET_BLOCK_HASH_FORMAT = BITCOIN_TOOLS_PATH + "bitcoin-cli getblockhash %1$1s";
+
+    }
 
     public static String execCmd(String cmd) throws IOException {
         Scanner s = new Scanner(Runtime.getRuntime().exec(cmd).getInputStream()).useDelimiter("\\A");
@@ -208,6 +228,7 @@ public class BitcoinTools {
     }    
 
     public static void main(String[] arguments) {
+
         try{
             HashMap<String, String> args = new HashMap<String, String>(); 
             for (String pair : arguments) {
