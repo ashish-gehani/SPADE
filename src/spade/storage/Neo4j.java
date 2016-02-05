@@ -97,13 +97,14 @@ public class Neo4j extends AbstractStorage {
     private String neo4jDatabaseDirectoryPath = null;
 
 	public final String NODE_HASHCODE_LABEL = "hashCode";
+	// private int TRUST_DATA_LEVEL = 4; // HIGH : trust all edges to be unique and having vertexes already in db 
 	private double falsePositiveProbability = 0.0001;
 	private int expectedNumberOfElements = Integer.MAX_VALUE;
 	private BloomFilter<Integer> nodeBloomFilter; 
 	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
 	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
 	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 100000;
-    private final int FLUSH_TX_COUNT = 10000;
+
 	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
 
     @Override
@@ -259,89 +260,6 @@ public class Neo4j extends AbstractStorage {
 		localNodeCache.put(hashCode, vertex);
 	}
 
-	int txcount = 0;
-	Transaction globalTx;
-
-	private void txCommit() {
-		try {
-			if (txcount == 0) {
-				globalTx = graphDb.beginTx();
-			}
-			txcount++;
-			if (txcount >= FLUSH_TX_COUNT) {
-				globalTx.success();
-				// globalTx = graphDb.beginTx();
-				txcount = 0;
-				vertexIndexToCommit = new HashMap<String, HashMap<String, Node>>();
-			}
-		} catch (Exception exception) {
-			logger.log(Level.SEVERE, "globalTx failure", exception);
-			// try again?
-		}
-	}
-
-	private HashMap<String, HashMap<String, Node>> vertexIndexToCommit = new HashMap<String, HashMap<String, Node>>();
-    private void addToVertexIndex(Node node, String key, String value) {
-		if (vertexIndexToCommit.containsKey(key)==false) {
-			vertexIndexToCommit.put(key, new HashMap<String, Node>());
-		}
-		vertexIndexToCommit.get(key).put(value, node);
-		try {
-			vertexIndex.add(node, key, value);
-		} catch (Exception exception) {
-			logger.log(Level.SEVERE, "couldn't add to node index", exception);
-		}
-		txCommit();
-    }
-
-    private Node getFromVertexIndex(String key, String value) {
-    	Node toReturn = null;
-    	if (vertexIndexToCommit.containsKey(key)) {
-	    	toReturn = (Node)((HashMap)vertexIndexToCommit.get(key)).get(value);
-	    }
-    	if (toReturn == null) {
-    		txCommit();
-    		try {
-	    		return vertexIndex.get(key, value).getSingle();
-	    	} catch (Exception exception) {
-	    		logger.log(Level.SEVERE, "couldnt get from node index", exception);
-	    	}
-    	}
-    	return toReturn;
-    }
-
-    private HashMap<String, HashMap<String, Relationship>> edgeIndexToCommit = new HashMap<String, HashMap<String, Relationship>>();
-    private void addToEdgeIndex(Relationship edge, String key, String value) {
-        if (edgeIndexToCommit.containsKey(key)==false) {
-            edgeIndexToCommit.put(key, new HashMap<String, Relationship>());
-        }
-        edgeIndexToCommit.get(key).put(value, edge);
-        try {
-            edgeIndex.add(edge, key, value);
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, "couldn't add to edge index", exception);
-        }
-        txCommit();
-    }
-
-    private Relationship getFromEdgeIndex(String key, String value) {
-        Relationship toReturn = null;
-        if (edgeIndexToCommit.containsKey(key)) {
-            toReturn = (Relationship)((HashMap)edgeIndexToCommit.get(key)).get(value);
-        }
-        if (toReturn == null) {
-            txCommit();
-            try {
-                return edgeIndex.get(key, value).getSingle();
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, "couldnt get from edge index", exception);
-            }
-        }
-        return toReturn;
-    }
-
-
-
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
     	totalVertices++;
@@ -355,10 +273,9 @@ public class Neo4j extends AbstractStorage {
             } 
             dbHitCountForVertex++;
 
-			// try ( Transaction tx = graphDb.beginTx() ) {
+			try ( Transaction tx = graphDb.beginTx() ) {
 				Node newVertex;
-				// newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
-				newVertex = getFromVertexIndex(NODE_HASHCODE_LABEL, Long.toString(hashCode));
+				newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
             	if (newVertex != null) { // L3, false positive check
 					putInLocalCache(newVertex, hashCode);
                 	foundInDbCount++;
@@ -366,13 +283,12 @@ public class Neo4j extends AbstractStorage {
             	} else {
                 	falsePositiveCount++;
             	}
-			// tx.success();
-			// }
-        }
+			tx.success();
+			}
+        } 
 
-        // try ( Transaction tx = graphDb.beginTx() ) {
-        try {
-        	txCommit();
+        try ( Transaction tx = graphDb.beginTx() ) {
+
             Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
             for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
@@ -381,24 +297,18 @@ public class Neo4j extends AbstractStorage {
                     continue;
                 }
                 newVertex.setProperty(key, value);
-                // vertexIndex.add(newVertex, key, value);
-                addToVertexIndex(newVertex, key, value);
+                vertexIndex.add(newVertex, key, value);
             }
             // does findNode check in index or in db directly? if in db only, then we need to uncomment this line
             newVertex.setProperty(NODE_HASHCODE_LABEL, hashCode);
-            // vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
-            addToVertexIndex(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
+            vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
             newVertex.setProperty(ID_STRING, newVertex.getId());
-            // vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-            addToVertexIndex(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
             nodeBloomFilter.add(hashCode);
             putInLocalCache(newVertex, hashCode);
                 
-            // tx.success();
-        // } 
-        } catch (Exception exception) {
-        	logger.log(Level.SEVERE, "problem!", exception);
-        }
+            tx.success();
+        } 
         return true;
     }
 
@@ -412,60 +322,42 @@ public class Neo4j extends AbstractStorage {
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
 
 
-        // try ( Transaction tx = graphDb.beginTx() ) {
+        try ( Transaction tx = graphDb.beginTx() ) {
 
             int srcVertexHashCode = srcVertex.hashCode();
             int dstVertexHashCode = dstVertex.hashCode();
-
-            if (!nodeBloomFilter.contains(srcVertexHashCode)) {
-                putVertex(srcVertex);
-            }
-
-            if (!nodeBloomFilter.contains(dstVertexHashCode)) {
-                putVertex(dstVertex);
-            }
-
         	Node srcNode = localNodeCache.get(srcVertexHashCode);
         	Node dstNode = localNodeCache.get(dstVertexHashCode);
 
             if (srcNode == null) {
             	dbHitCountForEdge++;
 
-                // srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
-                srcNode = getFromVertexIndex(NODE_HASHCODE_LABEL, Long.toString(srcVertexHashCode));
+                srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
                 putInLocalCache(srcNode, srcVertexHashCode);
 
             }
             if (dstNode == null) {
             	dbHitCountForEdge++;
 
-                // dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
-                dstNode = getFromVertexIndex(NODE_HASHCODE_LABEL, Long.toString(dstVertexHashCode));
+                dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
                 putInLocalCache(dstNode, dstVertexHashCode);
             }
 
-            txCommit();
-            try{
-                // TODO: edge duplication checks! right now another edge will be added
-                Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-                for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-                    String key = currentEntry.getKey();
-                    String value = currentEntry.getValue();
-                    if (key.equalsIgnoreCase(ID_STRING)) {
-                        continue;
-                    }
-                    newEdge.setProperty(key, value);
-                    // edgeIndex.add(newEdge, key, value);
-                    addToEdgeIndex(newEdge, key, value);
+            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equalsIgnoreCase(ID_STRING)) {
+                    continue;
                 }
-                newEdge.setProperty(ID_STRING, newEdge.getId());
-                // edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-                addToEdgeIndex(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, "problem!", exception);
+                newEdge.setProperty(key, value);
+                edgeIndex.add(newEdge, key, value);
             }
-            // tx.success();
-        // } 
+            newEdge.setProperty(ID_STRING, newEdge.getId());
+            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+
+            tx.success();
+        } 
         
         return true;
     }
