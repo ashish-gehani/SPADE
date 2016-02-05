@@ -1,3 +1,22 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2015 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.reporter.audit;
 
 import java.util.HashMap;
@@ -9,14 +28,14 @@ public class DescriptorManager {
 	
 	public void addDescriptor(String pid, String fd, ArtifactInfo artifactInfo){
 		if(descriptors.get(pid) == null){
-			descriptors.put(pid, new HashMap<>());
+			descriptors.put(pid, new HashMap<String, ArtifactInfo>());
 		}
 		descriptors.get(pid).put(fd, artifactInfo);
 	}
 	
 	public void addDescriptors(String pid, Map<String, ArtifactInfo> newDescriptors){
 		if(descriptors.get(pid) == null){
-			descriptors.put(pid, new HashMap<>());
+			descriptors.put(pid, new HashMap<String, ArtifactInfo>());
 		}
 		descriptors.get(pid).putAll(newDescriptors);
 	}
@@ -30,7 +49,7 @@ public class DescriptorManager {
 	
 	public ArtifactInfo getDescriptor(String pid, String fd){
 		if(descriptors.get(pid) == null){
-			descriptors.put(pid, new HashMap<>());
+			descriptors.put(pid, new HashMap<String, ArtifactInfo>());
 		}
 		if(descriptors.get(pid).get(fd) == null){
 			String path = null;
