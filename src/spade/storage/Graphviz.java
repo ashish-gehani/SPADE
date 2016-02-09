@@ -77,7 +77,6 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
-            vertexCount++;
             StringBuilder annotationString = new StringBuilder();
             for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
@@ -127,7 +126,6 @@ public class Graphviz extends AbstractStorage {
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
-            edgeCount++;
             StringBuilder annotationString = new StringBuilder();
             for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();

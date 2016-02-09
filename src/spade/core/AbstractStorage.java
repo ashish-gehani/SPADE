@@ -34,11 +34,11 @@ public abstract class AbstractStorage {
      * The number of vertices that this storage instance has successfully
      * received.
      */
-    public long vertexCount;
+    long vertexCount;
     /**
      * The number of edges that this storage instance has successfully received.
      */
-    public long edgeCount;
+    long edgeCount;
 
     /**
      * This method is invoked by the kernel to initialize the storage.
@@ -71,6 +71,26 @@ public abstract class AbstractStorage {
      * @return True if the edge was processed successfully.
      */
     public abstract boolean putEdge(AbstractEdge incomingEdge);
+    
+    /**
+     * This method returns current edge count.
+     *
+     * @param none.
+     * @return edge count
+     */
+    public long getEdgeCount(){
+    	return edgeCount;
+    }
+    
+    /**
+     * This method returns current vertex count.
+     *
+     * @param none.
+     * @return vertex count
+     */
+    public long getVertexCount(){
+    	return vertexCount;
+    }
 
     /**
      * This method is triggered by the Kernel to flush transactions.
