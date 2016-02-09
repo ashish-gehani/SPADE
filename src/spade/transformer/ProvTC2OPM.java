@@ -37,11 +37,12 @@ public class ProvTC2OPM extends Prov2OPM{
 	private Map<String, String> provTC2OpmMapping = null;
 	
 	public boolean initialize(String arguments){
+		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
-			provTC2OpmMapping = FileUtility.readOPM2ProvTCFileReversed(Settings.getProperty("opm&provtc_mapping_filepath"));
+			provTC2OpmMapping = FileUtility.readOPM2ProvTCFileReversed(filepath);
 			return true;
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read the file: " + Settings.getProperty("opm&provtc_mapping_filepath"), e);
+			logger.log(Level.SEVERE, "Failed to read the file: " + filepath, e);
 			return false;
 		}
 	}
