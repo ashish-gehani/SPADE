@@ -42,10 +42,9 @@ public class BEEP extends AbstractTransformer {
 	private List<AbstractTransformer> forwardSearchTransformers = null;
 	private List<AbstractTransformer> backwardSearchTransformers = null;
 		
-	public List<AbstractTransformer> loadTransformersFromFile(String filepath){
+	public List<AbstractTransformer> loadTransformersFromFile(List<String> transformersFileLines){
 		try{
 			List<AbstractTransformer> transformers = new ArrayList<AbstractTransformer>();
-			List<String> transformersFileLines = FileUtils.readLines(new File(filepath));
 			if(transformersFileLines == null || transformersFileLines.isEmpty()){
 				logger.log(Level.SEVERE, "Transformer file list is missing or is malformed");
 				return null;
@@ -72,19 +71,48 @@ public class BEEP extends AbstractTransformer {
 	}
 	
 	public boolean initialize(String arguments){
-		forwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("beep_forward_search_transformers_list_filepath"));
-		
-		if(forwardSearchTransformers == null){
+		String configFile = Settings.getDefaultConfigFilePath(this.getClass());
+		try{
+			List<String> lines = FileUtils.readLines(new File(configFile));
+			List<String> backwardSearchLines = new ArrayList<String>();
+			List<String> forwardSearchLines = new ArrayList<String>();
+			List<String> listHandle = null;
+			for(int a = 0; a<lines.size(); a++){
+				String line = lines.get(a);
+				if(line != null){
+					line = line.trim();
+					if(line.startsWith("#")){
+						if(line.contains("backward_search")){
+							listHandle = backwardSearchLines;
+						}else if(line.contains("forward_search")){
+							listHandle = forwardSearchLines;
+						}
+					}else{
+						if(!line.isEmpty()){
+							listHandle.add(line);
+						}
+					}
+				}
+			}
+			
+			forwardSearchTransformers = loadTransformersFromFile(forwardSearchLines);
+			
+			if(forwardSearchTransformers == null){
+				return false;
+			}
+			
+			backwardSearchTransformers = loadTransformersFromFile(backwardSearchLines);
+			
+			if(backwardSearchTransformers == null){
+				return false;
+			}
+			
+			return true;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Error reading/loading '"+configFile+"'", e);
 			return false;
 		}
 		
-		backwardSearchTransformers = loadTransformersFromFile(Settings.getProperty("beep_backward_search_transformers_list_filepath"));
-		
-		if(backwardSearchTransformers == null){
-			return false;
-		}
-				
-		return true;
 	}
 	
 	@Override

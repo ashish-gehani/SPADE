@@ -26,7 +26,8 @@ print_help ()
 	echo "spade start | stop | debug | control | dig | help"
 	echo ""
 	echo "'spade start' : Starts the SPADE daemon"
-	echo "'spade stop' : Stops the SPADE daemon"
+	echo "'spade stop' : Stops the SPADE daemon (sends SIGINT to daemon)"
+	echo "'spade kill' : Stops the SPADE daemon (sends SIGKILL to daemon)"
 	echo "'spade debug' : Starts the SPADE daemon, logs to standard out"
 	echo "'spade control' : Starts an interactive SPADE controller"
 	echo "'spade dig' : Starts an interactive SPADE query client"
@@ -36,7 +37,7 @@ print_help ()
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 FORMATTER="-Djava.util.logging.SimpleFormatter.format=%1\$tY-%1\$tm-%1\$td %1\$tH:%1\$tM:%1\$tS %4\$s %2\$s %5\$s%6\$s%n"
 CLASSPATH="-Djava.library.path=$SPADE_ROOT/lib/ -cp $SPADE_ROOT/build:$SPADE_ROOT/lib/*"
-JVMARGS="-server -Xms128M -Xmx512M"
+JVMARGS="-server -Xms8G -Xmx16G"
 JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
 
 pushd ${SPADE_ROOT} > /dev/null
@@ -48,6 +49,8 @@ else
 	if [ $1 = "start" ] ; then
 		java $CLASSPATH $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
 	elif [ $1 = "stop" ] ; then
+		java $CLASSPATH $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
+	elif [ $1 = "kill" ] ; then
 		java $CLASSPATH $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
 	elif [ $1 = "dig" ] ; then
 		java $CLASSPATH "$FORMATTER" spade.client.QueryClient

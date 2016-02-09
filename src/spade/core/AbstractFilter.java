@@ -91,4 +91,12 @@ public abstract class AbstractFilter {
      * @param incomingEdge The edge received by this filter.
      */
     public abstract void putEdge(AbstractEdge incomingEdge);
+    
+    public final void incrementStorageVertexCount(AbstractStorage storage){
+    	storage.vertexCount++;
+    }
+    
+    public final void incrementStorageEdgeCount(AbstractStorage storage){
+    	storage.edgeCount++;
+    }
 }

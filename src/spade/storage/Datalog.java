@@ -66,9 +66,8 @@ public class Datalog extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-        vertexCount++;
-        vertexMap.put(vertexCount, incomingVertex);
-        vertexMapReversed.put(incomingVertex, vertexCount);
+        vertexMap.put(getVertexCount(), incomingVertex);
+        vertexMapReversed.put(incomingVertex, getVertexCount());
         return true;
     }
 

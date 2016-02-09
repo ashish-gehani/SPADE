@@ -36,11 +36,12 @@ public class OPM2ProvTC extends OPM2Prov{
 	private Map<String, String> annotationConversionMap = null; 
 	
 	public boolean initialize(String arguments){
+		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
-			annotationConversionMap = FileUtility.readOPM2ProvTCFile(Settings.getProperty("opm&provtc_mapping_filepath"));
+			annotationConversionMap = FileUtility.readOPM2ProvTCFile(filepath);
 			return true;
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read the file: " + Settings.getProperty("opm&provtc_mapping_filepath"), e);
+			logger.log(Level.SEVERE, "Failed to read the file: " + filepath, e);
 			return false;
 		}
 	}

@@ -38,7 +38,7 @@ public class Blacklist extends AbstractTransformer{
 	public boolean initialize(String arguments){
 		
 		try{
-			String filepath = Settings.getProperty("blacklist_transformer_config_filepath");
+			String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 			filesToRemovePattern = FileUtility.constructRegexFromFile(filepath);
 			if(filesToRemovePattern == null){
 				throw new Exception("Regex read from file '"+filepath+"' cannot be null");

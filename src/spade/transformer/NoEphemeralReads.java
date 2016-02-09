@@ -45,7 +45,7 @@ public class NoEphemeralReads extends AbstractTransformer {
 		
 		if(arguments != null && arguments.trim().equals("true")){		
 			try{
-				String filepath = Settings.getProperty("garbage_transformer_config_filepath");
+				String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 				ignoreFilesPattern = FileUtility.constructRegexFromFile(filepath);
 				if(ignoreFilesPattern == null){
 					throw new Exception("Regex read from file '"+filepath+"' cannot be null");

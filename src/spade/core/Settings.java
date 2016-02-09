@@ -50,13 +50,6 @@ public class Settings {
             setProperty("storage_identifier", "storageID");
             setProperty("default_query_storage", "Neo4j");
             setProperty("neo4j_webserver", "true");
-            setProperty("opm&provtc_mapping_filepath", "cfg/opmprovtc.mapping");
-            setProperty("blacklist_filter_config_filepath", "cfg/blacklist.filter.config");
-            setProperty("blacklist_transformer_config_filepath", "cfg/blacklist.transformer.config");
-            setProperty("garbage_transformer_config_filepath", "cfg/garbage.transformer.config");
-            setProperty("beep_forward_search_transformers_list_filepath", "cfg/beep.forward_search.transformers.config");
-            setProperty("beep_backward_search_transformers_list_filepath", "cfg/beep.backward_search.transformers.config");
-            setProperty("no_annotations_transformer_filepath", "cfg/noannotations.transformer.config");
         }
     }
 
@@ -71,4 +64,8 @@ public class Settings {
     public static void saveSettings() throws IOException {
         prop.store(new FileOutputStream(settingsFile), null);
     }
+    
+    public static String getDefaultConfigFilePath(Class<?> forClass){
+		return "cfg/" + forClass.getName() + ".config";
+	}
 }

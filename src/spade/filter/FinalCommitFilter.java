@@ -40,7 +40,7 @@ public class FinalCommitFilter extends AbstractFilter {
     public void putVertex(AbstractVertex incomingVertex) {
         for (AbstractStorage storage : storages) {
             if (storage.putVertex(incomingVertex)) {
-                storage.vertexCount++;
+                incrementStorageVertexCount(storage);
             }
         }
         for (AbstractSketch sketch : sketches) {
@@ -52,7 +52,7 @@ public class FinalCommitFilter extends AbstractFilter {
     public void putEdge(AbstractEdge incomingEdge) {
         for (AbstractStorage storage : storages) {
             if (storage.putEdge(incomingEdge)) {
-                storage.edgeCount++;
+                incrementStorageEdgeCount(storage);
             }
         }
         for (AbstractSketch sketch : sketches) {
