@@ -126,7 +126,7 @@ public class Daemonizer {
 
     }
 
-    public void stop() {
+    public void stop(int signum) {
         int pidfromfile = 0;
         boolean processRunning = false;
 
@@ -147,12 +147,20 @@ public class Daemonizer {
             }
 
             if (processRunning) {
-                System.err.println("Killing SPADE. Process ID: " + pidfromfile);
-                if (CLibrary.LIBC.kill(pidfromfile, 2) != 0 ) { // SIGINT
+                System.err.println("Sending SPADE (Process ID: " + pidfromfile + ") " + ((signum == 2)?"SIGINT":((signum == 9)?"SIGKILL":"SIGNUM "+signum)) );
+                if (CLibrary.LIBC.kill(pidfromfile, signum) != 0 ) { 
                     System.err.println("SPADE process could not be killed.");
                 }
             } else {
                 System.err.println("SPADE is not running, but PID file exists. Deleting it.");
+            }
+
+            try {
+                while (isProcessRunning(pidfromfile)) {
+                    Thread.sleep(1000);
+                }
+            } catch (Exception exception) {
+
             }
 
             try {
@@ -177,7 +185,10 @@ public class Daemonizer {
                 d.start();
             } 
             if(arguments[0].equals("stop")) {
-                d.stop();
+                d.stop(2); // SIGINT
+            }
+            if(arguments[0].equals("kill")) {
+                d.stop(9); // SIGKILL
             }
             if (arguments[0].equals("-h")) {
                 System.out.println("args: start | stop | -h");
