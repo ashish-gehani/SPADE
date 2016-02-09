@@ -84,7 +84,7 @@ public class Bitcoin extends AbstractReporter {
 
 
     private final int PAUSE_TIME = 10;
-    private final int MAX_BUFFER_SIZE = 1000000;
+    private final int MAX_BUFFER_SIZE = 100000;
 
     // file used to save block index, i such that block 0 to i have been processed
     private String progress_file = Paths.get(BITCOIN_STAGING_DIR, "progress").toString();

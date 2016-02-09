@@ -103,7 +103,8 @@ public class Neo4j extends AbstractStorage {
 	private BloomFilter<Integer> nodeBloomFilter; 
 	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
 	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
-	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 100000;
+	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 1000000;
+    private final int GLOBAL_TX_SIZE = 100000;
 
 	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
 
@@ -198,6 +199,7 @@ public class Neo4j extends AbstractStorage {
     	logger.log(Level.INFO, "shutdown initiated for Neo4j");
         // Flush all transactions before shutting down the database
         // make sure buffers are done, and stop and join all threads
+        globalTxFinalize();
         graphDb.shutdown(); // look at register shutdownhook in http://neo4j.com/docs/stable/tutorials-java-embedded-setup.html 
         logger.log(Level.INFO, "database shutdown");
         saveBloomFilter(NODE_BLOOMFILTER, nodeBloomFilter);
@@ -260,20 +262,55 @@ public class Neo4j extends AbstractStorage {
 		localNodeCache.put(hashCode, vertex);
 	}
 
+
+	Transaction globalTx;
+	int globalTxCount=0;
+
+	void globalTxCheckin() {
+		if (globalTxCount % GLOBAL_TX_SIZE == 0) {
+			if (globalTx != null) {
+				try {
+					globalTx.success();
+				} finally {
+					globalTx.close();
+				}
+			}
+			globalTx = graphDb.beginTx();
+			globalTxCount=0;
+		}
+		globalTxCount++;
+	}
+
+	void globalTxFinalize() {
+		if (globalTx != null) {
+			try {
+				globalTx.success();
+			} finally {
+				globalTx.close();
+			}
+		}
+		globalTxCount = 0;
+	}
+
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
     	totalVertices++;
     	reportProgress();
 
     	int hashCode = incomingVertex.hashCode();
-        if (nodeBloomFilter.contains(hashCode)) { // L1
-        	if (localNodeCache.containsKey(hashCode)) { // L2
-            	nodeFoundInLocalCacheCount++;
-                return false;
-            } 
-            dbHitCountForVertex++;
 
-			try ( Transaction tx = graphDb.beginTx() ) {
+        // try ( Transaction tx = graphDb.beginTx() ) {
+    	globalTxCheckin();
+    	try {
+
+	        if (nodeBloomFilter.contains(hashCode)) { // L1
+	        	if (localNodeCache.containsKey(hashCode)) { // L2
+	            	nodeFoundInLocalCacheCount++;
+	                return false;
+	            } 
+	            dbHitCountForVertex++;
+
+			// try ( Transaction tx = graphDb.beginTx() ) {
 				Node newVertex;
 				newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
             	if (newVertex != null) { // L3, false positive check
@@ -283,11 +320,11 @@ public class Neo4j extends AbstractStorage {
             	} else {
                 	falsePositiveCount++;
             	}
-			tx.success();
-			}
-        } 
+			// tx.success();
+			// }
+        	} 
 
-        try ( Transaction tx = graphDb.beginTx() ) {
+        // try ( Transaction tx = graphDb.beginTx() ) {
 
             Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
             for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
@@ -307,8 +344,12 @@ public class Neo4j extends AbstractStorage {
             nodeBloomFilter.add(hashCode);
             putInLocalCache(newVertex, hashCode);
                 
-            tx.success();
-        } 
+            // tx.success();
+        // }
+        	
+        } finally {
+
+        }
         return true;
     }
 
@@ -322,7 +363,9 @@ public class Neo4j extends AbstractStorage {
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
 
 
-        try ( Transaction tx = graphDb.beginTx() ) {
+        // try ( Transaction tx = graphDb.beginTx() ) {
+        globalTxCheckin();
+        try {
 
             int srcVertexHashCode = srcVertex.hashCode();
             int dstVertexHashCode = dstVertex.hashCode();
@@ -356,8 +399,10 @@ public class Neo4j extends AbstractStorage {
             newEdge.setProperty(ID_STRING, newEdge.getId());
             edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
 
-            tx.success();
-        } 
+            // tx.success();
+        } finally {
+        	
+        }
         
         return true;
     }
