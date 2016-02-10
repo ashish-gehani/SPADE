@@ -20,6 +20,7 @@
 
 package spade.transformer;
 
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -29,6 +30,7 @@ import spade.core.AbstractVertex;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.utility.CommonFunctions;
 
 public class TemporalTraversal extends AbstractTransformer{
 	
@@ -41,11 +43,12 @@ public class TemporalTraversal extends AbstractTransformer{
     
     //must specify the name of an annotation
     public boolean initialize(String arguments){
-    	if(arguments == null || arguments.trim().isEmpty()){
-    		logger.log(Level.SEVERE, "Must specify an annotation name");
-    		return false;
+    	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+    	if("timestamp".equals(argumentsMap.get("order"))){
+    		annotationName = "time";
+    	}else{
+    		annotationName = "event id";
     	}
-    	annotationName = arguments.trim();
     	return true;
     }
 

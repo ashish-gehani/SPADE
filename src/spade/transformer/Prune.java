@@ -19,22 +19,28 @@
  */
 package spade.transformer;
 
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractTransformer;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
+import spade.utility.CommonFunctions;
 
 public class Prune extends AbstractTransformer{
+	
+	private static final Logger logger = Logger.getLogger(Prune.class.getName());
 	
 	private String vertexExpression;
 	
 	public boolean initialize(String arguments){
-		if(arguments == null || arguments.trim().isEmpty()){
+		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+		if(argumentsMap.get("expression") == null || argumentsMap.get("expression").trim().isEmpty()){
+			logger.log(Level.SEVERE, "Must specify an expression for vertex selection");
 			return false;
 		}
-		vertexExpression = arguments;
+		vertexExpression = argumentsMap.get("expression");
 		return true;
 	}
 
@@ -42,10 +48,6 @@ public class Prune extends AbstractTransformer{
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
 		
 		try{
-			
-			if(vertexExpression == null){
-				throw new IllegalArgumentException("VertexExpression cannot be null");
-			}
 			
 			if(digQueryParams.getDepth() == null){
 				throw new IllegalArgumentException("Depth cannot be null");
@@ -56,7 +58,7 @@ public class Prune extends AbstractTransformer{
 			}
 			
 		}catch(Exception e){
-			Logger.getLogger(getClass().getName()).log(Level.WARNING, "Missing arguments in graph object", e);
+			logger.log(Level.WARNING, "Missing arguments for the current query", e);
 			return graph;
 		}
 		

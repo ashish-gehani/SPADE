@@ -34,16 +34,20 @@ import spade.core.AbstractVertex;
 import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
 
 public class NoEphemeralReads extends AbstractTransformer {
 	
 	private Pattern ignoreFilesPattern = null;
 	
-	// argument = true means that every file in the graph should be checked against the pattern in the regex file. otherwise don't check against it
+	// limited = true means that only matching files in the graph should be checked for ephemeral reads.
+	// limited = false means that all files in the graph should be checked for ephemeral reads.
 	public boolean initialize(String arguments){
-		
-		if(arguments != null && arguments.trim().equals("true")){		
+		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+		if("false".equals(argumentsMap.get("limited"))){
+			return true;
+		}else{
 			try{
 				String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 				ignoreFilesPattern = FileUtility.constructRegexFromFile(filepath);
@@ -56,8 +60,6 @@ public class NoEphemeralReads extends AbstractTransformer {
 				return false;
 			}
 		}
-		
-		return true;
 	}
 
 	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
