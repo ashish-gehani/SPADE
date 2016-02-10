@@ -33,9 +33,9 @@ import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 
-public class NoAnnotations extends AbstractTransformer{
+public class DropKeys extends AbstractTransformer{
 	
-	private final static Logger logger = Logger.getLogger(NoAnnotations.class.getName());
+	private final static Logger logger = Logger.getLogger(DropKeys.class.getName());
 	
 	private String[] annotationsToRemove = null;
 	
@@ -52,7 +52,8 @@ public class NoAnnotations extends AbstractTransformer{
 					}
 				}
 			}else{
-				annotationsToRemove = FileUtils.readLines(new File(Settings.getProperty("no_annotations_transformer_filepath"))).toArray(new String[]{});
+				String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+				annotationsToRemove = FileUtils.readLines(new File(defaultConfigFilePath)).toArray(new String[]{});
 			}
 			return true;
 		}catch(Exception e){
