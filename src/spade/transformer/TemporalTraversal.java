@@ -30,9 +30,9 @@ import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 
-public class BeforeAfterHorizon extends AbstractTransformer{
+public class TemporalTraversal extends AbstractTransformer{
 	
-	private static final Logger logger = Logger.getLogger(BeforeAfterHorizon.class.getName());
+	private static final Logger logger = Logger.getLogger(TemporalTraversal.class.getName());
 	
 	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
