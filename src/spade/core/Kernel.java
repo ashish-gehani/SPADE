@@ -35,6 +35,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -133,10 +134,10 @@ public class Kernel {
     private static final int FIRST_FILTER = 0;
     // Strings for control client
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
-    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> <index> <initialization arguments>";
+    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <initialization arguments>";
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
-    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <index>";
+    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <position number>";
     private static final String LIST_STRING = "list reporters|storages|filters|sketches|transformers|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
@@ -763,6 +764,35 @@ public class Kernel {
         string.append("\t" + QUERY_EXIT_STRING);
         return string.toString();
     }
+    
+    private static SimpleEntry<String, String> getPositionAndArguments(String partOfCommand){
+    	try{
+	    	int indexOfPosition = partOfCommand.startsWith("position") ? 0 : partOfCommand.indexOf(" position")  < 0 ? -1 : partOfCommand.indexOf(" position") + 1;
+	    	String positionSubstring = partOfCommand.substring(indexOfPosition);
+	    	int indexOfEquals = positionSubstring.indexOf('=');
+	    	String positionValue = "";
+	    	int i = indexOfEquals + 1;
+	    	for(; i < positionSubstring.length(); i++){
+	    		if(positionValue.isEmpty()){
+	    			if(positionSubstring.charAt(i) != ' '){
+	    				positionValue += positionSubstring.charAt(i);
+	    			}
+	    		}else{ //not empty
+	    			if(positionSubstring.charAt(i) != ' '){
+	    				positionValue += positionSubstring.charAt(i);
+	    			}else{
+	    				break;
+	    			}
+	    		}
+	    	}
+	    	i = i < positionSubstring.length() ? i++ : i;
+	    	String arguments = partOfCommand.replace(partOfCommand.substring(indexOfPosition, indexOfPosition+i), "");
+	    	return new SimpleEntry<String, String>(positionValue, arguments);
+		}catch(Exception e){
+    		logger.log(Level.SEVERE, null, e);
+    		return null;
+    	}
+    }
 
     /**
      * Method to add extensions.
@@ -856,17 +886,21 @@ public class Kernel {
                 return;
             }
             String classname = tokens[2];
-            String[] parameters = tokens[3].split("\\s+", 2);
+            SimpleEntry<String, String> positionArgumentsEntry = getPositionAndArguments(tokens[3]);
+            String position = null, arguments = null;
+            if(positionArgumentsEntry != null){
+            	position = positionArgumentsEntry.getKey();
+            	arguments = positionArgumentsEntry.getValue();
+            }
             logger.log(Level.INFO, "Adding filter: {0}", classname);
             outputStream.print("Adding filter " + classname + "... ");
             int index;
             try {
-                index = Integer.parseInt(parameters[0]) - 1;
+                index = Integer.parseInt(position) - 1;
             } catch (NumberFormatException numberFormatException) {
-                outputStream.println("error: Index must be a number");
+                outputStream.println("error: Position must be specified and must be a number");
                 return;
             }
-            String arguments = (parameters.length == 1) ? null : parameters[1];
             // Get the filter by classname and create a new instance.
             AbstractFilter filter;
             try {
@@ -881,7 +915,7 @@ public class Kernel {
             filter.arguments = arguments;
             // The argument is the index at which the filter is to be inserted.
             if (index >= filters.size()) {
-                outputStream.println("error: Invalid index");
+                outputStream.println("error: Invalid position");
                 return;
             }
             // Set the next filter of this newly added filter.
@@ -904,17 +938,21 @@ public class Kernel {
                 return;
             }
             String classname = tokens[2];
-            String[] parameters = tokens[3].split("\\s+", 2);
+            SimpleEntry<String, String> positionArgumentsEntry = getPositionAndArguments(tokens[3]);
+            String position = null, arguments = null;
+            if(positionArgumentsEntry != null){
+            	position = positionArgumentsEntry.getKey();
+            	arguments = positionArgumentsEntry.getValue();
+            }
             logger.log(Level.INFO, "Adding transformer: {0}", classname);
             outputStream.print("Adding transformer " + classname + "... ");
             int index;
             try {
-                index = Integer.parseInt(parameters[0]) - 1;
+                index = Integer.parseInt(position) - 1;
             } catch (NumberFormatException numberFormatException) {
-                outputStream.println("error: Index must be a number");
+            	outputStream.println("error: Position must be specified and must be a number");
                 return;
             }
-            String arguments = (parameters.length == 1) ? null : parameters[1];
             // Get the transformer by classname and create a new instance.
             AbstractTransformer transformer;
             try {
@@ -930,7 +968,7 @@ public class Kernel {
 	            // The argument is the index at which the transformer is to be
 	            // inserted.
 	            if (index > transformers.size() || index < 0) {
-	                outputStream.println("error: Invalid index");
+	                outputStream.println("error: Invalid position");
 	                return;
 	            }
 	           
