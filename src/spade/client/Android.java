@@ -34,7 +34,7 @@ import spade.core.Settings;
  *
  * @author Dawood Tariq
  */
-public class AndroidClient {
+public class Android {
 
     private static PrintStream outputStream;
     private static PrintStream errorStream;

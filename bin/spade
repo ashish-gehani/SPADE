@@ -53,9 +53,9 @@ else
 	elif [ $1 = "kill" ] ; then
 		java $CLASSPATH $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
 	elif [ $1 = "dig" ] ; then
-		java $CLASSPATH "$FORMATTER" spade.client.QueryClient
+		java $CLASSPATH "$FORMATTER" spade.client.Query
 	elif [ $1 = "control" ] ; then
-		java $CLASSPATH "$FORMATTER" spade.client.ControlClient
+		java $CLASSPATH "$FORMATTER" spade.client.Control
 	elif [ $1 = "debug" ] ; then
 		java $CLASSPATH $JVMARGSDEBUG "$FORMATTER" spade.core.Kernel
 	else

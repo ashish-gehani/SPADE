@@ -179,7 +179,7 @@ build-linux-llvm:
 # Build for Android
 android-build:
 	@mkdir -p build;
-	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/client/AndroidClient.java
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/client/Android.java
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/core/*.java
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/utility/*.java
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/filter/IORuns.java
@@ -188,7 +188,7 @@ android-build:
 	# @mkdir -p android-lib;
 	# $(ANDROID_BUILD_TOOLS)/dx --dex --output=android-lib/lucene-core-3.5.0.jar lib/lucene-core-3.5.0.jar
 	@mkdir -p android-build;
-	echo "dalvikvm -cp android-spade.jar spade.client.AndroidClient" > android-build/control.sh
+	echo "dalvikvm -cp android-spade.jar spade.client.Android" > android-build/control.sh
 	@cd build; \
 	$(ANDROID_BUILD_TOOLS)/dx --dex --verbose --no-strict --output=../android-build/android-spade.jar spade;
 
@@ -209,8 +209,8 @@ android-start:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade; dalvikvm -Xmx512M -cp android-spade.jar spade.core.Kernel android"
 
 android-stop:
-	# $(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade; dalvikvm -cp android-spade.jar spade.client.AndroidClient shutdown"
+	# $(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.Android shutdown"
+	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade; dalvikvm -cp android-spade.jar spade.client.Android shutdown"
   
 graph-utility:
 	java -cp 'build:lib/*' spade.utility.GraphUtility

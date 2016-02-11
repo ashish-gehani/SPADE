@@ -44,7 +44,7 @@ import jline.NullCompletor;
 import jline.SimpleCompletor;
 import spade.core.Settings;
 
-public class ControlClient {
+public class Control {
 
     private static PrintStream outputStream;
     private static PrintStream errorStream;
