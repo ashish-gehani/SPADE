@@ -48,7 +48,7 @@ public class ControlClient {
 
     private static PrintStream outputStream;
     private static PrintStream errorStream;
-    private static PrintStream SPADEControlIn;
+    private volatile static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
     private static volatile boolean shutdown;
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -59,6 +59,8 @@ public class ControlClient {
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
+    
+    private static final Object SPADEControlInLock = new Object(); //an object to synchronize on and to wait until SPADEControlIn has been initialized
 
     private static void setupKeyStores() throws Exception {
         String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
@@ -110,6 +112,10 @@ public class ControlClient {
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEControlIn = new PrintStream(outStream);
+                    
+                    synchronized (SPADEControlInLock) {
+                    	SPADEControlInLock.notify();
+					}
 
                     while (!shutdown) {
                         // This thread keeps reading from the output pipe and
@@ -140,7 +146,15 @@ public class ControlClient {
 
         try {
     
-        	Thread.sleep(2000);
+        	synchronized (SPADEControlInLock) {
+        		while(SPADEControlIn == null){
+            		try{
+            			SPADEControlInLock.wait();
+            		}catch(Exception e){
+            			e.printStackTrace(errorStream);
+            		}
+            	}
+			}        	
         	
         	outputStream.println("");
             outputStream.println("SPADE 2.0 Control Client");
