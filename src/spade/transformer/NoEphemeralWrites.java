@@ -24,15 +24,15 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 public class NoEphemeralWrites extends AbstractTransformer {
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		
 		Map<AbstractVertex, Set<String>> fileReadBy = new HashMap<AbstractVertex, Set<String>>();
 		

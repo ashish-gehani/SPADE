@@ -23,8 +23,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractTransformer;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.utility.CommonFunctions;
 
@@ -45,7 +45,7 @@ public class Prune extends AbstractTransformer{
 	}
 
 	@Override
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		
 		try{
 			

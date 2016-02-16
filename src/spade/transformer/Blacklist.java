@@ -23,10 +23,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.FileUtility;
@@ -51,7 +51,7 @@ public class Blacklist extends AbstractTransformer{
 		
 	}
 	
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		
 		AbstractVertex queriedVertex = null;

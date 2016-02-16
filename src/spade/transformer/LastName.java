@@ -19,14 +19,14 @@
  */
 package spade.transformer;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 public class LastName extends AbstractTransformer{
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
 			if(getAnnotationSafe(edge, "operation").equals("rename") 

@@ -27,8 +27,8 @@ import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractTransformer;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 
@@ -116,7 +116,7 @@ public class BEEP extends AbstractTransformer {
 	}
 	
 	@Override
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams) {
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams) {
 		
 		if(digQueryParams == null || digQueryParams.getDirection() == null){
 			return graph;

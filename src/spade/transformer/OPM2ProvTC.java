@@ -24,8 +24,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.FileUtility;
@@ -47,7 +47,7 @@ public class OPM2ProvTC extends OPM2Prov{
 		}
 	}
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		graph = super.putGraph(graph, digQueryParams);
 		graph.commitIndex();
 		

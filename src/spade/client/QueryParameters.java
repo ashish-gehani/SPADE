@@ -18,12 +18,17 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.core;
+package spade.client;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class DigQueryParams{
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Query;
+import spade.core.Settings;
+
+public class QueryParameters{
 
 	private String storage;
 	private String operation;
@@ -39,11 +44,11 @@ public class DigQueryParams{
 	private String direction;
 	private String terminatingExpression;
 
-	private DigQueryParams(){}
+	private QueryParameters(){}
 	
-	public static DigQueryParams parseQuery(String query){
+	public static QueryParameters parseQuery(String query){
 		try{
-			DigQueryParams digQueryParams = new DigQueryParams();
+			QueryParameters digQueryParams = new QueryParameters();
 			String tokens[] = query.split("\\s+");
 			digQueryParams.storage = tokens[1];
 			digQueryParams.operation = tokens[2];
@@ -64,7 +69,7 @@ public class DigQueryParams{
 			}
 			return digQueryParams;
 		}catch(Exception e){
-			Logger.getLogger(DigQueryParams.class.getName()).log(Level.SEVERE, "Malformed query", e);
+			Logger.getLogger(QueryParameters.class.getName()).log(Level.SEVERE, "Malformed query", e);
 		}
 		return null;
 	}
@@ -76,7 +81,7 @@ public class DigQueryParams{
 				return verticesGraph.vertexSet().toArray(new AbstractVertex[]{})[0];
 			}
 		}catch(Exception e){
-			Logger.getLogger(DigQueryParams.class.getName()).log(Level.SEVERE, "Failed to get vertex for id '" + id + "'", e);
+			Logger.getLogger(QueryParameters.class.getName()).log(Level.SEVERE, "Failed to get vertex for id '" + id + "'", e);
 		}
 		return null;
 	}

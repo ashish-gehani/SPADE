@@ -24,15 +24,15 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 public class SimpleForks extends AbstractTransformer {
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Map<String, AbstractEdge> forkcloneEdges = new HashMap<String, AbstractEdge>();
 		Map<String, AbstractEdge> execveEdges = new HashMap<String, AbstractEdge>();
 		for(AbstractEdge edge : graph.edgeSet()){

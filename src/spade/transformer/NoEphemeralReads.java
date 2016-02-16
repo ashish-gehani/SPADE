@@ -28,10 +28,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
@@ -62,7 +62,7 @@ public class NoEphemeralReads extends AbstractTransformer {
 		}
 	}
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		
 		AbstractVertex queriedVertex = null;
 		

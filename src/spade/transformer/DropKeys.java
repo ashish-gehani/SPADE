@@ -27,10 +27,10 @@ import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
@@ -80,7 +80,7 @@ public class DropKeys extends AbstractTransformer{
 		}
 	}
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 	
 		for(AbstractVertex vertex : graph.vertexSet()){

@@ -24,10 +24,10 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
@@ -52,7 +52,7 @@ public class TemporalTraversal extends AbstractTransformer{
     	return true;
     }
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		String direction = digQueryParams.getDirection();
 		if(direction == null){
 			logger.log(Level.SEVERE, "Direction cannot be null");

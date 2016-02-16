@@ -57,6 +57,7 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import spade.client.QueryParameters;
 import spade.filter.FinalCommitFilter;
 
 /**
@@ -1447,7 +1448,7 @@ class LocalQueryConnection implements Runnable {
     
     public Graph iterateTransformers(Graph graph, String query){
 		synchronized (Kernel.transformers) {
-			DigQueryParams digQueryParams = DigQueryParams.parseQuery(query);
+			QueryParameters digQueryParams = QueryParameters.parseQuery(query);
 			for(int i = 0; i< Kernel.transformers.size(); i++){
 				AbstractTransformer transformer = Kernel.transformers.get(i);
 				if(graph != null){
