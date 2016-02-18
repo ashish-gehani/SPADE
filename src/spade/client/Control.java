@@ -114,13 +114,22 @@ public class Control {
                     SPADEControlIn = new PrintStream(outStream);
                     
                     synchronized (SPADEControlInLock) {
-                    	SPADEControlInLock.notify();
+                    	SPADEControlInLock.notify(); //notify the main thread that it is safe to use spadeControlIn now.
 					}
 
                     while (!shutdown) {
                         // This thread keeps reading from the output pipe and
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
+                        
+                        //ACK[exit] is only received here when sent by this client only. ACK[shutdown] is received here whenever any client sends a shutdown.
+                        if("ACK[shutdown]".equals(outputLine) || "ACK[exit]".equals(outputLine)){
+                        	if("ACK[shutdown]".equals(outputLine)){
+                        		outputStream.println("Shutting down... done");
+                        	}
+                        	shutdown = true;
+                        	break;
+                        }
                         
                         if (outputLine != null) {
                             outputStream.println(outputLine);
@@ -134,6 +143,7 @@ public class Control {
                     }
                     SPADEControlOut.close();
                     SPADEControlIn.close();
+                    System.exit(0); //exit the program because the main thread is blocking on the read from the console
                 } catch (NumberFormatException | IOException | InterruptedException exception) {
                     if (!shutdown) {
                         System.out.println("Error connecting to SPADE");
@@ -146,6 +156,7 @@ public class Control {
 
         try {
     
+        	//wait for the spadeControlIn object to be initialized in the other thread
         	synchronized (SPADEControlInLock) {
         		while(SPADEControlIn == null){
             		try{
@@ -164,6 +175,7 @@ public class Control {
         	
             // Set up command history and tab completion.
             ConsoleReader commandReader = new ConsoleReader();
+            
             try {
                 commandReader.getHistory().setHistoryFile(new File(historyFile));
             } catch (Exception ex) {
@@ -210,8 +222,6 @@ public class Control {
                     SPADEControlIn.println(line);
                 }
             }   
-            Thread.sleep(1000);
-            shutdown = true;
         } catch (Exception exception) {
             exception.printStackTrace(errorStream);
         }
