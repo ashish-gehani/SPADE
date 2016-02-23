@@ -23,6 +23,11 @@ package spade.reporter.audit;
 public class PipeInfo implements ArtifactInfo{
 
 	private String fd1, fd2;
+	private String path;
+	
+	public PipeInfo(String path){
+		this.path = path;
+	}
 	
 	public PipeInfo(String fd1, String fd2) {
 		this.fd1 = fd1;
@@ -37,8 +42,16 @@ public class PipeInfo implements ArtifactInfo{
 		return fd2;
 	}
 	
+	public String getPath(){
+		return path;
+	}
+	
 	public String getStringFormattedValue(){
-		return "pipe:["+fd1+"-"+fd2+"]";
+		if(path == null){
+			return "pipe:["+fd1+"-"+fd2+"]";
+		}else{
+			return path;
+		}		
 	}
 
 	public String getSubtype(){
