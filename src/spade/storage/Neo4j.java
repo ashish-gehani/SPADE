@@ -232,7 +232,7 @@ public class Neo4j extends AbstractStorage {
     void reportProgress() {
         long diff = Calendar.getInstance().getTime().getTime() - reportProgressDate.getTime();
         if (diff > reportProgressAverageTime) {
-            logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false +tive/min. Bloom filter probability: " + nodeBloomFilter.getFalsePositiveProbability());
+            logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false +tive/min. Bloom filter probability: " + nodeBloomFilter.getFalsePositiveProbability() + " Bloom filter elements count: " + nodeBloomFilter.count());
             logger.log(Level.INFO, "Node L2: Rate: " + (int) (nodeFoundInLocalCacheCount - nodeFoundInLocalCacheCountTmp)/(diff/reportProgressAverageTime) +" node detection from local cache/min. Total: " + nodeFoundInLocalCacheCount);
             logger.log(Level.INFO, "Node L2: Rate: " + (int) (100.0*localNodeHashQueue.size()/NODE_VERTEX_LOCAL_CACHE_SIZE) +" % local node cache filled. Total: " + NODE_VERTEX_LOCAL_CACHE_SIZE);
             logger.log(Level.INFO, "Node L3: Rate: " + (int) (dbHitCountForVertex - dbHitCountForVertexTmp)/(diff/reportProgressAverageTime) +" db hit for vertexes from getVertices /min. Total: " + dbHitCountForVertex);
@@ -241,6 +241,7 @@ public class Neo4j extends AbstractStorage {
             logger.log(Level.INFO, "Edges Rate: " + (int) (dbHitCountForEdge - dbHitCountForEdgeTmp)/(diff/reportProgressAverageTime) +" db hit for vertices from getEdges /min. Total: " + dbHitCountForEdge);
             logger.log(Level.INFO, "Count Vertices: " + (int) (totalVertices - totalVerticesTmp)/(diff/reportProgressAverageTime) +" nodes/min. Total: " + totalVertices);
             logger.log(Level.INFO, "Count Edges: " + (int) (totalEdges - totalEdgesTmp)/(diff/reportProgressAverageTime) +" edges/min. Total: " + totalEdges);
+            logger.log(Level.INFO, "Heap Size: " + Runtime.getRuntime().totalMemory()+ " bytes");
 
             reportProgressDate = Calendar.getInstance().getTime();
 
@@ -294,8 +295,8 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-    	totalVertices++;
-    	reportProgress();
+    	// totalVertices++;
+    	// reportProgress();
 
     	int hashCode = incomingVertex.hashCode();
 
@@ -325,6 +326,8 @@ public class Neo4j extends AbstractStorage {
         	} 
 
         // try ( Transaction tx = graphDb.beginTx() ) {
+            totalVertices++;
+            reportProgress();
 
             Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
             for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
@@ -356,8 +359,8 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-    	totalEdges++;
-    	reportProgress();
+    	// totalEdges++;
+    	// reportProgress();
 
         AbstractVertex srcVertex = incomingEdge.getSourceVertex();
         AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
@@ -385,6 +388,9 @@ public class Neo4j extends AbstractStorage {
                 dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
                 putInLocalCache(dstNode, dstVertexHashCode);
             }
+
+            totalEdges++;
+            reportProgress();
 
             Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
             for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
