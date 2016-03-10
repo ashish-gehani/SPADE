@@ -8,19 +8,18 @@ SRC_PATH=$BASE/../../src
 LLC=llc
 CC=gcc
 
-cp ${LLVM_SOURCE}.bc ${LLVM_SOURCE}2.bc 
-
 LD_FLAGS=""
 if [[ $* == *-instrument-libc* ]]
 then
   echo "### Wrapping libc calls" 
-  LD_FLAGS="$(opt -load $BASE/LibcWrapper.so -wrapper ${LLVM_SOURCE}.bc -o ${LLVM_TARGET}.bc)"
+  LD_FLAGS="$(opt -load $BASE/LibcWrapper.so -wrapper ${LLVM_SOURCE}.bc -o ${LLVM_Instrumented}.bc)"
   echo $LD_FLAGS
-  mv ${LLVM_TARGET}.bc ${LLVM_SOURCE}2.bc
+else
+  cp ${LLVM_SOURCE}.bc ${LLVM_Instrumented}.bc 
 fi
 
 ### 
-llvm-link ${LLVM_SOURCE}2.bc $BASE/flush.bc -o $BASE/linked.bc
+llvm-link ${LLVM_Instrumented}.bc $BASE/flush.bc -o $BASE/linked.bc
 
 if [ "$FUNCTION_FILE" != "-monitor-all" ]; then
 	opt -dot-callgraph $BASE/linked.bc -o $BASE/callgraph.bc	
