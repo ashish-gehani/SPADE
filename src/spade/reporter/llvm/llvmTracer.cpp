@@ -224,7 +224,7 @@ namespace {
         bool doInitialization(Module &M) {
 
 	    std::string fileName = ArgumentsFileName == "" ? "arguments" : ArgumentsFileName.getValue().c_str();	
-	    if (strcmp(fileName.c_str(), "-no-monitor") != 0){
+	    if (strcmp(fileName.c_str(), "-monitor-all") != 0){
 	   	 
 		    std::ifstream file(fileName);	
 		    cout<<"Invoked Do Initialization"<< fileName << endl;
