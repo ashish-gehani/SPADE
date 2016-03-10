@@ -93,32 +93,63 @@ public class Neo4j extends AbstractStorage {
     private final String NEO_CONFIG_FILE = "cfg/neo4j.properties";
 
     private enum MyRelationshipTypes implements RelationshipType { EDGE }
-    private enum MyNodeTypes implements Label { VERTEX }    
+    private enum MyNodeTypes implements Label { VERTEX }
     private String neo4jDatabaseDirectoryPath = null;
 
-	public final String NODE_HASHCODE_LABEL = "hashCode";
-	// private int TRUST_DATA_LEVEL = 4; // HIGH : trust all edges to be unique and having vertexes already in db 
-	private double falsePositiveProbability = 0.0001;
-	private int expectedNumberOfElements = Integer.MAX_VALUE;
-	private BloomFilter<Integer> nodeBloomFilter; 
-	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
-	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
-	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 1000000;
-    private final int GLOBAL_TX_SIZE = 100000;
+  	public final String NODE_HASHCODE_LABEL = "hashCode";
+  	private double falsePositiveProbability = 0.0001;
 
-	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
+    // Performance tuning note: Set this to higher value (up to Integer.MAX_VALUE) to reduce db hit rate.
+    // Downside: This would eat more heap at start time.
+  	private int expectedNumberOfElements = 1000000;
+  	private BloomFilter<Integer> nodeBloomFilter;
+  	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
+  	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
+
+    // Performance tuning note: Depending on data locality, you can increase this FIFO cache size.
+    // Performance tuning note: Set this to higher value (e.g. 1000000) to reduce db hit rate.
+    // Downside: This would eat more heap.
+  	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 1000000;
+    // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases ingestion rate.
+    // Downside: Any external (non atomic) quering to database won't report non-commited data.
+    private final int GLOBAL_TX_SIZE = 100000;
+    private boolean LOG_PERFORMANCE_STATS = true;
+  	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
+
+    Transaction globalTx;
+  	int globalTxCount=0;
+
+    //
+    // variables used to track stats only
+    //
+    int reportProgressAverageTime = 60000; // ms
+
+  	int vertexCount = 0;
+  	int edgeCount = 0;
+    int dbHitCountForVertex = 0;
+    int dbHitCountForEdge = 0;
+    int nodeFoundInLocalCacheCount = 0;
+    int foundInDbCount = 0;
+    int falsePositiveCount = 0;
+    Date reportProgressDate;
+
+  	int vertexCountTmp = 0;
+  	int edgeCountTmp = 0;
+    int dbHitCountForVertexTmp = 0;
+    int dbHitCountForEdgeTmp = 0;
+    int nodeFoundInLocalCacheCountTmp = 0;
+    int foundInDbCountTmp = 0;
+    int falsePositiveCountTmp = 0;
+    //
 
     @Override
     public boolean initialize(String arguments) {
         try {
-        	neo4jDatabaseDirectoryPath = arguments;
+            neo4jDatabaseDirectoryPath = arguments;
             if (neo4jDatabaseDirectoryPath == null) {
                 return false;
             }
-            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath)
-            	// this options caches in memeory before dumping it on disk
-	            // .setConfig(GraphDatabaseSettings.pagecache_memory, "" + 1024*1024*1024)
-            ;
+            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
             try {
                 graphDbBuilder.loadPropertiesFromFile(NEO_CONFIG_FILE);
                 logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
@@ -138,10 +169,11 @@ public class Neo4j extends AbstractStorage {
 
             nodeBloomFilter = loadBloomFilter(NODE_BLOOMFILTER);
 
-            logger.log(Level.INFO, "nodeBloomFilter size: " + nodeBloomFilter.count());
-
+            if (LOG_PERFORMANCE_STATS==true) {
+              logger.log(Level.INFO, "nodeBloomFilter size at startup: " + nodeBloomFilter.count());
+            }
             reportProgressDate = Calendar.getInstance().getTime();
-            
+
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -155,7 +187,7 @@ public class Neo4j extends AbstractStorage {
     		File filePath = new File(neo4jDatabaseDirectoryPath, fileName);
     		if (filePath.exists()) {
 	    		FileInputStream fileInputStream = new FileInputStream(
-	    			filePath.toString() 
+	    			filePath.toString()
 				);
 	    		ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
 	    		BloomFilter bloomFilter = (BloomFilter<Integer>) objectInputStream.readObject();
@@ -175,7 +207,7 @@ public class Neo4j extends AbstractStorage {
 
     	try {
     		FileOutputStream fileOutputStream = new FileOutputStream(
-    			new File(neo4jDatabaseDirectoryPath, fileName).toString() 
+    			new File(neo4jDatabaseDirectoryPath, fileName).toString()
 			);
     		ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
     		objectOutputStream.writeObject(bloomFilter);
@@ -196,57 +228,46 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean shutdown() {
-    	logger.log(Level.INFO, "shutdown initiated for Neo4j");
+        if (LOG_PERFORMANCE_STATS==true) {
+          logger.log(Level.INFO, "Shutdown initiated for Neo4j");
+        }
         // Flush all transactions before shutting down the database
         // make sure buffers are done, and stop and join all threads
         globalTxFinalize();
-        graphDb.shutdown(); // look at register shutdownhook in http://neo4j.com/docs/stable/tutorials-java-embedded-setup.html 
-        logger.log(Level.INFO, "database shutdown");
+        graphDb.shutdown(); // look at register shutdownhook in http://neo4j.com/docs/stable/tutorials-java-embedded-setup.html
+        if (LOG_PERFORMANCE_STATS==true) {
+          logger.log(Level.INFO, "Database shutdown completed");
+        }
         saveBloomFilter(NODE_BLOOMFILTER, nodeBloomFilter);
-        logger.log(Level.INFO, "all chores completed!");
+        if (LOG_PERFORMANCE_STATS==true) {
+          logger.log(Level.INFO, "All chores completed!");
+        }
         return true;
     }
 
-    //
-    // variables used to track starts
-    //
-	int totalVertices = 0;
-	int totalEdges = 0;
-    int dbHitCountForVertex = 0;
-    int dbHitCountForEdge = 0;
-    int nodeFoundInLocalCacheCount = 0;
-    int foundInDbCount = 0;
-    int falsePositiveCount = 0;
-    Date reportProgressDate;
-
-	int totalVerticesTmp = 0;
-	int totalEdgesTmp = 0;
-    int dbHitCountForVertexTmp = 0;
-    int dbHitCountForEdgeTmp = 0;
-    int nodeFoundInLocalCacheCountTmp = 0;
-    int foundInDbCountTmp = 0;
-    int falsePositiveCountTmp = 0;
-
-    int reportProgressAverageTime = 60000; //ms
-
     void reportProgress() {
+        // This reported progess is only for write calls. Querying is independant from this.
+        if (LOG_PERFORMANCE_STATS==false) {
+          return;
+        }
+
         long diff = Calendar.getInstance().getTime().getTime() - reportProgressDate.getTime();
         if (diff > reportProgressAverageTime) {
-            logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false +tive/min. Bloom filter probability: " + nodeBloomFilter.getFalsePositiveProbability() + " Bloom filter elements count: " + nodeBloomFilter.count());
-            logger.log(Level.INFO, "Node L2: Rate: " + (int) (nodeFoundInLocalCacheCount - nodeFoundInLocalCacheCountTmp)/(diff/reportProgressAverageTime) +" node detection from local cache/min. Total: " + nodeFoundInLocalCacheCount);
-            logger.log(Level.INFO, "Node L2: Rate: " + (int) (100.0*localNodeHashQueue.size()/NODE_VERTEX_LOCAL_CACHE_SIZE) +" % local node cache filled. Total: " + NODE_VERTEX_LOCAL_CACHE_SIZE);
-            logger.log(Level.INFO, "Node L3: Rate: " + (int) (dbHitCountForVertex - dbHitCountForVertexTmp)/(diff/reportProgressAverageTime) +" db hit for vertexes from getVertices /min. Total: " + dbHitCountForVertex);
-            logger.log(Level.INFO, "Node L3: Rate: " + (int) (foundInDbCount - foundInDbCountTmp)/(diff/reportProgressAverageTime) +" detection from db/min. Total: " + foundInDbCount);
+            logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false +tive/min. Bloom filter false +tive probability: " + nodeBloomFilter.getFalsePositiveProbability() + " Bloom filter elements count: " + nodeBloomFilter.count());
+            logger.log(Level.INFO, "Node L2: Rate: " + (int) (nodeFoundInLocalCacheCount - nodeFoundInLocalCacheCountTmp)/(diff/reportProgressAverageTime) + " node detection from local cache/min. Total: " + nodeFoundInLocalCacheCount);
+            logger.log(Level.INFO, "Node L2: Rate: " + (int) (100.0*localNodeHashQueue.size()/NODE_VERTEX_LOCAL_CACHE_SIZE) + " % local node cache filled. Total: " + NODE_VERTEX_LOCAL_CACHE_SIZE);
+            logger.log(Level.INFO, "Node L3: Rate: " + (int) (dbHitCountForVertex - dbHitCountForVertexTmp)/(diff/reportProgressAverageTime) + " db hit for vertexes from getVertices /min. Total: " + dbHitCountForVertex);
+            logger.log(Level.INFO, "Node L3: Rate: " + (int) (foundInDbCount - foundInDbCountTmp)/(diff/reportProgressAverageTime) + " detection from db/min. Total: " + foundInDbCount);
 
-            logger.log(Level.INFO, "Edges Rate: " + (int) (dbHitCountForEdge - dbHitCountForEdgeTmp)/(diff/reportProgressAverageTime) +" db hit for vertices from getEdges /min. Total: " + dbHitCountForEdge);
-            logger.log(Level.INFO, "Count Vertices: " + (int) (totalVertices - totalVerticesTmp)/(diff/reportProgressAverageTime) +" nodes/min. Total: " + totalVertices);
-            logger.log(Level.INFO, "Count Edges: " + (int) (totalEdges - totalEdgesTmp)/(diff/reportProgressAverageTime) +" edges/min. Total: " + totalEdges);
-            logger.log(Level.INFO, "Heap Size: " + Runtime.getRuntime().totalMemory()+ " bytes");
+            logger.log(Level.INFO, "Edges Rate: " + (int) (dbHitCountForEdge - dbHitCountForEdgeTmp)/(diff/reportProgressAverageTime) + " db hit for vertices from getEdges /min. Total: " + dbHitCountForEdge);
+            logger.log(Level.INFO, "Count Vertices: " + (int) (vertexCount - vertexCountTmp)/(diff/reportProgressAverageTime) + " nodes/min. Total: " + vertexCount);
+            logger.log(Level.INFO, "Count Edges: " + (int) (edgeCount - edgeCountTmp)/(diff/reportProgressAverageTime) + " edges/min. Total: " + edgeCount);
+            logger.log(Level.INFO, "Heap Size: " + Runtime.getRuntime().totalMemory() + " bytes");
 
             reportProgressDate = Calendar.getInstance().getTime();
 
-            totalVerticesTmp = totalVertices;
-            totalEdgesTmp = totalEdges;
+            vertexCountTmp = vertexCount;
+            edgeCountTmp = edgeCount;
             dbHitCountForVertexTmp = dbHitCountForVertex;
             nodeFoundInLocalCacheCountTmp = nodeFoundInLocalCacheCount;
             foundInDbCountTmp = foundInDbCount;
@@ -256,160 +277,137 @@ public class Neo4j extends AbstractStorage {
     }
 
     public void putInLocalCache(Node vertex, int hashCode) {
-		if (localNodeHashQueue.size() > NODE_VERTEX_LOCAL_CACHE_SIZE) {
-		    localNodeCache.remove(localNodeHashQueue.removeFirst());
-		}
-		localNodeHashQueue.add(hashCode);
-		localNodeCache.put(hashCode, vertex);
-	}
+  		if (localNodeHashQueue.size() > NODE_VERTEX_LOCAL_CACHE_SIZE) {
+  		    localNodeCache.remove(localNodeHashQueue.removeFirst());
+  		}
+  		localNodeHashQueue.add(hashCode);
+  		localNodeCache.put(hashCode, vertex);
+    }
 
+  	void globalTxCheckin() {
+  		if (globalTxCount % GLOBAL_TX_SIZE == 0) {
+  			if (globalTx != null) {
+  				try {
+  					globalTx.success();
+  				} finally {
+  					globalTx.close();
+  				}
+  			}
+  			globalTx = graphDb.beginTx();
+  			globalTxCount=0;
+  		}
+  		globalTxCount++;
+  	}
 
-	Transaction globalTx;
-	int globalTxCount=0;
-
-	void globalTxCheckin() {
-		if (globalTxCount % GLOBAL_TX_SIZE == 0) {
-			if (globalTx != null) {
-				try {
-					globalTx.success();
-				} finally {
-					globalTx.close();
-				}
-			}
-			globalTx = graphDb.beginTx();
-			globalTxCount=0;
-		}
-		globalTxCount++;
-	}
-
-	void globalTxFinalize() {
-		if (globalTx != null) {
-			try {
-				globalTx.success();
-			} finally {
-				globalTx.close();
-			}
-		}
-		globalTxCount = 0;
-	}
+  	void globalTxFinalize() {
+  		if (globalTx != null) {
+  			try {
+  				globalTx.success();
+  			} finally {
+  				globalTx.close();
+  			}
+  		}
+  		globalTxCount = 0;
+  	}
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-    	// totalVertices++;
-    	// reportProgress();
-
     	int hashCode = incomingVertex.hashCode();
-
-        // try ( Transaction tx = graphDb.beginTx() ) {
     	globalTxCheckin();
+
     	try {
+        if (nodeBloomFilter.contains(hashCode)) { // L1, confirming if its false +tive
+        	if (localNodeCache.containsKey(hashCode)) { // L2
+            	nodeFoundInLocalCacheCount++;
+              return false;
+          }
+          dbHitCountForVertex++;
 
-	        if (nodeBloomFilter.contains(hashCode)) { // L1
-	        	if (localNodeCache.containsKey(hashCode)) { // L2
-	            	nodeFoundInLocalCacheCount++;
-	                return false;
-	            } 
-	            dbHitCountForVertex++;
-
-			// try ( Transaction tx = graphDb.beginTx() ) {
-				Node newVertex;
-				newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
-            	if (newVertex != null) { // L3, false positive check
-					putInLocalCache(newVertex, hashCode);
-                	foundInDbCount++;
-                	return false;
-            	} else {
-                	falsePositiveCount++;
-            	}
-			// tx.success();
-			// }
-        	} 
-
-        // try ( Transaction tx = graphDb.beginTx() ) {
-            totalVertices++;
-            reportProgress();
-
-            Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
-            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
-                }
-                newVertex.setProperty(key, value);
-                vertexIndex.add(newVertex, key, value);
-            }
-            // does findNode check in index or in db directly? if in db only, then we need to uncomment this line
-            newVertex.setProperty(NODE_HASHCODE_LABEL, hashCode);
-            vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
-            newVertex.setProperty(ID_STRING, newVertex.getId());
-            vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-            nodeBloomFilter.add(hashCode);
-            putInLocalCache(newVertex, hashCode);
-                
-            // tx.success();
-        // }
-        	
-        } finally {
-
+          // L3: confirming from db if we have bloom filter false postive after FIFO cache miss
+          Node newVertex;
+		      newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
+        	if (newVertex != null) {
+			       putInLocalCache(newVertex, hashCode);
+             foundInDbCount++;
+             return false;
+          } else {
+            falsePositiveCount++;
+          }
         }
-        return true;
+        vertexCount++;
+        reportProgress();
+
+        Node newVertex = graphDb.createNode(MyNodeTypes.VERTEX);
+        for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+          String key = currentEntry.getKey();
+          String value = currentEntry.getValue();
+          if (key.equalsIgnoreCase(ID_STRING)) {
+            continue;
+          }
+          newVertex.setProperty(key, value);
+          vertexIndex.add(newVertex, key, value);
+        }
+
+        newVertex.setProperty(NODE_HASHCODE_LABEL, hashCode);
+        vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
+        newVertex.setProperty(ID_STRING, newVertex.getId());
+        vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+        nodeBloomFilter.add(hashCode);
+        putInLocalCache(newVertex, hashCode);
+
+      } finally {
+
+      }
+      return true;
     }
 
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-    	// totalEdges++;
-    	// reportProgress();
+      // TODO: we are assuming that all edges are unique, make checks to avoid this case
+      AbstractVertex srcVertex = incomingEdge.getSourceVertex();
+      AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
 
-        AbstractVertex srcVertex = incomingEdge.getSourceVertex();
-        AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
+      globalTxCheckin();
 
+      try {
+        int srcVertexHashCode = srcVertex.hashCode();
+        int dstVertexHashCode = dstVertex.hashCode();
+      	Node srcNode = localNodeCache.get(srcVertexHashCode);
+      	Node dstNode = localNodeCache.get(dstVertexHashCode);
 
-        // try ( Transaction tx = graphDb.beginTx() ) {
-        globalTxCheckin();
-        try {
-
-            int srcVertexHashCode = srcVertex.hashCode();
-            int dstVertexHashCode = dstVertex.hashCode();
-        	Node srcNode = localNodeCache.get(srcVertexHashCode);
-        	Node dstNode = localNodeCache.get(dstVertexHashCode);
-
-            if (srcNode == null) {
-            	dbHitCountForEdge++;
-
-                srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
-                putInLocalCache(srcNode, srcVertexHashCode);
-
-            }
-            if (dstNode == null) {
-            	dbHitCountForEdge++;
-
-                dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
-                putInLocalCache(dstNode, dstVertexHashCode);
-            }
-
-            totalEdges++;
-            reportProgress();
-
-            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-                String key = currentEntry.getKey();
-                String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
-                }
-                newEdge.setProperty(key, value);
-                edgeIndex.add(newEdge, key, value);
-            }
-            newEdge.setProperty(ID_STRING, newEdge.getId());
-            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-
-            // tx.success();
-        } finally {
-        	
+        if (srcNode == null) {
+        	dbHitCountForEdge++;
+          srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
+          // TODO: insert srcNode in db if its not present in index
+          putInLocalCache(srcNode, srcVertexHashCode);
         }
-        
+
+        if (dstNode == null) {
+        	dbHitCountForEdge++;
+          dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
+          // TODO: insert srcNode in db if its not present in index
+          putInLocalCache(dstNode, dstVertexHashCode);
+        }
+
+        edgeCount++;
+        reportProgress();
+
+        Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+        for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+            String key = currentEntry.getKey();
+            String value = currentEntry.getValue();
+            if (key.equalsIgnoreCase(ID_STRING)) {
+                continue;
+            }
+            newEdge.setProperty(key, value);
+            edgeIndex.add(newEdge, key, value);
+        }
+        newEdge.setProperty(ID_STRING, newEdge.getId());
+        edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+
+        } finally {
+        }
         return true;
     }
 
@@ -445,7 +443,6 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public Graph getVertices(String expression) {
-
         try ( Transaction tx = graphDb.beginTx() ) {
             Graph resultGraph = new Graph();
             IndexHits<Node> queryHits = vertexIndex.query(expression);
@@ -532,6 +529,7 @@ public class Neo4j extends AbstractStorage {
         return resultGraph;
     }
 
+    // TODO: remove all neo4j transaction creation in loops. Join that to globalTx
     @Override
     public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
         Graph resultGraph = new Graph();
@@ -549,7 +547,7 @@ public class Neo4j extends AbstractStorage {
         try ( Transaction tx = graphDb.beginTx() ) {
             IndexHits<Node> queryHits = vertexIndex.query(dstVertexExpression);
             for (Node foundNode : queryHits) {
-                destinationNodes.add(foundNode);              
+                destinationNodes.add(foundNode);
             }
             queryHits.close();
             tx.success();
@@ -564,13 +562,13 @@ public class Neo4j extends AbstractStorage {
                 try ( Transaction tx = graphDb.beginTx() ) {
                     for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
                         for (Node currentNode : currentPath.nodes()) {
-                            if (!addedNodeIds.contains(currentNode.getId())) {       
+                            if (!addedNodeIds.contains(currentNode.getId())) {
                                 resultGraph.putVertex(convertNodeToVertex(currentNode));
                                 addedNodeIds.add(currentNode.getId());
                             }
                         }
                         for (Relationship currentRelationship : currentPath.relationships()) {
-                            if (!addedEdgeIds.contains(currentRelationship.getId())) {              
+                            if (!addedEdgeIds.contains(currentRelationship.getId())) {
                                 resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
                                 addedEdgeIds.add(currentRelationship.getId());
                             }
@@ -681,16 +679,16 @@ public class Neo4j extends AbstractStorage {
     public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
     	return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
     }
-    
+
     public String getHashOfEdge(AbstractEdge edge){
     	String completeEdgeString = edge.getSourceVertex().toString() + edge.toString() + edge.getDestinationVertex().toString();
     	return DigestUtils.sha256Hex(completeEdgeString);
     }
-    
+
     public String getHashOfVertex(AbstractVertex vertex){
     	return DigestUtils.sha256Hex(vertex.toString());
     }
-    
+
     public static void index(String dbpath, boolean printProgress) {
 
         int totalThreads = Runtime.getRuntime().availableProcessors();
@@ -731,7 +729,7 @@ public class Neo4j extends AbstractStorage {
             tx.success();
         }
 
-        System.out.println("Created");        
+        System.out.println("Created");
 
         class NodeIndexer implements Runnable {
 
@@ -746,14 +744,14 @@ public class Neo4j extends AbstractStorage {
                             Node node = nodeTaskQueue.poll();
                             if (node==null) {
                                 continue;
-                            } 
+                            }
 
                             for ( String key : node.getPropertyKeys() ) {
                                 vertexIndex.add(node, key, (String) node.getProperty( key ));
                             }
                             node.setProperty(spade.storage.Neo4j.ID_STRING, node.getId());
-                            vertexIndex.add(node, spade.storage.Neo4j.ID_STRING, Long.toString(node.getId())); 
-                            
+                            vertexIndex.add(node, spade.storage.Neo4j.ID_STRING, Long.toString(node.getId()));
+
                             counter++;
                         }
 
@@ -763,9 +761,9 @@ public class Neo4j extends AbstractStorage {
                             tx = graphDb.beginTx();
                             nodeRwlock.writeLock().unlock();
                             counter =0;
-                        } 
+                        }
 
-                    } 
+                    }
 
                 } finally {
                     // tx.success();
@@ -790,13 +788,13 @@ public class Neo4j extends AbstractStorage {
                             Relationship relationship = edgeTaskQueue.poll();
                             if (relationship==null) {
                                 continue;
-                            } 
+                            }
 
                             for ( String key : relationship.getPropertyKeys() ) {
                                 edgeIndex.add(relationship, key, (String) relationship.getProperty( key ));
                             }
                             relationship.setProperty(spade.storage.Neo4j.ID_STRING, relationship.getId());
-                            edgeIndex.add(relationship, spade.storage.Neo4j.ID_STRING, Long.toString(relationship.getId()));                        
+                            edgeIndex.add(relationship, spade.storage.Neo4j.ID_STRING, Long.toString(relationship.getId()));
 
                             counter++;
                         }
@@ -809,7 +807,7 @@ public class Neo4j extends AbstractStorage {
                             counter =0;
                         }
 
-                    } 
+                    }
 
                 } finally {
                     // tx.success();
@@ -839,7 +837,7 @@ public class Neo4j extends AbstractStorage {
 
         System.out.println("Counted Nodes and Relationships to index...");
         final int total;
-        
+
         try ( Transaction tx = graphDb.beginTx() ) {
             total = IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllNodes()) + IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllRelationships());
             tx.success();
@@ -876,7 +874,7 @@ public class Neo4j extends AbstractStorage {
                         long usedMemory = totalMemory - freeMemory;
                         System.out.print("| Cores: " + rt.availableProcessors()
                                 + " | Threads: " + totalThreads
-                                + " | Heap (MB) - total: " + totalMemory + " , " + (freeMemory*100)/totalMemory +  "% free" 
+                                + " | Heap (MB) - total: " + totalMemory + " , " + (freeMemory*100)/totalMemory +  "% free"
                                 // + " | Total Objects (nodes + relationships) to Index: " + total
                                 + " | Indexing Object (nodes + relationships): " + count  + " / " + total
                                 + " | Completed: " + percentageCompleted + " %"
@@ -884,7 +882,7 @@ public class Neo4j extends AbstractStorage {
                     }
 
                     percentageCompleted = (count*100)/total;
-                }            
+                }
 
             }
 
@@ -919,7 +917,7 @@ public class Neo4j extends AbstractStorage {
             } catch (InterruptedException exception) {
 
             }
-        } 
+        }
 
         System.out.println("Database shutdown started...");
         graphDb.shutdown();
