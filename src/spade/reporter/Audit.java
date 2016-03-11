@@ -1380,6 +1380,20 @@ public class Audit extends AbstractReporter {
         String pid = eventData.get("pid");
         checkProcessVertex(eventData, true, false);
         Process newProcess = checkProcessVertex(eventData, false, false);
+        
+        //copying the commandline and name annotations from the old version of the process if they exist
+        Process oldProcess = getProcess(pid);
+        if(oldProcess != null){
+        	String commandline = oldProcess.getAnnotation("commandline");
+        	String name = oldProcess.getAnnotation("name");
+    		if(commandline != null){
+    			newProcess.addAnnotation("commandline", commandline);
+    		}
+    		if(name != null){
+    			newProcess.addAnnotation("name", name);
+    		}
+        }
+        
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
         wtb.addAnnotation("operation", "setuid");
