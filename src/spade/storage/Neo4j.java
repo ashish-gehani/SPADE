@@ -383,16 +383,24 @@ public class Neo4j extends AbstractStorage {
 
         if (srcNode == null) {
         	dbHitCountForEdge++;
-          srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
-          // TODO: insert srcNode in db if its not present in index
-          putInLocalCache(srcNode, srcVertexHashCode);
+            srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
+            if (srcNode == null) {
+                // insert vertex if not in db
+                putVertex(srcVertex);
+                srcNode = localNodeCache.get(srcVertexHashCode);
+            }
+            putInLocalCache(srcNode, srcVertexHashCode);
         }
 
         if (dstNode == null) {
         	dbHitCountForEdge++;
-          dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
-          // TODO: insert srcNode in db if its not present in index
-          putInLocalCache(dstNode, dstVertexHashCode);
+            dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
+            if (dstNode == null) {
+                // insert vertex if not in db
+                putVertex(dstVertex);
+                dstNode = localNodeCache.get(dstVertexHashCode);
+            }
+            putInLocalCache(dstNode, dstVertexHashCode);
         }
 
         edgeCount++;
