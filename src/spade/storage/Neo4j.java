@@ -178,6 +178,7 @@ public class Neo4j extends AbstractStorage {
             }
             reportProgressDate = Calendar.getInstance().getTime();
             lastCommitedAt = Calendar.getInstance().getTime();
+		globalTxInit();
 
             return true;
         } catch (Exception exception) {
@@ -234,7 +235,8 @@ public class Neo4j extends AbstractStorage {
           ((globalTxCount > 0) && ((timeNow.getTime() - lastCommitedAt.getTime()) > MAX_WAIT_TIME_BEFORE_FLUSH ))
         ) {
           globalTxFinalize();
-    			globalTx = graphDb.beginTx();
+    	//		globalTx = graphDb.beginTx();
+	globalTxInit();
     		}
     		// globalTxCount++;
         lastCommitedAt = timeNow;
@@ -316,6 +318,11 @@ public class Neo4j extends AbstractStorage {
   	// 	}
   	// 	globalTxCount++;
   	// }
+
+	void globalTxInit() {
+		globalTx = graphDb.beginTx();
+		globalTxCount=0;
+	}
 
   	void globalTxFinalize() {
   		if (globalTx != null) {
