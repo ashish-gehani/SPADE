@@ -231,7 +231,7 @@ public class Neo4j extends AbstractStorage {
         // if (globalTxCount % GLOBAL_TX_SIZE == 0 ||
         if (globalTxCount > GLOBAL_TX_SIZE  ||
         // ((globalTxCount > 1) && (timeNow - lastCommitedAt > MAX_WAIT_TIME_BEFORE_FLUSH ))
-          ((globalTxCount > 0) && (timeNow - lastCommitedAt > MAX_WAIT_TIME_BEFORE_FLUSH ))
+          ((globalTxCount > 0) && ((timeNow.getTime() - lastCommitedAt.getTime()) > MAX_WAIT_TIME_BEFORE_FLUSH ))
         ) {
           globalTxFinalize();
     			globalTx = graphDb.beginTx();
