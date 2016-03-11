@@ -113,33 +113,38 @@ public class Neo4j extends AbstractStorage {
     // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-commited data.
     private final int GLOBAL_TX_SIZE = 100000;
-    private boolean LOG_PERFORMANCE_STATS = true;
-  	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
+    // Performance tuning note: This is time in sec that storage is flushed. Increase this to increase throughput / ingestion rate.
+    // Downside: Any external (non atomic) quering to database won't report non-commited data.
+    private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
+    private final boolean LOG_PERFORMANCE_STATS = true;
+  	private final String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
 
-    Transaction globalTx;
-  	int globalTxCount=0;
+    private Transaction globalTx;
+  	private int globalTxCount=0;
+
+    private Date lastFlushTime;
 
     //
     // variables used to track stats only
     //
-    int reportProgressAverageTime = 60000; // ms
+    private int reportProgressAverageTime = 60000; // ms
 
-  	int vertexCount = 0;
-  	int edgeCount = 0;
-    int dbHitCountForVertex = 0;
-    int dbHitCountForEdge = 0;
-    int nodeFoundInLocalCacheCount = 0;
-    int foundInDbCount = 0;
-    int falsePositiveCount = 0;
-    Date reportProgressDate;
+  	private int vertexCount = 0;
+  	private int edgeCount = 0;
+    private int dbHitCountForVertex = 0;
+    private int dbHitCountForEdge = 0;
+    private int nodeFoundInLocalCacheCount = 0;
+    private int foundInDbCount = 0;
+    private int falsePositiveCount = 0;
+    private Date reportProgressDate;
 
-  	int vertexCountTmp = 0;
-  	int edgeCountTmp = 0;
-    int dbHitCountForVertexTmp = 0;
-    int dbHitCountForEdgeTmp = 0;
-    int nodeFoundInLocalCacheCountTmp = 0;
-    int foundInDbCountTmp = 0;
-    int falsePositiveCountTmp = 0;
+  	private int vertexCountTmp = 0;
+  	private int edgeCountTmp = 0;
+    private int dbHitCountForVertexTmp = 0;
+    private int dbHitCountForEdgeTmp = 0;
+    private int nodeFoundInLocalCacheCountTmp = 0;
+    private int foundInDbCountTmp = 0;
+    private int falsePositiveCountTmp = 0;
     //
 
     @Override
@@ -173,6 +178,7 @@ public class Neo4j extends AbstractStorage {
               logger.log(Level.INFO, "nodeBloomFilter size at startup: " + nodeBloomFilter.count());
             }
             reportProgressDate = Calendar.getInstance().getTime();
+            lastFlushTime = Calendar.getInstance().getTime();
 
             return true;
         } catch (Exception exception) {
@@ -221,8 +227,10 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean flushTransactions() {
-        // Flush any pending transactions. This method is called by the Kernel
-        // whenever a query is executed
+        if (Calendar.getInstance().getTime().getTime() - lastFlushTime.getTime() > MAX_WAIT_TIME_BEFORE_FLUSH) {
+            globalTxCheckin(true);
+            lastFlushTime = Calendar.getInstance().getTime();
+        }
         return true;
     }
 
@@ -284,17 +292,14 @@ public class Neo4j extends AbstractStorage {
   		localNodeCache.put(hashCode, vertex);
     }
 
-  	void globalTxCheckin() {
-  		if (globalTxCount % GLOBAL_TX_SIZE == 0) {
-  			if (globalTx != null) {
-  				try {
-  					globalTx.success();
-  				} finally {
-  					globalTx.close();
-  				}
-  			}
-  			globalTx = graphDb.beginTx();
-  			globalTxCount=0;
+    void globalTxCheckin() {
+        globalTxCheckin(false);
+    }
+    
+    void globalTxCheckin(boolean forcedFlush) {
+  		if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush == true)) {
+            globalTxFinalize();
+            globalTx = graphDb.beginTx();
   		}
   		globalTxCount++;
   	}
