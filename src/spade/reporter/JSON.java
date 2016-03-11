@@ -70,11 +70,11 @@ import spade.edge.prov.WasAssociatedWith;
 import spade.edge.prov.WasDerivedFrom;
 
 /**
- * Json reporter for SPADE
+ * JSON reporter for SPADE
  *
  * @author Hasanat Kazmi
  */
-public class Json extends AbstractReporter {
+public class JSON extends AbstractReporter {
 
     private boolean shutdown = false;
     private boolean PRINT_DEBUG = true;
@@ -105,14 +105,14 @@ public class Json extends AbstractReporter {
                   debugLog("Sucessfully read json file");
 
                 } catch (IOException e) {
-                    Json.log(Level.SEVERE, "Can't open and read json file.", e);
+                    JSON.log(Level.SEVERE, "Can't open and read json file.", e);
                 }
 
                 debugLog("Starting to objectify JSON content");
                 try {
                   jsonArray = new JSONArray(jsonString.toString());
                 } catch (JSONException e){
-                  Json.log(Level.SEVERE, "Failed to create JSON Array object", e);
+                  JSON.log(Level.SEVERE, "Failed to create JSON Array object", e);
                   return;
                 }
                 debugLog("Sucessfully objectified JSON content");
@@ -137,7 +137,7 @@ public class Json extends AbstractReporter {
         try {
           jsonObject = jsonArray.getJSONObject(i);
         } catch (JSONException e) {
-          Json.log(Level.SEVERE, "Can not read object in Json Array", e);
+          JSON.log(Level.SEVERE, "Can not read object in JSON Array", e);
           continue;
         }
 
@@ -145,7 +145,7 @@ public class Json extends AbstractReporter {
         try {
           objectType = jsonObject.getString("type");
         } catch (JSONException e) {
-          Json.log(Level.SEVERE, "Missing type in object, can not access if its node or edge, ignoring object", null);
+          JSON.log(Level.SEVERE, "Missing type in object, can not access if its node or edge, ignoring object", null);
           continue;
         }
 
@@ -164,7 +164,7 @@ public class Json extends AbstractReporter {
         ){
           processEdge(jsonObject);
         } else {
-          Json.log(Level.SEVERE, "Unknown object type: '" + objectType + "', ignoring object", null);
+          JSON.log(Level.SEVERE, "Unknown object type: '" + objectType + "', ignoring object", null);
         }
       }
       debugLog("All provenance reported through JSON file has been retrived. You may remove JSON reporter");
@@ -183,7 +183,7 @@ public class Json extends AbstractReporter {
       try {
         id = vertexObject.getInt("id");
       } catch (JSONException e) {
-        Json.log(Level.SEVERE, "Missing id in vertex, ignoring vertex : " + vertexObject.toString() , null);
+        JSON.log(Level.SEVERE, "Missing id in vertex, ignoring vertex : " + vertexObject.toString() , null);
         return;
       }
 
@@ -227,7 +227,7 @@ public class Json extends AbstractReporter {
       try {
         from = edgeObject.getInt("from");
       } catch (JSONException e) {
-        Json.log(Level.SEVERE, "Missing 'from' in edge, ignoring edge : " + edgeObject.toString() , null);
+        JSON.log(Level.SEVERE, "Missing 'from' in edge, ignoring edge : " + edgeObject.toString() , null);
         return;
       }
 
@@ -235,7 +235,7 @@ public class Json extends AbstractReporter {
       try {
         to = edgeObject.getInt("to");
       } catch (JSONException e) {
-        Json.log(Level.SEVERE, "Missing 'to' in edge, ignoring edge : " + edgeObject.toString() , null);
+        JSON.log(Level.SEVERE, "Missing 'to' in edge, ignoring edge : " + edgeObject.toString() , null);
         return;
       }
 
@@ -243,7 +243,7 @@ public class Json extends AbstractReporter {
       AbstractVertex toVertex = vertices.get(to);
 
       if (fromVertex == null || toVertex == null) {
-        Json.log(Level.SEVERE, "Starting and/or ending vertex of edge hasn't been seen before, ignoring edge : " + edgeObject.toString() , null);
+        JSON.log(Level.SEVERE, "Starting and/or ending vertex of edge hasn't been seen before, ignoring edge : " + edgeObject.toString() , null);
         return;
       }
 
@@ -292,14 +292,14 @@ public class Json extends AbstractReporter {
 
     public void debugLog(String msg) {
       if (PRINT_DEBUG == true) {
-        Json.log(Level.INFO, msg, null);
+        JSON.log(Level.INFO, msg, null);
       }
     }
 
     public static void log(Level level, String msg, Throwable thrown) {
         if (level == level.FINE) {
         } else {
-            Logger.getLogger(Json.class.getName()).log(level, msg, thrown);
+            Logger.getLogger(JSON.class.getName()).log(level, msg, thrown);
         }
     }
 }
