@@ -578,7 +578,7 @@ class CSVWriter {
                             + " | Heap (MB) - total: " + totalMemory + ", %age free: " + (freeMemory*100)/totalMemory
                             + " | At Block: " + (i-startIndex+1) + " / " + (endIndex - startIndex)
                             + " | Percentage Completed: " + percentageCompleted
-                            + " |\r");
+                            // + " |\r");
                             + " |\n");
                 }
 
