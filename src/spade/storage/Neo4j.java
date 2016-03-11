@@ -228,13 +228,15 @@ public class Neo4j extends AbstractStorage {
         // this function is called too often by Kernel's GIL. (every MAIN_THREAD_SLEEP_DELAY)
 
         Date timeNow = Calendar.getInstance.getTime();
-        if (globalTxCount % GLOBAL_TX_SIZE == 0 ||
-          ((globalTxCount > 1) && (timeNow - lastCommitedAt > MAX_WAIT_TIME_BEFORE_FLUSH ))
+        // if (globalTxCount % GLOBAL_TX_SIZE == 0 ||
+        if (globalTxCount > GLOBAL_TX_SIZE  ||
+        // ((globalTxCount > 1) && (timeNow - lastCommitedAt > MAX_WAIT_TIME_BEFORE_FLUSH ))
+          ((globalTxCount > 0) && (timeNow - lastCommitedAt > MAX_WAIT_TIME_BEFORE_FLUSH ))
         ) {
           globalTxFinalize();
     			globalTx = graphDb.beginTx();
     		}
-    		globalTxCount++;
+    		// globalTxCount++;
         lastCommitedAt = timeNow;
 
         return true;
