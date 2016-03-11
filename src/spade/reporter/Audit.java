@@ -975,11 +975,11 @@ public class Audit extends AbstractReporter {
     			if(arg0.intValue() == -201){
     				memArtifact = createArtifact(new MemoryInfo(address.toString(16)), false, null);
     				edge = new Used(process, memArtifact);
-    				edge.addAnnotation("operation", "read");
+    				edge.addAnnotation("operation", "load");
     			}else if(arg0.intValue() == -301){
     				memArtifact = createArtifact(new MemoryInfo(address.toString(16)), true, null);
     				edge = new WasGeneratedBy(memArtifact, process);
-    				edge.addAnnotation("operation", "write");
+    				edge.addAnnotation("operation", "store");
     			}
     			if(edge != null && memArtifact != null && process != null){
 	    			edge.addAnnotation("time", eventData.get("time"));
