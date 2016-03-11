@@ -110,14 +110,18 @@ public class Neo4j extends AbstractStorage {
     // Performance tuning note: Set this to higher value (e.g. 1000000) to reduce db hit rate.
     // Downside: This would eat more heap.
   	private final int NODE_VERTEX_LOCAL_CACHE_SIZE = 1000000;
-    // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases ingestion rate.
+    // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases throughput / ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-commited data.
     private final int GLOBAL_TX_SIZE = 100000;
+    // Performance tuning note: This is time in sec that storage is flushed. Increase this to increase throughput / ingestion rate.
+    // Downside: Any external (non atomic) quering to database won't report non-commited data.
+    private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
     private boolean LOG_PERFORMANCE_STATS = true;
   	private String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
 
     Transaction globalTx;
   	int globalTxCount=0;
+    Date lastCommitedAt;
 
     //
     // variables used to track stats only
@@ -173,6 +177,7 @@ public class Neo4j extends AbstractStorage {
               logger.log(Level.INFO, "nodeBloomFilter size at startup: " + nodeBloomFilter.count());
             }
             reportProgressDate = Calendar.getInstance().getTime();
+            lastCommitedAt = Calendar.getInstance().getTime();
 
             return true;
         } catch (Exception exception) {
@@ -216,13 +221,22 @@ public class Neo4j extends AbstractStorage {
     	} catch (IOException exception) {
     		logger.log(Level.SEVERE, "Failed to save spade neo4j bloomfilter cache", exception);
     	}
-
     }
 
     @Override
     public boolean flushTransactions() {
-        // Flush any pending transactions. This method is called by the Kernel
-        // whenever a query is executed
+        // this function is called too often by Kernel's GIL. (every MAIN_THREAD_SLEEP_DELAY)
+
+        Date timeNow = Calendar.getInstance.getTime();
+        if (globalTxCount % GLOBAL_TX_SIZE == 0 ||
+          ((globalTxCount > 1) && (timeNow - lastCommitedAt > MAX_WAIT_TIME_BEFORE_FLUSH ))
+        ) {
+          globalTxFinalize();
+    			globalTx = graphDb.beginTx();
+    		}
+    		globalTxCount++;
+        lastCommitedAt = timeNow;
+
         return true;
     }
 
@@ -284,20 +298,22 @@ public class Neo4j extends AbstractStorage {
   		localNodeCache.put(hashCode, vertex);
     }
 
-  	void globalTxCheckin() {
-  		if (globalTxCount % GLOBAL_TX_SIZE == 0) {
-  			if (globalTx != null) {
-  				try {
-  					globalTx.success();
-  				} finally {
-  					globalTx.close();
-  				}
-  			}
-  			globalTx = graphDb.beginTx();
-  			globalTxCount=0;
-  		}
-  		globalTxCount++;
-  	}
+  	// void globalTxCheckin() {
+    //   // TODO: There should be a timer that commits on timeout. We do not get data if there is data less than GLOBAL_TX_SIZE
+  	// 	if (globalTxCount % GLOBAL_TX_SIZE == 0) {
+  	// 		// if (globalTx != null) {
+  	// 		// 	try {
+  	// 		// 		globalTx.success();
+  	// 		// 	} finally {
+  	// 		// 		globalTx.close();
+  	// 		// 	}
+  	// 		// }
+    //     globalTxFinalize();
+  	// 		globalTx = graphDb.beginTx();
+  	// 		// globalTxCount=0;
+  	// 	}
+  	// 	globalTxCount++;
+  	// }
 
   	void globalTxFinalize() {
   		if (globalTx != null) {
@@ -313,7 +329,8 @@ public class Neo4j extends AbstractStorage {
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
     	int hashCode = incomingVertex.hashCode();
-    	globalTxCheckin();
+    	// globalTxCheckin();
+      globalTxCount++;
 
     	try {
         if (nodeBloomFilter.contains(hashCode)) { // L1, confirming if its false +tive
@@ -368,7 +385,8 @@ public class Neo4j extends AbstractStorage {
       AbstractVertex srcVertex = incomingEdge.getSourceVertex();
       AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
 
-      globalTxCheckin();
+      // globalTxCheckin();
+      globalTxCount++;
 
       try {
         int srcVertexHashCode = srcVertex.hashCode();
