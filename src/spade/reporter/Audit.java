@@ -1772,7 +1772,6 @@ public class Audit extends AbstractReporter {
             String ppid = resultProcess.getAnnotation("ppid");
             if (getProcess(ppid) != null) {
                 WasTriggeredBy wtb = new WasTriggeredBy(resultProcess, getProcess(ppid));
-                addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
                 putEdge(wtb);
             }
         }
