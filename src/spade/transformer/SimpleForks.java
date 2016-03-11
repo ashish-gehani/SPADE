@@ -38,7 +38,8 @@ public class SimpleForks extends AbstractTransformer {
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 			if(getAnnotationSafe(newEdge, "operation").equals("clone")
-					|| getAnnotationSafe(newEdge, "operation").equals("fork")){
+					|| getAnnotationSafe(newEdge, "operation").equals("fork")
+					|| getAnnotationSafe(newEdge, "operation").equals("vfork")){
 				forkcloneEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), "pid"), newEdge);
 			}else if(getAnnotationSafe(newEdge, "operation").equals("execve")){
 				execveEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), "pid"), newEdge);

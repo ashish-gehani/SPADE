@@ -31,11 +31,10 @@ public class LastName extends AbstractTransformer{
 		for(AbstractEdge edge : graph.edgeSet()){
 			if(getAnnotationSafe(edge, "operation").equals("rename") 
 					|| getAnnotationSafe(edge, "operation").equals("rename_read")
-					//|| getAnnotationSafe(edge, "operation").equals("rename_newpath")
 					|| getAnnotationSafe(edge, "operation").equals("link") 
-					|| getAnnotationSafe(edge, "operation").equals("link_read")){
-					//|| getAnnotationSafe(edge, "operation").equals("link_newpath")
-					//|| getAnnotationSafe(edge, "operation").equals("update")){
+					|| getAnnotationSafe(edge, "operation").equals("link_read")
+					|| getAnnotationSafe(edge, "operation").equals("symlink") 
+					|| getAnnotationSafe(edge, "operation").equals("symlink_read")){
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);

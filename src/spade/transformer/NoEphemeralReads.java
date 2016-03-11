@@ -77,7 +77,7 @@ public class NoEphemeralReads extends AbstractTransformer {
 			if(getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")
 					|| getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
 				String operation = getAnnotationSafe(newEdge, "operation");
-				if(operation.equals("write") || operation.equals("rename_write") || operation.equals("link_write")){
+				if(operation.equals("write") || operation.equals("writev") || operation.equals("pwrite64") || operation.equals("rename_write") || operation.equals("link_write") || operation.equals("symlink_write")){
 					if(fileWrittenBy.get(newEdge.getSourceVertex()) == null){
 						fileWrittenBy.put(newEdge.getSourceVertex(), new HashSet<String>());
 					}
@@ -90,7 +90,8 @@ public class NoEphemeralReads extends AbstractTransformer {
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(getAnnotationSafe(newEdge, "operation").equals("read") 
+			if((getAnnotationSafe(newEdge, "operation").equals("read") || getAnnotationSafe(newEdge, "operation").equals("readv") || 
+					getAnnotationSafe(newEdge, "operation").equals("pread64"))
 					&& getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
 				AbstractVertex vertex = newEdge.getDestinationVertex();
 				String path = getAnnotationSafe(vertex, "path");
