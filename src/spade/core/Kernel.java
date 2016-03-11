@@ -129,7 +129,7 @@ public class Kernel {
     private static List<ServerSocket> serverSockets;
     private static Set<AbstractReporter> removereporters;
     private static Set<AbstractStorage> removestorages;
-    private static final int BATCH_BUFFER_ELEMENTS = 10000;
+    private static final int BATCH_BUFFER_ELEMENTS = 1000000;
     private static final int MAIN_THREAD_SLEEP_DELAY = 10;
     private static final int REMOVE_WAIT_DELAY = 100;
     //private static final int FIRST_TRANSFORMER = 0;

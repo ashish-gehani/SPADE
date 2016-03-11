@@ -90,14 +90,14 @@ public class BitcoinTools {
     public BitcoinTools() {
 		File bitcoinToolsFilePath = new File(Bitcoin.BITCOIN_TOOLS_PATH_FILE);
 		BITCOIN_TOOLS_PATH = "";
-		if(bitcoinToolsFilePath.exists() && !bitcoinToolsFilePath.isDirectory()) { 
+		if(bitcoinToolsFilePath.exists() && !bitcoinToolsFilePath.isDirectory()) {
 			try {
 			    BufferedReader br = new BufferedReader(new FileReader(bitcoinToolsFilePath));
 			    BITCOIN_TOOLS_PATH = br.readLine() + "/";
 			} catch (Exception exception) {
-				
+
 			}
-		}    
+		}
 
     	BITCOIN_RPC_TOTAL_BLOCKS = BITCOIN_TOOLS_PATH + "bitcoin-cli getblockcount";
     	BITCOIN_RPC_GET_BLOCK_HASH_FORMAT = BITCOIN_TOOLS_PATH + "bitcoin-cli getblockhash %1$1s";
@@ -122,7 +122,7 @@ public class BitcoinTools {
         }
 
         try {
-            FileUtils.copyURLToFile(new URL(new Formatter().format(BITCOIN_REST_GET_BLOCK_FORMAT, blockHash).toString()), 
+            FileUtils.copyURLToFile(new URL(new Formatter().format(BITCOIN_REST_GET_BLOCK_FORMAT, blockHash).toString()),
                         new File(new Formatter().format(BLOCK_JSON_FILE_FORMAT, blockIndex).toString()));
         } catch (MalformedURLException ex) {
             Bitcoin.log(Level.SEVERE, "REST URL can not be opened or IO error occured.", ex);
@@ -142,7 +142,7 @@ public class BitcoinTools {
         } catch (IOException e) {
             Bitcoin.log(Level.SEVERE, "Can not connect and/or call RPC from bitcoin-cli client. Make sure bitcoind is running.", e);
             return false;
-        }    
+        }
 
         return dumpBlocks(totalBlocksToDownload);
     }
@@ -173,7 +173,7 @@ public class BitcoinTools {
         } catch (SecurityException ex) {
             Bitcoin.log(Level.SEVERE, "Can not create directory for dumping block json files.", ex);
             return false;
-        } 
+        }
 
         String pattern = "#.##";
         DecimalFormat decimalFormat = new DecimalFormat(pattern);
@@ -225,12 +225,12 @@ public class BitcoinTools {
         }
 
         return new Block(new JSONObject(jsonString.toString()));
-    }    
+    }
 
     public static void main(String[] arguments) {
 
         try{
-            HashMap<String, String> args = new HashMap<String, String>(); 
+            HashMap<String, String> args = new HashMap<String, String>();
             for (String pair : arguments) {
                 if (pair.equals("help")) {
                     System.out.println("mode=downloadBlocksOnly [upto=<block index>]");
@@ -272,12 +272,12 @@ public class BitcoinTools {
                     Bitcoin.log(Level.SEVERE, "", ex);
                 }
             }
-            
+
             if (args.get("mode").equals("createIndexes")) {
                 String path = args.get("path");
                 spade.storage.Neo4j.index(path, true);
             }
-            
+
         } catch (Exception e) {
             Bitcoin.log(Level.SEVERE, "", e);
         }
@@ -315,7 +315,7 @@ class CSVWriter {
                             CSV_FILE_ADDRESS, startIndex, endIndex).toString();
         CSV_FILE_EDGES = new Formatter().format(
                             CSV_FILE_EDGES, startIndex, endIndex).toString();
-    
+
 
         nodesFileObj = new FileWriter(CSV_FILE_BLOCKS, false);
         txFileObj = new FileWriter(CSV_FILE_TX, false);
@@ -333,20 +333,20 @@ class CSVWriter {
 
     public void writeRow(final int csvFile, final String line) throws IOException {
         switch(csvFile) {
-            case BLOCKS_CSV:     
-                nodesFileObj.append(line + "\n"); 
+            case BLOCKS_CSV:
+                nodesFileObj.append(line + "\n");
                 break;
             case TX_CSV:
-                txFileObj.append(line + "\n"); 
+                txFileObj.append(line + "\n");
                 break;
             case PAYMENT_CSV:
-                paymentFileObj.append(line + "\n"); 
+                paymentFileObj.append(line + "\n");
                 break;
             case ADDRESS_CSV:
-                addressFileObj.append(line + "\n"); 
+                addressFileObj.append(line + "\n");
                 break;
             case EDGES_CSV:
-                edgesFileObj.append(line + "\n"); 
+                edgesFileObj.append(line + "\n");
                 break;
         }
     }
@@ -400,7 +400,7 @@ class CSVWriter {
 
     public int writeBlockToCSV(Block block, int lastBlockId) throws IOException {
         int block_id = writeNodeToCSV(BLOCKS_CSV,
-            "Activity," + 
+            "Activity," +
             block.getHash() + "," +
             block.getHeight() + "," +
             block.getChainwork() +"," +
@@ -415,9 +415,9 @@ class CSVWriter {
             int tx_id;
             if (coinbase_value != null) {
                 tx_id = writeNodeToCSV(TX_CSV,
-                    "Activity," + 
+                    "Activity," +
                     ","+
-                    tx.getLocktime() + "," + 
+                    tx.getLocktime() + "," +
                     coinbase_value + "," +
                     "VERTEX"
                     );
@@ -425,7 +425,7 @@ class CSVWriter {
                 tx_id = writeNodeToCSV(TX_CSV,
                     "Activity," +
                     tx.getId() + "," +
-                    tx.getLocktime() + "," + 
+                    tx.getLocktime() + "," +
                     "," +
                     "VERTEX"
                     );
@@ -435,13 +435,13 @@ class CSVWriter {
                 tx_id + "," +
                 block_id + "," +
                 "EDGE," +
-                "WasInformedBy,"   
+                "WasInformedBy,"
                 );
 
             for (Vin vin: tx.getVins()) {
                 if (!vin.isCoinbase()) {
                     int payment_id = writeNodeToCSVIfRequired(PAYMENT_CSV,
-                        "Entity," + 
+                        "Entity," +
                         vin.getTxid() + "," +
                         vin.getN() + "," +
                         "VERTEX"
@@ -451,14 +451,14 @@ class CSVWriter {
                         tx_id + "," +
                         payment_id +"," +
                         "EDGE," +
-                        "Used," 
+                        "Used,"
                         );
                 }
             }
 
             for (Vout vout: tx.getVouts()) {
                 int payment_id = writeNodeToCSV(PAYMENT_CSV,
-                    "Entity," + 
+                    "Entity," +
                     tx.getId() + "," +
                     vout.getN() + "," +
                     "VERTEX"
@@ -468,12 +468,12 @@ class CSVWriter {
                     payment_id + "," +
                     tx_id + "," +
                     "EDGE," +
-                    "WasGeneratedBy," + 
+                    "WasGeneratedBy," +
                     vout.getValue()
                     );
 
                 for (String address: vout.getAddresses()) {
-                    // remove this once you have get it back. 
+                    // remove this once you have get it back.
                     int address_id = writeNodeToCSVIfRequired(ADDRESS_CSV,
                         "Agent," +
                         address + "," +
@@ -483,7 +483,7 @@ class CSVWriter {
                     writeRow(EDGES_CSV,
                         payment_id + "," +
                         address_id +"," +
-                        "EDGE," + 
+                        "EDGE," +
                         "WasAttributedTo,"
                         );
                 }
@@ -526,9 +526,8 @@ class CSVWriter {
                             Thread.sleep(100);
                             continue;
                         } catch (Exception exception) {
-
                         }
-                    } 
+                    }
 
                     int blockToFetch = currentBlock.getAndIncrement();
                     try {
@@ -544,9 +543,7 @@ class CSVWriter {
                     if (blockToFetch >= stopIndex) {
                         break;
                     }
-                
-                } 
-
+                }
             }
         }
 
@@ -555,7 +552,7 @@ class CSVWriter {
             Thread th = new Thread(new BlockFetcher());
             workers.add(th);
             th.start();
-        }        
+        }
 
         int percentageCompleted = 0;
 
@@ -569,7 +566,6 @@ class CSVWriter {
                 }
                 block = blockMap.get(i);
                 blockMap.remove(i);
-
                 lastBlockId = writeBlockToCSV(block, lastBlockId);
 
                 if ((((i-startIndex+1)*100)/(endIndex-startIndex)) > percentageCompleted) {
@@ -594,21 +590,14 @@ class CSVWriter {
             }
         }
 
-
         for (int i=0; i<totalThreads; i++) {
             try {
                 workers.get(i).interrupt();
                 workers.get(i).join();
             } catch (InterruptedException exception) {
-                
             }
-        } 
+        }
 
         System.out.println("\n\ndone with creating CSVes!");
-
     }
-
 }
-
-
-
