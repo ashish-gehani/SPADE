@@ -1171,11 +1171,15 @@ public class Audit extends AbstractReporter {
         if(oldProcess != null){
         	String commandline = oldProcess.getAnnotation("commandline");
         	String name = oldProcess.getAnnotation("name");
+        	String cwd = oldProcess.getAnnotation("cwd");
     		if(commandline != null){
     			newProcess.addAnnotation("commandline", commandline);
     		}
     		if(name != null){
     			newProcess.addAnnotation("name", name);
+    		}
+    		if(cwd != null){
+    			newProcess.addAnnotation("cwd", cwd);
     		}
         }
 
@@ -1444,11 +1448,15 @@ public class Audit extends AbstractReporter {
         if(oldProcess != null){
         	String commandline = oldProcess.getAnnotation("commandline");
         	String name = oldProcess.getAnnotation("name");
+        	String cwd = oldProcess.getAnnotation("cwd");
     		if(commandline != null){
     			newProcess.addAnnotation("commandline", commandline);
     		}
     		if(name != null){
     			newProcess.addAnnotation("name", name);
+    		}
+    		if(cwd != null){
+    			newProcess.addAnnotation("cwd", cwd);
     		}
         }
         
