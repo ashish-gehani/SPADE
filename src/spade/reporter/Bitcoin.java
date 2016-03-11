@@ -346,7 +346,16 @@ public class Bitcoin extends AbstractReporter {
           } catch (Exception e) {
           }
         }
-        Bitcoin.log(Level.INFO, "Last block pushed in database. You can detach reporter and database safely.", null);
+        Bitcoin.log(Level.INFO, "Last block pushed in database. Please wait for buffers to clear ...", null);
+
+        try {
+            while (this.getBuffer().size()!=0) {
+            Thread.sleep(1000);
+            Bitcoin.log(Level.INFO, "Size of buffer: " + this.getBuffer().size(), null);
+        }
+        } catch (Exception e){}
+
+        Bitcoin.log(Level.INFO, "All buffers cleared. You may remove Bitcoin reporter", null);
     }
 
     public static void log(Level level, String msg, Throwable thrown) {
