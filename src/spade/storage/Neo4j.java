@@ -269,10 +269,10 @@ public class Neo4j extends AbstractStorage {
             logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false +tive/min. Bloom filter false +tive probability: " + nodeBloomFilter.getFalsePositiveProbability() + " Bloom filter elements count: " + nodeBloomFilter.count());
             logger.log(Level.INFO, "Node L2: Rate: " + (int) (nodeFoundInLocalCacheCount - nodeFoundInLocalCacheCountTmp)/(diff/reportProgressAverageTime) + " node detection from local cache/min. Total: " + nodeFoundInLocalCacheCount);
             logger.log(Level.INFO, "Node L2: Rate: " + (int) (100.0*localNodeHashQueue.size()/NODE_VERTEX_LOCAL_CACHE_SIZE) + " % local node cache filled. Total: " + NODE_VERTEX_LOCAL_CACHE_SIZE);
-            logger.log(Level.INFO, "Node L3: Rate: " + (int) (dbHitCountForVertex - dbHitCountForVertexTmp)/(diff/reportProgressAverageTime) + " db hit for vertexes from getVertices /min. Total: " + dbHitCountForVertex);
+            logger.log(Level.INFO, "Node L3: Rate: " + (int) (dbHitCountForVertex - dbHitCountForVertexTmp)/(diff/reportProgressAverageTime) + " db hit for vertexes from putVertices /min. Total: " + dbHitCountForVertex);
             logger.log(Level.INFO, "Node L3: Rate: " + (int) (foundInDbCount - foundInDbCountTmp)/(diff/reportProgressAverageTime) + " detection from db/min. Total: " + foundInDbCount);
 
-            logger.log(Level.INFO, "Edges Rate: " + (int) (dbHitCountForEdge - dbHitCountForEdgeTmp)/(diff/reportProgressAverageTime) + " db hit for vertices from getEdges /min. Total: " + dbHitCountForEdge);
+            logger.log(Level.INFO, "Edges Rate: " + (int) (dbHitCountForEdge - dbHitCountForEdgeTmp)/(diff/reportProgressAverageTime) + " db hit for vertices from putEdges /min. Total: " + dbHitCountForEdge);
             logger.log(Level.INFO, "Count Vertices: " + (int) (vertexCount - vertexCountTmp)/(diff/reportProgressAverageTime) + " nodes/min. Total: " + vertexCount);
             logger.log(Level.INFO, "Count Edges: " + (int) (edgeCount - edgeCountTmp)/(diff/reportProgressAverageTime) + " edges/min. Total: " + edgeCount);
             logger.log(Level.INFO, "Heap Size: " + Runtime.getRuntime().totalMemory() + " bytes");
@@ -380,7 +380,7 @@ public class Neo4j extends AbstractStorage {
             edge = edgeIndex.get(HASHCODE_LABEL, hashCode).getSingle();
             if (edge != null) {
                 if (LOG_PERFORMANCE_STATS == true) {
-                    // if there is heavy repetition of edges then comment out this logging or it will slow down SPADE
+                    // if there is heavy repetition of edges then comment out this logging or it will slow down ingestion
                     logger.log(Level.INFO, "Edge (hashCode: " + hashCode + ") is already in db, skiping");
                 }
                 return true;
