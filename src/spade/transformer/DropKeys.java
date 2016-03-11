@@ -21,39 +21,58 @@
 package spade.transformer;
 
 import java.io.File;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.utility.CommonFunctions;
 
-public class NoAnnotations extends AbstractTransformer{
+public class DropKeys extends AbstractTransformer{
 	
-	private final static Logger logger = Logger.getLogger(NoAnnotations.class.getName());
+	private final static Logger logger = Logger.getLogger(DropKeys.class.getName());
 	
 	private String[] annotationsToRemove = null;
 	
 	//argument can either be a file which contains an annotation per line OR arguments can be comma separated annotation names. If neither then read the default config file
 	public boolean initialize(String arguments){
 		try{
-			if(arguments != null && !arguments.isEmpty()){
-				if(new File(arguments).exists()){
-					annotationsToRemove = FileUtils.readLines(new File(arguments)).toArray(new String[]{});
+			Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+			boolean doDefaultAction = true;
+			if(argumentsMap != null){
+				String filepath = argumentsMap.get("config");
+				if(filepath != null){
+					if(new File(filepath).exists()){
+						annotationsToRemove = FileUtils.readLines(new File(filepath)).toArray(new String[]{});
+						doDefaultAction = false;
+					}else{
+						logger.log(Level.SEVERE, "Must give a valid config filepath");
+						return false;
+					}
 				}else{
-					annotationsToRemove = arguments.split(",");
-					for(int a = 0; a<annotationsToRemove.length; a++){
-						annotationsToRemove[a] = annotationsToRemove[a].trim();
+					String commaSeparatedKeys = argumentsMap.get("keys");
+					if(commaSeparatedKeys != null){
+						annotationsToRemove = commaSeparatedKeys.split(",");
+						for(int a = 0; a<annotationsToRemove.length; a++){
+							annotationsToRemove[a] = annotationsToRemove[a].trim();
+						}
+						doDefaultAction = false;
 					}
 				}
-			}else{
-				annotationsToRemove = FileUtils.readLines(new File(Settings.getProperty("no_annotations_transformer_filepath"))).toArray(new String[]{});
 			}
+		
+			if(doDefaultAction){
+				String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+				annotationsToRemove = FileUtils.readLines(new File(defaultConfigFilePath)).toArray(new String[]{});
+			}
+		
 			return true;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, null, e);
@@ -61,7 +80,7 @@ public class NoAnnotations extends AbstractTransformer{
 		}
 	}
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 	
 		for(AbstractVertex vertex : graph.vertexSet()){

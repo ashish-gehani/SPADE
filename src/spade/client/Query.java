@@ -46,7 +46,7 @@ import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.core.Settings;
 
-public class QueryClient {
+public class Query {
 
     private static PrintStream outputStream;
     private static PrintStream SPADEQueryIn;

@@ -44,11 +44,11 @@ import jline.NullCompletor;
 import jline.SimpleCompletor;
 import spade.core.Settings;
 
-public class ControlClient {
+public class Control {
 
     private static PrintStream outputStream;
     private static PrintStream errorStream;
-    private static PrintStream SPADEControlIn;
+    private volatile static PrintStream SPADEControlIn;
     private static BufferedReader SPADEControlOut;
     private static volatile boolean shutdown;
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -59,6 +59,8 @@ public class ControlClient {
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
+    
+    private static final Object SPADEControlInLock = new Object(); //an object to synchronize on and to wait until SPADEControlIn has been initialized
 
     private static void setupKeyStores() throws Exception {
         String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
@@ -110,11 +112,24 @@ public class ControlClient {
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEControlIn = new PrintStream(outStream);
+                    
+                    synchronized (SPADEControlInLock) {
+                    	SPADEControlInLock.notify(); //notify the main thread that it is safe to use spadeControlIn now.
+					}
 
                     while (!shutdown) {
                         // This thread keeps reading from the output pipe and
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
+                        
+                        //ACK[exit] is only received here when sent by this client only. ACK[shutdown] is received here whenever any client sends a shutdown.
+                        if("ACK[shutdown]".equals(outputLine) || "ACK[exit]".equals(outputLine)){
+                        	if("ACK[shutdown]".equals(outputLine)){
+                        		outputStream.println("Shutting down... done");
+                        	}
+                        	shutdown = true;
+                        	break;
+                        }
                         
                         if (outputLine != null) {
                             outputStream.println(outputLine);
@@ -128,6 +143,7 @@ public class ControlClient {
                     }
                     SPADEControlOut.close();
                     SPADEControlIn.close();
+                    System.exit(0); //exit the program because the main thread is blocking on the read from the console
                 } catch (NumberFormatException | IOException | InterruptedException exception) {
                     if (!shutdown) {
                         System.out.println("Error connecting to SPADE");
@@ -140,7 +156,16 @@ public class ControlClient {
 
         try {
     
-        	Thread.sleep(2000);
+        	//wait for the spadeControlIn object to be initialized in the other thread
+        	synchronized (SPADEControlInLock) {
+        		while(SPADEControlIn == null){
+            		try{
+            			SPADEControlInLock.wait();
+            		}catch(Exception e){
+            			e.printStackTrace(errorStream);
+            		}
+            	}
+			}        	
         	
         	outputStream.println("");
             outputStream.println("SPADE 2.0 Control Client");
@@ -150,6 +175,7 @@ public class ControlClient {
         	
             // Set up command history and tab completion.
             ConsoleReader commandReader = new ConsoleReader();
+            
             try {
                 commandReader.getHistory().setHistoryFile(new File(historyFile));
             } catch (Exception ex) {
@@ -196,8 +222,6 @@ public class ControlClient {
                     SPADEControlIn.println(line);
                 }
             }   
-            Thread.sleep(1000);
-            shutdown = true;
         } catch (Exception exception) {
             exception.printStackTrace(errorStream);
         }

@@ -25,9 +25,9 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 
 public class OPM2Prov extends AbstractTransformer{
@@ -50,7 +50,7 @@ public class OPM2Prov extends AbstractTransformer{
 		opm2ProvEdgeMappings.put("WasTriggeredBy","WasInformedBy");
 	}
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		
 		for(AbstractEdge edge : graph.edgeSet()){

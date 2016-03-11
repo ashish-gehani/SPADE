@@ -279,7 +279,7 @@ public class Bitcoin extends AbstractReporter {
                 vout_edge.addAnnotation("transactionValue", Double.toString(vout.getValue()));
                 putEdge(vout_edge);
 
-                // adresses
+                // addresses
                 for (final String address: vout.getAddresses()) {
                     Agent address_vertex = new Agent();
                     address_vertex.addAnnotations(new HashMap<String, String>(){

@@ -20,19 +20,21 @@
 
 package spade.transformer;
 
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
-import spade.core.DigQueryParams;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.utility.CommonFunctions;
 
-public class BeforeAfterHorizon extends AbstractTransformer{
+public class TemporalTraversal extends AbstractTransformer{
 	
-	private static final Logger logger = Logger.getLogger(BeforeAfterHorizon.class.getName());
+	private static final Logger logger = Logger.getLogger(TemporalTraversal.class.getName());
 	
 	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
@@ -41,15 +43,16 @@ public class BeforeAfterHorizon extends AbstractTransformer{
     
     //must specify the name of an annotation
     public boolean initialize(String arguments){
-    	if(arguments == null || arguments.trim().isEmpty()){
-    		logger.log(Level.SEVERE, "Must specify an annotation name");
-    		return false;
+    	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+    	if("timestamp".equals(argumentsMap.get("order"))){
+    		annotationName = "time";
+    	}else{
+    		annotationName = "event id";
     	}
-    	annotationName = arguments.trim();
     	return true;
     }
 
-	public Graph putGraph(Graph graph, DigQueryParams digQueryParams){
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		String direction = digQueryParams.getDirection();
 		if(direction == null){
 			logger.log(Level.SEVERE, "Direction cannot be null");

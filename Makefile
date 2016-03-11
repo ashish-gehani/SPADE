@@ -1,14 +1,14 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2015 SRI International.
 
-JAVAC=@JAVAC@
-JAVAH=@JAVAH@
-CC=@CC@
-JAR=@JAR@
+JAVAC=javac
+JAVAH=javah
+CC=gcc
+JAR=jar
 JAVAC_CP = build:lib/*
 JAVAC_OPTIONS = -Xlint:none -proc:none
-ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
-ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
+ANDROID_BUILD_TOOLS = 
+ANDROID_SDK_TOOLS = 
 
 #
 # In Ubuntu, when you install llvm headers, it puts llvm and llvm-c inside version folder.
@@ -50,7 +50,7 @@ ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 endif
 
 # -------- Default Build Configuration -----
-REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux
+REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux Json
 # -------------------------------------------
 
 .PHONY: build prepare-dirs core reporters filters clients utilities storages android-build
@@ -227,7 +227,7 @@ clean:
 	@rm -rf log
 	@rm -rf tmp
 
-DESTDIR = @prefix@
+DESTDIR = /usr/local
 install:
 	test -d $(DESTDIR) || mkdir $(DESTDIR)
 	cp -R bin $(DESTDIR)
