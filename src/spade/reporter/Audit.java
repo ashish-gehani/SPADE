@@ -401,7 +401,7 @@ public class Audit extends AbstractReporter {
     	Map<String, String> inodefd0 = new HashMap<String, String>();
     	
     	try{
-    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -p " + pid);
+    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -p /proc/" + pid);
     		if(lines != null && lines.size() > 1){
     			lines.remove(0); //remove the heading line
     			for(String line : lines){
