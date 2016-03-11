@@ -1101,12 +1101,16 @@ public class Audit extends AbstractReporter {
         checkProcessVertex(eventData, true, false);
 
         Process newProcess = new Process();
-        String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
-        String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
         newProcess.addAnnotation("pid", newPID);
         newProcess.addAnnotation("ppid", oldPID);
-        newProcess.addAnnotation("uid", uid);
-        newProcess.addAnnotation("gid", gid);
+        newProcess.addAnnotation("uid", eventData.get("uid"));
+        newProcess.addAnnotation("euid", eventData.get("euid"));
+        newProcess.addAnnotation("suid", eventData.get("suid"));
+        newProcess.addAnnotation("fsuid", eventData.get("fsuid"));
+        newProcess.addAnnotation("gid", eventData.get("gid"));
+        newProcess.addAnnotation("egid", eventData.get("egid"));
+        newProcess.addAnnotation("sgid", eventData.get("sgid"));
+        newProcess.addAnnotation("fsgid", eventData.get("fsgid"));
         newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
         
         Process oldProcess = getProcess(oldPID);
@@ -1767,13 +1771,17 @@ public class Audit extends AbstractReporter {
         if (resultProcess == null) {
             resultProcess = new Process();
             String ppid = eventData.get("ppid");
-            String uid = String.format("%s\t%s\t%s\t%s", eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"));
-            String gid = String.format("%s\t%s\t%s\t%s", eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"));
             resultProcess.addAnnotation("name", eventData.get("comm"));
             resultProcess.addAnnotation("pid", pid);
             resultProcess.addAnnotation("ppid", ppid);
-            resultProcess.addAnnotation("uid", uid);
-            resultProcess.addAnnotation("gid", gid);
+            resultProcess.addAnnotation("uid", eventData.get("uid"));
+            resultProcess.addAnnotation("euid", eventData.get("euid"));
+            resultProcess.addAnnotation("suid", eventData.get("suid"));
+            resultProcess.addAnnotation("fsuid", eventData.get("fsuid"));
+            resultProcess.addAnnotation("gid", eventData.get("gid"));
+            resultProcess.addAnnotation("egid", eventData.get("egid"));
+            resultProcess.addAnnotation("sgid", eventData.get("sgid"));
+            resultProcess.addAnnotation("fsgid", eventData.get("fsgid"));
             resultProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
         }
         if (link == true) {
@@ -1844,15 +1852,25 @@ public class Audit extends AbstractReporter {
 
                 String name = nameline.split("\\s+")[1];
                 String ppid = ppidline.split("\\s+")[1];
-                String uid = uidline.split("\\s+", 2)[1];
-                String gid = gidline.split("\\s+", 2)[1];
                 cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
 
+                // see for order of uid, euid, suid, fsiud: http://man7.org/linux/man-pages/man5/proc.5.html
+                String gidTokens[] = gidline.split("//s+");
+                String uidTokens[] = uidline.split("//s+");
+                
                 newProcess.addAnnotation("name", name);
                 newProcess.addAnnotation("pid", pid);
                 newProcess.addAnnotation("ppid", ppid);
-                newProcess.addAnnotation("uid", uid);
-                newProcess.addAnnotation("gid", gid);
+                
+                newProcess.addAnnotation("uid", uidTokens[0]);
+                newProcess.addAnnotation("euid", uidTokens[1]);
+                newProcess.addAnnotation("suid", uidTokens[2]);
+                newProcess.addAnnotation("fsuid", uidTokens[3]);
+                newProcess.addAnnotation("gid", gidTokens[0]);
+                newProcess.addAnnotation("egid", gidTokens[1]);
+                newProcess.addAnnotation("sgid", gidTokens[2]);
+                newProcess.addAnnotation("fsgid", gidTokens[3]);
+             
                 // newProcess.addAnnotation("starttime_unix", stime);
                 // newProcess.addAnnotation("starttime_simple", stime_readable);
                 // newProcess.addAnnotation("commandline", cmdline);
