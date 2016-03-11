@@ -145,7 +145,9 @@ public class Audit extends AbstractReporter {
 
     private enum SYSCALL {
 
-        FORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, TRUNCATE, FTRUNCATE, READ, WRITE, ACCEPT, ACCEPT4, CONNECT
+        FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
+        TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
+        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID
     }
     
     private BufferedWriter dumpWriter = null;
@@ -589,8 +591,10 @@ public class Audit extends AbstractReporter {
 
             switch (syscall) {
                 case 2: // fork()
+                	processForkClone(eventData, SYSCALL.FORK);
+                	break;
                 case 190: // vfork()
-                    processForkClone(eventData, SYSCALL.FORK);
+                    processForkClone(eventData, SYSCALL.VFORK);
                     break;
 
                 case 120: // clone()
@@ -610,8 +614,10 @@ public class Audit extends AbstractReporter {
                     break;
 
                 case 9: // link()
+                	processLink(eventData, SYSCALL.LINK);
+                	break;
                 case 83: // symlink()
-                    processLink(eventData);
+                    processLink(eventData, SYSCALL.SYMLINK);
                     break;
 
                 case 10: // unlink()
@@ -636,9 +642,13 @@ public class Audit extends AbstractReporter {
                     break;
 
                 case 203: // setreuid()
+                	processSetuid(eventData, SYSCALL.SETREUID);
+                    break;
                 case 208: // setresuid()
+                	processSetuid(eventData, SYSCALL.SETRESUID);
+                    break;
                 case 213: // setuid()
-                    processSetuid(eventData);
+                    processSetuid(eventData, SYSCALL.SETUID);
                     break;
 
                 case 92: // truncate()
@@ -677,11 +687,11 @@ public class Audit extends AbstractReporter {
                     processConnect(eventData);
                     break;
                 case 285: // accept()
-                    processAccept(eventData);
+                    processAccept(eventData, SYSCALL.ACCEPT);
                     break;
                 case 281: // socket()
                     break;
-                case 129:
+                case 129: // kill()
                 	processKill(eventData);
                 	break;
                 default:
@@ -702,9 +712,13 @@ public class Audit extends AbstractReporter {
     		if(USE_SOCK_SEND_RCV){
     			switch (syscall) {
     				case 1: // write()
+    					processSend(eventData, SYSCALL.WRITE);
+    					break;
     				case 20: // writev()
+    					processSend(eventData, SYSCALL.WRITEV);
+    					break;
                 	case 18: // pwrite64()	
-                		processSend(eventData, SYSCALL.WRITE);
+                		processSend(eventData, SYSCALL.PWRITE64);
                 		break;
 	    			case 290: // sendto()
 	    				processSend(eventData, SYSCALL.SENDTO);
@@ -713,9 +727,13 @@ public class Audit extends AbstractReporter {
 	                	processSend(eventData, SYSCALL.SENDMSG);
 	                	break;
 	                case 0: // read()
-	                case 19: // readv()
-	                case 17: // pread64()
 	                	processRecv(eventData, SYSCALL.READ);
+	                	break;
+	                case 19: // readv()
+	                	processRecv(eventData, SYSCALL.READV);
+	                	break;
+	                case 17: // pread64()
+	                	processRecv(eventData, SYSCALL.PREAD64);
 	                	break;
 	                case 45: // recvfrom()
 	                	processRecv(eventData, SYSCALL.RECVFROM);
@@ -731,21 +749,29 @@ public class Audit extends AbstractReporter {
     		if(USE_READ_WRITE){
     			switch(syscall){
 	    			case 0: // read()
+	    				processRead(eventData, SYSCALL.READ);
+	                	break;
 	                case 19: // readv()
+	                	processRead(eventData, SYSCALL.READV);
+	                	break;
 	                case 17: // pread64()
-	                	processRead(eventData);
-	                    break;
+	                	processRead(eventData, SYSCALL.PREAD64);
+	                	break;
 	                case 1: // write()
+	                	processWrite(eventData, SYSCALL.WRITE);
+	                    break;
 	                case 20: // writev()
+	                	processWrite(eventData, SYSCALL.WRITEV);
+	                    break;
 	                case 18: // pwrite64()
-	                	processWrite(eventData);
+	                	processWrite(eventData, SYSCALL.PWRITE64);
 	                    break;
     				default:
     					break;
     			}
     		}
     	}else{
-    		logger.log(Level.SEVERE, "Unknown file descriptor type for eventid '"+eventData.get(EVENTID_ANNOTATION_KEY)+"'");
+    		logger.log(Level.SEVERE, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
     	}
     }
 
@@ -758,9 +784,13 @@ public class Audit extends AbstractReporter {
     		if(USE_SOCK_SEND_RCV){
     			switch (syscall) {
     				case 1: // write()
-    				case 20: // writev()
-    				case 18: // pwrite64()
     					processSend(eventData, SYSCALL.WRITE);
+	                	break;
+    				case 20: // writev()
+    					processSend(eventData, SYSCALL.WRITEV);
+	                	break;
+    				case 18: // pwrite64()
+    					processSend(eventData, SYSCALL.PWRITE64);
 	                	break;
     				case 44: // sendto()
 	    				processSend(eventData, SYSCALL.SENDTO);
@@ -769,9 +799,13 @@ public class Audit extends AbstractReporter {
 	                	processSend(eventData, SYSCALL.SENDMSG);
 	                	break;
 	                case 0: // read()
-	                case 19: // readv()
-	                case 17: // pread64()
 	                	processRecv(eventData, SYSCALL.READ);
+	                	break;
+	                case 19: // readv()
+	                	processRecv(eventData, SYSCALL.READV);
+	                	break;
+	                case 17: // pread64()
+	                	processRecv(eventData, SYSCALL.PREAD64);
 	                	break;
 	                case 45: // recvfrom()
 	                	processRecv(eventData, SYSCALL.RECVFROM);
@@ -787,21 +821,29 @@ public class Audit extends AbstractReporter {
     		if(USE_READ_WRITE){
     			switch(syscall){
 	    			case 0: // read()
+	    				processRead(eventData, SYSCALL.READ);
+	                    break;
 	                case 19: // readv()
+	                	processRead(eventData, SYSCALL.READV);
+	                    break;
 	                case 17: // pread64()
-	                	processRead(eventData);
+	                	processRead(eventData, SYSCALL.PREAD64);
 	                    break;
 	                case 1: // write()
+	                	processWrite(eventData, SYSCALL.WRITE);
+	                    break;
 	                case 20: // writev()
+	                	processWrite(eventData, SYSCALL.WRITEV);
+	                    break;
 	                case 18: // pwrite64()
-	                	processWrite(eventData);
+	                	processWrite(eventData, SYSCALL.PWRITE64);
 	                    break;
     				default:
     					break;
     			}
     		}
     	}else{
-    		logger.log(Level.SEVERE, "Unknown file descriptor type for eventid '"+eventData.get(EVENTID_ANNOTATION_KEY)+"'");
+    		logger.log(Level.SEVERE, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
     	}
     }
 
@@ -824,6 +866,8 @@ public class Audit extends AbstractReporter {
             
             switch (syscall) {
                 case 57: // fork()
+                	processForkClone(eventData, SYSCALL.VFORK);
+                    break;
                 case 58: // vfork()
                     processForkClone(eventData, SYSCALL.FORK);
                     break;
@@ -845,8 +889,10 @@ public class Audit extends AbstractReporter {
                     break;
 
                 case 86: // link()
+                	processLink(eventData, SYSCALL.LINK);
+                    break;
                 case 88: // symlink()
-                    processLink(eventData);
+                    processLink(eventData, SYSCALL.SYMLINK);
                     break;
 
                 case 87: // unlink()
@@ -870,9 +916,13 @@ public class Audit extends AbstractReporter {
                     break;
 
                 case 113: // setreuid()
+                	processSetuid(eventData, SYSCALL.SETREUID);
+                    break;
                 case 117: // setresuid()
+                	processSetuid(eventData, SYSCALL.SETRESUID);
+                    break;
                 case 105: // setuid()
-                    processSetuid(eventData);
+                    processSetuid(eventData, SYSCALL.SETUID);
                     break;
 
                 case 76: // truncate()
@@ -911,8 +961,10 @@ public class Audit extends AbstractReporter {
                     processConnect(eventData);
                     break;
                 case 288: //accept4()
+                	processAccept(eventData, SYSCALL.ACCEPT4);
+                    break;
                 case 43: // accept()
-                    processAccept(eventData);
+                    processAccept(eventData, SYSCALL.ACCEPT);
                     break;
                 // ////////////////////////////////////////////////////////////////
                 case 41: // socket()
@@ -1068,9 +1120,11 @@ public class Audit extends AbstractReporter {
     
     //true is read, false is write, null is neither read nor write
     private Boolean isSocketRead(SYSCALL syscall){
-       	if((syscall == SYSCALL.ACCEPT4 || syscall == SYSCALL.ACCEPT || syscall == SYSCALL.RECVFROM || syscall == SYSCALL.RECVMSG || syscall == SYSCALL.READ )){
+       	if((syscall == SYSCALL.ACCEPT4 || syscall == SYSCALL.ACCEPT || syscall == SYSCALL.RECVFROM || 
+       			syscall == SYSCALL.RECVMSG || syscall == SYSCALL.READ || syscall == SYSCALL.READV || syscall == SYSCALL.PREAD64)){
        		return true;
-       	}else if(syscall == SYSCALL.CONNECT || syscall == SYSCALL.SENDTO || syscall == SYSCALL.SENDMSG || syscall == SYSCALL.WRITE){
+       	}else if(syscall == SYSCALL.CONNECT || syscall == SYSCALL.SENDTO || syscall == SYSCALL.SENDMSG || syscall == SYSCALL.WRITE
+       			|| syscall == SYSCALL.WRITEV || syscall == SYSCALL.PWRITE64){
        		return false;
        	}
        	return null;
@@ -1135,7 +1189,7 @@ public class Audit extends AbstractReporter {
         
         if(syscall == SYSCALL.CLONE){ //share file descriptors when clone
         	descriptors.linkDescriptors(oldPID, newPID);
-        }else if(syscall == SYSCALL.FORK){ //copy file descriptors just once here when fork
+        }else if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){ //copy file descriptors just once here when fork
         	descriptors.copyDescriptors(oldPID, newPID);
         }
     }
@@ -1245,10 +1299,10 @@ public class Audit extends AbstractReporter {
             newData.put("time", eventData.get("time"));
             if (flags.charAt(flags.length() - 1) == '0') {
                 // read
-                processRead(newData);
+                processRead(newData, SYSCALL.READ);
             } else {
                 // write
-                processWrite(newData);
+                processWrite(newData, SYSCALL.WRITE);
             }
         }
     }
@@ -1265,7 +1319,7 @@ public class Audit extends AbstractReporter {
         descriptors.removeDescriptor(pid, fd);
     }
 
-    private void processRead(Map<String, String> eventData) {
+    private void processRead(Map<String, String> eventData, SYSCALL syscall) {
         // read() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1288,7 +1342,7 @@ public class Audit extends AbstractReporter {
             putVertex(vertex);
         }
         Used used = new Used(getProcess(pid), vertex);
-        used.addAnnotation("operation", "read");
+        used.addAnnotation("operation", syscall.toString().toLowerCase());
         used.addAnnotation("time", time);
         used.addAnnotation("size", bytesRead);
         addEventIdAnnotationToEdge(used, eventData.get("eventid"));
@@ -1296,7 +1350,7 @@ public class Audit extends AbstractReporter {
         
     }
 
-    private void processWrite(Map<String, String> eventData) {
+    private void processWrite(Map<String, String> eventData, SYSCALL syscall) {
         // write() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1317,7 +1371,7 @@ public class Audit extends AbstractReporter {
         putVertex(vertex);
         putVersionUpdateEdge(vertex, time, eventData.get("eventid"));
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
-        wgb.addAnnotation("operation", "write");
+        wgb.addAnnotation("operation", syscall.toString().toLowerCase());
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", bytesWritten);
         addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
@@ -1376,7 +1430,7 @@ public class Audit extends AbstractReporter {
         descriptors.addDescriptor(pid, newFD, fileInfo);
     }
 
-    private void processSetuid(Map<String, String> eventData) {
+    private void processSetuid(Map<String, String> eventData, SYSCALL syscall) {
         // setuid() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1400,7 +1454,7 @@ public class Audit extends AbstractReporter {
         
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
-        wtb.addAnnotation("operation", "setuid");
+        wtb.addAnnotation("operation", syscall.toString().toLowerCase());
         wtb.addAnnotation("time", time);
         addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
         putEdge(wtb);
@@ -1455,7 +1509,7 @@ public class Audit extends AbstractReporter {
         putEdge(wdf);
     }
 
-    private void processLink(Map<String, String> eventData) {
+    private void processLink(Map<String, String> eventData, SYSCALL syscall) {
         // link() and symlink() receive the following message(s):
         // - SYSCALL
         // - CWD
@@ -1464,10 +1518,13 @@ public class Audit extends AbstractReporter {
         // - PATH 2 is path of <dst> relative to <cwd>
         // - EOE
         // we use cwd and paths 0 and 2
+    	
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
         checkProcessVertex(eventData, true, false);
+        
+        String syscallName = syscall.toString().toLowerCase();
 
         String srcpath = joinPaths(cwd, eventData.get("path0"));
         String dstpath = joinPaths(cwd, eventData.get("path2"));
@@ -1481,7 +1538,7 @@ public class Audit extends AbstractReporter {
             putVertex(srcVertex);
         }
         Used used = new Used(getProcess(pid), srcVertex);
-        used.addAnnotation("operation", "link_read");
+        used.addAnnotation("operation", syscallName + "_read");
         used.addAnnotation("time", time);
         addEventIdAnnotationToEdge(used, eventData.get("eventid"));
         putEdge(used);
@@ -1490,13 +1547,13 @@ public class Audit extends AbstractReporter {
         putVertex(dstVertex);
         putVersionUpdateEdge(dstVertex, time, eventData.get("eventid"));
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
-        wgb.addAnnotation("operation", "link_write");
+        wgb.addAnnotation("operation", syscallName + "_write");
         wgb.addAnnotation("time", time);
         addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
         putEdge(wgb);
 
         WasDerivedFrom wdf = new WasDerivedFrom(dstVertex, srcVertex);
-        wdf.addAnnotation("operation", "link");
+        wdf.addAnnotation("operation", syscallName);
         wdf.addAnnotation("time", time);
         addEventIdAnnotationToEdge(wdf, eventData.get("eventid"));
         putEdge(wdf);
@@ -1640,17 +1697,17 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    private void processAccept(Map<String, String> eventData) {
+    private void processAccept(Map<String, String> eventData, SYSCALL syscall) {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
         ArtifactInfo artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
-            Artifact network = createArtifact(artifactInfo, false, SYSCALL.ACCEPT);
+            Artifact network = createArtifact(artifactInfo, false, syscall);
             putVertex(network);
             Used used = new Used(getProcess(pid), network);
             used.addAnnotation("time", time);
-            used.addAnnotation("operation", "accept");
+            used.addAnnotation("operation", syscall.toString().toLowerCase());
             addEventIdAnnotationToEdge(used, eventData.get("eventid"));
             putEdge(used);
             // update file descriptor table
