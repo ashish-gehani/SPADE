@@ -227,7 +227,7 @@ public class Neo4j extends AbstractStorage {
     public boolean flushTransactions() {
         // this function is called too often by Kernel's GIL. (every MAIN_THREAD_SLEEP_DELAY)
 
-        Date timeNow = Calendar.getInstance.getTime();
+        Date timeNow = Calendar.getInstance().getTime();
         // if (globalTxCount % GLOBAL_TX_SIZE == 0 ||
         if (globalTxCount > GLOBAL_TX_SIZE  ||
         // ((globalTxCount > 1) && (timeNow - lastCommitedAt > MAX_WAIT_TIME_BEFORE_FLUSH ))
