@@ -379,10 +379,10 @@ public class Neo4j extends AbstractStorage {
             Relationship edge;
             edge = edgeIndex.get(HASHCODE_LABEL, hashCode).getSingle();
             if (edge != null) {
-                if (LOG_PERFORMANCE_STATS == true) {
-                    // if there is heavy repetition of edges then comment out this logging or it will slow down ingestion
-                    logger.log(Level.INFO, "Edge (hashCode: " + hashCode + ") is already in db, skiping");
-                }
+                // if (LOG_PERFORMANCE_STATS == true) {
+                //     // if there is heavy repetition of edges then comment out this logging or it will slow down ingestion
+                //     logger.log(Level.INFO, "Edge (hashCode: " + hashCode + ") is already in db, skiping");
+                // }
                 return true;
             }
         }
