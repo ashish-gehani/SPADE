@@ -167,7 +167,7 @@ public class JSON extends AbstractReporter {
           JSON.log(Level.SEVERE, "Unknown object type: '" + objectType + "', ignoring object", null);
         }
       }
-      debugLog("All provenance reported through JSON file has been retrived. You may remove JSON reporter");
+      debugLog("All provenance reported through JSON file has been retrived. Wait for buffers to clear....");
 
       try {
         while (this.getBuffer().size()!=0) {
@@ -175,6 +175,9 @@ public class JSON extends AbstractReporter {
           debugLog("Size of buffer: " + this.getBuffer().size());
         }
       } catch (Exception e){}
+
+      debugLog("All buffers cleared. You may remove JSON reporter");
+
     }
 
     private void processVertex(JSONObject vertexObject) {
