@@ -96,13 +96,14 @@ public class Neo4j extends AbstractStorage {
     private enum MyNodeTypes implements Label { VERTEX }
     private String neo4jDatabaseDirectoryPath = null;
 
-  	public final String NODE_HASHCODE_LABEL = "hashCode";
+  	public final String HASHCODE_LABEL = "hashCode";
   	private double falsePositiveProbability = 0.0001;
 
     // Performance tuning note: Set this to higher value (up to Integer.MAX_VALUE) to reduce db hit rate.
     // Downside: This would eat more heap at start time.
   	private int expectedNumberOfElements = 1000000;
-  	private BloomFilter<Integer> nodeBloomFilter;
+    private BloomFilter<Integer> nodeBloomFilter;
+    private BloomFilter<Integer> edgeBloomFilter;
   	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
   	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
 
@@ -117,7 +118,8 @@ public class Neo4j extends AbstractStorage {
     // Downside: Any external (non atomic) quering to database won't report non-commited data.
     private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
     private final boolean LOG_PERFORMANCE_STATS = true;
-  	private final String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
+    private final String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
+    private final String EDGE_BLOOMFILTER = "spade-neo4j-edge-bloomfilter";
 
     private Transaction globalTx;
   	private int globalTxCount=0;
@@ -173,6 +175,7 @@ public class Neo4j extends AbstractStorage {
             }
 
             nodeBloomFilter = loadBloomFilter(NODE_BLOOMFILTER);
+            edgeBloomFilter = loadBloomFilter(EDGE_BLOOMFILTER);
 
             if (LOG_PERFORMANCE_STATS==true) {
               logger.log(Level.INFO, "nodeBloomFilter size at startup: " + nodeBloomFilter.count());
@@ -247,6 +250,8 @@ public class Neo4j extends AbstractStorage {
           logger.log(Level.INFO, "Database shutdown completed");
         }
         saveBloomFilter(NODE_BLOOMFILTER, nodeBloomFilter);
+        saveBloomFilter(EDGE_BLOOMFILTER, edgeBloomFilter);
+        
         if (LOG_PERFORMANCE_STATS==true) {
           logger.log(Level.INFO, "All chores completed!");
         }
@@ -330,7 +335,7 @@ public class Neo4j extends AbstractStorage {
 
           // L3: confirming from db if we have bloom filter false postive after FIFO cache miss
           Node newVertex;
-		      newVertex = vertexIndex.get(NODE_HASHCODE_LABEL, hashCode).getSingle();
+		      newVertex = vertexIndex.get(HASHCODE_LABEL, hashCode).getSingle();
         	if (newVertex != null) {
 			       putInLocalCache(newVertex, hashCode);
              foundInDbCount++;
@@ -353,8 +358,8 @@ public class Neo4j extends AbstractStorage {
           vertexIndex.add(newVertex, key, value);
         }
 
-        newVertex.setProperty(NODE_HASHCODE_LABEL, hashCode);
-        vertexIndex.add(newVertex, NODE_HASHCODE_LABEL, Long.toString(hashCode));
+        newVertex.setProperty(HASHCODE_LABEL, hashCode);
+        vertexIndex.add(newVertex, HASHCODE_LABEL, Long.toString(hashCode));
         newVertex.setProperty(ID_STRING, newVertex.getId());
         vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
         nodeBloomFilter.add(hashCode);
@@ -369,55 +374,70 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-      // TODO: we are assuming that all edges are unique, make checks to avoid this case
-      AbstractVertex srcVertex = incomingEdge.getSourceVertex();
-      AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
+        int hashCode = incomingEdge.hashCode();
+        if (edgeBloomFilter.contains(hashCode)) {
+            Relationship edge;
+            edge = edgeIndex.get(HASHCODE_LABEL, hashCode).getSingle();
+            if (edge != null) {
+                if (LOG_PERFORMANCE_STATS == true) {
+                    // if there is heavy repetition of edges then comment out this logging or it will slow down SPADE
+                    logger.log(Level.INFO, "Edge (hashCode: " + hashCode + ") is already in db, skiping");
+                }
+                return true;
+            }
+        }
+        
+        AbstractVertex srcVertex = incomingEdge.getSourceVertex();
+        AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
+        globalTxCheckin();
 
-      globalTxCheckin();
+        try {
+            int srcVertexHashCode = srcVertex.hashCode();
+            int dstVertexHashCode = dstVertex.hashCode();
+            Node srcNode = localNodeCache.get(srcVertexHashCode);
+            Node dstNode = localNodeCache.get(dstVertexHashCode);
 
-      try {
-        int srcVertexHashCode = srcVertex.hashCode();
-        int dstVertexHashCode = dstVertex.hashCode();
-      	Node srcNode = localNodeCache.get(srcVertexHashCode);
-      	Node dstNode = localNodeCache.get(dstVertexHashCode);
-
-        if (srcNode == null) {
-        	dbHitCountForEdge++;
-            srcNode = vertexIndex.get(NODE_HASHCODE_LABEL, srcVertexHashCode).getSingle();
             if (srcNode == null) {
-                // insert vertex if not in db
-                putVertex(srcVertex);
-                srcNode = localNodeCache.get(srcVertexHashCode);
+                dbHitCountForEdge++;
+                srcNode = vertexIndex.get(HASHCODE_LABEL, srcVertexHashCode).getSingle();
+                if (srcNode == null) {
+                    // insert vertex if not in db
+                    putVertex(srcVertex);
+                    srcNode = localNodeCache.get(srcVertexHashCode);
+                }
+                putInLocalCache(srcNode, srcVertexHashCode);
             }
-            putInLocalCache(srcNode, srcVertexHashCode);
-        }
 
-        if (dstNode == null) {
-        	dbHitCountForEdge++;
-            dstNode = vertexIndex.get(NODE_HASHCODE_LABEL, dstVertexHashCode).getSingle();
             if (dstNode == null) {
-                // insert vertex if not in db
-                putVertex(dstVertex);
-                dstNode = localNodeCache.get(dstVertexHashCode);
+                dbHitCountForEdge++;
+                dstNode = vertexIndex.get(HASHCODE_LABEL, dstVertexHashCode).getSingle();
+                if (dstNode == null) {
+                    // insert vertex if not in db
+                    putVertex(dstVertex);
+                    dstNode = localNodeCache.get(dstVertexHashCode);
+                }
+                putInLocalCache(dstNode, dstVertexHashCode);
             }
-            putInLocalCache(dstNode, dstVertexHashCode);
-        }
 
-        edgeCount++;
-        reportProgress();
+            edgeCount++;
+            reportProgress();
 
-        Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
-        for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            if (key.equalsIgnoreCase(ID_STRING)) {
-                continue;
+            Relationship newEdge = srcNode.createRelationshipTo(dstNode, MyRelationshipTypes.EDGE);
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+                String key = currentEntry.getKey();
+                String value = currentEntry.getValue();
+                if (key.equalsIgnoreCase(ID_STRING)) {
+                    continue;
+                }
+                newEdge.setProperty(key, value);
+                edgeIndex.add(newEdge, key, value);
+    
+                newEdge.setProperty(HASHCODE_LABEL, hashCode);
+                edgeIndex.add(newEdge, HASHCODE_LABEL, Long.toString(hashCode));
+                newEdge.setProperty(ID_STRING, newEdge.getId());
+                edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+                edgeBloomFilter.add(hashCode);
             }
-            newEdge.setProperty(key, value);
-            edgeIndex.add(newEdge, key, value);
-        }
-        newEdge.setProperty(ID_STRING, newEdge.getId());
-        edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
 
         } finally {
         }
