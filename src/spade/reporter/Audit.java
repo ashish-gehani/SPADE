@@ -158,6 +158,8 @@ public class Audit extends AbstractReporter {
     private Map<String, BigInteger> pidToMemAddress = new HashMap<String, BigInteger>(); 
     
     private final static String EVENTID_ANNOTATION_KEY = "event id";
+    
+    private boolean SIMPLIFY = true;
         
     @Override
     public boolean launch(String arguments) {
@@ -200,6 +202,9 @@ public class Audit extends AbstractReporter {
         }
         if("true".equals(args.get("units"))){
         	CREATE_BEEP_UNITS = true;
+        }
+        if("false".equals(args.get("simplify"))){
+        	SIMPLIFY = false;
         }
 
         // Get system boot time from /proc/stat. This is later used to determine
@@ -294,7 +299,7 @@ public class Audit extends AbstractReporter {
 	                    // Parse the current directory name to make sure it is
 	                    // numeric. If not, ignore and continue.
 	                    Integer.parseInt(currentPID);
-	                    Process processVertex = createProcess(currentPID);
+	                    Process processVertex = createProcessFromProcFS(currentPID);
 	                    addProcess(currentPID, processVertex);
 	                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
 	                    putVertex(processVertex);
@@ -1027,11 +1032,11 @@ public class Audit extends AbstractReporter {
     			if(arg0.intValue() == -201){
     				memArtifact = createArtifact(new MemoryInfo(address.toString(16)), false, null);
     				edge = new Used(process, memArtifact);
-    				edge.addAnnotation("operation", "load");
+    				edge.addAnnotation("operation", "read");
     			}else if(arg0.intValue() == -301){
     				memArtifact = createArtifact(new MemoryInfo(address.toString(16)), true, null);
     				edge = new WasGeneratedBy(memArtifact, process);
-    				edge.addAnnotation("operation", "store");
+    				edge.addAnnotation("operation", "write");
     			}
     			if(edge != null && memArtifact != null && process != null){
 	    			edge.addAnnotation("time", eventData.get("time"));
@@ -1154,39 +1159,15 @@ public class Audit extends AbstractReporter {
         String newPID = eventData.get("exit");
         checkProcessVertex(eventData, true, false);
 
-        Process newProcess = new Process();
-        newProcess.addAnnotation("pid", newPID);
-        newProcess.addAnnotation("ppid", oldPID);
-        newProcess.addAnnotation("uid", eventData.get("uid"));
-        newProcess.addAnnotation("euid", eventData.get("euid"));
-        newProcess.addAnnotation("suid", eventData.get("suid"));
-        newProcess.addAnnotation("fsuid", eventData.get("fsuid"));
-        newProcess.addAnnotation("gid", eventData.get("gid"));
-        newProcess.addAnnotation("egid", eventData.get("egid"));
-        newProcess.addAnnotation("sgid", eventData.get("sgid"));
-        newProcess.addAnnotation("fsgid", eventData.get("fsgid"));
-        newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
-        
-        Process oldProcess = getProcess(oldPID);
-        if(oldProcess != null){
-        	String commandline = oldProcess.getAnnotation("commandline");
-        	String name = oldProcess.getAnnotation("name");
-        	String cwd = oldProcess.getAnnotation("cwd");
-    		if(commandline != null){
-    			newProcess.addAnnotation("commandline", commandline);
-    		}
-    		if(name != null){
-    			newProcess.addAnnotation("name", name);
-    		}
-    		if(cwd != null){
-    			newProcess.addAnnotation("cwd", cwd);
-    		}
-        }
+        Process newProcess = createProcessVertex(newPID, oldPID, eventData.get("comm"), null, null, 
+        		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"), 
+        		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
+        		PROC_INFO_AUDIT);
 
         addProcess(newPID, newProcess);
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(oldPID));
-        wtb.addAnnotation("operation", syscall.name().toLowerCase());
+        wtb.addAnnotation("operation", getOperation(syscall));
         wtb.addAnnotation("time", time);
         addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
         putEdge(wtb); // Copy file descriptors from old process to new one
@@ -1346,7 +1327,7 @@ public class Audit extends AbstractReporter {
             putVertex(vertex);
         }
         Used used = new Used(getProcess(pid), vertex);
-        used.addAnnotation("operation", syscall.toString().toLowerCase());
+        used.addAnnotation("operation", getOperation(syscall));
         used.addAnnotation("time", time);
         used.addAnnotation("size", bytesRead);
         addEventIdAnnotationToEdge(used, eventData.get("eventid"));
@@ -1375,7 +1356,7 @@ public class Audit extends AbstractReporter {
         putVertex(vertex);
         putVersionUpdateEdge(vertex, time, eventData.get("eventid"));
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
-        wgb.addAnnotation("operation", syscall.toString().toLowerCase());
+        wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", bytesWritten);
         addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
@@ -1409,7 +1390,7 @@ public class Audit extends AbstractReporter {
         putVertex(vertex);
         putVersionUpdateEdge(vertex, time, eventData.get("eventid"));
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
-        wgb.addAnnotation("operation", syscall.name().toLowerCase());
+        wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
         addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
         putEdge(wgb);
@@ -1442,27 +1423,9 @@ public class Audit extends AbstractReporter {
         String pid = eventData.get("pid");
         checkProcessVertex(eventData, true, false);
         Process newProcess = checkProcessVertex(eventData, false, false);
-        
-        //copying the commandline and name annotations from the old version of the process if they exist
-        Process oldProcess = getProcess(pid);
-        if(oldProcess != null){
-        	String commandline = oldProcess.getAnnotation("commandline");
-        	String name = oldProcess.getAnnotation("name");
-        	String cwd = oldProcess.getAnnotation("cwd");
-    		if(commandline != null){
-    			newProcess.addAnnotation("commandline", commandline);
-    		}
-    		if(name != null){
-    			newProcess.addAnnotation("name", name);
-    		}
-    		if(cwd != null){
-    			newProcess.addAnnotation("cwd", cwd);
-    		}
-        }
-        
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
-        wtb.addAnnotation("operation", syscall.toString().toLowerCase());
+        wtb.addAnnotation("operation", getOperation(syscall));
         wtb.addAnnotation("time", time);
         addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
         putEdge(wtb);
@@ -1532,7 +1495,7 @@ public class Audit extends AbstractReporter {
         String cwd = eventData.get("cwd");
         checkProcessVertex(eventData, true, false);
         
-        String syscallName = syscall.toString().toLowerCase();
+        String syscallName = getOperation(syscall);
 
         String srcpath = joinPaths(cwd, eventData.get("path0"));
         String dstpath = joinPaths(cwd, eventData.get("path2"));
@@ -1598,7 +1561,7 @@ public class Audit extends AbstractReporter {
         putVersionUpdateEdge(vertex, time, eventData.get("eventid"));
 
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
-        wgb.addAnnotation("operation", syscall.name().toLowerCase());
+        wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("mode", mode);
         wgb.addAnnotation("time", time);
         addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
@@ -1695,7 +1658,7 @@ public class Audit extends AbstractReporter {
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
             wgb.addAnnotation("time", time);
-            wgb.addAnnotation("operation", "connect");
+            wgb.addAnnotation("operation", getOperation(SYSCALL.CONNECT));
             addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
             putEdge(wgb);
             // update file descriptor table
@@ -1715,7 +1678,7 @@ public class Audit extends AbstractReporter {
             putVertex(network);
             Used used = new Used(getProcess(pid), network);
             used.addAnnotation("time", time);
-            used.addAnnotation("operation", syscall.toString().toLowerCase());
+            used.addAnnotation("operation", getOperation(syscall));
             addEventIdAnnotationToEdge(used, eventData.get("eventid"));
             putEdge(used);
             // update file descriptor table
@@ -1764,7 +1727,7 @@ public class Audit extends AbstractReporter {
     private void putSocketSendEdge(ArtifactInfo artifactInfo, SYSCALL syscall, String time, String size, String pid, String eventId){
     	Artifact vertex = createArtifact(artifactInfo, false, syscall);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
-        wgb.addAnnotation("operation", syscall.toString().toLowerCase());
+        wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", size);
         addEventIdAnnotationToEdge(wgb, eventId);
@@ -1810,7 +1773,7 @@ public class Audit extends AbstractReporter {
     private void putSocketRecvEdge(ArtifactInfo artifactInfo, SYSCALL syscall, String time, String size, String pid, String eventId){
     	Artifact vertex = createArtifact(artifactInfo, false, syscall);
     	Used used = new Used(getProcess(pid), vertex);
-        used.addAnnotation("operation", syscall.toString().toLowerCase());
+        used.addAnnotation("operation", getOperation(syscall));
         used.addAnnotation("time", time);
         used.addAnnotation("size", size);
         addEventIdAnnotationToEdge(used, eventId);
@@ -1832,22 +1795,12 @@ public class Audit extends AbstractReporter {
         if (getProcess(pid) != null && !refresh) {
             return getProcess(pid);
         }
-        Process resultProcess = USE_PROCFS ? createProcess(pid) : null;
+        Process resultProcess = USE_PROCFS ? createProcessFromProcFS(pid) : null;
         if (resultProcess == null) {
-            resultProcess = new Process();
-            String ppid = eventData.get("ppid");
-            resultProcess.addAnnotation("name", eventData.get("comm"));
-            resultProcess.addAnnotation("pid", pid);
-            resultProcess.addAnnotation("ppid", ppid);
-            resultProcess.addAnnotation("uid", eventData.get("uid"));
-            resultProcess.addAnnotation("euid", eventData.get("euid"));
-            resultProcess.addAnnotation("suid", eventData.get("suid"));
-            resultProcess.addAnnotation("fsuid", eventData.get("fsuid"));
-            resultProcess.addAnnotation("gid", eventData.get("gid"));
-            resultProcess.addAnnotation("egid", eventData.get("egid"));
-            resultProcess.addAnnotation("sgid", eventData.get("sgid"));
-            resultProcess.addAnnotation("fsgid", eventData.get("fsgid"));
-            resultProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_AUDIT);
+            resultProcess = createProcessVertex(pid, eventData.get("ppid"), eventData.get("comm"), null, null, 
+            		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"),
+            		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
+            		PROC_INFO_AUDIT);
         }
         if (link == true) {
             Map<String, ArtifactInfo> fds = getFileDescriptors(pid);
@@ -1865,12 +1818,105 @@ public class Audit extends AbstractReporter {
         return resultProcess;
     }
 
-    private Process createProcess(String pid) {
+    private String getOperation(SYSCALL syscall){
+    	SYSCALL returnSyscall = syscall;
+    	if(SIMPLIFY){
+    		switch (syscall) {
+				case FORK:
+				case VFORK:
+					returnSyscall = SYSCALL.FORK;
+					break;
+				case CLONE:
+					returnSyscall = SYSCALL.CLONE;
+					break;
+				case CHMOD:
+				case FCHMOD:
+					returnSyscall = SYSCALL.CHMOD;
+					break;
+				case SENDTO:
+				case SENDMSG:
+					returnSyscall = SYSCALL.SENDTO;
+					break;
+				case RECVFROM:
+				case RECVMSG:
+					returnSyscall = SYSCALL.RECVFROM;
+					break;
+				case TRUNCATE:
+				case FTRUNCATE:
+					returnSyscall = SYSCALL.TRUNCATE;
+					break;
+				case READ:
+				case READV:
+				case PREAD64:
+					returnSyscall = SYSCALL.READ;
+					break;
+				case WRITE:
+				case WRITEV:
+				case PWRITE64:
+					returnSyscall = SYSCALL.WRITE;
+					break;
+				case ACCEPT:
+				case ACCEPT4:
+					returnSyscall = SYSCALL.ACCEPT;
+					break;
+				case CONNECT:
+					returnSyscall = SYSCALL.CONNECT;
+					break;
+				case SYMLINK:
+				case LINK:
+					returnSyscall = SYSCALL.LINK;
+					break;
+				case SETUID:
+				case SETREUID:
+				case SETRESUID:
+					returnSyscall = SYSCALL.SETUID;
+					break;
+				default:
+					break;
+			}
+    	}
+    	return returnSyscall.toString().toLowerCase();
+    }
+    
+//  this function to be used always to create a process vertex
+    public Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
+    		String uid, String euid, String suid, String fsuid, 
+    		String gid, String egid, String sgid, String fsgid,
+    		String source){
+    	
+    	Process process = new Process();
+    	process.addAnnotation("pid", pid);
+    	process.addAnnotation("ppid", ppid);
+    	process.addAnnotation("name", name);
+    	process.addAnnotation("uid", uid);
+    	process.addAnnotation("euid", euid);
+    	process.addAnnotation("gid", gid);
+    	process.addAnnotation("egid", egid);
+    	process.addAnnotation(PROC_INFO_SRC_KEY, source);
+    	
+    	if(commandline != null){
+    		process.addAnnotation("commandline", commandline);
+    	}
+    	if(cwd != null){
+    		process.addAnnotation("cwd", cwd);
+    	}
+    	
+    	if(!SIMPLIFY){
+        	process.addAnnotation("suid", suid);
+        	process.addAnnotation("fsuid", fsuid);
+        	
+        	process.addAnnotation("sgid", sgid);
+        	process.addAnnotation("fsgid", fsgid);
+    	}
+    	
+    	return process;
+    }
+
+    private Process createProcessFromProcFS(String pid) {
         // Check if this pid exists in the /proc/ filesystem
         if ((new java.io.File("/proc/" + pid).exists())) {
             // The process vertex is created using the proc filesystem.
             try {
-                Process newProcess = new Process();
                 // order of keys in the status file changed. So, now looping through the file to get the necessary ones
                 int keysGottenCount = 0; //used to stop reading the file once all the required keys have been gotten
                 String line = null, nameline = null, ppidline = null, uidline = null, gidline = null;
@@ -1923,24 +1969,14 @@ public class Audit extends AbstractReporter {
                 String gidTokens[] = gidline.split("//s+");
                 String uidTokens[] = uidline.split("//s+");
                 
-                newProcess.addAnnotation("name", name);
-                newProcess.addAnnotation("pid", pid);
-                newProcess.addAnnotation("ppid", ppid);
+                Process newProcess = createProcessVertex(pid, ppidline, nameline, null, null, 
+                		uidTokens[0], uidTokens[1], uidTokens[2], uidTokens[3], 
+                		gidTokens[0], gidTokens[1], gidTokens[2], gidTokens[3], 
+                		PROC_INFO_PROCFS);
                 
-                newProcess.addAnnotation("uid", uidTokens[0]);
-                newProcess.addAnnotation("euid", uidTokens[1]);
-                newProcess.addAnnotation("suid", uidTokens[2]);
-                newProcess.addAnnotation("fsuid", uidTokens[3]);
-                newProcess.addAnnotation("gid", gidTokens[0]);
-                newProcess.addAnnotation("egid", gidTokens[1]);
-                newProcess.addAnnotation("sgid", gidTokens[2]);
-                newProcess.addAnnotation("fsgid", gidTokens[3]);
-             
                 // newProcess.addAnnotation("starttime_unix", stime);
                 // newProcess.addAnnotation("starttime_simple", stime_readable);
                 // newProcess.addAnnotation("commandline", cmdline);
-
-                newProcess.addAnnotation(PROC_INFO_SRC_KEY, PROC_INFO_PROCFS);
                 return newProcess;
             } catch (IOException | NumberFormatException e) {
                 logger.log(Level.WARNING, "unable to create process vertex for pid " + pid + " from /proc/", e);
@@ -2028,9 +2064,11 @@ public class Audit extends AbstractReporter {
     }
     
     private Process createCopyOfProcess(Process process){
-    	Process copy = new Process();
-    	copy.addAnnotations(process.getAnnotations());
-    	return copy;
+    	//passing commandline and cwd as null because we don't want those two fields copied onto units
+    	return createProcessVertex(process.getAnnotation("pid"), process.getAnnotation("ppid"), process.getAnnotation("name"), null, null, 
+    			process.getAnnotation("uid"), process.getAnnotation("euid"), process.getAnnotation("suid"), process.getAnnotation("fsuid"), 
+    			process.getAnnotation("gid"), process.getAnnotation("egid"), process.getAnnotation("sgid"), process.getAnnotation("fsgid"), 
+    			process.getAnnotation(PROC_INFO_SRC_KEY));
     }
       
     //all records of any event are assumed to be placed contiguously in the file
