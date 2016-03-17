@@ -7,6 +7,47 @@
     "name" : "datum",
     "type" : [ {
       "type" : "record",
+      "name" : "ProvenanceTagNode",
+      "doc" : "* A provenance tag defines source dependence on specific data sources (inputs).\n     * A tag identifier is typically bound to a source and used by the tracking system to\n     * capture dependence on this source input.\n     * A provenance tag is represented as a tree. Each node in the tree has a value and\n     * a set of children nodes.",
+      "fields" : [ {
+        "name" : "value",
+        "type" : [ "int", "string", {
+          "type" : "enum",
+          "name" : "TagOpCode",
+          "doc" : "* The tag opcode describes the provenance relation i.e., how multiple sources are combined to\n     * produce the output. We identify the following provenance relations\n     *\n     *   TAG_OP_SEQUENCE       the output is derived from the specified inputs in order, sequentially\n     *   TAG_OP_UNION,         the output is the union of its inputs\n     *   TAG_OP_ENCODE         the output is some encoding of the input\n     *   TAG_OP_STRONG         this is more qualitative (coarse) saying there is strong dependence\n     *   TAG_OP_MEDIUM         this is more qualitative (coarse) saying there is medium dependence\n     *   TAG_OP_WEAK           this is more qualitative (coarse) saying there is weak   dependence",
+          "symbols" : [ "TAG_OP_SEQUENCE", "TAG_OP_UNION", "TAG_OP_ENCODE", "TAG_OP_STRONG", "TAG_OP_MEDIUM", "TAG_OP_WEAK" ]
+        }, {
+          "type" : "enum",
+          "name" : "IntegrityTag",
+          "doc" : "* The integrity tag may be used to specify the initial integrity of an entity,\n     * or to endorse its content after performing appropriate checking/sanitization.",
+          "symbols" : [ "INTEGRITY_UNTRUSTED", "INTEGRITY_BENIGN", "INTEGRITY_INVULNERABLE" ]
+        }, {
+          "type" : "enum",
+          "name" : "ConfidentialityTag",
+          "doc" : "* The confidentiality tag may be used to specify the initial confidentiality of an entity,\n     * or to declassify its content after performing appropriate checking/sanitization.",
+          "symbols" : [ "CONFIDENTIALITY_SECRET", "CONFIDENTIALITY_SENSITIVE", "CONFIDENTIALITY_PRIVATE", "CONFIDENTIALITY_PUBLIC" ]
+        } ],
+        "doc" : "*  the value of the node: can have the following types\n         *   int                 references another node by tagId\n         *   string              the source information string\n         *   TaOpCode            the opcode applied to the children nodes, see TaOpCode\n         *   IntegrityTag        an integrity tag\n         *   ConfidentialityTag  a confidentiality tag"
+      }, {
+        "name" : "numChildren",
+        "type" : "int",
+        "doc" : "the number of child nodes"
+      }, {
+        "name" : "children",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : "ProvenanceTagNode"
+        } ],
+        "doc" : "the child nodes",
+        "default" : null
+      }, {
+        "name" : "tagId",
+        "type" : [ "null", "int" ],
+        "doc" : "* the id to be assigned to this tag node\n         * typically set once when the node is first created, and used in value afterwards",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
       "name" : "Subject",
       "doc" : "* Subjects represent execution contexts and include mainly threads and processes.\n     * They can be more granular and can represent other execution boundaries such as\n     * functions and blocks if needed.",
       "fields" : [ {
@@ -23,12 +64,20 @@
         },
         "doc" : "the subject type"
       }, {
+        "name" : "pid",
+        "type" : "int",
+        "doc" : "OS process id for type process and unit id for a unit (Optional)"
+      }, {
+        "name" : "ppid",
+        "type" : "int",
+        "doc" : "OS parent process id for type process and pid for type unit (Optional)"
+      }, {
         "name" : "source",
         "type" : {
           "type" : "enum",
           "name" : "InstrumentationSource",
           "doc" : "* SOURCE_LINUX_AUDIT_TRACE,          from Linux /dev/audit\n     * SOURCE_LINUX_PROC_TRACE,           from Linux's /proc\n     * SOURCE_FREEBSD_OPENBSM_TRACE,      from FreeBSD openBSM\n     * SOURCE_ANDROID_JAVA_CLEARSCOPE,    from android java instrumentation\n     * SOURCE_ANDROID_NATIVE_CLEARSCOPE,  from android's native instrumentation\n     * SOURCE_LINUX_AUDIT_CADETS          placeholder for now\n     *",
-          "symbols" : [ "SOURCE_LINUX_AUDIT_TRACE", "SOURCE_LINUX_PROC_TRACE", "SOURCE_FREEBSD_OPENBSM_TRACE", "SOURCE_ANDROID_JAVA_CLEARSCOPE", "SOURCE_ANDROID_NATIVE_CLEARSCOPE", "SOURCE_LINUX_AUDIT_CADETS" ]
+          "symbols" : [ "SOURCE_LINUX_AUDIT_TRACE", "SOURCE_LINUX_PROC_TRACE", "SOURCE_FREEBSD_OPENBSM_TRACE", "SOURCE_ANDROID_JAVA_CLEARSCOPE", "SOURCE_ANDROID_NATIVE_CLEARSCOPE", "SOURCE_LINUX_AUDIT_CADETS", "SOURCE_WINDOWS_DIFT_FAROS" ]
         },
         "doc" : "Where it came from, see InstrumentationSource"
       }, {
@@ -36,24 +85,14 @@
         "type" : "long",
         "doc" : "The start time of the subject"
       }, {
-        "name" : "endTimestampMicros",
-        "type" : [ "null", "long" ],
-        "doc" : "The end time of the subject (Optional)",
-        "default" : null
-      }, {
-        "name" : "pid",
-        "type" : [ "null", "int" ],
-        "doc" : "OS process id for type process and unit id for a unit (Optional)",
-        "default" : null
-      }, {
-        "name" : "ppid",
-        "type" : [ "null", "int" ],
-        "doc" : "OS parent process id for type process and pid for type unit (Optional)",
-        "default" : null
-      }, {
         "name" : "unitId",
         "type" : [ "null", "int" ],
         "doc" : "unit id for unit based instrumentation (Optional)",
+        "default" : null
+      }, {
+        "name" : "endTimestampMicros",
+        "type" : [ "null", "long" ],
+        "doc" : "The end time of the subject (Optional)",
         "default" : null
       }, {
         "name" : "cmdLine",
@@ -61,9 +100,25 @@
         "doc" : "Process command line arguments including process name (Optional)",
         "default" : null
       }, {
-        "name" : "envVars",
+        "name" : "importedLibraries",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : "string"
+        } ],
+        "doc" : "imported libraries (static or dynamic), (Optional)",
+        "default" : null
+      }, {
+        "name" : "exportedLibraries",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : "string"
+        } ],
+        "doc" : "exported libraries (static or dynamic), (Optional)",
+        "default" : null
+      }, {
+        "name" : "pInfo",
         "type" : [ "null", "string" ],
-        "doc" : "Process environment variables (Optional)",
+        "doc" : "additional process information, such portable execution (PE) info in windows (Optional)",
         "default" : null
       }, {
         "name" : "properties",
@@ -104,6 +159,36 @@
         "type" : "InstrumentationSource",
         "doc" : "What source system generated this event, see InstrumentationSource"
       }, {
+        "name" : "parameters",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "Value",
+            "doc" : "*  Values represent transient data, mainly parameters to events\n     *  Values are created and used once within an event's execution\n     *  and are relevant mainly during fine-grained tracking (such as\n     *  with tag/taint propagation)\n     *  Values have tags describing their provenance\n     *  Sometimes the actual value bytes are reported in addition to\n     *  the value's metadata",
+            "fields" : [ {
+              "name" : "size",
+              "type" : "int",
+              "doc" : "The size of the value in bytes"
+            }, {
+              "name" : "valueBytes",
+              "type" : [ "null", "bytes" ],
+              "doc" : "The actual bytes of the value (Optional)",
+              "default" : null
+            }, {
+              "name" : "tag",
+              "type" : [ "null", {
+                "type" : "array",
+                "items" : "int"
+              } ],
+              "doc" : "* the value's tag expression describing its provenance\n         * since value is a byte array, the tag can use run length\n         * encoding if needed. The format of the array is as follows\n         *   {<offset:int>, <numBytes:int>, <tagId:int>}*\n         * For example, to assign a tag of 1 to bytes 4-7 of the value,\n         * and a tag 2 to bytes 12-15, this would represented using\n         * the following tag array\n         *  {4, 4, 1, 12, 4, 2}\n         * Note that tagId had to be defined/emitted earlier (see ProvenanceTagNode)\n         * before it can be assigned to a value",
+              "default" : null
+            } ]
+          }
+        } ],
+        "doc" : "Event parameters represented as values, see Value (Optional)",
+        "default" : null
+      }, {
         "name" : "location",
         "type" : [ "null", "long" ],
         "doc" : "Location refers to the location of the data affecting the event\n         *  (e.g., the read offset in the file for the read system call event (Optional)",
@@ -117,47 +202,6 @@
         "name" : "programPoint",
         "type" : [ "null", "string" ],
         "doc" : "The program point where the event was triggered (e.g., executable and line number), (Optional)",
-        "default" : null
-      }, {
-        "name" : "properties",
-        "type" : [ "null", {
-          "type" : "map",
-          "values" : "string"
-        } ],
-        "doc" : "Arbitrary key, value pairs describing the entity",
-        "default" : null
-      } ]
-    }, {
-      "type" : "record",
-      "name" : "Value",
-      "doc" : "*  Values are just like objects, except they represent transient data instead of persistent data.\n     *  Values have tags and affect (and are affected by) events.s",
-      "fields" : [ {
-        "name" : "uid",
-        "type" : "long",
-        "doc" : "universally unique identifier for the value"
-      }, {
-        "name" : "size",
-        "type" : "int",
-        "doc" : "The size of the value in bytes"
-      }, {
-        "name" : "integrity",
-        "type" : [ "null", {
-          "type" : "enum",
-          "name" : "IntegrityTag",
-          "doc" : "* The integrity tag may be used to specify the initial integrity of an entity,\n     * or to endorse its content after performing appropriate checking/sanitization.",
-          "symbols" : [ "INTEGRITY_UNTRUSTED", "INTEGRITY_BENIGN", "INTEGRITY_INVULNERABLE" ]
-        } ],
-        "doc" : "The integrity tag associated with this value (Optional)",
-        "default" : null
-      }, {
-        "name" : "confidentiality",
-        "type" : [ "null", {
-          "type" : "enum",
-          "name" : "ConfidentialityTag",
-          "doc" : "* The confidentiality tag may be used to specify the initial confidentiality of an entity,\n     * or to declassify its content after performing appropriate checking/sanitization.",
-          "symbols" : [ "CONFIDENTIALITY_SECRET", "CONFIDENTIALITY_SENSITIVE", "CONFIDENTIALITY_PRIVATE", "CONFIDENTIALITY_PUBLIC" ]
-        } ],
-        "doc" : "The confidentiality tag associated with this value (Optional)",
         "default" : null
       }, {
         "name" : "properties",
@@ -204,12 +248,12 @@
           }, {
             "name" : "integrity",
             "type" : [ "null", "IntegrityTag" ],
-            "doc" : "The integrity tag associated with this value (Optional)",
+            "doc" : "The integrity tag associated with this object (Optional)",
             "default" : null
           }, {
             "name" : "confidentiality",
             "type" : [ "null", "ConfidentialityTag" ],
-            "doc" : "The confidentiality tag associated with this value (Optional)",
+            "doc" : "The confidentiality tag associated with this object (Optional)",
             "default" : null
           }, {
             "name" : "properties",
@@ -268,8 +312,8 @@
       } ]
     }, {
       "type" : "record",
-      "name" : "SensorObject",
-      "doc" : "* Represents a sensor on the host device. Instantiates an AbstractObject.\n     * This is the most basic representation of a sensor, basically specifying its type only.",
+      "name" : "SourceObject",
+      "doc" : "* Represents a generic source on the host device that is not a file, memory, or netflow.\n     * This is the most basic representation of a source, basically specifying its type only.",
       "fields" : [ {
         "name" : "uid",
         "type" : "long",
@@ -282,11 +326,11 @@
         "name" : "type",
         "type" : {
           "type" : "enum",
-          "name" : "SensorType",
-          "doc" : "* The type of a sensor could be base (close to hardware) or composite\n     * See https://source.android.com/devices/sensors/index.html for details\n     * TODO: camera and GPS ideally should be modeled separately to match the Android model. These are rich subsystems",
-          "symbols" : [ "SENSOR_ACCELEROMETER", "SENSOR_TEMPERATURE", "SENSOR_GYROSCOPE", "SENSOR_MAGNETIC_FIELD", "SENSOR_HEAR_RATE", "SENSOR_LIGHT", "SENSOR_PROXIMITY", "SENSOR_PRESSURE", "SENSOR_RELATIVE_HUMIDITY", "SENSOR_LINEAR_ACCELERATION", "SENSOR_MOTION", "SENSOR_STEP_DETECTOR", "SENSOR_STEP_COUNTER", "SENSOR_TILT_DETECTOR", "SENSOR_ROTATION_VECTOR", "SENSOR_GRAVITY", "SENSOR_GEOMAGNETIC_ROTATION_VECTOR", "SENSOR_CAMERA", "SENSOR_GPS" ]
+          "name" : "SourceType",
+          "doc" : "* There are many types of sources such as sensors\n     * The type of a sensor could be base (close to hardware) or composite\n     * See https://source.android.com/devices/sensors/index.html for details\n     * TODO: camera and GPS ideally should be modeled separately to match the Android model. These are rich subsystems",
+          "symbols" : [ "SOURCE_ACCELEROMETER", "SOURCE_TEMPERATURE", "SOURCE_GYROSCOPE", "SOURCE_MAGNETIC_FIELD", "SOURCE_HEAR_RATE", "SOURCE_LIGHT", "SOURCE_PROXIMITY", "SOURCE_PRESSURE", "SOURCE_RELATIVE_HUMIDITY", "SOURCE_LINEAR_ACCELERATION", "SOURCE_MOTION", "SOURCE_STEP_DETECTOR", "SOURCE_STEP_COUNTER", "SOURCE_TILT_DETECTOR", "SOURCE_ROTATION_VECTOR", "SOURCE_GRAVITY", "SOURCE_GEOMAGNETIC_ROTATION_VECTOR", "SOURCE_CAMERA", "SOURCE_GPS" ]
         },
-        "doc" : "The type of the sensor"
+        "doc" : "The type of the source"
       } ]
     }, {
       "type" : "record",
@@ -308,19 +352,6 @@
         "name" : "memoryAddress",
         "type" : "long",
         "doc" : "The location in memory"
-      } ]
-    }, {
-      "type" : "record",
-      "name" : "ProvenanceTag",
-      "doc" : "* A provenance tag defines source dependence on specific data sources (inputs).\n     * A tag identifier is bound to a source and used by the tracking system to\n     * capture dependence on this source input. In terms of the structure of the provenance tag,\n     * this is still a work in progress. We will opt for a simple representation that is expressive\n     * enough to capture all TA1 data but not too complicated.\n     * TODO: the tagID is a long in this version. It can however be an int  for efficiency on-the-wire\n     * especially since tagExpression is comprised of tagIDs.",
-      "fields" : [ {
-        "name" : "uid",
-        "type" : "long",
-        "doc" : "A unique identifier for a tag expression"
-      }, {
-        "name" : "tagExpression",
-        "type" : "string",
-        "doc" : "The tag expression as defined in the tag design doc"
       } ]
     }, {
       "type" : "record",
@@ -381,8 +412,8 @@
         "type" : {
           "type" : "enum",
           "name" : "EdgeType",
-          "doc" : "* The different types of simple edges in the CDM\n     *   EDGE_VALUE_HASTAG                  a value has a tag (when tracking granular provenance)\n     *   EDGE_VALUE_AFFECTS_EVENT           a value affects an event (such as input string or buffer to an event)\n     *   EDGE_EVENT_AFFECTS_VALUE           an event affects a value (such as creating a value)\n     *   EDGE_EVENT_AFFECTS_MEMORY          an event affects a memory object (such as updating a memory location)\n     *   EDGE_EVENT_AFFECTS_FILE            an event affects a file object (such as writing to a file)\n     *   EDGE_EVENT_AFFECTS_NETFLOW         an event affects a netflow object (such as writing to socket)\n     *   EDGE_EVENT_AFFECTS_SUBJECT         an event affects a subject (such as forking a process)\n     *   EDGE_EVENT_HASPARENT_EVENT         a metaevent that represents a set of child atomic events\n     *   EDGE_EVENT_ISGENERATEDBY_SUBJECT   an event is generated by a subject (every event is)\n     *   EDGE_SUBJECT_AFFECTS_EVENT         a subject affects an event (such as when killing a process)\n     *   EDGE_SUBJECT_HASPARENT_SUBJECT     a subject has a parent subject (such as thread has parent process)\n     *   EDGE_SUBJECT_HASTAG                a subject has a tag (TODO: not sure when this will be used)\n     *   EDGE_SUBJECT_HASPRINCIPAL          a subject has a principal (such as a process owned by a user)\n     *   EDGE_SUBJECT_RUNSON                a subject runs on a host (TODO: host not yet modeled)\n     *   EDGE_OBJECT_PREV_VERSION           the previous version of an object, typically used for file versioning\n     *",
-          "symbols" : [ "EDGE_VALUE_HASTAG", "EDGE_VALUE_AFFECTS_EVENT", "EDGE_EVENT_AFFECTS_VALUE", "EDGE_EVENT_AFFECTS_MEMORY", "EDGE_EVENT_AFFECTS_FILE", "EDGE_EVENT_AFFECTS_NETFLOW", "EDGE_EVENT_AFFECTS_SUBJECT", "EDGE_EVENT_HASPARENT_EVENT", "EDGE_EVENT_ISGENERATEDBY_SUBJECT", "EDGE_SUBJECT_AFFECTS_EVENT", "EDGE_SUBJECT_HASPARENT_SUBJECT", "EDGE_SUBJECT_HASTAG", "EDGE_SUBJECT_HASLOCALPRINCIPAL", "EDGE_SUBJECT_RUNSON", "EDGE_OBJECT_PREV_VERSION" ]
+          "doc" : "* The different types of simple edges in the CDM\n     *   EDGE_EVENT_AFFECTS_MEMORY          an event affects a memory object (such as updating a memory location)\n     *   EDGE_EVENT_AFFECTS_FILE            an event affects a file object (such as writing to a file)\n     *   EDGE_EVENT_AFFECTS_NETFLOW         an event affects a netflow object (such as writing to socket)\n     *   EDGE_EVENT_AFFECTS_SUBJECT         an event affects a subject (such as forking a process)\n     *   EDGE_EVENT_HASPARENT_EVENT         a metaevent that represents a set of child atomic events\n     *   EDGE_EVENT_ISGENERATEDBY_SUBJECT   an event is generated by a subject (every event is)\n     *   EDGE_SUBJECT_AFFECTS_EVENT         a subject affects an event (such as when killing a process)\n     *   EDGE_SUBJECT_HASPARENT_SUBJECT     a subject has a parent subject (such as thread has parent process)\n     *   EDGE_SUBJECT_HASPRINCIPAL          a subject has a principal (such as a process owned by a user)\n     *   EDGE_SUBJECT_RUNSON                a subject runs on a host (TODO: host not yet modeled)\n     *   EDGE_OBJECT_PREV_VERSION           the previous version of an object, typically used for file versioning\n     *",
+          "symbols" : [ "EDGE_EVENT_AFFECTS_MEMORY", "EDGE_EVENT_AFFECTS_FILE", "EDGE_EVENT_AFFECTS_NETFLOW", "EDGE_EVENT_AFFECTS_SUBJECT", "EDGE_EVENT_HASPARENT_EVENT", "EDGE_EVENT_ISGENERATEDBY_SUBJECT", "EDGE_SUBJECT_AFFECTS_EVENT", "EDGE_SUBJECT_HASPARENT_SUBJECT", "EDGE_SUBJECT_HASLOCALPRINCIPAL", "EDGE_SUBJECT_RUNSON", "EDGE_OBJECT_PREV_VERSION" ]
         },
         "doc" : "The type of the edge, see EdgeType"
       }, {
