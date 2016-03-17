@@ -248,14 +248,14 @@ public class Kafka extends AbstractStorage {
                     if (size != null) {
                         eventBuilder.setSize(Long.parseLong(size));
                     }
-                    affectsEdgeType = EdgeType.EDGE_VALUE_AFFECTS_EVENT; // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
+                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
                     eventBuilder.setType(EventType.EVENT_READ);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
                         eventBuilder.setSize(Long.parseLong(size));
                     }
-                    affectsEdgeType = EdgeType.EDGE_VALUE_AFFECTS_EVENT; // XXX should be EDGE_NETFLOW_AFFECTS_EVENT but not in CDM
+                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW; // XXX should be EDGE_NETFLOW_AFFECTS_EVENT but not in CDM
                 } else if (operation.equals("accept")) {
                     eventBuilder.setType(EventType.EVENT_ACCEPT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW; // XXX should be EDGE_NETFLOW_AFFECTS_EVENT but not in CDM
@@ -320,7 +320,7 @@ public class Kafka extends AbstractStorage {
                 /* Generate another _*_AFFECTS_* edge in the reverse direction */
                 affectsEdgeBuilder.setFromUid(edge.getDestinationVertex().hashCode()); // UID of Object being affecting
                 affectsEdgeBuilder.setToUid(edge.hashCode()); // Event record's UID
-                affectsEdgeBuilder.setType(EdgeType.EDGE_VALUE_AFFECTS_EVENT); // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
+                affectsEdgeBuilder.setType(EdgeType.EDGE_EVENT_AFFECTS_FILE); // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
                 affectsEdge = affectsEdgeBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
             } else {
