@@ -513,11 +513,7 @@ public class Audit extends AbstractReporter {
                 eventData.put("time", time);
             	eventBuffer.get(eventId).putAll(eventData);
             } else if (type.equals("EOE")) {
-                if (ARCH_32BIT) {
-                    finishEvent32(eventId);
-                } else {
-                    finishEvent64(eventId);
-                }
+                finishEvent(eventId);
             } else if (type.equals("CWD")) {
                 Matcher cwd_matcher = pattern_cwd.matcher(messageData);
                 if (cwd_matcher.find()) {
@@ -551,6 +547,12 @@ public class Audit extends AbstractReporter {
                 while (key_value_matcher.find()) {
                     eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
                 }
+            } else if(type.equals("NETFILTER_PKT")){
+            	Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+            	while (key_value_matcher.find()) {
+                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                }
+            	finishEvent(eventId);
             } else if(type.equals("PROCTITLE")){
             	//event type not being handled at the moment. TO-DO
             } else {
@@ -575,6 +577,28 @@ public class Audit extends AbstractReporter {
         }
         return keyValPairs;
     }
+    
+    private void finishEvent(String eventId){
+    	
+    	if (!eventBuffer.containsKey(eventId)) {
+            logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
+            return;
+        }
+    	
+    	if("NETFILTER_PKT".equals(eventBuffer.get(eventId).get("type"))){ //for events with no syscalls
+    		try{
+    			processNetfilterPacketEvent(eventBuffer.get(eventId));
+    		}catch(Exception e){
+    			logger.log(Level.SEVERE, "error processing finish syscall event with event id '"+eventId+"'", e);
+    		}
+    	}else{ //for events with syscalls
+	    	if(ARCH_32BIT){
+	    		finishEvent32(eventId);
+	    	}else{
+	    		finishEvent64(eventId);
+	    	}
+    	}
+    }
 
     private void finishEvent32(String eventId) {
         try {
@@ -582,10 +606,7 @@ public class Audit extends AbstractReporter {
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
             // TODO: Update the calls to make them linux specific.
 
-            if (!eventBuffer.containsKey(eventId)) {
-                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
-                return;
-            }
+            
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
             
@@ -857,10 +878,6 @@ public class Audit extends AbstractReporter {
             // System call numbers are derived from:
             // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
-            if (!eventBuffer.containsKey(eventId)) {
-                logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
-                return;
-            }
             Map<String, String> eventData = eventBuffer.get(eventId);
             int syscall = Integer.parseInt(eventData.get("syscall"));
 
@@ -1001,7 +1018,7 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	if(arg0.intValue() == -100 && arg1.intValue() == 1){ //unit start
-    		Process addedUnit = pushUnitOnStack(pid);
+    		Process addedUnit = pushUnitOnStack(pid, eventData.get("time"));
     		if(addedUnit == null){ //failed to add because there was no process
     			//add a process first using the info here and then add the unit
     			Process process = checkProcessVertex(eventData, false, false);
@@ -1162,7 +1179,7 @@ public class Audit extends AbstractReporter {
         Process newProcess = createProcessVertex(newPID, oldPID, eventData.get("comm"), null, null, 
         		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"), 
         		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
-        		PROC_INFO_AUDIT);
+        		PROC_INFO_AUDIT, time);
 
         addProcess(newPID, newProcess);
         putVertex(newProcess);
@@ -1583,6 +1600,34 @@ public class Audit extends AbstractReporter {
         descriptors.addDescriptor(pid, fd1, pipeInfo);
     }
     
+    
+    
+    private void processNetfilterPacketEvent(Map<String, String> eventData){
+//      Refer to the following link for protocol numbers
+//    	http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
+    	String protocol = eventData.get("proto");
+    	
+    	if(protocol.equals("6") || protocol.equals("17")){ // 6 is tcp and 17 is udp
+    		String length = eventData.get("len");
+        	
+//        	hook = 1 is input, hook = 3 is forward
+        	String hook = eventData.get("hook");
+        	
+        	String sourceAddress = eventData.get("saddr");
+        	String destinationAddress = eventData.get("daddr");
+        	
+        	String sourcePort = eventData.get("sport");
+        	String destinationPort = eventData.get("dport");
+        	
+        	String time = eventData.get("time");
+        	String eventId = eventData.get("eventid");
+        	
+        	SocketInfo source = new SocketInfo(sourceAddress, sourcePort);
+        	SocketInfo destination = new SocketInfo(destinationAddress, destinationPort);
+    	}
+    	
+    }
+    
     private ArtifactInfo parseSaddr(String saddr){
     	ArtifactInfo artifactInfo = null;
     	if (saddr.charAt(1) == '2') {
@@ -1647,7 +1692,7 @@ public class Audit extends AbstractReporter {
             descriptors.addDescriptor(pid, fd, artifactInfo);
         }
     }
-
+    
     private void processConnect(Map<String, String> eventData) {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
@@ -1800,7 +1845,7 @@ public class Audit extends AbstractReporter {
             resultProcess = createProcessVertex(pid, eventData.get("ppid"), eventData.get("comm"), null, null, 
             		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"),
             		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
-            		PROC_INFO_AUDIT);
+            		PROC_INFO_AUDIT, null);
         }
         if (link == true) {
             Map<String, ArtifactInfo> fds = getFileDescriptors(pid);
@@ -1882,7 +1927,7 @@ public class Audit extends AbstractReporter {
     public Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
     		String uid, String euid, String suid, String fsuid, 
     		String gid, String egid, String sgid, String fsgid,
-    		String source){
+    		String source, String startTime){
     	
     	Process process = new Process();
     	process.addAnnotation("pid", pid);
@@ -1907,6 +1952,10 @@ public class Audit extends AbstractReporter {
         	
         	process.addAnnotation("sgid", sgid);
         	process.addAnnotation("fsgid", fsgid);
+    	}
+    	
+    	if(startTime != null){
+    		process.addAnnotation("start time", startTime);
     	}
     	
     	return process;
@@ -1957,9 +2006,9 @@ public class Audit extends AbstractReporter {
 
                 String stats[] = statline.split("\\s+");
                 long elapsedtime = Long.parseLong(stats[21]) * 10;
-                long starttime = boottime + elapsedtime;
-                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(starttime));
-                String stime = Long.toString(starttime);
+                long startTime = boottime + elapsedtime;
+                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(startTime));
+                String stime = Long.toString(startTime);
 
                 String name = nameline.split("\\s+")[1];
                 String ppid = ppidline.split("\\s+")[1];
@@ -1972,7 +2021,7 @@ public class Audit extends AbstractReporter {
                 Process newProcess = createProcessVertex(pid, ppidline, nameline, null, null, 
                 		uidTokens[0], uidTokens[1], uidTokens[2], uidTokens[3], 
                 		gidTokens[0], gidTokens[1], gidTokens[2], gidTokens[3], 
-                		PROC_INFO_PROCFS);
+                		PROC_INFO_PROCFS, Long.toString(startTime));
                 
                 // newProcess.addAnnotation("starttime_unix", stime);
                 // newProcess.addAnnotation("starttime_simple", stime_readable);
@@ -2045,11 +2094,11 @@ public class Audit extends AbstractReporter {
     	return null;
     }
     
-    private Process pushUnitOnStack(String pid){
+    private Process pushUnitOnStack(String pid, String startTime){
     	if(processUnitStack.get(pid) == null || processUnitStack.get(pid).isEmpty()){ //stack must always contain one element which needs to be the original process
     		return null;
     	}
-    	Process newUnit = createCopyOfProcess(processUnitStack.get(pid).peekFirst()); //first element is always the main process vertex
+    	Process newUnit = createCopyOfProcess(processUnitStack.get(pid).peekFirst(), startTime); //first element is always the main process vertex
     	newUnit.addAnnotation("unit", String.valueOf(getNextUnitNumber(pid)));
     	processUnitStack.get(pid).addLast(newUnit);
     	
@@ -2063,12 +2112,12 @@ public class Audit extends AbstractReporter {
     	return null;
     }
     
-    private Process createCopyOfProcess(Process process){
+    private Process createCopyOfProcess(Process process, String startTime){
     	//passing commandline and cwd as null because we don't want those two fields copied onto units
     	return createProcessVertex(process.getAnnotation("pid"), process.getAnnotation("ppid"), process.getAnnotation("name"), null, null, 
     			process.getAnnotation("uid"), process.getAnnotation("euid"), process.getAnnotation("suid"), process.getAnnotation("fsuid"), 
     			process.getAnnotation("gid"), process.getAnnotation("egid"), process.getAnnotation("sgid"), process.getAnnotation("fsgid"), 
-    			process.getAnnotation(PROC_INFO_SRC_KEY));
+    			process.getAnnotation(PROC_INFO_SRC_KEY), startTime);
     }
       
     //all records of any event are assumed to be placed contiguously in the file
