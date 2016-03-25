@@ -19,7 +19,6 @@
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -334,14 +333,16 @@ public class Prov extends AbstractStorage{
 		return annotationsString.toString();
 	}
 	
+	//code updated to conform with CDM, Kafka storage
 	public String convertUnixTimeToISO8601(String timeAsString){
-		try{
+		return timeAsString;
+		/*try{
 			Date timeAsDateObject = new Date((long)(Double.parseDouble(timeAsString)*1000));
 			return iso8601TimeFormat.format(timeAsDateObject);
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to parse time", e);
 			return "";
-		}		
+		}*/		
 	}
 	
 	private String getNSPrefixForAnnotation(String annotation){
