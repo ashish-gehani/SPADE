@@ -1023,7 +1023,7 @@ public class Audit extends AbstractReporter {
     			//add a process first using the info here and then add the unit
     			Process process = checkProcessVertex(eventData, false, false);
     			addProcess(pid, process);
-    			addedUnit = pushUnitOnStack(pid);
+    			addedUnit = pushUnitOnStack(pid, eventData.get("time"));
     		}
     		putVertex(addedUnit);
     		//add edge between the new unit and the main unit to keep the graph connected
