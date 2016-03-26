@@ -41,7 +41,7 @@ using namespace std;
 namespace {
     Value* GetTid; //the syscall argument for getting a Thread ID is different depending on the operating systems.
 
-    //f- returns the appropriate specifier for printf based on the type of variable being printed
+    // Returns the appropriate specifier for printf based on the type of variable being printed
     static std::string getPrintfCodeFor(const Value *V) {
         if (V == 0) return "";
         if (V->getType()->isFloatingPointTy())
@@ -56,7 +56,7 @@ namespace {
     }
 
   
-    //f- create a global variable for a string and return the pointer  
+    // Creating a Global variable for string 'str', and returning the pointer to the Global  
     static inline GlobalVariable *getStringRef(Module *M, const std::string &str) {
         Constant *Init = ConstantDataArray::getString(M->getContext(), str);
         Twine twine("trstr");
@@ -72,11 +72,15 @@ namespace {
             Instruction *InsertBefore,
             std::string Message,
             Function *SPADEThreadIdFunc,
+            Function * pidFunction,
 	    Function *BufferStrings
-            ) {
+            ){
 
         Module *Mod = BB->getParent()->getParent(); //BasicBlock is a child of Function which is a child of Module
        
+        //Insert Call to getpid function
+        CallInst* pid = CallInst::Create((Value*) pidFunction, Twine("pid"), &(*InsertBefore)); 
+	
         //Insert function to get Thread Identifier
         CallInst* threadHandle = CallInst::Create((Value*) SPADEThreadIdFunc, Twine("ThreadHandle"), &(*InsertBefore)); //gets the fd for the getThreadId SPADE library fn
         threadHandle->setTailCall();
@@ -88,11 +92,10 @@ namespace {
 
         //Arguments for fprintf. socketHandle, Message and Thread ID followed by arguments
         std::vector<Value*> PrintArgs;
-        //-hash- PrintArgs.push_back(socketHandle);
+        
         PrintArgs.push_back(GEP);
         PrintArgs.push_back(threadHandle);
-
-	//q- What bad naming printArgsIn! ?
+	
         for (unsigned i = 0; i < PrintArgsIn.size(); i++) {
             PrintArgs.push_back(PrintArgsIn[i]);
         }
@@ -107,9 +110,11 @@ namespace {
     static inline void FunctionEntry(
             Function &F,
             Function *SPADEThreadIdFunc,
+            Function * pidFunction,
 	    Function *BufferStrings
-            ) {
-	//f- get the first instruction of the first basic block in the function
+            ){
+
+	//Get the first instruction of the first Basic Block in the function
         BasicBlock &BB = F.getEntryBlock();
         Instruction *InsertPos = BB.begin();
 
@@ -154,12 +159,13 @@ namespace {
         }
 
         printString = printString + "\n";
-        InsertPrintInstruction(PrintArgs, &BB, InsertPos, printString, SPADEThreadIdFunc, BufferStrings);
+        InsertPrintInstruction(PrintArgs, &BB, InsertPos, printString, SPADEThreadIdFunc, pidFunction,  BufferStrings);
     }
 
     static inline void FunctionExit(
             BasicBlock *BB,
             Function *SPADEThreadIdFunc,
+            Function * pidFunction,
 	    Function *BufferStrings
             ) {
 
@@ -197,8 +203,9 @@ namespace {
             printString = printString + retName + " =" + getPrintfCodeFor(Ret->getReturnValue());
             PrintArgs.push_back(Ret->getReturnValue());
         }
+
         printString = printString + "\n";
-        InsertPrintInstruction(PrintArgs, BB, Ret, printString, SPADEThreadIdFunc, BufferStrings);
+        InsertPrintInstruction(PrintArgs, BB, Ret, printString, SPADEThreadIdFunc, pidFunction, BufferStrings);
     }
 
    	
@@ -210,6 +217,7 @@ namespace {
         Function* PrintfFunc;
         Function* SPADESocketFunc;
         Function* SPADEThreadIdFunc;
+        Function * pidFunction;
 	Function* BufferStrings;
 	bool monitorMethods;
  	  	
@@ -222,6 +230,10 @@ namespace {
         }
 
         bool doInitialization(Module &M) {
+   
+	    FunctionType * ft = FunctionType::get(Type::getInt32Ty(M.getContext()), false);
+	    pidFunction = Function::Create(ft, GlobalValue::ExternalLinkage, "getpid", &M); 
+
 
 	    std::string fileName = ArgumentsFileName == "" ? "arguments" : ArgumentsFileName.getValue().c_str();	
 	    if (strcmp(fileName.c_str(), "-monitor-all") != 0){
@@ -279,8 +291,10 @@ namespace {
             return false;
         }
 
+
         bool runOnFunction(Function &F) {
             
+	 
 	    if(strcmp(F.getName().str().c_str(), "main") == 0){
 	       
 	       Function * exitingFunction = F.getParent()->getFunction("setAtExit");	 
@@ -295,7 +309,7 @@ namespace {
 	
 		
 	    cout<< "Function name : " << F.getName().str() << "\n";
-	    //-hash- if the function is not supposed to be monitored just return true
+	    // If the function is not supposed to be monitored just return true
 	    if((monitorMethods  &&  methodsToMonitor.find(F.getName().str()) == methodsToMonitor.end()) || strcmp(F.getName().str().c_str(),"bufferString")==0 || strcmp(F.getName().str().c_str(), "flushStrings")==0 || strcmp(F.getName().str().c_str(), "setAtExit")==0 ) {
 	        	return true;
             }     
@@ -304,14 +318,12 @@ namespace {
             std::vector<BasicBlock*> exitBlocks;
 
             //FunctionEntry inserts Provenance instrumentation at the start of every function
-            FunctionEntry(F, SPADEThreadIdFunc, BufferStrings);
-
-
-	    //f- PROVENANCE IMFORMATION would need to be added to each BASiC block that is returning
+            FunctionEntry(F, SPADEThreadIdFunc, pidFunction, BufferStrings);
+    
             //FunctionExit inserts Provenance instrumentation on the end of every function
             for (Function::iterator BB = F.begin(); BB != F.end(); ++BB) {
                 if (isa<ReturnInst > (BB->getTerminator()))
-                    FunctionExit(BB, SPADEThreadIdFunc, BufferStrings);
+		  FunctionExit(BB, SPADEThreadIdFunc, pidFunction, BufferStrings);
             }
             return true;
         }
