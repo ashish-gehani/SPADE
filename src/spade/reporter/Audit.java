@@ -147,7 +147,8 @@ public class Audit extends AbstractReporter {
 
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
-        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID
+        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
+        SEND, RECV
     }
     
     private BufferedWriter dumpWriter = null;
@@ -1880,11 +1881,11 @@ public class Audit extends AbstractReporter {
 					break;
 				case SENDTO:
 				case SENDMSG:
-					returnSyscall = SYSCALL.SENDTO;
+					returnSyscall = SYSCALL.SEND;
 					break;
 				case RECVFROM:
 				case RECVMSG:
-					returnSyscall = SYSCALL.RECVFROM;
+					returnSyscall = SYSCALL.RECV;
 					break;
 				case TRUNCATE:
 				case FTRUNCATE:
