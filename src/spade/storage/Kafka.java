@@ -57,7 +57,6 @@ import com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Edge;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.utility.CommonFunctions;
@@ -180,14 +179,8 @@ public class Kafka extends AbstractStorage {
             String time = edge.getAnnotation("time");
             Long timeLong = parseTimeToLong(time);
             eventBuilder.setTimestampMicros(timeLong);
-//            if (timeLong != null) { // XXX CDM requires timestamp
-//                // XXX CDM expects time as Long, SPADE wiki says it reports in ISO 8601 Z, but we see floats.
-//                eventBuilder.setTimestampMicros(timeLong);
-//            } else {
-//                eventBuilder.setTimestampMicros(0);
-//            }
             Long eventId = parseLong(edge.getAnnotation("event id"));
-            if(eventId == null){ //TO-DO check if this is fine with Dr.Ashish
+            if(eventId == null){ 
             	eventBuilder.setSequence(0); // XXX not provided, but CDM requires it
             }else{
             	eventBuilder.setSequence(eventId);
@@ -214,7 +207,7 @@ public class Kafka extends AbstractStorage {
                     eventBuilder.setType(EventType.EVENT_FORK);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
                 } else if (operation.equals("clone")) {                             // XXX CDM doesn't support this
-                	eventBuilder.setType(EventType.EVENT_CLONE); //TO-DO will be fine when added
+                	eventBuilder.setType(EventType.EVENT_CLONE); 
                 	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
 //                    logger.log(Level.WARNING,
 //                            "TC CDM does not support WasTriggeredBy/WasInformed operation: {0}", operation);
@@ -229,7 +222,7 @@ public class Kafka extends AbstractStorage {
                      * Perhaps a new HasLocalPrincipal edge? But that doesn't seem right.
                      */
                 } else if (operation.equals("unit")) {   
-                	eventBuilder.setType(EventType.EVENT_UNIT); //TO-DO will be fine when added
+                	eventBuilder.setType(EventType.EVENT_UNIT);
                 	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;// XXX CDM doesn't support this
 //                    logger.log(Level.WARNING,
 //                            "TC CDM does not support WasTriggeredBy/WasInformed operation: {0}", operation);
@@ -367,6 +360,7 @@ public class Kafka extends AbstractStorage {
                 affectsEdgeBuilder.setFromUuid(edge.getDestinationVertex().hashCode()); // UID of Object being affecting
                 affectsEdgeBuilder.setToUuid(edge.hashCode()); // Event record's UID
                 affectsEdgeBuilder.setType(EdgeType.EDGE_EVENT_AFFECTS_FILE); // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
+                affectsEdgeBuilder.setTimestamp(timeLong);//TODO this wasn't here before. added. right?
                 affectsEdge = affectsEdgeBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
                 
@@ -423,7 +417,7 @@ public class Kafka extends AbstractStorage {
     		return Long.parseLong(str);
     	}catch(Exception e){
     		logger.log(Level.WARNING,
-                    "Value passed isn't a long value {0}", str);
+                    "Value passed isn't LONG: {0}", str);
     		return null;
     	}
     }
@@ -435,7 +429,7 @@ public class Kafka extends AbstractStorage {
     		return f.longValue();
     	}catch(Exception e){
     		logger.log(Level.WARNING,
-                    "Time type is not long {0}", time);
+                    "Time type is not FLOAT: {0}", time);
     		return 0;
     	}
     }
@@ -517,10 +511,10 @@ public class Kafka extends AbstractStorage {
         	principalBuilder.setUuid(principalVertex.hashCode());
             principalBuilder.setUserId(Integer.parseInt(principalVertex.getAnnotation("uid")));
             Map<String, String> properties = new HashMap<String, String>();
+            properties.put("egid", principalVertex.getAnnotation("egid"));
             properties.put("euid", principalVertex.getAnnotation("euid"));
             List<Integer> groupIds = new ArrayList<Integer>();
             groupIds.add(Integer.parseInt(principalVertex.getAnnotation("gid")));
-            groupIds.add(Integer.parseInt(principalVertex.getAnnotation("egid")));
             principalBuilder.setGroupIds(groupIds);
             principalBuilder.setProperties(properties);
             principalBuilder.setType(PrincipalType.PRINCIPAL_LOCAL);
@@ -549,14 +543,13 @@ public class Kafka extends AbstractStorage {
 
     private List<TCCDMDatum> mapArtifact(AbstractVertex vertex) {
         List<TCCDMDatum> tccdmDatums = new LinkedList<>();
-        InstrumentationSource entitySource = getInstrumentationSource(vertex.getAnnotation("source"));
-        if(entitySource == null){
-        	logger.log(Level.WARNING,
-                    "Unexpected Entity source: {0}", entitySource);
-        }
+        InstrumentationSource activitySource = getInstrumentationSource(vertex.getAnnotation("source"));
         Builder baseObjectBuilder = AbstractObject.newBuilder();
-        if(entitySource != null){
-        	baseObjectBuilder.setSource(entitySource);
+        if(activitySource == null){
+        	logger.log(Level.WARNING,
+                    "Unexpected Entity source: {0}", activitySource);
+        }else{
+        	baseObjectBuilder.setSource(activitySource);
         }
         AbstractObject baseObject = baseObjectBuilder.build();
         String entityType = vertex.getAnnotation("subtype");
@@ -602,26 +595,28 @@ public class Kafka extends AbstractStorage {
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("pipe")) {                             // XXX CDM doesn't support this
-        	FileObject.Builder pipeBuilder = FileObject.newBuilder(); //TO-DO change this to PipeObject that would be added later on
+        } else if (entityType.equals("pipe")) {                            
+        	FileObject.Builder pipeBuilder = FileObject.newBuilder();
         	pipeBuilder.setUuid(vertex.hashCode());
         	pipeBuilder.setBaseObject(baseObject);
-            pipeBuilder.setUrl("pipe://" + vertex.getAnnotation("path")); // ask dr. Ashish
+            pipeBuilder.setUrl("file://" + vertex.getAnnotation("path")); 
             pipeBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
             pipeBuilder.setIsPipe(true);
             FileObject pipeObject = pipeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(pipeObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("unknown")) { //TO-DO change this to the appropriate UnknownObject that would be added later on
+        } else if (entityType.equals("unknown")) {
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
         	Map<String, String> properties = new HashMap<String, String>();
-        	properties.put("path", "unknown://"+vertex.getAnnotation("path"));
+        	String pathTokens[] = vertex.getAnnotation("path").split("/");
+        	String pid = pathTokens[1];
+        	String fd = pathTokens[3];
+        	properties.put("pid", pid);
+        	properties.put("fd", fd);
         	properties.put("version", vertex.getAnnotation("version"));
         	baseObject.setProperties(properties);
         	unknownBuilder.setBaseObject(baseObject);
             unknownBuilder.setUuid(vertex.hashCode());
-            //unknownBuilder.setUrl("unknown://" + vertex.getAnnotation("path")); //ask dr. ashish
-            //unknownBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version"))); dr.ashish losing this information
             SrcSinkObject unknownObject = unknownBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(unknownObject).build());
             return tccdmDatums;	
