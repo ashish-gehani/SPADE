@@ -102,23 +102,34 @@ public class Kafka extends AbstractStorage{
 	}
 	@Override
 	public boolean putVertex(AbstractVertex vertex){
-		List<GenericContainer> data = new ArrayList<GenericContainer>();
-		SpadeObject o = new SpadeObject();
-		o.setAnnotations(vertex.getAnnotations());
-		data.add(o);
-		return publishRecords(data) > 0;		
+		try{
+			List<GenericContainer> data = new ArrayList<GenericContainer>();
+			SpadeObject o = new SpadeObject();
+			o.setAnnotations(vertex.getAnnotations());
+			o.setHash(String.valueOf(vertex.hashCode()));
+			data.add(o);
+			return publishRecords(data) > 0;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to publish vertex : " + vertex);
+			return false;
+		}
 	}
 	
 	@Override
 	public boolean putEdge(AbstractEdge edge){
-		List<GenericContainer> data = new ArrayList<GenericContainer>();
-		SpadeObject o = new SpadeObject();
-		o.setAnnotations(edge.getAnnotations());
-		o.setSourceVertexHash(String.valueOf(edge.getSourceVertex().hashCode()));
-		o.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
-		o.setHash(String.valueOf(edge.hashCode()));
-		data.add(o);
-		return publishRecords(data) > 0;	
+		try{
+			List<GenericContainer> data = new ArrayList<GenericContainer>();
+			SpadeObject o = new SpadeObject();
+			o.setAnnotations(edge.getAnnotations());
+			o.setSourceVertexHash(String.valueOf(edge.getSourceVertex().hashCode()));
+			o.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
+			o.setHash(String.valueOf(edge.hashCode()));
+			data.add(o);
+			return publishRecords(data) > 0;	
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to publish edge : " + edge);
+			return false;
+		}
 	}
 	
 	//function to call to save data to the storage

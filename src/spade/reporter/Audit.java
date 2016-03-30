@@ -405,7 +405,7 @@ public class Audit extends AbstractReporter {
 
 	private Map<String, ArtifactInfo> getFileDescriptors(String pid){
     	
-		if(auditLogThread == null){ //i.e. the audit log is being read from a file. 
+		if(auditLogThread != null){ //i.e. the audit log is being read from a file. 
 			return null;
 		}
 		
