@@ -77,14 +77,14 @@ public class SQL extends AbstractStorage {
             // Create vertex table if it does not already exist
             String createVertexTable = "CREATE TABLE IF NOT EXISTS "
                     + VERTEX_TABLE
-                    + " (vertexId INT PRIMARY KEY AUTO_INCREMENT, "
+                    + " (" + ID_STRING + " INT PRIMARY KEY AUTO_INCREMENT, "
                     + "type VARCHAR(32) NOT NULL, "
                     + "hash INT NOT NULL"
                     + ")";
             dbStatement.execute(createVertexTable);
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
                     + EDGE_TABLE
-                    + " (edgeId INT PRIMARY KEY AUTO_INCREMENT, "
+                    + " (" + ID_STRING + " INT PRIMARY KEY AUTO_INCREMENT, "
                     + "type VARCHAR(32) NOT NULL ,"
                     + "hash INT NOT NULL, "
                     + "srcVertexHash INT NOT NULL, "
@@ -336,7 +336,7 @@ public class SQL extends AbstractStorage {
         // Get the source vertex
         try {
             dbConnection.commit();
-            String query = "SELECT * FROM VERTEX WHERE vertexId = " + vertexId;
+            String query = "SELECT * FROM VERTEX WHERE " + ID_STRING + " = " + vertexId;
             Statement vertexStatement = dbConnection.createStatement();
             ResultSet result = vertexStatement.executeQuery(query);
             ResultSetMetaData metadata = result.getMetaData();
@@ -447,7 +447,7 @@ public class SQL extends AbstractStorage {
                                 edge.addAnnotation(edgeColumnLabels.get(i), result.getString(i));
                             }
                         }
-                        putEdge(edge);
+                        graph.putEdge(edge);
                     }
                 } catch (Exception ex) {
                     Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);

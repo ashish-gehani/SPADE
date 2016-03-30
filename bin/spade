@@ -39,7 +39,7 @@ FORMATTER="-Djava.util.logging.SimpleFormatter.format=%1\$tY-%1\$tm-%1\$td %1\$t
 CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 JAVALIBPATH="$SPADE_ROOT/lib/"
 JVMARGS="-server -Xms128M -Xmx512M"
-JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
+JVMARGSDEBUG="-server -Xms128M -Xmx128M -XX:+UseConcMarkSweepGC"
 
 pushd "${SPADE_ROOT}" > /dev/null
 
