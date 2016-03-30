@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2015 SRI International
+ Copyright (C) 2016 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -31,17 +31,19 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.Iterator;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
+import spade.core.Edge;
 
 /**
  * Basic SQL storage implementation.
  *
- * @author Dawood Tariq
+ * @author Dawood Tariq and Hasanat Kazmi
  */
 public class SQL extends AbstractStorage {
 
@@ -315,6 +317,59 @@ public class SQL extends AbstractStorage {
 
             graph.commitIndex();
             return graph;
+        } catch (Exception ex) {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
+    }
+
+    @Override
+    public Graph getEdges(int srcVertexId, int dstVertexId) {
+        try {
+
+            dbConnection.commit();
+            Graph resultGraph = new Graph();
+
+            Graph srcVertexGraph = getVertices(ID_STRING + ":" + srcVertexId);
+            Graph dstVertexGraph = getVertices(ID_STRING + ":" + dstVertexId);
+
+            Iterator<AbstractVertex> iterator = srcVertexGraph.vertexSet().iterator();
+            iterator = dstVertexGraph.vertexSet().iterator();
+            AbstractVertex srcVertex = iterator.next();
+            AbstractVertex dstVertex = iterator.next();
+
+            resultGraph.putVertex(srcVertex);
+            resultGraph.putVertex(dstVertex);
+
+            String query = "SELECT * FROM EDGE WHERE srcVertexHash = " + srcVertex.getAnnotation("hash") + " AND dstVertexHash = " + dstVertex.getAnnotation("hash");
+            Statement vertexStatement = dbConnection.createStatement();
+            ResultSet result = vertexStatement.executeQuery(query);
+            ResultSetMetaData metadata = result.getMetaData();
+            int columnCount = metadata.getColumnCount();
+
+            Map<Integer, String> columnLabels = new HashMap<>();
+            for (int i = 1; i <= columnCount; i++) {
+                columnLabels.put(i, metadata.getColumnName(i));
+            }
+
+            while (result.next()) {
+                AbstractEdge edge = new Edge(srcVertex, dstVertex);
+                edge.removeAnnotation("type");
+                for (int i=0; i< columnLabels.size(); i++) {
+                    String colName = columnLabels.get(i);
+                    if (colName != null) {
+                        if (colName.equals(ID_STRING) || colName.equals("hash") || colName.equals("srcVertexHash") || colName.equals("dstVertexHash")) {
+                            edge.addAnnotation(colName, Integer.toString(result.getInt(i)));
+                        } else {
+                            edge.addAnnotation(colName, result.getString(i));
+                        }
+                    }
+                }
+                resultGraph.putEdge(edge);
+            }
+
+            resultGraph.commitIndex();
+            return resultGraph;
         } catch (Exception ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return null;
