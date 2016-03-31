@@ -457,9 +457,62 @@ public class SQL extends AbstractStorage {
         return toReturn;
     }
 
+    private Set<Graph> getPathsStep(int srcVertexId, int dstVertexId, int maxLength, Graph currentPath, Set<String> visitedNodesHashes) {
+
+        if (visitedNodesHashes.contains(srcVertexId) || maxLength == -1) {
+            return null;
+        }
+
+        visitedNodesHashes.add(srcVertexId+"");
+
+        if ((srcVertexId+"").equals(dstVertexId+"")) {
+            Set<Graph> currentPathSet = new HashSet<>();
+            currentPathSet.add(currentPath);
+            return currentPathSet;
+        }
+
+        Graph srcVertexGraph = getVertices(ID_STRING + ":" + srcVertexId);
+        Iterator<AbstractVertex> iterator = srcVertexGraph.vertexSet().iterator();
+        AbstractVertex srcVertex = iterator.next();
+       
+        Graph localsubgraph = getLineage(srcVertexId, 1, "d", null);
+
+        Set<Graph> toReturn = new HashSet<>();
+        for (AbstractVertex dstVertex : localsubgraph.vertexSet()) {
+            Graph pathCopy = Graph.union(currentPath, new Graph());
+
+            for (AbstractVertex vertexToPut : localsubgraph.vertexSet() ) {
+                if (vertexToPut.getAnnotation(ID_STRING).equals(dstVertex.getAnnotation(ID_STRING))) {
+                    pathCopy.putVertex(vertexToPut);
+                    break;
+                }
+            }
+
+            for (AbstractEdge edgeToPut : localsubgraph.edgeSet() ) {
+                if (edgeToPut.getSourceVertex().equals(srcVertex) && edgeToPut.getDestinationVertex().equals(dstVertex)) {
+                    pathCopy.putEdge(edgeToPut);
+                    break;
+                }
+            }
+
+            Set<Graph> candidatePaths = getPathsStep(Integer.parseInt( dstVertex.getAnnotation(ID_STRING) ), dstVertexId, maxLength-1, pathCopy, visitedNodesHashes);
+            if (candidatePaths!=null) {
+                toReturn.addAll(candidatePaths);
+            }
+        }
+
+        return toReturn;
+    }
+
     @Override
-    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
-        throw new UnsupportedOperationException("Unsupported operation.");
+    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) { 
+        Set<String> visitedNodesHashes = new HashSet<>();
+        Set<Graph> allPaths = getPathsStep(srcVertexId, dstVertexId, maxLength, new Graph(), visitedNodesHashes);
+        Graph toReturn = new Graph();
+        for (Graph path: allPaths) {
+            toReturn = Graph.union(toReturn, path);
+        }
+        return toReturn;
     }
 
     @Override
