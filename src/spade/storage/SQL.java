@@ -420,6 +420,8 @@ public class SQL extends AbstractStorage {
         // TODO: implement terminatingExpression
         
         Set<String> srcVertexHashes = new HashSet<>();
+        Set<String> visitedNodesHashes = new HashSet<>();
+
         Graph vertexGraph = getVertices(ID_STRING + ":" + vertexId);
         Iterator<AbstractVertex> iterator = vertexGraph.vertexSet().iterator();
         AbstractVertex vertex = iterator.next();
@@ -430,6 +432,9 @@ public class SQL extends AbstractStorage {
 
         for (int iter=0; iter < depth; iter++) {
             for (String srcVertexHash: srcVertexHashes) {
+                if (visitedNodesHashes.contains(srcVertexHash)) {
+                    continue;
+                }
                 Set<String> dstVertexHashes = getNeighbourVertexIdes(srcVertexHash, direction);
                 for (String dstVertexHash : dstVertexHashes) {
                     Graph neighbour;
@@ -444,11 +449,31 @@ public class SQL extends AbstractStorage {
                     toReturn = Graph.union(toReturn, neighbour);
                 }
                 srcVertexHashes = dstVertexHashes;
+                visitedNodesHashes.addAll(srcVertexHashes);
             }
         }
 
         toReturn.commitIndex();
         return toReturn;
+    }
+
+    @Override
+    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
+        throw new UnsupportedOperationException("Unsupported operation.");
+    }
+
+    @Override
+    public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
+
+        Graph srcVertexGraph = getVertices(srcVertexExpression);
+        Iterator<AbstractVertex> iterator = srcVertexGraph.vertexSet().iterator();
+        AbstractVertex srcVertex = iterator.next();
+
+        Graph dstVertexGraph = getVertices(dstVertexExpression);
+        iterator = dstVertexGraph.vertexSet().iterator();
+        AbstractVertex dstVertex = iterator.next();
+        
+        return getPaths(srcVertex.getAnnotation(ID_STRING), dstVertex.getAnnotation(ID_STRING), maxLength);
     }
 
     private AbstractVertex getVertexFromHash(int hash, int columnCount, Map<Integer, String> columnLabels) {
