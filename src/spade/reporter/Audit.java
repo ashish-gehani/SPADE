@@ -54,6 +54,7 @@ import spade.reporter.audit.SocketInfo;
 import spade.reporter.audit.UnixSocketInfo;
 import spade.reporter.audit.UnknownInfo;
 import spade.utility.CommandUtility;
+import spade.utility.CommonFunctions;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -148,7 +149,8 @@ public class Audit extends AbstractReporter {
 
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
-        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID
+        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
+	SEND, RECV
     }
     
     private BufferedWriter dumpWriter = null;
@@ -404,6 +406,10 @@ public class Audit extends AbstractReporter {
     }
 
 	private Map<String, ArtifactInfo> getFileDescriptors(String pid){
+		
+		if(auditLogThread != null){ //i.e. the audit log is being read from a file.
+			return null;
+		}
     	
     	Map<String, ArtifactInfo> fds = new HashMap<String, ArtifactInfo>();
     	
@@ -608,9 +614,10 @@ public class Audit extends AbstractReporter {
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
             // TODO: Update the calls to make them linux specific.
 
-            
-            Map<String, String> eventData = eventBuffer.get(eventId);
-            int syscall = Integer.parseInt(eventData.get("syscall"));
+		int NO_SYSCALL = -1;
+		
+		Map<String, String> eventData = eventBuffer.get(eventId);
+		Integer syscall = CommonFunctions.parseInt(eventData.get("syscall"), NO_SYSCALL);
             
             if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 129){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
             	eventBuffer.remove(eventId);
@@ -723,6 +730,11 @@ public class Audit extends AbstractReporter {
                 	processKill(eventData);
                 	break;
                 default:
+                	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
+	               		logger.log(Level.WARNING, "Unsupported audit event type with eventid '" + eventId + "'");
+                	}else{ //did contain syscall but we are not handling it yet
+                		logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
+                	}
                     break;
             }
             eventBuffer.remove(eventId);
@@ -880,8 +892,9 @@ public class Audit extends AbstractReporter {
             // System call numbers are derived from:
             // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
+            int NO_SYSCALL = -1;
             Map<String, String> eventData = eventBuffer.get(eventId);
-            int syscall = Integer.parseInt(eventData.get("syscall"));
+            Integer syscall = CommonFunctions.parseInt(eventData.get("syscall"), NO_SYSCALL);
 
             if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 62){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
             	eventBuffer.remove(eventId);
@@ -997,6 +1010,11 @@ public class Audit extends AbstractReporter {
                 	processKill(eventData);
                 	break;
                 default:
+                	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
+                		logger.log(Level.WARNING, "Unsupported audit event type with eventid '" + eventId + "'");
+                	}else{ //did contain syscall but we are not handling it yet
+                		logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
+	               	}
                     break;
             }
             eventBuffer.remove(eventId);
@@ -1888,11 +1906,11 @@ public class Audit extends AbstractReporter {
 					break;
 				case SENDTO:
 				case SENDMSG:
-					returnSyscall = SYSCALL.SENDTO;
+					returnSyscall = SYSCALL.SEND;
 					break;
 				case RECVFROM:
 				case RECVMSG:
-					returnSyscall = SYSCALL.RECVFROM;
+					returnSyscall = SYSCALL.RECV;
 					break;
 				case TRUNCATE:
 				case FTRUNCATE:
