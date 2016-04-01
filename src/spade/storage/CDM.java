@@ -49,6 +49,7 @@ import com.bbn.tc.schema.avro.TCCDMDatum;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Vertex;
+import spade.utility.CommonFunctions;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -159,11 +160,14 @@ public class CDM extends Kafka {
             	eventBuilder.setSource(edgeSource);
             }
             
+            String pid = null;
+            
             Map<String, String> properties = new HashMap<>();
             properties.put("eventId", edge.getAnnotation("event id"));
             String edgeType = edge.type();
             String operation = edge.getAnnotation("operation");
             if (edgeType.equals("WasTriggeredBy")) {
+            	pid = edge.getDestinationVertex().getAnnotation("pid");
                 if (operation == null) {
                     logger.log(Level.WARNING,
                             "NULL WasTriggeredBy/WasInformedBy operation!");
@@ -198,6 +202,7 @@ public class CDM extends Kafka {
                     return false;
                 }
             } else if (edgeType.equals("WasGeneratedBy")) {
+            	pid = edge.getDestinationVertex().getAnnotation("pid");
                 if (operation == null) {
                     logger.log(Level.WARNING,
                             "NULL WasGeneratedBy operation!");
@@ -241,6 +246,7 @@ public class CDM extends Kafka {
                     return false;
                 }
             } else if (edgeType.equals("Used")) {
+            	pid = edge.getSourceVertex().getAnnotation("pid");
                 if (operation == null) {
                     logger.log(Level.WARNING,
                             "NULL Used operation!");
@@ -276,6 +282,7 @@ public class CDM extends Kafka {
                     return false;
                 }
             } else if (edgeType.equals("WasDerivedFrom")) {
+            	pid = edge.getAnnotation("pid");
                 // XXX No Subject provided for EVENT_ISGENERATEDBY_SUBJECT edge
                 if (operation == null) {
                     logger.log(Level.WARNING,
@@ -305,6 +312,7 @@ public class CDM extends Kafka {
                 logger.log(Level.WARNING, "Unexpected edge type: {0}", edgeType);
                 return false;
             }
+            eventBuilder.setThreadId(CommonFunctions.parseInt(pid, -1));
             eventBuilder.setProperties(properties);
             Event event = eventBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(event).build());
