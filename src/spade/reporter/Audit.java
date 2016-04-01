@@ -1787,7 +1787,7 @@ public class Audit extends AbstractReporter {
         	}else{ //greater or equal
         		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
         		networkLocationToBytesWrittenMap.put(artifactInfo, 0L);
-        		socketWriteVersions.put(artifactInfo, socketWriteVersions.get(artifactInfo) + 1);
+        		getVersion(socketWriteVersions, artifactInfo, true);
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
@@ -1833,7 +1833,7 @@ public class Audit extends AbstractReporter {
         	}else{ //greater or equal
         		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
         		networkLocationToBytesReadMap.put(artifactInfo, 0L);
-        		socketReadVersions.put(artifactInfo, socketReadVersions.get(artifactInfo) + 1);
+        		getVersion(socketReadVersions, artifactInfo, true);
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
