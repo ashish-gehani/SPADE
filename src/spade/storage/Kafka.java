@@ -78,7 +78,7 @@ public class Kafka extends AbstractStorage{
             String kafkaServer = null, kafkaProducerID = null, schemaFilename = null;
             
             if (argumentPairs.containsKey("KafkaServer") && !argumentPairs.get("KafkaServer").isEmpty()) {
-                kafkaServer = argumentPairs.get("kafkaServer");
+                kafkaServer = argumentPairs.get("KafkaServer");
             }
             if (argumentPairs.containsKey("KafkaTopic") && !argumentPairs.get("KafkaTopic").isEmpty()) {
                 kafkaTopic = argumentPairs.get("KafkaTopic");
