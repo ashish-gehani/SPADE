@@ -41,7 +41,9 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
-import spade.storage.kafka.SpadeObject;
+import spade.storage.kafka.Edge;
+import spade.storage.kafka.GraphElement;
+import spade.storage.kafka.Vertex;
 import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
 
@@ -58,7 +60,7 @@ public class Kafka extends AbstractStorage{
     private String kafkaTopic = null;
     
     private String defaultConfigFile = Settings.getDefaultConfigFilePath(Kafka.class);
-	
+  	
 	@Override
 	public boolean initialize(String arguments) {
 		try {
@@ -112,10 +114,11 @@ public class Kafka extends AbstractStorage{
 	public boolean putVertex(AbstractVertex vertex){
 		try{
 			List<GenericContainer> data = new ArrayList<GenericContainer>();
-			SpadeObject o = new SpadeObject();
-			o.setAnnotations(vertex.getAnnotations());
-			o.setHash(String.valueOf(vertex.hashCode()));
-			data.add(o);
+			Vertex.Builder vertexBuilder = Vertex.newBuilder();
+			vertexBuilder.setAnnotations(vertex.getAnnotations());
+			vertexBuilder.setHash(String.valueOf(vertex.hashCode()));
+			Vertex kafkaVertex = vertexBuilder.build();
+			data.add(GraphElement.newBuilder().setElement(kafkaVertex).build());
 			return publishRecords(kafkaTopic, data) > 0;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish vertex : " + vertex);
@@ -127,12 +130,13 @@ public class Kafka extends AbstractStorage{
 	public boolean putEdge(AbstractEdge edge){
 		try{
 			List<GenericContainer> data = new ArrayList<GenericContainer>();
-			SpadeObject o = new SpadeObject();
-			o.setAnnotations(edge.getAnnotations());
-			o.setSourceVertexHash(String.valueOf(edge.getSourceVertex().hashCode()));
-			o.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
-			o.setHash(String.valueOf(edge.hashCode()));
-			data.add(o);
+			Edge.Builder edgeBuilder = Edge.newBuilder();
+			edgeBuilder.setAnnotations(edge.getAnnotations());
+			edgeBuilder.setSourceVertexHash(String.valueOf(edge.getSourceVertex().hashCode()));
+			edgeBuilder.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
+			edgeBuilder.setHash(String.valueOf(edge.hashCode()));
+			Edge kafkaEdge = edgeBuilder.build();
+			data.add(GraphElement.newBuilder().setElement(kafkaEdge).build());
 			return publishRecords(kafkaTopic, data) > 0;	
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish edge : " + edge);

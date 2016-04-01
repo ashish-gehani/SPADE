@@ -5,10 +5,9 @@
  */
 package spade.storage.kafka;  
 @SuppressWarnings("all")
-/** A generic object which can be either a vertex or an edge */
 @org.apache.avro.specific.AvroGenerated
-public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"SpadeObject\",\"namespace\":\"spade.storage.kafka\",\"doc\":\"A generic object which can be either a vertex or an edge\",\"fields\":[{\"name\":\"annotations\",\"type\":[\"null\",{\"type\":\"map\",\"values\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"avro.java.string\":\"String\"}]},{\"name\":\"sourceVertexHash\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"destinationVertexHash\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"hash\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}}]}");
+public class Edge extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Edge\",\"namespace\":\"spade.storage.kafka\",\"fields\":[{\"name\":\"annotations\",\"type\":[\"null\",{\"type\":\"map\",\"values\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"avro.java.string\":\"String\"}]},{\"name\":\"sourceVertexHash\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"destinationVertexHash\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"hash\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
   @Deprecated public java.util.Map<java.lang.String,java.lang.String> annotations;
   @Deprecated public java.lang.String sourceVertexHash;
@@ -20,12 +19,12 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
    * to their default values from the schema.  If that is desired then
    * one should use <code>newBuilder()</code>. 
    */
-  public SpadeObject() {}
+  public Edge() {}
 
   /**
    * All-args constructor.
    */
-  public SpadeObject(java.util.Map<java.lang.String,java.lang.String> annotations, java.lang.String sourceVertexHash, java.lang.String destinationVertexHash, java.lang.String hash) {
+  public Edge(java.util.Map<java.lang.String,java.lang.String> annotations, java.lang.String sourceVertexHash, java.lang.String destinationVertexHash, java.lang.String hash) {
     this.annotations = annotations;
     this.sourceVertexHash = sourceVertexHash;
     this.destinationVertexHash = destinationVertexHash;
@@ -115,26 +114,26 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     this.hash = value;
   }
 
-  /** Creates a new SpadeObject RecordBuilder */
-  public static spade.storage.kafka.SpadeObject.Builder newBuilder() {
-    return new spade.storage.kafka.SpadeObject.Builder();
+  /** Creates a new Edge RecordBuilder */
+  public static spade.storage.kafka.Edge.Builder newBuilder() {
+    return new spade.storage.kafka.Edge.Builder();
   }
   
-  /** Creates a new SpadeObject RecordBuilder by copying an existing Builder */
-  public static spade.storage.kafka.SpadeObject.Builder newBuilder(spade.storage.kafka.SpadeObject.Builder other) {
-    return new spade.storage.kafka.SpadeObject.Builder(other);
+  /** Creates a new Edge RecordBuilder by copying an existing Builder */
+  public static spade.storage.kafka.Edge.Builder newBuilder(spade.storage.kafka.Edge.Builder other) {
+    return new spade.storage.kafka.Edge.Builder(other);
   }
   
-  /** Creates a new SpadeObject RecordBuilder by copying an existing SpadeObject instance */
-  public static spade.storage.kafka.SpadeObject.Builder newBuilder(spade.storage.kafka.SpadeObject other) {
-    return new spade.storage.kafka.SpadeObject.Builder(other);
+  /** Creates a new Edge RecordBuilder by copying an existing Edge instance */
+  public static spade.storage.kafka.Edge.Builder newBuilder(spade.storage.kafka.Edge other) {
+    return new spade.storage.kafka.Edge.Builder(other);
   }
   
   /**
-   * RecordBuilder for SpadeObject instances.
+   * RecordBuilder for Edge instances.
    */
-  public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<SpadeObject>
-    implements org.apache.avro.data.RecordBuilder<SpadeObject> {
+  public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<Edge>
+    implements org.apache.avro.data.RecordBuilder<Edge> {
 
     private java.util.Map<java.lang.String,java.lang.String> annotations;
     private java.lang.String sourceVertexHash;
@@ -143,11 +142,11 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
 
     /** Creates a new Builder */
     private Builder() {
-      super(spade.storage.kafka.SpadeObject.SCHEMA$);
+      super(spade.storage.kafka.Edge.SCHEMA$);
     }
     
     /** Creates a Builder by copying an existing Builder */
-    private Builder(spade.storage.kafka.SpadeObject.Builder other) {
+    private Builder(spade.storage.kafka.Edge.Builder other) {
       super(other);
       if (isValidValue(fields()[0], other.annotations)) {
         this.annotations = data().deepCopy(fields()[0].schema(), other.annotations);
@@ -167,9 +166,9 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
       }
     }
     
-    /** Creates a Builder by copying an existing SpadeObject instance */
-    private Builder(spade.storage.kafka.SpadeObject other) {
-            super(spade.storage.kafka.SpadeObject.SCHEMA$);
+    /** Creates a Builder by copying an existing Edge instance */
+    private Builder(spade.storage.kafka.Edge other) {
+            super(spade.storage.kafka.Edge.SCHEMA$);
       if (isValidValue(fields()[0], other.annotations)) {
         this.annotations = data().deepCopy(fields()[0].schema(), other.annotations);
         fieldSetFlags()[0] = true;
@@ -194,7 +193,7 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'annotations' field */
-    public spade.storage.kafka.SpadeObject.Builder setAnnotations(java.util.Map<java.lang.String,java.lang.String> value) {
+    public spade.storage.kafka.Edge.Builder setAnnotations(java.util.Map<java.lang.String,java.lang.String> value) {
       validate(fields()[0], value);
       this.annotations = value;
       fieldSetFlags()[0] = true;
@@ -207,7 +206,7 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'annotations' field */
-    public spade.storage.kafka.SpadeObject.Builder clearAnnotations() {
+    public spade.storage.kafka.Edge.Builder clearAnnotations() {
       annotations = null;
       fieldSetFlags()[0] = false;
       return this;
@@ -219,7 +218,7 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'sourceVertexHash' field */
-    public spade.storage.kafka.SpadeObject.Builder setSourceVertexHash(java.lang.String value) {
+    public spade.storage.kafka.Edge.Builder setSourceVertexHash(java.lang.String value) {
       validate(fields()[1], value);
       this.sourceVertexHash = value;
       fieldSetFlags()[1] = true;
@@ -232,7 +231,7 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'sourceVertexHash' field */
-    public spade.storage.kafka.SpadeObject.Builder clearSourceVertexHash() {
+    public spade.storage.kafka.Edge.Builder clearSourceVertexHash() {
       sourceVertexHash = null;
       fieldSetFlags()[1] = false;
       return this;
@@ -244,7 +243,7 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'destinationVertexHash' field */
-    public spade.storage.kafka.SpadeObject.Builder setDestinationVertexHash(java.lang.String value) {
+    public spade.storage.kafka.Edge.Builder setDestinationVertexHash(java.lang.String value) {
       validate(fields()[2], value);
       this.destinationVertexHash = value;
       fieldSetFlags()[2] = true;
@@ -257,7 +256,7 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'destinationVertexHash' field */
-    public spade.storage.kafka.SpadeObject.Builder clearDestinationVertexHash() {
+    public spade.storage.kafka.Edge.Builder clearDestinationVertexHash() {
       destinationVertexHash = null;
       fieldSetFlags()[2] = false;
       return this;
@@ -269,7 +268,7 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'hash' field */
-    public spade.storage.kafka.SpadeObject.Builder setHash(java.lang.String value) {
+    public spade.storage.kafka.Edge.Builder setHash(java.lang.String value) {
       validate(fields()[3], value);
       this.hash = value;
       fieldSetFlags()[3] = true;
@@ -282,16 +281,16 @@ public class SpadeObject extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'hash' field */
-    public spade.storage.kafka.SpadeObject.Builder clearHash() {
+    public spade.storage.kafka.Edge.Builder clearHash() {
       hash = null;
       fieldSetFlags()[3] = false;
       return this;
     }
 
     @Override
-    public SpadeObject build() {
+    public Edge build() {
       try {
-        SpadeObject record = new SpadeObject();
+        Edge record = new Edge();
         record.annotations = fieldSetFlags()[0] ? this.annotations : (java.util.Map<java.lang.String,java.lang.String>) defaultValue(fields()[0]);
         record.sourceVertexHash = fieldSetFlags()[1] ? this.sourceVertexHash : (java.lang.String) defaultValue(fields()[1]);
         record.destinationVertexHash = fieldSetFlags()[2] ? this.destinationVertexHash : (java.lang.String) defaultValue(fields()[2]);
