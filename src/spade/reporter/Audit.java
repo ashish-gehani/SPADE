@@ -54,7 +54,6 @@ import spade.reporter.audit.SocketInfo;
 import spade.reporter.audit.UnixSocketInfo;
 import spade.reporter.audit.UnknownInfo;
 import spade.utility.CommandUtility;
-import spade.utility.CommonFunctions;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -137,9 +136,10 @@ public class Audit extends AbstractReporter {
     
     //  Added to indicate in the output from where the process info was read. Either from 
     //  1) procfs or directly from 2) audit log. 
-    private static final String PROC_INFO_SRC_KEY = "source",
-            PROC_INFO_PROCFS = "/proc",
-            PROC_INFO_AUDIT = "/dev/audit";
+    private static final String SOURCE = "source",
+            PROC_FS = "/proc",
+            DEV_AUDIT = "/dev/audit",
+            BEEP = "beep";
     
 //    private String lastEventId = null;
     private Thread auditLogThread = null;
@@ -148,8 +148,7 @@ public class Audit extends AbstractReporter {
 
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
-        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-        SEND, RECV
+        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID
     }
     
     private BufferedWriter dumpWriter = null;
@@ -159,7 +158,7 @@ public class Audit extends AbstractReporter {
         
     private Map<String, BigInteger> pidToMemAddress = new HashMap<String, BigInteger>(); 
     
-    private final static String EVENTID_ANNOTATION_KEY = "event id";
+    private final static String EVENT_ID = "event id";
     
     private boolean SIMPLIFY = true;
         
@@ -307,6 +306,7 @@ public class Audit extends AbstractReporter {
 	                    putVertex(processVertex);
 	                    if (parentVertex != null) {
 	                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
+	                        wtb.addAnnotation(SOURCE, PROC_FS);
 	                        putEdge(wtb);
 	                    }
 	
@@ -405,10 +405,6 @@ public class Audit extends AbstractReporter {
 
 	private Map<String, ArtifactInfo> getFileDescriptors(String pid){
     	
-		if(auditLogThread != null){ //i.e. the audit log is being read from a file. 
-			return null;
-		}
-		
     	Map<String, ArtifactInfo> fds = new HashMap<String, ArtifactInfo>();
     	
     	Map<String, String> inodefd0 = new HashMap<String, String>();
@@ -612,10 +608,9 @@ public class Audit extends AbstractReporter {
             // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
             // TODO: Update the calls to make them linux specific.
 
-        	int NO_SYSCALL = -1;
-        	
+            
             Map<String, String> eventData = eventBuffer.get(eventId);
-            Integer syscall = CommonFunctions.parseInt(eventData.get("syscall"), NO_SYSCALL);
+            int syscall = Integer.parseInt(eventData.get("syscall"));
             
             if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 129){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
             	eventBuffer.remove(eventId);
@@ -728,11 +723,6 @@ public class Audit extends AbstractReporter {
                 	processKill(eventData);
                 	break;
                 default:
-                	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
-                		logger.log(Level.WARNING, "Unsupported audit event type with eventid '" + eventId + "'");
-                	}else{ //did contain syscall but we are not handling it yet
-                		logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
-                	}
                     break;
             }
             eventBuffer.remove(eventId);
@@ -890,10 +880,8 @@ public class Audit extends AbstractReporter {
             // System call numbers are derived from:
             // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
-        	int NO_SYSCALL = -1;
-        	
             Map<String, String> eventData = eventBuffer.get(eventId);
-            Integer syscall = CommonFunctions.parseInt(eventData.get("syscall"), NO_SYSCALL);
+            int syscall = Integer.parseInt(eventData.get("syscall"));
 
             if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 62){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
             	eventBuffer.remove(eventId);
@@ -1009,11 +997,6 @@ public class Audit extends AbstractReporter {
                 	processKill(eventData);
                 	break;
                 default:
-                	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
-                		logger.log(Level.WARNING, "Unsupported audit event type with eventid '" + eventId + "'");
-                	}else{ //did contain syscall but we are not handling it yet
-                		logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
-                	}
                     break;
             }
             eventBuffer.remove(eventId);
@@ -1049,7 +1032,7 @@ public class Audit extends AbstractReporter {
     		WasTriggeredBy wtb = new WasTriggeredBy(addedUnit, getUnitForPid(pid, 0));
         	wtb.addAnnotation("operation", "unit");
         	wtb.addAnnotation("time", eventData.get("time"));
-        	addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
+        	addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), BEEP);
         	putEdge(wtb);
     	}else if(arg0.intValue() == -101 && arg1.intValue() == 1){ //unit end
     		//remove the last added unit
@@ -1078,15 +1061,16 @@ public class Audit extends AbstractReporter {
 	    			edge.addAnnotation("time", eventData.get("time"));
 	    			putVertex(process);
 	    			putVertex(memArtifact);
-	    			addEventIdAnnotationToEdge(edge, eventData.get("eventid"));
+	    			addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), BEEP);
 	    			putEdge(edge);
     			}
     		}
     	}
     }
     
-    private void addEventIdAnnotationToEdge(AbstractEdge edge, String eventId){
-    	edge.addAnnotation(EVENTID_ANNOTATION_KEY, eventId);
+    private void addEventIdAndSourceAnnotationToEdge(AbstractEdge edge, String eventId, String source){
+    	edge.addAnnotation(EVENT_ID, eventId);
+    	edge.addAnnotation(SOURCE, source);
     }
     
     //handles memoryinfo
@@ -1135,15 +1119,18 @@ public class Audit extends AbstractReporter {
     }
     
     private Artifact createArtifact(ArtifactInfo artifactInfo, boolean update, SYSCALL syscall){
+    	Artifact artifact = null;
     	if(artifactInfo instanceof FileInfo || artifactInfo instanceof PipeInfo || (artifactInfo instanceof UnknownInfo && syscall == null)){
-    		return createFileArtifact(artifactInfo, update);
+    		artifact = createFileArtifact(artifactInfo, update);
+    		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}else if(artifactInfo instanceof MemoryInfo){
-    		return createMemoryArtifact(artifactInfo, update);
+    		artifact = createMemoryArtifact(artifactInfo, update);
+    		artifact.addAnnotation(SOURCE, BEEP);
     	}else if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo || (artifactInfo instanceof UnknownInfo && syscall != null)){
-    		return createNetworkArtifact(artifactInfo, syscall);
-    	}else{
-    		return null;
+    		artifact = createNetworkArtifact(artifactInfo, syscall);
+    		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}
+    	return artifact;
     }
     
     //handles fileinfo, pipeinfo, unknowninfo
@@ -1198,14 +1185,14 @@ public class Audit extends AbstractReporter {
         Process newProcess = createProcessVertex(newPID, oldPID, eventData.get("comm"), null, null, 
         		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"), 
         		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
-        		PROC_INFO_AUDIT, time);
+        		DEV_AUDIT, time);
 
         addProcess(newPID, newProcess);
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(oldPID));
         wtb.addAnnotation("operation", getOperation(syscall));
         wtb.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wtb); // Copy file descriptors from old process to new one
         
         if(syscall == SYSCALL.CLONE){ //share file descriptors when clone
@@ -1250,7 +1237,7 @@ public class Audit extends AbstractReporter {
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
         wtb.addAnnotation("operation", "execve");
         wtb.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wtb);
         addProcess(pid, newProcess);
         
@@ -1288,7 +1275,7 @@ public class Audit extends AbstractReporter {
     	usedEdge.addAnnotation("time", time);
     	usedEdge.addAnnotation("operation", "read");
     	putVertex(usedArtifact);
-    	addEventIdAnnotationToEdge(usedEdge, eventId);
+    	addEventIdAndSourceAnnotationToEdge(usedEdge, eventId, DEV_AUDIT);
     	putEdge(usedEdge);
     }
 
@@ -1366,7 +1353,7 @@ public class Audit extends AbstractReporter {
         used.addAnnotation("operation", getOperation(syscall));
         used.addAnnotation("time", time);
         used.addAnnotation("size", bytesRead);
-        addEventIdAnnotationToEdge(used, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
         
     }
@@ -1390,12 +1377,12 @@ public class Audit extends AbstractReporter {
         ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
         Artifact vertex = createArtifact(fileInfo, true, null);
         putVertex(vertex);
-        putVersionUpdateEdge(vertex, time, eventData.get("eventid"));
+        putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", bytesWritten);
-        addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wgb);
     }
 
@@ -1424,11 +1411,11 @@ public class Audit extends AbstractReporter {
 
         Artifact vertex = createArtifact(fileInfo, true, null);
         putVertex(vertex);
-        putVersionUpdateEdge(vertex, time, eventData.get("eventid"));
+        putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wgb);
     }
 
@@ -1463,7 +1450,7 @@ public class Audit extends AbstractReporter {
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
         wtb.addAnnotation("operation", getOperation(syscall));
         wtb.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wtb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wtb);
         addProcess(pid, newProcess);
     }
@@ -1497,22 +1484,23 @@ public class Audit extends AbstractReporter {
         Used used = new Used(getProcess(pid), srcVertex);
         used.addAnnotation("operation", "rename_read");
         used.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(used, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
 
         Artifact dstVertex = createArtifact(dstFileInfo, true, null);
         putVertex(dstVertex);
-        putVersionUpdateEdge(dstVertex, time, eventData.get("eventid"));
+        putVersionUpdateEdge(dstVertex, time, eventData.get("eventid"), pid);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
         wgb.addAnnotation("operation", "rename_write");
         wgb.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wgb);
 
         WasDerivedFrom wdf = new WasDerivedFrom(dstVertex, srcVertex);
         wdf.addAnnotation("operation", "rename");
         wdf.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wdf, eventData.get("eventid"));
+        wdf.addAnnotation("pid", pid);
+        addEventIdAndSourceAnnotationToEdge(wdf, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wdf);
     }
 
@@ -1547,22 +1535,23 @@ public class Audit extends AbstractReporter {
         Used used = new Used(getProcess(pid), srcVertex);
         used.addAnnotation("operation", syscallName + "_read");
         used.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(used, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
 
         Artifact dstVertex = createArtifact(dstFileInfo, true, null);
         putVertex(dstVertex);
-        putVersionUpdateEdge(dstVertex, time, eventData.get("eventid"));
+        putVersionUpdateEdge(dstVertex, time, eventData.get("eventid"), pid);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
         wgb.addAnnotation("operation", syscallName + "_write");
         wgb.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wgb);
 
         WasDerivedFrom wdf = new WasDerivedFrom(dstVertex, srcVertex);
         wdf.addAnnotation("operation", syscallName);
         wdf.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wdf, eventData.get("eventid"));
+        wdf.addAnnotation("pid", pid);
+        addEventIdAndSourceAnnotationToEdge(wdf, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wdf);
     }
 
@@ -1594,13 +1583,13 @@ public class Audit extends AbstractReporter {
         Artifact vertex = createArtifact(fileInfo, true, null);
         putVertex(vertex);
         //new version created.
-        putVersionUpdateEdge(vertex, time, eventData.get("eventid"));
+        putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
 
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("mode", mode);
         wgb.addAnnotation("time", time);
-        addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
+        addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wgb);
     }
 
@@ -1693,7 +1682,7 @@ public class Audit extends AbstractReporter {
                 WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
                 wgb.addAnnotation("time", time);
                 wgb.addAnnotation("operation", "connect");
-                addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
+                addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
                 putEdge(wgb);
             } else if (callType == 5) {
                 // accept()
@@ -1702,7 +1691,7 @@ public class Audit extends AbstractReporter {
                 Used used = new Used(getProcess(pid), network);
                 used.addAnnotation("time", time);
                 used.addAnnotation("operation", "accept");
-                addEventIdAnnotationToEdge(used, eventData.get("eventid"));
+                addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
                 putEdge(used);
             }
             // update file descriptor table
@@ -1723,7 +1712,7 @@ public class Audit extends AbstractReporter {
             WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
             wgb.addAnnotation("time", time);
             wgb.addAnnotation("operation", getOperation(SYSCALL.CONNECT));
-            addEventIdAnnotationToEdge(wgb, eventData.get("eventid"));
+            addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
             putEdge(wgb);
             // update file descriptor table
             String hexFD = eventData.get("a0");
@@ -1743,7 +1732,7 @@ public class Audit extends AbstractReporter {
             Used used = new Used(getProcess(pid), network);
             used.addAnnotation("time", time);
             used.addAnnotation("operation", getOperation(syscall));
-            addEventIdAnnotationToEdge(used, eventData.get("eventid"));
+            addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
             putEdge(used);
             // update file descriptor table
             String fd = eventData.get("exit");
@@ -1794,7 +1783,7 @@ public class Audit extends AbstractReporter {
         wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", size);
-        addEventIdAnnotationToEdge(wgb, eventId);
+        addEventIdAndSourceAnnotationToEdge(wgb, eventId, DEV_AUDIT);
         putEdge(wgb);
     }
     
@@ -1840,7 +1829,7 @@ public class Audit extends AbstractReporter {
         used.addAnnotation("operation", getOperation(syscall));
         used.addAnnotation("time", time);
         used.addAnnotation("size", size);
-        addEventIdAnnotationToEdge(used, eventId);
+        addEventIdAndSourceAnnotationToEdge(used, eventId, DEV_AUDIT);
         putEdge(used);
     }
 
@@ -1864,7 +1853,7 @@ public class Audit extends AbstractReporter {
             resultProcess = createProcessVertex(pid, eventData.get("ppid"), eventData.get("comm"), null, null, 
             		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"),
             		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
-            		PROC_INFO_AUDIT, null);
+            		DEV_AUDIT, null);
         }
         if (link == true) {
             Map<String, ArtifactInfo> fds = getFileDescriptors(pid);
@@ -1899,11 +1888,11 @@ public class Audit extends AbstractReporter {
 					break;
 				case SENDTO:
 				case SENDMSG:
-					returnSyscall = SYSCALL.SEND;
+					returnSyscall = SYSCALL.SENDTO;
 					break;
 				case RECVFROM:
 				case RECVMSG:
-					returnSyscall = SYSCALL.RECV;
+					returnSyscall = SYSCALL.RECVFROM;
 					break;
 				case TRUNCATE:
 				case FTRUNCATE:
@@ -1956,7 +1945,7 @@ public class Audit extends AbstractReporter {
     	process.addAnnotation("euid", euid);
     	process.addAnnotation("gid", gid);
     	process.addAnnotation("egid", egid);
-    	process.addAnnotation(PROC_INFO_SRC_KEY, source);
+    	process.addAnnotation(SOURCE, source);
     	
     	if(commandline != null){
     		process.addAnnotation("commandline", commandline);
@@ -2040,7 +2029,7 @@ public class Audit extends AbstractReporter {
                 Process newProcess = createProcessVertex(pid, ppidline, nameline, null, null, 
                 		uidTokens[0], uidTokens[1], uidTokens[2], uidTokens[3], 
                 		gidTokens[0], gidTokens[1], gidTokens[2], gidTokens[3], 
-                		PROC_INFO_PROCFS, Long.toString(startTime));
+                		PROC_FS, Long.toString(startTime));
                 
                 // newProcess.addAnnotation("starttime_unix", stime);
                 // newProcess.addAnnotation("starttime_simple", stime_readable);
@@ -2055,7 +2044,7 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    private void putVersionUpdateEdge(Artifact newArtifact, String time, String eventId){
+    private void putVersionUpdateEdge(Artifact newArtifact, String time, String eventId, String pid){
     	Artifact oldArtifact = new Artifact();
     	oldArtifact.addAnnotations(newArtifact.getAnnotations());
     	Integer oldVersion = null;
@@ -2070,9 +2059,10 @@ public class Audit extends AbstractReporter {
     	}
     	oldArtifact.addAnnotation("version", String.valueOf(oldVersion));
     	WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
+    	versionUpdate.addAnnotation("pid", pid);
     	versionUpdate.addAnnotation("operation", "update");
     	versionUpdate.addAnnotation("time", time);
-    	addEventIdAnnotationToEdge(versionUpdate, eventId);
+    	addEventIdAndSourceAnnotationToEdge(versionUpdate, eventId, DEV_AUDIT);
     	putEdge(versionUpdate);
     }
     
@@ -2136,7 +2126,7 @@ public class Audit extends AbstractReporter {
     	return createProcessVertex(process.getAnnotation("pid"), process.getAnnotation("ppid"), process.getAnnotation("name"), null, null, 
     			process.getAnnotation("uid"), process.getAnnotation("euid"), process.getAnnotation("suid"), process.getAnnotation("fsuid"), 
     			process.getAnnotation("gid"), process.getAnnotation("egid"), process.getAnnotation("sgid"), process.getAnnotation("fsgid"), 
-    			process.getAnnotation(PROC_INFO_SRC_KEY), startTime);
+    			BEEP, startTime);
     }
       
     //all records of any event are assumed to be placed contiguously in the file
