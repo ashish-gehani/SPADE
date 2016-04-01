@@ -149,7 +149,7 @@ public class CDM extends Kafka {
             eventBuilder.setTimestampMicros(timeLong);
             Long eventId = parseLong(edge.getAnnotation("event id"));
             if(eventId == null){ 
-            	eventBuilder.setSequence(0); // XXX not provided, but CDM requires it
+            	eventBuilder.setSequence(0); // Value to be confirmed here TODO
             }else{
             	eventBuilder.setSequence(eventId);
             }
@@ -177,27 +177,18 @@ public class CDM extends Kafka {
                 } else if (operation.equals("fork")) {
                     eventBuilder.setType(EventType.EVENT_FORK);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                } else if (operation.equals("clone")) {                             // XXX CDM doesn't support this
+                } else if (operation.equals("clone")) {
                 	eventBuilder.setType(EventType.EVENT_CLONE); 
                 	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-//                    logger.log(Level.WARNING,
-//                            "TC CDM does not support WasTriggeredBy/WasInformed operation: {0}", operation);
-//                    return false;
                 } else if (operation.equals("execve")) {
                     eventBuilder.setType(EventType.EVENT_EXECUTE);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
                 } else if (operation.equals("setuid")) {
                     eventBuilder.setType(EventType.EVENT_CHANGE_PRINCIPAL);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                    /* XXX How do we capture the UID the Subject was set to?
-                     * Perhaps a new HasLocalPrincipal edge? But that doesn't seem right.
-                     */
                 } else if (operation.equals("unit")) {   
                 	eventBuilder.setType(EventType.EVENT_UNIT);
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;// XXX CDM doesn't support this
-//                    logger.log(Level.WARNING,
-//                            "TC CDM does not support WasTriggeredBy/WasInformed operation: {0}", operation);
-//                    return false;
+                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
                 } else {
                     logger.log(Level.WARNING,
                             "Unexpected WasTriggeredBy/WasInformedBy operation: {0}", operation);
@@ -234,13 +225,11 @@ public class CDM extends Kafka {
                     eventBuilder.setType(EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
                     properties.put("permissions", edge.getAnnotation("mode"));
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-                } else if (operation.equals("rename_write")) {                      // XXX CDM doesn't support this
-                    logger.log(Level.WARNING,
-                            "TC CDM does not support WasGeneratedBy operation: {0}", operation);
+                } else if (operation.equals("rename_write")) {
+                	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
-                } else if (operation.equals("link_write")) {                        // XXX CDM doesn't support this
-                    logger.log(Level.WARNING,
-                            "TC CDM does not support WasGeneratedBy operation: {0}", operation);
+                } else if (operation.equals("link_write")) {
+                	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
                 } else {
                     logger.log(Level.WARNING,
@@ -270,13 +259,11 @@ public class CDM extends Kafka {
                 } else if (operation.equals("accept")) {
                     eventBuilder.setType(EventType.EVENT_ACCEPT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW; // XXX should be EDGE_NETFLOW_AFFECTS_EVENT but not in CDM
-                } else if (operation.equals("rename_read")) {                       // XXX CDM doesn't support this
-                    logger.log(Level.WARNING,
-                            "TC CDM does not support Used operation: {0}", operation);
+                } else if (operation.equals("rename_read")) {
+                	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
-                } else if (operation.equals("link_read")) {                         // XXX CDM doesn't support this
-                    logger.log(Level.WARNING,
-                            "TC CDM does not support Used operation: {0}", operation);
+                } else if (operation.equals("link_read")) {
+                	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
                 } else {
                     logger.log(Level.WARNING,
@@ -285,23 +272,16 @@ public class CDM extends Kafka {
                 }
             } else if (edgeType.equals("WasDerivedFrom")) {
             	pid = edge.getAnnotation("pid");
-                // XXX No Subject provided for EVENT_ISGENERATEDBY_SUBJECT edge
                 if (operation == null) {
                     logger.log(Level.WARNING,
-                            "NULL WasDerivedBy operation!");
+                            "NULL WasDerivedFrom operation!");
                     return false;
                 } else if (operation.equals("update")) {   
                 	eventBuilder.setType(EventType.EVENT_UPDATE);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;// XXX CDM doesn't support this
-//                    logger.log(Level.WARNING,
-//                            "TC CDM does not support WasDerivedFrom operation: {0}", operation);
-//                    return false;
-                } else if (operation.equals("rename")) {                            // XXX CDM doesn't support this
+                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                } else if (operation.equals("rename")) {
                     eventBuilder.setType(EventType.EVENT_RENAME);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-//                	logger.log(Level.WARNING,
-//                            "TC CDM does not support WasDerivedFrom operation: {0}", operation);
-//                    return false;
                 } else if (operation.equals("link")) {
                     eventBuilder.setType(EventType.EVENT_LINK);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
@@ -335,7 +315,7 @@ public class CDM extends Kafka {
                 affectsEdgeBuilder.setFromUuid(edge.getDestinationVertex().hashCode()); // UID of Object being affecting
                 affectsEdgeBuilder.setToUuid(edge.hashCode()); // Event record's UID
                 affectsEdgeBuilder.setType(EdgeType.EDGE_EVENT_AFFECTS_FILE); // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
-                affectsEdgeBuilder.setTimestamp(timeLong);//TODO this wasn't here before. added. right?
+                affectsEdgeBuilder.setTimestamp(timeLong);
                 affectsEdge = affectsEdgeBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
                 
@@ -428,7 +408,7 @@ public class CDM extends Kafka {
         pidToHashCode.put(vertex.getAnnotation("pid"), vertex.hashCode());
         
         Long time = parseTimeToLong(vertex.getAnnotation("start time"));
-        subjectBuilder.setStartTimestampMicros(time); // XXX not provided, but CDM requires this field
+        subjectBuilder.setStartTimestampMicros(time); 
         subjectBuilder.setPid(Integer.parseInt(vertex.getAnnotation("pid")));
         subjectBuilder.setPpid(Integer.parseInt(vertex.getAnnotation("ppid")));
         String unit = vertex.getAnnotation("unit");
@@ -446,13 +426,17 @@ public class CDM extends Kafka {
         }
         subjectBuilder.setProperties(properties);
         Subject subject = subjectBuilder.build();
-        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(subject).build());
+        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(subject).build()); //added subject
         
         AbstractVertex principalVertex = createPrincipalVertex(vertex);
         Principal principal = createPrincipal(principalVertex);
         
+        /* XXX Created a principal to put uid, euid, gid and egid in, (check if it's new or not? if new then publish) 
+         * Also, creating an edge to connect Subject and Principal
+         */
+        
         if(principal != null){
-        	tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build());
+        	tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build()); //added principal
         	
         	SimpleEdge.Builder simpleEdgeBuilder = SimpleEdge.newBuilder();
         	simpleEdgeBuilder.setFromUuid(vertex.hashCode());
@@ -461,13 +445,8 @@ public class CDM extends Kafka {
         	Long startTime = parseTimeToLong(vertex.getAnnotation("start time"));
         	simpleEdgeBuilder.setTimestamp(startTime);
         	SimpleEdge simpleEdge = simpleEdgeBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
+            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build()); //added edge
         }
-
-        /* XXX Need to create a principal to put uid and group, then check if it's new, and if so publish to Kafka.
-         * Also, need to create edge to connect Subject and Principal
-         */
-
         return tccdmDatums;
     }
     
@@ -544,7 +523,7 @@ public class CDM extends Kafka {
             netBuilder.setUuid(vertex.hashCode());
             netBuilder.setBaseObject(baseObject);
             String srcAddress = vertex.getAnnotation("source host");
-            if (srcAddress == null) {                                       // XXX required by CDM
+            if (srcAddress == null) {                                       // required by CDM
                 netBuilder.setSrcAddress("");
                 netBuilder.setSrcPort(0);
             } else {
@@ -552,7 +531,7 @@ public class CDM extends Kafka {
                 netBuilder.setSrcPort(Integer.parseInt(vertex.getAnnotation("source port")));
             }
             String destAddress = vertex.getAnnotation("destination host");
-            if (destAddress == null) {                                      // XXX required by CDM
+            if (destAddress == null) {                                      // required by CDM
                 netBuilder.setDestAddress("");
                 netBuilder.setDestPort(0);
             } else {
@@ -566,7 +545,7 @@ public class CDM extends Kafka {
             MemoryObject.Builder memoryBuilder = MemoryObject.newBuilder();
             memoryBuilder.setUuid(vertex.hashCode());
             memoryBuilder.setBaseObject(baseObject);
-            memoryBuilder.setPageNumber(0);                          // XXX not provided, but CDM requires it
+            memoryBuilder.setPageNumber(0);                          // TODO remove when marked optional
             memoryBuilder.setMemoryAddress(Long.parseLong(vertex.getAnnotation("memory address")));
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
@@ -602,5 +581,4 @@ public class CDM extends Kafka {
             return tccdmDatums;
         }
     }
-
 }
