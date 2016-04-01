@@ -67,27 +67,27 @@ public class Kafka extends AbstractStorage{
 
             arguments = arguments == null ? "" : arguments.trim();
             
-            Map<String, String> args = null;
+            Map<String, String> argumentPairs = null;
             
             if(arguments.isEmpty()){
-            	args = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFile, "=");
+            	argumentPairs = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFile, "=");
             }else{
-            	args = CommonFunctions.parseKeyValPairs(arguments);
+            	argumentPairs = CommonFunctions.parseKeyValPairs(arguments);
             }
 
             String kafkaServer = null, kafkaProducerID = null, schemaFilename = null;
             
-            if (args.containsKey("KafkaServer") && !args.get("KafkaServer").isEmpty()) {
-                kafkaServer = args.get("kafkaServer");
+            if (argumentPairs.containsKey("KafkaServer") && !argumentPairs.get("KafkaServer").isEmpty()) {
+                kafkaServer = argumentPairs.get("kafkaServer");
             }
-            if (args.containsKey("KafkaTopic") && !args.get("KafkaTopic").isEmpty()) {
-                kafkaTopic = args.get("KafkaTopic");
+            if (argumentPairs.containsKey("KafkaTopic") && !argumentPairs.get("KafkaTopic").isEmpty()) {
+                kafkaTopic = argumentPairs.get("KafkaTopic");
             }
-            if (args.containsKey("KafkaProducerID") && !args.get("KafkaProducerID").isEmpty()) {
-                kafkaProducerID = args.get("KafkaProducerID");
+            if (argumentPairs.containsKey("KafkaProducerID") && !argumentPairs.get("KafkaProducerID").isEmpty()) {
+                kafkaProducerID = argumentPairs.get("KafkaProducerID");
             }
-            if (args.containsKey("SchemaFilename") && !args.get("SchemaFilename").isEmpty()) {
-                schemaFilename = args.get("SchemaFilename");
+            if (argumentPairs.containsKey("SchemaFilename") && !argumentPairs.get("SchemaFilename").isEmpty()) {
+                schemaFilename = argumentPairs.get("SchemaFilename");
             }
             logger.log(Level.INFO,
                     "Params: KafkaServer={0} KafkaTopic={1} KafkaProducerID={2} SchemaFilename={3}",
@@ -113,13 +113,13 @@ public class Kafka extends AbstractStorage{
 	@Override
 	public boolean putVertex(AbstractVertex vertex){
 		try{
-			List<GenericContainer> data = new ArrayList<GenericContainer>();
+			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Vertex.Builder vertexBuilder = Vertex.newBuilder();
 			vertexBuilder.setAnnotations(vertex.getAnnotations());
 			vertexBuilder.setHash(String.valueOf(vertex.hashCode()));
 			Vertex kafkaVertex = vertexBuilder.build();
-			data.add(GraphElement.newBuilder().setElement(kafkaVertex).build());
-			return publishRecords(kafkaTopic, data) > 0;
+			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaVertex).build());
+			return publishRecords(kafkaTopic, recordsToPublish) > 0;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish vertex : " + vertex);
 			return false;
@@ -129,15 +129,15 @@ public class Kafka extends AbstractStorage{
 	@Override
 	public boolean putEdge(AbstractEdge edge){
 		try{
-			List<GenericContainer> data = new ArrayList<GenericContainer>();
+			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Edge.Builder edgeBuilder = Edge.newBuilder();
 			edgeBuilder.setAnnotations(edge.getAnnotations());
 			edgeBuilder.setSourceVertexHash(String.valueOf(edge.getSourceVertex().hashCode()));
 			edgeBuilder.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
 			edgeBuilder.setHash(String.valueOf(edge.hashCode()));
 			Edge kafkaEdge = edgeBuilder.build();
-			data.add(GraphElement.newBuilder().setElement(kafkaEdge).build());
-			return publishRecords(kafkaTopic, data) > 0;	
+			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaEdge).build());
+			return publishRecords(kafkaTopic, recordsToPublish) > 0;	
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish edge : " + edge);
 			return false;
