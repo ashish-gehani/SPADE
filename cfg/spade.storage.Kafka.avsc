@@ -1,0 +1,44 @@
+{
+	"type" : "record",
+	"name" : "GraphElement",
+	"namespace" : "spade.storage.kafka",
+	"doc" : "A generic object which can be either a vertex or an edge",
+	"fields" : [{
+				"name" : "element",
+				"type" : [{
+					"type" : "record",
+					"name" : "Edge",
+					"fields" : [{
+						"name" : "annotations", 
+						"type" : ["null", {"type":"map", "values":"string"}]
+					},
+					{
+						"name" : "sourceVertexHash",
+						"type" : [ "null", "string" ],
+						"default" : null
+					},
+					{
+						"name" : "destinationVertexHash",
+						"type" : [ "null", "string" ],
+						"default" : null
+					},
+					{
+						"name" : "hash",
+						"type" : "string"
+					}]
+				},
+				{
+					"type" : "record",
+					"name" : "Vertex",
+					"fields" : [{
+						"name" : "annotations", 
+						"type" : ["null", {"type":"map", "values":"string"}]
+					},
+					{
+						"name" : "hash",
+						"type" : "string"
+					}]
+				}]
+				
+			}]
+}

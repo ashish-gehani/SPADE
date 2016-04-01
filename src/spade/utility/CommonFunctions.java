@@ -46,4 +46,12 @@ public class CommonFunctions {
         return keyValPairs;
     }
     
+    public static Integer parseInt(String string, int defaultValue){
+    	try{
+    		return Integer.parseInt(string);
+    	}catch(Exception e){
+    		return defaultValue;
+    	}
+    }
+    
 }
