@@ -48,8 +48,10 @@ import com.bbn.tc.schema.avro.TCCDMDatum;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
+import spade.core.Settings;
 import spade.core.Vertex;
 import spade.utility.CommonFunctions;
+import spade.utility.FileUtility;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -70,40 +72,40 @@ public class CDM extends Kafka {
     private long startTime, endTime;
     private long recordCount;
 
-    // default parameter values
-    private String kafkaServer = "localhost:9092";
-    private String kafkaTopic = "trace-topic";
-    private String kafkaProducerID = "trace-producer";
-    private String schemaFilename = SPADE_ROOT + "cfg/TCCDMDatum.avsc";
+    private String kafkaTopic = null;
     
     private Map<String, Integer> pidToHashCode = new HashMap<String, Integer>();
     
     private static final Logger logger = Logger.getLogger(CDM.class.getName());
+    
+    private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(CDM.class);
 
     @Override
     public boolean initialize(String arguments) {
     	
     	if(arguments == null || arguments.trim().isEmpty()){
-    		arguments = "kafkaServer=" + kafkaServer + 
+    		try{
+    			Map<String, String> defaultConfig = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
+    			kafkaTopic = defaultConfig.get("KafkaTopic");
+    			arguments = "KafkaServer=" + defaultConfig.get("KafkaServer") + 
     					" KafkaTopic=" + kafkaTopic +
-    					" KafkaProducerID=" + kafkaProducerID +
-    					" SchemaFilename=" + schemaFilename;
+    					" KafkaProducerID=" + defaultConfig.get("KafkaProducerID") +
+    					" SchemaFilename=" + defaultConfig.get("SchemaFilename");
+    		}catch(Exception e){
+    			logger.log(Level.SEVERE, "Failed to read default config file '"+defaultConfigFilePath+"'", e);
+    			return false;
+    		}
     	}
     	
     	if(super.initialize(arguments)){
-    		try {
-                /* Note: This is not an accurate start time because we really want the first reported event,
-                 * but fine for now
-                 */
-                startTime = System.currentTimeMillis();
-                endTime = 0;
-                recordCount = 0;
+    		/* Note: This is not an accurate start time because we really want the first reported event,
+             * but fine for now
+             */
+            startTime = System.currentTimeMillis();
+            endTime = 0;
+            recordCount = 0;
 
-                return true;
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-                return false;
-            }
+            return true;
     	}else{
     		return false;
     	}        
@@ -125,7 +127,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(tccdmDatums);
+            recordCount += publishRecords(kafkaTopic, tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -354,7 +356,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(tccdmDatums);
+            recordCount += publishRecords(kafkaTopic, tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);

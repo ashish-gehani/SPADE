@@ -43,6 +43,7 @@ import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.storage.kafka.SpadeObject;
 import spade.utility.CommonFunctions;
+import spade.utility.FileUtility;
 
 public class Kafka extends AbstractStorage{
 	
@@ -53,21 +54,28 @@ public class Kafka extends AbstractStorage{
     private Schema schema;
     private KafkaAvroGenericSerializer serializer;
     private KafkaProducer<String, GenericContainer> producer;
-
-    // default parameter values
-    private String kafkaServer = "localhost:9092";
-    private String kafkaTopic = "trace-topic";
-    private String kafkaProducerID = "trace-producer";
-    private String schemaFilename = SPADE_ROOT + "cfg/spade.storage.Kafka.avsc";
+    
+    private String kafkaTopic = null;
+    
+    private String defaultConfigFile = Settings.getDefaultConfigFilePath(Kafka.class);
 	
 	@Override
 	public boolean initialize(String arguments) {
 		try {
 
-            arguments = arguments == null ? "" : arguments;
-            Map<String, String> args = CommonFunctions.parseKeyValPairs(arguments);
+            arguments = arguments == null ? "" : arguments.trim();
+            
+            Map<String, String> args = null;
+            
+            if(arguments.isEmpty()){
+            	args = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFile, "=");
+            }else{
+            	args = CommonFunctions.parseKeyValPairs(arguments);
+            }
 
-            if (args.containsKey("kafkaServer") && !args.get("kafkaServer").isEmpty()) {
+            String kafkaServer = null, kafkaProducerID = null, schemaFilename = null;
+            
+            if (args.containsKey("KafkaServer") && !args.get("KafkaServer").isEmpty()) {
                 kafkaServer = args.get("kafkaServer");
             }
             if (args.containsKey("KafkaTopic") && !args.get("KafkaTopic").isEmpty()) {
@@ -90,7 +98,7 @@ public class Kafka extends AbstractStorage{
                     "org.apache.kafka.common.serialization.StringSerializer");
             props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                     com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer.class);
-            props.put(AvroConfig.SCHEMA_WRITER_FILE, this.schemaFilename);
+            props.put(AvroConfig.SCHEMA_WRITER_FILE, schemaFilename);
             props.put(AvroConfig.SCHEMA_SERDE_IS_SPECIFIC, true);
             producer = new KafkaProducer<>(props);
 
@@ -108,7 +116,7 @@ public class Kafka extends AbstractStorage{
 			o.setAnnotations(vertex.getAnnotations());
 			o.setHash(String.valueOf(vertex.hashCode()));
 			data.add(o);
-			return publishRecords(data) > 0;
+			return publishRecords(kafkaTopic, data) > 0;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish vertex : " + vertex);
 			return false;
@@ -125,7 +133,7 @@ public class Kafka extends AbstractStorage{
 			o.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
 			o.setHash(String.valueOf(edge.hashCode()));
 			data.add(o);
-			return publishRecords(data) > 0;	
+			return publishRecords(kafkaTopic, data) > 0;	
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish edge : " + edge);
 			return false;
@@ -133,7 +141,7 @@ public class Kafka extends AbstractStorage{
 	}
 	
 	//function to call to save data to the storage
-	protected int publishRecords(List<GenericContainer> genericContainers) {
+	protected int publishRecords(String kafkaTopic, List<GenericContainer> genericContainers) {
         /**
          * Publish the records in Kafka. Note how the serialization framework doesn't care about
          * the record type (any type from the union schema may be sent)
