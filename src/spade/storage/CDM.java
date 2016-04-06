@@ -44,7 +44,9 @@ import com.bbn.tc.schema.avro.SimpleEdge;
 import com.bbn.tc.schema.avro.SrcSinkObject;
 import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
+import com.bbn.tc.schema.avro.UUID;
 import com.bbn.tc.schema.avro.TCCDMDatum;
+import com.bbn.tc.schema.utils.SchemaUtils;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
@@ -74,7 +76,7 @@ public class CDM extends Kafka {
 
     private String kafkaTopic = null;
     
-    private Map<String, Integer> pidToHashCode = new HashMap<String, Integer>();
+    private Map<String, UUID> pidToUuid = new HashMap<>();
     
     private static final Logger logger = Logger.getLogger(CDM.class.getName());
     
@@ -143,7 +145,7 @@ public class CDM extends Kafka {
 
             /* Generate the Event record */
             Event.Builder eventBuilder = Event.newBuilder();
-            eventBuilder.setUuid(edge.hashCode());
+            eventBuilder.setUuid(getUuid(edge));
             String time = edge.getAnnotation("time");
             Long timeLong = parseTimeToLong(time);
             eventBuilder.setTimestampMicros(timeLong);
@@ -301,32 +303,32 @@ public class CDM extends Kafka {
 
             /* Generate the _*_AFFECTS_* edge record */
             SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
-            affectsEdgeBuilder.setFromUuid(edge.hashCode());  // Event record's UID
-            affectsEdgeBuilder.setToUuid(edge.getSourceVertex().hashCode()); // UID of Subject/Object being affected
+            affectsEdgeBuilder.setFromUuid(getUuid(edge));  // Event record's UID
+            affectsEdgeBuilder.setToUuid(getUuid(edge.getSourceVertex())); // UID of Subject/Object being affected
             affectsEdgeBuilder.setType(affectsEdgeType);
             affectsEdgeBuilder.setTimestamp(timeLong);
             SimpleEdge affectsEdge = affectsEdgeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
 
-            Integer hashOfDestinationProcessVertex = edge.getDestinationVertex().hashCode();
+            UUID uuidOfDestinationProcessVertex = getUuid(edge.getDestinationVertex());
             
             if (edgeType.equals("WasDerivedFrom")) {
                 /* Generate another _*_AFFECTS_* edge in the reverse direction */
-                affectsEdgeBuilder.setFromUuid(edge.getDestinationVertex().hashCode()); // UID of Object being affecting
-                affectsEdgeBuilder.setToUuid(edge.hashCode()); // Event record's UID
+                affectsEdgeBuilder.setFromUuid(getUuid(edge.getDestinationVertex())); // UID of Object being affecting
+                affectsEdgeBuilder.setToUuid(getUuid(edge)); // Event record's UID
                 affectsEdgeBuilder.setType(EdgeType.EDGE_EVENT_AFFECTS_FILE); // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
                 affectsEdgeBuilder.setTimestamp(timeLong);
                 affectsEdge = affectsEdgeBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
                 
-                hashOfDestinationProcessVertex = pidToHashCode.get(edge.getAnnotation("pid"));
+                uuidOfDestinationProcessVertex = pidToUuid.get(edge.getAnnotation("pid"));
             }
             
-            if(hashOfDestinationProcessVertex != null){
+            if(uuidOfDestinationProcessVertex != null){
 	            /* Generate the EVENT_ISGENERATEDBY_SUBJECT edge record */
 	            SimpleEdge.Builder generatedByEdgeBuilder = SimpleEdge.newBuilder();
-	            generatedByEdgeBuilder.setFromUuid(edge.hashCode()); // Event record's UID
-	            generatedByEdgeBuilder.setToUuid(hashOfDestinationProcessVertex); //UID of Subject generating event
+	            generatedByEdgeBuilder.setFromUuid(getUuid(edge)); // Event record's UID
+	            generatedByEdgeBuilder.setToUuid(uuidOfDestinationProcessVertex); //UID of Subject generating event
 	            generatedByEdgeBuilder.setType(EdgeType.EDGE_EVENT_ISGENERATEDBY_SUBJECT);
 	            generatedByEdgeBuilder.setTimestamp(timeLong);
 	            SimpleEdge generatedByEdge = generatedByEdgeBuilder.build();
@@ -394,7 +396,7 @@ public class CDM extends Kafka {
 
         /* Generate the Subject record */
         Subject.Builder subjectBuilder = Subject.newBuilder();
-        subjectBuilder.setUuid(vertex.hashCode());
+        subjectBuilder.setUuid(getUuid(vertex));
         subjectBuilder.setType(SubjectType.SUBJECT_PROCESS);
         InstrumentationSource activitySource = getInstrumentationSource(vertex.getAnnotation("source"));
         if (activitySource != null) {
@@ -405,7 +407,7 @@ public class CDM extends Kafka {
             return tccdmDatums;
         }
         
-        pidToHashCode.put(vertex.getAnnotation("pid"), vertex.hashCode());
+        pidToUuid.put(vertex.getAnnotation("pid"), getUuid(vertex));
         
         Long time = parseTimeToLong(vertex.getAnnotation("start time"));
         subjectBuilder.setStartTimestampMicros(time); 
@@ -439,8 +441,8 @@ public class CDM extends Kafka {
         	tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build()); //added principal
         	
         	SimpleEdge.Builder simpleEdgeBuilder = SimpleEdge.newBuilder();
-        	simpleEdgeBuilder.setFromUuid(vertex.hashCode());
-        	simpleEdgeBuilder.setToUuid(principalVertex.hashCode());
+        	simpleEdgeBuilder.setFromUuid(getUuid(vertex));
+        	simpleEdgeBuilder.setToUuid(getUuid(principalVertex));
         	simpleEdgeBuilder.setType(EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL);
         	Long startTime = parseTimeToLong(vertex.getAnnotation("start time"));
         	simpleEdgeBuilder.setTimestamp(startTime);
@@ -463,7 +465,7 @@ public class CDM extends Kafka {
     private Principal createPrincipal(AbstractVertex principalVertex){
         try{
         	Principal.Builder principalBuilder = Principal.newBuilder();
-        	principalBuilder.setUuid(principalVertex.hashCode());
+        	principalBuilder.setUuid(getUuid(principalVertex));
             principalBuilder.setUserId(Integer.parseInt(principalVertex.getAnnotation("uid")));
             Map<String, String> properties = new HashMap<String, String>();
             properties.put("egid", principalVertex.getAnnotation("egid"));
@@ -510,7 +512,7 @@ public class CDM extends Kafka {
         String entityType = vertex.getAnnotation("subtype");
         if (entityType.equals("file")) {
             FileObject.Builder fileBuilder = FileObject.newBuilder();
-            fileBuilder.setUuid(vertex.hashCode());
+            fileBuilder.setUuid(getUuid(vertex));
             fileBuilder.setBaseObject(baseObject);
             fileBuilder.setUrl("file://" + vertex.getAnnotation("path"));
             fileBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
@@ -520,7 +522,7 @@ public class CDM extends Kafka {
             return tccdmDatums;
         } else if (entityType.equals("network")) {
             NetFlowObject.Builder netBuilder = NetFlowObject.newBuilder();
-            netBuilder.setUuid(vertex.hashCode());
+            netBuilder.setUuid(getUuid(vertex));
             netBuilder.setBaseObject(baseObject);
             String srcAddress = vertex.getAnnotation("source host");
             if (srcAddress == null) {                                       // required by CDM
@@ -543,16 +545,16 @@ public class CDM extends Kafka {
             return tccdmDatums;
         } else if (entityType.equals("memory")) {
             MemoryObject.Builder memoryBuilder = MemoryObject.newBuilder();
-            memoryBuilder.setUuid(vertex.hashCode());
+            memoryBuilder.setUuid(getUuid(vertex));
             memoryBuilder.setBaseObject(baseObject);
-            memoryBuilder.setPageNumber(0);                          // TODO remove when marked optional
+            // memoryBuilder.setPageNumber(0);                          // TODO remove when marked optional
             memoryBuilder.setMemoryAddress(Long.parseLong(vertex.getAnnotation("memory address")));
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
             return tccdmDatums;
         } else if (entityType.equals("pipe")) {                            
         	FileObject.Builder pipeBuilder = FileObject.newBuilder();
-        	pipeBuilder.setUuid(vertex.hashCode());
+        	pipeBuilder.setUuid(getUuid(vertex));
         	pipeBuilder.setBaseObject(baseObject);
             pipeBuilder.setUrl("file://" + vertex.getAnnotation("path")); 
             pipeBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
@@ -571,7 +573,7 @@ public class CDM extends Kafka {
         	properties.put("version", vertex.getAnnotation("version"));
         	baseObject.setProperties(properties);
         	unknownBuilder.setBaseObject(baseObject);
-            unknownBuilder.setUuid(vertex.hashCode());
+            unknownBuilder.setUuid(getUuid(vertex));
             SrcSinkObject unknownObject = unknownBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(unknownObject).build());
             return tccdmDatums;	
@@ -580,5 +582,13 @@ public class CDM extends Kafka {
                     "Unexpected Artifact/Entity type: {0}", entityType);
             return tccdmDatums;
         }
+    }
+    
+    private UUID getUuid(AbstractVertex vertex){
+        return SchemaUtils.toUUID(vertex.hashCode());
+    }
+    
+    private UUID getUuid(AbstractEdge edge){
+        return SchemaUtils.toUUID(edge.hashCode());
     }
 }
