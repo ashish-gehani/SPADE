@@ -11,7 +11,11 @@
       "doc" : "* A provenance tag defines source dependence on specific data sources (inputs).\n     * A tag identifier is typically bound to a source and used by the tracking system to\n     * capture dependence on this source input.\n     * A provenance tag is represented as a tree. Each node in the tree has a value and\n     * a set of children nodes.",
       "fields" : [ {
         "name" : "value",
-        "type" : [ "int", "long", {
+        "type" : [ "int", {
+          "type" : "fixed",
+          "name" : "UUID",
+          "size" : 32
+        }, {
           "type" : "enum",
           "name" : "TagOpCode",
           "doc" : "* The tag opcode describes the provenance relation i.e., how multiple sources are combined to\n     * produce the output. We identify the following provenance relations\n     *\n     *   TAG_OP_SEQUENCE       the output is derived from the specified inputs in order, sequentially\n     *   TAG_OP_UNION,         the output is the union of its inputs\n     *   TAG_OP_ENCODE         the output is some encoding of the input\n     *   TAG_OP_STRONG         this is more qualitative (coarse) saying there is strong dependence\n     *   TAG_OP_MEDIUM         this is more qualitative (coarse) saying there is medium dependence\n     *   TAG_OP_WEAK           this is more qualitative (coarse) saying there is weak   dependence",
@@ -27,7 +31,7 @@
           "doc" : "* The confidentiality tag may be used to specify the initial confidentiality of an entity,\n     * or to declassify its content after performing appropriate checking/sanitization.",
           "symbols" : [ "CONFIDENTIALITY_SECRET", "CONFIDENTIALITY_SENSITIVE", "CONFIDENTIALITY_PRIVATE", "CONFIDENTIALITY_PUBLIC" ]
         } ],
-        "doc" : "*  the value of the node: can have the following types\n         *   int                 references another node by tagId\n         *   long                object uuid (source or sink for example)\n         *   TaOpCode            the opcode applied to the children nodes, see TaOpCode\n         *   IntegrityTag        an integrity tag\n         *   ConfidentialityTag  a confidentiality tag"
+        "doc" : "*  the value of the node: can have the following types\n         *   int                 references another node by tagId\n         *   UUID                object uuid (source or sink for example)\n         *   TaOpCode            the opcode applied to the children nodes, see TaOpCode\n         *   IntegrityTag        an integrity tag\n         *   ConfidentialityTag  a confidentiality tag"
       }, {
         "name" : "children",
         "type" : [ "null", {
@@ -56,7 +60,7 @@
       "doc" : "* Subjects represent execution contexts and include mainly threads and processes.\n     * They can be more granular and can represent other execution boundaries such as\n     * functions and blocks if needed.",
       "fields" : [ {
         "name" : "uuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "universally unique identifier for the subject"
       }, {
         "name" : "type",
@@ -139,16 +143,13 @@
       "doc" : "* Events represent actions executed on behalf of subjects. Events could include system calls,\n     * function calls, instruction executions, or even more abstract notions representing a blind execution\n     * such as black boxes that are not instrumented (more shortly). Events are the core entity in the model\n     * and they are the main abstraction for representing information flow between data objects, and subjects.\n     * Events are atomic and immutable.",
       "fields" : [ {
         "name" : "uuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "A universally unique identifier for the event"
-      }, {
-        "name" : "timestampMicros",
-        "type" : "long",
-        "doc" : "* The time at which the event occurred. Timestamps allow reasoning about order of events\n         *  on a host when the same clock is used.\n         * TODO When different clocks are used on a host or across hosts, we need to also define a clock source\n         * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC."
       }, {
         "name" : "sequence",
         "type" : "long",
-        "doc" : "A logical sequence number for ordering events relative to each other within a subject's execution context"
+        "doc" : "A logical sequence number for ordering events relative to each other within a subject's execution context",
+        "default" : 0
       }, {
         "name" : "type",
         "type" : {
@@ -166,6 +167,11 @@
         "name" : "source",
         "type" : "InstrumentationSource",
         "doc" : "What source system generated this event, see InstrumentationSource"
+      }, {
+        "name" : "timestampMicros",
+        "type" : [ "null", "long" ],
+        "doc" : "* The time at which the event occurred. Timestamps allow reasoning about order of events\n         *  on a host when the same clock is used.\n         * TODO When different clocks are used on a host or across hosts, we need to also define a clock source\n         * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.",
+        "default" : null
       }, {
         "name" : "name",
         "type" : [ "null", "string" ],
@@ -236,7 +242,7 @@
       "doc" : "* Represents a network flow object. Instantiates an AbstractObject.",
       "fields" : [ {
         "name" : "uuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "Universally unique identifier for the object"
       }, {
         "name" : "baseObject",
@@ -253,7 +259,6 @@
             "type" : [ "null", {
               "type" : "fixed",
               "name" : "SHORT",
-              "doc" : "2 bytes fixed type",
               "size" : 2
             } ],
             "doc" : "Permission bits defined over the object (Optional)",
@@ -302,7 +307,7 @@
       "doc" : "* Represents a file on the file system. Instantiates an AbstractObject.",
       "fields" : [ {
         "name" : "uuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "Universally unique identifier for the object"
       }, {
         "name" : "baseObject",
@@ -334,7 +339,7 @@
       "doc" : "* Represents a generic source or sink on the host device that is can be a file, memory, or netflow.\n     * This is the most basic representation of a source or sink, basically specifying its type only.",
       "fields" : [ {
         "name" : "uuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "Universally unique identifier for the object"
       }, {
         "name" : "baseObject",
@@ -346,7 +351,7 @@
           "type" : "enum",
           "name" : "SrcSinkType",
           "doc" : "* There are many types of sources such as sensors\n     * The type of a sensor could be base (close to hardware) or composite\n     * See https://source.android.com/devices/sensors/index.html for details\n     * TODO: camera and GPS ideally should be modeled separately to match the Android model. These are rich subsystems",
-          "symbols" : [ "SOURCE_ACCELEROMETER", "SOURCE_TEMPERATURE", "SOURCE_GYROSCOPE", "SOURCE_MAGNETIC_FIELD", "SOURCE_HEAR_RATE", "SOURCE_LIGHT", "SOURCE_PROXIMITY", "SOURCE_PRESSURE", "SOURCE_RELATIVE_HUMIDITY", "SOURCE_LINEAR_ACCELERATION", "SOURCE_MOTION", "SOURCE_STEP_DETECTOR", "SOURCE_STEP_COUNTER", "SOURCE_TILT_DETECTOR", "SOURCE_ROTATION_VECTOR", "SOURCE_GRAVITY", "SOURCE_GEOMAGNETIC_ROTATION_VECTOR", "SOURCE_CAMERA", "SOURCE_GPS", "SOURCE_AUDIO", "SOURCE_SYSTEM_PROPERTY", "SOURCE_SINK_IPC", "SOURCE_UNKNOWN" ]
+          "symbols" : [ "SOURCE_ACCELEROMETER", "SOURCE_TEMPERATURE", "SOURCE_GYROSCOPE", "SOURCE_MAGNETIC_FIELD", "SOURCE_HEART_RATE", "SOURCE_LIGHT", "SOURCE_PROXIMITY", "SOURCE_PRESSURE", "SOURCE_RELATIVE_HUMIDITY", "SOURCE_LINEAR_ACCELERATION", "SOURCE_MOTION", "SOURCE_STEP_DETECTOR", "SOURCE_STEP_COUNTER", "SOURCE_TILT_DETECTOR", "SOURCE_ROTATION_VECTOR", "SOURCE_GRAVITY", "SOURCE_GEOMAGNETIC_ROTATION_VECTOR", "SOURCE_CAMERA", "SOURCE_GPS", "SOURCE_AUDIO", "SOURCE_SYSTEM_PROPERTY", "SOURCE_SINK_IPC", "SOURCE_UNKNOWN" ]
         },
         "doc" : "The type of the object"
       } ]
@@ -356,20 +361,21 @@
       "doc" : "* Represents a page in memory. Instantiates an AbstractObject.\n     * TODO: is memory really an object (with permissions and so on) or is it a transient data?",
       "fields" : [ {
         "name" : "uuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "Universally unique identifier for the object"
       }, {
         "name" : "baseObject",
         "type" : "AbstractObject",
         "doc" : "The base object attributes"
       }, {
-        "name" : "pageNumber",
-        "type" : "long",
-        "doc" : "The memory page number"
-      }, {
         "name" : "memoryAddress",
         "type" : "long",
         "doc" : "The location in memory"
+      }, {
+        "name" : "pageNumber",
+        "type" : [ "null", "long" ],
+        "doc" : "The memory page number",
+        "default" : null
       } ]
     }, {
       "type" : "record",
@@ -377,7 +383,7 @@
       "doc" : "* A principal is a local user\n    * TODO: extend for second evaluation to include remote principals\n    * TODO: what happens when the user information changes (are we tracking versions?)\n    * TODO: Authentication mechanisms: are TA1s providing that information and how?",
       "fields" : [ {
         "name" : "uuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "A unique id for the principal"
       }, {
         "name" : "type",
@@ -419,11 +425,11 @@
       "doc" : "* Edges in the CDM only connect the entities and do not have attributes of their own.\n     *  In order to make the streaming efficient, the edge specification does not require\n     *  the objects on both ends every time it is streamed/serialized. Instead, we defined\n     *  the edge to be simple, it has a type and it connects two entities each identified by\n     *  a uid each.\n     * Since the different edge types in the current model do not have different properties\n     *  (actually no properties at all), we do not define the different edges as separate\n     *  records at this time.\n     * For example, when streaming a large number of edges having the same from node, the\n     *  from node in all these edges will be represented using the node id instead of having\n     *  to replicate the full node object on the wire.",
       "fields" : [ {
         "name" : "fromUuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "A unique id of the From entity on the edge"
       }, {
         "name" : "toUuid",
-        "type" : "long",
+        "type" : "UUID",
         "doc" : "The id of the To entity on the edge"
       }, {
         "name" : "type",
