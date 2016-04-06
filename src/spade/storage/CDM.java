@@ -44,8 +44,8 @@ import com.bbn.tc.schema.avro.SimpleEdge;
 import com.bbn.tc.schema.avro.SrcSinkObject;
 import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
-import com.bbn.tc.schema.avro.UUID;
 import com.bbn.tc.schema.avro.TCCDMDatum;
+import com.bbn.tc.schema.avro.UUID;
 import com.bbn.tc.schema.utils.SchemaUtils;
 
 import spade.core.AbstractEdge;
@@ -149,7 +149,7 @@ public class CDM extends Kafka {
             String time = edge.getAnnotation("time");
             Long timeLong = parseTimeToLong(time);
             eventBuilder.setTimestampMicros(timeLong);
-            Long eventId = parseLong(edge.getAnnotation("event id"));
+            Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), null);
             if(eventId == null){ 
             	eventBuilder.setSequence(0); // Value to be confirmed here TODO
             }else{
@@ -206,7 +206,7 @@ public class CDM extends Kafka {
                     eventBuilder.setType(EventType.EVENT_WRITE);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
-                        eventBuilder.setSize(parseLong(size));
+                        eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
                 } else if (operation.equals("send") || operation.equals("sendto")) {
@@ -214,7 +214,7 @@ public class CDM extends Kafka {
                     eventBuilder.setType(EventType.EVENT_WRITE);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
-                    	eventBuilder.setSize(parseLong(size));
+                    	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
                 } else if (operation.equals("connect")) {
@@ -248,14 +248,14 @@ public class CDM extends Kafka {
                     eventBuilder.setType(EventType.EVENT_READ);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
-                    	eventBuilder.setSize(parseLong(size));
+                    	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
                     eventBuilder.setType(EventType.EVENT_READ);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
-                    	eventBuilder.setSize(parseLong(size));
+                    	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW; // XXX should be EDGE_NETFLOW_AFFECTS_EVENT but not in CDM
                 } else if (operation.equals("accept")) {
@@ -296,7 +296,12 @@ public class CDM extends Kafka {
                 logger.log(Level.WARNING, "Unexpected edge type: {0}", edgeType);
                 return false;
             }
-            eventBuilder.setThreadId(CommonFunctions.parseInt(pid, -1));
+            Integer pid_int = CommonFunctions.parseInt(pid, null);
+            if(pid_int == null){
+            	logger.log(Level.WARNING, "Unknown thread ID for event ID: {0}", eventId);
+            	return false;
+            }
+            eventBuilder.setThreadId(pid_int);
             eventBuilder.setProperties(properties);
             Event event = eventBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(event).build());
@@ -367,16 +372,6 @@ public class CDM extends Kafka {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
-    }
-    
-    private Long parseLong(String str){
-    	try{
-    		return Long.parseLong(str);
-    	}catch(Exception e){
-    		logger.log(Level.WARNING,
-                    "Value passed isn't LONG: {0}", str);
-    		return null;
-    	}
     }
     
     private long parseTimeToLong(String time){
