@@ -23,7 +23,7 @@ import java.io.FileWriter;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.codec.binary.Hex;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
@@ -113,7 +113,7 @@ public class Graphviz extends AbstractStorage {
                 }
             }
 
-            String key = DigestUtils.sha256Hex(incomingVertex.toString());
+            String key = Hex.encodeHexString(incomingVertex.bigHashCode());
             outputFile.write("\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
             checkTransactions();
             return true;
@@ -162,8 +162,8 @@ public class Graphviz extends AbstractStorage {
                 edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
             }
 
-            String srckey = DigestUtils.sha256Hex(incomingEdge.getSourceVertex().toString());
-            String dstkey = DigestUtils.sha256Hex(incomingEdge.getDestinationVertex().toString());
+            String srckey = Hex.encodeHexString(incomingEdge.getSourceVertex().bigHashCode());
+            String dstkey = Hex.encodeHexString(incomingEdge.getDestinationVertex().bigHashCode());
 
             outputFile.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
             checkTransactions();

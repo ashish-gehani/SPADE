@@ -580,10 +580,10 @@ public class CDM extends Kafka {
     }
     
     private UUID getUuid(AbstractVertex vertex){
-        return SchemaUtils.toUUID(vertex.hashCode());
+        return new UUID(vertex.bigHashCode());
     }
     
     private UUID getUuid(AbstractEdge edge){
-        return SchemaUtils.toUUID(edge.hashCode());
+        return new UUID(edge.bigHashCode());
     }
 }
