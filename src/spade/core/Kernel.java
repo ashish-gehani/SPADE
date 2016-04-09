@@ -143,7 +143,6 @@ public class Kernel {
     private static final String LIST_STRING = "list reporters|storages|filters|sketches|transformers|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
-    private static final String SHUTDOWN_STRING = "shutdown";
     // Strings for query client
     private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
     private static final String QUERY_EDGE1_STRING = "<result> = getEdges(source vertex id, destination vertex id)";
@@ -265,6 +264,9 @@ public class Kernel {
             @Override
             public void run() {
                 if (!shutdown) {
+
+                    Kernel.shutdown = true;
+
                     // Save current configuration.
                     configCommand("config save " + configFile, NullStream.out);
                     // Shut down all reporters.
@@ -609,19 +611,7 @@ public class Kernel {
      * output.
      */
     public static void executeCommand(String line, PrintStream outputStream) {
-        if (line.startsWith("shutdown")) {
-            // On shutdown, save the current configuration in the default
-            // configuration
-            // file.
-            configCommand("config save " + configFile, NullStream.out);
-            for (AbstractReporter reporter : reporters) {
-                // Shut down all reporters. After
-                // this, their buffers are flushed and then the storages are
-                // shut down.
-                reporter.shutdown();
-            }
-            shutdown = true;
-        } else if (line.startsWith("add")) {
+        if (line.startsWith("add")) {
             addCommand(line, outputStream);
         } else if (line.startsWith("list")) {
             listCommand(line, outputStream);
@@ -758,7 +748,6 @@ public class Kernel {
         string.append("\t" + LIST_STRING + "\n");
         string.append("\t" + CONFIG_STRING + "\n");
         string.append("\t" + EXIT_STRING + "\n");
-        string.append("\t" + SHUTDOWN_STRING);
         return string.toString();
     }
 
@@ -1432,19 +1421,16 @@ class LocalControlConnection implements Runnable {
 	                    
 	                    Kernel.executeCommand(line, controlOutputStream);
 	                    
-	                    if("shutdown".equals(line)){
-	                    	break;
-	                    }else{
-	                    	// An empty line is printed to let the client know that the
-	                        // command output is complete.
-	                    	controlOutputStream.println("");
-	                    }
+                    	// An empty line is printed to let the client know that the command output is complete.
+                    	controlOutputStream.println("");
+
                 	}catch(SocketTimeoutException exception){
                 		//logger.log(Level.SEVERE, null, exception);
                 		//normal exception. no need to log it. timeout added to be able to shutdown when shutdown set to true by another client
                 	}
                 }
-                if(Kernel.shutdown){ //to differentiate between exit and shutdown
+                if(Kernel.shutdown){ 
+                    //to differentiate between exit and shutdown
                 	//wait for Kernel to shutdown everything before replying with the shutdown ack. Will be sent to all control clients irrespective of who called shutdown
                 	synchronized (Kernel.shutdownCompleteLock) {
                 		while(!Kernel.shutdownComplete){
@@ -1455,14 +1441,7 @@ class LocalControlConnection implements Runnable {
 							}
                 		}
 					}
-                	
-                	try{ //doing this in a try catch to make sure the lock code (below) is always executed.
-                		controlOutputStream.println("ACK[shutdown]");
-                		controlOutputStream.flush();
-                	}catch(Exception e){
-                		logger.log(Level.SEVERE, null, e);
-                	}
-                	
+                	                	
                 	synchronized (Kernel.allShutdownsAcknowledgedLock) {
                 		synchronized (Kernel.controlConnectionsLock) {
                 			Kernel.remainingShutdownAcks--;
