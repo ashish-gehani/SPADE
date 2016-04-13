@@ -31,9 +31,9 @@ public class CommandUtility {
 	
 	private static Logger logger = Logger.getLogger(CommandUtility.class.getName());
 
-	public static List<String> getOutputOfCommand(String ...commands) throws Exception{
+	public static List<String> getOutputOfCommand(String command) throws Exception{
 		
-		Process process = Runtime.getRuntime().exec(commands);
+		Process process = Runtime.getRuntime().exec(command);
 		
 		final BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 		final BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -64,6 +64,9 @@ public class CommandUtility {
 				}
 			}
 		});
+		
+		stdoutThread.start();
+		stderrThread.start();
 		
 		stdoutThread.join();
 		stderrThread.join();

@@ -423,7 +423,7 @@ public class Audit extends AbstractReporter {
     	Map<String, String> inodefd0 = new HashMap<String, String>();
     	
     	try{
-    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -p /proc/" + pid);
+    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -p " + pid);
     		if(lines != null && lines.size() > 1){
     			lines.remove(0); //remove the heading line
     			for(String line : lines){
@@ -431,7 +431,7 @@ public class Audit extends AbstractReporter {
     				if(tokens.length >= 9){
     					String type = tokens[4].toLowerCase().trim();
     					String fd = tokens[3].trim();
-    					fd = fd.substring(0, fd.length() - 1); //last character is either r(read), w(write) or u(read and write)
+    					fd = fd.replaceAll("[^0-9]", ""); //ends with r(read), w(write), u(read and write), W (lock)
     					if(isAnInteger(fd)){
 	    					if("fifo".equals(type)){
 	    						String path = tokens[8];
@@ -2048,12 +2048,12 @@ public class Audit extends AbstractReporter {
                 cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
 
                 // see for order of uid, euid, suid, fsiud: http://man7.org/linux/man-pages/man5/proc.5.html
-                String gidTokens[] = gidline.split("//s+");
-                String uidTokens[] = uidline.split("//s+");
+                String gidTokens[] = gidline.split("\\s+");
+                String uidTokens[] = uidline.split("\\s+");
                 
                 Process newProcess = createProcessVertex(pid, ppidline, nameline, null, null, 
-                		uidTokens[0], uidTokens[1], uidTokens[2], uidTokens[3], 
-                		gidTokens[0], gidTokens[1], gidTokens[2], gidTokens[3], 
+                		uidTokens[1], uidTokens[2], uidTokens[3], uidTokens[4], 
+                		gidTokens[1], gidTokens[2], gidTokens[3], gidTokens[4], 
                 		PROC_FS, Long.toString(startTime));
                 
                 // newProcess.addAnnotation("starttime_unix", stime);
