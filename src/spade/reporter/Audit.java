@@ -73,7 +73,6 @@ public class Audit extends AbstractReporter {
     private volatile boolean shutdown = false;
     private long boottime = 0;
     private final long THREAD_CLEANUP_TIMEOUT = 1000;
-    private final boolean USE_PROCFS = false;
     private boolean USE_READ_WRITE = false;
     // To toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean USE_SOCK_SEND_RCV = false;
@@ -163,6 +162,8 @@ public class Audit extends AbstractReporter {
     private final static String EVENT_ID = "event id";
     
     private boolean SIMPLIFY = true;
+    
+    private boolean PROCFS = false;
         
     @Override
     public boolean launch(String arguments) {
@@ -208,6 +209,9 @@ public class Audit extends AbstractReporter {
         }
         if("false".equals(args.get("simplify"))){
         	SIMPLIFY = false;
+        }
+        if("true".equals(args.get("procFS"))){
+        	PROCFS = true;
         }
 
         // Get system boot time from /proc/stat. This is later used to determine
@@ -289,39 +293,41 @@ public class Audit extends AbstractReporter {
         	
         }else{
 
-	        // Build the process tree using the directories under /proc/.
-	        // Directories which have a numeric name represent processes.
-	        String path = "/proc";
-	        java.io.File directory = new java.io.File(path);
-	        java.io.File[] listOfFiles = directory.listFiles();
-	        for (int i = 0; i < listOfFiles.length; i++) {
-	            if (listOfFiles[i].isDirectory()) {
-	
-	                String currentPID = listOfFiles[i].getName();
-	                try {
-	                    // Parse the current directory name to make sure it is
-	                    // numeric. If not, ignore and continue.
-	                    Integer.parseInt(currentPID);
-	                    Process processVertex = createProcessFromProcFS(currentPID);
-	                    addProcess(currentPID, processVertex);
-	                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
-	                    putVertex(processVertex);
-	                    if (parentVertex != null) {
-	                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
-	                        wtb.addAnnotation(SOURCE, PROC_FS);
-	                        putEdge(wtb);
-	                    }
-	
-	                    // Get existing file descriptors for this process
-	                    Map<String, ArtifactInfo> fds = getFileDescriptors(currentPID);
-	                    if (fds != null) {
-	                        descriptors.addDescriptors(currentPID, fds);
-	                    }
-	                } catch (Exception e) {
-	                    // Continue
-	                }
-	            }
-	        }
+        	if(PROCFS){
+		        // Build the process tree using the directories under /proc/.
+		        // Directories which have a numeric name represent processes.
+		        String path = "/proc";
+		        java.io.File directory = new java.io.File(path);
+		        java.io.File[] listOfFiles = directory.listFiles();
+		        for (int i = 0; i < listOfFiles.length; i++) {
+		            if (listOfFiles[i].isDirectory()) {
+		
+		                String currentPID = listOfFiles[i].getName();
+		                try {
+		                    // Parse the current directory name to make sure it is
+		                    // numeric. If not, ignore and continue.
+		                    Integer.parseInt(currentPID);
+		                    Process processVertex = createProcessFromProcFS(currentPID);
+		                    addProcess(currentPID, processVertex);
+		                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
+		                    putVertex(processVertex);
+		                    if (parentVertex != null) {
+		                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
+		                        wtb.addAnnotation(SOURCE, PROC_FS);
+		                        putEdge(wtb);
+		                    }
+		
+		                    // Get existing file descriptors for this process
+		                    Map<String, ArtifactInfo> fds = getFileDescriptors(currentPID);
+		                    if (fds != null) {
+		                        descriptors.addDescriptors(currentPID, fds);
+		                    }
+		                } catch (Exception e) {
+		                    // Continue
+		                }
+		            }
+		        }
+        	}
 	
 	        try {
 	            // Start auditd and clear existing rules.
@@ -407,7 +413,8 @@ public class Audit extends AbstractReporter {
 
 	private Map<String, ArtifactInfo> getFileDescriptors(String pid){
 		
-		if(auditLogThread != null){ //i.e. the audit log is being read from a file.
+		if(auditLogThread != null  // the audit log is being read from a file.
+				|| !PROCFS){ // the flag to read from procfs is false
 			return null;
 		}
     	
@@ -1866,7 +1873,7 @@ public class Audit extends AbstractReporter {
         if (getProcess(pid) != null && !refresh) {
             return getProcess(pid);
         }
-        Process resultProcess = USE_PROCFS ? createProcessFromProcFS(pid) : null;
+        Process resultProcess = PROCFS ? createProcessFromProcFS(pid) : null;
         if (resultProcess == null) {
             resultProcess = createProcessVertex(pid, eventData.get("ppid"), eventData.get("comm"), null, null, 
             		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"),
