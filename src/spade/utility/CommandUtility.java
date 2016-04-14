@@ -31,7 +31,7 @@ public class CommandUtility {
 	
 	private static Logger logger = Logger.getLogger(CommandUtility.class.getName());
 
-	public static List<String> getOutputOfCommand(String command) throws Exception{
+	public static List<String> getOutputOfCommand(final String command) throws Exception{
 		
 		Process process = Runtime.getRuntime().exec(command);
 		
