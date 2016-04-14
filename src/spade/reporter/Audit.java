@@ -176,7 +176,8 @@ public class Audit extends AbstractReporter {
             String archLine = archReader.readLine().trim();
             ARCH_32BIT = archLine.equals("i686");
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "error reading the system architecture", e);
+            logger.log(Level.SEVERE, "Error reading the system architecture", e);
+            return false; //if unable to find out the architecture then report failure
         }
 
         AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeSocketBridge";
@@ -191,7 +192,7 @@ public class Audit extends AbstractReporter {
             try{
             	dumpWriter = new BufferedWriter(new FileWriter(DEBUG_DUMP_FILE));
             }catch(Exception e){
-            	logger.log(Level.WARNING, "Failed to create output log writer");
+            	logger.log(Level.WARNING, "Failed to create output log writer. Continuing...", e);
             }
         } else {
             DEBUG_DUMP_LOG = false;
@@ -228,14 +229,14 @@ public class Audit extends AbstractReporter {
             }
             boottimeReader.close();
         } catch (IOException | NumberFormatException e) {
-            logger.log(Level.SEVERE, "error reading boot time information from /proc/", e);
+            logger.log(Level.WARNING, "Error reading boot time information from /proc/", e);
         }
         
         final String inputAuditLogFile = args.get("inputLog");
         if(inputAuditLogFile != null){ //if a path is passed but it is not a valid file then throw an error
         	
         	if(!new File(inputAuditLogFile).exists()){
-        		logger.log(Level.SEVERE, "File at specified path doesn't exist.");
+        		logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist.");
         		return false;
         	}
         	        	
@@ -270,21 +271,21 @@ public class Audit extends AbstractReporter {
         	        		try{
         	        			Thread.sleep(500);
         	        		}catch(Exception e){
-        	        			logger.log(Level.SEVERE, null, e);
+        	        			//logger.log(Level.SEVERE, null, e);
         	        		}
     					}
         	        	if(!printed){
         	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
         	        	}
     	        	}catch(Exception e){
-    	        		logger.log(Level.WARNING, "Audit log processing failed: " + inputAuditLogFile, e);
+    	        		logger.log(Level.SEVERE, "Audit log processing failed: " + inputAuditLogFile, e);
     	        	}finally{
     	        		try{
     	        			if(inputLogReader != null){
     	        				inputLogReader.close();
     	        			}
     	        		}catch(Exception e){
-    	        			logger.log(Level.SEVERE, "Failed to close audit input log reader", e);
+    	        			logger.log(Level.WARNING, "Failed to close audit input log reader", e);
     	        		}
     	        	}
     			}
@@ -349,7 +350,7 @@ public class Audit extends AbstractReporter {
 	                        eventReader.close();
 	                        auditProcess.destroy();
 	                    } catch (IOException | InterruptedException e) {
-	                        logger.log(Level.SEVERE, "error launching main runnable thread", e);
+	                        logger.log(Level.SEVERE, "Error launching main runnable thread", e);
 	                    }
 	                }
 	            };
@@ -374,7 +375,7 @@ public class Audit extends AbstractReporter {
 	            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
 	            logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
 	        } catch (IOException | InterruptedException e) {
-	            logger.log(Level.SEVERE, "error configuring audit rules", e);
+	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
 	            return false;
 	        }
 
@@ -406,7 +407,7 @@ public class Audit extends AbstractReporter {
 
             return ignorePids;
         } catch (IOException e) {
-            logger.log(Level.WARNING, "error building list of processes to ignore. partial list: " + ignorePids, e);
+            logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + ignorePids, e);
             return new StringBuilder();
         }
     }
@@ -465,7 +466,7 @@ public class Audit extends AbstractReporter {
     			}
     		}
     	}catch(Exception e){
-    		logger.log(Level.SEVERE, null, e);
+    		logger.log(Level.WARNING, "Failed to get file descriptors for pid " + pid, e);
     	}
     	
     	return fds;
@@ -494,7 +495,7 @@ public class Audit extends AbstractReporter {
         		auditLogThread.join(THREAD_CLEANUP_TIMEOUT);
         	}
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "error shutting down", e);
+            logger.log(Level.SEVERE, "Error shutting down", e);
         }
         return true;
     }
@@ -604,7 +605,7 @@ public class Audit extends AbstractReporter {
     		try{
     			processNetfilterPacketEvent(eventBuffer.get(eventId));
     		}catch(Exception e){
-    			logger.log(Level.SEVERE, "error processing finish syscall event with event id '"+eventId+"'", e);
+    			logger.log(Level.WARNING, "Error processing finish syscall event with event id '"+eventId+"'", e);
     		}
     	}else{ //for events with syscalls
 	    	if(ARCH_32BIT){
@@ -746,7 +747,7 @@ public class Audit extends AbstractReporter {
             }
             eventBuffer.remove(eventId);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "error processing finish syscall event with eventid '"+eventId+"'", e);
+            logger.log(Level.WARNING, "Error processing finish syscall event with eventid '"+eventId+"'", e);
         }
     }
     
@@ -818,7 +819,7 @@ public class Audit extends AbstractReporter {
     			}
     		}
     	}else{
-    		logger.log(Level.SEVERE, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
+    		logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
     	}
     }
 
@@ -890,7 +891,7 @@ public class Audit extends AbstractReporter {
     			}
     		}
     	}else{
-    		logger.log(Level.SEVERE, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
+    		logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
     	}
     }
 
@@ -1026,7 +1027,7 @@ public class Audit extends AbstractReporter {
             }
             eventBuffer.remove(eventId);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "error processing finish syscall event with eventid '"+eventId+"'", e);
+            logger.log(Level.WARNING, "Error processing finish syscall event with eventid '"+eventId+"'", e);
         }
     }
 
@@ -2061,7 +2062,7 @@ public class Audit extends AbstractReporter {
                 // newProcess.addAnnotation("commandline", cmdline);
                 return newProcess;
             } catch (IOException | NumberFormatException e) {
-                logger.log(Level.WARNING, "unable to create process vertex for pid " + pid + " from /proc/", e);
+                logger.log(Level.WARNING, "Unable to create process vertex for pid " + pid + " from /proc/", e);
                 return null;
             }
         } else {
@@ -2079,7 +2080,7 @@ public class Audit extends AbstractReporter {
     			return;
     		}
     	}catch(Exception e){
-    		logger.log(Level.SEVERE, "Failed to create version update edge between (" + newArtifact.toString() + ") and ("+oldArtifact.toString()+")" , e);
+    		logger.log(Level.WARNING, "Failed to create version update edge between (" + newArtifact.toString() + ") and ("+oldArtifact.toString()+")" , e);
     		return;
     	}
     	oldArtifact.addAnnotation("version", String.valueOf(oldVersion));

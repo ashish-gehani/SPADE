@@ -47,7 +47,7 @@ public class CommandUtility {
 						lines.add(line);
 					}
 				}catch(Exception e){
-					logger.log(Level.SEVERE, null, e);
+					logger.log(Level.WARNING, "Error reading STDOUT for command: " +command, e);
 				}
 			}
 		});
@@ -60,7 +60,7 @@ public class CommandUtility {
 						lines.add(line);
 					}
 				}catch(Exception e){
-					logger.log(Level.SEVERE, null, e);
+					logger.log(Level.WARNING, "Error reading STDERR for command: " +command, e);
 				}
 			}
 		});
