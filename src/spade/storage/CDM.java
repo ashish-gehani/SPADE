@@ -24,10 +24,12 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 
 import com.bbn.tc.schema.avro.AbstractObject;
 import com.bbn.tc.schema.avro.AbstractObject.Builder;
@@ -46,14 +48,12 @@ import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
 import com.bbn.tc.schema.avro.TCCDMDatum;
 import com.bbn.tc.schema.avro.UUID;
-import com.bbn.tc.schema.utils.SchemaUtils;
+import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Settings;
 import spade.core.Vertex;
 import spade.utility.CommonFunctions;
-import spade.utility.FileUtility;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -69,36 +69,18 @@ import spade.utility.FileUtility;
  * @author Armando Caro
  */
 public class CDM extends Kafka {
+	
+	private static final Logger logger = Logger.getLogger(CDM.class.getName());
 
     // for volume stats
     private long startTime, endTime;
     private long recordCount;
 
-    private String kafkaTopic = null;
-    
     private Map<String, UUID> pidToUuid = new HashMap<>();
-    
-    private static final Logger logger = Logger.getLogger(CDM.class.getName());
-    
-    private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(CDM.class);
 
     @Override
     public boolean initialize(String arguments) {
-    	
-    	if(arguments == null || arguments.trim().isEmpty()){
-    		try{
-    			Map<String, String> defaultConfig = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
-    			kafkaTopic = defaultConfig.get("KafkaTopic");
-    			arguments = "KafkaServer=" + defaultConfig.get("KafkaServer") + 
-    					" KafkaTopic=" + kafkaTopic +
-    					" KafkaProducerID=" + defaultConfig.get("KafkaProducerID") +
-    					" SchemaFilename=" + defaultConfig.get("SchemaFilename");
-    		}catch(Exception e){
-    			logger.log(Level.SEVERE, "Failed to read default config file '"+defaultConfigFilePath+"'", e);
-    			return false;
-    		}
-    	}
-    	
+    	    	
     	if(super.initialize(arguments)){
     		/* Note: This is not an accurate start time because we really want the first reported event,
              * but fine for now
@@ -112,6 +94,20 @@ public class CDM extends Kafka {
     		return false;
     	}        
     }
+    
+    @Override
+    protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
+		Properties properties = new Properties();
+		properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer);
+		properties.put(ProducerConfig.CLIENT_ID_CONFIG, kafkaProducerID);
+		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringSerializer");
+		properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer.class);
+		properties.put(AvroConfig.SCHEMA_WRITER_FILE, schemaFilename);
+		properties.put(AvroConfig.SCHEMA_SERDE_IS_SPECIFIC, true);
+		return properties;
+	}
 
     @Override
     public boolean putVertex(AbstractVertex vertex) {
@@ -129,7 +125,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(kafkaTopic, tccdmDatums);
+            recordCount += publishRecords(getKafkaTopic(), tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -343,7 +339,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(kafkaTopic, tccdmDatums);
+            recordCount += publishRecords(getKafkaTopic(), tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);

@@ -28,14 +28,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-
-import com.bbn.tc.schema.serialization.AvroConfig;
-import com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -48,61 +44,70 @@ import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
 
 public class Kafka extends AbstractStorage{
+
+	//NOTE: child classes must override "getDefaultKafkaProducerProperties" function if properties are different
 	
 	private static final Logger logger = Logger.getLogger(Kafka.class.getName());
 
 	protected final String SPADE_ROOT = Settings.getProperty("spade_root");
 
-    private Schema schema;
-    private KafkaAvroGenericSerializer serializer;
     private KafkaProducer<String, GenericContainer> producer;
     
     private String kafkaTopic = null;
     
-    private String defaultConfigFile = Settings.getDefaultConfigFilePath(Kafka.class);
+    private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass()); //depending on the instance get the correct config file
   	
 	@Override
 	public boolean initialize(String arguments) {
 		try {
 
             arguments = arguments == null ? "" : arguments.trim();
-            
-            Map<String, String> argumentPairs = null;
-            
-            if(arguments.isEmpty()){
-            	argumentPairs = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFile, "=");
-            }else{
-            	argumentPairs = CommonFunctions.parseKeyValPairs(arguments);
-            }
-
+           
+            Map<String, String> passedArguments = CommonFunctions.parseKeyValPairs(arguments);
+           
             String kafkaServer = null, kafkaProducerID = null, schemaFilename = null;
             
-            if (argumentPairs.containsKey("KafkaServer") && !argumentPairs.get("KafkaServer").isEmpty()) {
-                kafkaServer = argumentPairs.get("KafkaServer");
+            if (passedArguments.containsKey("KafkaServer") && !passedArguments.get("KafkaServer").isEmpty() && passedArguments.get("KafkaServer") != null) {
+                kafkaServer = passedArguments.get("KafkaServer");
             }
-            if (argumentPairs.containsKey("KafkaTopic") && !argumentPairs.get("KafkaTopic").isEmpty()) {
-                kafkaTopic = argumentPairs.get("KafkaTopic");
+            if (passedArguments.containsKey("KafkaTopic") && !passedArguments.get("KafkaTopic").isEmpty() && passedArguments.get("KafkaTopic") != null) {
+                setKafkaTopic(passedArguments.get("KafkaTopic"));
             }
-            if (argumentPairs.containsKey("KafkaProducerID") && !argumentPairs.get("KafkaProducerID").isEmpty()) {
-                kafkaProducerID = argumentPairs.get("KafkaProducerID");
+            if (passedArguments.containsKey("KafkaProducerID") && !passedArguments.get("KafkaProducerID").isEmpty() && passedArguments.get("KafkaProducerID") != null) {
+                kafkaProducerID = passedArguments.get("KafkaProducerID");
             }
-            if (argumentPairs.containsKey("SchemaFilename") && !argumentPairs.get("SchemaFilename").isEmpty()) {
-                schemaFilename = argumentPairs.get("SchemaFilename");
+            if (passedArguments.containsKey("SchemaFilename") && !passedArguments.get("SchemaFilename").isEmpty() && passedArguments.get("SchemaFilename") != null) {
+                schemaFilename = passedArguments.get("SchemaFilename");
             }
+            
+            //if any of the values not gotten from user then get them from the default location
+            Map<String, String> defaultArguments = null;
+            if(kafkaServer == null || kafkaProducerID == null || getKafkaTopic() == null || schemaFilename == null){ 
+            	defaultArguments = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
+            }
+            
+            if(kafkaServer == null){
+            	kafkaServer = defaultArguments.get("KafkaServer");
+            }
+            
+            if(kafkaProducerID == null){
+            	kafkaProducerID = defaultArguments.get("KafkaProducerID");
+            }
+            
+        	if(getKafkaTopic() == null){
+        		setKafkaTopic(defaultArguments.get("KafkaTopic"));
+        	}
+        	
+        	if(schemaFilename == null){
+        		schemaFilename = defaultArguments.get("SchemaFilename");
+        	}
+        	            
             logger.log(Level.INFO,
                     "Params: KafkaServer={0} KafkaTopic={1} KafkaProducerID={2} SchemaFilename={3}",
-                    new Object[] {kafkaServer, kafkaTopic, kafkaProducerID, schemaFilename});
+                    new Object[] {kafkaServer, getKafkaTopic(), kafkaProducerID, schemaFilename});
 
-            Properties props = new Properties();
-            props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer);
-            props.put(ProducerConfig.CLIENT_ID_CONFIG, kafkaProducerID);
-            props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    "org.apache.kafka.common.serialization.StringSerializer");
-            props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer.class);
-            props.put(AvroConfig.SCHEMA_WRITER_FILE, schemaFilename);
-            props.put(AvroConfig.SCHEMA_SERDE_IS_SPECIFIC, true);
-            producer = new KafkaProducer<>(props);
+            Properties properties = getDefaultKafkaProducerProperties(kafkaServer, kafkaServer, kafkaProducerID, schemaFilename); //depending on the instance of the class
+            producer = new KafkaProducer<>(properties);
 
             return true;
         } catch (Exception exception) {
@@ -110,6 +115,18 @@ public class Kafka extends AbstractStorage{
             return false;
         }
 	}
+	
+	protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
+		Properties properties = new Properties();
+		properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer);
+		properties.put(ProducerConfig.CLIENT_ID_CONFIG, kafkaProducerID);
+		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringSerializer");
+		properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+				"org.apache.kafka.common.serialization.StringSerializer");
+		return properties;
+	}
+	
 	@Override
 	public boolean putVertex(AbstractVertex vertex){
 		try{
@@ -119,7 +136,7 @@ public class Kafka extends AbstractStorage{
 			vertexBuilder.setHash(String.valueOf(vertex.hashCode()));
 			Vertex kafkaVertex = vertexBuilder.build();
 			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaVertex).build());
-			return publishRecords(kafkaTopic, recordsToPublish) > 0;
+			return publishRecords(getKafkaTopic(), recordsToPublish) > 0;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish vertex : " + vertex);
 			return false;
@@ -137,7 +154,7 @@ public class Kafka extends AbstractStorage{
 			edgeBuilder.setHash(String.valueOf(edge.hashCode()));
 			Edge kafkaEdge = edgeBuilder.build();
 			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaEdge).build());
-			return publishRecords(kafkaTopic, recordsToPublish) > 0;	
+			return publishRecords(getKafkaTopic(), recordsToPublish) > 0;	
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to publish edge : " + edge);
 			return false;
@@ -171,7 +188,16 @@ public class Kafka extends AbstractStorage{
     }
 	
 	public boolean shutdown(){
+		producer.close();
 		return true;
+	}
+	
+	private void setKafkaTopic(String kafkaTopic){
+		this.kafkaTopic = kafkaTopic;
+	}
+	
+	protected String getKafkaTopic(){
+		return kafkaTopic;
 	}
 	
 }
