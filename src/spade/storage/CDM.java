@@ -145,12 +145,8 @@ public class CDM extends Kafka {
             String time = edge.getAnnotation("time");
             Long timeLong = parseTimeToLong(time);
             eventBuilder.setTimestampMicros(timeLong);
-            Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), null);
-            if(eventId == null){ 
-            	eventBuilder.setSequence(0); // Value to be confirmed here TODO
-            }else{
-            	eventBuilder.setSequence(eventId);
-            }
+            Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), 0L); //the default event id value is decided to be 0
+            eventBuilder.setSequence(eventId);
             
             InstrumentationSource edgeSource = getInstrumentationSource(edge.getAnnotation("source"));
             if(edgeSource == null){
@@ -163,7 +159,7 @@ public class CDM extends Kafka {
             String pid = null;
             
             Map<String, String> properties = new HashMap<>();
-            properties.put("eventId", edge.getAnnotation("event id"));
+            properties.put("eventId", String.valueOf(eventId));
             String edgeType = edge.type();
             String operation = edge.getAnnotation("operation");
             if (edgeType.equals("WasTriggeredBy")) {
@@ -246,22 +242,22 @@ public class CDM extends Kafka {
                     if (size != null) {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
+                    affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT; 
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
                     eventBuilder.setType(EventType.EVENT_READ);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW; // XXX should be EDGE_NETFLOW_AFFECTS_EVENT but not in CDM
+                    affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
                 } else if (operation.equals("accept")) {
                     eventBuilder.setType(EventType.EVENT_ACCEPT);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW; // XXX should be EDGE_NETFLOW_AFFECTS_EVENT but not in CDM
+                    affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
                 } else if (operation.equals("rename_read")) {
                 	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
                 } else if (operation.equals("link_read")) {
-                	//handled automatically in case of WasDerivedFrom 'rename' operation
+                	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
                 } else {
                     logger.log(Level.WARNING,
@@ -317,7 +313,7 @@ public class CDM extends Kafka {
                 /* Generate another _*_AFFECTS_* edge in the reverse direction */
                 affectsEdgeBuilder.setFromUuid(getUuid(edge.getDestinationVertex())); // UID of Object being affecting
                 affectsEdgeBuilder.setToUuid(getUuid(edge)); // Event record's UID
-                affectsEdgeBuilder.setType(EdgeType.EDGE_EVENT_AFFECTS_FILE); // XXX should be EDGE_FILE_AFFECTS_EVENT but not in CDM
+                affectsEdgeBuilder.setType(EdgeType.EDGE_FILE_AFFECTS_EVENT);
                 affectsEdgeBuilder.setTimestamp(timeLong);
                 affectsEdge = affectsEdgeBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
@@ -415,7 +411,7 @@ public class CDM extends Kafka {
         properties.put("group", vertex.getAnnotation("gid"));
         String cwd = vertex.getAnnotation("cwd");
         if (cwd != null) {
-            properties.put("cwd", cwd);
+            properties.put("currentDirectory", cwd);
         }
         subjectBuilder.setProperties(properties);
         Subject subject = subjectBuilder.build();

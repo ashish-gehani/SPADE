@@ -149,7 +149,7 @@ public class Audit extends AbstractReporter {
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
         ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-	SEND, RECV
+        SEND, RECV
     }
     
     private BufferedWriter dumpWriter = null;
@@ -1327,16 +1327,17 @@ public class Audit extends AbstractReporter {
 
         if (!USE_READ_WRITE) {
             String flags = eventData.get("a1");
-            Map<String, String> newData = new HashMap<>();
-            newData.put("pid", pid);
-            newData.put("a0", Integer.toHexString(Integer.parseInt(fd)));
-            newData.put("time", eventData.get("time"));
+            Map<String, String> newEventData = new HashMap<>();
+            newEventData.put("pid", pid);
+            newEventData.put("a0", Integer.toHexString(Integer.parseInt(fd))); //a0 is the first argument which is the file descriptor in case of read and write syscalls
+            newEventData.put("time", eventData.get("time"));
+            newEventData.put("eventid", eventData.get("eventid"));
             if (flags.charAt(flags.length() - 1) == '0') {
                 // read
-                processRead(newData, SYSCALL.READ);
+                processRead(newEventData, SYSCALL.READ);
             } else {
                 // write
-                processWrite(newData, SYSCALL.WRITE);
+                processWrite(newEventData, SYSCALL.WRITE);
             }
         }
     }
