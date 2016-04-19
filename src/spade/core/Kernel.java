@@ -167,21 +167,6 @@ public class Kernel {
     
     private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
     
-    static Object controlConnectionsLock = new Object(); //a lock to be able to safely modify 'remainingShutdownAcks'
-    static volatile int remainingShutdownAcks = -1; //to keep track of how many control clients are connected and to how many the shutdown acknowledgement needs to be sent still 
-    static Object allShutdownsAcknowledgedLock = new Object(); //a lock for waiting and notifying when all shutdown acknowledgments have been sent 	
-	static Object shutdownCompleteLock = new Object(); //a lock for waiting and notifying that the kernel has completed shutdown and it is safe to send shutdown acknowledgments
-	static volatile boolean shutdownComplete = false; //a boolean variable to indicate that shutdown has been completed by the kernel
-	
-	/*
-	 * #Description of how the above locks and indicator variables are used to send acknowledgments for 'shutdown' and 'exit' commands back to the control clients.
-	 * #Irrespective of the control client who sent the shutdown command, the ACK is sent to all the connected control clients so that they know also that the kernel has been shutdown.
-	 * 'remainingShutdownAcks' integer is incremented every time a control client connects to the kernel. it is decremented every time a control client exits or shuts down. 
-	 * 'allShutdownsAcknowledgedLock' is used for the kernel to wait on until all the ACKS have been sent to control clients and the last control client notifies the kernel that it is safe to proceed now. 
-	 * 'controlConnectionsLock' is used to safely increment/decrement it.
-	 * 'shutdownComplete' boolean is used to indicate by the kernel to all the control clients that shutdown has been completed. So, all clients wait for this to be set to true by waiting on 'shutdownCompleteLock'. 
-	 */
-
     private static void setupKeyStores() throws Exception {
         String serverPublicPath = Settings.getProperty("spade_root") + "cfg/ssl/server.public";
         String serverPrivatePath = Settings.getProperty("spade_root") + "cfg/ssl/server.private";
@@ -459,7 +444,6 @@ public class Kernel {
                     serverSockets.add(serverSocket);
                     while (!shutdown) {
                         Socket controlSocket = serverSocket.accept();
-                        controlSocket.setSoTimeout(CONTROL_CLIENT_READ_TIMEOUT); //added time to timeout after when reading from the socket to be able to check if the kernel has been shutdown or not and send shutdown ack to the control clients. 
                         LocalControlConnection thisConnection = new LocalControlConnection(controlSocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
@@ -747,7 +731,7 @@ public class Kernel {
         string.append("\t" + REMOVE_FILTER_TRANSFORMER_STRING + "\n");
         string.append("\t" + LIST_STRING + "\n");
         string.append("\t" + CONFIG_STRING + "\n");
-        string.append("\t" + EXIT_STRING + "\n");
+        string.append("\t" + EXIT_STRING);
         return string.toString();
     }
 
@@ -1312,23 +1296,6 @@ public class Kernel {
             storage.shutdown();
         }
         
-        //before closing the sockets notify that the shutdown is complete
-        synchronized (shutdownCompleteLock) {
-        	shutdownComplete = true;
-			shutdownCompleteLock.notifyAll();
-		}
-        
-        //wait for the shutdown acknowledgement to be sent
-        synchronized (allShutdownsAcknowledgedLock) {
-        	while(remainingShutdownAcks != 0){
-				try{
-					allShutdownsAcknowledgedLock.wait();
-				}catch(Exception e){
-					logger.log(Level.SEVERE, null, e);
-				}
-        	}
-		}
-        
         // Shut down server sockets.
         for (ServerSocket socket : serverSockets) {
             try {
@@ -1394,13 +1361,6 @@ class LocalControlConnection implements Runnable {
     @Override
     public void run() {
         try {
-        	synchronized (Kernel.controlConnectionsLock) {
-        		if(Kernel.remainingShutdownAcks == -1){
-            		Kernel.remainingShutdownAcks = 1;
-            	}else{
-            		Kernel.remainingShutdownAcks++;
-            	}
-			}
             OutputStream outStream = controlSocket.getOutputStream();
             InputStream inStream = controlSocket.getInputStream();
 
@@ -1412,10 +1372,6 @@ class LocalControlConnection implements Runnable {
                 	try{
 	                    String line = controlInputStream.readLine();
 	                    if (line == null || line.equalsIgnoreCase("exit")) {
-	                    	controlOutputStream.println("ACK[exit]");
-	                    	synchronized (Kernel.controlConnectionsLock) {
-	                    		Kernel.remainingShutdownAcks--;
-	                    	}
 	                        break;
 	                    }
 	                    
@@ -1425,32 +1381,8 @@ class LocalControlConnection implements Runnable {
                     	controlOutputStream.println("");
 
                 	}catch(SocketTimeoutException exception){
-                		//logger.log(Level.SEVERE, null, exception);
-                		//normal exception. no need to log it. timeout added to be able to shutdown when shutdown set to true by another client
+                		logger.log(Level.SEVERE, null, exception);
                 	}
-                }
-                if(Kernel.shutdown){ 
-                    //to differentiate between exit and shutdown
-                	//wait for Kernel to shutdown everything before replying with the shutdown ack. Will be sent to all control clients irrespective of who called shutdown
-                	synchronized (Kernel.shutdownCompleteLock) {
-                		while(!Kernel.shutdownComplete){
-							try{
-								Kernel.shutdownCompleteLock.wait();
-							}catch(Exception e){
-								logger.log(Level.SEVERE, null, e);
-							}
-                		}
-					}
-                	                	
-                	synchronized (Kernel.allShutdownsAcknowledgedLock) {
-                		synchronized (Kernel.controlConnectionsLock) {
-                			Kernel.remainingShutdownAcks--;
-	                		if(Kernel.remainingShutdownAcks == 0){ //all acks sent. safe to let the kernel proceed
-	                			Kernel.allShutdownsAcknowledgedLock.notifyAll(); 
-	                		}
-                		}
-					}
-                	
                 }
             } catch (IOException e) {
             	logger.log(Level.SEVERE, null, e);
