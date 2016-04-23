@@ -80,7 +80,7 @@ import spade.utility.CommonFunctions;
  */
 public class CDMFile extends AbstractStorage {
 
-    private static final Logger logger = Logger.getLogger(CDM.class.getName());
+    private static final Logger logger = Logger.getLogger(CDMFile.class.getName());
 
 
     private long startTime, endTime;
@@ -110,23 +110,23 @@ public class CDMFile extends AbstractStorage {
 
     @Override
     public boolean initialize(String arguments) {
-            startTime = System.currentTimeMillis();
-            endTime = 0;
+            startTime   = System.currentTimeMillis();
+            endTime     = 0;
             recordCount = 0;
             Map<String, String> args = parseKeyValPairs(arguments);
             try {
                 String schemaPath = args.get(SCHEMA_KEY);
                 filePath          = args.get(OUTFILE_KEY);
                 File file         = new File(filePath);
-                Parser p      = new Schema.Parser();
-                File schFile  = new File(schemaPath);
-                Schema schema = p.parse(schFile); // XXX JSON only?
+                Parser p          = new Schema.Parser();
+                File schFile      = new File(schemaPath);
+                Schema schema     = p.parse(schFile);
                 DatumWriter<TCCDMDatum> dwriter = new SpecificDatumWriter<TCCDMDatum>(TCCDMDatum.class);
                 dwriter.setSchema(schema);
                 outputFile = new DataFileWriter(dwriter);
                 outputFile.create(schema, file);
             } catch (Exception exception) {
-                logger.log(Level.SEVERE, "Error while writing to file", exception);
+                logger.log(Level.SEVERE, "Initializing CDMFile storage", exception);
                 return false;
             }
             return true;
