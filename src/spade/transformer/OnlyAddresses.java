@@ -1,0 +1,106 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2015 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+
+package spade.transformer;
+
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import spade.client.QueryParameters;
+import spade.core.AbstractEdge;
+import spade.core.AbstractTransformer;
+import spade.core.AbstractVertex;
+import spade.core.Edge;
+import spade.core.Graph;
+
+public class OnlyAddresses extends AbstractTransformer{
+	
+	public Graph putGraph(Graph graph, QueryParameters queryParameters){
+		
+		/*
+		 * Code description:
+		 * 
+		 * Add all the Address vertices in the final graph when building necessary data structures
+		 * Build a map of bitcoin payment vertices to bitcoin address vertices (assumption: every payment vertex is only connected to one address vertex)
+		 * Build a map of transaction vertices to 1) list of edges for 'paid from' payment vertices, and 2) list of edges for 'paid to' payment vertices  
+		 * For each transaction found, draw edges from addresses of 'paid to' payment vertices to addresses of 'paid from' payment vertices
+		 * 
+		 * NOTE: Payment-out vertex of one transaction can be Payment-in vertex of another transaction and vice versa.
+		 * 
+		 * Input graph edges: Tx1 USED P1, P2 WASGENERATEDBY Tx1, P1 -> Address1, P2 -> Address2, Tx2 USED P2 , P3 WASGENERATEDBY Tx2, P3 -> Address3
+		 * Output graph edges: Address2 -> Address1, Address3 -> Address2
+		 */
+		
+		Graph resultGraph = new Graph();
+		
+		Map<AbstractVertex, SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>> transactionsToPayments = new HashMap<AbstractVertex, SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>>(); 
+		
+		Map<AbstractVertex, AbstractVertex> paymentToAddresses = new HashMap<AbstractVertex, AbstractVertex>();
+				
+		for(AbstractEdge edge : graph.edgeSet()){
+			if(getAnnotationSafe(edge, "type").equals("WasAttributedTo")){
+				paymentToAddresses.put(edge.getSourceVertex(), edge.getDestinationVertex());
+				resultGraph.putVertex(edge.getDestinationVertex()); //adding the Agent vertex to the final graph
+			}else if(getAnnotationSafe(edge, "type").equals("Used")){ //list of edges for 'paid from' payment vertices
+				if(transactionsToPayments.get(edge.getSourceVertex()) == null){
+					transactionsToPayments.put(edge.getSourceVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
+				}
+				transactionsToPayments.get(edge.getSourceVertex()).getKey().add(edge);
+			}else if(getAnnotationSafe(edge, "type").equals("WasGeneratedBy")){ //list of edges for 'paid to' payment vertices
+				if(transactionsToPayments.get(edge.getDestinationVertex()) == null){
+					transactionsToPayments.put(edge.getDestinationVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
+				}
+				transactionsToPayments.get(edge.getDestinationVertex()).getValue().add(edge);
+			}
+		}				
+		
+		for(AbstractVertex transaction : transactionsToPayments.keySet()){ 
+			SimpleEntry<List<AbstractEdge>, List<AbstractEdge>> allPayments = transactionsToPayments.get(transaction);
+			if(allPayments != null){
+				List<AbstractEdge> paymentsInEdges = allPayments.getKey(); //'paid from' payments
+				List<AbstractEdge> paymentsOutEdges = allPayments.getValue(); //'paid to' payments
+				if(paymentsInEdges != null && paymentsInEdges.size() > 0 && paymentsOutEdges != null && paymentsOutEdges.size() > 0){
+					for(AbstractEdge paymentInEdge : paymentsInEdges){
+						AbstractVertex paymentInAddress = paymentToAddresses.get(paymentInEdge.getDestinationVertex());
+						if(paymentInAddress != null){
+							for(AbstractEdge paymentOutEdge : paymentsOutEdges){
+								AbstractVertex paymentOutAddress = paymentToAddresses.get(paymentOutEdge.getSourceVertex());
+								if(paymentOutAddress != null){
+									AbstractEdge edge = new Edge(paymentOutAddress, paymentInAddress);
+									edge.addAnnotation("type", "ActedOnBehalfOf");
+									if(paymentOutEdge.getAnnotation("transactionValue") != null){
+										edge.addAnnotation("transactionValue", getAnnotationSafe(paymentOutEdge, "transactionValue"));
+									}
+									resultGraph.putEdge(edge);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		return resultGraph;
+	}
+	
+}
