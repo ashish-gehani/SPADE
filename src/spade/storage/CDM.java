@@ -77,10 +77,10 @@ public class CDM extends Kafka {
     private long recordCount;
 
     private Map<String, UUID> pidToUuid = new HashMap<>();
-
+    
     @Override
     public boolean initialize(String arguments) {
-    	    	
+    	
     	if(super.initialize(arguments)){
     		/* Note: This is not an accurate start time because we really want the first reported event,
              * but fine for now
@@ -92,7 +92,7 @@ public class CDM extends Kafka {
             return true;
     	}else{
     		return false;
-    	}        
+    	} 
     }
     
     @Override
@@ -125,7 +125,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(getKafkaTopic(), tccdmDatums);
+            recordCount += publishRecords(tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -335,7 +335,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(getKafkaTopic(), tccdmDatums);
+            recordCount += publishRecords(tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
