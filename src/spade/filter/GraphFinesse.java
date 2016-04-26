@@ -30,7 +30,7 @@ import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Vertex;
 
-public class GraphFinesse2 extends AbstractFilter {
+public class GraphFinesse extends AbstractFilter {
 
     // 'ancestors' maps a given vertex to its ancestors.
     private final Map<AbstractVertex, Set<AbstractVertex>> ancestors;
@@ -50,7 +50,7 @@ public class GraphFinesse2 extends AbstractFilter {
     private final int initialVersion = 0;
     private final String versionAnnotation = "GFVersion";
 
-    public GraphFinesse2() {
+    public GraphFinesse() {
         ancestors = new HashMap<>();
         descendants = new HashMap<>();
         passedVertices = new HashMap<>();

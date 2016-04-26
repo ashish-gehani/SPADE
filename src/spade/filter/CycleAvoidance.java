@@ -30,7 +30,7 @@ import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Vertex;
 
-public class CycleAvoidance2 extends AbstractFilter {
+public class CycleAvoidance extends AbstractFilter {
 
     // 'ancestors' maps a given vertex to its ancestors.
     private final Map<AbstractVertex, Set<AbstractVertex>> ancestors;
@@ -40,7 +40,7 @@ public class CycleAvoidance2 extends AbstractFilter {
     private final int initialVersion = 0;
     private final String versionAnnotation = "Version";
 
-    public CycleAvoidance2() {
+    public CycleAvoidance() {
         ancestors = new HashMap<>();
         passedVertices = new HashMap<>();
     }
