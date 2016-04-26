@@ -36,7 +36,9 @@ import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.storage.kafka.DataWriter;
 import spade.storage.kafka.Edge;
+import spade.storage.kafka.FileWriter;
 import spade.storage.kafka.GraphElement;
+import spade.storage.kafka.ServerWriter;
 import spade.storage.kafka.Vertex;
 import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
@@ -133,7 +135,7 @@ public class Kafka extends AbstractStorage{
             	properties.put(KAFKA_TOPIC_KEY, kafkaTopic);
             }
             
-            dataWriter = DataWriter.getDataWriter(properties);
+            dataWriter = getDataWriter(properties);
             
             if(dataWriter == null){
             	logger.log(Level.SEVERE, "Invalid arguments. Writer object not initialized");
@@ -145,6 +147,15 @@ public class Kafka extends AbstractStorage{
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
+	}
+	
+	public static DataWriter getDataWriter(Properties properties) throws Exception{
+		if(properties.get(Kafka.OUTPUT_FILE_KEY) != null){
+			return new FileWriter(properties.getProperty(Kafka.SCHEMA_FILE_KEY), properties.getProperty(Kafka.OUTPUT_FILE_KEY));
+		}else if(properties.getProperty(Kafka.KAFKA_SERVER_KEY) != null){
+			return new ServerWriter(properties);
+		}
+		return null;
 	}
 	
 	protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
