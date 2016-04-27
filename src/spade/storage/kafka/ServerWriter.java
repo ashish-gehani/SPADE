@@ -14,7 +14,7 @@ public class ServerWriter implements DataWriter{
 	private String kafkaTopic;
 	
 	public ServerWriter(Properties properties){
-		this.kafkaTopic = properties.getProperty(Kafka.KAFKA_TOPIC_KEY);
+		this.kafkaTopic = properties.getProperty(Kafka.TOPIC_KEY);
 		serverWriter = new KafkaProducer<>(properties);
 	}
 	
