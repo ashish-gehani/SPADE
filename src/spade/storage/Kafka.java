@@ -57,21 +57,25 @@ public class Kafka extends AbstractStorage{
 
 	protected final String SPADE_ROOT = Settings.getProperty("spade_root");
     
-    private DataWriter dataWriter = null;
+    private List<DataWriter> dataWriters = new ArrayList<DataWriter>();
     
     private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass()); //depending on the instance get the correct config file
   	
 	@Override
 	public boolean initialize(String arguments) {
+		/*
+		 * if file argument passed only then file output only
+		 * if server argument passed only then server output only
+		 * if file and server arguments both are passed then both outputs
+		 * if no arguments passed then server output only (from default config file)		 * 
+		 */
+		
 		try {
-
-			Properties properties = null;
-			
             arguments = arguments == null ? "" : arguments.trim();
            
             Map<String, String> passedArguments = CommonFunctions.parseKeyValPairs(arguments);
             
-            //if output file key exists then handle as file otherwise always set up kafka server writer i.e. kafka producer
+            //if output file key exists then handle as file 
             if(passedArguments.get(OUTPUT_FILE_KEY) != null){  
             	
             	String schemaFilename = passedArguments.get(SCHEMA_FILE_KEY);
@@ -82,26 +86,32 @@ public class Kafka extends AbstractStorage{
             		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
               	}
             	
-            	properties = new Properties();
+            	Properties properties = new Properties();
             	properties.put(SCHEMA_FILE_KEY, schemaFilename);
             	properties.put(OUTPUT_FILE_KEY, passedArguments.get(OUTPUT_FILE_KEY));
             	
-            } else {
-           
-	            String kafkaServer = null, kafkaProducerID = null, schemaFilename = null, kafkaTopic = null;
-	            
-	            if (passedArguments.containsKey("KafkaServer") && !passedArguments.get("KafkaServer").isEmpty() && passedArguments.get("KafkaServer") != null) {
-	                kafkaServer = passedArguments.get("KafkaServer");
-	            }
-	            if (passedArguments.containsKey("KafkaTopic") && !passedArguments.get("KafkaTopic").isEmpty() && passedArguments.get("KafkaTopic") != null) {
-	            	kafkaTopic = passedArguments.get("KafkaTopic");
-	            }
-	            if (passedArguments.containsKey("KafkaProducerID") && !passedArguments.get("KafkaProducerID").isEmpty() && passedArguments.get("KafkaProducerID") != null) {
-	                kafkaProducerID = passedArguments.get("KafkaProducerID");
-	            }
-	            if (passedArguments.containsKey("SchemaFilename") && !passedArguments.get("SchemaFilename").isEmpty() && passedArguments.get("SchemaFilename") != null) {
-	                schemaFilename = passedArguments.get("SchemaFilename");
-	            }
+            	DataWriter dataWriter = getDataWriter(properties);
+            	if(dataWriter == null){
+            		logger.log(Level.SEVERE, "Failed to create file writer");
+            		return false;
+            	}else{
+            		dataWriters.add(dataWriter);
+            	}
+            	
+            } 
+            
+            String kafkaServer = passedArguments.get(KAFKA_SERVER_KEY),
+            		kafkaProducerID = passedArguments.get(KAFKA_PRODUCER_ID_KEY),
+            		schemaFilename = passedArguments.get(SCHEMA_FILE_KEY),
+            		kafkaTopic = passedArguments.get(KAFKA_TOPIC_KEY);
+            
+            //either when server info passed or when server info not passed and output file info not passed either
+            if((kafkaServer != null || kafkaProducerID != null || kafkaTopic != null) || passedArguments.get(OUTPUT_FILE_KEY) == null) {
+           	            
+	            kafkaServer = kafkaServer == null ? kafkaServer : kafkaServer.trim().isEmpty() ? null : kafkaServer;
+	            kafkaProducerID = kafkaProducerID == null ? kafkaProducerID : kafkaProducerID.trim().isEmpty() ? null : kafkaProducerID;
+	            schemaFilename = schemaFilename == null ? schemaFilename : schemaFilename.trim().isEmpty() ? null : schemaFilename;
+	            kafkaTopic = kafkaTopic == null ? kafkaTopic : kafkaTopic.trim().isEmpty() ? null : kafkaTopic;
 	            
 	            //if any of the values not gotten from user then get them from the default location
 	            Map<String, String> defaultArguments = null;
@@ -129,18 +139,20 @@ public class Kafka extends AbstractStorage{
 	                    "Params: KafkaServer={0} KafkaTopic={1} KafkaProducerID={2} SchemaFilename={3}",
 	                    new Object[] {kafkaServer, kafkaTopic, kafkaProducerID, schemaFilename});
 
-            	properties = getDefaultKafkaProducerProperties(kafkaServer, kafkaServer, kafkaProducerID, schemaFilename); //depending on the instance of the class
-            	
-            	//add the kafka topic in the properties. To be used in the construction of ServerWriter class
-            	properties.put(KAFKA_TOPIC_KEY, kafkaTopic);
-            }
-            
-            dataWriter = getDataWriter(properties);
-            
-            if(dataWriter == null){
-            	logger.log(Level.SEVERE, "Invalid arguments. Writer object not initialized");
-            	return false;
-            }
+	        	Properties properties = getDefaultKafkaProducerProperties(kafkaServer, kafkaServer, kafkaProducerID, schemaFilename); //depending on the instance of the class
+	        	
+	        	//add the kafka topic in the properties. To be used in the construction of ServerWriter class
+	        	properties.put(KAFKA_TOPIC_KEY, kafkaTopic);
+	        	
+	        	DataWriter dataWriter = getDataWriter(properties);
+	            
+	            if(dataWriter == null){
+	            	logger.log(Level.SEVERE, "Failed to create server writer");
+	            	return false;
+	            }
+	            
+	            dataWriters.add(dataWriter);
+            }      
             
             return true;
         } catch (Exception exception) {
@@ -156,7 +168,7 @@ public class Kafka extends AbstractStorage{
 			return new ServerWriter(properties);
 		}
 		return null;
-	}
+	}	
 	
 	protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
 		Properties properties = new Properties();
@@ -209,25 +221,30 @@ public class Kafka extends AbstractStorage{
         for (GenericContainer genericContainer : genericContainers) {
             logger.log(Level.INFO,
                     "Attempting to publish record {0}", genericContainer.toString());
-            try {
-                dataWriter.writeRecord(genericContainer);
-                recordCount += 1;
-                logger.log(Level.INFO, "Sent record: ({0})", recordCount);
-            } catch (Exception exception) {
-                logger.log(Level.WARNING, "{0}", exception);
-            } 
+            for(DataWriter dataWriter : dataWriters){
+            	try {
+        			dataWriter.writeRecord(genericContainer);
+        			recordCount += 1;
+                    logger.log(Level.INFO, "Sent record: ({0})", recordCount);
+                } catch (Exception exception) {
+                    logger.log(Level.WARNING, "{0}", exception);
+                } 
+        	}                
         }
-        return recordCount;
+        return (recordCount / dataWriters.size());
     }
 	
 	public boolean shutdown(){
-		try{
-			dataWriter.close();
-			return true;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to close data writer", e);
-			return false;
+		boolean success = true;
+		for(DataWriter dataWriter : dataWriters){
+			try{
+				dataWriter.close();
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to close data writer", e);
+				success = false;
+			}
 		}
+		return success;
 	}
 		
 }
