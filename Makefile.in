@@ -138,7 +138,7 @@ lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	javah -classpath 'build:lib/*' -o src/spade/reporter/libMacFUSE.h spade.reporter.MacFUSE
-	gcc -dynamiclib -I/System/Library/Frameworks/JavaVM.framework/Headers src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
+	gcc -dynamiclib -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
 
 llvm:
 	@make $(LLVM_RULE)
