@@ -47,11 +47,12 @@ public class Kafka extends AbstractStorage{
 
 	//NOTE: child classes must override "getDefaultKafkaProducerProperties" function if properties are different
 	
-	public static final String 	OUTPUT_FILE_KEY = "OutputFile",
-			SCHEMA_FILE_KEY = "SchemaFilename",
-			KAFKA_SERVER_KEY = "KafkaServer",
-			KAFKA_TOPIC_KEY = "KafkaTopic",
-			KAFKA_PRODUCER_ID_KEY = "KafkaProducerID";
+	//change the keys in the config files of Kafka and CDM too if changed here 
+	public static final String 	OUTPUT_FILE_KEY = "output",
+			SCHEMA_FILE_KEY = "schema",
+			SERVER_KEY = "kafkaserver",
+			TOPIC_KEY = "kafkatopic",
+			PRODUCER_ID_KEY = "kafkaproducerid";
 	
 	private static final Logger logger = Logger.getLogger(Kafka.class.getName());
 
@@ -73,7 +74,7 @@ public class Kafka extends AbstractStorage{
 		try {
             arguments = arguments == null ? "" : arguments.trim();
            
-            Map<String, String> passedArguments = CommonFunctions.parseKeyValPairs(arguments);
+            Map<String, String> passedArguments = CommonFunctions.makeKeysLowerCase(CommonFunctions.parseKeyValPairs(arguments));
             
             //if output file key exists then handle as file 
             if(passedArguments.get(OUTPUT_FILE_KEY) != null){  
@@ -82,7 +83,7 @@ public class Kafka extends AbstractStorage{
             	schemaFilename = schemaFilename == null ? "" : schemaFilename.trim();
             	
             	if(schemaFilename.isEmpty()){
-            		Map<String, String> defaultArguments = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
+            		Map<String, String> defaultArguments = CommonFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
             		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
               	}
             	
@@ -100,10 +101,10 @@ public class Kafka extends AbstractStorage{
             	
             } 
             
-            String kafkaServer = passedArguments.get(KAFKA_SERVER_KEY),
-            		kafkaProducerID = passedArguments.get(KAFKA_PRODUCER_ID_KEY),
+            String kafkaServer = passedArguments.get(SERVER_KEY),
+            		kafkaProducerID = passedArguments.get(PRODUCER_ID_KEY),
             		schemaFilename = passedArguments.get(SCHEMA_FILE_KEY),
-            		kafkaTopic = passedArguments.get(KAFKA_TOPIC_KEY);
+            		kafkaTopic = passedArguments.get(TOPIC_KEY);
             
             //either when server info passed or when server info not passed and output file info not passed either
             if((kafkaServer != null || kafkaProducerID != null || kafkaTopic != null) || passedArguments.get(OUTPUT_FILE_KEY) == null) {
@@ -116,23 +117,23 @@ public class Kafka extends AbstractStorage{
 	            //if any of the values not gotten from user then get them from the default location
 	            Map<String, String> defaultArguments = null;
 	            if(kafkaServer == null || kafkaProducerID == null || kafkaTopic == null || schemaFilename == null){ 
-	            	defaultArguments = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
+	            	defaultArguments = CommonFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
 	            }
 	            
 	            if(kafkaServer == null){
-	            	kafkaServer = defaultArguments.get("KafkaServer");
+	            	kafkaServer = defaultArguments.get(SERVER_KEY);
 	            }
 	            
 	            if(kafkaProducerID == null){
-	            	kafkaProducerID = defaultArguments.get("KafkaProducerID");
+	            	kafkaProducerID = defaultArguments.get(PRODUCER_ID_KEY);
 	            }
 	            
 	        	if(kafkaTopic == null){
-	        		kafkaTopic = defaultArguments.get("KafkaTopic");
+	        		kafkaTopic = defaultArguments.get(TOPIC_KEY);
 	        	}
 	        	
 	        	if(schemaFilename == null){
-	        		schemaFilename = defaultArguments.get("SchemaFilename");
+	        		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
 	        	}
 	        	            
 	            logger.log(Level.INFO,
@@ -142,7 +143,7 @@ public class Kafka extends AbstractStorage{
 	        	Properties properties = getDefaultKafkaProducerProperties(kafkaServer, kafkaServer, kafkaProducerID, schemaFilename); //depending on the instance of the class
 	        	
 	        	//add the kafka topic in the properties. To be used in the construction of ServerWriter class
-	        	properties.put(KAFKA_TOPIC_KEY, kafkaTopic);
+	        	properties.put(TOPIC_KEY, kafkaTopic);
 	        	
 	        	DataWriter dataWriter = getDataWriter(properties);
 	            
@@ -164,7 +165,7 @@ public class Kafka extends AbstractStorage{
 	public static DataWriter getDataWriter(Properties properties) throws Exception{
 		if(properties.get(Kafka.OUTPUT_FILE_KEY) != null){
 			return new FileWriter(properties.getProperty(Kafka.SCHEMA_FILE_KEY), properties.getProperty(Kafka.OUTPUT_FILE_KEY));
-		}else if(properties.getProperty(Kafka.KAFKA_SERVER_KEY) != null){
+		}else if(properties.getProperty(Kafka.SERVER_KEY) != null){
 			return new ServerWriter(properties);
 		}
 		return null;

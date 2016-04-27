@@ -62,4 +62,20 @@ public class CommonFunctions {
     	}
     }
     
+    public static Double parseDouble(String str, Double defaultValue){
+    	try{
+    		return Double.parseDouble(str);
+    	}catch(Exception e){
+    		return defaultValue;
+    	}
+    }
+    
+    public static <T> Map<String, T> makeKeysLowerCase(Map<String, T> map){
+    	Map<String, T> resultMap = new HashMap<String, T>();
+    	for(Map.Entry<String, T> entry : map.entrySet()){
+    		resultMap.put(entry.getKey().toLowerCase(), entry.getValue());
+    	}
+    	return resultMap;
+    }
+    
 }
