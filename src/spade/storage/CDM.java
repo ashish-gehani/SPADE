@@ -143,7 +143,7 @@ public class CDM extends Kafka {
             Event.Builder eventBuilder = Event.newBuilder();
             eventBuilder.setUuid(getUuid(edge));
             String time = edge.getAnnotation("time");
-            Long timeLong = parseTimeToLong(time);
+            Long timeLong = parseTimeToLong(time, 0L);
             eventBuilder.setTimestampMicros(timeLong);
             Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), 0L); //the default event id value is decided to be 0
             eventBuilder.setSequence(eventId);
@@ -366,7 +366,7 @@ public class CDM extends Kafka {
         }
     }
     
-    private long parseTimeToLong(String time){
+    private Long parseTimeToLong(String time, Long defaultValue){
     	try{
     		Float f = Float.parseFloat(time);
     		f = f * 1000;
@@ -374,7 +374,7 @@ public class CDM extends Kafka {
     	}catch(Exception e){
     		logger.log(Level.WARNING,
                     "Time type is not FLOAT: {0}", time);
-    		return 0;
+    		return defaultValue;
     	}
     }
 
@@ -396,8 +396,10 @@ public class CDM extends Kafka {
         
         pidToUuid.put(vertex.getAnnotation("pid"), getUuid(vertex));
         
-        Long time = parseTimeToLong(vertex.getAnnotation("start time"));
-        subjectBuilder.setStartTimestampMicros(time); 
+        Long time = parseTimeToLong(vertex.getAnnotation("start time"), null);
+        if(time != null){
+        	subjectBuilder.setStartTimestampMicros(time);
+        }
         subjectBuilder.setPid(Integer.parseInt(vertex.getAnnotation("pid")));
         subjectBuilder.setPpid(Integer.parseInt(vertex.getAnnotation("ppid")));
         String unit = vertex.getAnnotation("unit");
@@ -431,7 +433,7 @@ public class CDM extends Kafka {
         	simpleEdgeBuilder.setFromUuid(getUuid(vertex));
         	simpleEdgeBuilder.setToUuid(getUuid(principalVertex));
         	simpleEdgeBuilder.setType(EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL);
-        	Long startTime = parseTimeToLong(vertex.getAnnotation("start time"));
+        	Long startTime = parseTimeToLong(vertex.getAnnotation("start time"), 0L);
         	simpleEdgeBuilder.setTimestamp(startTime);
         	SimpleEdge simpleEdge = simpleEdgeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build()); //added edge
