@@ -140,10 +140,11 @@ public class Kafka extends AbstractStorage{
 	                    "Params: KafkaServer={0} KafkaTopic={1} KafkaProducerID={2} SchemaFilename={3}",
 	                    new Object[] {kafkaServer, kafkaTopic, kafkaProducerID, schemaFilename});
 
-	        	Properties properties = getDefaultKafkaProducerProperties(kafkaServer, kafkaServer, kafkaProducerID, schemaFilename); //depending on the instance of the class
+	        	Properties properties = getDefaultKafkaProducerProperties(kafkaServer, kafkaTopic, kafkaProducerID, schemaFilename); //depending on the instance of the class
 	        	
-	        	//add the kafka topic in the properties. To be used in the construction of ServerWriter class
+	        	//add the kafka topic and server in the properties. To be used in the construction of ServerWriter class
 	        	properties.put(TOPIC_KEY, kafkaTopic);
+	        	properties.put(SERVER_KEY, kafkaServer);
 	        	
 	        	DataWriter dataWriter = getDataWriter(properties);
 	            
