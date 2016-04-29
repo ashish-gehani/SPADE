@@ -67,6 +67,8 @@ import spade.utility.CommonFunctions;
  * entity records that have already been serialized and published to Kafka.
  *
  * @author Armando Caro
+ * @author Hassaan Irshad
+ * @author Ashish Gehani
  */
 public class CDM extends Kafka {
 	
