@@ -1,5 +1,5 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
-# Copyright (C) 2015 SRI International.
+# Copyright (C) 2016 SRI International.
 
 JAVAC=@JAVAC@
 JAVAH=@JAVAH@
