@@ -135,8 +135,8 @@ public class Kernel {
     //private static final int FIRST_TRANSFORMER = 0;
     private static final int FIRST_FILTER = 0;
     // Strings for control client
-    private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <arguments>";
-    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <arguments>";
+    private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
+    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <initialization arguments>";
     private static final String ADD_SKETCH_STRING = "add sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <position number>";
