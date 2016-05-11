@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 import java.util.LinkedList;
 import java.util.Calendar;
 import java.util.Date;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -102,10 +103,10 @@ public class Neo4j extends AbstractStorage {
     // Performance tuning note: Set this to higher value (up to Integer.MAX_VALUE) to reduce db hit rate.
     // Downside: This would eat more heap at start time.
   	private int expectedNumberOfElements = 1000000;
-    private BloomFilter<Integer> nodeBloomFilter;
-    private BloomFilter<Integer> edgeBloomFilter;
-  	private LinkedList<Integer> localNodeHashQueue = new LinkedList<Integer>();
-  	private HashMap<Integer, Node> localNodeCache = new HashMap<Integer, Node>();
+    private BloomFilter<String> nodeBloomFilter;
+    private BloomFilter<String> edgeBloomFilter;
+    private LinkedList<String> localNodeHashQueue = new LinkedList<String>();
+    private HashMap<String, Node> localNodeCache = new HashMap<String, Node>();
 
     // Performance tuning note: Depending on data locality, you can increase this FIFO cache size.
     // Performance tuning note: Set this to higher value (e.g. 1000000) to reduce db hit rate.
@@ -289,12 +290,13 @@ public class Neo4j extends AbstractStorage {
         }
     }
 
-    public void putInLocalCache(Node vertex, int hashCode) {
+    public void putInLocalCache(Node vertex, String bigHashCode) {
   		if (localNodeHashQueue.size() > NODE_VERTEX_LOCAL_CACHE_SIZE) {
   		    localNodeCache.remove(localNodeHashQueue.removeFirst());
   		}
-  		localNodeHashQueue.add(hashCode);
-  		localNodeCache.put(hashCode, vertex);
+
+      localNodeHashQueue.add(bigHashCode);
+      localNodeCache.put(bigHashCode, vertex);
     }
 
     void globalTxCheckin() {
@@ -322,12 +324,12 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
-    	int hashCode = incomingVertex.hashCode();
+      String bigHashCode = new String(incomingVertex.bigHashCode(), StandardCharsets.UTF_8);
     	globalTxCheckin();
 
     	try {
-        if (nodeBloomFilter.contains(hashCode)) { // L1, confirming if its false +tive
-        	if (localNodeCache.containsKey(hashCode)) { // L2
+        if (nodeBloomFilter.contains(bigHashCode)) { // L1, confirming if its false +tive
+          if (localNodeCache.containsKey(bigHashCode)) { // L2
             	nodeFoundInLocalCacheCount++;
               return false;
           }
@@ -335,9 +337,9 @@ public class Neo4j extends AbstractStorage {
 
           // L3: confirming from db if we have bloom filter false postive after FIFO cache miss
           Node newVertex;
-		      newVertex = vertexIndex.get(HASHCODE_LABEL, hashCode).getSingle();
+          newVertex = vertexIndex.get(HASHCODE_LABEL, bigHashCode).getSingle();
         	if (newVertex != null) {
-			       putInLocalCache(newVertex, hashCode);
+             putInLocalCache(newVertex, bigHashCode);
              foundInDbCount++;
              return false;
           } else {
@@ -358,12 +360,12 @@ public class Neo4j extends AbstractStorage {
           vertexIndex.add(newVertex, key, value);
         }
 
-        newVertex.setProperty(HASHCODE_LABEL, hashCode);
-        vertexIndex.add(newVertex, HASHCODE_LABEL, Long.toString(hashCode));
+        newVertex.setProperty(HASHCODE_LABEL, bigHashCode);
+        vertexIndex.add(newVertex, HASHCODE_LABEL, bigHashCode);
         newVertex.setProperty(ID_STRING, newVertex.getId());
         vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
-        nodeBloomFilter.add(hashCode);
-        putInLocalCache(newVertex, hashCode);
+        nodeBloomFilter.add(bigHashCode);
+        putInLocalCache(newVertex, bigHashCode);
 
       } finally {
 
@@ -374,14 +376,14 @@ public class Neo4j extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        int hashCode = incomingEdge.hashCode();
-        if (edgeBloomFilter.contains(hashCode)) {
+        String bigHashCode = new String(incomingEdge.bigHashCode(), StandardCharsets.UTF_8);
+        if (edgeBloomFilter.contains(bigHashCode)) {
             Relationship edge;
-            edge = edgeIndex.get(HASHCODE_LABEL, hashCode).getSingle();
+            edge = edgeIndex.get(HASHCODE_LABEL, bigHashCode).getSingle();
             if (edge != null) {
                 // if (LOG_PERFORMANCE_STATS == true) {
                 //     // if there is heavy repetition of edges then comment out this logging or it will slow down ingestion
-                //     logger.log(Level.INFO, "Edge (hashCode: " + hashCode + ") is already in db, skiping");
+                //     logger.log(Level.INFO, "Edge (bigHashCode: " + bigHashCode + ") is already in db, skiping");
                 // }
                 return true;
             }
@@ -392,31 +394,31 @@ public class Neo4j extends AbstractStorage {
         globalTxCheckin();
 
         try {
-            int srcVertexHashCode = srcVertex.hashCode();
-            int dstVertexHashCode = dstVertex.hashCode();
-            Node srcNode = localNodeCache.get(srcVertexHashCode);
-            Node dstNode = localNodeCache.get(dstVertexHashCode);
+            String srcVertexBigHashCode = new String(srcVertex.bigHashCode(), StandardCharsets.UTF_8);
+            String dstVertexBigHashCode = new String(dstVertex.bigHashCode(), StandardCharsets.UTF_8);
+            Node srcNode = localNodeCache.get(srcVertexBigHashCode);
+            Node dstNode = localNodeCache.get(dstVertexBigHashCode);
 
             if (srcNode == null) {
                 dbHitCountForEdge++;
-                srcNode = vertexIndex.get(HASHCODE_LABEL, srcVertexHashCode).getSingle();
+                srcNode = vertexIndex.get(HASHCODE_LABEL, srcVertexBigHashCode).getSingle();
                 if (srcNode == null) {
                     // insert vertex if not in db
                     putVertex(srcVertex);
-                    srcNode = localNodeCache.get(srcVertexHashCode);
+                    srcNode = localNodeCache.get(srcVertexBigHashCode);
                 }
-                putInLocalCache(srcNode, srcVertexHashCode);
+                putInLocalCache(srcNode, srcVertexBigHashCode);
             }
 
             if (dstNode == null) {
                 dbHitCountForEdge++;
-                dstNode = vertexIndex.get(HASHCODE_LABEL, dstVertexHashCode).getSingle();
+                dstNode = vertexIndex.get(HASHCODE_LABEL, dstVertexBigHashCode).getSingle();
                 if (dstNode == null) {
                     // insert vertex if not in db
                     putVertex(dstVertex);
-                    dstNode = localNodeCache.get(dstVertexHashCode);
+                    dstNode = localNodeCache.get(dstVertexBigHashCode);
                 }
-                putInLocalCache(dstNode, dstVertexHashCode);
+                putInLocalCache(dstNode, dstVertexBigHashCode);
             }
 
             edgeCount++;
@@ -431,12 +433,12 @@ public class Neo4j extends AbstractStorage {
                 }
                 newEdge.setProperty(key, value);
                 edgeIndex.add(newEdge, key, value);
-    
-                newEdge.setProperty(HASHCODE_LABEL, hashCode);
-                edgeIndex.add(newEdge, HASHCODE_LABEL, Long.toString(hashCode));
+
+                newEdge.setProperty(HASHCODE_LABEL, bigHashCode);
+                edgeIndex.add(newEdge, HASHCODE_LABEL, bigHashCode);
                 newEdge.setProperty(ID_STRING, newEdge.getId());
                 edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-                edgeBloomFilter.add(hashCode);
+                edgeBloomFilter.add(bigHashCode);
             }
 
         } finally {
