@@ -85,6 +85,10 @@ public class Kafka extends AbstractStorage{
             	if(schemaFilename.isEmpty()){
             		Map<String, String> defaultArguments = CommonFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
             		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
+            		if(schemaFilename == null || schemaFilename.trim().isEmpty()){
+            			logger.log(Level.WARNING, "Failed to initialize storage. Missing schema file path.");
+            			return false;
+            		}
               	}
             	
             	Properties properties = new Properties();
@@ -122,20 +126,36 @@ public class Kafka extends AbstractStorage{
 	            
 	            if(kafkaServer == null){
 	            	kafkaServer = defaultArguments.get(SERVER_KEY);
+	            	if(kafkaServer == null || kafkaServer.trim().isEmpty()){
+            			logger.log(Level.WARNING, "Failed to initialize storage. Missing kafka server address.");
+            			return false;
+            		}
 	            }
 	            
 	            if(kafkaProducerID == null){
 	            	kafkaProducerID = defaultArguments.get(PRODUCER_ID_KEY);
+	            	if(kafkaProducerID == null || kafkaProducerID.trim().isEmpty()){
+            			logger.log(Level.WARNING, "Failed to initialize storage. Missing kafka producer id.");
+            			return false;
+            		}
 	            }
 	            
 	        	if(kafkaTopic == null){
 	        		kafkaTopic = defaultArguments.get(TOPIC_KEY);
+	        		if(kafkaTopic == null || kafkaTopic.trim().isEmpty()){
+            			logger.log(Level.WARNING, "Failed to initialize storage. Missing kafka topic name.");
+            			return false;
+            		}
 	        	}
 	        	
 	        	if(schemaFilename == null){
 	        		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
+	        		if(schemaFilename == null || schemaFilename.trim().isEmpty()){
+            			logger.log(Level.WARNING, "Failed to initialize storage. Missing schema file path.");
+            			return false;
+            		}
 	        	}
-	        	            
+	        	
 	            logger.log(Level.INFO,
 	                    "Params: KafkaServer={0} KafkaTopic={1} KafkaProducerID={2} SchemaFilename={3}",
 	                    new Object[] {kafkaServer, kafkaTopic, kafkaProducerID, schemaFilename});
