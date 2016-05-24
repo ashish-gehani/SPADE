@@ -87,4 +87,8 @@ public class DescriptorManager {
 		}
 		descriptors.put(pid, new HashMap<String, ArtifactInfo>(descriptors.get(pid)));
 	}
+	
+	public void addUnknownDescriptor(String pid, String fd){
+		addDescriptor(pid, fd, new UnknownInfo(pid, fd));
+	}
 }

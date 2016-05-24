@@ -98,7 +98,7 @@ public class Audit extends AbstractReporter {
     private String auditRules;
     
     private Map<ArtifactInfo, Long> networkLocationToBytesWrittenMap = new HashMap<ArtifactInfo, Long>(){
-    	public Long get(Object key){
+		public Long get(Object key){
     		if(super.get(key) == null){
     			super.put((ArtifactInfo)key, 0L);
     		}
@@ -107,7 +107,7 @@ public class Audit extends AbstractReporter {
     };
     
     private Map<ArtifactInfo, Long> networkLocationToBytesReadMap = new HashMap<ArtifactInfo, Long>(){
-    	public Long get(Object key){
+		public Long get(Object key){
     		if(super.get(key) == null){
     			super.put((ArtifactInfo)key, 0L);
     		}
@@ -149,7 +149,7 @@ public class Audit extends AbstractReporter {
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
         ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-        SEND, RECV
+        SEND, RECV, OPEN, LOAD
     }
     
     private BufferedWriter dumpWriter = null;
@@ -162,7 +162,6 @@ public class Audit extends AbstractReporter {
     private final static String EVENT_ID = "event id";
     
     private boolean SIMPLIFY = true;
-    
     private boolean PROCFS = false;
         
     @Override
@@ -208,12 +207,15 @@ public class Audit extends AbstractReporter {
         if("true".equals(args.get("units"))){
         	CREATE_BEEP_UNITS = true;
         }
+        
+        // Arguments below are only for experimental use
         if("false".equals(args.get("simplify"))){
         	SIMPLIFY = false;
         }
         if("true".equals(args.get("procFS"))){
         	PROCFS = true;
         }
+        // End of experimental arguments
 
         // Get system boot time from /proc/stat. This is later used to determine
         // the start time for processes.
@@ -380,6 +382,7 @@ public class Audit extends AbstractReporter {
 	        }
 
         }
+        
         return true;
     }
     
@@ -822,7 +825,7 @@ public class Audit extends AbstractReporter {
     		logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
     	}
     }
-
+    
     private void processIOEvent64(int syscall, Map<String, String> eventData){
     	String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
@@ -1267,17 +1270,18 @@ public class Audit extends AbstractReporter {
         putEdge(wtb);
         addProcess(pid, newProcess);
         
-        //add used edge to the paths in the event data
+        //add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
         String cwd = eventData.get("cwd");
-        String path0 = eventData.get("path0");
-        String path1 = eventData.get("path1"); 
-        putUsedEdge(cwd, path0, newProcess, time, eventData.get("eventid"));
-        putUsedEdge(cwd, path1, newProcess, time, eventData.get("eventid"));
+        Integer totalPaths = CommonFunctions.parseInt(eventData.get("items"), 0);
+        for(int pathNumber = 0; pathNumber < totalPaths; pathNumber++){
+        	String path = eventData.get("path"+pathNumber);
+        	putLoadEdge(cwd, path, newProcess, time, eventData.get("eventid"));
+        }
         
         descriptors.unlinkDescriptors(pid);
     }
     
-    private void putUsedEdge(String cwd, String path, Process process, String time, String eventId){
+    private void putLoadEdge(String cwd, String path, Process process, String time, String eventId){
     	if(path == null){
     		return;
     	}
@@ -1299,7 +1303,7 @@ public class Audit extends AbstractReporter {
     	Artifact usedArtifact = createArtifact(fileInfo, false, null);
     	Used usedEdge = new Used(process, usedArtifact);
     	usedEdge.addAnnotation("time", time);
-    	usedEdge.addAnnotation("operation", "read");
+    	usedEdge.addAnnotation("operation", getOperation(SYSCALL.LOAD));
     	putVertex(usedArtifact);
     	addEventIdAndSourceAnnotationToEdge(usedEdge, eventId, DEV_AUDIT);
     	putEdge(usedEdge);
@@ -1316,30 +1320,46 @@ public class Audit extends AbstractReporter {
         String cwd = eventData.get("cwd");
         String path = eventData.get("path1") == null ? eventData.get("path0") : eventData.get("path1"); 
         String fd = eventData.get("exit");
-
+        String time = eventData.get("time");
+        String flags = eventData.get("a1");
+        
+        if(path == null){
+        	logger.log(Level.WARNING, "Missing PATH record. Event with id '"+ eventData.get("eventid") +"' ignored.");
+        	return;
+        }
+        
         if (!path.startsWith("/")) {
             path = joinPaths(cwd, path);
         }
         
-        checkProcessVertex(eventData, true, false);
+        //this calls the putVertex function on the process vertex internally, that's why the process vertex isn't added here
+        checkProcessVertex(eventData, true, false); 
         
-        descriptors.addDescriptor(pid, fd, new FileInfo(path));
+        ArtifactInfo fileInfo = new FileInfo(path);
+        
+        descriptors.addDescriptor(pid, fd, fileInfo);
 
-        if (!USE_READ_WRITE) {
-            String flags = eventData.get("a1");
-            Map<String, String> newEventData = new HashMap<>();
-            newEventData.put("pid", pid);
-            newEventData.put("a0", Integer.toHexString(Integer.parseInt(fd))); //a0 is the first argument which is the file descriptor in case of read and write syscalls
-            newEventData.put("time", eventData.get("time"));
-            newEventData.put("eventid", eventData.get("eventid"));
-            if (flags.charAt(flags.length() - 1) == '0') {
-                // read
-                processRead(newEventData, SYSCALL.READ);
-            } else {
-                // write
-                processWrite(newEventData, SYSCALL.WRITE);
+        AbstractEdge edge = null;
+        
+        //always handling open for files now irrespective of the fileIO flag being true or false.
+        
+        if (flags.charAt(flags.length() - 1) == '0') {
+        	boolean put = !artifactVersions.containsKey(fileInfo);
+            Artifact vertex = createArtifact(fileInfo, false, null);
+            if (put) {
+                putVertex(vertex);
             }
+            edge = new Used(getProcess(pid), vertex);
+        } else {
+            Artifact vertex = createArtifact(fileInfo, true, null);
+            putVertex(vertex);
+            putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
+            edge = new WasGeneratedBy(vertex, getProcess(pid));
         }
+        edge.addAnnotation("operation", getOperation(SYSCALL.OPEN));
+        edge.addAnnotation("time", time);
+        addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
+        putEdge(edge);
     }
 
     private void processClose(Map<String, String> eventData) {
@@ -1367,7 +1387,7 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         
         if(descriptors.getDescriptor(pid, fd) == null){
-        	addMissingFD(pid, fd);
+        	descriptors.addUnknownDescriptor(pid, fd);
         }
         
         ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
@@ -1398,7 +1418,7 @@ public class Audit extends AbstractReporter {
         String bytesWritten = eventData.get("exit");
         
         if(descriptors.getDescriptor(pid, fd) == null){
-        	addMissingFD(pid, fd);
+        	descriptors.addUnknownDescriptor(pid, fd);
         }
 
         ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
@@ -1430,7 +1450,7 @@ public class Audit extends AbstractReporter {
             String fd = new BigInteger(hexFD, 16).toString();
             
             if(descriptors.getDescriptor(pid, fd) == null){
-            	addMissingFD(pid, fd);
+            	descriptors.addUnknownDescriptor(pid, fd);
             }
                         
             fileInfo = descriptors.getDescriptor(pid, fd);
@@ -1458,7 +1478,7 @@ public class Audit extends AbstractReporter {
         String newFD = eventData.get("exit");
         
         if(descriptors.getDescriptor(pid, fd) == null){
-        	addMissingFD(pid, fd);
+        	descriptors.addUnknownDescriptor(pid, fd);
         }
                 
         ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
@@ -1602,7 +1622,7 @@ public class Audit extends AbstractReporter {
             String fd = eventData.get("a0");
             
             if(descriptors.getDescriptor(pid, fd) == null){
-            	addMissingFD(pid, fd); //add the missing fd and continue
+            	descriptors.addUnknownDescriptor(pid, fd);
             }
                         
             fileInfo = descriptors.getDescriptor(pid, fd);
@@ -1780,7 +1800,7 @@ public class Audit extends AbstractReporter {
         String bytesSent = eventData.get("exit");
         
         if(descriptors.getDescriptor(pid, fd) == null){
-        	addMissingFD(pid, fd);
+        	descriptors.addUnknownDescriptor(pid, fd);
         }
        
         ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
@@ -1827,7 +1847,7 @@ public class Audit extends AbstractReporter {
         String bytesReceived = eventData.get("exit");
 
         if(descriptors.getDescriptor(pid, fd) == null){
-        	addMissingFD(pid, fd);
+        	descriptors.addUnknownDescriptor(pid, fd);
         }
         
         ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);        
@@ -1902,6 +1922,12 @@ public class Audit extends AbstractReporter {
     	SYSCALL returnSyscall = syscall;
     	if(SIMPLIFY){
     		switch (syscall) {
+    			case LOAD:
+    				returnSyscall = SYSCALL.LOAD;
+    				break;
+    			case OPEN:
+    				returnSyscall = SYSCALL.OPEN;
+    				break;
 				case FORK:
 				case VFORK:
 					returnSyscall = SYSCALL.FORK;
@@ -2091,11 +2117,6 @@ public class Audit extends AbstractReporter {
     	versionUpdate.addAnnotation("time", time);
     	addEventIdAndSourceAnnotationToEdge(versionUpdate, eventId, DEV_AUDIT);
     	putEdge(versionUpdate);
-    }
-    
-    //for cases when open syscall wasn't gotten in the log for the fd being used.
-    private void addMissingFD(String pid, String fd){
-    	descriptors.addDescriptor(pid, fd, new UnknownInfo(pid, fd));
     }
         
     private Process getUnitForPid(String pid, Integer unitNumber){
