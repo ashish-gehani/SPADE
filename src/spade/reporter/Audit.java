@@ -66,6 +66,12 @@ public class Audit extends AbstractReporter {
 
     static final Logger logger = Logger.getLogger(Audit.class.getName());
 
+//  Following constant values taken from:
+//  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
+//  AND  
+//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
+    private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100;
+    
     // Store log for debugging purposes
     private boolean DEBUG_DUMP_LOG;
     private String DEBUG_DUMP_FILE;
@@ -1209,6 +1215,18 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String oldPID = eventData.get("pid");
         String newPID = eventData.get("exit");
+        
+        if(syscall == SYSCALL.CLONE){
+        	Integer flags = CommonFunctions.parseInt(eventData.get("a2"), 0);
+        	//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
+        	if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
+        		syscall = SYSCALL.VFORK;
+        	}else if((flags & SIGCHLD) != SIGCHLD){ //is fork
+        		syscall = SYSCALL.FORK;
+        	}
+        	//otherwise it is just clone
+        }        
+        
         checkProcessVertex(eventData, true, false);
 
         Process newProcess = createProcessVertex(newPID, oldPID, eventData.get("comm"), null, null, 
