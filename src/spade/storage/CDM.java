@@ -78,7 +78,7 @@ public class CDM extends Kafka {
     private long startTime, endTime;
     private long recordCount;
 
-    private Map<String, UUID> pidToUuid = new HashMap<>();
+    private Map<String, PIDMapping> pidMappings = new HashMap<>();
     
     @Override
     public boolean initialize(String arguments) {
@@ -139,7 +139,7 @@ public class CDM extends Kafka {
     public boolean putEdge(AbstractEdge edge) {
         try {
             List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
-            EdgeType affectsEdgeType;
+            EdgeType affectsEdgeType = null;
 
             /* Generate the Event record */
             Event.Builder eventBuilder = Event.newBuilder();
@@ -196,13 +196,20 @@ public class CDM extends Kafka {
                     logger.log(Level.WARNING,
                             "NULL WasGeneratedBy operation!");
                     return false;
+                } else if (operation.equals("open")){
+                	eventBuilder.setType(EventType.EVENT_OPEN);
+                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'open' only for files
                 } else if (operation.equals("write")) {
-                    eventBuilder.setType(EventType.EVENT_WRITE);
+                	eventBuilder.setType(EventType.EVENT_WRITE);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
                         eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                	if(edge.getSourceVertex().getAnnotation("subtype").equals("memory")){
+                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
+                	}else if(edge.getSourceVertex().getAnnotation("subtype").equals("file")){
+                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                	}
                 } else if (operation.equals("send") || operation.equals("sendto")) {
                     // XXX CDM currently doesn't support send/sendto even type, so mapping to write.
                     eventBuilder.setType(EventType.EVENT_WRITE);
@@ -238,13 +245,34 @@ public class CDM extends Kafka {
                     logger.log(Level.WARNING,
                             "NULL Used operation!");
                     return false;
+                } else if(operation.equals("load")){
+                	if(getExecEventUUID(pid) != null){
+	                	SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
+	                    affectsEdgeBuilder.setFromUuid(getExecEventUUID(pid));  // Event record's UID
+	                    affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex())); // UID of Subject/Object being affected
+	                    affectsEdgeBuilder.setType(EdgeType.EDGE_FILE_AFFECTS_EVENT);
+	                    affectsEdgeBuilder.setTimestamp(timeLong);
+	                    SimpleEdge affectsEdge = affectsEdgeBuilder.build();
+	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
+	                    return true; //no need to create an event for this so returning from here after adding the edge
+                	}else{
+                		logger.log(Level.WARNING, "Unable to create load edge for pid " + pid);
+                		return false;
+                	}
+                } else if (operation.equals("open")){
+                	eventBuilder.setType(EventType.EVENT_OPEN);
+                	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT; //'open' only for files
                 } else if (operation.equals("read")) {
-                    eventBuilder.setType(EventType.EVENT_READ);
+                	eventBuilder.setType(EventType.EVENT_READ);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
-                    	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
+                        eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                    affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT; 
+                	if(edge.getDestinationVertex().getAnnotation("subtype").equals("memory")){
+                		affectsEdgeType = EdgeType.EDGE_MEMORY_AFFECTS_EVENT;
+                	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("file")){
+                		affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
+                	}
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
                     eventBuilder.setType(EventType.EVENT_READ);
                     String size = edge.getAnnotation("size");
@@ -320,7 +348,7 @@ public class CDM extends Kafka {
                 affectsEdge = affectsEdgeBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
                 
-                uuidOfDestinationProcessVertex = pidToUuid.get(edge.getAnnotation("pid"));
+                uuidOfDestinationProcessVertex = getProcessSubjectUUID(edge.getAnnotation("pid"));
             }
             
             if(uuidOfDestinationProcessVertex != null){
@@ -333,7 +361,11 @@ public class CDM extends Kafka {
 	            SimpleEdge generatedByEdge = generatedByEdgeBuilder.build();
 	            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(generatedByEdge).build());
             }else{
-            	logger.log(Level.WARNING, "Failed to find process hash in process cache map for pid {0}", edge.getAnnotation("pid"));
+            	logger.log(Level.WARNING, "Failed to find process uuid in process cache map for pid {0}", edge.getAnnotation("pid"));
+            }
+            
+            if(eventBuilder.getType().equals(EventType.EVENT_EXECUTE)){
+            	putExecEventUUID(edge.getSourceVertex().getAnnotation("pid"), getUuid(edge));//uuid of edge is the uuid of the exec event vertex
             }
 
             // Now we publish the records in Kafka.
@@ -396,7 +428,7 @@ public class CDM extends Kafka {
             return tccdmDatums;
         }
         
-        pidToUuid.put(vertex.getAnnotation("pid"), getUuid(vertex));
+        putProcessSubjectUUID(vertex.getAnnotation("pid"), getUuid(vertex));
         
         Long time = parseTimeToLong(vertex.getAnnotation("start time"), null);
         if(time != null){
@@ -582,4 +614,54 @@ public class CDM extends Kafka {
     private UUID getUuid(AbstractEdge edge){
         return new UUID(edge.bigHashCode());
     }
+    
+    private void putProcessSubjectUUID(String pid, UUID processSubjectUUID){
+    	if(pidMappings.get(pid) == null){
+    		pidMappings.put(pid, new PIDMapping());
+    	}
+    	pidMappings.get(pid).setProcessSubjectUUID(processSubjectUUID);
+    }
+    
+    private void putExecEventUUID(String pid, UUID execEventUUID){
+    	if(pidMappings.get(pid) == null){
+    		pidMappings.put(pid, new PIDMapping());
+    	}
+    	pidMappings.get(pid).setExecEventUUID(execEventUUID);
+    }
+    
+    private UUID getProcessSubjectUUID(String pid){
+    	if(pidMappings.get(pid) != null){
+    		return pidMappings.get(pid).getProcessSubjectUUID();
+    	}
+    	return null;
+    }
+    
+    private UUID getExecEventUUID(String pid){
+    	if(pidMappings.get(pid) != null){
+    		return pidMappings.get(pid).getExecEventUUID();
+    	}
+    	return null;
+    }    
+}
+
+class PIDMapping{
+
+	private UUID processSubjectUUID, execEventUUID; 
+
+	public UUID getProcessSubjectUUID(){
+		return processSubjectUUID;
+	}
+	
+	public UUID getExecEventUUID(){
+		return execEventUUID;
+	}
+	
+	public void setProcessSubjectUUID(UUID processSubjectUUID){
+		this.processSubjectUUID = processSubjectUUID;
+	}
+	
+	public void setExecEventUUID(UUID execEventUUID){
+		this.execEventUUID = execEventUUID;
+	}
+	
 }
