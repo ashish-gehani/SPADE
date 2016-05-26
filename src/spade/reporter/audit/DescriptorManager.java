@@ -72,7 +72,7 @@ public class DescriptorManager {
 			return;
 		}
 		if(descriptors.get(toPid) == null){
-			descriptors.put(toPid, new HashMap<>());
+			descriptors.put(toPid, new HashMap<String, ArtifactInfo>());
 		}
 		descriptors.get(toPid).putAll(descriptors.get(fromPid));
 	}
