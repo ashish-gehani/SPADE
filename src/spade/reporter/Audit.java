@@ -46,6 +46,8 @@ import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.ArtifactInfo;
+import spade.reporter.audit.ArtifactInfoMapping;
+import spade.reporter.audit.BatchReader;
 import spade.reporter.audit.DescriptorManager;
 import spade.reporter.audit.FileInfo;
 import spade.reporter.audit.MemoryInfo;
@@ -83,7 +85,7 @@ public class Audit extends AbstractReporter {
     // To toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean USE_SOCK_SEND_RCV = false;
     private Boolean ARCH_32BIT = true;
-    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
+//    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     private String AUDIT_EXEC_PATH;
     // Process map based on <pid, stack of vertices> pairs
@@ -94,32 +96,24 @@ public class Audit extends AbstractReporter {
     private final DescriptorManager descriptors = new DescriptorManager();
     // Event buffer map based on <audit_record_id <key, value>> pairs
     private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
-    // File and memory version map based on <path, version> pairs
-    private final Map<ArtifactInfo, Integer> artifactVersions = new HashMap<>();
-    // Socket read version map based on <location, version> pairs
-    private final Map<ArtifactInfo, Integer> socketReadVersions = new HashMap<>();
-    // Socket write version map based on <location, version> pairs
-    private final Map<ArtifactInfo, Integer> socketWriteVersions = new HashMap<>();
+    // Map for artifact infos to versions and bytes read/written on sockets   
+    private Map<ArtifactInfo, ArtifactInfoMapping> artifactInfoMappings = new HashMap<ArtifactInfo, ArtifactInfoMapping>(){
+    	
+		private static final long serialVersionUID = 740383626203774628L;
+
+		public ArtifactInfoMapping get(Object key){
+    		if(!(key instanceof ArtifactInfo)){
+    			return null;
+    		}
+    		if(super.get(key) == null){
+    			super.put((ArtifactInfo)key, new ArtifactInfoMapping());
+    		}
+    		return super.get(key);
+    	}
+    };
+    
     private Thread eventProcessorThread = null;
     private String auditRules;
-    
-    private Map<ArtifactInfo, Long> networkLocationToBytesWrittenMap = new HashMap<ArtifactInfo, Long>(){
-		public Long get(Object key){
-    		if(super.get(key) == null){
-    			super.put((ArtifactInfo)key, 0L);
-    		}
-    		return super.get(key);
-    	}
-    };
-    
-    private Map<ArtifactInfo, Long> networkLocationToBytesReadMap = new HashMap<ArtifactInfo, Long>(){
-		public Long get(Object key){
-    		if(super.get(key) == null){
-    			super.put((ArtifactInfo)key, 0L);
-    		}
-    		return super.get(key);
-    	}
-    };
     
     private final static long MAX_BYTES_PER_NETWORK_ARTIFACT = 100;
     
@@ -522,7 +516,7 @@ public class Audit extends AbstractReporter {
     	
         Matcher event_start_matcher = pattern_message_start.matcher(line);
         if (event_start_matcher.find()) {
-            String node = event_start_matcher.group(1);
+//            String node = event_start_matcher.group(1);
             String type = event_start_matcher.group(2);
             String time = event_start_matcher.group(3);
             String eventId = event_start_matcher.group(4);
@@ -1113,8 +1107,8 @@ public class Audit extends AbstractReporter {
     	Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
         artifact.addAnnotation("memory address", artifactInfo.getStringFormattedValue());
-        Integer version = getVersion(artifactVersions, artifactInfo, update);
-        artifact.addAnnotation("version", Integer.toString(version));
+        long version = artifactInfoMappings.get(artifact).getNonSocketVersion(update);
+        artifact.addAnnotation("version", Long.toString(version));
         return artifact;
     }        
     
@@ -1123,21 +1117,21 @@ public class Audit extends AbstractReporter {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
         
+        long version = 0;
         String hostAnnotation = null, portAnnotation = null;
-    	Map<ArtifactInfo, Integer> versionMap = null;
         Boolean isRead = isSocketRead(syscall);
         if(isRead == null){
         	return null; 
         }else if(isRead){
-        	versionMap = socketReadVersions;
+        	version = artifactInfoMappings.get(artifactInfo).getSocketReadVersion();
         	hostAnnotation = "source host";
 			portAnnotation = "source port";
         }else if(!isRead){
-        	versionMap = socketWriteVersions;
+        	version = artifactInfoMappings.get(artifactInfo).getSocketWriteVersion();
         	hostAnnotation = "destination host";
 			portAnnotation = "destination port";
         }
-        artifact.addAnnotation("version", Integer.toString(getVersion(versionMap, artifactInfo, false)));
+        artifact.addAnnotation("version", Long.toString(version));
         
         if(artifactInfo instanceof SocketInfo){ //either internet socket
         	    		
@@ -1176,8 +1170,8 @@ public class Audit extends AbstractReporter {
         if(update && artifactInfo.getStringFormattedValue().startsWith("/dev/")){
         	update = false;
         }
-        Integer version = getVersion(artifactVersions, artifactInfo, update);
-        artifact.addAnnotation("version", Integer.toString(version));
+        long version = artifactInfoMappings.get(artifactInfo).getNonSocketVersion(update);
+        artifact.addAnnotation("version", Long.toString(version));
         return artifact;
     }
     
@@ -1192,20 +1186,6 @@ public class Audit extends AbstractReporter {
        	}
        	return null;
     }   
-    
-    private Integer getVersion(Map<ArtifactInfo, Integer> versionMap, ArtifactInfo artifactInfo, boolean update){
-    	Integer version = 0;
-        if((version = versionMap.get(artifactInfo)) == null){
-        	version = 0;
-        	versionMap.put(artifactInfo, version);
-        }else{
-        	if(update){
-        		version++;
-        		versionMap.put(artifactInfo, version);
-        	}
-        }
-        return version;
-    }
 
     private void processForkClone(Map<String, String> eventData, SYSCALL syscall) {
         // fork() and clone() receive the following message(s):
@@ -1362,7 +1342,7 @@ public class Audit extends AbstractReporter {
         //always handling open for files now irrespective of the fileIO flag being true or false.
         
         if (flags.charAt(flags.length() - 1) == '0') {
-        	boolean put = !artifactVersions.containsKey(fileInfo);
+        	boolean put = artifactInfoMappings.get(fileInfo).getNonSocketVersion() == -1;
             Artifact vertex = createArtifact(fileInfo, false, null);
             if (put) {
                 putVertex(vertex);
@@ -1409,7 +1389,7 @@ public class Audit extends AbstractReporter {
         }
         
         ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
-        boolean put = !artifactVersions.containsKey(fileInfo);
+        boolean put = artifactInfoMappings.get(fileInfo).getNonSocketVersion() == -1;
         Artifact vertex = createArtifact(fileInfo, false, null);
         if (put) {
             putVertex(vertex);
@@ -1541,7 +1521,7 @@ public class Audit extends AbstractReporter {
         ArtifactInfo srcFileInfo = new FileInfo(srcpath);
         ArtifactInfo dstFileInfo = new FileInfo(dstpath);
 
-        boolean put = !artifactVersions.containsKey(srcFileInfo);
+        boolean put = artifactInfoMappings.get(srcFileInfo).getNonSocketVersion() == -1;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -1592,7 +1572,7 @@ public class Audit extends AbstractReporter {
         ArtifactInfo srcFileInfo = new FileInfo(srcpath);
         ArtifactInfo dstFileInfo = new FileInfo(dstpath);
 
-        boolean put = !artifactVersions.containsKey(srcFileInfo);
+        boolean put = artifactInfoMappings.get(srcFileInfo).getNonSocketVersion() == -1;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -1678,26 +1658,26 @@ public class Audit extends AbstractReporter {
     private void processNetfilterPacketEvent(Map<String, String> eventData){
 //      Refer to the following link for protocol numbers
 //    	http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-    	String protocol = eventData.get("proto");
+//    	String protocol = eventData.get("proto");
     	
-    	if(protocol.equals("6") || protocol.equals("17")){ // 6 is tcp and 17 is udp
-    		String length = eventData.get("len");
-        	
-//        	hook = 1 is input, hook = 3 is forward
-        	String hook = eventData.get("hook");
-        	
-        	String sourceAddress = eventData.get("saddr");
-        	String destinationAddress = eventData.get("daddr");
-        	
-        	String sourcePort = eventData.get("sport");
-        	String destinationPort = eventData.get("dport");
-        	
-        	String time = eventData.get("time");
-        	String eventId = eventData.get("eventid");
-        	
-        	SocketInfo source = new SocketInfo(sourceAddress, sourcePort);
-        	SocketInfo destination = new SocketInfo(destinationAddress, destinationPort);
-    	}
+//    	if(protocol.equals("6") || protocol.equals("17")){ // 6 is tcp and 17 is udp
+//    		String length = eventData.get("len");
+//        	
+////        	hook = 1 is input, hook = 3 is forward
+//        	String hook = eventData.get("hook");
+//        	
+//        	String sourceAddress = eventData.get("saddr");
+//        	String destinationAddress = eventData.get("daddr");
+//        	
+//        	String sourcePort = eventData.get("sport");
+//        	String destinationPort = eventData.get("dport");
+//        	
+//        	String time = eventData.get("time");
+//        	String eventId = eventData.get("eventid");
+//        	
+//        	SocketInfo source = new SocketInfo(sourceAddress, sourcePort);
+//        	SocketInfo destination = new SocketInfo(destinationAddress, destinationPort);
+//    	}
     	
     }
     
@@ -1825,16 +1805,16 @@ public class Audit extends AbstractReporter {
         
         long bytesRemaining = Long.parseLong(bytesSent);
         while(bytesRemaining > 0){
-        	long currSize = networkLocationToBytesWrittenMap.get(artifactInfo);
+        	long currSize = artifactInfoMappings.get(artifactInfo).getBytesWrittenToSocket();
         	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
         	if(leftTillNext > bytesRemaining){
         		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid, eventData.get("eventid"));
-        		networkLocationToBytesWrittenMap.put(artifactInfo, currSize + bytesRemaining);
+        		artifactInfoMappings.get(artifactInfo).setBytesWrittenToSocket(currSize + bytesRemaining);
         		bytesRemaining = 0;
         	}else{ //greater or equal
         		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
-        		networkLocationToBytesWrittenMap.put(artifactInfo, 0L);
-        		getVersion(socketWriteVersions, artifactInfo, true);
+        		artifactInfoMappings.get(artifactInfo).setBytesWrittenToSocket(0);
+        		artifactInfoMappings.get(artifactInfo).getSocketWriteVersion(true); //incrementing version
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
@@ -1871,16 +1851,16 @@ public class Audit extends AbstractReporter {
         ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);        
         long bytesRemaining = Long.parseLong(bytesReceived);
         while(bytesRemaining > 0){
-        	long currSize = networkLocationToBytesReadMap.get(artifactInfo);
+        	long currSize = artifactInfoMappings.get(artifactInfo).getBytesReadFromSocket();
         	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
         	if(leftTillNext > bytesRemaining){
         		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid, eventData.get("eventid"));
-        		networkLocationToBytesReadMap.put(artifactInfo, currSize + bytesRemaining);
+        		artifactInfoMappings.get(artifactInfo).setBytesReadFromSocket(currSize + bytesRemaining);
         		bytesRemaining = 0;
         	}else{ //greater or equal
         		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
-        		networkLocationToBytesReadMap.put(artifactInfo, 0L);
-        		getVersion(socketReadVersions, artifactInfo, true);
+        		artifactInfoMappings.get(artifactInfo).setBytesReadFromSocket(0);
+        		artifactInfoMappings.get(artifactInfo).getSocketReadVersion(true);
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
@@ -2002,7 +1982,7 @@ public class Audit extends AbstractReporter {
     	return returnSyscall.toString().toLowerCase();
     }
     
-//  this function to be used always to create a process vertex
+//  NOTE: this function to be used always to create a process vertex
     public Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
     		String uid, String euid, String suid, String fsuid, 
     		String gid, String egid, String sgid, String fsgid,
@@ -2086,11 +2066,11 @@ public class Audit extends AbstractReporter {
                 String stats[] = statline.split("\\s+");
                 long elapsedtime = Long.parseLong(stats[21]) * 10;
                 long startTime = boottime + elapsedtime;
-                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(startTime));
-                String stime = Long.toString(startTime);
-
-                String name = nameline.split("\\s+")[1];
-                String ppid = ppidline.split("\\s+")[1];
+//                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(startTime));
+//                String stime = Long.toString(startTime);
+//
+//                String name = nameline.split("\\s+")[1];
+//                String ppid = ppidline.split("\\s+")[1];
                 cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
 
                 // see for order of uid, euid, suid, fsiud: http://man7.org/linux/man-pages/man5/proc.5.html
@@ -2194,61 +2174,5 @@ public class Audit extends AbstractReporter {
     			process.getAnnotation("gid"), process.getAnnotation("egid"), process.getAnnotation("sgid"), process.getAnnotation("fsgid"), 
     			BEEP, startTime);
     }
-      
-    //all records of any event are assumed to be placed contiguously in the file
-    private class BatchReader{
-    	private final Pattern event_line_pattern = Pattern.compile("msg=(audit[()0-9.:]+:)\\s*");
-    	private BufferedReader br = null;
-    	
-    	private boolean EOF = false;
-    	private String nextLine = null;
-    	private String lastMsg = null;
-    	
-    	public BatchReader(BufferedReader br){
-    		this.br = br;
-    	}
-    	
-    	public String readLine() throws IOException{
-    		if(EOF || nextLine != null){
-    			String temp = nextLine;
-    			nextLine = null;
-    			return temp;
-    		}
-    		String line = br.readLine();
-    		if(line == null){
-    			EOF = true;
-    			nextLine = null;
-    			if(lastMsg != null){
-    				return "type=EOE msg="+lastMsg;
-    			}else{
-    				return null;
-    			}    			
-    		} else {
-    			Matcher matcher = event_line_pattern.matcher(line);
-    			if(matcher.find()){
-    				String msg = matcher.group(1);
-    				
-    				if(lastMsg == null){
-    					lastMsg = msg;
-    				}
-    				
-    				if(!msg.equals(lastMsg)){
-    					String tempMsg = lastMsg;
-    					lastMsg = msg;
-    					nextLine = line;
-    					return "type=EOE msg="+tempMsg;
-    				}else{
-    					return line;
-    				}
-    			}else{
-    				return line;
-    			}
-    		}
-    	}
-    	
-    	public void close() throws IOException{
-    		br.close();
-    	}
     
-    }
 }

@@ -71,6 +71,9 @@ public class DescriptorManager {
 		if(descriptors.get(fromPid) == null){
 			return;
 		}
+		if(descriptors.get(toPid) == null){
+			descriptors.put(toPid, new HashMap<>());
+		}
 		descriptors.get(toPid).putAll(descriptors.get(fromPid));
 	}
 	
