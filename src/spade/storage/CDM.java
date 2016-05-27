@@ -78,7 +78,7 @@ public class CDM extends Kafka {
     private long startTime, endTime;
     private long recordCount;
 
-    private Map<String, PIDMapping> pidMappings = new HashMap<>();
+    private Map<String, ProcessInformation> pidMappings = new HashMap<>();
     
     @Override
     public boolean initialize(String arguments) {
@@ -218,6 +218,12 @@ public class CDM extends Kafka {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
+                } else if (operation.equals("mmap")) {
+                    eventBuilder.setType(EventType.EVENT_MMAP);
+                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
+                } else if (operation.equals("mprotect")) {
+                    eventBuilder.setType(EventType.EVENT_MPROTECT);
+                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 } else if (operation.equals("connect")) {
                     eventBuilder.setType(EventType.EVENT_CONNECT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
@@ -567,6 +573,16 @@ public class CDM extends Kafka {
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(netFlowObject).build());
             return tccdmDatums;
         } else if (entityType.equals("memory")) {
+        	Map<String, String> properties = new HashMap<String, String>();
+        	if(vertex.getAnnotation("size") != null){
+        		properties.put("size", vertex.getAnnotation("size"));
+        	}
+        	if(vertex.getAnnotation("protection") != null){
+        		properties.put("protection", vertex.getAnnotation("protection"));
+        	}
+        	if(properties.size() > 0){
+        		baseObject.setProperties(properties);
+        	}
             MemoryObject.Builder memoryBuilder = MemoryObject.newBuilder();
             memoryBuilder.setUuid(getUuid(vertex));
             memoryBuilder.setBaseObject(baseObject);
@@ -617,14 +633,14 @@ public class CDM extends Kafka {
     
     private void putProcessSubjectUUID(String pid, UUID processSubjectUUID){
     	if(pidMappings.get(pid) == null){
-    		pidMappings.put(pid, new PIDMapping());
+    		pidMappings.put(pid, new ProcessInformation());
     	}
     	pidMappings.get(pid).setProcessSubjectUUID(processSubjectUUID);
     }
     
     private void putExecEventUUID(String pid, UUID execEventUUID){
     	if(pidMappings.get(pid) == null){
-    		pidMappings.put(pid, new PIDMapping());
+    		pidMappings.put(pid, new ProcessInformation());
     	}
     	pidMappings.get(pid).setExecEventUUID(execEventUUID);
     }
@@ -644,7 +660,7 @@ public class CDM extends Kafka {
     }    
 }
 
-class PIDMapping{
+class ProcessInformation{
 
 	private UUID processSubjectUUID, execEventUUID; 
 
