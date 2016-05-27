@@ -44,7 +44,7 @@ public class CommandUtility {
 				try{
 					String line = null;
 					while((line = stdoutReader.readLine()) != null){
-						lines.add(line);
+						lines.add("[STDOUT]\t" + line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDOUT for command: " +command, e);
@@ -57,7 +57,7 @@ public class CommandUtility {
 				try{
 					String line = null;
 					while((line = stderrReader.readLine()) != null){
-						lines.add(line);
+						lines.add("[STDERR]\t" + line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDERR for command: " +command, e);
@@ -67,6 +67,8 @@ public class CommandUtility {
 		
 		stdoutThread.start();
 		stderrThread.start();
+		
+		process.waitFor();
 		
 		stdoutThread.join();
 		stderrThread.join();

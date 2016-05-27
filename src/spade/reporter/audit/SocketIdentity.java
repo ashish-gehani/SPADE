@@ -20,11 +20,11 @@
 
 package spade.reporter.audit;
 
-public class SocketInfo implements ArtifactInfo {
+public class SocketIdentity implements ArtifactIdentity {
 
 	private String host, port;
 	
-	public SocketInfo(String host, String port){
+	public SocketIdentity(String host, String port){
 		this.host = host;
 		this.port = port;
 	}
@@ -63,7 +63,7 @@ public class SocketInfo implements ArtifactInfo {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		SocketInfo other = (SocketInfo) obj;
+		SocketIdentity other = (SocketIdentity) obj;
 		if (host == null) {
 			if (other.host != null)
 				return false;

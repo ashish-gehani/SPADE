@@ -20,37 +20,50 @@
 
 package spade.reporter.audit;
 
-public class UnknownInfo implements ArtifactInfo{
+public class PipeIdentity implements ArtifactIdentity{
 
-	private String pid, fd;
+	private String fd1, fd2;
+	private String path;
 	
-	public UnknownInfo(String pid, String fd){
-		this.pid = pid;
-		this.fd = fd;
+	public PipeIdentity(String path){
+		this.path = path;
 	}
 	
-	public String getFD(){
-		return fd;
+	public PipeIdentity(String fd1, String fd2) {
+		this.fd1 = fd1;
+		this.fd2 = fd2;
 	}
 
-	public String getPID(){
-		return pid;
+	public String getFd1() {
+		return fd1;
+	}
+
+	public String getFd2() {
+		return fd2;
+	}
+	
+	public String getPath(){
+		return path;
 	}
 	
 	public String getStringFormattedValue(){
-		return "/pid/"+pid+"fd/"+fd;
+		if(path == null){
+			return "pipe:["+fd1+"-"+fd2+"]";
+		}else{
+			return path;
+		}		
 	}
-	
+
 	public String getSubtype(){
-		return SUBTYPE_UNKNOWN;
+		return SUBTYPE_PIPE;
 	}
 	
 	@Override
-	public int hashCode(){
+	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
+		result = prime * result + ((fd2 == null) ? 0 : fd2.hashCode());
 		return result;
 	}
 
@@ -62,17 +75,17 @@ public class UnknownInfo implements ArtifactInfo{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		UnknownInfo other = (UnknownInfo) obj;
-		if (fd == null) {
-			if (other.fd != null)
+		PipeIdentity other = (PipeIdentity) obj;
+		if (fd1 == null) {
+			if (other.fd1 != null)
 				return false;
-		} else if (!fd.equals(other.fd))
+		} else if (!fd1.equals(other.fd1))
 			return false;
-		if (pid == null) {
-			if (other.pid != null)
+		if (fd2 == null) {
+			if (other.fd2 != null)
 				return false;
-		} else if (!pid.equals(other.pid))
+		} else if (!fd2.equals(other.fd2))
 			return false;
 		return true;
-	}
+	}	
 }

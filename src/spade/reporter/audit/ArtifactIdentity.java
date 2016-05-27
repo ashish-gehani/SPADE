@@ -20,7 +20,7 @@
 
 package spade.reporter.audit;
 
-public interface ArtifactInfo {
+public interface ArtifactIdentity {
 	
 	public static final String SUBTYPE_FILE = "file",
 								SUBTYPE_SOCKET = "network",

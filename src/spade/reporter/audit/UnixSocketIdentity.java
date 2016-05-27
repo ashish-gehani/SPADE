@@ -20,9 +20,9 @@
 
 package spade.reporter.audit;
 
-public class UnixSocketInfo extends FileInfo{
+public class UnixSocketIdentity extends FileIdentity{
 	
-	public UnixSocketInfo(String path){
+	public UnixSocketIdentity(String path){
 		super(path);
 	}
 	

@@ -45,16 +45,16 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
-import spade.reporter.audit.ArtifactInfo;
-import spade.reporter.audit.ArtifactInfoMapping;
+import spade.reporter.audit.ArtifactIdentity;
+import spade.reporter.audit.ArtifactProperties;
 import spade.reporter.audit.BatchReader;
 import spade.reporter.audit.DescriptorManager;
-import spade.reporter.audit.FileInfo;
-import spade.reporter.audit.MemoryInfo;
-import spade.reporter.audit.PipeInfo;
-import spade.reporter.audit.SocketInfo;
-import spade.reporter.audit.UnixSocketInfo;
-import spade.reporter.audit.UnknownInfo;
+import spade.reporter.audit.FileIdentity;
+import spade.reporter.audit.MemoryIdentity;
+import spade.reporter.audit.PipeIdentity;
+import spade.reporter.audit.SocketIdentity;
+import spade.reporter.audit.UnixSocketIdentity;
+import spade.reporter.audit.UnknownIdentity;
 import spade.utility.CommandUtility;
 import spade.utility.CommonFunctions;
 import spade.vertex.opm.Artifact;
@@ -73,6 +73,8 @@ public class Audit extends AbstractReporter {
 //  AND  
 //  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
     private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100;
+    
+    private final long BUFFER_DRAIN_DELAY = 500;
     
     // Store log for debugging purposes
     private boolean DEBUG_DUMP_LOG;
@@ -99,16 +101,16 @@ public class Audit extends AbstractReporter {
     // Event buffer map based on <audit_record_id <key, value>> pairs
     private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
     // Map for artifact infos to versions and bytes read/written on sockets   
-    private Map<ArtifactInfo, ArtifactInfoMapping> artifactInfoMappings = new HashMap<ArtifactInfo, ArtifactInfoMapping>(){
+    private Map<ArtifactIdentity, ArtifactProperties> artifactIdentityToArtifactProperties = new HashMap<ArtifactIdentity, ArtifactProperties>(){
     	
 		private static final long serialVersionUID = 740383626203774628L;
 
-		public ArtifactInfoMapping get(Object key){
-    		if(!(key instanceof ArtifactInfo)){
+		public ArtifactProperties get(Object key){
+    		if(!(key instanceof ArtifactIdentity)){
     			return null;
     		}
     		if(super.get(key) == null){
-    			super.put((ArtifactInfo)key, new ArtifactInfoMapping());
+    			super.put((ArtifactIdentity)key, new ArtifactProperties());
     		}
     		return super.get(key);
     	}
@@ -270,13 +272,14 @@ public class Audit extends AbstractReporter {
     	        			parseEventLine(line);
     	        		}
     	        		boolean printed = false;
+    	        		// The loop below prevents the reporter from being removed while the records are still being processed
         	        	while(!shutdown){
         	        		if(!printed && getBuffer().size() == 0){//buffer processed
         	        			printed = true;
         	        			logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
         	        		}
         	        		try{
-        	        			Thread.sleep(500);
+        	        			Thread.sleep(BUFFER_DRAIN_DELAY);
         	        		}catch(Exception e){
         	        			//logger.log(Level.SEVERE, null, e);
         	        		}
@@ -326,7 +329,7 @@ public class Audit extends AbstractReporter {
 		                    }
 		
 		                    // Get existing file descriptors for this process
-		                    Map<String, ArtifactInfo> fds = getFileDescriptors(currentPID);
+		                    Map<String, ArtifactIdentity> fds = getFileDescriptors(currentPID);
 		                    if (fds != null) {
 		                        descriptors.addDescriptors(currentPID, fds);
 		                    }
@@ -432,14 +435,14 @@ public class Audit extends AbstractReporter {
         }
     }
 
-	private Map<String, ArtifactInfo> getFileDescriptors(String pid){
+	private Map<String, ArtifactIdentity> getFileDescriptors(String pid){
 		
 		if(auditLogThread != null  // the audit log is being read from a file.
 				|| !PROCFS){ // the flag to read from procfs is false
 			return null;
 		}
     	
-    	Map<String, ArtifactInfo> fds = new HashMap<String, ArtifactInfo>();
+    	Map<String, ArtifactIdentity> fds = new HashMap<String, ArtifactIdentity>();
     	
     	Map<String, String> inodefd0 = new HashMap<String, String>();
     	
@@ -461,24 +464,24 @@ public class Audit extends AbstractReporter {
 		    						if(inodefd0.get(inode) == null){
 		    							inodefd0.put(inode, fd);
 		    						}else{
-		    							ArtifactInfo pipeInfo = new PipeInfo(fd, inodefd0.get(inode));
+		    							ArtifactIdentity pipeInfo = new PipeIdentity(fd, inodefd0.get(inode));
 		    							fds.put(fd, pipeInfo);
 		    							fds.put(inodefd0.get(inode), pipeInfo);
 		    							inodefd0.remove(inode);
 		    						}
 	    						}else{ //named pipe
-	    							fds.put(fd, new PipeInfo(path));
+	    							fds.put(fd, new PipeIdentity(path));
 	    						}	    						
 	    					}else if("ipv4".equals(type) || "ipv6".equals(type)){
 	    						String[] hostport = tokens[8].split("->")[0].split(":");
-	    						fds.put(fd, new SocketInfo(hostport[0], hostport[1]));
+	    						fds.put(fd, new SocketIdentity(hostport[0], hostport[1]));
 	    					}else if("reg".equals(type) || "chr".equals(type)){
 	    						String path = tokens[8];
-	    						fds.put(fd, new FileInfo(path));  						
+	    						fds.put(fd, new FileIdentity(path));  						
 	    					}else if("unix".equals(type)){
 	    						String path = tokens[8];
 	    						if(!path.equals("socket")){
-	    							fds.put(fd, new UnixSocketInfo(path));
+	    							fds.put(fd, new UnixSocketIdentity(path));
 	    						}
 	    					}
     					}
@@ -783,8 +786,8 @@ public class Audit extends AbstractReporter {
     	String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
-        ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
-    	if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo || artifactInfo instanceof UnknownInfo){ 
+        ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);
+    	if(artifactInfo instanceof SocketIdentity || artifactInfo instanceof UnixSocketIdentity || artifactInfo instanceof UnknownIdentity){ 
     		if(USE_SOCK_SEND_RCV){
     			switch (syscall) {
     				case 1: // write()
@@ -821,7 +824,7 @@ public class Audit extends AbstractReporter {
 						break;
 				}
     		}
-    	}else if(artifactInfo instanceof FileInfo || artifactInfo instanceof MemoryInfo || artifactInfo instanceof PipeInfo){
+    	}else if(artifactInfo instanceof FileIdentity || artifactInfo instanceof MemoryIdentity || artifactInfo instanceof PipeIdentity){
     		if(USE_READ_WRITE){
     			switch(syscall){
 	    			case 0: // read()
@@ -855,8 +858,8 @@ public class Audit extends AbstractReporter {
     	String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
-        ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
-    	if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo || artifactInfo instanceof UnknownInfo){ 
+        ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);
+    	if(artifactInfo instanceof SocketIdentity || artifactInfo instanceof UnixSocketIdentity || artifactInfo instanceof UnknownIdentity){ 
     		if(USE_SOCK_SEND_RCV){
     			switch (syscall) {
     				case 1: // write()
@@ -893,7 +896,7 @@ public class Audit extends AbstractReporter {
 						break;
 				}
     		}
-    	}else if(artifactInfo instanceof FileInfo || artifactInfo instanceof MemoryInfo || artifactInfo instanceof PipeInfo){
+    	}else if(artifactInfo instanceof FileIdentity || artifactInfo instanceof MemoryIdentity || artifactInfo instanceof PipeIdentity){
     		if(USE_READ_WRITE){
     			switch(syscall){
 	    			case 0: // read()
@@ -1081,7 +1084,7 @@ public class Audit extends AbstractReporter {
     	String length = eventData.get("a1");
     	String protection = eventData.get("a2");
     	
-    	ArtifactInfo memoryInfo = new MemoryInfo(address, length, protection);
+    	ArtifactIdentity memoryInfo = new MemoryIdentity(address, length, protection);
     	Artifact memoryArtifact = createArtifact(memoryInfo, true, syscall);
 		putVertex(memoryArtifact);
 		
@@ -1113,7 +1116,7 @@ public class Audit extends AbstractReporter {
     	String length = eventData.get("a1");
     	String protection = eventData.get("a2");
     	
-    	ArtifactInfo memoryInfo = new MemoryInfo(address, length, protection);
+    	ArtifactIdentity memoryInfo = new MemoryIdentity(address, length, protection);
     	Artifact memoryArtifact = createArtifact(memoryInfo, true, syscall);
 		putVertex(memoryArtifact);
 		
@@ -1174,11 +1177,11 @@ public class Audit extends AbstractReporter {
     			address = address.add(arg1);
     			pidToMemAddress.remove(pid);
     			if(arg0.intValue() == -201){
-    				memArtifact = createArtifact(new MemoryInfo(address.toString(16), null, null), false, null);
+    				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), false, null);
     				edge = new Used(process, memArtifact);
     				edge.addAnnotation("operation", "read");
     			}else if(arg0.intValue() == -301){
-    				memArtifact = createArtifact(new MemoryInfo(address.toString(16), null, null), true, null);
+    				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), true, null);
     				edge = new WasGeneratedBy(memArtifact, process);
     				edge.addAnnotation("operation", "write");
     			}
@@ -1199,8 +1202,8 @@ public class Audit extends AbstractReporter {
     }
     
     //handles memoryinfo
-    private Artifact createMemoryArtifact(ArtifactInfo artifactInfo, boolean update){
-    	MemoryInfo memoryInfo = (MemoryInfo)artifactInfo;
+    private Artifact createMemoryArtifact(ArtifactIdentity artifactInfo, boolean update){
+    	MemoryIdentity memoryInfo = (MemoryIdentity)artifactInfo;
     	Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
         artifact.addAnnotation("memory address", memoryInfo.getMemoryAddress());
@@ -1210,13 +1213,14 @@ public class Audit extends AbstractReporter {
         if(memoryInfo.getProtection() != null){
         	artifact.addAnnotation("protection", memoryInfo.getProtection());
         }
-        long version = artifactInfoMappings.get(artifactInfo).getNonSocketVersion(update);
+        ArtifactProperties artifactProperties = artifactIdentityToArtifactProperties.get(artifactInfo);
+        long version = artifactProperties.getMemoryVersion(update);
         artifact.addAnnotation("version", Long.toString(version));
         return artifact;
     }        
     
     //handles socketinfo, unixsocketinfo, unknowninfo
-    private Artifact createNetworkArtifact(ArtifactInfo artifactInfo, SYSCALL syscall) {
+    private Artifact createNetworkArtifact(ArtifactIdentity artifactInfo, SYSCALL syscall) {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
         
@@ -1226,22 +1230,22 @@ public class Audit extends AbstractReporter {
         if(isRead == null){
         	return null; 
         }else if(isRead){
-        	version = artifactInfoMappings.get(artifactInfo).getSocketReadVersion();
+        	version = artifactIdentityToArtifactProperties.get(artifactInfo).getSocketReadVersion();
         	hostAnnotation = "source host";
 			portAnnotation = "source port";
         }else if(!isRead){
-        	version = artifactInfoMappings.get(artifactInfo).getSocketWriteVersion();
+        	version = artifactIdentityToArtifactProperties.get(artifactInfo).getSocketWriteVersion();
         	hostAnnotation = "destination host";
 			portAnnotation = "destination port";
         }
         artifact.addAnnotation("version", Long.toString(version));
         
-        if(artifactInfo instanceof SocketInfo){ //either internet socket
+        if(artifactInfo instanceof SocketIdentity){ //either internet socket
         	    		
-    		artifact.addAnnotation(hostAnnotation, ((SocketInfo) artifactInfo).getHost());
-			artifact.addAnnotation(portAnnotation, ((SocketInfo) artifactInfo).getPort());
+    		artifact.addAnnotation(hostAnnotation, ((SocketIdentity) artifactInfo).getHost());
+			artifact.addAnnotation(portAnnotation, ((SocketIdentity) artifactInfo).getPort());
 			
-        }else if(artifactInfo instanceof UnixSocketInfo || artifactInfo instanceof UnknownInfo){ //or unix socket
+        }else if(artifactInfo instanceof UnixSocketIdentity || artifactInfo instanceof UnknownIdentity){ //or unix socket
         	
         	artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
         	
@@ -1250,19 +1254,19 @@ public class Audit extends AbstractReporter {
         return artifact;
     }
     
-    private Artifact createArtifact(ArtifactInfo artifactInfo, boolean update, SYSCALL syscall){
+    private Artifact createArtifact(ArtifactIdentity artifactInfo, boolean update, SYSCALL syscall){
     	Artifact artifact = null;
-    	if(artifactInfo instanceof FileInfo || artifactInfo instanceof PipeInfo || (artifactInfo instanceof UnknownInfo && syscall == null)){
+    	if(artifactInfo instanceof FileIdentity || artifactInfo instanceof PipeIdentity || (artifactInfo instanceof UnknownIdentity && syscall == null)){
     		artifact = createFileArtifact(artifactInfo, update);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
-    	}else if(artifactInfo instanceof MemoryInfo){
+    	}else if(artifactInfo instanceof MemoryIdentity){
     		artifact = createMemoryArtifact(artifactInfo, update);
     		if(syscall == SYSCALL.MMAP || syscall == SYSCALL.MMAP2 || syscall == SYSCALL.MPROTECT){
     			artifact.addAnnotation(SOURCE, DEV_AUDIT);
     		}else{
     			artifact.addAnnotation(SOURCE, BEEP);
     		}    		
-    	}else if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo || (artifactInfo instanceof UnknownInfo && syscall != null)){
+    	}else if(artifactInfo instanceof SocketIdentity || artifactInfo instanceof UnixSocketIdentity || (artifactInfo instanceof UnknownIdentity && syscall != null)){
     		artifact = createNetworkArtifact(artifactInfo, syscall);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}
@@ -1270,14 +1274,15 @@ public class Audit extends AbstractReporter {
     }
     
     //handles fileinfo, pipeinfo, unknowninfo
-    private Artifact createFileArtifact(ArtifactInfo artifactInfo, boolean update) {
+    private Artifact createFileArtifact(ArtifactIdentity artifactInfo, boolean update) {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
         artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
         if(update && artifactInfo.getStringFormattedValue().startsWith("/dev/")){
         	update = false;
         }
-        long version = artifactInfoMappings.get(artifactInfo).getNonSocketVersion(update);
+        ArtifactProperties artifactProperties = artifactIdentityToArtifactProperties.get(artifactInfo);
+        long version = artifactProperties.getFileVersion(update);
         artifact.addAnnotation("version", Long.toString(version));
         return artifact;
     }
@@ -1308,7 +1313,7 @@ public class Audit extends AbstractReporter {
         	//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
         	if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
         		syscall = SYSCALL.VFORK;
-        	}else if((flags & SIGCHLD) != SIGCHLD){ //is fork
+        	}else if((flags & SIGCHLD) == SIGCHLD){ //is fork
         		syscall = SYSCALL.FORK;
         	}
         	//otherwise it is just clone
@@ -1404,7 +1409,7 @@ public class Audit extends AbstractReporter {
     			path = joinPaths(cwd, path);
     		}
     	}
-    	ArtifactInfo fileInfo = new FileInfo(path);
+    	ArtifactIdentity fileInfo = new FileIdentity(path);
     	Artifact usedArtifact = createArtifact(fileInfo, false, null);
     	Used usedEdge = new Used(process, usedArtifact);
     	usedEdge.addAnnotation("time", time);
@@ -1440,7 +1445,7 @@ public class Audit extends AbstractReporter {
         //this calls the putVertex function on the process vertex internally, that's why the process vertex isn't added here
         checkProcessVertex(eventData, true, false); 
         
-        ArtifactInfo fileInfo = new FileInfo(path);
+        ArtifactIdentity fileInfo = new FileIdentity(path);
         
         descriptors.addDescriptor(pid, fd, fileInfo);
 
@@ -1449,7 +1454,7 @@ public class Audit extends AbstractReporter {
         //always handling open for files now irrespective of the fileIO flag being true or false.
         
         if (flags.charAt(flags.length() - 1) == '0') {
-        	boolean put = artifactInfoMappings.get(fileInfo).getNonSocketVersion() == -1;
+        	boolean put = artifactIdentityToArtifactProperties.get(fileInfo).getFileVersion() == -1;
             Artifact vertex = createArtifact(fileInfo, false, null);
             if (put) {
                 putVertex(vertex);
@@ -1495,8 +1500,8 @@ public class Audit extends AbstractReporter {
         	descriptors.addUnknownDescriptor(pid, fd);
         }
         
-        ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
-        boolean put = artifactInfoMappings.get(fileInfo).getNonSocketVersion() == -1;
+        ArtifactIdentity fileInfo = descriptors.getDescriptor(pid, fd);
+        boolean put = artifactIdentityToArtifactProperties.get(fileInfo).getFileVersion() == -1;
         Artifact vertex = createArtifact(fileInfo, false, null);
         if (put) {
             putVertex(vertex);
@@ -1526,7 +1531,7 @@ public class Audit extends AbstractReporter {
         	descriptors.addUnknownDescriptor(pid, fd);
         }
 
-        ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
+        ArtifactIdentity fileInfo = descriptors.getDescriptor(pid, fd);
         Artifact vertex = createArtifact(fileInfo, true, null);
         putVertex(vertex);
         putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
@@ -1546,10 +1551,10 @@ public class Audit extends AbstractReporter {
         checkProcessVertex(eventData, true, false);
 
         String time = eventData.get("time");
-        ArtifactInfo fileInfo = null;
+        ArtifactIdentity fileInfo = null;
 
         if (syscall == SYSCALL.TRUNCATE) {
-            fileInfo = new FileInfo(joinPaths(eventData.get("cwd"), eventData.get("path0")));
+            fileInfo = new FileIdentity(joinPaths(eventData.get("cwd"), eventData.get("path0")));
         } else if (syscall == SYSCALL.FTRUNCATE) {
             String hexFD = eventData.get("a0");
             String fd = new BigInteger(hexFD, 16).toString();
@@ -1586,7 +1591,7 @@ public class Audit extends AbstractReporter {
         	descriptors.addUnknownDescriptor(pid, fd);
         }
                 
-        ArtifactInfo fileInfo = descriptors.getDescriptor(pid, fd);
+        ArtifactIdentity fileInfo = descriptors.getDescriptor(pid, fd);
         descriptors.addDescriptor(pid, newFD, fileInfo);
     }
 
@@ -1625,10 +1630,10 @@ public class Audit extends AbstractReporter {
         String srcpath = joinPaths(cwd, eventData.get("path2"));
         String dstpath = joinPaths(cwd, eventData.get("path3"));
         
-        ArtifactInfo srcFileInfo = new FileInfo(srcpath);
-        ArtifactInfo dstFileInfo = new FileInfo(dstpath);
+        ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
+        ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
 
-        boolean put = artifactInfoMappings.get(srcFileInfo).getNonSocketVersion() == -1;
+        boolean put = artifactIdentityToArtifactProperties.get(srcFileInfo).getFileVersion() == -1;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -1676,10 +1681,10 @@ public class Audit extends AbstractReporter {
         String srcpath = joinPaths(cwd, eventData.get("path0"));
         String dstpath = joinPaths(cwd, eventData.get("path2"));
         
-        ArtifactInfo srcFileInfo = new FileInfo(srcpath);
-        ArtifactInfo dstFileInfo = new FileInfo(dstpath);
+        ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
+        ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
 
-        boolean put = artifactInfoMappings.get(srcFileInfo).getNonSocketVersion() == -1;
+        boolean put = artifactIdentityToArtifactProperties.get(srcFileInfo).getFileVersion() == -1;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -1720,9 +1725,9 @@ public class Audit extends AbstractReporter {
         String mode = new BigInteger(eventData.get("a1"), 16).toString(8);
         // if syscall is chmod, then path is <path0> relative to <cwd>
         // if syscall is fchmod, look up file descriptor which is <a0>
-        ArtifactInfo fileInfo = null;
+        ArtifactIdentity fileInfo = null;
         if (syscall == SYSCALL.CHMOD) {
-            fileInfo = new FileInfo(joinPaths(eventData.get("cwd"), eventData.get("path0")));
+            fileInfo = new FileIdentity(joinPaths(eventData.get("cwd"), eventData.get("path0")));
         } else if (syscall == SYSCALL.FCHMOD) {
             String fd = eventData.get("a0");
             
@@ -1755,7 +1760,7 @@ public class Audit extends AbstractReporter {
 
         String fd0 = eventData.get("fd0");
         String fd1 = eventData.get("fd1");
-        ArtifactInfo pipeInfo = new PipeInfo(fd0, fd1);
+        ArtifactIdentity pipeInfo = new PipeIdentity(fd0, fd1);
         descriptors.addDescriptor(pid, fd0, pipeInfo);
         descriptors.addDescriptor(pid, fd1, pipeInfo);
     }
@@ -1788,8 +1793,8 @@ public class Audit extends AbstractReporter {
     	
     }
     
-    private ArtifactInfo parseSaddr(String saddr){
-    	ArtifactInfo artifactInfo = null;
+    private ArtifactIdentity parseSaddr(String saddr){
+    	ArtifactIdentity artifactInfo = null;
     	if (saddr.charAt(1) == '2') {
             String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
             int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
@@ -1797,7 +1802,7 @@ public class Audit extends AbstractReporter {
             int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
             int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
             String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-            artifactInfo = new SocketInfo(address, port);
+            artifactInfo = new SocketIdentity(address, port);
         }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
         	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
         	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
@@ -1805,7 +1810,7 @@ public class Audit extends AbstractReporter {
         	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
         	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
         	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
-        	artifactInfo = new SocketInfo(address, port);
+        	artifactInfo = new SocketIdentity(address, port);
         }else if(saddr.charAt(1) == '1'){
         	String path = "";
         	for(int a = 4; a<saddr.length() && saddr.charAt(a) != '0'; a+=2){
@@ -1813,7 +1818,7 @@ public class Audit extends AbstractReporter {
         		path += c;
         	}
         	if(!path.isEmpty()){
-        		artifactInfo = new UnixSocketInfo(path);
+        		artifactInfo = new UnixSocketIdentity(path);
         	}
         }
     	return artifactInfo;
@@ -1823,7 +1828,7 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
-        ArtifactInfo artifactInfo = parseSaddr(saddr);
+        ArtifactIdentity artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
@@ -1857,7 +1862,7 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
-        ArtifactInfo artifactInfo = parseSaddr(saddr);
+        ArtifactIdentity artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
             Artifact network = createArtifact(artifactInfo, false, SYSCALL.CONNECT);
             putVertex(network);
@@ -1877,7 +1882,7 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
-        ArtifactInfo artifactInfo = parseSaddr(saddr);
+        ArtifactIdentity artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
             Artifact network = createArtifact(artifactInfo, false, syscall);
             putVertex(network);
@@ -1908,20 +1913,20 @@ public class Audit extends AbstractReporter {
         	descriptors.addUnknownDescriptor(pid, fd);
         }
        
-        ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);
+        ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);
         
         long bytesRemaining = Long.parseLong(bytesSent);
         while(bytesRemaining > 0){
-        	long currSize = artifactInfoMappings.get(artifactInfo).getBytesWrittenToSocket();
+        	long currSize = artifactIdentityToArtifactProperties.get(artifactInfo).getBytesWrittenToSocket();
         	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
         	if(leftTillNext > bytesRemaining){
         		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid, eventData.get("eventid"));
-        		artifactInfoMappings.get(artifactInfo).setBytesWrittenToSocket(currSize + bytesRemaining);
+        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesWrittenToSocket(currSize + bytesRemaining);
         		bytesRemaining = 0;
         	}else{ //greater or equal
         		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
-        		artifactInfoMappings.get(artifactInfo).setBytesWrittenToSocket(0);
-        		artifactInfoMappings.get(artifactInfo).getSocketWriteVersion(true); //incrementing version
+        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesWrittenToSocket(0);
+        		artifactIdentityToArtifactProperties.get(artifactInfo).getSocketWriteVersion(true); //incrementing version
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
@@ -1929,7 +1934,7 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    private void putSocketSendEdge(ArtifactInfo artifactInfo, SYSCALL syscall, String time, String size, String pid, String eventId){
+    private void putSocketSendEdge(ArtifactIdentity artifactInfo, SYSCALL syscall, String time, String size, String pid, String eventId){
     	Artifact vertex = createArtifact(artifactInfo, false, syscall);
         WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
         wgb.addAnnotation("operation", getOperation(syscall));
@@ -1955,19 +1960,19 @@ public class Audit extends AbstractReporter {
         	descriptors.addUnknownDescriptor(pid, fd);
         }
         
-        ArtifactInfo artifactInfo = descriptors.getDescriptor(pid, fd);        
+        ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);        
         long bytesRemaining = Long.parseLong(bytesReceived);
         while(bytesRemaining > 0){
-        	long currSize = artifactInfoMappings.get(artifactInfo).getBytesReadFromSocket();
+        	long currSize = artifactIdentityToArtifactProperties.get(artifactInfo).getBytesReadFromSocket();
         	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
         	if(leftTillNext > bytesRemaining){
         		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid, eventData.get("eventid"));
-        		artifactInfoMappings.get(artifactInfo).setBytesReadFromSocket(currSize + bytesRemaining);
+        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesReadFromSocket(currSize + bytesRemaining);
         		bytesRemaining = 0;
         	}else{ //greater or equal
         		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
-        		artifactInfoMappings.get(artifactInfo).setBytesReadFromSocket(0);
-        		artifactInfoMappings.get(artifactInfo).getSocketReadVersion(true);
+        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesReadFromSocket(0);
+        		artifactIdentityToArtifactProperties.get(artifactInfo).getSocketReadVersion(true);
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
@@ -1975,7 +1980,7 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    private void putSocketRecvEdge(ArtifactInfo artifactInfo, SYSCALL syscall, String time, String size, String pid, String eventId){
+    private void putSocketRecvEdge(ArtifactIdentity artifactInfo, SYSCALL syscall, String time, String size, String pid, String eventId){
     	Artifact vertex = createArtifact(artifactInfo, false, syscall);
     	Used used = new Used(getProcess(pid), vertex);
         used.addAnnotation("operation", getOperation(syscall));
@@ -2008,7 +2013,7 @@ public class Audit extends AbstractReporter {
             		DEV_AUDIT, null);
         }
         if (link == true) {
-            Map<String, ArtifactInfo> fds = getFileDescriptors(pid);
+            Map<String, ArtifactIdentity> fds = getFileDescriptors(pid);
             if (fds != null) {
             	descriptors.addDescriptors(pid, fds);
             }

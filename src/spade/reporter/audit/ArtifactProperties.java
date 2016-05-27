@@ -20,7 +20,7 @@
 
 package spade.reporter.audit;
 
-public class ArtifactInfoMapping{
+public class ArtifactProperties{
 	
 	//used for every artifact except sockets
 	private long nonSocketVersion = -1;
@@ -34,15 +34,47 @@ public class ArtifactInfoMapping{
 	 * Returns 0 because versions start from 0 in audit
 	 * 
 	 */
-	public long getNonSocketVersion(boolean update) {
+	private long getNonSocketVersion(boolean update) {
 		if(update || nonSocketVersion == -1){
 			nonSocketVersion++;
 		}
 		return nonSocketVersion;
 	}
 	
-	public long getNonSocketVersion() {
+	private long getNonSocketVersion() {
 		return nonSocketVersion;
+	}
+	
+	public long getFileVersion(boolean update){
+		return getNonSocketVersion(update);
+	}
+	
+	public long getFileVersion(){
+		return getNonSocketVersion();
+	}
+	
+	public long getPipeVersion(boolean update){
+		return getNonSocketVersion(update);
+	}
+	
+	public long getPipeVersion(){
+		return getNonSocketVersion();
+	}
+	
+	public long getMemoryVersion(boolean update){
+		return getNonSocketVersion(update);
+	}
+	
+	public long getMemoryVersion(){
+		return getNonSocketVersion();
+	}
+	
+	public long getUnknownVersion(boolean update){
+		return getNonSocketVersion(update);
+	}
+	
+	public long getUnknownVersion(){
+		return getNonSocketVersion();
 	}
 
 	public void setNonSocketVersion(long nonSocketVersion) {

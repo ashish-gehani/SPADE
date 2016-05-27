@@ -20,13 +20,13 @@
 
 package spade.reporter.audit;
 
-public class MemoryInfo implements ArtifactInfo{
+public class MemoryIdentity implements ArtifactIdentity{
 	
 	private String memoryAddress;
 	private String size;
 	private String protection;
 	
-	public MemoryInfo(String memoryAddress, String size, String protection){
+	public MemoryIdentity(String memoryAddress, String size, String protection){
 		this.memoryAddress = memoryAddress;
 		this.size = size;
 		this.protection = protection;
@@ -71,7 +71,7 @@ public class MemoryInfo implements ArtifactInfo{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		MemoryInfo other = (MemoryInfo) obj;
+		MemoryIdentity other = (MemoryIdentity) obj;
 		if (memoryAddress == null) {
 			if (other.memoryAddress != null)
 				return false;

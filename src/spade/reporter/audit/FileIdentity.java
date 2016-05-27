@@ -20,11 +20,11 @@
 
 package spade.reporter.audit;
 
-public class FileInfo implements ArtifactInfo{
+public class FileIdentity implements ArtifactIdentity{
 	
 	private String path;
 	
-	public FileInfo(String path){
+	public FileIdentity(String path){
 		path = path.replace("//", "/");
 		this.path = path;
 	}
@@ -57,7 +57,7 @@ public class FileInfo implements ArtifactInfo{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		FileInfo other = (FileInfo) obj;
+		FileIdentity other = (FileIdentity) obj;
 		if (path == null) {
 			if (other.path != null)
 				return false;
