@@ -84,6 +84,8 @@ public class Audit extends AbstractReporter {
     private boolean USE_READ_WRITE = false;
     // To toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean USE_SOCK_SEND_RCV = false;
+//    To toggle monitoring of mmap, mmap2 and mprotect syscalls
+    private boolean USE_MEM_MMAP_MPROTECT = true;
     private Boolean ARCH_32BIT = true;
 //    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -149,7 +151,7 @@ public class Audit extends AbstractReporter {
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
         ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-        SEND, RECV, OPEN, LOAD
+        SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT
     }
     
     private BufferedWriter dumpWriter = null;
@@ -215,6 +217,9 @@ public class Audit extends AbstractReporter {
         if("true".equals(args.get("procFS"))){
         	PROCFS = true;
         }
+//        if("true".equals(args.get("memOp"))){
+//        	USE_MEM_MMAP_MPROTECT = true;
+//        }
         // End of experimental arguments
 
         // Get system boot time from /proc/stat. This is later used to determine
@@ -364,19 +369,31 @@ public class Audit extends AbstractReporter {
 	            String ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
 	            StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
 	            auditRules = "-a exit,always ";
+	            if (ARCH_32BIT){
+	            	auditRules += "-F arch=b32 ";
+	            }else{
+	            	auditRules += "-F arch=b64 ";
+	            }
 	            if (USE_READ_WRITE) {
 	                auditRules += "-S read -S readv -S write -S writev ";
 	            }
 	            if (USE_SOCK_SEND_RCV) {
 	                auditRules += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
 	            }
+	            if (USE_MEM_MMAP_MPROTECT) {
+	            	auditRules += "-S mmap -S mprotect ";
+	            	if(ARCH_32BIT){
+	            		auditRules += "-S mmap2 ";
+	            	}
+	            }
 	            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
 	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
 	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
 	                    + (log_successful_events_only ? "-F success=1 " : "") + ignorePids.toString();
-	            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-	            logger.log(Level.INFO, "configured audit rules: {0}", auditRules);
-	        } catch (IOException | InterruptedException e) {
+	            List<String> commandOutput = CommandUtility.getOutputOfCommand("auditctl " + auditRules);
+//	            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
+	            logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules, commandOutput});
+	        } catch (Exception e) {
 	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
 	            return false;
 	        }
@@ -636,6 +653,14 @@ public class Audit extends AbstractReporter {
             }
 
             switch (syscall) {
+//            source : https://github.com/bnoordhuis/strace/blob/master/linux/i386/syscallent.h
+	            case 90: //old_mmap
+	            case 192: //mmap2
+	            	processMmap(eventData, SYSCALL.MMAP2);
+	            	break;
+	            case 125: //mprotect
+	            	processMprotect(eventData, SYSCALL.MPROTECT);
+	            	break;
                 case 2: // fork()
                 	processForkClone(eventData, SYSCALL.FORK);
                 	break;
@@ -913,6 +938,13 @@ public class Audit extends AbstractReporter {
             }
             
             switch (syscall) {
+//            source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
+	            case 9: //mmap
+	            	processMmap(eventData, SYSCALL.MMAP);
+	            	break;
+	            case 10: //mprotect
+	            	processMprotect(eventData, SYSCALL.MPROTECT);
+	            	break;
                 case 57: // fork()
                 	processForkClone(eventData, SYSCALL.VFORK);
                     break;
@@ -1033,6 +1065,70 @@ public class Audit extends AbstractReporter {
             logger.log(Level.WARNING, "Error processing finish syscall event with eventid '"+eventId+"'", e);
         }
     }
+    
+    private void processMmap(Map<String, String> eventData, SYSCALL syscall){
+    	// mmap() receive the following message(s):
+        // - SYSCALL
+        // - EOE
+    	
+    	if(!USE_MEM_MMAP_MPROTECT){
+    		return;
+    	}
+    	
+    	String pid = eventData.get("pid");
+    	String time = eventData.get("time");
+    	String address = eventData.get("a0");
+    	String length = eventData.get("a1");
+    	String protection = eventData.get("a2");
+    	
+    	ArtifactInfo memoryInfo = new MemoryInfo(address, length, protection);
+    	Artifact memoryArtifact = createArtifact(memoryInfo, true, syscall);
+		putVertex(memoryArtifact);
+		
+		Process process = null;
+		if((process = getProcess(pid)) == null){
+			process = checkProcessVertex(eventData, true, false);
+		}
+		
+		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
+		edge.addAnnotation("time", time);
+		edge.addAnnotation("operation", getOperation(syscall));
+		addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
+		
+		putEdge(edge);
+    }
+    
+    private void processMprotect(Map<String, String> eventData, SYSCALL syscall){
+    	// mprotect() receive the following message(s):
+        // - SYSCALL
+        // - EOE
+    	
+    	if(!USE_MEM_MMAP_MPROTECT){
+    		return;
+    	}
+    	
+    	String pid = eventData.get("pid");
+    	String time = eventData.get("time");
+    	String address = eventData.get("a0");
+    	String length = eventData.get("a1");
+    	String protection = eventData.get("a2");
+    	
+    	ArtifactInfo memoryInfo = new MemoryInfo(address, length, protection);
+    	Artifact memoryArtifact = createArtifact(memoryInfo, true, syscall);
+		putVertex(memoryArtifact);
+		
+		Process process = null;
+		if((process = getProcess(pid)) == null){
+			process = checkProcessVertex(eventData, true, false);
+		}
+		
+		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
+		edge.addAnnotation("time", time);
+		edge.addAnnotation("operation", getOperation(syscall));
+		addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
+		
+		putEdge(edge);
+    }
 
     private void processKill(Map<String, String> eventData){
     	if(!CREATE_BEEP_UNITS){
@@ -1078,11 +1174,11 @@ public class Audit extends AbstractReporter {
     			address = address.add(arg1);
     			pidToMemAddress.remove(pid);
     			if(arg0.intValue() == -201){
-    				memArtifact = createArtifact(new MemoryInfo(address.toString(16)), false, null);
+    				memArtifact = createArtifact(new MemoryInfo(address.toString(16), null, null), false, null);
     				edge = new Used(process, memArtifact);
     				edge.addAnnotation("operation", "read");
     			}else if(arg0.intValue() == -301){
-    				memArtifact = createArtifact(new MemoryInfo(address.toString(16)), true, null);
+    				memArtifact = createArtifact(new MemoryInfo(address.toString(16), null, null), true, null);
     				edge = new WasGeneratedBy(memArtifact, process);
     				edge.addAnnotation("operation", "write");
     			}
@@ -1104,10 +1200,17 @@ public class Audit extends AbstractReporter {
     
     //handles memoryinfo
     private Artifact createMemoryArtifact(ArtifactInfo artifactInfo, boolean update){
+    	MemoryInfo memoryInfo = (MemoryInfo)artifactInfo;
     	Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
-        artifact.addAnnotation("memory address", artifactInfo.getStringFormattedValue());
-        long version = artifactInfoMappings.get(artifact).getNonSocketVersion(update);
+        artifact.addAnnotation("memory address", memoryInfo.getMemoryAddress());
+        if(memoryInfo.getSize() != null){
+        	artifact.addAnnotation("size", memoryInfo.getSize());
+        }
+        if(memoryInfo.getProtection() != null){
+        	artifact.addAnnotation("protection", memoryInfo.getProtection());
+        }
+        long version = artifactInfoMappings.get(artifactInfo).getNonSocketVersion(update);
         artifact.addAnnotation("version", Long.toString(version));
         return artifact;
     }        
@@ -1154,7 +1257,11 @@ public class Audit extends AbstractReporter {
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}else if(artifactInfo instanceof MemoryInfo){
     		artifact = createMemoryArtifact(artifactInfo, update);
-    		artifact.addAnnotation(SOURCE, BEEP);
+    		if(syscall == SYSCALL.MMAP || syscall == SYSCALL.MMAP2 || syscall == SYSCALL.MPROTECT){
+    			artifact.addAnnotation(SOURCE, DEV_AUDIT);
+    		}else{
+    			artifact.addAnnotation(SOURCE, BEEP);
+    		}    		
     	}else if(artifactInfo instanceof SocketInfo || artifactInfo instanceof UnixSocketInfo || (artifactInfo instanceof UnknownInfo && syscall != null)){
     		artifact = createNetworkArtifact(artifactInfo, syscall);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
@@ -1920,6 +2027,13 @@ public class Audit extends AbstractReporter {
     	SYSCALL returnSyscall = syscall;
     	if(SIMPLIFY){
     		switch (syscall) {
+    			case MMAP:
+    			case MMAP2:
+    				returnSyscall = SYSCALL.MMAP;
+    				break;
+    			case MPROTECT:
+    				returnSyscall = SYSCALL.MPROTECT;
+    				break;
     			case LOAD:
     				returnSyscall = SYSCALL.LOAD;
     				break;

@@ -23,9 +23,13 @@ package spade.reporter.audit;
 public class MemoryInfo implements ArtifactInfo{
 	
 	private String memoryAddress;
+	private String size;
+	private String protection;
 	
-	public MemoryInfo(String memoryAddress){
+	public MemoryInfo(String memoryAddress, String size, String protection){
 		this.memoryAddress = memoryAddress;
+		this.size = size;
+		this.protection = protection;
 	}
 	
 	public String getMemoryAddress(){
@@ -37,6 +41,14 @@ public class MemoryInfo implements ArtifactInfo{
 		return "0x"+memoryAddress;
 	}
 	
+	public String getSize(){
+		return size;
+	}
+	
+	public String getProtection(){
+		return protection;
+	}
+	
 	public String getSubtype(){
 		return SUBTYPE_MEMORY;
 	}
@@ -46,6 +58,8 @@ public class MemoryInfo implements ArtifactInfo{
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
+		result = prime * result + ((protection == null) ? 0 : protection.hashCode());
+		result = prime * result + ((size == null) ? 0 : size.hashCode());
 		return result;
 	}
 
@@ -63,7 +77,17 @@ public class MemoryInfo implements ArtifactInfo{
 				return false;
 		} else if (!memoryAddress.equals(other.memoryAddress))
 			return false;
+		if (protection == null) {
+			if (other.protection != null)
+				return false;
+		} else if (!protection.equals(other.protection))
+			return false;
+		if (size == null) {
+			if (other.size != null)
+				return false;
+		} else if (!size.equals(other.size))
+			return false;
 		return true;
-	}
+	}	
 
 }
