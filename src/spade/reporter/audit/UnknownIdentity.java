@@ -20,50 +20,37 @@
 
 package spade.reporter.audit;
 
-public class PipeInfo implements ArtifactInfo{
+public class UnknownIdentity implements ArtifactIdentity{
 
-	private String fd1, fd2;
-	private String path;
+	private String pid, fd;
 	
-	public PipeInfo(String path){
-		this.path = path;
-	}
-	
-	public PipeInfo(String fd1, String fd2) {
-		this.fd1 = fd1;
-		this.fd2 = fd2;
-	}
-
-	public String getFd1() {
-		return fd1;
-	}
-
-	public String getFd2() {
-		return fd2;
+	public UnknownIdentity(String pid, String fd){
+		this.pid = pid;
+		this.fd = fd;
 	}
 	
-	public String getPath(){
-		return path;
+	public String getFD(){
+		return fd;
+	}
+
+	public String getPID(){
+		return pid;
 	}
 	
 	public String getStringFormattedValue(){
-		if(path == null){
-			return "pipe:["+fd1+"-"+fd2+"]";
-		}else{
-			return path;
-		}		
+		return "/pid/"+pid+"fd/"+fd;
 	}
-
+	
 	public String getSubtype(){
-		return SUBTYPE_PIPE;
+		return SUBTYPE_UNKNOWN;
 	}
 	
 	@Override
-	public int hashCode() {
+	public int hashCode(){
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
-		result = prime * result + ((fd2 == null) ? 0 : fd2.hashCode());
+		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
+		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
 		return result;
 	}
 
@@ -75,17 +62,17 @@ public class PipeInfo implements ArtifactInfo{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		PipeInfo other = (PipeInfo) obj;
-		if (fd1 == null) {
-			if (other.fd1 != null)
+		UnknownIdentity other = (UnknownIdentity) obj;
+		if (fd == null) {
+			if (other.fd != null)
 				return false;
-		} else if (!fd1.equals(other.fd1))
+		} else if (!fd.equals(other.fd))
 			return false;
-		if (fd2 == null) {
-			if (other.fd2 != null)
+		if (pid == null) {
+			if (other.pid != null)
 				return false;
-		} else if (!fd2.equals(other.fd2))
+		} else if (!pid.equals(other.pid))
 			return false;
 		return true;
-	}	
+	}
 }

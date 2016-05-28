@@ -23,6 +23,8 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 /**
  * This is the class from which other vertex classes (e.g., OPM vertices) are
  * derived.
@@ -113,6 +115,13 @@ public abstract class AbstractVertex implements Serializable {
         return (this.annotations.equals(thatVertex.annotations));
     }
 
+    /**
+     * Computes a function of the annotations in the vertex.
+     *
+     * This takes less time to compute than bigHashCode() but is less collision-resistant.
+     *
+     * @return An integer-valued hash code.
+     */
     @Override
     public int hashCode() {
         final int seed1 = 67;
@@ -132,5 +141,17 @@ public abstract class AbstractVertex implements Serializable {
             result.append("|");
         }
         return result.substring(0, result.length() - 1);
+    }
+    
+    /**
+     * Computes SHA-256 of the annotations in the vertex.
+     *
+     * This takes longer to compute than hashCode() but is more collision-resistant.
+     *
+     @return A 256-bit hash value.
+     */
+    public byte[] bigHashCode() {
+        
+        return DigestUtils.sha256(this.toString());
     }
 }

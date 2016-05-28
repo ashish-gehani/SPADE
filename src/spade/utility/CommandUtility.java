@@ -31,9 +31,9 @@ public class CommandUtility {
 	
 	private static Logger logger = Logger.getLogger(CommandUtility.class.getName());
 
-	public static List<String> getOutputOfCommand(String ...commands) throws Exception{
+	public static List<String> getOutputOfCommand(final String command) throws Exception{
 		
-		Process process = Runtime.getRuntime().exec(commands);
+		Process process = Runtime.getRuntime().exec(command);
 		
 		final BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 		final BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -44,10 +44,10 @@ public class CommandUtility {
 				try{
 					String line = null;
 					while((line = stdoutReader.readLine()) != null){
-						lines.add(line);
+						lines.add("[STDOUT]\t" + line);
 					}
 				}catch(Exception e){
-					logger.log(Level.SEVERE, null, e);
+					logger.log(Level.WARNING, "Error reading STDOUT for command: " +command, e);
 				}
 			}
 		});
@@ -57,13 +57,18 @@ public class CommandUtility {
 				try{
 					String line = null;
 					while((line = stderrReader.readLine()) != null){
-						lines.add(line);
+						lines.add("[STDERR]\t" + line);
 					}
 				}catch(Exception e){
-					logger.log(Level.SEVERE, null, e);
+					logger.log(Level.WARNING, "Error reading STDERR for command: " +command, e);
 				}
 			}
 		});
+		
+		stdoutThread.start();
+		stderrThread.start();
+		
+		process.waitFor();
 		
 		stdoutThread.join();
 		stderrThread.join();

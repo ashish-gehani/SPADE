@@ -20,38 +20,50 @@
 
 package spade.reporter.audit;
 
-public class SocketInfo implements ArtifactInfo {
+public class PipeIdentity implements ArtifactIdentity{
 
-	private String host, port;
+	private String fd1, fd2;
+	private String path;
 	
-	public SocketInfo(String host, String port){
-		this.host = host;
-		this.port = port;
+	public PipeIdentity(String path){
+		this.path = path;
 	}
 	
-	public String getHost(){
-		return host;
+	public PipeIdentity(String fd1, String fd2) {
+		this.fd1 = fd1;
+		this.fd2 = fd2;
+	}
+
+	public String getFd1() {
+		return fd1;
+	}
+
+	public String getFd2() {
+		return fd2;
 	}
 	
-	public String getPort(){
-		return port;
+	public String getPath(){
+		return path;
 	}
 	
-	@Override
-	public String getStringFormattedValue() {
-		return "address: " + host + ", port: " + port; 
+	public String getStringFormattedValue(){
+		if(path == null){
+			return "pipe:["+fd1+"-"+fd2+"]";
+		}else{
+			return path;
+		}		
 	}
-	
+
 	public String getSubtype(){
-		return SUBTYPE_SOCKET;
+		return SUBTYPE_PIPE;
 	}
-
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((host == null) ? 0 : host.hashCode());
-		result = prime * result + ((port == null) ? 0 : port.hashCode());
+		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
+		result = prime * result + ((fd2 == null) ? 0 : fd2.hashCode());
 		return result;
 	}
 
@@ -63,17 +75,17 @@ public class SocketInfo implements ArtifactInfo {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		SocketInfo other = (SocketInfo) obj;
-		if (host == null) {
-			if (other.host != null)
+		PipeIdentity other = (PipeIdentity) obj;
+		if (fd1 == null) {
+			if (other.fd1 != null)
 				return false;
-		} else if (!host.equals(other.host))
+		} else if (!fd1.equals(other.fd1))
 			return false;
-		if (port == null) {
-			if (other.port != null)
+		if (fd2 == null) {
+			if (other.fd2 != null)
 				return false;
-		} else if (!port.equals(other.port))
+		} else if (!fd2.equals(other.fd2))
 			return false;
 		return true;
-	}
+	}	
 }

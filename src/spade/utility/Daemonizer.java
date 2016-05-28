@@ -145,7 +145,12 @@ public class Daemonizer {
             }
 
             if (processRunning) {
-                System.err.println("Sending SPADE (Process ID: " + pidfromfile + ") " + ((signum == 2)?"SIGINT":((signum == 9)?"SIGKILL":"SIGNUM "+signum)) );
+                // System.err.println("Sending SPADE (Process ID: " + pidfromfile + ") " + ((signum == 2)?"SIGINT":((signum == 9)?"SIGKILL":"SIGNUM "+signum)) );
+                if (signum == 2) {
+                    System.err.println("SPADE daemon will stop after buffers clear.");
+                } else if (signum == 9) {
+                    System.err.println("Stopping SPADE daemon immediately");
+                }
                 if (CLibrary.LIBC.kill(pidfromfile, signum) != 0 ) { 
                     System.err.println("SPADE process could not be killed.");
                 }

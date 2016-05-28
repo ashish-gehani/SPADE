@@ -23,6 +23,8 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 /**
  * This is the class from which other edge classes (e.g., OPM edges) are
  * derived.
@@ -159,6 +161,13 @@ public abstract class AbstractEdge implements Serializable {
                 && this.getDestinationVertex().equals(thatEdge.getDestinationVertex()));
     }
 
+    /**
+     * Computes a function of the annotations in the edge and the vertices it is incident upon.
+     *
+     * This takes less time to compute than bigHashCode() but is less collision-resistant.
+     *
+     * @return An integer-valued hash code.
+     */
     @Override
     public int hashCode() {
         final int seed1 = 5;
@@ -169,7 +178,7 @@ public abstract class AbstractEdge implements Serializable {
         hashCode = seed2 * hashCode + (this.destinationVertex != null ? this.destinationVertex.hashCode() : 0);
         return hashCode;
     }
-
+    
     @Override
     public String toString() {
         StringBuilder result = new StringBuilder();
@@ -180,5 +189,20 @@ public abstract class AbstractEdge implements Serializable {
             result.append("|");
         }
         return result.substring(0, result.length() - 1);
+    }
+    
+    /**
+     * Computes SHA-256 of the annotations in the edge and the vertices it is incident upon.
+     *
+     * This takes longer to compute than hashCode() but is more collision-resistant.
+     *
+     @return A 256-bit hash value.
+     */
+    public byte[] bigHashCode() {
+        StringBuilder annotations = new StringBuilder();
+        annotations.append(this.sourceVertex != null ? this.sourceVertex.toString() : "");
+        annotations.append(this.toString());
+        annotations.append(this.destinationVertex != null ? this.destinationVertex.toString() : "");
+        return DigestUtils.sha256(annotations.toString());
     }
 }

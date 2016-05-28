@@ -46,4 +46,36 @@ public class CommonFunctions {
         return keyValPairs;
     }
     
+    public static Integer parseInt(String string, Integer defaultValue){
+    	try{
+    		return Integer.parseInt(string);
+    	}catch(Exception e){
+    		return defaultValue;
+    	}
+    }
+    
+    public static Long parseLong(String str, Long defaultValue){
+    	try{
+    		return Long.parseLong(str);
+    	}catch(Exception e){
+    		return defaultValue;
+    	}
+    }
+    
+    public static Double parseDouble(String str, Double defaultValue){
+    	try{
+    		return Double.parseDouble(str);
+    	}catch(Exception e){
+    		return defaultValue;
+    	}
+    }
+    
+    public static <T> Map<String, T> makeKeysLowerCase(Map<String, T> map){
+    	Map<String, T> resultMap = new HashMap<String, T>();
+    	for(Map.Entry<String, T> entry : map.entrySet()){
+    		resultMap.put(entry.getKey().toLowerCase(), entry.getValue());
+    	}
+    	return resultMap;
+    }
+    
 }

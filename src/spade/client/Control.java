@@ -31,11 +31,13 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
+
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
+
 import jline.ArgumentCompletor;
 import jline.Completor;
 import jline.ConsoleReader;
@@ -122,15 +124,21 @@ public class Control {
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
                         
-                        //ACK[exit] is only received here when sent by this client only. ACK[shutdown] is received here whenever any client sends a shutdown.
-                        if("ACK[shutdown]".equals(outputLine) || "ACK[exit]".equals(outputLine)){
-                        	if("ACK[shutdown]".equals(outputLine)){
-                        		outputStream.println("Shutting down... done");
-                        	}
-                        	shutdown = true;
+                        if(shutdown){
                         	break;
                         }
                         
+                        if (outputLine == null) {
+                            System.out.println("Error connecting to SPADE Kernel");
+                            shutdown = true;
+                        }
+
+                        //ACK[exit] is only received here when sent by this client only.
+//                        if ("ACK[exit]".equals(outputLine)){
+//                            shutdown = true;
+//                            break;
+//                        }                        
+
                         if (outputLine != null) {
                             outputStream.println(outputLine);
                         }
@@ -143,10 +151,9 @@ public class Control {
                     }
                     SPADEControlOut.close();
                     SPADEControlIn.close();
-                    System.exit(0); //exit the program because the main thread is blocking on the read from the console
                 } catch (NumberFormatException | IOException | InterruptedException exception) {
                     if (!shutdown) {
-                        System.out.println("Error connecting to SPADE");
+                        System.out.println("Error connecting to SPADE Kernel");
                     }
                     System.exit(-1);
                 }
@@ -194,7 +201,7 @@ public class Control {
 
             List<Completor> listArguments = new LinkedList<>();
             listArguments.add(new SimpleCompletor(new String[]{"list"}));
-            listArguments.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all",  "transformer"}));
+            listArguments.add(new SimpleCompletor(new String[]{"filters", "storages", "reporters", "all",  "transformers"}));
             listArguments.add(new NullCompletor());
 
             List<Completor> configArguments = new LinkedList<>();
@@ -214,9 +221,7 @@ public class Control {
                 String line = commandReader.readLine();
                 if (line == null || line.equalsIgnoreCase("exit")) {
                     SPADEControlIn.println("exit");
-                    break;
-                } else if (line.equalsIgnoreCase("shutdown")) {
-                    SPADEControlIn.println("shutdown");
+                    shutdown = true;
                     break;
                 } else {
                     SPADEControlIn.println(line);

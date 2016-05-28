@@ -220,6 +220,20 @@
               "doc" : "The runtime data type of the value (Optional); For example, an object of dataType=COMPLEX, can have\n         *  a runtime data type of say \"MyClass\"",
               "default" : null
             }, {
+              "name" : "type",
+              "type" : {
+                "type" : "enum",
+                "name" : "ValueType",
+                "doc" : "* A value type is either in, out, or in/out\n     * This is for event parameters to distinguish inputs vs return values\n     *\n     *   VALUE_TYPE_IN       An input value to the event\n     *   VALUE_TYPE_OUT      An output value from the event (return value)\n     *   VALUE_TYPE_INOUT    Adding this for completeness",
+                "symbols" : [ "VALUE_TYPE_IN", "VALUE_TYPE_OUT", "VALUE_TYPE_INOUT" ]
+              },
+              "doc" : "The type of the value whether input or return"
+            }, {
+              "name" : "valueDataType",
+              "type" : [ "null", "string" ],
+              "doc" : "The actual datatype of the value, e.g., int, double, array<int>, etc. (Optional)",
+              "default" : null
+            }, {
               "name" : "valueBytes",
               "type" : [ "null", "bytes" ],
               "doc" : "The actual bytes of the value in Big Endian format, e.g., an int is converted to a 4 byte buffer (Optional)",

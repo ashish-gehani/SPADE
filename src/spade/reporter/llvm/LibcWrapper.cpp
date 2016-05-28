@@ -50,22 +50,18 @@ using namespace std;
 	
 	for (Module::iterator F = M.begin(), Fend = M.end(); F != Fend; ++F) {
       	
-	      string functionName = F->getName().str();     	
-
-	      //If the function name is declared in the application and defined in gliblc
+	      string functionName = F->getName().str();
+	      // If the function name is declared in the application and defined in glibc
 	      if(libcFunctions.find(functionName) != libcFunctions.end() ){
-	          
-		  
-      		 cout<<"-Wl,-wrap,"<<functionName<<"  "<<std::flush;			
-	
+	          		  
+      		  cout<<"-Wl,-wrap,"<<functionName<<"  "<<std::flush; 
 		  StringRef strRef("__wrap_" + functionName); 
 		  F->setName(strRef);
 		  F->deleteBody();
 		  
 		  FunctionType * ft = F->getFunctionType();	
 		  		 
-		  Function* realFunction = Function::Create(ft, GlobalValue::ExternalLinkage, "__real_" + functionName, &M); 	 	
-			
+		  Function* realFunction = Function::Create(ft, GlobalValue::ExternalLinkage, "__real_" + functionName, &M); 	 				
 		  BasicBlock* entryBlock = BasicBlock::Create(F->getContext(), "entry", F);	 
 		  
 		  std::vector<Value*> functionArgs;
@@ -75,28 +71,22 @@ using namespace std;
 		  }
 
 		  CallInst * retVal = CallInst::Create((Value*) realFunction, ArrayRef<Value*>(functionArgs), Twine(""), entryBlock);  
-		  if(!ft->getReturnType()->isVoidTy())
-		  {
+		  if(!ft->getReturnType()->isVoidTy()){
 			ReturnInst::Create(F->getContext(), retVal, entryBlock);
 		  }
-		  else
-		  {	
+		  else{	
 		 	ReturnInst::Create(F->getContext(), entryBlock);
- 		  }
-		
+ 		  }		
 	     }
-	     
 	 }
-	
-	
+		
 	 return true;
-
     };
 
     
   };
 
 
-char LibcPass::ID = 0;
-static RegisterPass<LibcPass> X("wrapper", "generate libc wrappers", false, false);
+  char LibcPass::ID = 0;
+  static RegisterPass<LibcPass> X("wrapper", "Generate libc wrappers", false, false);
 

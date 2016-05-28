@@ -29,12 +29,14 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.utility.CommonFunctions;
 
 public class SimpleForks extends AbstractTransformer {
 
 	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Map<String, AbstractEdge> forkcloneEdges = new HashMap<String, AbstractEdge>();
 		Map<String, AbstractEdge> execveEdges = new HashMap<String, AbstractEdge>();
+		Set<String> pendingExecveEdgeEventIds = new HashSet<String>(); //added to handle multiple execves by a process
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 			if(getAnnotationSafe(newEdge, "operation").equals("clone")
@@ -42,7 +44,23 @@ public class SimpleForks extends AbstractTransformer {
 					|| getAnnotationSafe(newEdge, "operation").equals("vfork")){
 				forkcloneEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), "pid"), newEdge);
 			}else if(getAnnotationSafe(newEdge, "operation").equals("execve")){
-				execveEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), "pid"), newEdge);
+				//if execve, check if there is already an edge in the map for the pid. if no then just add it
+				String pid = getAnnotationSafe(newEdge.getSourceVertex(), "pid");
+				if(execveEdges.get(pid) == null){
+					execveEdges.put(pid, newEdge);
+				}else{
+					//if there is an edge already then compare the event ids of the older (already added) one and new one. if the new event id is smaller then replace older one with the newer one and add the older one to pending list
+					//else add the newer one to the pending list.
+					//the execve edge with the smallest event id by a process should be merged with fork/clone (if any) of that process
+					Long newEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(newEdge, "event id"), null);
+					Long previousEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(execveEdges.get(pid), "event id"), null);
+					if(previousEdgeEventId > newEdgeEventId){
+						pendingExecveEdgeEventIds.add(getAnnotationSafe(execveEdges.get(pid), "event id")); //add event id of the previously added edge to pending list
+						execveEdges.put(pid, newEdge); //replace the previously added with the new one
+					}else{
+						pendingExecveEdgeEventIds.add(getAnnotationSafe(newEdge, "event id"));
+					}
+				}
 			}
 		}
 		
@@ -75,8 +93,14 @@ public class SimpleForks extends AbstractTransformer {
 		}
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge, "operation").equals("execve") || getAnnotationSafe(edge, "operation").equals("clone")){
+			if(getAnnotationSafe(edge, "operation").equals("clone")){
 				continue;
+			}
+			if(getAnnotationSafe(edge, "operation").equals("execve")){
+				String eventId = getAnnotationSafe(edge, "event id");
+				if(!pendingExecveEdgeEventIds.contains(eventId)){ //it is not a pending one. so continue otherwise add the edge.
+					continue;
+				}
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 			String srcPid = getAnnotationSafe(newEdge.getSourceVertex(), "pid");
@@ -95,5 +119,7 @@ public class SimpleForks extends AbstractTransformer {
 		}
 		return resultGraph;
 	}
+	
+	
 	
 }

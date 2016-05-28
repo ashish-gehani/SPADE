@@ -20,32 +20,38 @@
 
 package spade.reporter.audit;
 
-public class MemoryInfo implements ArtifactInfo{
+public class SocketIdentity implements ArtifactIdentity {
+
+	private String host, port;
 	
-	private String memoryAddress;
-	
-	public MemoryInfo(String memoryAddress){
-		this.memoryAddress = memoryAddress;
+	public SocketIdentity(String host, String port){
+		this.host = host;
+		this.port = port;
 	}
 	
-	public String getMemoryAddress(){
-		return memoryAddress;
+	public String getHost(){
+		return host;
+	}
+	
+	public String getPort(){
+		return port;
 	}
 	
 	@Override
 	public String getStringFormattedValue() {
-		return "0x"+memoryAddress;
+		return "address: " + host + ", port: " + port; 
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_MEMORY;
+		return SUBTYPE_SOCKET;
 	}
 
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
+		result = prime * result + ((host == null) ? 0 : host.hashCode());
+		result = prime * result + ((port == null) ? 0 : port.hashCode());
 		return result;
 	}
 
@@ -57,13 +63,17 @@ public class MemoryInfo implements ArtifactInfo{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		MemoryInfo other = (MemoryInfo) obj;
-		if (memoryAddress == null) {
-			if (other.memoryAddress != null)
+		SocketIdentity other = (SocketIdentity) obj;
+		if (host == null) {
+			if (other.host != null)
 				return false;
-		} else if (!memoryAddress.equals(other.memoryAddress))
+		} else if (!host.equals(other.host))
+			return false;
+		if (port == null) {
+			if (other.port != null)
+				return false;
+		} else if (!port.equals(other.port))
 			return false;
 		return true;
 	}
-
 }

@@ -17,53 +17,13 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
+package spade.storage.kafka;
 
-package spade.reporter.audit;
+import org.apache.avro.generic.GenericContainer;
 
-public class FileInfo implements ArtifactInfo{
+public interface DataWriter {
 	
-	private String path;
-	
-	public FileInfo(String path){
-		path = path.replace("//", "/");
-		this.path = path;
-	}
-	
-	public String getPath(){
-		return path;
-	}
-	
-	public String getStringFormattedValue(){
-		return path;
-	}
-	
-	public String getSubtype(){
-		return SUBTYPE_FILE;
-	}
-	
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((path == null) ? 0 : path.hashCode());
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		FileInfo other = (FileInfo) obj;
-		if (path == null) {
-			if (other.path != null)
-				return false;
-		} else if (!path.equals(other.path))
-			return false;
-		return true;
-	}
+	public abstract void writeRecord(GenericContainer genericContainer) throws Exception;
+	public abstract void close() throws Exception;
 	
 }

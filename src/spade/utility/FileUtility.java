@@ -85,6 +85,23 @@ public class FileUtility {
 		return map;
 	}
 	
+	public static Map<String, String> readConfigFileAsKeyValueMap(String filepath, String keyValueSeparator) throws Exception{
+		Map<String, String> map = new HashMap<String, String>();
+		List<String> lines = FileUtils.readLines(new File(filepath));
+		for(String line : lines){
+			line = line.trim();
+			if(!line.isEmpty() && !line.startsWith("#")){
+				String tokens[] = line.split(keyValueSeparator);
+				if(tokens.length == 2){
+					String from = tokens[0].trim();
+					String to = tokens[1].trim();
+					map.put(from, to);
+				}
+			}
+		}		
+		return map;
+	}
+	
 	//test
 	public static void main(String[] args) throws Exception{
 		Pattern p = constructRegexFromFile(args[0]);
