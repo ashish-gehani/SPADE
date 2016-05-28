@@ -44,6 +44,7 @@ import com.bbn.tc.schema.avro.Principal;
 import com.bbn.tc.schema.avro.PrincipalType;
 import com.bbn.tc.schema.avro.SimpleEdge;
 import com.bbn.tc.schema.avro.SrcSinkObject;
+import com.bbn.tc.schema.avro.SrcSinkType;
 import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
 import com.bbn.tc.schema.avro.TCCDMDatum;
@@ -629,6 +630,7 @@ public class CDM extends Kafka {
         	baseObject.setProperties(properties);
         	unknownBuilder.setBaseObject(baseObject);
             unknownBuilder.setUuid(getUuid(vertex));
+            unknownBuilder.setType(SrcSinkType.SOURCE_UNKNOWN);
             SrcSinkObject unknownObject = unknownBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(unknownObject).build());
             return tccdmDatums;	
