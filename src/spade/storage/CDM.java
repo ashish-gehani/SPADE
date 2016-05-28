@@ -44,6 +44,7 @@ import com.bbn.tc.schema.avro.Principal;
 import com.bbn.tc.schema.avro.PrincipalType;
 import com.bbn.tc.schema.avro.SimpleEdge;
 import com.bbn.tc.schema.avro.SrcSinkObject;
+import com.bbn.tc.schema.avro.SrcSinkType;
 import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
 import com.bbn.tc.schema.avro.TCCDMDatum;
@@ -209,6 +210,11 @@ public class CDM extends Kafka {
                 		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 	}else if(edge.getSourceVertex().getAnnotation("subtype").equals("file")){
                 		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                	}else if(edge.getSourceVertex().getAnnotation("subtype").equals("unknown")){
+                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SRCSINK;
+                	}else{
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
+                		return false;
                 	}
                 } else if (operation.equals("send") || operation.equals("sendto")) {
                     // XXX CDM currently doesn't support send/sendto even type, so mapping to write.
@@ -218,9 +224,6 @@ public class CDM extends Kafka {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
-                } else if (operation.equals("mmap")) {
-                    eventBuilder.setType(EventType.EVENT_MMAP);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 } else if (operation.equals("mprotect")) {
                     eventBuilder.setType(EventType.EVENT_MPROTECT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
@@ -240,7 +243,10 @@ public class CDM extends Kafka {
                 } else if (operation.equals("link_write")) {
                 	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
-                } else {
+                } else if (operation.equals("mmap_write")) {
+                	//handled automatically in case of WasDerivedFrom 'mmap' operation
+                    return false;
+                }else {
                     logger.log(Level.WARNING,
                             "Unexpected WasGeneratedBy operation: {0}", operation);
                     return false;
@@ -278,6 +284,11 @@ public class CDM extends Kafka {
                 		affectsEdgeType = EdgeType.EDGE_MEMORY_AFFECTS_EVENT;
                 	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("file")){
                 		affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
+                	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("unknown")){
+                		affectsEdgeType = EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
+                	}else{
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
+                		return false;
                 	}
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
                     eventBuilder.setType(EventType.EVENT_READ);
@@ -295,6 +306,9 @@ public class CDM extends Kafka {
                 } else if (operation.equals("link_read")) {
                 	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
+                } else if(operation.equals("mmap_read")){
+                	//handled automatically in case of WasDerivedFrom 'link' operation
+                	return false;
                 } else {
                     logger.log(Level.WARNING,
                             "Unexpected Used operation: {0}", operation);
@@ -306,6 +320,9 @@ public class CDM extends Kafka {
                     logger.log(Level.WARNING,
                             "NULL WasDerivedFrom operation!");
                     return false;
+                } else if(operation.equals("mmap") || operation.equals("mmap2")){
+                	eventBuilder.setType(EventType.EVENT_MMAP);
+                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 } else if (operation.equals("update")) {   
                 	eventBuilder.setType(EventType.EVENT_UPDATE);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
@@ -587,7 +604,7 @@ public class CDM extends Kafka {
             memoryBuilder.setUuid(getUuid(vertex));
             memoryBuilder.setBaseObject(baseObject);
             // memoryBuilder.setPageNumber(0);                          // TODO remove when marked optional
-            memoryBuilder.setMemoryAddress(Long.parseLong(vertex.getAnnotation("memory address")));
+            memoryBuilder.setMemoryAddress(Long.parseLong(vertex.getAnnotation("memory address"), 16));
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
             return tccdmDatums;
@@ -613,6 +630,7 @@ public class CDM extends Kafka {
         	baseObject.setProperties(properties);
         	unknownBuilder.setBaseObject(baseObject);
             unknownBuilder.setUuid(getUuid(vertex));
+            unknownBuilder.setType(SrcSinkType.SOURCE_UNKNOWN);
             SrcSinkObject unknownObject = unknownBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(unknownObject).build());
             return tccdmDatums;	

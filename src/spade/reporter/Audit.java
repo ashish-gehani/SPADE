@@ -592,6 +592,11 @@ public class Audit extends AbstractReporter {
                     eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
                 }
             	finishEvent(eventId);
+            } else if (type.equals("MMAP")){
+            	Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+                while (key_value_matcher.find()) {
+                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
+                }
             } else if(type.equals("PROCTITLE")){
             	//event type not being handled at the moment. TO-DO
             } else {
@@ -1071,6 +1076,7 @@ public class Audit extends AbstractReporter {
     
     private void processMmap(Map<String, String> eventData, SYSCALL syscall){
     	// mmap() receive the following message(s):
+    	// - MMAP
         // - SYSCALL
         // - EOE
     	
@@ -1083,6 +1089,14 @@ public class Audit extends AbstractReporter {
     	String address = eventData.get("a0");
     	String length = eventData.get("a1");
     	String protection = eventData.get("a2");
+    	String fd = eventData.get("fd");
+    	
+    	ArtifactIdentity artifactIdentity = descriptors.getDescriptor(pid, fd);
+    	if(artifactIdentity == null){
+    		descriptors.addUnknownDescriptor(pid, fd);
+    		artifactIdentity = descriptors.getDescriptor(pid, fd);
+    	}
+    	Artifact artifact = createArtifact(artifactIdentity, false, syscall);
     	
     	ArtifactIdentity memoryInfo = new MemoryIdentity(address, length, protection);
     	Artifact memoryArtifact = createArtifact(memoryInfo, true, syscall);
@@ -1093,12 +1107,25 @@ public class Audit extends AbstractReporter {
 			process = checkProcessVertex(eventData, true, false);
 		}
 		
-		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
-		edge.addAnnotation("time", time);
-		edge.addAnnotation("operation", getOperation(syscall));
-		addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
+		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
+		wgbEdge.addAnnotation("time", time);
+		wgbEdge.addAnnotation("operation", getOperation(syscall)+"_write");
+		addEventIdAndSourceAnnotationToEdge(wgbEdge, eventData.get("eventid"), DEV_AUDIT);
 		
-		putEdge(edge);
+		Used usedEdge = new Used(process, artifact);
+		usedEdge.addAnnotation("time", time);
+		usedEdge.addAnnotation("operation", getOperation(syscall)+"_read");
+		addEventIdAndSourceAnnotationToEdge(usedEdge, eventData.get("eventid"), DEV_AUDIT);
+		
+		WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, artifact);
+		wdfEdge.addAnnotation("time", time);
+		wdfEdge.addAnnotation("operation", getOperation(syscall));
+		wdfEdge.addAnnotation("pid", pid);
+		addEventIdAndSourceAnnotationToEdge(wdfEdge, eventData.get("eventid"), DEV_AUDIT);
+		
+		putEdge(wdfEdge);
+		putEdge(wgbEdge);
+		putEdge(usedEdge);
     }
     
     private void processMprotect(Map<String, String> eventData, SYSCALL syscall){
@@ -1256,7 +1283,7 @@ public class Audit extends AbstractReporter {
     
     private Artifact createArtifact(ArtifactIdentity artifactInfo, boolean update, SYSCALL syscall){
     	Artifact artifact = null;
-    	if(artifactInfo instanceof FileIdentity || artifactInfo instanceof PipeIdentity || (artifactInfo instanceof UnknownIdentity && syscall == null)){
+    	if(artifactInfo instanceof FileIdentity || artifactInfo instanceof PipeIdentity || (artifactInfo instanceof UnknownIdentity && (syscall == SYSCALL.MMAP || syscall == SYSCALL.MMAP2 || syscall == SYSCALL.MPROTECT))){
     		artifact = createFileArtifact(artifactInfo, update);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}else if(artifactInfo instanceof MemoryIdentity){
