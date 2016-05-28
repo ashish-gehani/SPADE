@@ -218,9 +218,6 @@ public class CDM extends Kafka {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
-                } else if (operation.equals("mmap")) {
-                    eventBuilder.setType(EventType.EVENT_MMAP);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 } else if (operation.equals("mprotect")) {
                     eventBuilder.setType(EventType.EVENT_MPROTECT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
@@ -306,6 +303,9 @@ public class CDM extends Kafka {
                     logger.log(Level.WARNING,
                             "NULL WasDerivedFrom operation!");
                     return false;
+                } else if(operation.equals("mmap") || operation.equals("mmap2")){
+                	eventBuilder.setType(EventType.EVENT_MMAP);
+                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 } else if (operation.equals("update")) {   
                 	eventBuilder.setType(EventType.EVENT_UPDATE);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
@@ -587,7 +587,7 @@ public class CDM extends Kafka {
             memoryBuilder.setUuid(getUuid(vertex));
             memoryBuilder.setBaseObject(baseObject);
             // memoryBuilder.setPageNumber(0);                          // TODO remove when marked optional
-            memoryBuilder.setMemoryAddress(Long.parseLong(vertex.getAnnotation("memory address")));
+            memoryBuilder.setMemoryAddress(Long.parseLong(vertex.getAnnotation("memory address"), 16));
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
             return tccdmDatums;
