@@ -1,0 +1,511 @@
+{
+  "type" : "record",
+  "name" : "TCCDMDatum",
+  "namespace" : "com.bbn.tc.schema.avro",
+  "doc" : "* A record representing either a vertex or an edge. This is the top level record that allows\n     * us to easily mix the vertices and edges defined above on the wire.",
+  "fields" : [ {
+    "name" : "datum",
+    "type" : [ {
+      "type" : "record",
+      "name" : "ProvenanceTagNode",
+      "doc" : "* A provenance tag defines source dependence on specific data sources (inputs).\n     * A tag identifier is typically bound to a source and used by the tracking system to\n     * capture dependence on this source input.\n     * A provenance tag is represented as a tree. Each node in the tree has a value and\n     * a set of children nodes.",
+      "fields" : [ {
+        "name" : "value",
+        "type" : [ "int", {
+          "type" : "fixed",
+          "name" : "UUID",
+          "size" : 32
+        }, {
+          "type" : "enum",
+          "name" : "TagOpCode",
+          "doc" : "* The tag opcode describes the provenance relation i.e., how multiple sources are combined to\n     * produce the output. We identify the following provenance relations\n     *\n     *   TAG_OP_SEQUENCE       the output is derived from the specified inputs in order, sequentially\n     *   TAG_OP_UNION,         the output is the union of its inputs\n     *   TAG_OP_ENCODE         the output is some encoding of the input\n     *   TAG_OP_STRONG         this is more qualitative (coarse) saying there is strong dependence\n     *   TAG_OP_MEDIUM         this is more qualitative (coarse) saying there is medium dependence\n     *   TAG_OP_WEAK           this is more qualitative (coarse) saying there is weak   dependence",
+          "symbols" : [ "TAG_OP_SEQUENCE", "TAG_OP_UNION", "TAG_OP_ENCODE", "TAG_OP_STRONG", "TAG_OP_MEDIUM", "TAG_OP_WEAK" ]
+        }, {
+          "type" : "enum",
+          "name" : "IntegrityTag",
+          "doc" : "* The integrity tag may be used to specify the initial integrity of an entity,\n     * or to endorse its content after performing appropriate checking/sanitization.",
+          "symbols" : [ "INTEGRITY_UNTRUSTED", "INTEGRITY_BENIGN", "INTEGRITY_INVULNERABLE" ]
+        }, {
+          "type" : "enum",
+          "name" : "ConfidentialityTag",
+          "doc" : "* The confidentiality tag may be used to specify the initial confidentiality of an entity,\n     * or to declassify its content after performing appropriate checking/sanitization.",
+          "symbols" : [ "CONFIDENTIALITY_SECRET", "CONFIDENTIALITY_SENSITIVE", "CONFIDENTIALITY_PRIVATE", "CONFIDENTIALITY_PUBLIC" ]
+        } ],
+        "doc" : "*  the value of the node: can have the following types\n         *   int                 references another node by tagId\n         *   UUID                object uuid (source or sink for example)\n         *   TaOpCode            the opcode applied to the children nodes, see TaOpCode\n         *   IntegrityTag        an integrity tag\n         *   ConfidentialityTag  a confidentiality tag"
+      }, {
+        "name" : "children",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : "ProvenanceTagNode"
+        } ],
+        "doc" : "the child nodes",
+        "default" : null
+      }, {
+        "name" : "tagId",
+        "type" : [ "null", "int" ],
+        "doc" : "* the id to be assigned to this tag node\n         * typically set once when the node is first created, and used in value afterwards",
+        "default" : null
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "Arbitrary key, value pairs associated with a tag node",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "Subject",
+      "doc" : "* Subjects represent execution contexts and include mainly threads and processes. They can be more granular and\n     * can represent other execution boundaries such as functions and blocks if needed.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "universally unique identifier for the subject"
+      }, {
+        "name" : "type",
+        "type" : {
+          "type" : "enum",
+          "name" : "SubjectType",
+          "doc" : "* SUBJECT_PROCESS,    process\n     * SUBJECT_THREAD,     thread within a process\n     * SUBJECT_UNIT        so far we only know of TRACE BEEP using this",
+          "symbols" : [ "SUBJECT_PROCESS", "SUBJECT_THREAD", "SUBJECT_UNIT", "SUBJECT_BASIC_BLOCK" ]
+        },
+        "doc" : "the subject type"
+      }, {
+        "name" : "pid",
+        "type" : "int",
+        "doc" : "OS process id for type process and unit id for a unit (Optional)"
+      }, {
+        "name" : "ppid",
+        "type" : "int",
+        "doc" : "OS parent process id for type process and pid for type unit (Optional)"
+      }, {
+        "name" : "source",
+        "type" : {
+          "type" : "enum",
+          "name" : "InstrumentationSource",
+          "doc" : "* SOURCE_LINUX_AUDIT_TRACE,          from Linux /dev/audit\n     * SOURCE_LINUX_PROC_TRACE,           from Linux's /proc\n     * SOURCE_LINUX_BEEP_TRACE,           from BEEP instrumentation\n     * SOURCE_FREEBSD_OPENBSM_TRACE,      from FreeBSD openBSM\n     * SOURCE_ANDROID_JAVA_CLEARSCOPE,    from android java instrumentation\n     * SOURCE_ANDROID_NATIVE_CLEARSCOPE,  from android's native instrumentation\n     * SOURCE_FREEBSD_DTRACE_CADETS, SOURCE_FREEBSD_TESLA_CADETS  for CADETS freebsd instrumentation\n     * SOURCE_FREEBSD_LOOM_CADETS, SOURCE_FREEBSD_MACIF_CADETS    for CADETS freebsd instrumentation\n     * SOURCE_LINUX_THEIA                 from the GATech THEIA instrumentation source\n     *",
+          "symbols" : [ "SOURCE_LINUX_AUDIT_TRACE", "SOURCE_LINUX_PROC_TRACE", "SOURCE_LINUX_BEEP_TRACE", "SOURCE_FREEBSD_OPENBSM_TRACE", "SOURCE_ANDROID_JAVA_CLEARSCOPE", "SOURCE_ANDROID_NATIVE_CLEARSCOPE", "SOURCE_FREEBSD_DTRACE_CADETS", "SOURCE_FREEBSD_TESLA_CADETS", "SOURCE_FREEBSD_LOOM_CADETS", "SOURCE_FREEBSD_MACIF_CADETS", "SOURCE_WINDOWS_DIFT_FAROS", "SOURCE_LINUX_THEIA" ]
+        },
+        "doc" : "Where it came from, see InstrumentationSource"
+      }, {
+        "name" : "startTimestampMicros",
+        "type" : [ "null", "long" ],
+        "doc" : "* The start time of the subject\n         * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         * (Optional)",
+        "default" : null
+      }, {
+        "name" : "unitId",
+        "type" : [ "null", "int" ],
+        "doc" : "unit id for unit based instrumentation (Optional)",
+        "default" : null
+      }, {
+        "name" : "endTimestampMicros",
+        "type" : [ "null", "long" ],
+        "doc" : "The end time of the subject (Optional)",
+        "default" : null
+      }, {
+        "name" : "cmdLine",
+        "type" : [ "null", "string" ],
+        "doc" : "Process command line arguments including process name (Optional)",
+        "default" : null
+      }, {
+        "name" : "importedLibraries",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : "string"
+        } ],
+        "doc" : "imported libraries (static or dynamic), (Optional)",
+        "default" : null
+      }, {
+        "name" : "exportedLibraries",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : "string"
+        } ],
+        "doc" : "exported libraries (static or dynamic), (Optional)",
+        "default" : null
+      }, {
+        "name" : "pInfo",
+        "type" : [ "null", "string" ],
+        "doc" : "additional process information, such portable execution (PE) info in windows (Optional)",
+        "default" : null
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "Arbitrary key, value pairs describing the entity",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "Event",
+      "doc" : "* Events represent actions executed on behalf of subjects. Events could include system calls,\n     * function calls, instruction executions, or even more abstract notions representing a blind execution\n     * such as black boxes that are not instrumented (more shortly). Events are the core entity in the model\n     * and they are the main abstraction for representing information flow between data objects, and subjects.\n     * Events are atomic and immutable.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "A universally unique identifier for the event"
+      }, {
+        "name" : "sequence",
+        "type" : "long",
+        "doc" : "A logical sequence number for ordering events relative to each other within a subject's execution context",
+        "default" : 0
+      }, {
+        "name" : "type",
+        "type" : {
+          "type" : "enum",
+          "name" : "EventType",
+          "doc" : "* These event types correspond to the common system calls. Note that we added blind, unit, and update events\n     *   EVENT_ACCEPT                     accept a connection on an object\n     *   EVENT_BIND                       bind to a network endpoint object\n     *   EVENT_CHANGE_PRINCIPAL           change the principal associated with the process\n     *   EVENT_CHECK_FILE_ATTRIBUTES      check the file attributes such as permissions\n     *   EVENT_CLONE                      clone a subject\n     *   EVENT_CLOSE                      close an object\n     *   EVENT_CONNECT                    connect to an object\n     *   EVENT_CREATE_OBJECT              create an object\n     *   EVENT_CREATE_THREAD              create a thread subject\n     *   EVENT_EXECUTE                    execute an object\n     *   EVENT_FORK                       fork a process subject\n     *   EVENT_LINK                       link an object to a new name\n     *   EVENT_UNLINK                     unlink a name from an object\n     *   EVENT_MMAP                       memory map an object\n     *   EVENT_MODIFY_FILE_ATTRIBUTES     modify the attributes of a file object\n     *   EVENT_MPROTECT                   change permissions of a memory object\n     *   EVENT_OPEN                       open an object\n     *   EVENT_READ                       read from an object (file or socket)\n     *   EVENT_RECVFROM                   receive message from a socket\n     *   EVENT_RECVMSG                    receive message from a socket\n     *   EVENT_RENAME                     rename an object\n     *   EVENT_WRITE                      write to an object (file or socket)\n     *   EVENT_SIGNAL                     signal another subject\n     *   EVENT_TRUNCATE                   truncate an object\n     *   EVENT_WAIT                       wait on another subject\n     *   EVENT_KERNEL_UNKNOWN             some kernel event\n     *   EVENT_OS_UNKNOWN                 some OS layer event\n     *   EVENT_APP_UNKNOWN                some application layer event\n     *   EVENT_UI_UNKNOWN                 some UI layer event\n     *   EVENT_UNKNOWN                    some event (we don't know what layer)\n     *   EVENT_BLIND                      blind event for a black boxes that are not instrumented\n     *   EVENT_UNIT                       create a BEEP unit\n     *   EVENT_UPDATE                     update an object",
+          "symbols" : [ "EVENT_ACCEPT", "EVENT_BIND", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_EXECUTE", "EVENT_FORK", "EVENT_LINK", "EVENT_UNLINK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_READ", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_WRITE", "EVENT_SIGNAL", "EVENT_TRUNCATE", "EVENT_WAIT", "EVENT_OS_UNKNOWN", "EVENT_KERNEL_UNKNOWN", "EVENT_APP_UNKNOWN", "EVENT_UI_UNKNOWN", "EVENT_UNKNOWN", "EVENT_BLIND", "EVENT_UNIT", "EVENT_UPDATE" ]
+        },
+        "doc" : "The type of the event"
+      }, {
+        "name" : "threadId",
+        "type" : "int",
+        "doc" : "The thread id to which this event belongs"
+      }, {
+        "name" : "source",
+        "type" : "InstrumentationSource",
+        "doc" : "What source system generated this event, see InstrumentationSource"
+      }, {
+        "name" : "timestampMicros",
+        "type" : [ "null", "long" ],
+        "doc" : "* The time at which the event occurred. Timestamps allow reasoning about order of events\n         *  on a host when the same clock is used.\n         * TODO When different clocks are used on a host or across hosts, we need to also define a clock source\n         * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.",
+        "default" : null
+      }, {
+        "name" : "name",
+        "type" : [ "null", "string" ],
+        "doc" : "Event name (Optional)",
+        "default" : null
+      }, {
+        "name" : "parameters",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "Value",
+            "doc" : "* Values represent transient data, mainly parameters to events. Values are created and used once within an\n     * event's execution and are relevant mainly during fine-grained tracking (such as with tag/taint propagation).\n     * Values have tags describing their provenance. Sometimes the actual value's value is reported in addition to\n     * the value's metadata\n     *\n     * The size of the value is the number of elements of type valueDataType. This should be 0 for primitive or\n     * complex types or the size of the array for arrays i.e., if size>0, then this value is an array.\n     * A complex value (such as an object) can contain other values (primitives of other complex values) within it, as\n     * components.\n     *\n     * isNull indicates whether a complex value is null. runtimeDataType indicates the runtime datatype. E.g., <br>\n     *  e.g., an integer will have size=0 and valueDataType=INT, and valueBytes.length=4 bytes <br>\n     *  e.g., an int[4] will have  size=4 and valueDataType=INT, and valueBytes.length=16 bytes (4*4) <br>\n     *  e.g., a string s=\"abc\" has size=3 and valueDataType=CHAR, and valueBytes.length=6 bytes (treated as char[]) <br>\n     *  e.g., an MyClass obj has size=0, valueDataType=COMPLEX, runtimeDataType=\"MyClass\", valueBytes=<pointer> <br>",
+            "fields" : [ {
+              "name" : "size",
+              "type" : "int",
+              "doc" : "The size of the value: the number of elements of type valueDataType; 0 for primitives",
+              "default" : 0
+            }, {
+              "name" : "type",
+              "type" : {
+                "type" : "enum",
+                "name" : "ValueType",
+                "doc" : "* A value type is either in, out, or in/out\n     * This is for event parameters to distinguish inputs vs return values\n     *\n     *   VALUE_TYPE_IN       An input value to the event\n     *   VALUE_TYPE_OUT      An output value from the event (return value)\n     *   VALUE_TYPE_INOUT    Adding this for completeness",
+                "symbols" : [ "VALUE_TYPE_IN", "VALUE_TYPE_OUT", "VALUE_TYPE_INOUT" ]
+              },
+              "doc" : "The type of the value whether input or return"
+            }, {
+              "name" : "valueDataType",
+              "type" : {
+                "type" : "enum",
+                "name" : "ValueDataType",
+                "doc" : "* A value data type is one of the primitive data types. A string is treated as a char array",
+                "symbols" : [ "VALUE_DATA_TYPE_BYTE", "VALUE_DATA_TYPE_BOOL", "VALUE_DATA_TYPE_CHAR", "VALUE_DATA_TYPE_SHORT", "VALUE_DATA_TYPE_INT", "VALUE_DATA_TYPE_FLOAT", "VALUE_DATA_TYPE_LONG", "VALUE_DATA_TYPE_DOUBLE", "VALUE_DATA_TYPE_COMPLEX" ]
+              },
+              "doc" : "The actual datatype of the value elements, e.g., int, double, byte, etc. (Optional)\n         *  Strings are treated as char[] so type=CHAR\n         *  String[] is a COMPLEX value whose components are the string values (each modeled as a char[])\n         *  Complex composite objects comprising of primitive values use the COMPLEX type"
+            }, {
+              "name" : "isNull",
+              "type" : "boolean",
+              "doc" : "Whether this value is null, needed to indicate null objects (default: false)",
+              "default" : false
+            }, {
+              "name" : "runtimeDataType",
+              "type" : [ "null", "string" ],
+              "doc" : "The runtime data type of the value (Optional); For example, an object of dataType=COMPLEX, can have\n         *  a runtime data type of say \"MyClass\"",
+              "default" : null
+            }, {
+              "name" : "valueBytes",
+              "type" : [ "null", "bytes" ],
+              "doc" : "The actual bytes of the value in Big Endian format, e.g., an int is converted to a 4 byte buffer (Optional)",
+              "default" : null
+            }, {
+              "name" : "tag",
+              "type" : [ "null", {
+                "type" : "array",
+                "items" : "int"
+              } ],
+              "doc" : "* The value's tag expression describing its provenance (Optional)\n         * Since value could be an array, the tag can use run length encoding if needed. The format of the array is:\n         *   {<numElements:int>, <tagId:int>}*\n         * For example, to assign a tag 0 (unknown) to elements 0-3, 1 to elements 4-7 and 2 to elements 8-15 of\n         * an int[16] value, this would be represented using the following tag array\n         *  {4, 0, 4, 1, 8, 2} meaning the first 4 elements have tag 0, next 4 have tag 1, next 8 have tag 2\n         * Note that 4 elements of the array correspond to 16 bytes in the valueBytes buffer\n         * Note that tagId had to be defined/emitted earlier (see ProvenanceTagNode)\n         * before it can be assigned to a value",
+              "default" : null
+            }, {
+              "name" : "components",
+              "type" : [ "null", {
+                "type" : "array",
+                "items" : "Value"
+              } ],
+              "doc" : "A complex value might comprise other component values if needed (Optional)",
+              "default" : null
+            } ]
+          }
+        } ],
+        "doc" : "Event parameters represented as values, see Value (Optional)",
+        "default" : null
+      }, {
+        "name" : "location",
+        "type" : [ "null", "long" ],
+        "doc" : "Location refers to the location of the data affecting the event\n         *  (e.g., the read offset in the file for the read system call event (Optional)",
+        "default" : null
+      }, {
+        "name" : "size",
+        "type" : [ "null", "long" ],
+        "doc" : "Size refers to the size of the data affecting the event\n         *  (e.g., the number of bytes read from the file for the read system call event (Optional)",
+        "default" : null
+      }, {
+        "name" : "programPoint",
+        "type" : [ "null", "string" ],
+        "doc" : "The program point where the event was triggered (e.g., executable and line number), (Optional)",
+        "default" : null
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "Arbitrary key, value pairs describing the entity",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "NetFlowObject",
+      "doc" : "* Represents a network flow object. Instantiates an AbstractObject.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "Universally unique identifier for the object"
+      }, {
+        "name" : "baseObject",
+        "type" : {
+          "type" : "record",
+          "name" : "AbstractObject",
+          "doc" : "*  Objects, in general, represent data sources and sinks which could include sockets, files,\n     *  memory, and any data in general that can be an input and/or output to an event.\n     *  This record is intended to be abstract i.e., one should not instantiate an Object\n     *  but rather instantiate one of its sub types File, NetFlow, of Memory",
+          "fields" : [ {
+            "name" : "source",
+            "type" : "InstrumentationSource",
+            "doc" : "The source that emitted the object, see InstrumentationSource"
+          }, {
+            "name" : "permission",
+            "type" : [ "null", {
+              "type" : "fixed",
+              "name" : "SHORT",
+              "size" : 2
+            } ],
+            "doc" : "Permission bits defined over the object (Optional)",
+            "default" : null
+          }, {
+            "name" : "lastTimestampMicros",
+            "type" : [ "null", "long" ],
+            "doc" : "* The timestamp when the object was last modified (Optional).\n        * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.",
+            "default" : null
+          }, {
+            "name" : "properties",
+            "type" : [ "null", {
+              "type" : "map",
+              "values" : "string"
+            } ],
+            "doc" : "Arbitrary key, value pairs describing the entity",
+            "default" : null
+          } ]
+        },
+        "doc" : "The base object attributes"
+      }, {
+        "name" : "srcAddress",
+        "type" : "string",
+        "doc" : "The ip address of the source host for this flow"
+      }, {
+        "name" : "srcPort",
+        "type" : "int",
+        "doc" : "The network port on the source host for this flow"
+      }, {
+        "name" : "destAddress",
+        "type" : "string",
+        "doc" : "The ip address of the destination host for this flow"
+      }, {
+        "name" : "destPort",
+        "type" : "int",
+        "doc" : "The network port on the destination host for this flow"
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "FileObject",
+      "doc" : "* Represents a file on the file system. Instantiates an AbstractObject.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "Universally unique identifier for the object"
+      }, {
+        "name" : "baseObject",
+        "type" : "AbstractObject",
+        "doc" : "The base object attributes"
+      }, {
+        "name" : "url",
+        "type" : "string",
+        "doc" : "The location of the file absolute path or remote url"
+      }, {
+        "name" : "isPipe",
+        "type" : "boolean",
+        "doc" : "Whether the file is a Unix pipe",
+        "default" : false
+      }, {
+        "name" : "version",
+        "type" : "int",
+        "doc" : "The file version incremented every time the file changes",
+        "default" : 1
+      }, {
+        "name" : "size",
+        "type" : [ "null", "long" ],
+        "doc" : "The file size in bytes (Optional)",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "SrcSinkObject",
+      "doc" : "* Represents a generic source or sink on the host device that is can be a file, memory, or netflow.\n     * This is the most basic representation of a source or sink, basically specifying its type only.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "Universally unique identifier for the object"
+      }, {
+        "name" : "baseObject",
+        "type" : "AbstractObject",
+        "doc" : "The base object attributes"
+      }, {
+        "name" : "type",
+        "type" : {
+          "type" : "enum",
+          "name" : "SrcSinkType",
+          "doc" : "* There are many types of sources such as sensors\n     * The type of a sensor could be base (close to hardware) or composite\n     * See https://source.android.com/devices/sensors/index.html for details\n     * TODO: camera and GPS ideally should be modeled separately to match the Android model. These are rich subsystems",
+          "symbols" : [ "SOURCE_ACCELEROMETER", "SOURCE_TEMPERATURE", "SOURCE_GYROSCOPE", "SOURCE_MAGNETIC_FIELD", "SOURCE_HEART_RATE", "SOURCE_LIGHT", "SOURCE_PROXIMITY", "SOURCE_PRESSURE", "SOURCE_RELATIVE_HUMIDITY", "SOURCE_LINEAR_ACCELERATION", "SOURCE_MOTION", "SOURCE_STEP_DETECTOR", "SOURCE_STEP_COUNTER", "SOURCE_TILT_DETECTOR", "SOURCE_ROTATION_VECTOR", "SOURCE_GRAVITY", "SOURCE_GEOMAGNETIC_ROTATION_VECTOR", "SOURCE_CAMERA", "SOURCE_GPS", "SOURCE_AUDIO", "SOURCE_SYSTEM_PROPERTY", "SOURCE_ENV_VARIABLE", "SOURCE_SINK_IPC", "SOURCE_UNKNOWN" ]
+        },
+        "doc" : "The type of the object"
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "MemoryObject",
+      "doc" : "* Represents a page in memory. Instantiates an AbstractObject.\n     * TODO: is memory really an object (with permissions and so on) or is it a transient data?",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "Universally unique identifier for the object"
+      }, {
+        "name" : "baseObject",
+        "type" : "AbstractObject",
+        "doc" : "The base object attributes"
+      }, {
+        "name" : "memoryAddress",
+        "type" : "long",
+        "doc" : "The location in memory"
+      }, {
+        "name" : "pageNumber",
+        "type" : [ "null", "long" ],
+        "doc" : "The memory page number",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "Principal",
+      "doc" : "* A principal is a local user\n    * TODO: extend for second evaluation to include remote principals\n    * TODO: what happens when the user information changes (are we tracking versions?)\n    * TODO: Authentication mechanisms: are TA1s providing that information and how?",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "A unique id for the principal"
+      }, {
+        "name" : "type",
+        "type" : {
+          "type" : "enum",
+          "name" : "PrincipalType",
+          "doc" : "* The type of principal may be local to the host, or remote users/systems.",
+          "symbols" : [ "PRINCIPAL_LOCAL", "PRINCIPAL_REMOTE" ]
+        },
+        "doc" : "The type of the principal, local by default",
+        "default" : "PRINCIPAL_LOCAL"
+      }, {
+        "name" : "userId",
+        "type" : "int",
+        "doc" : "The operating system id associated with the user"
+      }, {
+        "name" : "groupIds",
+        "type" : {
+          "type" : "array",
+          "items" : "int"
+        },
+        "doc" : "The ids of the groups which this user is part of"
+      }, {
+        "name" : "source",
+        "type" : "InstrumentationSource",
+        "doc" : "The source that emitted the Principal record, see InstrumentationSource"
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "Arbitrary key, value pairs describing the entity",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "TagEntity",
+      "doc" : "* The purpose of a TagEntity is to be able to assign one or more tags to the objects/subjects/events\n     * at a later point in time after the objects/subjects/events have been emitted.\n     * As the name indicates, TagEntity wraps a tag (ProvenanceTagNode) with an entity i.e. assign a uuid\n     * to the tag to allow adding an edge from the object/subject/event to the TagEntity.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "A unique ID for the entity"
+      }, {
+        "name" : "tag",
+        "type" : "ProvenanceTagNode",
+        "doc" : "The provenance tag"
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "Arbitrary key, value pairs describing the entity",
+        "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "SimpleEdge",
+      "doc" : "* Edges in the CDM only connect the entities and do not have attributes of their own.\n     *  In order to make the streaming efficient, the edge specification does not require\n     *  the objects on both ends every time it is streamed/serialized. Instead, we defined\n     *  the edge to be simple, it has a type and it connects two entities each identified by\n     *  a uid each.\n     * Since the different edge types in the current model do not have different properties\n     *  (actually no properties at all), we do not define the different edges as separate\n     *  records at this time.\n     * For example, when streaming a large number of edges having the same from node, the\n     *  from node in all these edges will be represented using the node id instead of having\n     *  to replicate the full node object on the wire.",
+      "fields" : [ {
+        "name" : "fromUuid",
+        "type" : "UUID",
+        "doc" : "A unique id of the From entity on the edge"
+      }, {
+        "name" : "toUuid",
+        "type" : "UUID",
+        "doc" : "The id of the To entity on the edge"
+      }, {
+        "name" : "type",
+        "type" : {
+          "type" : "enum",
+          "name" : "EdgeType",
+          "doc" : "* The different types of simple edges in the CDM\n     *   EDGE_EVENT_AFFECTS_MEMORY          an event affects a memory object (such as updating a memory location)\n     *   EDGE_EVENT_AFFECTS_FILE            an event affects a file object (such as writing to a file)\n     *   EDGE_EVENT_AFFECTS_NETFLOW         an event affects a netflow object (such as writing to socket)\n     *   EDGE_EVENT_AFFECTS_SUBJECT         an event affects a subject (such as forking a process)\n     *   EDGE_EVENT_AFFECTS_SRCSINK         an event affects a generic src/sink object\n     *   EDGE_EVENT_HASPARENT_EVENT         a metaevent that represents a set of child atomic events\n     *   EDGE_EVENT_CAUSES_EVENT            an event caused/triggered another event\n     *   EDGE_EVENT_ISGENERATEDBY_SUBJECT   an event is generated by a subject (every event is)\n     *   EDGE_SUBJECT_AFFECTS_EVENT         a subject affects an event (such as when killing a process)\n     *   EDGE_SUBJECT_HASPARENT_SUBJECT     a subject has a parent subject (such as thread has parent process)\n     *   EDGE_SUBJECT_HASPRINCIPAL          a subject has a principal (such as a process owned by a user)\n     *   EDGE_SUBJECT_RUNSON                a subject runs on a host (TODO: host not yet modeled)\n     *   EDGE_FILE_AFFECTS_EVENT            an event reads from a file\n     *   EDGE_NETFLOW_AFFECTS_EVENT         an event reads from a network flow\n     *   EDGE_MEMORY_AFFECTS_EVENT          an event reads from a memory object\n     *   EDGE_SRCSINK_AFFECTS_EVENT         a generic source/sink object affects an event\n     *   EDGE_OBJECT_PREV_VERSION           the previous version of an object, typically used for file versioning\n     *   EDGE_FILE_HAS_TAG                  attach a tag to a file object\n     *   EDGE_NETFLOW_HAS_TAG               attach a tag to a netflow object\n     *   EDGE_MEMORY_HAS_TAG                attach a tag to a memory object\n     *   EDGE_SRCSINK_HAS_TAG               attach a tag to a srcsink object\n     *   EDGE_SUBJECT_HAS_TAG               attach a tag to a subject\n     *   EDGE_EVENT_HAS_TAG                 attach a tag to an event\n     *",
+          "symbols" : [ "EDGE_EVENT_AFFECTS_MEMORY", "EDGE_EVENT_AFFECTS_FILE", "EDGE_EVENT_AFFECTS_NETFLOW", "EDGE_EVENT_AFFECTS_SUBJECT", "EDGE_EVENT_AFFECTS_SRCSINK", "EDGE_EVENT_HASPARENT_EVENT", "EDGE_EVENT_CAUSES_EVENT", "EDGE_EVENT_ISGENERATEDBY_SUBJECT", "EDGE_SUBJECT_AFFECTS_EVENT", "EDGE_SUBJECT_HASPARENT_SUBJECT", "EDGE_SUBJECT_HASLOCALPRINCIPAL", "EDGE_SUBJECT_RUNSON", "EDGE_FILE_AFFECTS_EVENT", "EDGE_NETFLOW_AFFECTS_EVENT", "EDGE_MEMORY_AFFECTS_EVENT", "EDGE_SRCSINK_AFFECTS_EVENT", "EDGE_OBJECT_PREV_VERSION", "EDGE_FILE_HAS_TAG", "EDGE_NETFLOW_HAS_TAG", "EDGE_MEMORY_HAS_TAG", "EDGE_SRCSINK_HAS_TAG", "EDGE_SUBJECT_HAS_TAG", "EDGE_EVENT_HAS_TAG" ]
+        },
+        "doc" : "The type of the edge, see EdgeType"
+      }, {
+        "name" : "timestamp",
+        "type" : "long",
+        "doc" : "* When the edge was created.\n        * Timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC."
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "Arbitrary key, value pairs describing the edge",
+        "default" : null
+      } ]
+    } ]
+  }, {
+    "name" : "CDMVersion",
+    "type" : "string",
+    "default" : "12"
+  } ]
+}
