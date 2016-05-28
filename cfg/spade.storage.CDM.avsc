@@ -57,7 +57,7 @@
     }, {
       "type" : "record",
       "name" : "Subject",
-      "doc" : "* Subjects represent execution contexts and include mainly threads and processes.\n     * They can be more granular and can represent other execution boundaries such as\n     * functions and blocks if needed.",
+      "doc" : "* Subjects represent execution contexts and include mainly threads and processes. They can be more granular and\n     * can represent other execution boundaries such as functions and blocks if needed.",
       "fields" : [ {
         "name" : "uuid",
         "type" : "UUID",
@@ -185,11 +185,12 @@
           "items" : {
             "type" : "record",
             "name" : "Value",
-            "doc" : "*  Values represent transient data, mainly parameters to events\n     *  Values are created and used once within an event's execution\n     *  and are relevant mainly during fine-grained tracking (such as\n     *  with tag/taint propagation)\n     *  Values have tags describing their provenance\n     *  Sometimes the actual value's value is reported in addition to\n     *  the value's metadata",
+            "doc" : "* Values represent transient data, mainly parameters to events. Values are created and used once within an\n     * event's execution and are relevant mainly during fine-grained tracking (such as with tag/taint propagation).\n     * Values have tags describing their provenance. Sometimes the actual value's value is reported in addition to\n     * the value's metadata\n     *\n     * The size of the value is the number of elements of type valueDataType. This should be 0 for primitive or\n     * complex types or the size of the array for arrays i.e., if size>0, then this value is an array.\n     * A complex value (such as an object) can contain other values (primitives of other complex values) within it, as\n     * components.\n     *\n     * isNull indicates whether a complex value is null. runtimeDataType indicates the runtime datatype. E.g., <br>\n     *  e.g., an integer will have size=0 and valueDataType=INT, and valueBytes.length=4 bytes <br>\n     *  e.g., an int[4] will have  size=4 and valueDataType=INT, and valueBytes.length=16 bytes (4*4) <br>\n     *  e.g., a string s=\"abc\" has size=3 and valueDataType=CHAR, and valueBytes.length=6 bytes (treated as char[]) <br>\n     *  e.g., an MyClass obj has size=0, valueDataType=COMPLEX, runtimeDataType=\"MyClass\", valueBytes=<pointer> <br>",
             "fields" : [ {
               "name" : "size",
               "type" : "int",
-              "doc" : "The size of the value in bytes"
+              "doc" : "The size of the value: the number of elements of type valueDataType; 0 for primitives",
+              "default" : 0
             }, {
               "name" : "type",
               "type" : {
@@ -201,13 +202,27 @@
               "doc" : "The type of the value whether input or return"
             }, {
               "name" : "valueDataType",
+              "type" : {
+                "type" : "enum",
+                "name" : "ValueDataType",
+                "doc" : "* A value data type is one of the primitive data types. A string is treated as a char array",
+                "symbols" : [ "VALUE_DATA_TYPE_BYTE", "VALUE_DATA_TYPE_BOOL", "VALUE_DATA_TYPE_CHAR", "VALUE_DATA_TYPE_SHORT", "VALUE_DATA_TYPE_INT", "VALUE_DATA_TYPE_FLOAT", "VALUE_DATA_TYPE_LONG", "VALUE_DATA_TYPE_DOUBLE", "VALUE_DATA_TYPE_COMPLEX" ]
+              },
+              "doc" : "The actual datatype of the value elements, e.g., int, double, byte, etc. (Optional)\n         *  Strings are treated as char[] so type=CHAR\n         *  String[] is a COMPLEX value whose components are the string values (each modeled as a char[])\n         *  Complex composite objects comprising of primitive values use the COMPLEX type"
+            }, {
+              "name" : "isNull",
+              "type" : "boolean",
+              "doc" : "Whether this value is null, needed to indicate null objects (default: false)",
+              "default" : false
+            }, {
+              "name" : "runtimeDataType",
               "type" : [ "null", "string" ],
-              "doc" : "The actual datatype of the value, e.g., int, double, array<int>, etc. (Optional)",
+              "doc" : "The runtime data type of the value (Optional); For example, an object of dataType=COMPLEX, can have\n         *  a runtime data type of say \"MyClass\"",
               "default" : null
             }, {
               "name" : "valueBytes",
               "type" : [ "null", "bytes" ],
-              "doc" : "The actual bytes of the value (Optional)",
+              "doc" : "The actual bytes of the value in Big Endian format, e.g., an int is converted to a 4 byte buffer (Optional)",
               "default" : null
             }, {
               "name" : "tag",
@@ -215,7 +230,7 @@
                 "type" : "array",
                 "items" : "int"
               } ],
-              "doc" : "* the value's tag expression describing its provenance\n         * since value could be an array, the tag can use run length\n         * encoding if needed. The format of the array is as follows\n         *   {<numBytes:int>, <tagId:int>}*\n         * For example, to assign a tag 0 (unknown) to bytes 0-3, 1 to bytes 4-7 of the value,\n         * and 2 to bytes 8-15, this would represented using\n         * the following tag array\n         *  {4, 0, 4, 1, 8, 2} meaning the first 4 bytes have tag 0, next 4 have tag 1, next 8 have tag 2\n         *\n         * Note that tagId had to be defined/emitted earlier (see ProvenanceTagNode)\n         * before it can be assigned to a value",
+              "doc" : "* The value's tag expression describing its provenance (Optional)\n         * Since value could be an array, the tag can use run length encoding if needed. The format of the array is:\n         *   {<numElements:int>, <tagId:int>}*\n         * For example, to assign a tag 0 (unknown) to elements 0-3, 1 to elements 4-7 and 2 to elements 8-15 of\n         * an int[16] value, this would be represented using the following tag array\n         *  {4, 0, 4, 1, 8, 2} meaning the first 4 elements have tag 0, next 4 have tag 1, next 8 have tag 2\n         * Note that 4 elements of the array correspond to 16 bytes in the valueBytes buffer\n         * Note that tagId had to be defined/emitted earlier (see ProvenanceTagNode)\n         * before it can be assigned to a value",
               "default" : null
             }, {
               "name" : "components",
@@ -488,5 +503,9 @@
         "default" : null
       } ]
     } ]
+  }, {
+    "name" : "CDMVersion",
+    "type" : "string",
+    "default" : "12"
   } ]
 }
