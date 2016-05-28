@@ -160,7 +160,7 @@ public class CDM extends Kafka {
             
             String pid = null;
             
-            Map<String, String> properties = new HashMap<>();
+            Map<CharSequence, CharSequence> properties = new HashMap<>();
             properties.put("eventId", String.valueOf(eventId));
             String edgeType = edge.type();
             String operation = edge.getAnnotation("operation");
@@ -447,7 +447,7 @@ public class CDM extends Kafka {
             subjectBuilder.setUnitId(Integer.parseInt(unit));
         }
         subjectBuilder.setCmdLine(vertex.getAnnotation("commandline"));           // optional, so null is ok
-        Map<String, String> properties = new HashMap<>();
+        Map<CharSequence, CharSequence> properties = new HashMap<>();
         properties.put("programName", vertex.getAnnotation("name"));
         properties.put("uid", vertex.getAnnotation("uid")); // user ID, not unique ID
         properties.put("group", vertex.getAnnotation("gid"));
@@ -496,7 +496,7 @@ public class CDM extends Kafka {
         	Principal.Builder principalBuilder = Principal.newBuilder();
         	principalBuilder.setUuid(getUuid(principalVertex));
             principalBuilder.setUserId(Integer.parseInt(principalVertex.getAnnotation("uid")));
-            Map<String, String> properties = new HashMap<String, String>();
+            Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
             properties.put("egid", principalVertex.getAnnotation("egid"));
             properties.put("euid", principalVertex.getAnnotation("euid"));
             List<Integer> groupIds = new ArrayList<Integer>();
@@ -573,7 +573,7 @@ public class CDM extends Kafka {
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(netFlowObject).build());
             return tccdmDatums;
         } else if (entityType.equals("memory")) {
-        	Map<String, String> properties = new HashMap<String, String>();
+        	Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
         	if(vertex.getAnnotation("size") != null){
         		properties.put("size", vertex.getAnnotation("size"));
         	}
@@ -603,7 +603,7 @@ public class CDM extends Kafka {
             return tccdmDatums;
         } else if (entityType.equals("unknown")) {
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
-        	Map<String, String> properties = new HashMap<String, String>();
+        	Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
         	String pathTokens[] = vertex.getAnnotation("path").split("/");
         	String pid = pathTokens[1];
         	String fd = pathTokens[3];
