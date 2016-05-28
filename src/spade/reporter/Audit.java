@@ -1283,7 +1283,7 @@ public class Audit extends AbstractReporter {
     
     private Artifact createArtifact(ArtifactIdentity artifactInfo, boolean update, SYSCALL syscall){
     	Artifact artifact = null;
-    	if(artifactInfo instanceof FileIdentity || artifactInfo instanceof PipeIdentity || (artifactInfo instanceof UnknownIdentity && syscall == null)){
+    	if(artifactInfo instanceof FileIdentity || artifactInfo instanceof PipeIdentity || (artifactInfo instanceof UnknownIdentity && (syscall == SYSCALL.MMAP || syscall == SYSCALL.MMAP2 || syscall == SYSCALL.MPROTECT))){
     		artifact = createFileArtifact(artifactInfo, update);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}else if(artifactInfo instanceof MemoryIdentity){

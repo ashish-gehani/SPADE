@@ -209,6 +209,11 @@ public class CDM extends Kafka {
                 		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 	}else if(edge.getSourceVertex().getAnnotation("subtype").equals("file")){
                 		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                	}else if(edge.getSourceVertex().getAnnotation("subtype").equals("unknown")){
+                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SRCSINK;
+                	}else{
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
+                		return false;
                 	}
                 } else if (operation.equals("send") || operation.equals("sendto")) {
                     // XXX CDM currently doesn't support send/sendto even type, so mapping to write.
@@ -237,7 +242,10 @@ public class CDM extends Kafka {
                 } else if (operation.equals("link_write")) {
                 	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
-                } else {
+                } else if (operation.equals("mmap_write")) {
+                	//handled automatically in case of WasDerivedFrom 'mmap' operation
+                    return false;
+                }else {
                     logger.log(Level.WARNING,
                             "Unexpected WasGeneratedBy operation: {0}", operation);
                     return false;
@@ -275,6 +283,11 @@ public class CDM extends Kafka {
                 		affectsEdgeType = EdgeType.EDGE_MEMORY_AFFECTS_EVENT;
                 	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("file")){
                 		affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
+                	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("unknown")){
+                		affectsEdgeType = EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
+                	}else{
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
+                		return false;
                 	}
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
                     eventBuilder.setType(EventType.EVENT_READ);
@@ -292,6 +305,9 @@ public class CDM extends Kafka {
                 } else if (operation.equals("link_read")) {
                 	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
+                } else if(operation.equals("mmap_read")){
+                	//handled automatically in case of WasDerivedFrom 'link' operation
+                	return false;
                 } else {
                     logger.log(Level.WARNING,
                             "Unexpected Used operation: {0}", operation);
