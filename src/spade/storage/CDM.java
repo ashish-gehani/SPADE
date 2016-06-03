@@ -261,7 +261,7 @@ public class CDM extends Kafka {
                 	if(getExecEventUUID(pid) != null){
 	                	SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
 	                    affectsEdgeBuilder.setFromUuid(getExecEventUUID(pid));  // Event record's UID
-	                    affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex())); // UID of Subject/Object being affected
+	                    affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex())); // UID of Object being affected
 	                    affectsEdgeBuilder.setType(EdgeType.EDGE_FILE_AFFECTS_EVENT);
 	                    affectsEdgeBuilder.setTimestamp(timeLong);
 	                    SimpleEdge affectsEdge = affectsEdgeBuilder.build();
@@ -287,7 +287,7 @@ public class CDM extends Kafka {
                 	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("unknown")){
                 		affectsEdgeType = EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
                 	}else{
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
+                		logger.log(Level.WARNING, "Invalid destination vertex subtype {0}", edge.getDestinationVertex().getAnnotation("subtype"));
                 		return false;
                 	}
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
@@ -307,7 +307,7 @@ public class CDM extends Kafka {
                 	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
                 } else if(operation.equals("mmap_read")){
-                	//handled automatically in case of WasDerivedFrom 'link' operation
+                	//handled automatically in case of WasDerivedFrom 'mmap' operation
                 	return false;
                 } else {
                     logger.log(Level.WARNING,
@@ -354,7 +354,11 @@ public class CDM extends Kafka {
             /* Generate the _*_AFFECTS_* edge record */
             SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
             affectsEdgeBuilder.setFromUuid(getUuid(edge));  // Event record's UID
-            affectsEdgeBuilder.setToUuid(getUuid(edge.getSourceVertex())); // UID of Subject/Object being affected
+            if(edgeType.equals("Used")){// UID of Object being affected.
+            	affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex()));
+            }else{
+            	affectsEdgeBuilder.setToUuid(getUuid(edge.getSourceVertex()));  
+            }
             affectsEdgeBuilder.setType(affectsEdgeType);
             affectsEdgeBuilder.setTimestamp(timeLong);
             SimpleEdge affectsEdge = affectsEdgeBuilder.build();
@@ -378,7 +382,11 @@ public class CDM extends Kafka {
 	            /* Generate the EVENT_ISGENERATEDBY_SUBJECT edge record */
 	            SimpleEdge.Builder generatedByEdgeBuilder = SimpleEdge.newBuilder();
 	            generatedByEdgeBuilder.setFromUuid(getUuid(edge)); // Event record's UID
-	            generatedByEdgeBuilder.setToUuid(uuidOfDestinationProcessVertex); //UID of Subject generating event
+	            if(edgeType.equals("Used")){ //UID of Subject generating event
+	            	generatedByEdgeBuilder.setToUuid(getUuid(edge.getSourceVertex()));
+	            }else{
+	            	generatedByEdgeBuilder.setToUuid(uuidOfDestinationProcessVertex); 
+	            }
 	            generatedByEdgeBuilder.setType(EdgeType.EDGE_EVENT_ISGENERATEDBY_SUBJECT);
 	            generatedByEdgeBuilder.setTimestamp(timeLong);
 	            SimpleEdge generatedByEdge = generatedByEdgeBuilder.build();
