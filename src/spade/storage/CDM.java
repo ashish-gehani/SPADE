@@ -438,7 +438,7 @@ public class CDM extends Kafka {
     		return d.longValue();
     	}catch(Exception e){
     		logger.log(Level.WARNING,
-                    "Time type is not FLOAT: {0}", time);
+                    "Time type is not Double: {0}", time);
     		return defaultValue;
     	}
     }
