@@ -277,12 +277,16 @@ public class Audit extends AbstractReporter {
         			CommandUtility.getOutputOfCommand("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
         			logger.log(Level.INFO, "File sorted successfully");
         			inputAuditLogFile = sortedInputAuditLog;
+        			if(!new File(inputAuditLogFile).exists()){
+                		logger.log(Level.SEVERE, "Failed to write sorted file to '"+inputAuditLogFile+"'");
+                		return false;
+                	}
         		}catch(Exception e){
         			logger.log(Level.SEVERE, "Failed to sort input audit log file at '"+inputAuditLogFile+"'", e);
         			return false;
         		}
         	}
-        	
+        	        	
         	auditLogThread = new Thread(new Runnable(){
     			public void run(){
     				BatchReader inputLogReader = null;
