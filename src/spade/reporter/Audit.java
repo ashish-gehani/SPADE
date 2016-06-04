@@ -167,6 +167,10 @@ public class Audit extends AbstractReporter {
     
     private boolean SIMPLIFY = true;
     private boolean PROCFS = false;
+    
+    private boolean SORTLOG = true;
+    
+    private String inputAuditLogFile = null;
         
     @Override
     public boolean launch(String arguments) {
@@ -212,6 +216,10 @@ public class Audit extends AbstractReporter {
         	CREATE_BEEP_UNITS = true;
         }
         
+        if("false".equals(args.get("sortLog"))){
+        	SORTLOG = false;
+        }
+        
         // Arguments below are only for experimental use
         if("false".equals(args.get("simplify"))){
         	SIMPLIFY = false;
@@ -241,7 +249,7 @@ public class Audit extends AbstractReporter {
             logger.log(Level.WARNING, "Error reading boot time information from /proc/", e);
         }
         
-        final String inputAuditLogFile = args.get("inputLog");
+        inputAuditLogFile = args.get("inputLog");
         if(inputAuditLogFile != null){ //if a path is passed but it is not a valid file then throw an error
         	
         	if(!new File(inputAuditLogFile).exists()){
@@ -260,6 +268,19 @@ public class Audit extends AbstractReporter {
         	if(ARCH_32BIT == null){
         		logger.log(Level.SEVERE, "Must specify whether the system on which log was collected was 32 bit or 64 bit");
         		return false;
+        	}
+        	
+        	if(SORTLOG){
+        		try{
+        			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
+        			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"'");
+        			CommandUtility.getOutputOfCommand("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
+        			logger.log(Level.INFO, "File sorted successfully");
+        			inputAuditLogFile = sortedInputAuditLog;
+        		}catch(Exception e){
+        			logger.log(Level.SEVERE, "Failed to sort input audit log file at '"+inputAuditLogFile+"'", e);
+        			return false;
+        		}
         	}
         	
         	auditLogThread = new Thread(new Runnable(){
