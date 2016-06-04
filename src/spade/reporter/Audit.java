@@ -274,7 +274,8 @@ public class Audit extends AbstractReporter {
         		try{
         			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
         			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"'");
-        			CommandUtility.getOutputOfCommand("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
+        			List<String> output = CommandUtility.getOutputOfCommand("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
+        			logger.log(Level.INFO, output.toString());
         			logger.log(Level.INFO, "File sorted successfully");
         			inputAuditLogFile = sortedInputAuditLog;
         			if(!new File(inputAuditLogFile).exists()){
