@@ -433,9 +433,9 @@ public class CDM extends Kafka {
     
     private Long parseTimeToLong(String time, Long defaultValue){
     	try{
-    		Float f = Float.parseFloat(time);
-    		f = f * 1000;
-    		return f.longValue();
+    		Double d = Double.parseDouble(time);
+    		d = d * 1000;
+    		return d.longValue();
     	}catch(Exception e){
     		logger.log(Level.WARNING,
                     "Time type is not FLOAT: {0}", time);
