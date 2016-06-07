@@ -1133,6 +1133,8 @@ public class Audit extends AbstractReporter {
 			process = checkProcessVertex(eventData, true, false);
 		}
 		
+		putVertex(artifact);
+		
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation("time", time);
 		wgbEdge.addAnnotation("operation", getOperation(syscall)+"_write");

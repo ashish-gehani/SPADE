@@ -38,7 +38,7 @@ public class UnknownIdentity implements ArtifactIdentity{
 	}
 	
 	public String getStringFormattedValue(){
-		return "/pid/"+pid+"fd/"+fd;
+		return "/pid/"+pid+"/fd/"+fd;
 	}
 	
 	public String getSubtype(){
