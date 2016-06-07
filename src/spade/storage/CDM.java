@@ -432,15 +432,17 @@ public class CDM extends Kafka {
     }
     
     private Long parseTimeToLong(String time, Long defaultValue){
+    	//expected input time example: 12345678.678 (seconds.milliseconds)
     	try{
     		Double d = Double.parseDouble(time);
-    		d = d * 1000;
+    		d = d * 1000 * 1000; //converting millisecond time to microseconds
     		return d.longValue();
     	}catch(Exception e){
     		logger.log(Level.WARNING,
                     "Time type is not Double: {0}", time);
     		return defaultValue;
     	}
+    	//output time example: 12345678678000
     }
 
     private List<GenericContainer> mapProcess(AbstractVertex vertex) {
