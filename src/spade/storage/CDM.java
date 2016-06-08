@@ -146,7 +146,7 @@ public class CDM extends Kafka {
             Event.Builder eventBuilder = Event.newBuilder();
             eventBuilder.setUuid(getUuid(edge));
             String time = edge.getAnnotation("time");
-            Long timeLong = parseTimeToLong(time, 0L);
+            Long timeLong = convertTimeToMicroseconds(time, 0L);
             eventBuilder.setTimestampMicros(timeLong);
             Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), 0L); //the default event id value is decided to be 0
             eventBuilder.setSequence(eventId);
@@ -431,11 +431,11 @@ public class CDM extends Kafka {
         }
     }
     
-    private Long parseTimeToLong(String time, Long defaultValue){
+    private Long convertTimeToMicroseconds(String time, Long defaultValue){
     	//expected input time example: 12345678.678 (seconds.milliseconds)
     	try{
     		Double d = Double.parseDouble(time);
-    		d = d * 1000 * 1000; //converting millisecond time to microseconds
+    		d = d * 1000 * 1000; //converting seconds to microseconds
     		return d.longValue();
     	}catch(Exception e){
     		logger.log(Level.WARNING,
@@ -463,7 +463,7 @@ public class CDM extends Kafka {
         
         putProcessSubjectUUID(vertex.getAnnotation("pid"), getUuid(vertex));
         
-        Long time = parseTimeToLong(vertex.getAnnotation("start time"), null);
+        Long time = convertTimeToMicroseconds(vertex.getAnnotation("start time"), null);
         if(time != null){
         	subjectBuilder.setStartTimestampMicros(time);
         }
@@ -500,7 +500,7 @@ public class CDM extends Kafka {
         	simpleEdgeBuilder.setFromUuid(getUuid(vertex));
         	simpleEdgeBuilder.setToUuid(getUuid(principalVertex));
         	simpleEdgeBuilder.setType(EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL);
-        	Long startTime = parseTimeToLong(vertex.getAnnotation("start time"), 0L);
+        	Long startTime = convertTimeToMicroseconds(vertex.getAnnotation("start time"), 0L);
         	simpleEdgeBuilder.setTimestamp(startTime);
         	SimpleEdge simpleEdge = simpleEdgeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build()); //added edge
