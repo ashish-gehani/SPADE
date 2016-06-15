@@ -38,6 +38,7 @@ import spade.storage.kafka.DataWriter;
 import spade.storage.kafka.Edge;
 import spade.storage.kafka.FileWriter;
 import spade.storage.kafka.GraphElement;
+import spade.storage.kafka.JsonFileWriter;
 import spade.storage.kafka.ServerWriter;
 import spade.storage.kafka.Vertex;
 import spade.utility.CommonFunctions;
@@ -185,7 +186,11 @@ public class Kafka extends AbstractStorage{
 	
 	public static DataWriter getDataWriter(Properties properties) throws Exception{
 		if(properties.get(Kafka.OUTPUT_FILE_KEY) != null){
-			return new FileWriter(properties.getProperty(Kafka.SCHEMA_FILE_KEY), properties.getProperty(Kafka.OUTPUT_FILE_KEY));
+			if(String.valueOf(properties.get(Kafka.OUTPUT_FILE_KEY)).endsWith(".json")){
+				return new JsonFileWriter(properties.getProperty(Kafka.SCHEMA_FILE_KEY), properties.getProperty(Kafka.OUTPUT_FILE_KEY));
+			}else{
+				return new FileWriter(properties.getProperty(Kafka.SCHEMA_FILE_KEY), properties.getProperty(Kafka.OUTPUT_FILE_KEY));
+			}
 		}else if(properties.getProperty(Kafka.SERVER_KEY) != null){
 			return new ServerWriter(properties);
 		}
