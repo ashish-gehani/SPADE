@@ -136,7 +136,8 @@ public class Audit extends AbstractReporter {
 
     // Group 1: item number
     // Group 2: name
-    private static final Pattern pattern_path = Pattern.compile("item=([0-9]*)\\s*name=\"*((?<=\")[^\"]*(?=\"))\"*");
+    // Group 3: nametype
+    private static final Pattern pattern_path = Pattern.compile("item=([0-9]*)\\s*name=\"*((?<=\")[^\"]*(?=\"))\"*.*nametype=([a-zA-Z]*)");
     
     //  Added to indicate in the output from where the process info was read. Either from 
     //  1) procfs or directly from 2) audit log. 
@@ -153,7 +154,7 @@ public class Audit extends AbstractReporter {
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
         ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-        SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT
+        SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT, CREATE
     }
     
     private BufferedWriter dumpWriter = null;
@@ -590,7 +591,9 @@ public class Audit extends AbstractReporter {
                 if (path_matcher.find()) {
                     String item = path_matcher.group(1);
                     String name = path_matcher.group(2);
+                    String nametype = path_matcher.group(3);
                     eventBuffer.get(eventId).put("path" + item, name);
+                    eventBuffer.get(eventId).put("nametype" + item, nametype);
                 }
             } else if (type.equals("EXECVE")) {
                 Matcher key_value_matcher = pattern_key_value.matcher(messageData);
@@ -1484,6 +1487,8 @@ public class Audit extends AbstractReporter {
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
         String path = eventData.get("path1") == null ? eventData.get("path0") : eventData.get("path1"); 
+        String nametype = eventData.get("nametype1") == null ? eventData.get("nametype0") : eventData.get("nametype1"); 
+        boolean isCreate = "CREATE".equalsIgnoreCase(nametype);
         String fd = eventData.get("exit");
         String time = eventData.get("time");
         String flags = eventData.get("a1");
@@ -1508,20 +1513,36 @@ public class Audit extends AbstractReporter {
         
         //always handling open for files now irrespective of the fileIO flag being true or false.
         
-        if (flags.charAt(flags.length() - 1) == '0') {
-        	boolean put = artifactIdentityToArtifactProperties.get(fileInfo).getFileVersion() == -1;
-            Artifact vertex = createArtifact(fileInfo, false, null);
-            if (put) {
-                putVertex(vertex);
-            }
-            edge = new Used(getProcess(pid), vertex);
-        } else {
-            Artifact vertex = createArtifact(fileInfo, true, null);
+        String operation = null;
+        
+        if(isCreate){
+        	
+        	Artifact vertex = createArtifact(fileInfo, true, null);
             putVertex(vertex);
-            putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
             edge = new WasGeneratedBy(vertex, getProcess(pid));
+        	
+            operation = getOperation(SYSCALL.CREATE);
+            
+        }else{
+        
+	        if (flags.charAt(flags.length() - 1) == '0') {
+	        	boolean put = artifactIdentityToArtifactProperties.get(fileInfo).getFileVersion() == -1;
+	            Artifact vertex = createArtifact(fileInfo, false, null);
+	            if (put) {
+	                putVertex(vertex);
+	            }
+	            edge = new Used(getProcess(pid), vertex);
+	        } else {
+	            Artifact vertex = createArtifact(fileInfo, true, null);
+	            putVertex(vertex);
+	            putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
+	            edge = new WasGeneratedBy(vertex, getProcess(pid));
+	        }
+	        
+	        operation = getOperation(SYSCALL.OPEN);
+	        
         }
-        edge.addAnnotation("operation", getOperation(SYSCALL.OPEN));
+        edge.addAnnotation("operation", operation);
         edge.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
         putEdge(edge);
@@ -2087,6 +2108,9 @@ public class Audit extends AbstractReporter {
     	SYSCALL returnSyscall = syscall;
     	if(SIMPLIFY){
     		switch (syscall) {
+    			case CREATE:
+	    			returnSyscall = SYSCALL.CREATE;
+	    			break;
     			case MMAP:
     			case MMAP2:
     				returnSyscall = SYSCALL.MMAP;

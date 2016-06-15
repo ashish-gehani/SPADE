@@ -200,6 +200,9 @@ public class CDM extends Kafka {
                 } else if (operation.equals("open")){
                 	eventBuilder.setType(EventType.EVENT_OPEN);
                 	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'open' only for files
+                } else if(operation.equals("create")){
+                	eventBuilder.setType(EventType.EVENT_CREATE_OBJECT); 
+                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'create' only for files
                 } else if (operation.equals("write")) {
                 	eventBuilder.setType(EventType.EVENT_WRITE);
                     String size = edge.getAnnotation("size");
