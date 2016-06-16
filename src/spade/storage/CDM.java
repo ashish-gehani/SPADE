@@ -216,9 +216,16 @@ public class CDM extends Kafka {
                 		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
                 		return false;
                 	}
-                } else if (operation.equals("send") || operation.equals("sendto")) {
-                    // XXX CDM currently doesn't support send/sendto even type, so mapping to write.
-                    eventBuilder.setType(EventType.EVENT_WRITE);
+                } else if (operation.equals("send") || operation.equals("sendto") || operation.equals("sendmsg")) {
+                	EventType eventType = null;
+                	if(operation.equals("sendmsg")){
+                		eventType = EventType.EVENT_SENDMSG;
+                	}else if(operation.equals("sendto")){
+                		eventType = EventType.EVENT_SENDTO;
+                	}else{
+                		eventType = EventType.EVENT_SENDMSG;
+                	}
+                    eventBuilder.setType(eventType);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
@@ -290,8 +297,16 @@ public class CDM extends Kafka {
                 		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
                 		return false;
                 	}
-                } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
-                    eventBuilder.setType(EventType.EVENT_READ);
+                } else if (operation.equals("recv") || operation.equals("recvfrom") || operation.equals("recvmsg")) {
+                	EventType eventType = null;
+                	if(operation.equals("recvmsg")){
+                		eventType = EventType.EVENT_RECVMSG;
+                	}else if(operation.equals("recvfrom")){
+                		eventType = EventType.EVENT_RECVFROM;
+                	}else{
+                		eventType = EventType.EVENT_RECVMSG;
+                	}
+                    eventBuilder.setType(eventType);
                     String size = edge.getAnnotation("size");
                     if (size != null) {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
