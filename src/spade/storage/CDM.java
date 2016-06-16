@@ -327,8 +327,16 @@ public class CDM extends Kafka {
                 	eventBuilder.setType(EventType.EVENT_MMAP);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
                 } else if (operation.equals("update")) {   
-                	eventBuilder.setType(EventType.EVENT_UPDATE);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                	
+                	SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
+                    affectsEdgeBuilder.setFromUuid(getUuid(edge.getSourceVertex()));  
+                    affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex())); 
+                    affectsEdgeBuilder.setType(EdgeType.EDGE_OBJECT_PREV_VERSION);
+                    affectsEdgeBuilder.setTimestamp(timeLong);
+                    SimpleEdge affectsEdge = affectsEdgeBuilder.build();
+                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
+                    return true; //no need to create an event for this so returning from here after adding the edge
+                    
                 } else if (operation.equals("rename")) {
                     eventBuilder.setType(EventType.EVENT_RENAME);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
