@@ -14,7 +14,7 @@
         "type" : [ "int", {
           "type" : "fixed",
           "name" : "UUID",
-          "size" : 32
+          "size" : 16
         }, {
           "type" : "enum",
           "name" : "TagOpCode",
@@ -156,8 +156,8 @@
         "type" : {
           "type" : "enum",
           "name" : "EventType",
-          "doc" : "* These event types correspond to the common system calls. Note that we added blind, unit, and update events\n     *   EVENT_ACCEPT                     accept a connection on an object\n     *   EVENT_BIND                       bind to a network endpoint object\n     *   EVENT_CHANGE_PRINCIPAL           change the principal associated with the process\n     *   EVENT_CHECK_FILE_ATTRIBUTES      check the file attributes such as permissions\n     *   EVENT_CLONE                      clone a subject\n     *   EVENT_CLOSE                      close an object\n     *   EVENT_CONNECT                    connect to an object\n     *   EVENT_CREATE_OBJECT              create an object\n     *   EVENT_CREATE_THREAD              create a thread subject\n     *   EVENT_EXECUTE                    execute an object\n     *   EVENT_FORK                       fork a process subject\n     *   EVENT_LINK                       link an object to a new name\n     *   EVENT_UNLINK                     unlink a name from an object\n     *   EVENT_MMAP                       memory map an object\n     *   EVENT_MODIFY_FILE_ATTRIBUTES     modify the attributes of a file object\n     *   EVENT_MPROTECT                   change permissions of a memory object\n     *   EVENT_OPEN                       open an object\n     *   EVENT_READ                       read from an object (file or socket)\n     *   EVENT_RECVFROM                   receive message from a socket\n     *   EVENT_RECVMSG                    receive message from a socket\n     *   EVENT_RENAME                     rename an object\n     *   EVENT_WRITE                      write to an object (file or socket)\n     *   EVENT_SIGNAL                     signal another subject\n     *   EVENT_TRUNCATE                   truncate an object\n     *   EVENT_WAIT                       wait on another subject\n     *   EVENT_KERNEL_UNKNOWN             some kernel event\n     *   EVENT_OS_UNKNOWN                 some OS layer event\n     *   EVENT_APP_UNKNOWN                some application layer event\n     *   EVENT_UI_UNKNOWN                 some UI layer event\n     *   EVENT_UNKNOWN                    some event (we don't know what layer)\n     *   EVENT_BLIND                      blind event for a black boxes that are not instrumented\n     *   EVENT_UNIT                       create a BEEP unit\n     *   EVENT_UPDATE                     update an object",
-          "symbols" : [ "EVENT_ACCEPT", "EVENT_BIND", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_EXECUTE", "EVENT_FORK", "EVENT_LINK", "EVENT_UNLINK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_READ", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_WRITE", "EVENT_SIGNAL", "EVENT_TRUNCATE", "EVENT_WAIT", "EVENT_OS_UNKNOWN", "EVENT_KERNEL_UNKNOWN", "EVENT_APP_UNKNOWN", "EVENT_UI_UNKNOWN", "EVENT_UNKNOWN", "EVENT_BLIND", "EVENT_UNIT", "EVENT_UPDATE" ]
+          "doc" : "* These event types correspond to the common system calls. Note that we added blind, unit, and update events\n     *   EVENT_ACCEPT                     accept a connection on an object\n     *   EVENT_BIND                       bind to a network endpoint object\n     *   EVENT_CHANGE_PRINCIPAL           change the principal associated with the process\n     *   EVENT_CHECK_FILE_ATTRIBUTES      check the file attributes such as permissions\n     *   EVENT_CLONE                      clone a subject\n     *   EVENT_CLOSE                      close an object\n     *   EVENT_CONNECT                    connect to an object\n     *   EVENT_CREATE_OBJECT              create an object\n     *   EVENT_CREATE_THREAD              create a thread subject\n     *   EVENT_EXECUTE                    execute an object\n     *   EVENT_FORK                       fork a process subject\n     *   EVENT_LINK                       link an object to a new name\n     *   EVENT_UNLINK                     unlink a name from an object\n     *   EVENT_MMAP                       memory map an object\n     *   EVENT_MODIFY_FILE_ATTRIBUTES     modify the attributes of a file object\n     *   EVENT_MPROTECT                   change permissions of a memory object\n     *   EVENT_OPEN                       open an object\n     *   EVENT_READ                       read from an object (file or socket)\n     *   EVENT_RECVFROM                   receive message from a socket\n     *   EVENT_RECVMSG                    receive message from a socket\n     *   EVENT_RENAME                     rename an object\n     *   EVENT_WRITE                      write to an object (file or socket)\n     *   EVENT_SIGNAL                     signal another subject\n     *   EVENT_TRUNCATE                   truncate an object\n     *   EVENT_WAIT                       wait on another subject\n     *   EVENT_KERNEL_UNKNOWN             some kernel event\n     *   EVENT_OS_UNKNOWN                 some OS layer event\n     *   EVENT_APP_UNKNOWN                some application layer event\n     *   EVENT_UI_UNKNOWN                 some UI layer event\n     *   EVENT_UNKNOWN                    some event (we don't know what layer)\n     *   EVENT_BLIND                      blind event for a black boxes that are not instrumented\n     *   EVENT_UNIT                       create a BEEP unit\n     *   EVENT_UPDATE                     update an object\n     *   EVENT_SENDTO                     send through socket\n     *   EVENT_SENDMSG                    send message through socket\n     *   EVENT_SHM                        share memory between processes\n     *   EVENT_EXIT                       process exit",
+          "symbols" : [ "EVENT_ACCEPT", "EVENT_BIND", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_EXECUTE", "EVENT_FORK", "EVENT_LINK", "EVENT_UNLINK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_READ", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_WRITE", "EVENT_SIGNAL", "EVENT_TRUNCATE", "EVENT_WAIT", "EVENT_OS_UNKNOWN", "EVENT_KERNEL_UNKNOWN", "EVENT_APP_UNKNOWN", "EVENT_UI_UNKNOWN", "EVENT_UNKNOWN", "EVENT_BLIND", "EVENT_UNIT", "EVENT_UPDATE", "EVENT_SENDTO", "EVENT_SENDMSG", "EVENT_SHM", "EVENT_EXIT" ]
         },
         "doc" : "The type of the event"
       }, {
@@ -214,6 +214,11 @@
               "type" : "boolean",
               "doc" : "Whether this value is null, needed to indicate null objects (default: false)",
               "default" : false
+            }, {
+              "name" : "name",
+              "type" : [ "null", "string" ],
+              "doc" : "the name of the Value, string. (Optional)",
+              "default" : null
             }, {
               "name" : "runtimeDataType",
               "type" : [ "null", "string" ],
@@ -328,6 +333,11 @@
         "name" : "destPort",
         "type" : "int",
         "doc" : "The network port on the destination host for this flow"
+      }, {
+        "name" : "ipProtocol",
+        "type" : [ "null", "int" ],
+        "doc" : "The IP protocol number e.g., TCP=6",
+        "default" : null
       } ]
     }, {
       "type" : "record",
@@ -425,13 +435,13 @@
         "default" : "PRINCIPAL_LOCAL"
       }, {
         "name" : "userId",
-        "type" : "int",
-        "doc" : "The operating system id associated with the user"
+        "type" : "string",
+        "doc" : "The operating system identifier associated with the user"
       }, {
         "name" : "groupIds",
         "type" : {
           "type" : "array",
-          "items" : "int"
+          "items" : "string"
         },
         "doc" : "The ids of the groups which this user is part of"
       }, {
@@ -460,6 +470,11 @@
         "type" : "ProvenanceTagNode",
         "doc" : "The provenance tag"
       }, {
+        "name" : "timestampMicros",
+        "type" : [ "null", "long" ],
+        "doc" : "* The timestamp when the tag was created (Optional).\n        * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.",
+        "default" : null
+      }, {
         "name" : "properties",
         "type" : [ "null", {
           "type" : "map",
@@ -485,8 +500,8 @@
         "type" : {
           "type" : "enum",
           "name" : "EdgeType",
-          "doc" : "* The different types of simple edges in the CDM\n     *   EDGE_EVENT_AFFECTS_MEMORY          an event affects a memory object (such as updating a memory location)\n     *   EDGE_EVENT_AFFECTS_FILE            an event affects a file object (such as writing to a file)\n     *   EDGE_EVENT_AFFECTS_NETFLOW         an event affects a netflow object (such as writing to socket)\n     *   EDGE_EVENT_AFFECTS_SUBJECT         an event affects a subject (such as forking a process)\n     *   EDGE_EVENT_AFFECTS_SRCSINK         an event affects a generic src/sink object\n     *   EDGE_EVENT_HASPARENT_EVENT         a metaevent that represents a set of child atomic events\n     *   EDGE_EVENT_CAUSES_EVENT            an event caused/triggered another event\n     *   EDGE_EVENT_ISGENERATEDBY_SUBJECT   an event is generated by a subject (every event is)\n     *   EDGE_SUBJECT_AFFECTS_EVENT         a subject affects an event (such as when killing a process)\n     *   EDGE_SUBJECT_HASPARENT_SUBJECT     a subject has a parent subject (such as thread has parent process)\n     *   EDGE_SUBJECT_HASPRINCIPAL          a subject has a principal (such as a process owned by a user)\n     *   EDGE_SUBJECT_RUNSON                a subject runs on a host (TODO: host not yet modeled)\n     *   EDGE_FILE_AFFECTS_EVENT            an event reads from a file\n     *   EDGE_NETFLOW_AFFECTS_EVENT         an event reads from a network flow\n     *   EDGE_MEMORY_AFFECTS_EVENT          an event reads from a memory object\n     *   EDGE_SRCSINK_AFFECTS_EVENT         a generic source/sink object affects an event\n     *   EDGE_OBJECT_PREV_VERSION           the previous version of an object, typically used for file versioning\n     *   EDGE_FILE_HAS_TAG                  attach a tag to a file object\n     *   EDGE_NETFLOW_HAS_TAG               attach a tag to a netflow object\n     *   EDGE_MEMORY_HAS_TAG                attach a tag to a memory object\n     *   EDGE_SRCSINK_HAS_TAG               attach a tag to a srcsink object\n     *   EDGE_SUBJECT_HAS_TAG               attach a tag to a subject\n     *   EDGE_EVENT_HAS_TAG                 attach a tag to an event\n     *",
-          "symbols" : [ "EDGE_EVENT_AFFECTS_MEMORY", "EDGE_EVENT_AFFECTS_FILE", "EDGE_EVENT_AFFECTS_NETFLOW", "EDGE_EVENT_AFFECTS_SUBJECT", "EDGE_EVENT_AFFECTS_SRCSINK", "EDGE_EVENT_HASPARENT_EVENT", "EDGE_EVENT_CAUSES_EVENT", "EDGE_EVENT_ISGENERATEDBY_SUBJECT", "EDGE_SUBJECT_AFFECTS_EVENT", "EDGE_SUBJECT_HASPARENT_SUBJECT", "EDGE_SUBJECT_HASLOCALPRINCIPAL", "EDGE_SUBJECT_RUNSON", "EDGE_FILE_AFFECTS_EVENT", "EDGE_NETFLOW_AFFECTS_EVENT", "EDGE_MEMORY_AFFECTS_EVENT", "EDGE_SRCSINK_AFFECTS_EVENT", "EDGE_OBJECT_PREV_VERSION", "EDGE_FILE_HAS_TAG", "EDGE_NETFLOW_HAS_TAG", "EDGE_MEMORY_HAS_TAG", "EDGE_SRCSINK_HAS_TAG", "EDGE_SUBJECT_HAS_TAG", "EDGE_EVENT_HAS_TAG" ]
+          "doc" : "* The different types of simple edges in the CDM\n     *   EDGE_EVENT_AFFECTS_MEMORY          an event affects a memory object (such as updating a memory location)\n     *   EDGE_EVENT_AFFECTS_FILE            an event affects a file object (such as writing to a file)\n     *   EDGE_EVENT_AFFECTS_REGISTRYKEY     an event affects a registry value (such as writing to a registry key)\n     *   EDGE_EVENT_AFFECTS_NETFLOW         an event affects a netflow object (such as writing to socket)\n     *   EDGE_EVENT_AFFECTS_SUBJECT         an event affects a subject (such as forking a process)\n     *   EDGE_EVENT_AFFECTS_SRCSINK         an event affects a generic src/sink object\n     *   EDGE_EVENT_HASPARENT_EVENT         a metaevent that represents a set of child atomic events\n     *   EDGE_EVENT_CAUSES_EVENT            an event caused/triggered another event\n     *   EDGE_EVENT_ISGENERATEDBY_SUBJECT   an event is generated by a subject (every event is)\n     *   EDGE_SUBJECT_AFFECTS_EVENT         a subject affects an event (such as when killing a process)\n     *   EDGE_SUBJECT_HASPARENT_SUBJECT     a subject has a parent subject (such as thread has parent process)\n     *   EDGE_SUBJECT_HASPRINCIPAL          a subject has a principal (such as a process owned by a user)\n     *   EDGE_SUBJECT_RUNSON                a subject runs on a host (TODO: host not yet modeled)\n     *   EDGE_FILE_AFFECTS_EVENT            an event reads from a file\n     *   EDGE_REGISTRYKEY_AFFECTS_EVENT     an event reads values from a registry key\n     *   EDGE_NETFLOW_AFFECTS_EVENT         an event reads from a network flow\n     *   EDGE_MEMORY_AFFECTS_EVENT          an event reads from a memory object\n     *   EDGE_SRCSINK_AFFECTS_EVENT         a generic source/sink object affects an event\n     *   EDGE_OBJECT_PREV_VERSION           the previous version of an object, typically used for file versioning\n     *   EDGE_FILE_HAS_TAG                  attach a tag to a file object\n     *   EDGE_REGISTRYKEY_HAS_TAG           attach a tag to a registrykey object\n     *   EDGE_NETFLOW_HAS_TAG               attach a tag to a netflow object\n     *   EDGE_MEMORY_HAS_TAG                attach a tag to a memory object\n     *   EDGE_SRCSINK_HAS_TAG               attach a tag to a srcsink object\n     *   EDGE_SUBJECT_HAS_TAG               attach a tag to a subject\n     *   EDGE_EVENT_HAS_TAG                 attach a tag to an event\n     *",
+          "symbols" : [ "EDGE_EVENT_AFFECTS_MEMORY", "EDGE_EVENT_AFFECTS_FILE", "EDGE_EVENT_AFFECTS_NETFLOW", "EDGE_EVENT_AFFECTS_SUBJECT", "EDGE_EVENT_AFFECTS_SRCSINK", "EDGE_EVENT_HASPARENT_EVENT", "EDGE_EVENT_CAUSES_EVENT", "EDGE_EVENT_ISGENERATEDBY_SUBJECT", "EDGE_SUBJECT_AFFECTS_EVENT", "EDGE_SUBJECT_HASPARENT_SUBJECT", "EDGE_SUBJECT_HASLOCALPRINCIPAL", "EDGE_SUBJECT_RUNSON", "EDGE_FILE_AFFECTS_EVENT", "EDGE_NETFLOW_AFFECTS_EVENT", "EDGE_MEMORY_AFFECTS_EVENT", "EDGE_SRCSINK_AFFECTS_EVENT", "EDGE_OBJECT_PREV_VERSION", "EDGE_FILE_HAS_TAG", "EDGE_NETFLOW_HAS_TAG", "EDGE_MEMORY_HAS_TAG", "EDGE_SRCSINK_HAS_TAG", "EDGE_SUBJECT_HAS_TAG", "EDGE_EVENT_HAS_TAG", "EDGE_EVENT_AFFECTS_REGISTRYKEY", "EDGE_REGISTRYKEY_AFFECTS_EVENT", "EDGE_REGISTRYKEY_HAS_TAG" ]
         },
         "doc" : "The type of the edge, see EdgeType"
       }, {
@@ -502,10 +517,37 @@
         "doc" : "Arbitrary key, value pairs describing the edge",
         "default" : null
       } ]
+    }, {
+      "type" : "record",
+      "name" : "RegistryKeyObject",
+      "doc" : "* Represents a registry key. Instantiates an AbstractObject.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "Universally unique identifier for the object"
+      }, {
+        "name" : "baseObject",
+        "type" : "AbstractObject",
+        "doc" : "The base object attributes"
+      }, {
+        "name" : "key",
+        "type" : "string",
+        "doc" : "The registry key/path"
+      }, {
+        "name" : "version",
+        "type" : "int",
+        "doc" : "The version incremented every time the entry changes",
+        "default" : 1
+      }, {
+        "name" : "size",
+        "type" : [ "null", "long" ],
+        "doc" : "The entry size in bytes (Optional)",
+        "default" : null
+      } ]
     } ]
   }, {
     "name" : "CDMVersion",
     "type" : "string",
-    "default" : "12"
+    "default" : "13"
   } ]
 }
