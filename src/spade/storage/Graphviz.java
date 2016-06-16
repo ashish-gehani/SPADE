@@ -93,13 +93,13 @@ public class Graphviz extends AbstractStorage {
             String shape = "box";
             String color = "white";
             String type = incomingVertex.getAnnotation("type");
-            if (type.equalsIgnoreCase("Agent")) {
+            if (type.equalsIgnoreCase("Agent") || type.equalsIgnoreCase("Principal")) {
                 shape = "octagon";
                 color = "rosybrown1";
-            } else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity")) {
+            } else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity") || type.equalsIgnoreCase("Subject")) {
                 shape = "box";
                 color = "lightsteelblue1";
-            } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity")) {
+            } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity") || type.equalsIgnoreCase("Object")) {
                 shape = "ellipse";
                 color = "khaki1";
                 try {
@@ -111,6 +111,9 @@ public class Graphviz extends AbstractStorage {
                 } catch (Exception exception) {
                     // Ignore
                 }
+            } else if(type.equalsIgnoreCase("Event")){
+            	shape = "doublecircle";
+            	color = "red";
             }
 
             String key = Hex.encodeHexString(incomingVertex.bigHashCode());
@@ -150,6 +153,8 @@ public class Graphviz extends AbstractStorage {
                 color = "purple";
             } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
                 color = "orange";
+            } else if(type.equalsIgnoreCase("SimpleEdge")){
+            	color = "black";
             }
 
             String style = "solid";
