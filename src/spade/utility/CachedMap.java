@@ -74,6 +74,18 @@ public class CachedMap<K, V extends Serializable>{
 	public int size() {
 		return lruCache.size();
 	}
+	
+	private void evictLeastRecentlyUsed(){
+		if(size() >= getCacheMaxSize()){ //evict tail from cache if cache full. update the evicted in the database TODO
+			lruCache.remove(tail.previous.key);
+			Node<K, V> node = Node.removeNode(tail.previous);
+			try{
+				cacheStore.put(keyHasher.getHash(node.key), node.value); //update in db before pushing it out of memory
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to update cache element in cachestore", e);
+			}
+		}
+	}
 
 	public V get(Object key) {
 		try{
@@ -90,10 +102,7 @@ public class CachedMap<K, V extends Serializable>{
 						return null; //was false positive
 					}else{ //if in DB
 						
-						if(size() >= getCacheMaxSize()){ //evict tail from cache if cache full
-							lruCache.remove(tail.previous.key);
-							Node.removeNode(tail.previous);
-						}
+						evictLeastRecentlyUsed(); //if need be
 						
 						Node<K, V> node = new Node<>(k, value);
 						Node.makeNodeHead(node, head); //make this node the head
@@ -117,10 +126,9 @@ public class CachedMap<K, V extends Serializable>{
 			Node<K, V> node = lruCache.get(key);
 			String hash = keyHasher.getHash((K)key);
 			if(node == null){ //if not in cache
-				if(size() >= getCacheMaxSize()){ //going to put in cache so evict the lru if cache full
-					lruCache.remove(tail.previous.key);
-					Node.removeNode(tail.previous);
-				}
+				
+				evictLeastRecentlyUsed(); //if need be
+				
 				node = new Node<K, V>(key, value); //create the node
 				lruCache.put(key, node); //put in cache
 				cacheStore.put(hash, value); //put in db

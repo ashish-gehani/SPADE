@@ -20,7 +20,9 @@
 
 package spade.reporter.audit;
 
-public class ArtifactProperties{
+import java.io.Serializable;
+
+public class ArtifactProperties implements Serializable{
 	
 	//used for every artifact except sockets
 	private long nonSocketVersion = -1;
@@ -133,6 +135,40 @@ public class ArtifactProperties{
 
 	public void setBytesReadFromSocket(long bytesReadFromSocket) {
 		this.bytesReadFromSocket = bytesReadFromSocket;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (int) (bytesReadFromSocket ^ (bytesReadFromSocket >>> 32));
+		result = prime * result + (int) (bytesWrittenToSocket ^ (bytesWrittenToSocket >>> 32));
+		result = prime * result + (int) (nonSocketVersion ^ (nonSocketVersion >>> 32));
+		result = prime * result + (int) (socketReadVersion ^ (socketReadVersion >>> 32));
+		result = prime * result + (int) (socketWriteVersion ^ (socketWriteVersion >>> 32));
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ArtifactProperties other = (ArtifactProperties) obj;
+		if (bytesReadFromSocket != other.bytesReadFromSocket)
+			return false;
+		if (bytesWrittenToSocket != other.bytesWrittenToSocket)
+			return false;
+		if (nonSocketVersion != other.nonSocketVersion)
+			return false;
+		if (socketReadVersion != other.socketReadVersion)
+			return false;
+		if (socketWriteVersion != other.socketWriteVersion)
+			return false;
+		return true;
 	}	
 	
 }

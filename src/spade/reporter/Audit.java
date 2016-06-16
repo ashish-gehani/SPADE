@@ -55,6 +55,8 @@ import spade.reporter.audit.PipeIdentity;
 import spade.reporter.audit.SocketIdentity;
 import spade.reporter.audit.UnixSocketIdentity;
 import spade.reporter.audit.UnknownIdentity;
+import spade.utility.BerkeleyDB;
+import spade.utility.CachedMap;
 import spade.utility.CommandUtility;
 import spade.utility.CommonFunctions;
 import spade.vertex.opm.Artifact;
@@ -101,20 +103,7 @@ public class Audit extends AbstractReporter {
     // Event buffer map based on <audit_record_id <key, value>> pairs
     private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
     // Map for artifact infos to versions and bytes read/written on sockets   
-    private Map<ArtifactIdentity, ArtifactProperties> artifactIdentityToArtifactProperties = new HashMap<ArtifactIdentity, ArtifactProperties>(){
-    	
-		private static final long serialVersionUID = 740383626203774628L;
-
-		public ArtifactProperties get(Object key){
-    		if(!(key instanceof ArtifactIdentity)){
-    			return null;
-    		}
-    		if(super.get(key) == null){
-    			super.put((ArtifactIdentity)key, new ArtifactProperties());
-    		}
-    		return super.get(key);
-    	}
-    };
+    private CachedMap<ArtifactIdentity, ArtifactProperties> artifactIdentityToArtifactProperties = new CachedMap<ArtifactIdentity, ArtifactProperties>(100000, new BerkeleyDB<>("/tmp", "ArtifactPropertiesDB"), 0.0001, 1000000);
     
     private Thread eventProcessorThread = null;
     private String auditRules;
@@ -1272,7 +1261,7 @@ public class Audit extends AbstractReporter {
         if(memoryInfo.getProtection() != null){
         	artifact.addAnnotation("protection", memoryInfo.getProtection());
         }
-        ArtifactProperties artifactProperties = artifactIdentityToArtifactProperties.get(artifactInfo);
+        ArtifactProperties artifactProperties = getArtifactProperties(artifactInfo);
         long version = artifactProperties.getMemoryVersion(update);
         artifact.addAnnotation("version", Long.toString(version));
         return artifact;
@@ -1289,11 +1278,11 @@ public class Audit extends AbstractReporter {
         if(isRead == null){
         	return null; 
         }else if(isRead){
-        	version = artifactIdentityToArtifactProperties.get(artifactInfo).getSocketReadVersion();
+        	version = getArtifactProperties(artifactInfo).getSocketReadVersion();
         	hostAnnotation = "source host";
 			portAnnotation = "source port";
         }else if(!isRead){
-        	version = artifactIdentityToArtifactProperties.get(artifactInfo).getSocketWriteVersion();
+        	version = getArtifactProperties(artifactInfo).getSocketWriteVersion();
         	hostAnnotation = "destination host";
 			portAnnotation = "destination port";
         }
@@ -1340,10 +1329,19 @@ public class Audit extends AbstractReporter {
         if(update && artifactInfo.getStringFormattedValue().startsWith("/dev/")){
         	update = false;
         }
-        ArtifactProperties artifactProperties = artifactIdentityToArtifactProperties.get(artifactInfo);
+        ArtifactProperties artifactProperties = getArtifactProperties(artifactInfo);
         long version = artifactProperties.getFileVersion(update);
         artifact.addAnnotation("version", Long.toString(version));
         return artifact;
+    }
+    
+    private ArtifactProperties getArtifactProperties(ArtifactIdentity artifactInfo){
+    	ArtifactProperties artifactProperties = artifactIdentityToArtifactProperties.get(artifactInfo);
+    	if(artifactProperties == null){
+    		artifactProperties = new ArtifactProperties();
+    	}
+    	artifactIdentityToArtifactProperties.put(artifactInfo, artifactProperties);
+    	return artifactProperties;
     }
     
     //true is read, false is write, null is neither read nor write
@@ -1527,7 +1525,7 @@ public class Audit extends AbstractReporter {
         }else{
         
 	        if (flags.charAt(flags.length() - 1) == '0') {
-	        	boolean put = artifactIdentityToArtifactProperties.get(fileInfo).getFileVersion() == -1;
+	        	boolean put = getArtifactProperties(fileInfo).getFileVersion() == -1;
 	            Artifact vertex = createArtifact(fileInfo, false, null);
 	            if (put) {
 	                putVertex(vertex);
@@ -1578,7 +1576,7 @@ public class Audit extends AbstractReporter {
         }
         
         ArtifactIdentity fileInfo = descriptors.getDescriptor(pid, fd);
-        boolean put = artifactIdentityToArtifactProperties.get(fileInfo).getFileVersion() == -1;
+        boolean put = getArtifactProperties(fileInfo).getFileVersion() == -1;
         Artifact vertex = createArtifact(fileInfo, false, null);
         if (put) {
             putVertex(vertex);
@@ -1710,7 +1708,7 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
         ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
 
-        boolean put = artifactIdentityToArtifactProperties.get(srcFileInfo).getFileVersion() == -1;
+        boolean put = getArtifactProperties(srcFileInfo).getFileVersion() == -1;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -1761,7 +1759,7 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
         ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
 
-        boolean put = artifactIdentityToArtifactProperties.get(srcFileInfo).getFileVersion() == -1;
+        boolean put = getArtifactProperties(srcFileInfo).getFileVersion() == -1;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -1994,16 +1992,16 @@ public class Audit extends AbstractReporter {
         
         long bytesRemaining = Long.parseLong(bytesSent);
         while(bytesRemaining > 0){
-        	long currSize = artifactIdentityToArtifactProperties.get(artifactInfo).getBytesWrittenToSocket();
+        	long currSize = getArtifactProperties(artifactInfo).getBytesWrittenToSocket();
         	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
         	if(leftTillNext > bytesRemaining){
         		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid, eventData.get("eventid"));
-        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesWrittenToSocket(currSize + bytesRemaining);
+        		getArtifactProperties(artifactInfo).setBytesWrittenToSocket(currSize + bytesRemaining);
         		bytesRemaining = 0;
         	}else{ //greater or equal
         		putSocketSendEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
-        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesWrittenToSocket(0);
-        		artifactIdentityToArtifactProperties.get(artifactInfo).getSocketWriteVersion(true); //incrementing version
+        		getArtifactProperties(artifactInfo).setBytesWrittenToSocket(0);
+        		getArtifactProperties(artifactInfo).getSocketWriteVersion(true); //incrementing version
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
@@ -2040,16 +2038,16 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);        
         long bytesRemaining = Long.parseLong(bytesReceived);
         while(bytesRemaining > 0){
-        	long currSize = artifactIdentityToArtifactProperties.get(artifactInfo).getBytesReadFromSocket();
+        	long currSize = getArtifactProperties(artifactInfo).getBytesReadFromSocket();
         	long leftTillNext = MAX_BYTES_PER_NETWORK_ARTIFACT - currSize;
         	if(leftTillNext > bytesRemaining){
         		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(bytesRemaining), pid, eventData.get("eventid"));
-        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesReadFromSocket(currSize + bytesRemaining);
+        		getArtifactProperties(artifactInfo).setBytesReadFromSocket(currSize + bytesRemaining);
         		bytesRemaining = 0;
         	}else{ //greater or equal
         		putSocketRecvEdge(artifactInfo, syscall, time, String.valueOf(leftTillNext), pid, eventData.get("eventid"));
-        		artifactIdentityToArtifactProperties.get(artifactInfo).setBytesReadFromSocket(0);
-        		artifactIdentityToArtifactProperties.get(artifactInfo).getSocketReadVersion(true);
+        		getArtifactProperties(artifactInfo).setBytesReadFromSocket(0);
+        		getArtifactProperties(artifactInfo).getSocketReadVersion(true);
         		//new version of network artifact for this path created. call putVertex here just once for that vertex.
         		putVertex(createArtifact(artifactInfo, false, syscall));
         		bytesRemaining -= leftTillNext;
