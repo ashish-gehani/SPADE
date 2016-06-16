@@ -542,12 +542,12 @@ public class CDM extends Kafka {
         try{
         	Principal.Builder principalBuilder = Principal.newBuilder();
         	principalBuilder.setUuid(getUuid(principalVertex));
-            principalBuilder.setUserId(CommonFunctions.parseInt(principalVertex.getAnnotation("uid"), 0));
-            Map<CharSequence, CharSequence> properties = new HashMap<>();
+            principalBuilder.setUserId(principalVertex.getAnnotation("uid"));
+            Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
             properties.put("egid", principalVertex.getAnnotation("egid"));
             properties.put("euid", principalVertex.getAnnotation("euid"));
-            List<Integer> groupIds = new ArrayList<>();
-            groupIds.add(CommonFunctions.parseInt(principalVertex.getAnnotation("gid"), 0));
+            List<CharSequence> groupIds = new ArrayList<CharSequence>();
+            groupIds.add(principalVertex.getAnnotation("gid"));
             principalBuilder.setGroupIds(groupIds);
             principalBuilder.setProperties(properties);
             principalBuilder.setType(PrincipalType.PRINCIPAL_LOCAL);
