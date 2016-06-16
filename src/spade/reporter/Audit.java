@@ -103,7 +103,8 @@ public class Audit extends AbstractReporter {
     // Event buffer map based on <audit_record_id <key, value>> pairs
     private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
     // Map for artifact infos to versions and bytes read/written on sockets   
-    private CachedMap<ArtifactIdentity, ArtifactProperties> artifactIdentityToArtifactProperties = new CachedMap<ArtifactIdentity, ArtifactProperties>(100000, new BerkeleyDB<>("/tmp", "ArtifactPropertiesDB"), 0.0001, 1000000);
+    private CachedMap<ArtifactIdentity, ArtifactProperties> artifactIdentityToArtifactProperties = 
+    		new CachedMap<ArtifactIdentity, ArtifactProperties>(100000, new BerkeleyDB<ArtifactProperties>("/tmp", "ArtifactPropertiesDB"), 0.0001, 1000000);
     
     private Thread eventProcessorThread = null;
     private String auditRules;
