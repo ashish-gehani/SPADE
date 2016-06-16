@@ -154,7 +154,8 @@ public class Audit extends AbstractReporter {
         FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
         ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-        SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT, CREATE
+        SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT, CREATE, RENAME, UNIT,
+        EXECVE, UPDATE
     }
     
     private BufferedWriter dumpWriter = null;
@@ -1140,12 +1141,12 @@ public class Audit extends AbstractReporter {
 		
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation("time", time);
-		wgbEdge.addAnnotation("operation", getOperation(syscall)+"_write");
+		wgbEdge.addAnnotation("operation", getOperation(syscall)+"_"+SYSCALL.WRITE);
 		addEventIdAndSourceAnnotationToEdge(wgbEdge, eventData.get("eventid"), DEV_AUDIT);
 		
 		Used usedEdge = new Used(process, artifact);
 		usedEdge.addAnnotation("time", time);
-		usedEdge.addAnnotation("operation", getOperation(syscall)+"_read");
+		usedEdge.addAnnotation("operation", getOperation(syscall)+"_"+SYSCALL.READ);
 		addEventIdAndSourceAnnotationToEdge(usedEdge, eventData.get("eventid"), DEV_AUDIT);
 		
 		WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, artifact);
@@ -1216,7 +1217,7 @@ public class Audit extends AbstractReporter {
     		putVertex(addedUnit);
     		//add edge between the new unit and the main unit to keep the graph connected
     		WasTriggeredBy wtb = new WasTriggeredBy(addedUnit, getUnitForPid(pid, 0));
-        	wtb.addAnnotation("operation", "unit");
+        	wtb.addAnnotation("operation", getOperation(SYSCALL.UNIT));
         	wtb.addAnnotation("time", eventData.get("time"));
         	addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), BEEP);
         	putEdge(wtb);
@@ -1237,11 +1238,11 @@ public class Audit extends AbstractReporter {
     			if(arg0.intValue() == -201){
     				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), false, null);
     				edge = new Used(process, memArtifact);
-    				edge.addAnnotation("operation", "read");
+    				edge.addAnnotation("operation", getOperation(SYSCALL.READ));
     			}else if(arg0.intValue() == -301){
     				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), true, null);
     				edge = new WasGeneratedBy(memArtifact, process);
-    				edge.addAnnotation("operation", "write");
+    				edge.addAnnotation("operation", getOperation(SYSCALL.WRITE));
     			}
     			if(edge != null && memArtifact != null && process != null){
 	    			edge.addAnnotation("time", eventData.get("time"));
@@ -1432,7 +1433,7 @@ public class Audit extends AbstractReporter {
         }
         putVertex(newProcess);
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
-        wtb.addAnnotation("operation", "execve");
+        wtb.addAnnotation("operation", getOperation(SYSCALL.EXECVE));
         wtb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wtb);
@@ -1715,7 +1716,7 @@ public class Audit extends AbstractReporter {
             putVertex(srcVertex);
         }
         Used used = new Used(getProcess(pid), srcVertex);
-        used.addAnnotation("operation", "rename_read");
+        used.addAnnotation("operation", getOperation(SYSCALL.RENAME)+"_"+getOperation(SYSCALL.READ));
         used.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
@@ -1724,13 +1725,13 @@ public class Audit extends AbstractReporter {
         putVertex(dstVertex);
         putVersionUpdateEdge(dstVertex, time, eventData.get("eventid"), pid);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
-        wgb.addAnnotation("operation", "rename_write");
+        wgb.addAnnotation("operation", getOperation(SYSCALL.RENAME)+"_"+getOperation(SYSCALL.WRITE));
         wgb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wgb);
 
         WasDerivedFrom wdf = new WasDerivedFrom(dstVertex, srcVertex);
-        wdf.addAnnotation("operation", "rename");
+        wdf.addAnnotation("operation", getOperation(SYSCALL.RENAME));
         wdf.addAnnotation("time", time);
         wdf.addAnnotation("pid", pid);
         addEventIdAndSourceAnnotationToEdge(wdf, eventData.get("eventid"), DEV_AUDIT);
@@ -1766,7 +1767,7 @@ public class Audit extends AbstractReporter {
             putVertex(srcVertex);
         }
         Used used = new Used(getProcess(pid), srcVertex);
-        used.addAnnotation("operation", syscallName + "_read");
+        used.addAnnotation("operation", syscallName + "_" + getOperation(SYSCALL.READ));
         used.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
@@ -1775,7 +1776,7 @@ public class Audit extends AbstractReporter {
         putVertex(dstVertex);
         putVersionUpdateEdge(dstVertex, time, eventData.get("eventid"), pid);
         WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
-        wgb.addAnnotation("operation", syscallName + "_write");
+        wgb.addAnnotation("operation", syscallName + "_" + getOperation(SYSCALL.WRITE));
         wgb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wgb);
@@ -1914,7 +1915,7 @@ public class Audit extends AbstractReporter {
             	putVertex(network);
                 WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
                 wgb.addAnnotation("time", time);
-                wgb.addAnnotation("operation", "connect");
+                wgb.addAnnotation("operation", getOperation(SYSCALL.CONNECT));
                 addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
                 putEdge(wgb);
             } else if (callType == 5) {
@@ -1923,7 +1924,7 @@ public class Audit extends AbstractReporter {
             	putVertex(network);
                 Used used = new Used(getProcess(pid), network);
                 used.addAnnotation("time", time);
-                used.addAnnotation("operation", "accept");
+                used.addAnnotation("operation", getOperation(SYSCALL.ACCEPT));
                 addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
                 putEdge(used);
             }
@@ -2108,6 +2109,18 @@ public class Audit extends AbstractReporter {
     	SYSCALL returnSyscall = syscall;
     	if(SIMPLIFY){
     		switch (syscall) {
+	    		case UPDATE:
+	    			returnSyscall = SYSCALL.UPDATE;
+	    			break;
+	    		case EXECVE:
+	    			returnSyscall = SYSCALL.EXECVE;
+	    			break;
+	    		case UNIT:
+	    			returnSyscall = SYSCALL.UNIT;
+	    			break;
+    			case RENAME:
+	    			returnSyscall = SYSCALL.RENAME;
+	    			break;
     			case CREATE:
 	    			returnSyscall = SYSCALL.CREATE;
 	    			break;
@@ -2309,7 +2322,7 @@ public class Audit extends AbstractReporter {
     	oldArtifact.addAnnotation("version", String.valueOf(oldVersion));
     	WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
     	versionUpdate.addAnnotation("pid", pid);
-    	versionUpdate.addAnnotation("operation", "update");
+    	versionUpdate.addAnnotation("operation", getOperation(SYSCALL.UPDATE));
     	versionUpdate.addAnnotation("time", time);
     	addEventIdAndSourceAnnotationToEdge(versionUpdate, eventId, DEV_AUDIT);
     	putEdge(versionUpdate);
