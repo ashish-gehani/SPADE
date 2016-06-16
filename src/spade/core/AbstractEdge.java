@@ -192,17 +192,17 @@ public abstract class AbstractEdge implements Serializable {
     }
     
     /**
-     * Computes SHA-256 of the annotations in the edge and the vertices it is incident upon.
+     * Computes MD5 of the annotations in the edge and the vertices it is incident upon.
      *
      * This takes longer to compute than hashCode() but is more collision-resistant.
      *
-     @return A 256-bit hash value.
+     @return A 128-bit hash value.
      */
     public byte[] bigHashCode() {
         StringBuilder annotations = new StringBuilder();
         annotations.append(this.sourceVertex != null ? this.sourceVertex.toString() : "");
         annotations.append(this.toString());
         annotations.append(this.destinationVertex != null ? this.destinationVertex.toString() : "");
-        return DigestUtils.sha256(annotations.toString());
+        return DigestUtils.md5(annotations.toString());
     }
 }
