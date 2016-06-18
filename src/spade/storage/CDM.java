@@ -143,18 +143,18 @@ public class CDM extends Kafka {
             EdgeType affectsEdgeType = null;
 
             /* Generate the Event record */
+            Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), 0L); //the default event id value is decided to be 0
             Event.Builder eventBuilder = Event.newBuilder();
             eventBuilder.setUuid(getUuid(edge));
             String time = edge.getAnnotation("time");
-            Long timeLong = convertTimeToMicroseconds(time, 0L);
+            Long timeLong = convertTimeToMicroseconds(eventId, time, 0L);
             eventBuilder.setTimestampMicros(timeLong);
-            Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), 0L); //the default event id value is decided to be 0
             eventBuilder.setSequence(eventId);
             
             InstrumentationSource edgeSource = getInstrumentationSource(edge.getAnnotation("source"));
             if(edgeSource == null){
             	logger.log(Level.WARNING,
-                        "Unexpected Edge source: {0}", edgeSource);
+                        "Unexpected Edge source: {0}. event id = {1}", new Object[]{edgeSource, eventId});
             }else{
             	eventBuilder.setSource(edgeSource);
             }
@@ -169,7 +169,7 @@ public class CDM extends Kafka {
             	pid = edge.getDestinationVertex().getAnnotation("pid");
                 if (operation == null) {
                     logger.log(Level.WARNING,
-                            "NULL WasTriggeredBy/WasInformedBy operation!");
+                            "NULL WasTriggeredBy/WasInformedBy operation! event id = {0}", eventId);
                     return false;
                 } else if (operation.equals("fork")) {
                     eventBuilder.setType(EventType.EVENT_FORK);
@@ -188,14 +188,14 @@ public class CDM extends Kafka {
                 	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
                 } else {
                     logger.log(Level.WARNING,
-                            "Unexpected WasTriggeredBy/WasInformedBy operation: {0}", operation);
+                            "Unexpected WasTriggeredBy/WasInformedBy operation: {0}. event id = {1}", new Object[]{operation, eventId});
                     return false;
                 }
             } else if (edgeType.equals("WasGeneratedBy")) {
             	pid = edge.getDestinationVertex().getAnnotation("pid");
                 if (operation == null) {
                     logger.log(Level.WARNING,
-                            "NULL WasGeneratedBy operation!");
+                            "NULL WasGeneratedBy operation! event id = {0}", eventId);
                     return false;
                 } else if (operation.equals("open")){
                 	eventBuilder.setType(EventType.EVENT_OPEN);
@@ -209,14 +209,17 @@ public class CDM extends Kafka {
                     if (size != null) {
                         eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                	if(edge.getSourceVertex().getAnnotation("subtype").equals("memory")){
+                    String subtype = edge.getSourceVertex().getAnnotation("subtype");
+                	if("memory".equals(subtype)){
                 		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
-                	}else if(edge.getSourceVertex().getAnnotation("subtype").equals("file")){
+                	}else if("file".equals(subtype) || "pipe".equals(subtype)){
                 		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-                	}else if(edge.getSourceVertex().getAnnotation("subtype").equals("unknown")){
+                	}else if("unknown".equals(subtype)){
                 		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SRCSINK;
+                	}else if("network".equals(subtype)){
+                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
                 	}else{
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}", edge.getSourceVertex().getAnnotation("subtype"));
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
                 		return false;
                 	}
                 } else if (operation.equals("send") || operation.equals("sendto")) {
@@ -251,14 +254,14 @@ public class CDM extends Kafka {
                     return false;
                 }else {
                     logger.log(Level.WARNING,
-                            "Unexpected WasGeneratedBy operation: {0}", operation);
+                            "Unexpected WasGeneratedBy operation: {0}. event id = {1}", new Object[]{operation, eventId});
                     return false;
                 }
             } else if (edgeType.equals("Used")) {
             	pid = edge.getSourceVertex().getAnnotation("pid");
                 if (operation == null) {
                     logger.log(Level.WARNING,
-                            "NULL Used operation!");
+                            "NULL Used operation! event id = {0}", eventId);
                     return false;
                 } else if(operation.equals("load")){
                 	if(getExecEventUUID(pid) != null){
@@ -271,7 +274,7 @@ public class CDM extends Kafka {
 	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
 	                    return true; //no need to create an event for this so returning from here after adding the edge
                 	}else{
-                		logger.log(Level.WARNING, "Unable to create load edge for pid " + pid);
+                		logger.log(Level.WARNING, "Unable to create load edge for pid " + pid + ". event id = " + eventId);
                 		return false;
                 	}
                 } else if (operation.equals("open")){
@@ -283,14 +286,17 @@ public class CDM extends Kafka {
                     if (size != null) {
                         eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                	if(edge.getDestinationVertex().getAnnotation("subtype").equals("memory")){
+                    String subtype = edge.getDestinationVertex().getAnnotation("subtype");
+                	if("memory".equals(subtype)){
                 		affectsEdgeType = EdgeType.EDGE_MEMORY_AFFECTS_EVENT;
-                	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("file")){
+                	}else if("file".equals(subtype) || "pipe".equals(subtype)){
                 		affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
-                	}else if(edge.getDestinationVertex().getAnnotation("subtype").equals("unknown")){
+                	}else if("unknown".equals(subtype)){
                 		affectsEdgeType = EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
+                	}else if("network".equals(subtype)){
+                		affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
                 	}else{
-                		logger.log(Level.WARNING, "Invalid destination vertex subtype {0}", edge.getDestinationVertex().getAnnotation("subtype"));
+                		logger.log(Level.WARNING, "Invalid destination vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
                 		return false;
                 	}
                 } else if (operation.equals("recv") || operation.equals("recvfrom")) { // XXX CDM doesn't support this
@@ -314,14 +320,14 @@ public class CDM extends Kafka {
                 	return false;
                 } else {
                     logger.log(Level.WARNING,
-                            "Unexpected Used operation: {0}", operation);
+                            "Unexpected Used operation: {0}. event id = {1}", new Object[]{operation, eventId});
                     return false;
                 }
             } else if (edgeType.equals("WasDerivedFrom")) {
             	pid = edge.getAnnotation("pid");
                 if (operation == null) {
                     logger.log(Level.WARNING,
-                            "NULL WasDerivedFrom operation!");
+                            "NULL WasDerivedFrom operation! event id = {0}", eventId);
                     return false;
                 } else if(operation.equals("mmap") || operation.equals("mmap2")){
                 	eventBuilder.setType(EventType.EVENT_MMAP);
@@ -345,11 +351,11 @@ public class CDM extends Kafka {
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
                 } else {
                     logger.log(Level.WARNING,
-                            "Unexpected WasDerivedFrom operation: {0}", operation);
+                            "Unexpected WasDerivedFrom operation: {0}. event id = {1}", new Object[]{operation, eventId});
                     return false;
                 }
             } else {
-                logger.log(Level.WARNING, "Unexpected edge type: {0}", edgeType);
+                logger.log(Level.WARNING, "Unexpected edge type: {0}. event id = {1}", new Object[]{edgeType, eventId});
                 return false;
             }
             Integer pid_int = CommonFunctions.parseInt(pid, null);
@@ -403,7 +409,7 @@ public class CDM extends Kafka {
 	            SimpleEdge generatedByEdge = generatedByEdgeBuilder.build();
 	            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(generatedByEdge).build());
             }else{
-            	logger.log(Level.WARNING, "Failed to find process uuid in process cache map for pid {0}", edge.getAnnotation("pid"));
+            	logger.log(Level.WARNING, "Failed to find process uuid in process cache map for pid {0}. event id = {1}", new Object[]{edge.getAnnotation("pid"), eventId});
             }
             
             if(eventBuilder.getType().equals(EventType.EVENT_EXECUTE)){
@@ -442,7 +448,7 @@ public class CDM extends Kafka {
         }
     }
     
-    private Long convertTimeToMicroseconds(String time, Long defaultValue){
+    private Long convertTimeToMicroseconds(Long eventId, String time, Long defaultValue){
     	//expected input time example: 12345678.678 (seconds.milliseconds)
     	try{
     		Double d = Double.parseDouble(time);
@@ -450,7 +456,7 @@ public class CDM extends Kafka {
     		return d.longValue();
     	}catch(Exception e){
     		logger.log(Level.WARNING,
-                    "Time type is not Double: {0}", time);
+                    "Time type is not Double: {0}. event id = {1}", new Object[]{time, eventId});
     		return defaultValue;
     	}
     	//output time example: 12345678678000
@@ -474,7 +480,7 @@ public class CDM extends Kafka {
         
         putProcessSubjectUUID(vertex.getAnnotation("pid"), getUuid(vertex));
         
-        Long time = convertTimeToMicroseconds(vertex.getAnnotation("start time"), null);
+        Long time = convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), null);
         if(time != null){
         	subjectBuilder.setStartTimestampMicros(time);
         }
@@ -511,7 +517,7 @@ public class CDM extends Kafka {
         	simpleEdgeBuilder.setFromUuid(getUuid(vertex));
         	simpleEdgeBuilder.setToUuid(getUuid(principalVertex));
         	simpleEdgeBuilder.setType(EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL);
-        	Long startTime = convertTimeToMicroseconds(vertex.getAnnotation("start time"), 0L);
+        	Long startTime = convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L);
         	simpleEdgeBuilder.setTimestamp(startTime);
         	SimpleEdge simpleEdge = simpleEdgeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build()); //added edge
