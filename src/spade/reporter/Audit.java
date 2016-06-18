@@ -38,6 +38,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.io.FileUtils;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.Settings;
@@ -56,9 +58,10 @@ import spade.reporter.audit.SocketIdentity;
 import spade.reporter.audit.UnixSocketIdentity;
 import spade.reporter.audit.UnknownIdentity;
 import spade.utility.BerkeleyDB;
-import spade.utility.CachedMap;
+import spade.utility.ExternalMemoryMap;
 import spade.utility.CommandUtility;
 import spade.utility.CommonFunctions;
+import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -100,11 +103,13 @@ public class Audit extends AbstractReporter {
     private final Map<String, Long> unitNumber = new HashMap<String, Long>();
 
     private final DescriptorManager descriptors = new DescriptorManager();
+    
     // Event buffer map based on <audit_record_id <key, value>> pairs
-    private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
-    // Map for artifact infos to versions and bytes read/written on sockets   
-    private CachedMap<ArtifactIdentity, ArtifactProperties> artifactIdentityToArtifactProperties = 
-    		new CachedMap<ArtifactIdentity, ArtifactProperties>(100000, new BerkeleyDB<ArtifactProperties>("/tmp", "ArtifactPropertiesDB"), 0.0001, 1000000);
+//    private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
+    private ExternalMemoryMap<String, HashMap<String, String>> eventBuffer;
+    
+    // Map for artifact infos to versions and bytes read/written on sockets 
+    private ExternalMemoryMap<ArtifactIdentity, ArtifactProperties> artifactIdentityToArtifactProperties;
     
     private Thread eventProcessorThread = null;
     private String auditRules;
@@ -224,6 +229,12 @@ public class Audit extends AbstractReporter {
 //        }
         // End of experimental arguments
 
+//        initialize datastructures
+        
+        if(!initCacheMaps()){
+        	return false;
+        }
+        
         // Get system boot time from /proc/stat. This is later used to determine
         // the start time for processes.
         try {
@@ -422,6 +433,66 @@ public class Audit extends AbstractReporter {
         }
         
         return true;
+    }
+    
+    private boolean initCacheMaps(){
+    	 try{
+         	Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(Settings.getDefaultConfigFilePath(this.getClass()), "=");
+         	long currentTime = System.currentTimeMillis(); 
+             String eventBufferCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "eventbuffer_" + currentTime;
+             String artifactsCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "artifacts_" + currentTime;
+             try{
+     	        FileUtils.forceMkdir(new File(eventBufferCacheDatabasePath));
+     	        FileUtils.forceMkdir(new File(artifactsCacheDatabasePath));
+     	        FileUtils.forceDeleteOnExit(new File(eventBufferCacheDatabasePath));
+     	        FileUtils.forceDeleteOnExit(new File(artifactsCacheDatabasePath));
+             }catch(Exception e){
+             	logger.log(Level.SEVERE, "Failed to create cache database directories", e);
+             	return false;
+             }
+             
+             try{
+             	Integer eventBufferCacheSize = CommonFunctions.parseInt(configMap.get("eventBufferCacheSize"), null);
+             	String eventBufferDatabaseName = configMap.get("eventBufferDatabaseName");
+             	Double eventBufferFalsePositiveProbability = CommonFunctions.parseDouble(configMap.get("eventBufferBloomfilterFalsePositiveProbability"), null);
+             	Integer eventBufferExpectedNumberOfElements = CommonFunctions.parseInt(configMap.get("eventBufferBloomFilterExpectedNumberOfElements"), null);
+             	
+             	Integer artifactsCacheSize = CommonFunctions.parseInt(configMap.get("artifactsCacheSize"), null);
+             	String artifactsDatabaseName = configMap.get("artifactsDatabaseName");
+             	Double artifactsFalsePositiveProbability = CommonFunctions.parseDouble(configMap.get("artifactsBloomfilterFalsePositiveProbability"), null);
+             	Integer artifactsExpectedNumberOfElements = CommonFunctions.parseInt(configMap.get("artifactsBloomFilterExpectedNumberOfElements"), null);
+             	
+             	logger.log(Level.INFO, "Audit cache properties: eventBufferCacheSize={0}, eventBufferDatabaseName={1}, "
+             			+ "eventBufferBloomfilterFalsePositiveProbability={2}, eventBufferBloomFilterExpectedNumberOfElements={3}, "
+             			+ "artifactsCacheSize={4}, artifactsDatabaseName={5}, artifactsBloomfilterFalsePositiveProbability={6}, "
+             			+ "artifactsBloomFilterExpectedNumberOfElements={7}", new Object[]{eventBufferCacheSize, eventBufferDatabaseName,
+             					eventBufferFalsePositiveProbability, eventBufferExpectedNumberOfElements, artifactsCacheSize, 
+             					artifactsDatabaseName, artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements});
+             	
+             	if(eventBufferCacheSize == null || eventBufferDatabaseName == null || eventBufferFalsePositiveProbability == null || 
+             			eventBufferExpectedNumberOfElements == null || artifactsCacheSize == null || artifactsDatabaseName == null || 
+             			artifactsFalsePositiveProbability == null || artifactsExpectedNumberOfElements == null){
+             		logger.log(Level.SEVERE, "Undefined cache properties in Audit config");
+             		return false;
+             	}
+             	
+             	eventBuffer = new ExternalMemoryMap<String, HashMap<String, String>>(eventBufferCacheSize, 
+                 				new BerkeleyDB<HashMap<String, String>>(eventBufferCacheDatabasePath, eventBufferDatabaseName), 
+                 				eventBufferFalsePositiveProbability, eventBufferExpectedNumberOfElements);
+                 artifactIdentityToArtifactProperties = 
+                 		new ExternalMemoryMap<ArtifactIdentity, ArtifactProperties>(artifactsCacheSize, 
+                 				new BerkeleyDB<ArtifactProperties>(artifactsCacheDatabasePath, artifactsDatabaseName), 
+                 				artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements);
+             }catch(Exception e){
+             	logger.log(Level.SEVERE, "Failed to initialize necessary datastructures", e);
+             	return false;
+             }
+             
+         }catch(Exception e){
+         	logger.log(Level.SEVERE, "Failed to read default config file", e);
+         	return false;
+         }
+    	 return true;
     }
     
     static private StringBuilder ignorePidsString(String ignoreProcesses) {
@@ -644,7 +715,7 @@ public class Audit extends AbstractReporter {
     
     private void finishEvent(String eventId){
     	
-    	if (!eventBuffer.containsKey(eventId)) {
+    	if (eventBuffer.get(eventId) == null) {
             logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
             return;
         }

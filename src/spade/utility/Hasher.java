@@ -21,6 +21,16 @@
 
 package spade.utility;
 
+/**
+ *
+ * An generic interface specifically added to be used by ExternalMemoryMap class 
+ * to get a custom hashcode of type T instead of the one gotten by default hashCode()
+ * function 
+ * 
+ * @param <T> Object type to get the hashcode of
+ *
+ */
+
 public interface Hasher<T>{
 	public String getHash(T t);
 }

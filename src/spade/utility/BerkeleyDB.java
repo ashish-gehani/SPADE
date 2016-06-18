@@ -35,19 +35,25 @@ import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 
-public class BerkeleyDB<V extends Serializable> implements CacheStore<V> {
+/**
+ * This class implements the ExternalStore interface and is used in ExternalMemoryMap class
+ *
+ * @param <V> Serializable object to save in BerkeleyDB
+ */
+
+public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 	
-	private Environment env;
-	private Database db;
+	private Environment environment;
+	private Database database;
 	
 	public BerkeleyDB(String filePath, String databaseName) {
 		EnvironmentConfig envConfig = new EnvironmentConfig();
 		envConfig.setAllowCreate(true);
-		env = new Environment(new File(filePath), envConfig);
+		environment = new Environment(new File(filePath), envConfig);
 		
 		DatabaseConfig dbConfig = new DatabaseConfig();
 		dbConfig.setAllowCreate(true);
-		db = env.openDatabase(null, databaseName, dbConfig);
+		database = environment.openDatabase(null, databaseName, dbConfig);
 	}
 
 	@Override
@@ -57,8 +63,8 @@ public class BerkeleyDB<V extends Serializable> implements CacheStore<V> {
 
 	@Override
 	public boolean shutdown() throws Exception {
-		db.close();
-		env.close();
+		database.close();
+		environment.close();
 		return true;
 	}
 
@@ -67,7 +73,7 @@ public class BerkeleyDB<V extends Serializable> implements CacheStore<V> {
 		DatabaseEntry keyEntry = new DatabaseEntry(key.getBytes());
 		DatabaseEntry valueEntry = new DatabaseEntry();
 		
-	    if(db.get(null, keyEntry, valueEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS){
+	    if(database.get(null, keyEntry, valueEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS){
 	        byte[] valueBytes = valueEntry.getData();
 	        ByteArrayInputStream byteInputStream = new ByteArrayInputStream(valueBytes);
 			ObjectInputStream objectInputStream = new ObjectInputStream(byteInputStream);
@@ -87,13 +93,13 @@ public class BerkeleyDB<V extends Serializable> implements CacheStore<V> {
 		
 		DatabaseEntry keyEntry = new DatabaseEntry(key.getBytes());
 		DatabaseEntry valueEntry = new DatabaseEntry(valueBytes);
-		db.put(null, keyEntry, valueEntry);
+		database.put(null, keyEntry, valueEntry);
 	}
 
 	@Override
 	public void remove(String key) throws Exception {
 	    DatabaseEntry keyEntry = new DatabaseEntry(key.getBytes());
-	    db.delete(null, keyEntry);
+	    database.delete(null, keyEntry);
 	}
 
 	/**

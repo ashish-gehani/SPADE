@@ -23,11 +23,48 @@ package spade.utility;
 
 import java.io.Serializable;
 
-public interface CacheStore<V extends Serializable>{
+/**
+ * This interface must be implemented by classes that need to be used as external storage for ExternalMemoryMap class
+ *
+ * @param Object to serialize against a String key
+ */
+
+public interface ExternalStore<V extends Serializable>{
+	/**
+	 * Any initialization code required by the external storage
+	 * @return true if successfully initialized
+	 * @throws Exception Any implementation dependent exception
+	 */
 	public boolean init() throws Exception;
+	/**
+	 * Any shutdown to be called when external storage no longer needed
+	 * @return true if successful
+	 * @throws Exception Any implementation dependent exception
+	 */
 	public boolean shutdown() throws Exception;
+	/**
+	 * A function to get the value storage against the provided key
+	 * @param key Key to look for
+	 * @return Object value against the key
+	 * @throws Exception Any implementation dependent exception
+	 */
 	public V get(String key) throws Exception;
+	/**
+	 * A function to add a key value pair
+	 * @param key
+	 * @param value
+	 * @throws Exception Any implementation dependent exception
+	 */
 	public void put(String key, V value) throws Exception;
+	/**
+	 * A function to remove the key value if it exists
+	 * @param key
+	 * @throws Exception Any implementation dependent exception
+	 */
 	public void remove(String key) throws Exception;
+	/**
+	 * A function to remove all key value pairs in the external storage
+	 * @throws Exception Any implementation dependent exception
+	 */
 	public void clear() throws Exception;
 }
