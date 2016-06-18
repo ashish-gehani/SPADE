@@ -203,9 +203,8 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 	 * Pseudocode:
 	 * 
 	 * 1) add in bloomfilter
-	 * 2) if doesn't exists in in-memory map then add to in-memory map and to the external storage
-	 * 3) if exists in map then compare values. if same then nothing. if different then update in in-memory
-	 * map and in the external storage
+	 * 2) if doesn't exists in in-memory map
+	 * 3) if exists in map then compare values. if same then nothing. if different then update in in-memory map
 	 *  
 	 * @param Object to be used as key
 	 * @param Object to be inserted against the key
@@ -215,19 +214,18 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 		try{
 			bloomFilter.add(key);
 			Node<K, V> node = leastRecentlyUsedCache.get(key);
-			String hash = keyHasher.getHash((K)key);
+//			String hash = keyHasher.getHash((K)key);
 			if(node == null){ //if not in cache
 				
 				evictLeastRecentlyUsed(); //if need be
 				
 				node = new Node<K, V>(key, value); //create the node
 				leastRecentlyUsedCache.put(key, node); //put in cache
-				cacheStore.put(hash, value); //put in db
+				//cacheStore.put(hash, value); //no need to put in db. will be put in when evicted
 			}else{ //if node exists in cache
 				if(!node.value.equals(value)){ //i.e. new value for the same key. so, update.
 					node.value = value;
-					//update in db too
-					cacheStore.put(hash, value);
+//					cacheStore.put(hash, value); //no need to put in db. will be put in when evicted
 				}
 			}
 			Node.makeNodeHead(node, head);
