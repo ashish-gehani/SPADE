@@ -162,7 +162,7 @@ public class CDM extends Kafka {
             String pid = null;
             
             Map<CharSequence, CharSequence> properties = new HashMap<>();
-            properties.put("eventId", String.valueOf(eventId));
+            properties.put("event id", String.valueOf(eventId));
             String edgeType = edge.type();
             String operation = edge.getAnnotation("operation");
             if (edgeType.equals("WasTriggeredBy")) {
@@ -238,7 +238,7 @@ public class CDM extends Kafka {
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
                 } else if (operation.equals("chmod")) {
                     eventBuilder.setType(EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
-                    properties.put("permissions", edge.getAnnotation("mode"));
+                    properties.put("mode", edge.getAnnotation("mode"));
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
                 } else if (operation.equals("rename_write")) {
                 	//handled automatically in case of WasDerivedFrom 'rename' operation
@@ -486,12 +486,12 @@ public class CDM extends Kafka {
         }
         subjectBuilder.setCmdLine(vertex.getAnnotation("commandline"));           // optional, so null is ok
         Map<CharSequence, CharSequence> properties = new HashMap<>();
-        properties.put("programName", vertex.getAnnotation("name"));
+        properties.put("name", vertex.getAnnotation("name"));
         properties.put("uid", vertex.getAnnotation("uid")); // user ID, not unique ID
-        properties.put("group", vertex.getAnnotation("gid"));
+        properties.put("gid", vertex.getAnnotation("gid"));
         String cwd = vertex.getAnnotation("cwd");
         if (cwd != null) {
-            properties.put("currentDirectory", cwd);
+            properties.put("cwd", cwd);
         }
         subjectBuilder.setProperties(properties);
         Subject subject = subjectBuilder.build();
@@ -533,12 +533,12 @@ public class CDM extends Kafka {
         try{
         	Principal.Builder principalBuilder = Principal.newBuilder();
         	principalBuilder.setUuid(getUuid(principalVertex));
-            principalBuilder.setUserId(Integer.parseInt(principalVertex.getAnnotation("uid")));
+            principalBuilder.setUserId(principalVertex.getAnnotation("uid"));
             Map<CharSequence, CharSequence> properties = new HashMap<>();
             properties.put("egid", principalVertex.getAnnotation("egid"));
             properties.put("euid", principalVertex.getAnnotation("euid"));
-            List<Integer> groupIds = new ArrayList<Integer>();
-            groupIds.add(Integer.parseInt(principalVertex.getAnnotation("gid")));
+            List<CharSequence> groupIds = new ArrayList<>();
+            groupIds.add(principalVertex.getAnnotation("gid"));
             principalBuilder.setGroupIds(groupIds);
             principalBuilder.setProperties(properties);
             principalBuilder.setType(PrincipalType.PRINCIPAL_LOCAL);
