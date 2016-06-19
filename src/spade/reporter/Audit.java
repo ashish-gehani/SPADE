@@ -1221,12 +1221,12 @@ public class Audit extends AbstractReporter {
 		
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation("time", time);
-		wgbEdge.addAnnotation("operation", getOperation(syscall)+"_"+SYSCALL.WRITE);
+		wgbEdge.addAnnotation("operation", getOperation(syscall)+"_"+getOperation(SYSCALL.WRITE));
 		addEventIdAndSourceAnnotationToEdge(wgbEdge, eventData.get("eventid"), DEV_AUDIT);
 		
 		Used usedEdge = new Used(process, artifact);
 		usedEdge.addAnnotation("time", time);
-		usedEdge.addAnnotation("operation", getOperation(syscall)+"_"+SYSCALL.READ);
+		usedEdge.addAnnotation("operation", getOperation(syscall)+"_"+getOperation(SYSCALL.READ));
 		addEventIdAndSourceAnnotationToEdge(usedEdge, eventData.get("eventid"), DEV_AUDIT);
 		
 		WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, artifact);

@@ -23,7 +23,7 @@ package spade.utility;
 
 /**
  *
- * An generic interface specifically added to be used by ExternalMemoryMap class 
+ * A generic interface specifically added to be used by ExternalMemoryMap class 
  * to get a custom hashcode of type T instead of the one gotten by default hashCode()
  * function 
  * 
