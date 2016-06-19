@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -58,9 +60,9 @@ import spade.reporter.audit.SocketIdentity;
 import spade.reporter.audit.UnixSocketIdentity;
 import spade.reporter.audit.UnknownIdentity;
 import spade.utility.BerkeleyDB;
-import spade.utility.ExternalMemoryMap;
 import spade.utility.CommandUtility;
 import spade.utility.CommonFunctions;
+import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
@@ -399,7 +401,7 @@ public class Audit extends AbstractReporter {
 	            // Determine pids of processes that are to be ignored. These are
 	            // appended to the audit rule.
 	            String ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
-	            StringBuilder ignorePids = ignorePidsString(ignoreProcesses);
+	            List<String> pidFieldRules = ignorePidsString(ignoreProcesses);
 	            auditRules = "-a exit,always ";
 	            if (ARCH_32BIT){
 	            	auditRules += "-F arch=b32 ";
@@ -421,10 +423,11 @@ public class Audit extends AbstractReporter {
 	            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
 	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
 	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
-	                    + (log_successful_events_only ? "-F success=1 " : "") + ignorePids.toString();
-	            List<String> commandOutput = CommandUtility.getOutputOfCommand("auditctl " + auditRules);
-//	            Runtime.getRuntime().exec("auditctl " + auditRules).waitFor();
-	            logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules, commandOutput});
+	                    + (log_successful_events_only ? "-F success=1 " : "");
+	            for(String pidFieldRule : pidFieldRules){
+	            	List<String> commandOutput = CommandUtility.getOutputOfCommand("auditctl " + auditRules + " " + pidFieldRule);
+	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules, commandOutput});
+	            }	            
 	        } catch (Exception e) {
 	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
 	            return false;
@@ -495,32 +498,48 @@ public class Audit extends AbstractReporter {
     	 return true;
     }
     
-    static private StringBuilder ignorePidsString(String ignoreProcesses) {
-        StringBuilder ignorePids = new StringBuilder();
+    static private List<String> ignorePidsString(String ignoreProcesses) {
+    	List<String> pidFieldRules = new ArrayList<String>();
         try {
+        	List<String> pids = new ArrayList<String>();
             // Using pidof command now to get all pids of the mentioned processes
             java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
             BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
             String pidline = pidReader.readLine();
-            String ppidline = pidline;
-            if (pidline != null) {
-                ignorePids.append(" -F pid!=").append(pidline.replace(" ", " -F pid!="));
-                ignorePids.append(" -F ppid!=").append(ppidline.replace(" ", " -F ppid!="));
-            }
+            pids.addAll(Arrays.asList(pidline.split(" ")));
             pidReader.close();
-
+            
             // Get the PID of SPADE's JVM from /proc/self
             File[] procTaskDirectories = new File("/proc/self/task").listFiles();
             for (File procTaskDirectory : procTaskDirectories) {
                 String pid = procTaskDirectory.getCanonicalFile().getName();
-                ignorePids.append(" -F pid!=").append(pid);
-                ignorePids.append(" -F ppid!=").append(pid);
+                pids.add(pid);
+            }
+            
+            //one auditctl add command can only contain upto 64 fields. Dividing them up into separate lines.
+            
+            int fieldCount = 0;
+            
+            String rule = "";
+            
+            for(String pid : pids){
+            	rule += "-F pid!=" + pid + " -F ppid!=" + pid + " ";
+            	fieldCount+=2;
+            	if(fieldCount >= 64){
+            		fieldCount = 0;
+            		pidFieldRules.add(rule);
+            		rule = "";
+            	}
+            }
+            
+            if(!rule.isEmpty()){
+            	pidFieldRules.add(rule);
             }
 
-            return ignorePids;
+            return pidFieldRules;
         } catch (IOException e) {
-            logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + ignorePids, e);
-            return new StringBuilder();
+            logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + pidFieldRules, e);
+            return new ArrayList<String>();
         }
     }
 
