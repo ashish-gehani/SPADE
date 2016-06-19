@@ -525,7 +525,7 @@ public class Audit extends AbstractReporter {
             for(String pid : pids){
             	rule += "-F pid!=" + pid + " -F ppid!=" + pid + " ";
             	fieldCount+=2;
-            	if(fieldCount >= 64){
+            	if(fieldCount >= 62){
             		fieldCount = 0;
             		pidFieldRules.add(rule);
             		rule = "";
