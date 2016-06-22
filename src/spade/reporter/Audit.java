@@ -152,7 +152,7 @@ public class Audit extends AbstractReporter {
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
         ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
         SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT, CREATE, RENAME, UNIT,
-        EXECVE, UPDATE
+        EXECVE, UPDATE, UNKNOWN
     }
     
     private BufferedWriter dumpWriter = null;
@@ -355,7 +355,8 @@ public class Audit extends AbstractReporter {
 		                    putVertex(processVertex);
 		                    if (parentVertex != null) {
 		                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
-		                        wtb.addAnnotation(SOURCE, PROC_FS);
+		                        addEventIdAndSourceAnnotationToEdge(wtb, "0", PROC_FS);
+		                        wtb.addAnnotation("operation", getOperation(SYSCALL.UNKNOWN));
 		                        putEdge(wtb);
 		                    }
 		
@@ -1501,6 +1502,9 @@ public class Audit extends AbstractReporter {
 
         String pid = eventData.get("pid");
         String time = eventData.get("time");
+        
+        //added to avoid the case where the process is seen for the first time doing execve.
+        checkProcessVertex(eventData, true, false); //done to make sure that the process doing execve has an existing process entry
 
         Process newProcess = checkProcessVertex(eventData, false, true);
         if (!newProcess.getAnnotations().containsKey("commandline")) {
@@ -2188,6 +2192,8 @@ public class Audit extends AbstractReporter {
             String ppid = resultProcess.getAnnotation("ppid");
             if (getProcess(ppid) != null) {
                 WasTriggeredBy wtb = new WasTriggeredBy(resultProcess, getProcess(ppid));
+                addEventIdAndSourceAnnotationToEdge(wtb, "0", DEV_AUDIT);
+                wtb.addAnnotation("operation", getOperation(SYSCALL.UNKNOWN));
                 putEdge(wtb);
             }
         }
@@ -2198,6 +2204,9 @@ public class Audit extends AbstractReporter {
     	SYSCALL returnSyscall = syscall;
     	if(SIMPLIFY){
     		switch (syscall) {
+	    		case UNKNOWN:
+	    			returnSyscall = SYSCALL.UNKNOWN;
+	    			break;
 	    		case UPDATE:
 	    			returnSyscall = SYSCALL.UPDATE;
 	    			break;

@@ -171,6 +171,9 @@ public class CDM extends Kafka {
                     logger.log(Level.WARNING,
                             "NULL WasTriggeredBy/WasInformedBy operation! event id = {0}", eventId);
                     return false;
+                } else if(operation.equals("unknown")) {
+                	eventBuilder.setType(EventType.EVENT_KERNEL_UNKNOWN);
+                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
                 } else if (operation.equals("fork")) {
                     eventBuilder.setType(EventType.EVENT_FORK);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
