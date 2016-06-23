@@ -24,10 +24,14 @@ import java.io.Serializable;
 
 public class ArtifactProperties implements Serializable{
 	
-	//used for every artifact except sockets
-	private long nonSocketVersion = -1;
+	private static final long serialVersionUID = -1299250614232336780L;
+
+	public static final int UNINITIALIZED = -1;
 	
-	private long socketReadVersion = -1, socketWriteVersion = -1;
+	//used for every artifact except sockets
+	private long nonSocketVersion = UNINITIALIZED;
+	
+	private long socketReadVersion = UNINITIALIZED, socketWriteVersion = UNINITIALIZED;
 	
 	private long bytesWrittenToSocket = 0, bytesReadFromSocket = 0;
 
