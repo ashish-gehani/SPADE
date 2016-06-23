@@ -1395,13 +1395,22 @@ public class Audit extends AbstractReporter {
         	return null; 
         }else if(isRead){
         	version = getArtifactProperties(artifactInfo).getSocketReadVersion();
+        	if(version < 0){
+        		version = 0;
+        		getArtifactProperties(artifactInfo).setSocketReadVersion(version);
+        	}
         	hostAnnotation = "source host";
 			portAnnotation = "source port";
         }else if(!isRead){
         	version = getArtifactProperties(artifactInfo).getSocketWriteVersion();
+        	if(version < 0){
+        		version = 0;
+        		getArtifactProperties(artifactInfo).setSocketWriteVersion(version);
+        	}
         	hostAnnotation = "destination host";
 			portAnnotation = "destination port";
         }
+        
         artifact.addAnnotation("version", Long.toString(version));
         
         if(artifactInfo instanceof SocketIdentity){ //either internet socket
