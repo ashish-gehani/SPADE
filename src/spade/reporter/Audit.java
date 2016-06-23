@@ -399,10 +399,6 @@ public class Audit extends AbstractReporter {
 	            eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
 	            eventProcessorThread.start();
 	
-	            // Determine pids of processes that are to be ignored. These are
-	            // appended to the audit rule.
-	            String ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
-	            List<String> pidFieldRules = ignorePidsString(ignoreProcesses);
 	            auditRules = "-a exit,always ";
 	            if (ARCH_32BIT){
 	            	auditRules += "-F arch=b32 ";
@@ -425,10 +421,51 @@ public class Audit extends AbstractReporter {
 	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
 	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
 	                    + (log_successful_events_only ? "-F success=1 " : "");
-	            for(String pidFieldRule : pidFieldRules){
-	            	List<String> commandOutput = CommandUtility.getOutputOfCommand("auditctl " + auditRules + " " + pidFieldRule);
-	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules, commandOutput});
-	            }	            
+	            
+	            List<String> commandOutput = null;
+	            
+	            //Find the pids of the processes to ignore (below) and all the pids for the JVM and it's threads.
+	            /*
+	             * All these pids would have been added to the main auditctl rule as "-F pid!=xxxx -F ppid!=xxxx" but 
+	             * only 64 fields are allowed per each auditctl rule.
+	             * 
+	             * Add whatever number of fields that can be added to the main auditctl rule and add the rest individual rules as: 
+	             *  "auditctl -a exit,never -F pid=xxxx" and "auditctl -a exit,never -F ppid=xxxx"
+	             */
+	            
+	            String ignoreProcesses = "spadeSocketBridge auditd kauditd audispd";
+	            List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
+	            
+	            int maxFieldsAllowed = 64; //max allowed by auditctl command
+	            //split the pre-formed rule on -F to find out the number of fields already present
+	            int existingFieldsCount = auditRules.split(" -F ").length - 1; 
+	            
+	            //find out the pids & ppids that can be added to the main rule from the list of pids. divided by two to account for pid and ppid fields for the same pid
+	            int pidsForMainRuleCount = (maxFieldsAllowed - existingFieldsCount)/2; 
+	            
+	            //handling the case if the main rule can accommodate all pids in the list of pids to ignore 
+	            int loopPidsForMainRuleTill = Math.min(pidsForMainRuleCount, pidsToIgnore.size());
+	            
+	            String pidsForMainRule = "";
+	            //build the pid and ppid  to ignore portion for the main rule
+	            for(int a = 0; a<loopPidsForMainRuleTill; a++){
+	            	pidsForMainRule += " -F pid!=" +pidsToIgnore.get(a) + " -F ppid!=" + pidsToIgnore.get(a); 
+	            }
+	            
+	            //add the remaining pids as individual rules
+	            for(int a = pidsForMainRuleCount; a<pidsToIgnore.size(); a++){
+	            	String pidIgnoreAuditRule = "auditctl -a exit,never -F pid="+pidsToIgnore.get(a);
+	            	String ppidIgnoreAuditRule = "auditctl -a exit,never -F ppid="+pidsToIgnore.get(a);
+	            	commandOutput = CommandUtility.getOutputOfCommand(pidIgnoreAuditRule);
+	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{pidIgnoreAuditRule, commandOutput});
+	            	commandOutput = CommandUtility.getOutputOfCommand(ppidIgnoreAuditRule);
+	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{ppidIgnoreAuditRule, commandOutput});
+	            }
+	            
+	            //add the main rule. ALWAYS ADD THIS AFTER THE ABOVE INDIVIDUAL RULES HAVE BEEN ADDED TO AVOID INCLUSION OF AUDIT INFO OF ABOVE PIDS
+	            commandOutput = CommandUtility.getOutputOfCommand("auditctl " + auditRules + pidsForMainRule);
+            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules + pidsForMainRule, commandOutput});
+            	
 	        } catch (Exception e) {
 	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
 	            return false;
@@ -499,7 +536,7 @@ public class Audit extends AbstractReporter {
     	 return true;
     }
     
-    static private List<String> ignorePidsString(String ignoreProcesses) {
+    static private List<String> listOfPidsToIgnore(String ignoreProcesses) {
     	List<String> pidFieldRules = new ArrayList<String>();
         try {
         	List<String> pids = new ArrayList<String>();
@@ -517,27 +554,14 @@ public class Audit extends AbstractReporter {
                 pids.add(pid);
             }
             
-            //one auditctl add command can only contain upto 64 fields. Dividing them up into separate lines.
+            return pids;
             
-            int fieldCount = 0;
-            
-            String rule = "";
-            
-            for(String pid : pids){
-            	rule += "-F pid!=" + pid + " -F ppid!=" + pid + " ";
-            	fieldCount+=2;
-            	if(fieldCount >= 62){
-            		fieldCount = 0;
-            		pidFieldRules.add(rule);
-            		rule = "";
-            	}
-            }
-            
-            if(!rule.isEmpty()){
-            	pidFieldRules.add(rule);
-            }
+//            for(String pid : pids){
+//            	pidFieldRules.add("-a exit,never -F pid=" + pid);
+//            	pidFieldRules.add("-a exit,never -F ppid=" + pid);
+//            }
 
-            return pidFieldRules;
+//            return pidFieldRules;
         } catch (IOException e) {
             logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + pidFieldRules, e);
             return new ArrayList<String>();
