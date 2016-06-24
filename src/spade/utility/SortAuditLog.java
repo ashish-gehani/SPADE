@@ -20,14 +20,11 @@
 
 package spade.utility;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+
+import com.google.code.externalsorting.ExternalSort;
 
 public class SortAuditLog {
 
@@ -42,6 +39,42 @@ public class SortAuditLog {
 			System.err.println("Input audit log file doesn't exist");
 			return;
 		}
+		
+		Comparator<String> comparator = new Comparator<String>(){
+			@Override
+			public int compare(String record1, String record2) {
+				try{
+					//example -> type=DAEMON_START msg=audit(1443402415.959:2435):
+					int record1ColonIndex = record1.indexOf(":");
+					int record1CloseBracketIndex = record1.indexOf(")");
+					int record2ColonIndex = record2.indexOf(":");
+					int record2CloseBracketIndex = record2.indexOf(")");
+					String record1EventId = record1.substring(record1ColonIndex+1, record1CloseBracketIndex);
+					String record2EventId = record2.substring(record2ColonIndex+1, record2CloseBracketIndex);
+					Long record1EventIdLong = Long.parseLong(record1EventId);
+					Long record2EventIdLong = Long.parseLong(record2EventId);
+					return (int)(record1EventIdLong - record2EventIdLong);
+				}catch(Exception e){
+					e.printStackTrace(System.err);
+				}
+				return 0;
+			}
+		};
+		
+		//https://github.com/lemire/externalsortinginjava
+		
+		try{
+			List<File> l = ExternalSort.sortInBatch(inputAuditLogFile, comparator);
+	        ExternalSort.mergeSortedFiles(l, sortedOutputLogFile, comparator);
+		}catch(Exception e){
+			System.err.print("Failed to sort log file");
+			e.printStackTrace(System.err);
+		}
+		
+		
+		/* OLD NAIVE SORTING IMPLEMENTATION */
+		
+		/*
 		
 		List<String> auditRecords = new ArrayList<String>();
 		
@@ -110,6 +143,8 @@ public class SortAuditLog {
 				e.printStackTrace(System.err);
 			}
 		}
+		
+		*/
 	}
 	
 }

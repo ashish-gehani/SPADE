@@ -287,12 +287,15 @@ public class Audit extends AbstractReporter {
         			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"'");
         			List<String> output = CommandUtility.getOutputOfCommand("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
         			logger.log(Level.INFO, output.toString());
-        			logger.log(Level.INFO, "File sorted successfully");
+        			
         			inputAuditLogFile = sortedInputAuditLog;
         			if(!new File(inputAuditLogFile).exists()){
                 		logger.log(Level.SEVERE, "Failed to write sorted file to '"+inputAuditLogFile+"'");
                 		return false;
+                	}else{
+                		logger.log(Level.INFO, "File sorted successfully");
                 	}
+        			
         		}catch(Exception e){
         			logger.log(Level.SEVERE, "Failed to sort input audit log file at '"+inputAuditLogFile+"'", e);
         			return false;
