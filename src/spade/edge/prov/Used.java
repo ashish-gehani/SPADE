@@ -31,6 +31,11 @@ import spade.vertex.prov.Entity;
 public class Used extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = -3001968622367574605L;
+
+	/**
      * Constructor for Activity->Entity edge
      *
      * @param activity Activity

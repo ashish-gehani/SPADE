@@ -30,6 +30,11 @@ import spade.vertex.prov.Activity;
 public class WasInformedBy extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 7384759992388951575L;
+
+	/**
      * Constructor for Activity->Activity edge
      *
      * @param informedActivity Triggered activity vertex

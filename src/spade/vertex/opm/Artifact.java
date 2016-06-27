@@ -29,6 +29,11 @@ import spade.core.AbstractVertex;
 public class Artifact extends AbstractVertex {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 7541278287182455854L;
+
+	/**
      * Empty constructor - initializes an empty map for annotations.
      */
     public Artifact() {

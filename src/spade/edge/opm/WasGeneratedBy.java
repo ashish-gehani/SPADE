@@ -31,6 +31,11 @@ import spade.vertex.opm.Process;
 public class WasGeneratedBy extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = -95043184178026105L;
+
+	/**
      * Constructor for Artifact->Process edge
      *
      * @param generatedArtifact Artifact vertex

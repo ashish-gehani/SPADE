@@ -29,6 +29,11 @@ import spade.core.AbstractVertex;
 public class Process extends AbstractVertex {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1468995534724854772L;
+
+	/**
      * Empty constructor - initializes an empty map for annotations.
      */
     public Process() {

@@ -29,6 +29,11 @@ import spade.core.AbstractVertex;
 public class Agent extends AbstractVertex {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 4164391155813482475L;
+
+	/**
      * Empty constructor - initializes an empty map for annotations.
      */
     public Agent() {

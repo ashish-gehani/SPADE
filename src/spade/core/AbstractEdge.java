@@ -34,6 +34,10 @@ import org.apache.commons.codec.digest.DigestUtils;
 public abstract class AbstractEdge implements Serializable {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 5777793863959971982L;
+	/**
      * A map containing the annotations for this edge.
      */
     protected Map<String, String> annotations = new HashMap<>();

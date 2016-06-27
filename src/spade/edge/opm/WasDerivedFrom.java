@@ -30,6 +30,11 @@ import spade.vertex.opm.Artifact;
 public class WasDerivedFrom extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = -7868700149215471980L;
+
+	/**
      * Constructor for Artifact->Artifact edge
      *
      * @param sourceArtifact Source artifact vertex

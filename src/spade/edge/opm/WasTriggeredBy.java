@@ -30,6 +30,11 @@ import spade.vertex.opm.Process;
 public class WasTriggeredBy extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = -8833291481882361113L;
+
+	/**
      * Constructor for Process->Process edge
      *
      * @param triggeredProcess Triggered process vertex

@@ -30,6 +30,11 @@ import spade.vertex.prov.Agent;
 public class ActedOnBehalfOf extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = -4646701652322799705L;
+
+	/**
      * Constructor for Agent->Agent edge
      *
      * @param agent Agent

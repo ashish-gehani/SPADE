@@ -31,6 +31,11 @@ import spade.vertex.opm.Process;
 public class WasControlledBy extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 4456103995937895908L;
+
+	/**
      * Constructor for Process->Agent edge
      *
      * @param controlledProcess Process vertex

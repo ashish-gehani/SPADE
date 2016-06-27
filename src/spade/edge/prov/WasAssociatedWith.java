@@ -31,6 +31,11 @@ import spade.vertex.prov.Agent;
 public class WasAssociatedWith extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 8153869461615081626L;
+
+	/**
      * Constructor for Activity->Agent edge
      *
      * @param activity Activity

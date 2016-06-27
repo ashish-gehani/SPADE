@@ -34,6 +34,10 @@ import org.apache.commons.codec.digest.DigestUtils;
 public abstract class AbstractVertex implements Serializable {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 4766085487390172973L;
+	/**
      * A map containing the annotations for this vertex.
      */
     protected Map<String, String> annotations = new HashMap<>();

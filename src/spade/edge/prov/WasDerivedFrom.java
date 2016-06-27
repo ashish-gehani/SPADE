@@ -30,6 +30,11 @@ import spade.vertex.prov.Entity;
 public class WasDerivedFrom extends AbstractEdge {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = -7510649079940497925L;
+
+	/**
      * Constructor for Entity->Entity edge
      *
      * @param sourceEntity Source entity vertex
