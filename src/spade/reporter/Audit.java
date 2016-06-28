@@ -152,7 +152,7 @@ public class Audit extends AbstractReporter {
         TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
         ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
         SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT, CREATE, RENAME, UNIT,
-        EXECVE, UPDATE, UNKNOWN
+        EXECVE, UPDATE, UNKNOWN, KILL
     }
     
     private BufferedWriter dumpWriter = null;
@@ -170,6 +170,8 @@ public class Audit extends AbstractReporter {
     private boolean SORTLOG = true;
     
     private boolean NET_VERSIONING = false;
+    
+    private boolean UNIX_SOCKETS = false;
     
     private String inputAuditLogFile = null;
         
@@ -221,16 +223,18 @@ public class Audit extends AbstractReporter {
         	SORTLOG = false;
         }
         
-        if("true".equals(args.get("netVersioning"))){
-        	NET_VERSIONING = true;
-        }
-        
         // Arguments below are only for experimental use
         if("false".equals(args.get("simplify"))){
         	SIMPLIFY = false;
         }
         if("true".equals(args.get("procFS"))){
         	PROCFS = true;
+        }
+        if("true".equals(args.get("netVersioning"))){
+        	NET_VERSIONING = true;
+        }
+        if("true".equals(args.get("unixSockets"))){
+        	UNIX_SOCKETS = true;
         }
 //        if("true".equals(args.get("memOp"))){
 //        	USE_MEM_MMAP_MPROTECT = true;
@@ -935,144 +939,200 @@ public class Audit extends AbstractReporter {
     	String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
-        ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);
-    	if(artifactInfo instanceof SocketIdentity || artifactInfo instanceof UnixSocketIdentity || artifactInfo instanceof UnknownIdentity){ 
-    		if(USE_SOCK_SEND_RCV){
-    			switch (syscall) {
-    				case 1: // write()
-    					processSend(eventData, SYSCALL.WRITE);
-    					break;
-    				case 20: // writev()
-    					processSend(eventData, SYSCALL.WRITEV);
-    					break;
-                	case 18: // pwrite64()	
-                		processSend(eventData, SYSCALL.PWRITE64);
-                		break;
-	    			case 290: // sendto()
-	    				processSend(eventData, SYSCALL.SENDTO);
-	                	break;
-	                case 296: // sendmsg()
-	                	processSend(eventData, SYSCALL.SENDMSG);
-	                	break;
-	                case 0: // read()
-	                	processRecv(eventData, SYSCALL.READ);
-	                	break;
-	                case 19: // readv()
-	                	processRecv(eventData, SYSCALL.READV);
-	                	break;
-	                case 17: // pread64()
-	                	processRecv(eventData, SYSCALL.PREAD64);
-	                	break;
-	                case 45: // recvfrom()
-	                	processRecv(eventData, SYSCALL.RECVFROM);
-	                	break;
-	                case 47: // recvmsg()
-	                	processRecv(eventData, SYSCALL.RECVMSG);
-	                	break;
-	                default:
-						break;
-				}
+        Class<? extends ArtifactIdentity> artifactInfoClass = null;
+        
+        if(descriptors.getDescriptor(pid, fd) != null){
+        	artifactInfoClass = descriptors.getDescriptor(pid, fd).getClass();
+        }
+        
+        if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){
+    		if((syscall == 3 || syscall == 145 || syscall == 180 || syscall == 4 || syscall == 146 || syscall == 181) && USE_READ_WRITE){
+    			processFileIOEvent32(syscall, eventData);
+    		}else if((syscall == 290 || syscall == 296 || syscall == 292 || syscall == 297) && USE_SOCK_SEND_RCV){
+//    			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
+//    			processNetworkIOEvent32(syscall, eventData);
+    		}else{
+    			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
     		}
-    	}else if(artifactInfo instanceof FileIdentity || artifactInfo instanceof MemoryIdentity || artifactInfo instanceof PipeIdentity){
-    		if(USE_READ_WRITE){
-    			switch(syscall){
-	    			case 0: // read()
-	    				processRead(eventData, SYSCALL.READ);
-	                	break;
-	                case 19: // readv()
-	                	processRead(eventData, SYSCALL.READV);
-	                	break;
-	                case 17: // pread64()
-	                	processRead(eventData, SYSCALL.PREAD64);
-	                	break;
-	                case 1: // write()
-	                	processWrite(eventData, SYSCALL.WRITE);
-	                    break;
-	                case 20: // writev()
-	                	processWrite(eventData, SYSCALL.WRITEV);
-	                    break;
-	                case 18: // pwrite64()
-	                	processWrite(eventData, SYSCALL.PWRITE64);
-	                    break;
-    				default:
-    					break;
-    			}
-    		}
-    	}else{
-    		logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
+        }else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
+    		processNetworkIOEvent32(syscall, eventData);
+    	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) || PipeIdentity.class.equals(artifactInfoClass)){
+    		processFileIOEvent32(syscall, eventData);
     	}
     }
+    
+    private void processNetworkIOEvent32(int syscall, Map<String, String> eventData){
+    	if(USE_SOCK_SEND_RCV){
+			switch (syscall) {
+				case 4: // write()
+					processSend(eventData, SYSCALL.WRITE);
+					break;
+				case 146: // writev()
+					processSend(eventData, SYSCALL.WRITEV);
+					break;
+            	case 181: // pwrite64()	
+            		processSend(eventData, SYSCALL.PWRITE64);
+            		break;
+    			case 290: // sendto()
+    				processSend(eventData, SYSCALL.SENDTO);
+                	break;
+                case 296: // sendmsg()
+                	processSend(eventData, SYSCALL.SENDMSG);
+                	break;
+                case 3: // read()
+                	processRecv(eventData, SYSCALL.READ);
+                	break;
+                case 145: // readv()
+                	processRecv(eventData, SYSCALL.READV);
+                	break;
+                case 180: // pread64()
+                	processRecv(eventData, SYSCALL.PREAD64);
+                	break;
+                case 292: // recvfrom()
+                	processRecv(eventData, SYSCALL.RECVFROM);
+                	break;
+                case 297: // recvmsg()
+                	processRecv(eventData, SYSCALL.RECVMSG);
+                	break;
+                default:
+					break;
+			}
+		}
+    }
+    
+    private void processFileIOEvent32(int syscall, Map<String, String> eventData){
+    	if(USE_READ_WRITE){
+			switch(syscall){
+    			case 3: // read()
+    				processRead(eventData, SYSCALL.READ);
+                	break;
+                case 145: // readv()
+                	processRead(eventData, SYSCALL.READV);
+                	break;
+                case 180: // pread64()
+                	processRead(eventData, SYSCALL.PREAD64);
+                	break;
+                case 4: // write()
+                	processWrite(eventData, SYSCALL.WRITE);
+                    break;
+                case 146: // writev()
+                	processWrite(eventData, SYSCALL.WRITEV);
+                    break;
+                case 181: // pwrite64()
+                	processWrite(eventData, SYSCALL.PWRITE64);
+                    break;
+				default:
+					break;
+			}
+		}
+    }
+    
+    /*
+     * TODO discuss with Dr. Ashish. When decided, update CDM. 
+     * 
+     * Major change in this commit
+     * 
+     * Changed handling of artifact identities.
+     * 
+     * Added a flag to toggle monitoring of unix sockets. The flag is false by default. flag name : UNIX_SOCKETS. Did so because
+     * sockets in the current code are supposed to have a read version and a write version but unix sockets can't have that as they
+     * are designed in Audit reporter at the moment. Need new keys like in Socket identities.
+     * 
+     * Removed the case where an unknown identity can be a socket. Done this for the same reason as above. No read and write versions, 
+     * only one version for both cases exists for unknown identities.
+     * 
+     */
     
     private void processIOEvent64(int syscall, Map<String, String> eventData){
     	String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
-        ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);
-    	if(artifactInfo instanceof SocketIdentity || artifactInfo instanceof UnixSocketIdentity || artifactInfo instanceof UnknownIdentity){ 
-    		if(USE_SOCK_SEND_RCV){
-    			switch (syscall) {
-    				case 1: // write()
-    					processSend(eventData, SYSCALL.WRITE);
-	                	break;
-    				case 20: // writev()
-    					processSend(eventData, SYSCALL.WRITEV);
-	                	break;
-    				case 18: // pwrite64()
-    					processSend(eventData, SYSCALL.PWRITE64);
-	                	break;
-    				case 44: // sendto()
-	    				processSend(eventData, SYSCALL.SENDTO);
-	                	break;
-	                case 46: // sendmsg()
-	                	processSend(eventData, SYSCALL.SENDMSG);
-	                	break;
-	                case 0: // read()
-	                	processRecv(eventData, SYSCALL.READ);
-	                	break;
-	                case 19: // readv()
-	                	processRecv(eventData, SYSCALL.READV);
-	                	break;
-	                case 17: // pread64()
-	                	processRecv(eventData, SYSCALL.PREAD64);
-	                	break;
-	                case 45: // recvfrom()
-	                	processRecv(eventData, SYSCALL.RECVFROM);
-	                	break;
-	                case 47: // recvmsg()
-	                	processRecv(eventData, SYSCALL.RECVMSG);
-	                	break;
-	                default:
-						break;
-				}
+        Class<? extends ArtifactIdentity> artifactInfoClass = null;
+        
+        if(descriptors.getDescriptor(pid, fd) != null){
+        	artifactInfoClass = descriptors.getDescriptor(pid, fd).getClass();
+        }
+        
+        if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){ //either a new unknown i.e. null or a previously known unknown
+    		if((syscall == 0 || syscall == 19 || syscall == 17 || syscall == 1 || syscall == 20 || syscall == 18) && USE_READ_WRITE){
+    			processFileIOEvent64(syscall, eventData);
+    		}else if((syscall == 44 || syscall == 45 || syscall == 46 || syscall == 47) && USE_SOCK_SEND_RCV){
+//    			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
+//    			processNetworkIOEvent64(syscall, eventData);
+    		}else {
+    			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
     		}
-    	}else if(artifactInfo instanceof FileIdentity || artifactInfo instanceof MemoryIdentity || artifactInfo instanceof PipeIdentity){
-    		if(USE_READ_WRITE){
-    			switch(syscall){
-	    			case 0: // read()
-	    				processRead(eventData, SYSCALL.READ);
-	                    break;
-	                case 19: // readv()
-	                	processRead(eventData, SYSCALL.READV);
-	                    break;
-	                case 17: // pread64()
-	                	processRead(eventData, SYSCALL.PREAD64);
-	                    break;
-	                case 1: // write()
-	                	processWrite(eventData, SYSCALL.WRITE);
-	                    break;
-	                case 20: // writev()
-	                	processWrite(eventData, SYSCALL.WRITEV);
-	                    break;
-	                case 18: // pwrite64()
-	                	processWrite(eventData, SYSCALL.PWRITE64);
-	                    break;
-    				default:
-    					break;
-    			}
-    		}
-    	}else{
-    		logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"'");
+        }else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
+    		processNetworkIOEvent64(syscall, eventData);
+    	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) || PipeIdentity.class.equals(artifactInfoClass)){
+    		processFileIOEvent64(syscall, eventData);
     	}
+    }
+    
+    private void processNetworkIOEvent64(int syscall, Map<String, String> eventData){
+    	if(USE_SOCK_SEND_RCV){
+			switch (syscall) {
+				case 1: // write()
+					processSend(eventData, SYSCALL.WRITE);
+                	break;
+				case 20: // writev()
+					processSend(eventData, SYSCALL.WRITEV);
+                	break;
+				case 18: // pwrite64()
+					processSend(eventData, SYSCALL.PWRITE64);
+                	break;
+				case 44: // sendto()
+    				processSend(eventData, SYSCALL.SENDTO);
+                	break;
+                case 46: // sendmsg()
+                	processSend(eventData, SYSCALL.SENDMSG);
+                	break;
+                case 0: // read()
+                	processRecv(eventData, SYSCALL.READ);
+                	break;
+                case 19: // readv()
+                	processRecv(eventData, SYSCALL.READV);
+                	break;
+                case 17: // pread64()
+                	processRecv(eventData, SYSCALL.PREAD64);
+                	break;
+                case 45: // recvfrom()
+                	processRecv(eventData, SYSCALL.RECVFROM);
+                	break;
+                case 47: // recvmsg()
+                	processRecv(eventData, SYSCALL.RECVMSG);
+                	break;
+                default:
+					break;
+			}
+		}
+    }
+    
+    private void processFileIOEvent64(int syscall, Map<String, String> eventData){
+    	if(USE_READ_WRITE){
+			switch(syscall){
+    			case 0: // read()
+    				processRead(eventData, SYSCALL.READ);
+                    break;
+                case 19: // readv()
+                	processRead(eventData, SYSCALL.READV);
+                    break;
+                case 17: // pread64()
+                	processRead(eventData, SYSCALL.PREAD64);
+                    break;
+                case 1: // write()
+                	processWrite(eventData, SYSCALL.WRITE);
+                    break;
+                case 20: // writev()
+                	processWrite(eventData, SYSCALL.WRITEV);
+                    break;
+                case 18: // pwrite64()
+                	processWrite(eventData, SYSCALL.PWRITE64);
+                    break;
+				default:
+					break;
+			}
+		}
     }
 
     private void finishEvent64(String eventId) {
@@ -1234,23 +1294,20 @@ public class Audit extends AbstractReporter {
     	String length = eventData.get("a1");
     	String protection = eventData.get("a2");
     	String fd = eventData.get("fd");
+    	    	
+    	if(descriptors.getDescriptor(pid, fd) == null){
+    		descriptors.addUnknownDescriptor(pid, fd);
+    	}
     	
     	ArtifactIdentity artifactIdentity = descriptors.getDescriptor(pid, fd);
-    	if(artifactIdentity == null){
-    		descriptors.addUnknownDescriptor(pid, fd);
-    		artifactIdentity = descriptors.getDescriptor(pid, fd);
-    	}
     	Artifact artifact = createArtifact(artifactIdentity, false, syscall);
     	
     	ArtifactIdentity memoryInfo = new MemoryIdentity(address, length, protection);
     	Artifact memoryArtifact = createArtifact(memoryInfo, true, syscall);
+		
+		Process process = checkProcessVertex(eventData, true, false);
+
 		putVertex(memoryArtifact);
-		
-		Process process = null;
-		if((process = getProcess(pid)) == null){
-			process = checkProcessVertex(eventData, true, false);
-		}
-		
 		putVertex(artifact);
 		
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
@@ -1283,7 +1340,7 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	
-    	String pid = eventData.get("pid");
+//    	String pid = eventData.get("pid");
     	String time = eventData.get("time");
     	String address = eventData.get("a0");
     	String length = eventData.get("a1");
@@ -1293,10 +1350,7 @@ public class Audit extends AbstractReporter {
     	Artifact memoryArtifact = createArtifact(memoryInfo, true, syscall);
 		putVertex(memoryArtifact);
 		
-		Process process = null;
-		if((process = getProcess(pid)) == null){
-			process = checkProcessVertex(eventData, true, false);
-		}
+		Process process = checkProcessVertex(eventData, true, false);
 		
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
 		edge.addAnnotation("time", time);
@@ -1350,11 +1404,11 @@ public class Audit extends AbstractReporter {
     			address = address.add(arg1);
     			pidToMemAddress.remove(pid);
     			if(arg0.intValue() == -201){
-    				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), false, null);
+    				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), false, SYSCALL.KILL);
     				edge = new Used(process, memArtifact);
     				edge.addAnnotation("operation", getOperation(SYSCALL.READ));
     			}else if(arg0.intValue() == -301){
-    				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), true, null);
+    				memArtifact = createArtifact(new MemoryIdentity(address.toString(16), null, null), true, SYSCALL.KILL);
     				edge = new WasGeneratedBy(memArtifact, process);
     				edge.addAnnotation("operation", getOperation(SYSCALL.WRITE));
     			}
@@ -1392,7 +1446,7 @@ public class Audit extends AbstractReporter {
         return artifact;
     }        
     
-    //handles socketinfo, unixsocketinfo, unknowninfo
+    //handles socketinfo, unixsocketinfo
     private Artifact createNetworkArtifact(ArtifactIdentity artifactInfo, SYSCALL syscall) {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
@@ -1404,7 +1458,7 @@ public class Audit extends AbstractReporter {
         	return null; 
         }else if(isRead){
         	version = getArtifactProperties(artifactInfo).getSocketReadVersion();
-        	if(version == ArtifactProperties.UNINITIALIZED){
+        	if(version == ArtifactProperties.VERSION_UNINITIALIZED){
         		version = 0;
         		getArtifactProperties(artifactInfo).setSocketReadVersion(version);
         	}
@@ -1412,7 +1466,7 @@ public class Audit extends AbstractReporter {
 			portAnnotation = "source port";
         }else if(!isRead){
         	version = getArtifactProperties(artifactInfo).getSocketWriteVersion();
-        	if(version == ArtifactProperties.UNINITIALIZED){
+        	if(version == ArtifactProperties.VERSION_UNINITIALIZED){
         		version = 0;
         		getArtifactProperties(artifactInfo).setSocketWriteVersion(version);
         	}
@@ -1421,35 +1475,45 @@ public class Audit extends AbstractReporter {
         }
         
         artifact.addAnnotation("version", Long.toString(version));
-        
+
         if(artifactInfo instanceof SocketIdentity){ //either internet socket
-        	    		
+
     		artifact.addAnnotation(hostAnnotation, ((SocketIdentity) artifactInfo).getHost());
 			artifact.addAnnotation(portAnnotation, ((SocketIdentity) artifactInfo).getPort());
 			
-        }else if(artifactInfo instanceof UnixSocketIdentity || artifactInfo instanceof UnknownIdentity){ //or unix socket
+        }else if(artifactInfo instanceof UnixSocketIdentity){ //or unix socket
         	
-        	artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
+//        	artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
+        	logger.log(Level.WARNING, "Unix socket monitoring not supported yet");
         	
         }
-        
+                
         return artifact;
     }
     
-    private Artifact createArtifact(ArtifactIdentity artifactInfo, boolean update, SYSCALL syscall){
+    private Artifact createArtifact(ArtifactIdentity artifactIdentity, boolean update, SYSCALL syscall){
     	Artifact artifact = null;
-    	if(artifactInfo instanceof FileIdentity || artifactInfo instanceof PipeIdentity || (artifactInfo instanceof UnknownIdentity && (syscall == SYSCALL.MMAP || syscall == SYSCALL.MMAP2 || syscall == SYSCALL.MPROTECT))){
-    		artifact = createFileArtifact(artifactInfo, update);
+    	if(artifactIdentity == null){
+    		return null;
+    	}
+    	Class<? extends ArtifactIdentity> artifactIdentityClass = artifactIdentity.getClass();
+    	if(FileIdentity.class.equals(artifactIdentityClass) || PipeIdentity.class.equals(artifactIdentityClass)){
+    		artifact = createFileArtifact(artifactIdentity, update);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
-    	}else if(artifactInfo instanceof MemoryIdentity){
-    		artifact = createMemoryArtifact(artifactInfo, update);
+    	}else if(MemoryIdentity.class.equals(artifactIdentityClass)){
+    		artifact = createMemoryArtifact(artifactIdentity, update);
     		if(syscall == SYSCALL.MMAP || syscall == SYSCALL.MMAP2 || syscall == SYSCALL.MPROTECT){
     			artifact.addAnnotation(SOURCE, DEV_AUDIT);
-    		}else{
+    		}else if(syscall == SYSCALL.KILL){
     			artifact.addAnnotation(SOURCE, BEEP);
-    		}    		
-    	}else if(artifactInfo instanceof SocketIdentity || artifactInfo instanceof UnixSocketIdentity || (artifactInfo instanceof UnknownIdentity && syscall != null)){
-    		artifact = createNetworkArtifact(artifactInfo, syscall);
+    		}else{
+    			logger.log(Level.WARNING, "Missing source attribute for memory artifact because of unhandled syscall '"+syscall+"' ");
+    		}		
+    	}else if(SocketIdentity.class.equals(artifactIdentityClass) || UnixSocketIdentity.class.equals(artifactIdentityClass)){
+    		artifact = createNetworkArtifact(artifactIdentity, syscall);
+    		artifact.addAnnotation(SOURCE, DEV_AUDIT);
+    	}else if(UnknownIdentity.class.equals(artifactIdentityClass)){ //unknownidentities are always handled as files
+    		artifact = createFileArtifact(artifactIdentity, update);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}
     	return artifact;
@@ -1662,7 +1726,7 @@ public class Audit extends AbstractReporter {
         }else{
         
 	        if (flags.charAt(flags.length() - 1) == '0') {
-	        	boolean put = getArtifactProperties(fileInfo).getFileVersion() == ArtifactProperties.UNINITIALIZED;
+	        	boolean put = getArtifactProperties(fileInfo).getFileVersion() == ArtifactProperties.VERSION_UNINITIALIZED;
 	            Artifact vertex = createArtifact(fileInfo, false, null);
 	            if (put) {
 	                putVertex(vertex);
@@ -1713,7 +1777,7 @@ public class Audit extends AbstractReporter {
         }
         
         ArtifactIdentity fileInfo = descriptors.getDescriptor(pid, fd);
-        boolean put = getArtifactProperties(fileInfo).getFileVersion() == ArtifactProperties.UNINITIALIZED;
+        boolean put = getArtifactProperties(fileInfo).getFileVersion() == ArtifactProperties.VERSION_UNINITIALIZED;
         Artifact vertex = createArtifact(fileInfo, false, null);
         if (put) {
             putVertex(vertex);
@@ -1845,7 +1909,7 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
         ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
 
-        boolean put = getArtifactProperties(srcFileInfo).getFileVersion() == ArtifactProperties.UNINITIALIZED;
+        boolean put = getArtifactProperties(srcFileInfo).getFileVersion() == ArtifactProperties.VERSION_UNINITIALIZED;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -1896,7 +1960,7 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
         ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
 
-        boolean put = getArtifactProperties(srcFileInfo).getFileVersion() == ArtifactProperties.UNINITIALIZED;
+        boolean put = getArtifactProperties(srcFileInfo).getFileVersion() == ArtifactProperties.VERSION_UNINITIALIZED;
         Artifact srcVertex = createArtifact(srcFileInfo, false, null);
         if (put) {
             putVertex(srcVertex);
@@ -2042,6 +2106,9 @@ public class Audit extends AbstractReporter {
         String saddr = eventData.get("saddr");
         ArtifactIdentity artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
+        	if(UnixSocketIdentity.class.equals(artifactInfo.getClass()) && !UNIX_SOCKETS){
+        		return;
+        	}        	
             int callType = Integer.parseInt(eventData.get("socketcall_a0"));
             // socketcall number is derived from /usr/include/linux/net.h
             if (callType == 3) {
@@ -2076,6 +2143,9 @@ public class Audit extends AbstractReporter {
         String saddr = eventData.get("saddr");
         ArtifactIdentity artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
+        	if(UnixSocketIdentity.class.equals(artifactInfo.getClass()) && !UNIX_SOCKETS){
+        		return;
+        	}
             Artifact network = createArtifact(artifactInfo, false, SYSCALL.CONNECT);
             putVertex(network);
             WasGeneratedBy wgb = new WasGeneratedBy(network, getProcess(pid));
@@ -2096,6 +2166,9 @@ public class Audit extends AbstractReporter {
         String saddr = eventData.get("saddr");
         ArtifactIdentity artifactInfo = parseSaddr(saddr);
         if (artifactInfo != null) {
+        	if(UnixSocketIdentity.class.equals(artifactInfo.getClass()) && !UNIX_SOCKETS){
+        		return;
+        	}
             Artifact network = createArtifact(artifactInfo, false, syscall);
             putVertex(network);
             Used used = new Used(getProcess(pid), network);
@@ -2122,7 +2195,13 @@ public class Audit extends AbstractReporter {
         String bytesSent = eventData.get("exit");
         
         if(descriptors.getDescriptor(pid, fd) == null){
-        	descriptors.addUnknownDescriptor(pid, fd);
+//			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
+//        	descriptors.addUnknownDescriptor(pid, fd); 
+        	return;
+        }else{
+        	if(UnixSocketIdentity.class.equals(descriptors.getDescriptor(pid, fd).getClass()) && !UNIX_SOCKETS){
+        		return;
+        	}
         }
        
         ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);
@@ -2174,7 +2253,13 @@ public class Audit extends AbstractReporter {
         String bytesReceived = eventData.get("exit");
 
         if(descriptors.getDescriptor(pid, fd) == null){
-        	descriptors.addUnknownDescriptor(pid, fd);
+//			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
+//        	descriptors.addUnknownDescriptor(pid, fd); 
+        	return;
+        }else{
+        	if(UnixSocketIdentity.class.equals(descriptors.getDescriptor(pid, fd).getClass()) && !UNIX_SOCKETS){
+        		return;
+        	}
         }
         
         ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);     

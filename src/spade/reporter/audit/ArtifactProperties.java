@@ -26,12 +26,12 @@ public class ArtifactProperties implements Serializable{
 	
 	private static final long serialVersionUID = -1299250614232336780L;
 
-	public static final int UNINITIALIZED = -1;
+	public static final int VERSION_UNINITIALIZED = -1;
 	
 	//used for every artifact except sockets
-	private long nonSocketVersion = UNINITIALIZED;
+	private long nonSocketVersion = VERSION_UNINITIALIZED;
 	
-	private long socketReadVersion = UNINITIALIZED, socketWriteVersion = UNINITIALIZED;
+	private long socketReadVersion = VERSION_UNINITIALIZED, socketWriteVersion = VERSION_UNINITIALIZED;
 	
 	private long bytesWrittenToSocket = 0, bytesReadFromSocket = 0;
 

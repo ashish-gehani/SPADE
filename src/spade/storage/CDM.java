@@ -282,6 +282,7 @@ public class CDM extends Kafka {
 	                    affectsEdgeBuilder.setTimestamp(timeLong);
 	                    SimpleEdge affectsEdge = affectsEdgeBuilder.build();
 	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
+	                    recordCount += publishRecords(tccdmDatums);
 	                    return true; //no need to create an event for this so returning from here after adding the edge
                 	}else{
                 		logger.log(Level.WARNING, "Unable to create load edge for pid " + pid + ". event id = " + eventId);
@@ -359,6 +360,7 @@ public class CDM extends Kafka {
                     affectsEdgeBuilder.setTimestamp(timeLong);
                     SimpleEdge affectsEdge = affectsEdgeBuilder.build();
                     tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
+                    recordCount += publishRecords(tccdmDatums);
                     return true; //no need to create an event for this so returning from here after adding the edge
                     
                 } else if (operation.equals("rename")) {
@@ -473,7 +475,7 @@ public class CDM extends Kafka {
     		d = d * 1000 * 1000; //converting seconds to microseconds
     		return d.longValue();
     	}catch(Exception e){
-    		logger.log(Level.WARNING,
+    		logger.log(Level.INFO,
                     "Time type is not Double: {0}. event id = {1}", new Object[]{time, eventId});
     		return defaultValue;
     	}
@@ -611,7 +613,7 @@ public class CDM extends Kafka {
             FileObject fileObject = fileBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(fileObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("network")) {
+        } else if (entityType.equals("network")) { //not handling unix sockets yet. TODO
             NetFlowObject.Builder netBuilder = NetFlowObject.newBuilder();
             netBuilder.setUuid(getUuid(vertex));
             netBuilder.setBaseObject(baseObject);
@@ -663,7 +665,7 @@ public class CDM extends Kafka {
             FileObject pipeObject = pipeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(pipeObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("unknown")) {
+        } else if (entityType.equals("unknown")) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	String pathTokens[] = vertex.getAnnotation("path").split("/");
