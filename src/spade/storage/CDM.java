@@ -614,8 +614,19 @@ public class CDM extends Kafka {
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(fileObject).build());
             return tccdmDatums;
         } else if (entityType.equals("network")) { //not handling unix sockets yet. TODO
+            if(vertex.getAnnotation("path") != null){
+            	//is a unix socket
+            	return tccdmDatums;
+            }
             NetFlowObject.Builder netBuilder = NetFlowObject.newBuilder();
             netBuilder.setUuid(getUuid(vertex));
+            Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+            if(vertex.getAnnotation("version") != null){
+            	properties.put("version", vertex.getAnnotation("version"));
+            }
+            if(properties.size() > 0){
+            	baseObject.setProperties(properties);
+            }
             netBuilder.setBaseObject(baseObject);
             String srcAddress = vertex.getAnnotation("source host");
             if (srcAddress == null) {                                       // required by CDM
@@ -643,6 +654,9 @@ public class CDM extends Kafka {
         	}
         	if(vertex.getAnnotation("protection") != null){
         		properties.put("protection", vertex.getAnnotation("protection"));
+        	}
+        	if(vertex.getAnnotation("version") != null){
+        		properties.put("version", vertex.getAnnotation("version"));
         	}
         	if(properties.size() > 0){
         		baseObject.setProperties(properties);
