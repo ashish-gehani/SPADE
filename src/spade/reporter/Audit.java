@@ -1566,7 +1566,7 @@ public class Audit extends AbstractReporter {
         
         if(syscall == SYSCALL.CLONE){
         	//arguments are in hexdec format
-        	Integer flags = Integer.parseInt(eventData.get("a2"), 16);
+        	Long flags = Long.parseLong(eventData.get("a2"), 16);
         	//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
         	if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
         		syscall = SYSCALL.VFORK;
@@ -2009,7 +2009,7 @@ public class Audit extends AbstractReporter {
         } else if (syscall == SYSCALL.FCHMOD) {
             String hexfd = eventData.get("a0");
             //arguments are in hexdec form
-            String fd = String.valueOf(Integer.parseInt(hexfd, 16));
+            String fd = String.valueOf(Long.parseLong(hexfd, 16));
             
             if(descriptors.getDescriptor(pid, fd) == null){
             	descriptors.addUnknownDescriptor(pid, fd);
