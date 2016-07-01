@@ -593,7 +593,8 @@ public class Audit extends AbstractReporter {
     	Map<String, String> inodefd0 = new HashMap<String, String>();
     	
     	try{
-    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -p " + pid);
+    		//LSOF args -> n = no address resolution, P = no port user friendly naming, p = for pid
+    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -nPp " + pid);
     		if(lines != null && lines.size() > 1){
     			lines.remove(0); //remove the heading line
     			for(String line : lines){
@@ -1564,7 +1565,8 @@ public class Audit extends AbstractReporter {
         String newPID = eventData.get("exit");
         
         if(syscall == SYSCALL.CLONE){
-        	Integer flags = CommonFunctions.parseInt(eventData.get("a2"), 0);
+        	//arguments are in hexdec format
+        	Integer flags = Integer.parseInt(eventData.get("a2"), 16);
         	//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
         	if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
         		syscall = SYSCALL.VFORK;
@@ -2005,7 +2007,9 @@ public class Audit extends AbstractReporter {
         if (syscall == SYSCALL.CHMOD) {
             fileInfo = new FileIdentity(joinPaths(eventData.get("cwd"), eventData.get("path0")));
         } else if (syscall == SYSCALL.FCHMOD) {
-            String fd = eventData.get("a0");
+            String hexfd = eventData.get("a0");
+            //arguments are in hexdec form
+            String fd = String.valueOf(Integer.parseInt(hexfd, 16));
             
             if(descriptors.getDescriptor(pid, fd) == null){
             	descriptors.addUnknownDescriptor(pid, fd);
