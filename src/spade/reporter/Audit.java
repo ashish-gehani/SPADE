@@ -1566,7 +1566,7 @@ public class Audit extends AbstractReporter {
         
         if(syscall == SYSCALL.CLONE){
         	//arguments are in hexdec format
-        	Long flags = Long.parseLong(eventData.get("a2"), 16);
+        	Long flags = Long.parseLong(eventData.get("a0"), 16);
         	//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
         	if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
         		syscall = SYSCALL.VFORK;
