@@ -631,7 +631,7 @@ public class Kernel {
                 configReader = new BufferedReader(new FileReader(tokens[2]));
                 String configLine;
                 while ((configLine = configReader.readLine()) != null) {
-                    addCommand("add " + configLine, outputStream);
+                    executeCommand(configLine, outputStream);
                 }
             } catch (Exception exception) {
                 outputStream.println("error! Unable to open configuration file for reading");
