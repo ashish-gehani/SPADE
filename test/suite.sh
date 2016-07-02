@@ -9,7 +9,7 @@ _sconf=../cfg/spade.config	# SPADE config file
 _nGood=0
 _nBad=0
 
-for log in *.log; do
+for log in input/*.log; do
     ../bin/spade stop
 
     echo "Processing $log..."
@@ -17,18 +17,18 @@ for log in *.log; do
     _bname=`basename $log .log`	# base name of log
     _cdm=$_bname.cdm		# CDM storage file
     _json=$_bname.json		# json version of AVRO file
-    _cdmhash=$_bname.hash	# Comparison hash of CDM storage
+    _cdmhash=checksum/$_bname.hash	# Comparison hash of CDM storage
 
 cat <<EOF > $_sconf
-storage CDM output=$_dir/$_cdm
-reporter Audit inputLog=$_dir/$log arch=64 units=true fileio=true netio=true
+add storage CDM output=$_dir/$_cdm
+add reporter Audit inputLog=$_dir/$log arch=64 units=true fileIO=true netIO=true
 EOF
 
     ../bin/spade start
 
     sleep 5
 
-    _spid=`ps xwwww | grep spade.utility.Daemonizer | grep -v grep | cut -d' ' -f1`
+    _spid=`ps xwwww | grep spade.utility.Daemonizer | grep -v grep | awk -F' ' '{print $1}'`
 
     _slog=`ls -1t ../log/*.log | head -1`	# current SPADE log
 
