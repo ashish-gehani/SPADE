@@ -3,15 +3,16 @@
 #set -x
 
 _dir=`pwd`
+_top=../..
 
-_sconf=../cfg/spade.config		# SPADE config file
-_avrojar=../lib/avro-tools-1.8.1.jar	# Apache Avro Tools jar
+_sconf=$_top/cfg/spade.config		# SPADE config file
+_avrojar=$_top/lib/avro-tools-1.8.1.jar	# Apache Avro Tools jar
 
 _nGood=0
 _nBad=0
 
 for log in input/*.log; do
-    ../bin/spade stop 2>/dev/null 1>&2
+    $_top/bin/spade stop 2>/dev/null 1>&2
 
     echo "Processing $log..."
 
@@ -25,13 +26,13 @@ add storage CDM output=$_dir/$_cdm
 add reporter Audit inputLog=$_dir/$log arch=64 units=true fileIO=true netIO=true
 EOF
 
-    ../bin/spade start 2>/dev/null 1>&2
+    $_top/bin/spade start 2>/dev/null 1>&2
 
     sleep 5
 
     _spid=`ps xwwww | grep spade.utility.Daemonizer | grep -v grep | awk -F' ' '{print $1}'`
 
-    _slog=`ls -1t ../log/*.log | head -1`	# current SPADE log
+    _slog=`ls -1t $_top/log/*.log | head -1`	# current SPADE log
 
     # Poll for "run Audit log processing succeeded" diagnostic
 
@@ -45,7 +46,7 @@ EOF
 
     # Shut down SPADE
 
-    ../bin/spade stop 2>/dev/null 1>&2
+    $_top/bin/spade stop 2>/dev/null 1>&2
 
     # Poll for SPADE termination
 
