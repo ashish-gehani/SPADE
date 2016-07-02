@@ -57,6 +57,10 @@ EOF
 	fi
     done
 
+    # Clean out intermediate log, configuration
+
+    rm $_dir/$log.*
+
     cat /dev/null > $_sconf
 
     # Calculate and compare hash
@@ -85,6 +89,7 @@ fi
 
 _nTotal=$(( $_nBad + $_nGood ))
 
+echo "--------------------------------------"
 echo "Total tests: $_nTotal, #good: $_nGood, #bad: $_nBad"
 
 if [ $_nBad -ne 0 ]; then
