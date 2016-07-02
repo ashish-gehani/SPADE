@@ -48,7 +48,6 @@ import java.util.Set;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.LogManager;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
@@ -61,16 +60,18 @@ import javax.net.ssl.TrustManagerFactory;
 
 import spade.client.QueryParameters;
 import spade.filter.FinalCommitFilter;
+import spade.utility.LogManager;
 
 /**
- * The SPADE core.
- *
- * @author Dawood Tariq
+ * This mediates between vertex and edges coming from Reporters, applying Filters to them, before
+ * committing them to Storage, applying Transformers when responding local queries, and using Sketches
+ * to accelerate distributed query responses.
  */
+
 public class Kernel {
 	
 	static{
-		System.setProperty("java.util.logging.manager", "spade.core.SPADELogManager");
+		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -1273,7 +1274,9 @@ public class Kernel {
             }
         }
         logger.log(Level.INFO, "SPADE stopped.");
-        ((SPADELogManager)(LogManager.getLogManager())).spadeLogReset();
+        
+        // Allow LogManager to complete its response to the shutdown
+        LogManager.shutdownReset();
     }
 }
 

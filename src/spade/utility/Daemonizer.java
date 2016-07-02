@@ -18,9 +18,10 @@
  --------------------------------------------------------------------------------
  */
 
- /*
- This works across *nix and runs the SPADE kernel as a daemon. bin/spade is a bash script that invokes this daemon.
- */
+ /* This works across *nix and runs the SPADE kernel as a daemon.
+  * 'bin/spade' is a bash script that invokes this daemon.
+  */
+
 package spade.utility;
 
 import com.sun.akuma.CLibrary;
@@ -76,6 +77,7 @@ public class Daemonizer {
     }
 
     public void runSpadeProcess() throws Exception{
+
         Daemon daemon = new Daemon.WithoutChdir();
         if(daemon.isDaemonized()) {
             System.out.println("Starting SPADE as a daemon with PID: " + CLibrary.LIBC.getpid() );
