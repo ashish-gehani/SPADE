@@ -5,6 +5,7 @@
 _dir=`pwd`
 
 _sconf=../cfg/spade.config	# SPADE config file
+_avrojar=../lib/avro-tools-1.8.1.jar	# Apache Avro Tools jar
 
 _nGood=0
 _nBad=0
@@ -60,7 +61,7 @@ EOF
 
     # Calculate and compare hash
 
-    java -jar avro-tools-1.7.4.jar tojson $_cdm > $_json
+    java -jar $_avrojar tojson $_cdm > $_json
 
     _chksum=`sha256sum $_json | cut -d' ' -f1`
     rm $_cdm $_json
