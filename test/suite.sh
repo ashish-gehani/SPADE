@@ -4,20 +4,20 @@
 
 _dir=`pwd`
 
-_sconf=../cfg/spade.config	# SPADE config file
+_sconf=../cfg/spade.config		# SPADE config file
 _avrojar=../lib/avro-tools-1.8.1.jar	# Apache Avro Tools jar
 
 _nGood=0
 _nBad=0
 
 for log in input/*.log; do
-    ../bin/spade stop
+    ../bin/spade stop 2>/dev/null 1>&2
 
     echo "Processing $log..."
 
-    _bname=`basename $log .log`	# base name of log
-    _cdm=$_bname.cdm		# CDM storage file
-    _json=$_bname.json		# json version of AVRO file
+    _bname=`basename $log .log`		# base name of log
+    _cdm=$_bname.cdm			# CDM storage file
+    _json=$_bname.json			# json version of AVRO file
     _cdmhash=checksum/$_bname.hash	# Comparison hash of CDM storage
 
 cat <<EOF > $_sconf
@@ -25,7 +25,7 @@ add storage CDM output=$_dir/$_cdm
 add reporter Audit inputLog=$_dir/$log arch=64 units=true fileIO=true netIO=true
 EOF
 
-    ../bin/spade start
+    ../bin/spade start 2>/dev/null 1>&2
 
     sleep 5
 
@@ -39,13 +39,13 @@ EOF
 	if [ `grep -c 'run Audit log processing succeeded' $_slog` -ne 0 ]; then
 	    break
 	else
-	    sleep 5
+	    sleep 2
 	fi
     done
 
     # Shut down SPADE
 
-    ../bin/spade stop
+    ../bin/spade stop 2>/dev/null 1>&2
 
     # Poll for SPADE termination
 
@@ -53,7 +53,7 @@ EOF
 	if [ `ps $_spid | wc -l` -lt 2 ]; then
 	    break
 	else
-	    sleep 5
+	    sleep 2
 	fi
     done
 
@@ -65,13 +65,15 @@ EOF
 
     # Calculate and compare hash
 
-    java -jar $_avrojar tojson $_cdm > $_json
+    java -jar $_avrojar tojson $_cdm > $_json 2>/dev/null
 
     _chksum=`sha256sum $_json | cut -d' ' -f1`
     rm $_cdm $_json
 
     if [ $# -ne 0 ]; then
+	rm -f $_cdmhash
         echo "$_chksum" > $_cdmhash
+	chmod 400 $_cdmhash
     else
 	if [ "$_chksum" != "`cat $_cdmhash`" ]; then
 	  _nBad=$(( $_nBad + 1 ))
