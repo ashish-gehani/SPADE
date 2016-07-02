@@ -471,9 +471,12 @@ public class CDM extends Kafka {
     private Long convertTimeToMicroseconds(Long eventId, String time, Long defaultValue){
     	//expected input time example: 12345678.678 (seconds.milliseconds)
     	try{
-    		Double d = Double.parseDouble(time);
-    		d = d * 1000 * 1000; //converting seconds to microseconds
-    		return d.longValue();
+            if(time == null){
+                return defaultValue;
+            }
+    		Double timeMicroseconds = Double.parseDouble(time);
+    		timeMicroseconds = timeMicroseconds * 1000 * 1000; //converting seconds to microseconds
+    		return timeMicroseconds.longValue();
     	}catch(Exception e){
     		logger.log(Level.INFO,
                     "Time type is not Double: {0}. event id = {1}", new Object[]{time, eventId});
