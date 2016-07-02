@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
@@ -67,6 +68,10 @@ import spade.filter.FinalCommitFilter;
  * @author Dawood Tariq
  */
 public class Kernel {
+	
+	static{
+		System.setProperty("java.util.logging.manager", "spade.core.SPADELogManager");
+	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     /**
@@ -236,7 +241,7 @@ public class Kernel {
 	    new File(logPath).mkdirs();
             // Configuring the global exception logger
             String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
-            Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
+            final Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
 	    logFileHandler.setFormatter(new SimpleFormatter());
 
             Logger.getLogger("").addHandler(logFileHandler);
@@ -249,48 +254,10 @@ public class Kernel {
             @Override
             public void run() {
                 if (!shutdown) {
-
                     Kernel.shutdown = true;
-
-                    // Save current configuration.
-                    configCommand("config save " + configFile, NullStream.out);
-                    // Shut down all reporters.
-                    for (AbstractReporter reporter : reporters) {
-                        reporter.shutdown();
-                    }
-                    // Wait for main thread to consume all provenance data.
-                    while (!reporters.isEmpty()) {
-                        for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
-                            AbstractReporter currentReporter = reporterIterator.next();
-                            Buffer currentBuffer = currentReporter.getBuffer();
-                            if (currentBuffer.isEmpty()) {
-                                reporterIterator.remove();
-                            }
-                        }
-                        try {
-                            Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
-                        } catch (InterruptedException ex) {
-                            logger.log(Level.WARNING, null, ex);
-                        }
-                    }
-                    // Shut down filters.
-                    for (int i = 0; i < filters.size() - 1; i++) {
-                        filters.get(i).shutdown();
-                    }
-                    // Shut down storages.
-                    for (AbstractStorage storage : storages) {
-                        storage.shutdown();
-                    }
-                    // Shut down server sockets.
-                    for (ServerSocket socket : serverSockets) {
-                        try {
-                            socket.close();
-                        } catch (IOException ex) {
-                            logger.log(Level.WARNING, null, ex);
-                        }
-                    }
+                    // Terminate SPADE
+                    shutdown();
                 }
-                // Terminate SPADE
             }
         });
 
@@ -342,28 +309,6 @@ public class Kernel {
             public void run() {
                 try {
                     while (true) {
-                        if (shutdown) {
-                            // The shutdown process is also partially handled by
-                            // this thread. On
-                            // shutdown, all reporters are marked for removal so
-                            // that their buffers
-                            // are cleanly flushed and no data is lost. When a
-                            // buffer becomes empty,
-                            // it is removed along with its corresponding
-                            // reporter. When all buffers
-                            // become empty, this thread terminates.
-                            for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
-                                AbstractReporter currentReporter = reporterIterator.next();
-                                Buffer currentBuffer = currentReporter.getBuffer();
-                                if (currentBuffer.isEmpty()) {
-                                    reporterIterator.remove();
-                                }
-                            }
-                            if (reporters.isEmpty()) {
-                                shutdown();
-                                break;
-                            }
-                        }
                         if (flushTransactions) {
                             // Flushing of transactions is also handled by this
                             // thread to ensure that
@@ -1287,6 +1232,29 @@ public class Kernel {
      */
     public static void shutdown() {
         logger.log(Level.INFO, "Shutting down SPADE....");
+        
+        // Save current configuration.
+        configCommand("config save " + configFile, NullStream.out);
+        // Shut down all reporters.
+        for (AbstractReporter reporter : reporters) {
+            reporter.shutdown();
+        }
+        // Wait for main thread to consume all provenance data.
+        while (!reporters.isEmpty()) {
+            for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
+                AbstractReporter currentReporter = reporterIterator.next();
+                Buffer currentBuffer = currentReporter.getBuffer();
+                if (currentBuffer.isEmpty()) {
+                    reporterIterator.remove();
+                }
+            }
+            try {
+                Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
+            } catch (InterruptedException ex) {
+                logger.log(Level.WARNING, null, ex);
+            }
+        }
+        
         // Shut down filters.
         for (int i = 0; i < filters.size() - 1; i++) {
             filters.get(i).shutdown();
@@ -1304,8 +1272,8 @@ public class Kernel {
                 logger.log(Level.SEVERE, null, ex);
             }
         }
-        logger.log(Level.INFO, "SPADE turned off.");
-        System.exit(0);
+        logger.log(Level.INFO, "SPADE stopped.");
+        ((SPADELogManager)(LogManager.getLogManager())).spadeLogReset();
     }
 }
 
