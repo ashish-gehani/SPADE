@@ -26,11 +26,14 @@ add storage CDM output=$_dir/$_cdm
 add reporter Audit inputLog=$_dir/$log arch=64 units=true fileIO=true netIO=true
 EOF
 
-    $_top/bin/spade start 2>/dev/null 1>&2
+    _spidfile=/tmp/_spid$$
+
+    $_top/bin/spade start 2>$_spidfile 1>&2
 
     sleep 5
 
-    _spid=`ps xwwww | grep spade.utility.Daemonizer | grep -v grep | awk -F' ' '{print $1}'`
+    _spid=`sed -E 's/.+: //' $_spidfile`
+    rm $_spidfile
 
     _slog=`ls -1t $_top/log/*.log | head -1`	# current SPADE log
 
