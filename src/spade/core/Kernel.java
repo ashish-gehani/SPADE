@@ -83,27 +83,31 @@ public class Kernel {
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    public static String configFile = SPADE_ROOT + "cfg/spade.config";
+    private static String configFile = SPADE_ROOT + "cfg/spade.config";
     /**
      * Path to log files including the prefix.
      */
-    public static String pidFile = "spade.pid";
+    private static String pidFile = "spade.pid";
+    /**
+     * Whether logging has been initialized.
+     */
+    private static boolean logInitialized = false;
     /**
      * Path to log files.
      */
-    public static String logPath = SPADE_ROOT + "log/";
+    private static String logPath = SPADE_ROOT + "log/";
     /**
      * Path to log files including the prefix.
      */
-    public static String logPathAndPrefix = logPath + "/SPADE_";
+    private static String logPathAndPrefix = logPath + "/SPADE_";
     /**
      * Date/time suffix pattern for log files.
      */
-    public static final String logFilenamePattern = "MM.dd.yyyy-H.mm.ss";
+    private static final String logStartTimePattern = "MM.dd.yyyy-H.mm.ss";
     /**
      * Set of reporters active on the local SPADE instance.
      */
-    public static Set<AbstractReporter> reporters;
+    private static Set<AbstractReporter> reporters;
     /**
      * Set of storages active on the local SPADE instance.
      */
@@ -111,7 +115,7 @@ public class Kernel {
     /**
      * Set of filters active on the local SPADE instance.
      */
-    public static List<AbstractFilter> filters;
+    private static List<AbstractFilter> filters;
     /**
      * Set of transformers active on the local SPADE instance.
      */
@@ -239,13 +243,16 @@ public class Kernel {
         }
 
         try {
-	    new File(logPath).mkdirs();
+            new File(logPath).mkdirs();
             // Configuring the global exception logger
-            String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
-            final Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
-	    logFileHandler.setFormatter(new SimpleFormatter());
+            String logStartTime = new java.text.SimpleDateFormat(logStartTimePattern).format(new java.util.Date(System.currentTimeMillis()));
+            String logFilename = logPathAndPrefix + logStartTime + ".log";
+            final Handler logFileHandler = new FileHandler(logFilename);
+            logFileHandler.setFormatter(new SimpleFormatter());
 
             Logger.getLogger("").addHandler(logFileHandler);
+            logInitialized = true;
+            
         } catch (IOException | SecurityException exception) {
             System.err.println("Error initializing exception logger");
         }
@@ -1277,6 +1284,14 @@ public class Kernel {
         
         // Allow LogManager to complete its response to the shutdown
         LogManager.shutdownReset();
+    }
+    
+    public static String getPidFileName(){
+        return pidFile;
+    }
+    
+    public static boolean logInitialized(){
+        return logInitialized;
     }
 }
 

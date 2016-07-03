@@ -27,11 +27,11 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class CommandUtility {
+public class Execute {
 	
-	private static Logger logger = Logger.getLogger(CommandUtility.class.getName());
+	private static Logger logger = Logger.getLogger(Execute.class.getName());
 
-	public static List<String> getOutputOfCommand(final String command) throws Exception{
+	public static List<String> getOutput(final String command) throws Exception{
 		
 		Process process = Runtime.getRuntime().exec(command);
 		

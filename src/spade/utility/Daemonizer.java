@@ -39,10 +39,13 @@ import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.IOException;
 
-
 public class Daemonizer {
 
-    private String pidFile = spade.core.Kernel.pidFile;
+    private static final int LOG_INITIALIZATION_DELAY = 1000; // Milliseconds to wait before checking logging has initialized
+    
+    private static final int SHUTDOWN_POLLING_DELAY = 1000; // Milliseconds to wait before checking if process has terminated
+    
+    private String pidFile = spade.core.Kernel.getPidFileName();
 
     public Daemonizer() {
     }
@@ -87,6 +90,9 @@ public class Daemonizer {
             System.exit(0);
         }
         spade.core.Kernel.main(new String[0]);
+        while(!spade.core.Kernel.logInitialized()){
+            Thread.sleep(LOG_INITIALIZATION_DELAY);
+        }
     }
 
     public void start() {
@@ -162,7 +168,7 @@ public class Daemonizer {
 
             try {
                 while (isProcessRunning(pidfromfile)) {
-                    Thread.sleep(1000);
+                    Thread.sleep(SHUTDOWN_POLLING_DELAY);
                 }
             } catch (Exception exception) {
 

@@ -60,7 +60,7 @@ import spade.reporter.audit.SocketIdentity;
 import spade.reporter.audit.UnixSocketIdentity;
 import spade.reporter.audit.UnknownIdentity;
 import spade.utility.BerkeleyDB;
-import spade.utility.CommandUtility;
+import spade.utility.Execute;
 import spade.utility.CommonFunctions;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
@@ -289,7 +289,7 @@ public class Audit extends AbstractReporter {
         		try{
         			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
         			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"'");
-        			List<String> output = CommandUtility.getOutputOfCommand("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
+        			List<String> output = Execute.getOutput("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
         			logger.log(Level.INFO, output.toString());
         			
         			inputAuditLogFile = sortedInputAuditLog;
@@ -435,7 +435,7 @@ public class Audit extends AbstractReporter {
 	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
 	                    + (log_successful_events_only ? "-F success=1 " : "");
 	            
-	            List<String> commandOutput = null;
+	            List<String> auditctlOutput = null;
 	            
 	            //Find the pids of the processes to ignore (below) and all the pids for the JVM and it's threads.
 	            /*
@@ -469,15 +469,15 @@ public class Audit extends AbstractReporter {
 	            for(int a = pidsForMainRuleCount; a<pidsToIgnore.size(); a++){
 	            	String pidIgnoreAuditRule = "auditctl -a exit,never -F pid="+pidsToIgnore.get(a);
 	            	String ppidIgnoreAuditRule = "auditctl -a exit,never -F ppid="+pidsToIgnore.get(a);
-	            	commandOutput = CommandUtility.getOutputOfCommand(pidIgnoreAuditRule);
-	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{pidIgnoreAuditRule, commandOutput});
-	            	commandOutput = CommandUtility.getOutputOfCommand(ppidIgnoreAuditRule);
-	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{ppidIgnoreAuditRule, commandOutput});
+                    auditctlOutput = Execute.getOutput(pidIgnoreAuditRule);
+	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{pidIgnoreAuditRule, auditctlOutput});
+                    auditctlOutput = Execute.getOutput(ppidIgnoreAuditRule);
+	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{ppidIgnoreAuditRule, auditctlOutput});
 	            }
 	            
 	            //add the main rule. ALWAYS ADD THIS AFTER THE ABOVE INDIVIDUAL RULES HAVE BEEN ADDED TO AVOID INCLUSION OF AUDIT INFO OF ABOVE PIDS
-	            commandOutput = CommandUtility.getOutputOfCommand("auditctl " + auditRules + pidsForMainRule);
-            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules + pidsForMainRule, commandOutput});
+	            auditctlOutput = Execute.getOutput("auditctl " + auditRules + pidsForMainRule);
+            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules + pidsForMainRule, auditctlOutput});
             	
 	        } catch (Exception e) {
 	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
@@ -594,7 +594,7 @@ public class Audit extends AbstractReporter {
     	
     	try{
     		//LSOF args -> n = no address resolution, P = no port user friendly naming, p = for pid
-    		List<String> lines = CommandUtility.getOutputOfCommand("lsof -nPp " + pid);
+    		List<String> lines = Execute.getOutput("lsof -nPp " + pid);
     		if(lines != null && lines.size() > 1){
     			lines.remove(0); //remove the heading line
     			for(String line : lines){
