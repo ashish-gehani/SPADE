@@ -79,7 +79,7 @@ public class Daemonizer {
         return false;
     }
 
-    public void runSpadeProcess() throws Exception{
+    public void startKernel() throws Exception{
 
         Daemon daemon = new Daemon.WithoutChdir();
         if(daemon.isDaemonized()) {
@@ -90,7 +90,9 @@ public class Daemonizer {
             System.exit(0);
         }
         spade.core.Kernel.main(new String[0]);
-        while(!spade.core.Kernel.logInitialized()){
+        
+        // Ensure that the SPADE log file has been created before returning
+        while(!spade.core.Kernel.logCreated()) {
             Thread.sleep(LOG_INITIALIZATION_DELAY);
         }
     }
@@ -124,7 +126,7 @@ public class Daemonizer {
         }
 
         try{
-            runSpadeProcess();
+            startKernel();
         } catch (Exception exception) {
             System.err.println("Error daemonizing SPADE: " + exception.getMessage());
             System.exit(1);            
@@ -133,20 +135,20 @@ public class Daemonizer {
     }
 
     public void stop(int signum) {
-        int pidfromfile = 0;
+        int pidFromFile = 0;
         boolean processRunning = false;
 
         if (pidFileExists()) {
             
             try {
-                pidfromfile = getPidFromFile();
+                pidFromFile = getPidFromFile();
             } catch (IOException exception) {
                 System.err.println("PID file exists, but is not readable.");
                 System.exit(1);
             }
 
             try {
-                processRunning = isProcessRunning(pidfromfile);
+                processRunning = isProcessRunning(pidFromFile);
             } catch (IOException exception) {
                 System.err.println("Can not determine if SPADE is running.");
                 System.exit(1);
@@ -159,26 +161,21 @@ public class Daemonizer {
                 } else if (signum == 9) {
                     System.err.println("Stopping SPADE daemon immediately");
                 }
-                if (CLibrary.LIBC.kill(pidfromfile, signum) != 0 ) { 
+                if (CLibrary.LIBC.kill(pidFromFile, signum) != 0 ) {
                     System.err.println("SPADE process could not be killed.");
                 }
             } else {
-                System.err.println("SPADE is not running, but PID file exists. Deleting it.");
+                System.err.println("SPADE is not running, but PID file exists.");
             }
 
             try {
-                while (isProcessRunning(pidfromfile)) {
+                while (isProcessRunning(pidFromFile)) {
                     Thread.sleep(SHUTDOWN_POLLING_DELAY);
                 }
             } catch (Exception exception) {
 
             }
 
-            try {
-                Files.delete(Paths.get(pidFile));
-            } catch (Exception exception) {
-                System.err.println("Could not delete PID file.");
-            }
         } else {
             System.err.println("PID file does not exist.");
             System.exit(1);

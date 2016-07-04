@@ -34,6 +34,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.AbstractMap.SimpleEntry;
@@ -91,7 +93,7 @@ public class Kernel {
     /**
      * Whether logging has been initialized.
      */
-    private static boolean logInitialized = false;
+    private static boolean logCreated = false;
     /**
      * Path to log files.
      */
@@ -251,7 +253,7 @@ public class Kernel {
             logFileHandler.setFormatter(new SimpleFormatter());
 
             Logger.getLogger("").addHandler(logFileHandler);
-            logInitialized = true;
+            logCreated = true;
             
         } catch (IOException | SecurityException exception) {
             System.err.println("Error initializing exception logger");
@@ -1282,6 +1284,12 @@ public class Kernel {
         }
         logger.log(Level.INFO, "SPADE stopped.");
         
+        try {
+            Files.delete(Paths.get(pidFile));
+        } catch (Exception exception) {
+            logger.log(Level.WARNING, "Could not delete PID file.");
+        }
+        
         // Allow LogManager to complete its response to the shutdown
         LogManager.shutdownReset();
     }
@@ -1290,8 +1298,8 @@ public class Kernel {
         return pidFile;
     }
     
-    public static boolean logInitialized(){
-        return logInitialized;
+    public static boolean logCreated(){
+        return logCreated;
     }
 }
 
