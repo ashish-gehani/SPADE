@@ -686,8 +686,8 @@ public class CDM extends Kafka {
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	String pathTokens[] = vertex.getAnnotation("path").split("/");
-        	String pid = pathTokens[1];
-        	String fd = pathTokens[3];
+        	String pid = pathTokens[2];
+        	String fd = pathTokens[4];
         	properties.put("pid", pid);
         	properties.put("fd", fd);
         	properties.put("version", vertex.getAnnotation("version"));
