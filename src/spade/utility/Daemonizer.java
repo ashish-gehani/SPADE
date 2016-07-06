@@ -40,8 +40,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 
 public class Daemonizer {
-
-    private static final int LOG_INITIALIZATION_DELAY = 1000; // Milliseconds to wait before checking logging has initialized
     
     private static final int SHUTDOWN_POLLING_DELAY = 1000; // Milliseconds to wait before checking if process has terminated
     
@@ -90,11 +88,6 @@ public class Daemonizer {
             System.exit(0);
         }
         spade.core.Kernel.main(new String[0]);
-        
-        // Ensure that the SPADE log file has been created before returning
-        while(!spade.core.Kernel.logCreated()) {
-            Thread.sleep(LOG_INITIALIZATION_DELAY);
-        }
     }
 
     public void start() {

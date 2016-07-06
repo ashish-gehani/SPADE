@@ -91,10 +91,6 @@ public class Kernel {
      */
     private static String pidFile = "spade.pid";
     /**
-     * Whether logging has been initialized.
-     */
-    private static boolean logCreated = false;
-    /**
      * Path to log files.
      */
     private static String logPath = SPADE_ROOT + "log/";
@@ -253,7 +249,6 @@ public class Kernel {
             logFileHandler.setFormatter(new SimpleFormatter());
 
             Logger.getLogger("").addHandler(logFileHandler);
-            logCreated = true;
             
         } catch (IOException | SecurityException exception) {
             System.err.println("Error initializing exception logger");
@@ -1296,10 +1291,6 @@ public class Kernel {
     
     public static String getPidFileName(){
         return pidFile;
-    }
-    
-    public static boolean logCreated(){
-        return logCreated;
     }
 }
 
