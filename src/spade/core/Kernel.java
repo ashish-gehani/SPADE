@@ -77,31 +77,42 @@ public class Kernel {
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
+    private static final String FILE_SEPARATOR = Settings.getProperty("file.separator");
+    
     /**
-     * A map used to cache the remote sketches.
+     * Path to log files including the prefix.
      */
-    public static Map<String, AbstractSketch> remoteSketches;
+    private static final String PID_FILE = "spade.pid";
+
+    /**
+     * Path to configuration files.
+     */
+     private static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
-    private static String configFile = SPADE_ROOT + "cfg/spade.config";
+    private static final String CONFIG_FILE = CONFIG_PATH + FILE_SEPARATOR + "spade.config";
     /**
-     * Path to log files including the prefix.
+     * Paths to key stores.
      */
-    private static String pidFile = "spade.pid";
+    private static final String KEYSTORE_PATH = CONFIG_PATH + FILE_SEPARATOR + "ssl";
+    private static final String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.public";
+    private static final String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.private";
+    private static final String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.public";
+    private static final String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.private";
     /**
      * Path to log files.
      */
-    private static String logPath = SPADE_ROOT + "log/";
+    private static final String LOG_PATH = SPADE_ROOT + FILE_SEPARATOR + "log";
     /**
      * Path to log files including the prefix.
      */
-    private static String logPathAndPrefix = logPath + "/SPADE_";
+    private static final String LOG_PREFIX = "SPADE_";
     /**
      * Date/time suffix pattern for log files.
      */
-    private static final String logStartTimePattern = "MM.dd.yyyy-H.mm.ss";
+    private static final String LOG_START_TIME_PATTERN = "MM.dd.yyyy-H.mm.ss";
     /**
      * Set of reporters active on the local SPADE instance.
      */
@@ -123,13 +134,17 @@ public class Kernel {
      */
     public static Set<AbstractSketch> sketches;
     /**
-     * Boolean used to initiate the clean shutdown procedure. This is used by
-     * the different threads to determine if the shutdown procedure has been
-     * called.
+     * A map used to cache the remote sketches.
+     */
+    public static Map<String, AbstractSketch> remoteSketches;
+
+    /**
+     * Used to initiate shutdown. It is used by various threads to 
+     * determine whether to continue running.
      */
     public static volatile boolean shutdown;
     /**
-     * Boolean used to indicate whether the transactions need to be flushed by
+     * Used to indicate whether the transactions need to be flushed by
      * the storages.
      */
     public static volatile boolean flushTransactions;
@@ -176,19 +191,15 @@ public class Kernel {
     private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
     
     private static void setupKeyStores() throws Exception {
-        String serverPublicPath = Settings.getProperty("spade_root") + "cfg/ssl/server.public";
-        String serverPrivatePath = Settings.getProperty("spade_root") + "cfg/ssl/server.private";
-        String clientPublicPath = Settings.getProperty("spade_root") + "cfg/ssl/client.public";
-        String clientPrivatePath = Settings.getProperty("spade_root") + "cfg/ssl/client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
-        serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
+        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), "public".toCharArray());
         serverKeyStorePrivate = KeyStore.getInstance("JKS");
-        serverKeyStorePrivate.load(new FileInputStream(serverPrivatePath), "private".toCharArray());
+        serverKeyStorePrivate.load(new FileInputStream(SERVER_PRIVATE_PATH), "private".toCharArray());
         clientKeyStorePublic = KeyStore.getInstance("JKS");
-        clientKeyStorePublic.load(new FileInputStream(clientPublicPath), "public".toCharArray());
+        clientKeyStorePublic.load(new FileInputStream(CLIENT_PUBLIC_PATH), "public".toCharArray());
         clientKeyStorePrivate = KeyStore.getInstance("JKS");
-        clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
+        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), "private".toCharArray());
     }
 
     private static void setupClientSSLContext() throws Exception {
@@ -243,12 +254,12 @@ public class Kernel {
         try {
             // Configure the global exception logger
 
-            new File(logPath).mkdirs();
+            new File(LOG_PATH).mkdirs();
 
             String logFilename = System.getProperty("spade.log");
             if(logFilename == null){
-                String logStartTime = new java.text.SimpleDateFormat(logStartTimePattern).format(new java.util.Date(System.currentTimeMillis()));
-                logFilename = logPathAndPrefix + logStartTime + ".log";
+                String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(new java.util.Date(System.currentTimeMillis()));
+                logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + FILE_SEPARATOR + logStartTime + ".log";
             }
             final Handler logFileHandler = new FileHandler(logFilename);
             logFileHandler.setFormatter(new SimpleFormatter());
@@ -510,7 +521,7 @@ public class Kernel {
         sketchThread.start();
 
         // Load the SPADE configuration from the default config file.
-        configCommand("config load " + configFile, NullStream.out);
+        configCommand("config load " + CONFIG_FILE, NullStream.out);
     }
 
     // The following two methods are called by the Graph object when adding
@@ -1243,7 +1254,7 @@ public class Kernel {
         logger.log(Level.INFO, "Shutting down SPADE....");
         
         // Save current configuration.
-        configCommand("config save " + configFile, NullStream.out);
+        configCommand("config save " + CONFIG_FILE, NullStream.out);
         // Shut down all reporters.
         for (AbstractReporter reporter : reporters) {
             reporter.shutdown();
@@ -1284,7 +1295,7 @@ public class Kernel {
         logger.log(Level.INFO, "SPADE stopped.");
         
         try {
-            Files.delete(Paths.get(pidFile));
+            Files.delete(Paths.get(PID_FILE));
         } catch (Exception exception) {
             logger.log(Level.WARNING, "Could not delete PID file.");
         }
@@ -1294,7 +1305,7 @@ public class Kernel {
     }
     
     public static String getPidFileName(){
-        return pidFile;
+        return PID_FILE;
     }
 }
 
