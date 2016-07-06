@@ -241,13 +241,17 @@ public class Kernel {
         }
 
         try {
+            // Configure the global exception logger
+
             new File(logPath).mkdirs();
-            // Configuring the global exception logger
-            String logStartTime = new java.text.SimpleDateFormat(logStartTimePattern).format(new java.util.Date(System.currentTimeMillis()));
-            String logFilename = logPathAndPrefix + logStartTime + ".log";
+
+            String logFilename = System.getProperty("spade.log");
+            if(logFilename == null){
+                String logStartTime = new java.text.SimpleDateFormat(logStartTimePattern).format(new java.util.Date(System.currentTimeMillis()));
+                logFilename = logPathAndPrefix + logStartTime + ".log";
+            }
             final Handler logFileHandler = new FileHandler(logFilename);
             logFileHandler.setFormatter(new SimpleFormatter());
-
             Logger.getLogger("").addHandler(logFileHandler);
             
         } catch (IOException | SecurityException exception) {
