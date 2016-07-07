@@ -40,6 +40,7 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -77,7 +78,7 @@ public class Kernel {
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String FILE_SEPARATOR = Settings.getProperty("file.separator");
+    private static final String FILE_SEPARATOR = System.getProperty("file.separator");
     
     /**
      * Path to log files including the prefix.
@@ -254,12 +255,12 @@ public class Kernel {
         try {
             // Configure the global exception logger
 
-            new File(LOG_PATH).mkdirs();
-
             String logFilename = System.getProperty("spade.log");
             if(logFilename == null){
-                String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(new java.util.Date(System.currentTimeMillis()));
-                logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + FILE_SEPARATOR + logStartTime + ".log";
+                new File(LOG_PATH).mkdirs();
+                Date currentTime = new java.util.Date(System.currentTimeMillis());
+                String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(currentTime);
+                logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + logStartTime + ".log";
             }
             final Handler logFileHandler = new FileHandler(logFilename);
             logFileHandler.setFormatter(new SimpleFormatter());
