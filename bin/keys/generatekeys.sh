@@ -1,5 +1,12 @@
 #!/bin/bash
 
+KEYS_PRESENT=cfg/ssl/key.generation.done
+
+if [ -f $KEYS_PRESENT ] ; then
+	printf 'Keys present. Will not generate new ones.\n'
+	exit
+fi
+
 mkdir -p cfg/ssl
 
 # Generate client public/private key pair into private keystore
@@ -21,3 +28,6 @@ echo Generating server public key file
 keytool -export -alias serverprivate -keystore cfg/ssl/server.private -file cfg/ssl/temp.key -storepass private
 keytool -import -noprompt -alias serverpublic -keystore cfg/ssl/server.public -file cfg/ssl/temp.key -storepass public
 rm -f cfg/ssl/temp.key
+
+# Note that keys have been generated
+touch $KEYS_PRESENT

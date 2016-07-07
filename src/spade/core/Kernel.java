@@ -275,8 +275,7 @@ public class Kernel {
             @Override
             public void run() {
                 if (!shutdown) {
-                    Kernel.shutdown = true;
-                    // Terminate SPADE
+                    shutdown = true;
                     shutdown();
                 }
             }
@@ -1296,7 +1295,8 @@ public class Kernel {
         logger.log(Level.INFO, "SPADE stopped.");
         
         try {
-            Files.delete(Paths.get(PID_FILE));
+            
+            Files.deleteIfExists(Paths.get(PID_FILE));
         } catch (Exception exception) {
             logger.log(Level.WARNING, "Could not delete PID file.");
         }
