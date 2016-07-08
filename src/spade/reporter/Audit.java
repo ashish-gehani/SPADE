@@ -2600,22 +2600,43 @@ public class Audit extends AbstractReporter {
     	return null;
     }
     
+    /*
+     * Add a new unit on the process stack. The process stack must contain the actual process vertex as first element. If not then null returned.
+     * If the process stack has processes in it then get the one on the top of the stack and check its unit id. If unit id is zero then it means 
+     * that the process is the main process (main process always have the unit id 0) and we have to add a new unit with iteration zero. If the 
+     * unit id is non-zero then it means that there is already a unit whose iterations are going on. So, add a unit with the same unit id but 
+     * increment the iteration count.
+     */
     private Process pushUnitOnStack(String pid, String startTime){
     	if(processUnitStack.get(pid) == null || processUnitStack.get(pid).isEmpty()){ //stack must always contain one element which needs to be the original process
     		return null;
     	}
-    	Process newUnit = createCopyOfProcess(processUnitStack.get(pid).peekFirst(), startTime); //first element is always the main process vertex
-    	newUnit.addAnnotation("unit", String.valueOf(getNextUnitNumber(pid)));
+    	Process lastUnit = processUnitStack.get(pid).getLast();
+    	String lastUnitId = lastUnit.getAnnotation("unit");
+    	Process newUnit = null;
+    	if("0".equals(lastUnitId)){ //last unit is the main process. add a new unit with iteration 0
+    		newUnit = createCopyOfProcess(processUnitStack.get(pid).peekFirst(), startTime); //first element is always the main process vertex
+        	newUnit.addAnnotation("unit", String.valueOf(getNextUnitNumber(pid)));
+        	newUnit.addAnnotation("iteration", "0");
+    	}else{ //there is already a unit there which is not the main process
+    		newUnit = createCopyOfProcess(lastUnit, startTime); 
+    		newUnit.addAnnotation("unit", lastUnitId); //unit id is copied
+    		newUnit.addAnnotation("iteration", String.valueOf(CommonFunctions.parseLong(lastUnit.getAnnotation("iteration"), 0L)+1));
+    	}
     	processUnitStack.get(pid).addLast(newUnit);
-    	
     	return newUnit;
     }
     
-    private Process popUnitFromStack(String pid){
+    /*
+     * This function removes all the units and their iteration units from the process stack, leaving only the main process (with unit 0) behind.  
+     */
+    private void popUnitFromStack(String pid){
+    	//remove all units until the unit 0
     	if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){ //first element is the main process and not the unit so there for a unit to exist there must be two processes at least
-    		return processUnitStack.get(pid).removeLast();
+    		Process mainProcess = processUnitStack.get(pid).getFirst();
+    		processUnitStack.get(pid).clear();
+    		processUnitStack.get(pid).addFirst(mainProcess);
     	}
-    	return null;
     }
     
     private Process createCopyOfProcess(Process process, String startTime){
