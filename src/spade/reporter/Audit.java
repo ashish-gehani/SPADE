@@ -101,8 +101,8 @@ public class Audit extends AbstractReporter {
     private String AUDIT_EXEC_PATH;
     // Process map based on <pid, stack of vertices> pairs
     private final Map<String, LinkedList<Process>> processUnitStack = new HashMap<String, LinkedList<Process>>();
-    // Process version map. Versioning based on units
-    private final Map<String, Long> unitNumber = new HashMap<String, Long>();
+    // Process version map. Versioning based on units. pid -> unitid -> iterationcount
+    private final Map<String, Map<String, Long>> iterationNumber = new HashMap<String, Map<String, Long>>();
 
     private final DescriptorManager descriptors = new DescriptorManager();
     
@@ -1291,7 +1291,7 @@ public class Audit extends AbstractReporter {
     	
     	String pid = eventData.get("pid");
     	String time = eventData.get("time");
-    	String address = eventData.get("a0");
+    	String address = eventData.get("exit");
     	String length = eventData.get("a1");
     	String protection = eventData.get("a2");
     	String fd = eventData.get("fd");
@@ -1366,33 +1366,36 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	String pid = eventData.get("pid");
-    	BigInteger arg0;
-    	BigInteger arg1;
+    	String time = eventData.get("time");
+    	BigInteger arg0 = null;
+    	BigInteger arg1 = null;
+    	String unitId = null;
     	try{
     		arg0 = new BigInteger(eventData.get("a0"), 16);
     		arg1 = new BigInteger(eventData.get("a1"), 16);
+    		unitId = arg1.toString();
     	}catch(Exception e){
     		logger.log(Level.WARNING, "Failed to process kill syscall", e);
     		return;
     	}
-    	if(arg0.intValue() == -100 && arg1.intValue() == 1){ //unit start
-    		Process addedUnit = pushUnitOnStack(pid, eventData.get("time"));
+    	if(arg0.intValue() == -100){ //unit start
+    		Process addedUnit = pushUnitIterationOnStack(pid, unitId, time);
     		if(addedUnit == null){ //failed to add because there was no process
     			//add a process first using the info here and then add the unit
     			Process process = checkProcessVertex(eventData, false, false);
     			addProcess(pid, process);
-    			addedUnit = pushUnitOnStack(pid, eventData.get("time"));
+    			addedUnit = pushUnitIterationOnStack(pid, unitId, time);
     		}
     		putVertex(addedUnit);
     		//add edge between the new unit and the main unit to keep the graph connected
-    		WasTriggeredBy wtb = new WasTriggeredBy(addedUnit, getUnitForPid(pid, 0));
+    		WasTriggeredBy wtb = new WasTriggeredBy(addedUnit, getContainingProcessVertex(pid));
         	wtb.addAnnotation("operation", getOperation(SYSCALL.UNIT));
         	wtb.addAnnotation("time", eventData.get("time"));
         	addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), BEEP);
         	putEdge(wtb);
-    	}else if(arg0.intValue() == -101 && arg1.intValue() == 1){ //unit end
-    		//remove the last added unit
-    		popUnitFromStack(pid);
+    	}else if(arg0.intValue() == -101){ //unit end
+    		//remove all iterations of the given unit
+    		popUnitIterationsFromStack(pid, unitId, time);
     	}else if(arg0.intValue() == -200 || arg0.intValue() == -300){ //-200 highbits of read, -300 highbits of write
     		pidToMemAddress.put(pid, arg1);
     	}else if(arg0.intValue() == -201 || arg0.intValue() == -301){ //-201 lowbits of read, -301 lowbits of write 
@@ -2568,28 +2571,31 @@ public class Audit extends AbstractReporter {
     	putEdge(versionUpdate);
     }
         
-    private Process getUnitForPid(String pid, Integer unitNumber){
-    	if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > unitNumber && unitNumber > -1){
-    		return processUnitStack.get(pid).get(unitNumber);
+    private Long getNextIterationNumber(String pid, String unitId){
+    	if(iterationNumber.get(pid) == null){
+    		iterationNumber.put(pid, new HashMap<String, Long>());
+    	}
+    	if(iterationNumber.get(pid).get(unitId) == null){
+    		iterationNumber.get(pid).put(unitId, -1L);
+    	}
+    	iterationNumber.get(pid).put(unitId, iterationNumber.get(pid).get(unitId) + 1);
+    	return iterationNumber.get(pid).get(unitId);
+    }
+    
+    private Process getContainingProcessVertex(String pid){
+    	if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 0){
+    		return processUnitStack.get(pid).getFirst();
     	}
     	return null;
     }
     
-    private Long getNextUnitNumber(String pid){
-    	if(unitNumber.get(pid) == null){
-    		unitNumber.put(pid, -1L);
-    	}
-    	unitNumber.put(pid, unitNumber.get(pid) + 1);
-    	return unitNumber.get(pid);
-    }
-    
     private void addProcess(String pid, Process process){ 
-    	unitNumber.remove(pid); //start unit count from start
+    	iterationNumber.remove(pid); //start iteration count from start
     	processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
     	if(CREATE_BEEP_UNITS){
-    		process.addAnnotation("unit", String.valueOf(getNextUnitNumber(pid)));
+    		process.addAnnotation("unit", "0"); //containing process always has the unit id '0'. and no iteration count
     	}
-    	processUnitStack.get(pid).addLast(process);
+    	processUnitStack.get(pid).addFirst(process);
     }
     
     private Process getProcess(String pid){
@@ -2600,46 +2606,70 @@ public class Audit extends AbstractReporter {
     	return null;
     }
     
-    /*
-     * Add a new unit on the process stack. The process stack must contain the actual process vertex as first element. If not then null returned.
-     * If the process stack has processes in it then get the one on the top of the stack and check its unit id. If unit id is zero then it means 
-     * that the process is the main process (main process always have the unit id 0) and we have to add a new unit with iteration zero. If the 
-     * unit id is non-zero then it means that there is already a unit whose iterations are going on. So, add a unit with the same unit id but 
-     * increment the iteration count.
-     */
-    private Process pushUnitOnStack(String pid, String startTime){
-    	if(processUnitStack.get(pid) == null || processUnitStack.get(pid).isEmpty()){ //stack must always contain one element which needs to be the original process
+    private Process pushUnitIterationOnStack(String pid, String unitId, String startTime){
+    	if("0".equals(unitId)){
+    		return null; //unit 0 is containing process and cannot have iterations
+    	}
+    	Process containingProcess = getContainingProcessVertex(pid);
+    	if(containingProcess == null){
     		return null;
     	}
-    	Process lastUnit = processUnitStack.get(pid).getLast();
-    	String lastUnitId = lastUnit.getAnnotation("unit");
-    	Process newUnit = null;
-    	if("0".equals(lastUnitId)){ //last unit is the main process. add a new unit with iteration 0
-    		newUnit = createCopyOfProcess(processUnitStack.get(pid).peekFirst(), startTime); //first element is always the main process vertex
-        	newUnit.addAnnotation("unit", String.valueOf(getNextUnitNumber(pid)));
-        	newUnit.addAnnotation("iteration", "0");
-    	}else{ //there is already a unit there which is not the main process
-    		newUnit = createCopyOfProcess(lastUnit, startTime); 
-    		newUnit.addAnnotation("unit", lastUnitId); //unit id is copied
-    		newUnit.addAnnotation("iteration", String.valueOf(CommonFunctions.parseLong(lastUnit.getAnnotation("iteration"), 0L)+1));
+    	//remove the previous iteration (if any) for the pid and unitId combination
+    	Long nextIterationNumber = getNextIterationNumber(pid, unitId);
+    	if(nextIterationNumber > 0){ //if greater than zero then remove otherwise this is the first one
+    		removePreviousIteration(pid, unitId, nextIterationNumber);
     	}
+    	Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime); //first element is always the main process vertex
+    	newUnit.addAnnotation("unit", unitId);
+    	newUnit.addAnnotation("iteration", String.valueOf(nextIterationNumber));
     	processUnitStack.get(pid).addLast(newUnit);
     	return newUnit;
     }
     
     /*
-     * This function removes all the units and their iteration units from the process stack, leaving only the main process (with unit 0) behind.  
+     * This function removes all the units with given unitid and their iteration units from the process stack, leaving only the main process (with unit 0) behind.  
      */
-    private void popUnitFromStack(String pid){
-    	//remove all units until the unit 0
-    	if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){ //first element is the main process and not the unit so there for a unit to exist there must be two processes at least
-    		Process mainProcess = processUnitStack.get(pid).getFirst();
-    		processUnitStack.get(pid).clear();
-    		processUnitStack.get(pid).addFirst(mainProcess);
+    private void popUnitIterationsFromStack(String pid, String unitId, String endTime){
+    	if("0".equals(unitId)){
+    		return; //unit 0 is containing process and should be removed using the addProcess method
+    	}
+    	if(processUnitStack.get(pid) != null){
+    		int size = processUnitStack.get(pid).size() - 1;
+    		for(int a = size; a>=0; a--){ //going in reverse because we would be removing elements
+    			Process unit = processUnitStack.get(pid).get(a);
+    			if(unitId.equals(unit.getAnnotation("unit"))){
+    				processUnitStack.get(pid).remove(a);
+    			}
+    		}
+    		if(iterationNumber.get(pid) != null){
+    			iterationNumber.get(pid).remove(unitId);//start iteration count from start
+    		}
     	}
     }
     
-    private Process createCopyOfProcess(Process process, String startTime){
+    //only removes the last one
+    private void removePreviousIteration(String pid, String unitId, Long currentIteration){
+    	if("0".equals(unitId)){
+    		return; //unit 0 is containing process and should be removed using the addProcess method
+    	}
+    	if(processUnitStack.get(pid) != null){
+    		int size = processUnitStack.get(pid).size() - 1;
+    		for(int a = size; a>=0; a--){ //going in reverse because we would be removing elements
+    			Process unit = processUnitStack.get(pid).get(a);
+    			if(unitId.equals(unit.getAnnotation("unit"))){
+    				Long iteration = CommonFunctions.parseLong(unit.getAnnotation("iteration"), currentIteration+1); 
+    				//so that we by mistake don't remove an iteration which didn't have a proper iteration value
+    				if(iteration < currentIteration){
+    					processUnitStack.get(pid).remove(a);
+    					//just removing one
+    					break;
+    				}
+    			}
+    		}
+    	}
+    }
+    
+    private Process createBEEPCopyOfProcess(Process process, String startTime){
     	//passing commandline and cwd as null because we don't want those two fields copied onto units
     	return createProcessVertex(process.getAnnotation("pid"), process.getAnnotation("ppid"), process.getAnnotation("name"), null, null, 
     			process.getAnnotation("uid"), process.getAnnotation("euid"), process.getAnnotation("suid"), process.getAnnotation("fsuid"), 
