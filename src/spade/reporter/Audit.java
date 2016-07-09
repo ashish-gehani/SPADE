@@ -174,6 +174,13 @@ public class Audit extends AbstractReporter {
     private boolean UNIX_SOCKETS = false;
     
     private String inputAuditLogFile = null;
+    
+    // Just a human-friendly renaming of null
+    private final static String NOT_SET = null;
+    // Timestamp that is used to identify when the time has changed in unit begin. Assumes that the timestamps are received in sorted order
+    private String lastTimestamp = NOT_SET;
+    // A map to keep track of counts of unit vertex with the same pid, unitid and iteration number.
+    private Map<UnitVertexIdentifier, Integer> unitIterationRepetitionCounts = new HashMap<UnitVertexIdentifier, Integer>();
         
     @Override
     public boolean launch(String arguments) {
@@ -2622,6 +2629,19 @@ public class Audit extends AbstractReporter {
     	Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime); //first element is always the main process vertex
     	newUnit.addAnnotation("unit", unitId);
     	newUnit.addAnnotation("iteration", String.valueOf(nextIterationNumber));
+    	
+    	if(lastTimestamp == NOT_SET || !startTime.equals(lastTimestamp)){
+		lastTimestamp = startTime;
+		unitIterationRepetitionCounts.clear();
+	}
+    	
+    	UnitVertexIdentifier unitVertexIdentifier = new UnitVertexIdentifier(pid, unitId, String.valueOf(nextIterationNumber));
+	if(unitIterationRepetitionCounts.get(unitVertexIdentifier) == null){
+		unitIterationRepetitionCounts.put(unitVertexIdentifier, -1);
+	}
+	unitIterationRepetitionCounts.put(unitVertexIdentifier, unitIterationRepetitionCounts.get(unitVertexIdentifier)+1);
+	newUnit.addAnnotation("count", String.valueOf(unitIterationRepetitionCounts.get(unitVertexIdentifier)));
+    	
     	processUnitStack.get(pid).addLast(newUnit);
     	return newUnit;
     }
@@ -2677,4 +2697,49 @@ public class Audit extends AbstractReporter {
     			BEEP, startTime);
     }
     
+}
+
+//Added for the case where there can be two of these exactly the same in a single timestamp
+class UnitVertexIdentifier{
+	private String pid, unitId, iteration;
+	public UnitVertexIdentifier(String pid, String unitId, String iteration){
+		this.pid = pid;
+		this.unitId = unitId;
+		this.iteration = iteration;
+	}
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((iteration == null) ? 0 : iteration.hashCode());
+		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((unitId == null) ? 0 : unitId.hashCode());
+		return result;
+	}
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		UnitVertexIdentifier other = (UnitVertexIdentifier) obj;
+		if (iteration == null) {
+			if (other.iteration != null)
+				return false;
+		} else if (!iteration.equals(other.iteration))
+			return false;
+		if (pid == null) {
+			if (other.pid != null)
+				return false;
+		} else if (!pid.equals(other.pid))
+			return false;
+		if (unitId == null) {
+			if (other.unitId != null)
+				return false;
+		} else if (!unitId.equals(other.unitId))
+			return false;
+		return true;
+	}
 }
