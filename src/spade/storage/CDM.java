@@ -520,6 +520,10 @@ public class CDM extends Kafka {
         if(iteration != null){
         	properties.put("iteration", iteration);
         }
+        String count = vertex.getAnnotation("count");
+        if(count != null){
+        	properties.put("count", count);
+        }
         properties.put("name", vertex.getAnnotation("name"));
         properties.put("uid", vertex.getAnnotation("uid")); // user ID, not unique ID
         properties.put("gid", vertex.getAnnotation("gid"));
