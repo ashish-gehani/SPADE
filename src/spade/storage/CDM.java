@@ -510,11 +510,16 @@ public class CDM extends Kafka {
         subjectBuilder.setPid(Integer.parseInt(vertex.getAnnotation("pid")));
         subjectBuilder.setPpid(Integer.parseInt(vertex.getAnnotation("ppid")));
         String unit = vertex.getAnnotation("unit");
+        
         if (unit != null) {
             subjectBuilder.setUnitId(Integer.parseInt(unit));
         }
         subjectBuilder.setCmdLine(vertex.getAnnotation("commandline"));           // optional, so null is ok
         Map<CharSequence, CharSequence> properties = new HashMap<>();
+        String iteration = vertex.getAnnotation("iteration");
+        if(iteration != null){
+        	properties.put("iteration", iteration);
+        }
         properties.put("name", vertex.getAnnotation("name"));
         properties.put("uid", vertex.getAnnotation("uid")); // user ID, not unique ID
         properties.put("gid", vertex.getAnnotation("gid"));
