@@ -60,8 +60,8 @@ import spade.reporter.audit.SocketIdentity;
 import spade.reporter.audit.UnixSocketIdentity;
 import spade.reporter.audit.UnknownIdentity;
 import spade.utility.BerkeleyDB;
-import spade.utility.Execute;
 import spade.utility.CommonFunctions;
+import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
@@ -75,12 +75,16 @@ public class Audit extends AbstractReporter {
 
     static final Logger logger = Logger.getLogger(Audit.class.getName());
 
-//  Following constant values taken from:
+//  Following constant values are taken from:
 //  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
 //  AND  
 //  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
     private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100;
     
+//  Following constant values are taken from:
+//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/fcntl.h#L19
+    private final int O_RDONLY = 00000000, O_WRONLY = 00000001, O_RDWR = 00000002, O_CREAT = 00000100, O_TRUNC = 00001000;
+  
     private final long BUFFER_DRAIN_DELAY = 500;
     
     // Store log for debugging purposes
@@ -93,8 +97,6 @@ public class Audit extends AbstractReporter {
     private boolean USE_READ_WRITE = false;
     // To toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
     private boolean USE_SOCK_SEND_RCV = false;
-//    To toggle monitoring of mmap, mmap2 and mprotect syscalls
-    private boolean USE_MEM_MMAP_MPROTECT = true;
     private Boolean ARCH_32BIT = true;
 //    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -173,6 +175,11 @@ public class Audit extends AbstractReporter {
     
     private boolean UNIX_SOCKETS = false;
     
+    private boolean WAIT_FOR_LOG_END = false;
+    
+//  To toggle monitoring of mmap, mmap2 and mprotect syscalls
+    private boolean USE_MEMORY_SYSCALLS = true;
+    
     private String inputAuditLogFile = null;
     
     // Just a human-friendly renaming of null
@@ -237,18 +244,21 @@ public class Audit extends AbstractReporter {
         if("true".equals(args.get("procFS"))){
         	PROCFS = true;
         }
-        if("true".equals(args.get("netVersioning"))){
-        	NET_VERSIONING = true;
-        }
         if("true".equals(args.get("unixSockets"))){
         	UNIX_SOCKETS = true;
         }
-//        if("true".equals(args.get("memOp"))){
-//        	USE_MEM_MMAP_MPROTECT = true;
-//        }
+        if("true".equals(args.get("netVersioning"))){
+        	NET_VERSIONING = true;
+        }
+        if("true".equals(args.get("waitForLog"))){
+        	WAIT_FOR_LOG_END = true;
+        }
+        if("false".equals(args.get("memorySyscalls"))){
+        	USE_MEMORY_SYSCALLS = false;
+        }
         // End of experimental arguments
 
-//        initialize datastructures
+//        initialize cache data structures
         
         if(!initCacheMaps()){
         	return false;
@@ -319,11 +329,13 @@ public class Audit extends AbstractReporter {
     	        	try{
     	        		inputLogReader = new BatchReader(new BufferedReader(new FileReader(inputAuditLogFile)));
     	        		String line = null;
-    	        		while(!shutdown && (line = inputLogReader.readLine()) != null){
+    	        		while((!shutdown || WAIT_FOR_LOG_END) && (line = inputLogReader.readLine()) != null){
     	        			parseEventLine(line);
     	        		}
+    	        		
+    	        		// Either the reporter has been shutdown or the log has been ingested
     	        		boolean printed = false;
-    	        		// The loop below prevents the reporter from being removed while the records are still being processed
+
         	        	while(!shutdown){
         	        		if(!printed && getBuffer().size() == 0){//buffer processed
         	        			printed = true;
@@ -354,44 +366,9 @@ public class Audit extends AbstractReporter {
         	auditLogThread.start();
         	
         }else{
+        	
+        	buildProcFSTree();
 
-        	if(PROCFS){
-		        // Build the process tree using the directories under /proc/.
-		        // Directories which have a numeric name represent processes.
-		        String path = "/proc";
-		        java.io.File directory = new java.io.File(path);
-		        java.io.File[] listOfFiles = directory.listFiles();
-		        for (int i = 0; i < listOfFiles.length; i++) {
-		            if (listOfFiles[i].isDirectory()) {
-		
-		                String currentPID = listOfFiles[i].getName();
-		                try {
-		                    // Parse the current directory name to make sure it is
-		                    // numeric. If not, ignore and continue.
-		                    Integer.parseInt(currentPID);
-		                    Process processVertex = createProcessFromProcFS(currentPID);
-		                    addProcess(currentPID, processVertex);
-		                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
-		                    putVertex(processVertex);
-		                    if (parentVertex != null) {
-		                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
-		                        addEventIdAndSourceAnnotationToEdge(wtb, "0", PROC_FS);
-		                        wtb.addAnnotation("operation", getOperation(SYSCALL.UNKNOWN));
-		                        putEdge(wtb);
-		                    }
-		
-		                    // Get existing file descriptors for this process
-		                    Map<String, ArtifactIdentity> fds = getFileDescriptors(currentPID);
-		                    if (fds != null) {
-		                        descriptors.addDescriptors(currentPID, fds);
-		                    }
-		                } catch (Exception e) {
-		                    // Continue
-		                }
-		            }
-		        }
-        	}
-	
 	        try {
 	            // Start auditd and clear existing rules.
 	            Runtime.getRuntime().exec("auditctl -D").waitFor();
@@ -431,7 +408,7 @@ public class Audit extends AbstractReporter {
 	            if (USE_SOCK_SEND_RCV) {
 	                auditRules += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
 	            }
-	            if (USE_MEM_MMAP_MPROTECT) {
+	            if (USE_MEMORY_SYSCALLS) {
 	            	auditRules += "-S mmap -S mprotect ";
 	            	if(ARCH_32BIT){
 	            		auditRules += "-S mmap2 ";
@@ -442,7 +419,6 @@ public class Audit extends AbstractReporter {
 	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
 	                    + (log_successful_events_only ? "-F success=1 " : "");
 	            
-	            List<String> auditctlOutput = null;
 	            
 	            //Find the pids of the processes to ignore (below) and all the pids for the JVM and it's threads.
 	            /*
@@ -472,6 +448,7 @@ public class Audit extends AbstractReporter {
 	            	pidsForMainRule += " -F pid!=" +pidsToIgnore.get(a) + " -F ppid!=" + pidsToIgnore.get(a); 
 	            }
 	            
+	            List<String> auditctlOutput = null;
 	            //add the remaining pids as individual rules
 	            for(int a = pidsForMainRuleCount; a<pidsToIgnore.size(); a++){
 	            	String pidIgnoreAuditRule = "auditctl -a exit,never -F pid="+pidsToIgnore.get(a);
@@ -494,6 +471,45 @@ public class Audit extends AbstractReporter {
         }
         
         return true;
+    }
+    
+    private void buildProcFSTree(){
+    	if(PROCFS){
+	        // Build the process tree using the directories under /proc/.
+	        // Directories which have a numeric name represent processes.
+	        String path = "/proc";
+	        java.io.File directory = new java.io.File(path);
+	        java.io.File[] listOfFiles = directory.listFiles();
+	        for (int i = 0; i < listOfFiles.length; i++) {
+	            if (listOfFiles[i].isDirectory()) {
+	
+	                String currentPID = listOfFiles[i].getName();
+	                try {
+	                    // Parse the current directory name to make sure it is
+	                    // numeric. If not, ignore and continue.
+	                    Integer.parseInt(currentPID);
+	                    Process processVertex = createProcessFromProcFS(currentPID);
+	                    addProcess(currentPID, processVertex);
+	                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
+	                    putVertex(processVertex);
+	                    if (parentVertex != null) {
+	                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
+	                        addEventIdAndSourceAnnotationToEdge(wtb, "0", PROC_FS);
+	                        wtb.addAnnotation("operation", getOperation(SYSCALL.UNKNOWN));
+	                        putEdge(wtb);
+	                    }
+	
+	                    // Get existing file descriptors for this process
+	                    Map<String, ArtifactIdentity> fds = getFileDescriptors(currentPID);
+	                    if (fds != null) {
+	                        descriptors.addDescriptors(currentPID, fds);
+	                    }
+	                } catch (Exception e) {
+	                    // Continue
+	                }
+	            }
+	        }
+    	}
     }
     
     private boolean initCacheMaps(){
@@ -540,12 +556,12 @@ public class Audit extends AbstractReporter {
              	eventBuffer = new ExternalMemoryMap<String, HashMap<String, String>>(eventBufferCacheSize, 
                  				new BerkeleyDB<HashMap<String, String>>(eventBufferCacheDatabasePath, eventBufferDatabaseName), 
                  				eventBufferFalsePositiveProbability, eventBufferExpectedNumberOfElements);
-                 artifactIdentityToArtifactProperties = 
+                artifactIdentityToArtifactProperties = 
                  		new ExternalMemoryMap<ArtifactIdentity, ArtifactProperties>(artifactsCacheSize, 
                  				new BerkeleyDB<ArtifactProperties>(artifactsCacheDatabasePath, artifactsDatabaseName), 
                  				artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements);
              }catch(Exception e){
-             	logger.log(Level.SEVERE, "Failed to initialize necessary datastructures", e);
+             	logger.log(Level.SEVERE, "Failed to initialize necessary data structures", e);
              	return false;
              }
              
@@ -556,18 +572,24 @@ public class Audit extends AbstractReporter {
     	 return true;
     }
     
-    static private List<String> listOfPidsToIgnore(String ignoreProcesses) {
-    	List<String> pidFieldRules = new ArrayList<String>();
+    private static List<String> listOfPidsToIgnore(String ignoreProcesses) {
+    	
+//    	ignoreProcesses argument is a string of process names separated by blank space
+    	
+    	List<String> pids = new ArrayList<String>();
         try {
-        	List<String> pids = new ArrayList<String>();
-            // Using pidof command now to get all pids of the mentioned processes
-            java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
-            BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
-            String pidline = pidReader.readLine();
-            pids.addAll(Arrays.asList(pidline.split(" ")));
-            pidReader.close();
+        	if(ignoreProcesses != null && !ignoreProcesses.trim().isEmpty()){
+//	            Using pidof command now to get all pids of the mentioned processes
+	            java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
+//	            pidof returns pids of given processes as a string separated by a blank space
+	            BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+	            String pidline = pidReader.readLine();
+//	            added all returned from pidof command
+	            pids.addAll(Arrays.asList(pidline.split("\\s+")));
+	            pidReader.close();
+        	}
             
-            // Get the PID of SPADE's JVM from /proc/self
+            // Get the PIDs of SPADE's JVM from /proc/self
             File[] procTaskDirectories = new File("/proc/self/task").listFiles();
             for (File procTaskDirectory : procTaskDirectories) {
                 String pid = procTaskDirectory.getCanonicalFile().getName();
@@ -575,15 +597,8 @@ public class Audit extends AbstractReporter {
             }
             
             return pids;
-            
-//            for(String pid : pids){
-//            	pidFieldRules.add("-a exit,never -F pid=" + pid);
-//            	pidFieldRules.add("-a exit,never -F ppid=" + pid);
-//            }
-
-//            return pidFieldRules;
         } catch (IOException e) {
-            logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + pidFieldRules, e);
+            logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + pids, e);
             return new ArrayList<String>();
         }
     }
@@ -600,7 +615,7 @@ public class Audit extends AbstractReporter {
     	Map<String, String> inodefd0 = new HashMap<String, String>();
     	
     	try{
-    		//LSOF args -> n = no address resolution, P = no port user friendly naming, p = for pid
+    		//LSOF args -> n = no DNS resolution, P = no port user-friendly naming, p = pid of process
     		List<String> lines = Execute.getOutput("lsof -nPp " + pid);
     		if(lines != null && lines.size() > 1){
     			lines.remove(0); //remove the heading line
@@ -610,7 +625,7 @@ public class Audit extends AbstractReporter {
     					String type = tokens[4].toLowerCase().trim();
     					String fd = tokens[3].trim();
     					fd = fd.replaceAll("[^0-9]", ""); //ends with r(read), w(write), u(read and write), W (lock)
-    					if(isAnInteger(fd)){
+    					if(CommonFunctions.parseInt(fd, null) != null){
 	    					if("fifo".equals(type)){
 	    						String path = tokens[8];
 	    						if("pipe".equals(path)){ //unnamed pipe
@@ -647,15 +662,6 @@ public class Audit extends AbstractReporter {
     	}
     	
     	return fds;
-    }
-    
-    public boolean isAnInteger(String string){
-    	try{
-    		Integer.parseInt(string);
-    		return true;
-    	}catch(Exception e){
-    		return false;
-    	}
     }
 
     @Override
@@ -787,7 +793,7 @@ public class Audit extends AbstractReporter {
     	
     	if("NETFILTER_PKT".equals(eventBuffer.get(eventId).get("type"))){ //for events with no syscalls
     		try{
-    			processNetfilterPacketEvent(eventBuffer.get(eventId));
+    			handleNetfilterPacketEvent(eventBuffer.get(eventId));
     		}catch(Exception e){
     			logger.log(Level.WARNING, "Error processing finish syscall event with event id '"+eventId+"'", e);
     		}
@@ -820,39 +826,39 @@ public class Audit extends AbstractReporter {
 //            source : https://github.com/bnoordhuis/strace/blob/master/linux/i386/syscallent.h
 	            case 90: //old_mmap
 	            case 192: //mmap2
-	            	processMmap(eventData, SYSCALL.MMAP2);
+	            	handleMmap(eventData, SYSCALL.MMAP2);
 	            	break;
 	            case 125: //mprotect
-	            	processMprotect(eventData, SYSCALL.MPROTECT);
+	            	handleMprotect(eventData, SYSCALL.MPROTECT);
 	            	break;
                 case 2: // fork()
-                	processForkClone(eventData, SYSCALL.FORK);
+                	handleForkClone(eventData, SYSCALL.FORK);
                 	break;
                 case 190: // vfork()
-                    processForkClone(eventData, SYSCALL.VFORK);
+                    handleForkClone(eventData, SYSCALL.VFORK);
                     break;
 
                 case 120: // clone()
-                    processForkClone(eventData, SYSCALL.CLONE);
+                    handleForkClone(eventData, SYSCALL.CLONE);
                     break;
 
                 case 11: // execve()
-                    processExecve(eventData);
+                    handleExecve(eventData);
                     break;
 
                 case 5: // open()
-                    processOpen(eventData);
+                    handleOpen(eventData);
                     break;
 
                 case 6: // close()
-                    processClose(eventData);
+                    handleClose(eventData);
                     break;
 
                 case 9: // link()
-                	processLink(eventData, SYSCALL.LINK);
+                	handleLink(eventData, SYSCALL.LINK);
                 	break;
                 case 83: // symlink()
-                    processLink(eventData, SYSCALL.SYMLINK);
+                    handleLink(eventData, SYSCALL.SYMLINK);
                     break;
 
                 case 10: // unlink()
@@ -862,49 +868,49 @@ public class Audit extends AbstractReporter {
                     break;
 
                 case 38: // rename()
-                    processRename(eventData);
+                    handleRename(eventData);
                     break;
 
                 case 42: // pipe()
                 case 331: // pipe2()
                 case 359: // pipe2()
-                    processPipe(eventData);
+                    handlePipe(eventData);
                     break;
 
                 case 41: // dup()
                 case 63: // dup2()
-                    processDup(eventData);
+                    handleDup(eventData);
                     break;
 
                 case 203: // setreuid()
-                	processSetuid(eventData, SYSCALL.SETREUID);
+                	handleSetuid(eventData, SYSCALL.SETREUID);
                     break;
                 case 208: // setresuid()
-                	processSetuid(eventData, SYSCALL.SETRESUID);
+                	handleSetuid(eventData, SYSCALL.SETRESUID);
                     break;
                 case 213: // setuid()
-                    processSetuid(eventData, SYSCALL.SETUID);
+                    handleSetuid(eventData, SYSCALL.SETUID);
                     break;
 
                 case 92: // truncate()
-                    processTruncate(eventData, SYSCALL.TRUNCATE);
+                    handleTruncate(eventData, SYSCALL.TRUNCATE);
                     break;
 
                 case 93: // ftruncate()
-                    processTruncate(eventData, SYSCALL.FTRUNCATE);
+                    handleTruncate(eventData, SYSCALL.FTRUNCATE);
                     break;
 
                 case 15: // chmod()
-                    processChmod(eventData, SYSCALL.CHMOD);
+                    handleChmod(eventData, SYSCALL.CHMOD);
                     break;
 
                 case 94: // fchmod()
-                    processChmod(eventData, SYSCALL.FCHMOD);
+                    handleChmod(eventData, SYSCALL.FCHMOD);
                     break;
 
-                case 102: // socketcall()
-                    processSocketCall(eventData);
-                    break;
+//                case 102: // socketcall()
+//                    processSocketCall(eventData);
+//                    break;
 
                 case 3: // read()
                 case 145: // readv()
@@ -916,18 +922,18 @@ public class Audit extends AbstractReporter {
                 case 296: // sendmsg()
                 case 292: // recvfrom()
                 case 297: // recvmsg()
-                	processIOEvent32(syscall, eventData);
+                	handleIOEvent32(syscall, eventData);
                 	break;
                 case 283: // connect()
-                    processConnect(eventData);
+                    handleConnect(eventData);
                     break;
                 case 285: // accept()
-                    processAccept(eventData, SYSCALL.ACCEPT);
+                    handleAccept(eventData, SYSCALL.ACCEPT);
                     break;
                 case 281: // socket()
                     break;
                 case 129: // kill()
-                	processKill(eventData);
+                	handleKill(eventData);
                 	break;
                 default:
                 	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
@@ -943,7 +949,7 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    private void processIOEvent32(int syscall, Map<String, String> eventData){
+    private void handleIOEvent32(int syscall, Map<String, String> eventData){
     	String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
@@ -955,7 +961,7 @@ public class Audit extends AbstractReporter {
         
         if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){
     		if((syscall == 3 || syscall == 145 || syscall == 180 || syscall == 4 || syscall == 146 || syscall == 181) && USE_READ_WRITE){
-    			processFileIOEvent32(syscall, eventData);
+    			handleFileIOEvent32(syscall, eventData);
     		}else if((syscall == 290 || syscall == 296 || syscall == 292 || syscall == 297) && USE_SOCK_SEND_RCV){
 //    			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
 //    			processNetworkIOEvent32(syscall, eventData);
@@ -963,44 +969,44 @@ public class Audit extends AbstractReporter {
     			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
     		}
         }else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
-    		processNetworkIOEvent32(syscall, eventData);
+    		handleNetworkIOEvent32(syscall, eventData);
     	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) || PipeIdentity.class.equals(artifactInfoClass)){
-    		processFileIOEvent32(syscall, eventData);
+    		handleFileIOEvent32(syscall, eventData);
     	}
     }
     
-    private void processNetworkIOEvent32(int syscall, Map<String, String> eventData){
+    private void handleNetworkIOEvent32(int syscall, Map<String, String> eventData){
     	if(USE_SOCK_SEND_RCV){
 			switch (syscall) {
 				case 4: // write()
-					processSend(eventData, SYSCALL.WRITE);
+					handleSend(eventData, SYSCALL.WRITE);
 					break;
 				case 146: // writev()
-					processSend(eventData, SYSCALL.WRITEV);
+					handleSend(eventData, SYSCALL.WRITEV);
 					break;
             	case 181: // pwrite64()	
-            		processSend(eventData, SYSCALL.PWRITE64);
+            		handleSend(eventData, SYSCALL.PWRITE64);
             		break;
     			case 290: // sendto()
-    				processSend(eventData, SYSCALL.SENDTO);
+    				handleSend(eventData, SYSCALL.SENDTO);
                 	break;
                 case 296: // sendmsg()
-                	processSend(eventData, SYSCALL.SENDMSG);
+                	handleSend(eventData, SYSCALL.SENDMSG);
                 	break;
                 case 3: // read()
-                	processRecv(eventData, SYSCALL.READ);
+                	handleRecv(eventData, SYSCALL.READ);
                 	break;
                 case 145: // readv()
-                	processRecv(eventData, SYSCALL.READV);
+                	handleRecv(eventData, SYSCALL.READV);
                 	break;
                 case 180: // pread64()
-                	processRecv(eventData, SYSCALL.PREAD64);
+                	handleRecv(eventData, SYSCALL.PREAD64);
                 	break;
                 case 292: // recvfrom()
-                	processRecv(eventData, SYSCALL.RECVFROM);
+                	handleRecv(eventData, SYSCALL.RECVFROM);
                 	break;
                 case 297: // recvmsg()
-                	processRecv(eventData, SYSCALL.RECVMSG);
+                	handleRecv(eventData, SYSCALL.RECVMSG);
                 	break;
                 default:
 					break;
@@ -1008,50 +1014,34 @@ public class Audit extends AbstractReporter {
 		}
     }
     
-    private void processFileIOEvent32(int syscall, Map<String, String> eventData){
+    private void handleFileIOEvent32(int syscall, Map<String, String> eventData){
     	if(USE_READ_WRITE){
 			switch(syscall){
     			case 3: // read()
-    				processRead(eventData, SYSCALL.READ);
+    				handleRead(eventData, SYSCALL.READ);
                 	break;
                 case 145: // readv()
-                	processRead(eventData, SYSCALL.READV);
+                	handleRead(eventData, SYSCALL.READV);
                 	break;
                 case 180: // pread64()
-                	processRead(eventData, SYSCALL.PREAD64);
+                	handleRead(eventData, SYSCALL.PREAD64);
                 	break;
                 case 4: // write()
-                	processWrite(eventData, SYSCALL.WRITE);
+                	handleWrite(eventData, SYSCALL.WRITE);
                     break;
                 case 146: // writev()
-                	processWrite(eventData, SYSCALL.WRITEV);
+                	handleWrite(eventData, SYSCALL.WRITEV);
                     break;
                 case 181: // pwrite64()
-                	processWrite(eventData, SYSCALL.PWRITE64);
+                	handleWrite(eventData, SYSCALL.PWRITE64);
                     break;
 				default:
 					break;
 			}
 		}
     }
-    
-    /*
-     * TODO discuss with Dr. Ashish. When decided, update CDM. 
-     * 
-     * Major change in this commit
-     * 
-     * Changed handling of artifact identities.
-     * 
-     * Added a flag to toggle monitoring of unix sockets. The flag is false by default. flag name : UNIX_SOCKETS. Did so because
-     * sockets in the current code are supposed to have a read version and a write version but unix sockets can't have that as they
-     * are designed in Audit reporter at the moment. Need new keys like in Socket identities.
-     * 
-     * Removed the case where an unknown identity can be a socket. Done this for the same reason as above. No read and write versions, 
-     * only one version for both cases exists for unknown identities.
-     * 
-     */
-    
-    private void processIOEvent64(int syscall, Map<String, String> eventData){
+        
+    private void handleIOEvent64(int syscall, Map<String, String> eventData){
     	String pid = eventData.get("pid");
         String hexFD = eventData.get("a0");
         String fd = new BigInteger(hexFD, 16).toString();
@@ -1063,7 +1053,7 @@ public class Audit extends AbstractReporter {
         
         if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){ //either a new unknown i.e. null or a previously known unknown
     		if((syscall == 0 || syscall == 19 || syscall == 17 || syscall == 1 || syscall == 20 || syscall == 18) && USE_READ_WRITE){
-    			processFileIOEvent64(syscall, eventData);
+    			handleFileIOEvent64(syscall, eventData);
     		}else if((syscall == 44 || syscall == 45 || syscall == 46 || syscall == 47) && USE_SOCK_SEND_RCV){
 //    			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
 //    			processNetworkIOEvent64(syscall, eventData);
@@ -1071,44 +1061,44 @@ public class Audit extends AbstractReporter {
     			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
     		}
         }else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
-    		processNetworkIOEvent64(syscall, eventData);
+    		handleNetworkIOEvent64(syscall, eventData);
     	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) || PipeIdentity.class.equals(artifactInfoClass)){
-    		processFileIOEvent64(syscall, eventData);
+    		handleFileIOEvent64(syscall, eventData);
     	}
     }
     
-    private void processNetworkIOEvent64(int syscall, Map<String, String> eventData){
+    private void handleNetworkIOEvent64(int syscall, Map<String, String> eventData){
     	if(USE_SOCK_SEND_RCV){
 			switch (syscall) {
 				case 1: // write()
-					processSend(eventData, SYSCALL.WRITE);
+					handleSend(eventData, SYSCALL.WRITE);
                 	break;
 				case 20: // writev()
-					processSend(eventData, SYSCALL.WRITEV);
+					handleSend(eventData, SYSCALL.WRITEV);
                 	break;
 				case 18: // pwrite64()
-					processSend(eventData, SYSCALL.PWRITE64);
+					handleSend(eventData, SYSCALL.PWRITE64);
                 	break;
 				case 44: // sendto()
-    				processSend(eventData, SYSCALL.SENDTO);
+    				handleSend(eventData, SYSCALL.SENDTO);
                 	break;
                 case 46: // sendmsg()
-                	processSend(eventData, SYSCALL.SENDMSG);
+                	handleSend(eventData, SYSCALL.SENDMSG);
                 	break;
                 case 0: // read()
-                	processRecv(eventData, SYSCALL.READ);
+                	handleRecv(eventData, SYSCALL.READ);
                 	break;
                 case 19: // readv()
-                	processRecv(eventData, SYSCALL.READV);
+                	handleRecv(eventData, SYSCALL.READV);
                 	break;
                 case 17: // pread64()
-                	processRecv(eventData, SYSCALL.PREAD64);
+                	handleRecv(eventData, SYSCALL.PREAD64);
                 	break;
                 case 45: // recvfrom()
-                	processRecv(eventData, SYSCALL.RECVFROM);
+                	handleRecv(eventData, SYSCALL.RECVFROM);
                 	break;
                 case 47: // recvmsg()
-                	processRecv(eventData, SYSCALL.RECVMSG);
+                	handleRecv(eventData, SYSCALL.RECVMSG);
                 	break;
                 default:
 					break;
@@ -1116,26 +1106,26 @@ public class Audit extends AbstractReporter {
 		}
     }
     
-    private void processFileIOEvent64(int syscall, Map<String, String> eventData){
+    private void handleFileIOEvent64(int syscall, Map<String, String> eventData){
     	if(USE_READ_WRITE){
 			switch(syscall){
     			case 0: // read()
-    				processRead(eventData, SYSCALL.READ);
+    				handleRead(eventData, SYSCALL.READ);
                     break;
                 case 19: // readv()
-                	processRead(eventData, SYSCALL.READV);
+                	handleRead(eventData, SYSCALL.READV);
                     break;
                 case 17: // pread64()
-                	processRead(eventData, SYSCALL.PREAD64);
+                	handleRead(eventData, SYSCALL.PREAD64);
                     break;
                 case 1: // write()
-                	processWrite(eventData, SYSCALL.WRITE);
+                	handleWrite(eventData, SYSCALL.WRITE);
                     break;
                 case 20: // writev()
-                	processWrite(eventData, SYSCALL.WRITEV);
+                	handleWrite(eventData, SYSCALL.WRITEV);
                     break;
                 case 18: // pwrite64()
-                	processWrite(eventData, SYSCALL.PWRITE64);
+                	handleWrite(eventData, SYSCALL.PWRITE64);
                     break;
 				default:
 					break;
@@ -1160,39 +1150,39 @@ public class Audit extends AbstractReporter {
             switch (syscall) {
 //            source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 	            case 9: //mmap
-	            	processMmap(eventData, SYSCALL.MMAP);
+	            	handleMmap(eventData, SYSCALL.MMAP);
 	            	break;
 	            case 10: //mprotect
-	            	processMprotect(eventData, SYSCALL.MPROTECT);
+	            	handleMprotect(eventData, SYSCALL.MPROTECT);
 	            	break;
                 case 57: // fork()
-                	processForkClone(eventData, SYSCALL.VFORK);
+                	handleForkClone(eventData, SYSCALL.VFORK);
                     break;
                 case 58: // vfork()
-                    processForkClone(eventData, SYSCALL.FORK);
+                    handleForkClone(eventData, SYSCALL.FORK);
                     break;
 
                 case 56: // clone()
-                    processForkClone(eventData, SYSCALL.CLONE);
+                    handleForkClone(eventData, SYSCALL.CLONE);
                     break;
 
                 case 59: // execve()
-                    processExecve(eventData);
+                    handleExecve(eventData);
                     break;
 
                 case 2: // open()
-                    processOpen(eventData);
+                    handleOpen(eventData);
                     break;
 
                 case 3: // close()
-                    processClose(eventData);
+                    handleClose(eventData);
                     break;
 
                 case 86: // link()
-                	processLink(eventData, SYSCALL.LINK);
+                	handleLink(eventData, SYSCALL.LINK);
                     break;
                 case 88: // symlink()
-                    processLink(eventData, SYSCALL.SYMLINK);
+                    handleLink(eventData, SYSCALL.SYMLINK);
                     break;
 
                 case 87: // unlink()
@@ -1202,43 +1192,43 @@ public class Audit extends AbstractReporter {
                     break;
 
                 case 82: // rename()
-                    processRename(eventData);
+                    handleRename(eventData);
                     break;
 
                 case 22: // pipe()
                 case 293: // pipe2()
-                    processPipe(eventData);
+                    handlePipe(eventData);
                     break;
 
                 case 32: // dup()
                 case 33: // dup2()
-                    processDup(eventData);
+                    handleDup(eventData);
                     break;
 
                 case 113: // setreuid()
-                	processSetuid(eventData, SYSCALL.SETREUID);
+                	handleSetuid(eventData, SYSCALL.SETREUID);
                     break;
                 case 117: // setresuid()
-                	processSetuid(eventData, SYSCALL.SETRESUID);
+                	handleSetuid(eventData, SYSCALL.SETRESUID);
                     break;
                 case 105: // setuid()
-                    processSetuid(eventData, SYSCALL.SETUID);
+                    handleSetuid(eventData, SYSCALL.SETUID);
                     break;
 
                 case 76: // truncate()
-                    processTruncate(eventData, SYSCALL.TRUNCATE);
+                    handleTruncate(eventData, SYSCALL.TRUNCATE);
                     break;
 
                 case 77: // ftruncate()
-                    processTruncate(eventData, SYSCALL.FTRUNCATE);
+                    handleTruncate(eventData, SYSCALL.FTRUNCATE);
                     break;
 
                 case 90: // chmod()
-                    processChmod(eventData, SYSCALL.CHMOD);
+                    handleChmod(eventData, SYSCALL.CHMOD);
                     break;
 
                 case 91: // fchmod()
-                    processChmod(eventData, SYSCALL.FCHMOD);
+                    handleChmod(eventData, SYSCALL.FCHMOD);
                     break;
 
 //                case 102: // socketcall()
@@ -1255,22 +1245,22 @@ public class Audit extends AbstractReporter {
                 case 46: // sendmsg()
                 case 45: // recvfrom()
                 case 47: // recvmsg()
-                	processIOEvent64(syscall, eventData);
+                	handleIOEvent64(syscall, eventData);
                 	break;
                 case 42: // connect()
-                    processConnect(eventData);
+                    handleConnect(eventData);
                     break;
                 case 288: //accept4()
-                	processAccept(eventData, SYSCALL.ACCEPT4);
+                	handleAccept(eventData, SYSCALL.ACCEPT4);
                     break;
                 case 43: // accept()
-                    processAccept(eventData, SYSCALL.ACCEPT);
+                    handleAccept(eventData, SYSCALL.ACCEPT);
                     break;
                 // ////////////////////////////////////////////////////////////////
                 case 41: // socket()
                     break;
                 case 62:
-                	processKill(eventData);
+                	handleKill(eventData);
                 	break;
                 default:
                 	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
@@ -1286,13 +1276,13 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    private void processMmap(Map<String, String> eventData, SYSCALL syscall){
+    private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
     	// mmap() receive the following message(s):
     	// - MMAP
         // - SYSCALL
         // - EOE
     	
-    	if(!USE_MEM_MMAP_MPROTECT){
+    	if(!USE_MEMORY_SYSCALLS){
     		return;
     	}
     	
@@ -1339,12 +1329,12 @@ public class Audit extends AbstractReporter {
 		putEdge(usedEdge);
     }
     
-    private void processMprotect(Map<String, String> eventData, SYSCALL syscall){
+    private void handleMprotect(Map<String, String> eventData, SYSCALL syscall){
     	// mprotect() receive the following message(s):
         // - SYSCALL
         // - EOE
     	
-    	if(!USE_MEM_MMAP_MPROTECT){
+    	if(!USE_MEMORY_SYSCALLS){
     		return;
     	}
     	
@@ -1368,7 +1358,7 @@ public class Audit extends AbstractReporter {
 		putEdge(edge);
     }
 
-    private void processKill(Map<String, String> eventData){
+    private void handleKill(Map<String, String> eventData){
     	if(!CREATE_BEEP_UNITS){
     		return;
     	}
@@ -1565,7 +1555,7 @@ public class Audit extends AbstractReporter {
        	return null;
     }   
 
-    private void processForkClone(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleForkClone(Map<String, String> eventData, SYSCALL syscall) {
         // fork() and clone() receive the following message(s):
         // - SYSCALL
         // - EOE
@@ -1608,7 +1598,7 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    private void processExecve(Map<String, String> eventData) {
+    private void handleExecve(Map<String, String> eventData) {
         // execve() receives the following message(s):
         // - SYSCALL
         // - EXECVE
@@ -1630,7 +1620,7 @@ public class Audit extends AbstractReporter {
             // based on audit information
             String commandline = null;
             if(eventData.get("execve_argc") != null){
-            	int argc = Integer.parseInt(eventData.get("execve_argc"));
+            	Long argc = CommonFunctions.parseLong(eventData.get("execve_argc"), 0L);
             	commandline = "";
             	for(int i = 0; i < argc; i++){
             		commandline += eventData.get("execve_a" + i) + " ";
@@ -1652,50 +1642,37 @@ public class Audit extends AbstractReporter {
         
         //add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
         String cwd = eventData.get("cwd");
-        Integer totalPaths = CommonFunctions.parseInt(eventData.get("items"), 0);
+        Long totalPaths = CommonFunctions.parseLong(eventData.get("items"), 0L);
         for(int pathNumber = 0; pathNumber < totalPaths; pathNumber++){
         	String path = eventData.get("path"+pathNumber);
-        	putLoadEdge(cwd, path, newProcess, time, eventData.get("eventid"));
+        	path = constructAbsolutePathIfNotAbsolute(cwd, path);
+        	if(path == null){
+        		logger.log(Level.INFO, "Unable to create load edge for 'execve' syscall. event id '"+eventData.get("eventid")+"'");
+        		continue;
+        	}        	
+        	ArtifactIdentity fileInfo = new FileIdentity(path);
+        	Artifact usedArtifact = createArtifact(fileInfo, false, null);
+        	Used usedEdge = new Used(newProcess, usedArtifact);
+        	usedEdge.addAnnotation("time", time);
+        	usedEdge.addAnnotation("operation", getOperation(SYSCALL.LOAD));
+        	putVertex(usedArtifact);
+        	addEventIdAndSourceAnnotationToEdge(usedEdge, eventData.get("eventid"), DEV_AUDIT);
+        	putEdge(usedEdge);
         }
         
         descriptors.unlinkDescriptors(pid);
     }
-    
-    private void putLoadEdge(String cwd, String path, Process process, String time, String eventId){
-    	if(path == null){
-    		return;
-    	}
-    	boolean joinPaths = false;
-    	if(path.startsWith("./")){ //path of the following format : ./helloworld
-    		path = path.substring(2);
-    	 	joinPaths = true;
-    	}else if(!path.startsWith(".") && !path.startsWith("/")){
-    		joinPaths = true;
-    	}
-    	if(joinPaths){
-    		if(cwd == null){
-    			return;
-    		}else{
-    			path = joinPaths(cwd, path);
-    		}
-    	}
-    	ArtifactIdentity fileInfo = new FileIdentity(path);
-    	Artifact usedArtifact = createArtifact(fileInfo, false, null);
-    	Used usedEdge = new Used(process, usedArtifact);
-    	usedEdge.addAnnotation("time", time);
-    	usedEdge.addAnnotation("operation", getOperation(SYSCALL.LOAD));
-    	putVertex(usedArtifact);
-    	addEventIdAndSourceAnnotationToEdge(usedEdge, eventId, DEV_AUDIT);
-    	putEdge(usedEdge);
-    }
 
-    private void processOpen(Map<String, String> eventData) {
+    private void handleOpen(Map<String, String> eventData) {
         // open() receives the following message(s):
         // - SYSCALL
         // - CWD
-        // - PATH
+    	// - PATH with nametype CREATE (file operated on) or NORMAL (file operated on) or PARENT (parent of file operated on) or DELETE (file operated on) or UNKNOWN (only when syscall fails)
+    	// - PATH with nametype CREATE or NORMAL or PARENT or DELETE or UNKNOWN
         // - EOE
     	    	
+    	Long flags = CommonFunctions.parseLong(eventData.get("a1"), 0L);
+    	
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
         String path = eventData.get("path1") == null ? eventData.get("path0") : eventData.get("path1"); 
@@ -1703,15 +1680,12 @@ public class Audit extends AbstractReporter {
         boolean isCreate = "CREATE".equalsIgnoreCase(nametype);
         String fd = eventData.get("exit");
         String time = eventData.get("time");
-        String flags = eventData.get("a1");
+        
+        path = constructAbsolutePathIfNotAbsolute(cwd, path);
         
         if(path == null){
-        	logger.log(Level.WARNING, "Missing PATH record. Event with id '"+ eventData.get("eventid") +"' ignored.");
+        	logger.log(Level.WARNING, "Missing CWD or PATH record in 'open'. Event with id '"+ eventData.get("eventid"));
         	return;
-        }
-        
-        if (!path.startsWith("/")) {
-            path = joinPaths(cwd, path);
         }
         
         //this calls the putVertex function on the process vertex internally, that's why the process vertex isn't added here
@@ -1737,30 +1711,35 @@ public class Audit extends AbstractReporter {
             
         }else{
         
-	        if (flags.charAt(flags.length() - 1) == '0') {
+        	if ((flags & O_RDONLY) == O_RDONLY) {
 	        	boolean put = getArtifactProperties(fileInfo).getFileVersion() == ArtifactProperties.VERSION_UNINITIALIZED;
 	            Artifact vertex = createArtifact(fileInfo, false, null);
 	            if (put) {
 	                putVertex(vertex);
 	            }
 	            edge = new Used(getProcess(pid), vertex);
-	        } else {
+        	} else if((flags & O_WRONLY) == O_WRONLY || (flags & O_RDWR) == O_RDWR){
 	            Artifact vertex = createArtifact(fileInfo, true, null);
 	            putVertex(vertex);
 	            putVersionUpdateEdge(vertex, time, eventData.get("eventid"), pid);
 	            edge = new WasGeneratedBy(vertex, getProcess(pid));
+	        } else{
+	        	logger.log(Level.INFO, "Unknown flag for open '"+flags+"'. event id '"+eventData.get("eventid")+"'" );
+	        	return;
 	        }
 	        
 	        operation = getOperation(SYSCALL.OPEN);
 	        
         }
-        edge.addAnnotation("operation", operation);
-        edge.addAnnotation("time", time);
-        addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
-        putEdge(edge);
+        if(edge != null){
+	        edge.addAnnotation("operation", operation);
+	        edge.addAnnotation("time", time);
+	        addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
+	        putEdge(edge);
+        }
     }
 
-    private void processClose(Map<String, String> eventData) {
+    private void handleClose(Map<String, String> eventData) {
         // close() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1772,7 +1751,7 @@ public class Audit extends AbstractReporter {
         descriptors.removeDescriptor(pid, fd);
     }
 
-    private void processRead(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleRead(Map<String, String> eventData, SYSCALL syscall) {
         // read() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1803,7 +1782,7 @@ public class Audit extends AbstractReporter {
         
     }
 
-    private void processWrite(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleWrite(Map<String, String> eventData, SYSCALL syscall) {
         // write() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1831,7 +1810,7 @@ public class Audit extends AbstractReporter {
         putEdge(wgb);
     }
 
-    private void processTruncate(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleTruncate(Map<String, String> eventData, SYSCALL syscall) {
         // write() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1842,7 +1821,12 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity fileInfo = null;
 
         if (syscall == SYSCALL.TRUNCATE) {
-            fileInfo = new FileIdentity(joinPaths(eventData.get("cwd"), eventData.get("path0")));
+        	String path = constructAbsolutePathIfNotAbsolute(eventData.get("cwd"), eventData.get("path0"));
+        	if(path == null){
+        		logger.log(Level.INFO, "Missing PATH or CWD record in 'truncate'. event id '"+eventData.get("eventid")+"'");
+        		return;
+        	}
+            fileInfo = new FileIdentity(path);
         } else if (syscall == SYSCALL.FTRUNCATE) {
             String hexFD = eventData.get("a0");
             String fd = new BigInteger(hexFD, 16).toString();
@@ -1864,7 +1848,7 @@ public class Audit extends AbstractReporter {
         putEdge(wgb);
     }
 
-    private void processDup(Map<String, String> eventData) {
+    private void handleDup(Map<String, String> eventData) {
         // dup() and dup2() receive the following message(s):
         // - SYSCALL
         // - EOE
@@ -1883,7 +1867,7 @@ public class Audit extends AbstractReporter {
         descriptors.addDescriptor(pid, newFD, fileInfo);
     }
 
-    private void processSetuid(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleSetuid(Map<String, String> eventData, SYSCALL syscall) {
         // setuid() receives the following message(s):
         // - SYSCALL
         // - EOE
@@ -1900,7 +1884,7 @@ public class Audit extends AbstractReporter {
         addProcess(pid, newProcess);
     }
 
-    private void processRename(Map<String, String> eventData) {
+    private void handleRename(Map<String, String> eventData) {
         // rename() receives the following message(s):
         // - SYSCALL
         // - CWD
@@ -1915,8 +1899,13 @@ public class Audit extends AbstractReporter {
         String cwd = eventData.get("cwd");
         checkProcessVertex(eventData, true, false);
 
-        String srcpath = joinPaths(cwd, eventData.get("path2"));
-        String dstpath = joinPaths(cwd, eventData.get("path3"));
+        String srcpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path2"));
+        String dstpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path3"));
+                
+        if(srcpath == null || dstpath == null){
+        	logger.log(Level.INFO, "Missing required PATH or CWD records in 'rename'. event id '"+eventData.get("eventid")+"'");
+        	return;
+        }
         
         ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
         ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
@@ -1949,7 +1938,7 @@ public class Audit extends AbstractReporter {
         putEdge(wdf);
     }
 
-    private void processLink(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleLink(Map<String, String> eventData, SYSCALL syscall) {
         // link() and symlink() receive the following message(s):
         // - SYSCALL
         // - CWD
@@ -1966,8 +1955,13 @@ public class Audit extends AbstractReporter {
         
         String syscallName = getOperation(syscall);
 
-        String srcpath = joinPaths(cwd, eventData.get("path0"));
-        String dstpath = joinPaths(cwd, eventData.get("path2"));
+        String srcpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path0"));
+        String dstpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path2"));
+        
+        if(srcpath == null || dstpath == null){
+        	logger.log(Level.INFO, "Missing CWD or PATH records in 'link' syscall. event id '"+eventData.get("eventid")+"'");
+        	return;
+        }
         
         ArtifactIdentity srcFileInfo = new FileIdentity(srcpath);
         ArtifactIdentity dstFileInfo = new FileIdentity(dstpath);
@@ -2000,7 +1994,7 @@ public class Audit extends AbstractReporter {
         putEdge(wdf);
     }
 
-    private void processChmod(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleChmod(Map<String, String> eventData, SYSCALL syscall) {
         // chmod() receives the following message(s):
         // - SYSCALL
         // - CWD
@@ -2015,7 +2009,12 @@ public class Audit extends AbstractReporter {
         // if syscall is fchmod, look up file descriptor which is <a0>
         ArtifactIdentity fileInfo = null;
         if (syscall == SYSCALL.CHMOD) {
-            fileInfo = new FileIdentity(joinPaths(eventData.get("cwd"), eventData.get("path0")));
+        	String path = constructAbsolutePathIfNotAbsolute(eventData.get("cwd"), eventData.get("path0"));
+        	if(path == null){
+        		logger.log(Level.INFO, "Missing CWD or PATH records in 'chmod' syscall. event id '"+eventData.get("eventid")+"'");
+        		return;
+        	}
+            fileInfo = new FileIdentity(path);
         } else if (syscall == SYSCALL.FCHMOD) {
             String hexfd = eventData.get("a0");
             //arguments are in hexdec form
@@ -2040,7 +2039,7 @@ public class Audit extends AbstractReporter {
         putEdge(wgb);
     }
 
-    private void processPipe(Map<String, String> eventData) {
+    private void handlePipe(Map<String, String> eventData) {
         // pipe() receives the following message(s):
         // - SYSCALL
         // - FD_PAIR
@@ -2057,7 +2056,7 @@ public class Audit extends AbstractReporter {
     
     
     
-    private void processNetfilterPacketEvent(Map<String, String> eventData){
+    private void handleNetfilterPacketEvent(Map<String, String> eventData){
 //      Refer to the following link for protocol numbers
 //    	http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 //    	String protocol = eventData.get("proto");
@@ -2084,37 +2083,40 @@ public class Audit extends AbstractReporter {
     }
     
     private ArtifactIdentity parseSaddr(String saddr){
-    	ArtifactIdentity artifactInfo = null;
-    	if (saddr.charAt(1) == '2') {
-            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-            artifactInfo = new SocketIdentity(address, port);
-        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
-        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
-        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
-        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
-        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
-        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
-        	artifactInfo = new SocketIdentity(address, port);
-        }else if(saddr.charAt(1) == '1'){
-        	String path = "";
-        	for(int a = 4; a<saddr.length() && saddr.charAt(a) != '0'; a+=2){
-        		char c = (char)(Integer.parseInt(saddr.substring(a, a+2), 16));
-        		path += c;
-        	}
-        	if(!path.isEmpty()){
-        		artifactInfo = new UnixSocketIdentity(path);
-        	}
-        }
-    	return artifactInfo;
+    	if(saddr != null){
+	    	ArtifactIdentity artifactInfo = null;
+	    	if (saddr.charAt(1) == '2') {
+	            String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+	            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+	            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+	            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+	            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+	            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+	            artifactInfo = new SocketIdentity(address, port);
+	        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
+	        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+	        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
+	        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
+	        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
+	        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
+	        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
+	        	artifactInfo = new SocketIdentity(address, port);
+	        }else if(saddr.charAt(1) == '1'){
+	        	String path = "";
+	        	for(int a = 4; a<saddr.length() && saddr.charAt(a) != '0'; a+=2){
+	        		char c = (char)(Integer.parseInt(saddr.substring(a, a+2), 16));
+	        		path += c;
+	        	}
+	        	if(!path.isEmpty()){
+	        		artifactInfo = new UnixSocketIdentity(path);
+	        	}
+	        }
+	    	return artifactInfo;
+    	}
+    	return null;
     }
 
-    private void processSocketCall(Map<String, String> eventData) {
+  /*private void processSocketCall(Map<String, String> eventData) {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
@@ -2149,9 +2151,13 @@ public class Audit extends AbstractReporter {
             String fd = new BigInteger(hexFD, 16).toString();
             descriptors.addDescriptor(pid, fd, artifactInfo);
         }
-    }
+    }*/
     
-    private void processConnect(Map<String, String> eventData) {
+    private void handleConnect(Map<String, String> eventData) {
+    	//connect() receives the following message(s):
+        // - SYSCALL
+        // - SADDR
+        // - EOE
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
@@ -2174,7 +2180,11 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    private void processAccept(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleAccept(Map<String, String> eventData, SYSCALL syscall) {
+    	//accept() & accept4() receive the following message(s):
+        // - SYSCALL
+        // - SADDR
+        // - EOE
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String saddr = eventData.get("saddr");
@@ -2196,7 +2206,7 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    private void processSend(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleSend(Map<String, String> eventData, SYSCALL syscall) {
         // sendto()/sendmsg() receive the following message(s):
         // - SYSCALL
         // - EOE
@@ -2254,7 +2264,7 @@ public class Audit extends AbstractReporter {
         putEdge(wgb);
     }
     
-    private void processRecv(Map<String, String> eventData, SYSCALL syscall) {
+    private void handleRecv(Map<String, String> eventData, SYSCALL syscall) {
         // sendto()/sendmsg() receive the following message(s):
         // - SYSCALL
         // - EOE
@@ -2311,15 +2321,28 @@ public class Audit extends AbstractReporter {
         addEventIdAndSourceAnnotationToEdge(used, eventId, DEV_AUDIT);
         putEdge(used);
     }
-
-    private String joinPaths(String path1, String path2) {
-        if (path1.endsWith("/") && path2.startsWith("/")) {
-            return path1 + path2.substring(1);
-        } else if (!path1.endsWith("/") && !path2.startsWith("/")) {
-            return path1 + "/" + path2;
-        } else {
-            return path1 + path2;
-        }
+    
+    private String constructAbsolutePathIfNotAbsolute(String parentDirectoryPath, String path){
+    	if(path == null){
+    		return null;
+    	}
+    	if(!path.startsWith("/")){ //is not absolute
+    		//what kind of not absolute
+    		if(path.startsWith("./")){
+    			path = path.substring(2);
+    		}
+    		//path doesn't start with '/' if here
+    		//do the constructing
+    		if(parentDirectoryPath == null){
+    			return null;
+    		}
+    		if (parentDirectoryPath.endsWith("/")) {
+                return parentDirectoryPath + path;
+            } else {
+                return parentDirectoryPath + "/" + path;
+            }
+    	}
+    	return path;
     }
 
     private Process checkProcessVertex(Map<String, String> eventData, boolean link, boolean refresh) {
@@ -2435,6 +2458,9 @@ public class Audit extends AbstractReporter {
 				case SETREUID:
 				case SETRESUID:
 					returnSyscall = SYSCALL.SETUID;
+					break;
+				case KILL:
+					returnSyscall = SYSCALL.KILL;
 					break;
 				default:
 					break;
