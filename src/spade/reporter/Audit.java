@@ -56,6 +56,7 @@ import spade.reporter.audit.DescriptorManager;
 import spade.reporter.audit.FileIdentity;
 import spade.reporter.audit.MemoryIdentity;
 import spade.reporter.audit.PipeIdentity;
+import spade.reporter.audit.SYSCALL;
 import spade.reporter.audit.SocketIdentity;
 import spade.reporter.audit.UnixSocketIdentity;
 import spade.reporter.audit.UnknownIdentity;
@@ -83,7 +84,7 @@ public class Audit extends AbstractReporter {
     
 //  Following constant values are taken from:
 //  http://lxr.free-electrons.com/source/include/uapi/asm-generic/fcntl.h#L19
-    private final int O_RDONLY = 00000000, O_WRONLY = 00000001, O_RDWR = 00000002, O_CREAT = 00000100, O_TRUNC = 00001000;
+    private final int O_RDONLY = 00000000, O_WRONLY = 00000001, O_RDWR = 00000002;
   
     private final long BUFFER_DRAIN_DELAY = 500;
     
@@ -145,17 +146,7 @@ public class Audit extends AbstractReporter {
             DEV_AUDIT = "/dev/audit",
             BEEP = "beep";
     
-//    private String lastEventId = null;
     private Thread auditLogThread = null;
-
-    private enum SYSCALL {
-
-        FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
-        TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
-        ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-        SEND, RECV, OPEN, LOAD, MMAP, MMAP2, MPROTECT, CREATE, RENAME, UNIT,
-        EXECVE, UPDATE, UNKNOWN, KILL
-    }
     
     private BufferedWriter dumpWriter = null;
     private boolean log_successful_events_only = true; 
@@ -785,12 +776,12 @@ public class Audit extends AbstractReporter {
     }
     
     private void finishEvent(String eventId){
-    	
+
     	if (eventBuffer.get(eventId) == null) {
-            logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
-            return;
-        }
-    	
+    		logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
+    		return;
+    	}
+
     	if("NETFILTER_PKT".equals(eventBuffer.get(eventId).get("type"))){ //for events with no syscalls
     		try{
     			handleNetfilterPacketEvent(eventBuffer.get(eventId));
@@ -798,482 +789,184 @@ public class Audit extends AbstractReporter {
     			logger.log(Level.WARNING, "Error processing finish syscall event with event id '"+eventId+"'", e);
     		}
     	}else{ //for events with syscalls
-	    	if(ARCH_32BIT){
-	    		finishEvent32(eventId);
-	    	}else{
-	    		finishEvent64(eventId);
-	    	}
+    		handleSyscallEvent(eventId);
     	}
     }
-
-    private void finishEvent32(String eventId) {
-        try {
-            // System call numbers are derived from:
-            // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
-            // TODO: Update the calls to make them linux specific.
-
-		int NO_SYSCALL = -1;
-		
-		Map<String, String> eventData = eventBuffer.get(eventId);
-		Integer syscall = CommonFunctions.parseInt(eventData.get("syscall"), NO_SYSCALL);
-            
-            if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 129){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
-            	eventBuffer.remove(eventId);
-            	return;
-            }
-
-            switch (syscall) {
-//            source : https://github.com/bnoordhuis/strace/blob/master/linux/i386/syscallent.h
-	            case 90: //old_mmap
-	            case 192: //mmap2
-	            	handleMmap(eventData, SYSCALL.MMAP2);
-	            	break;
-	            case 125: //mprotect
-	            	handleMprotect(eventData, SYSCALL.MPROTECT);
-	            	break;
-                case 2: // fork()
-                	handleForkClone(eventData, SYSCALL.FORK);
-                	break;
-                case 190: // vfork()
-                    handleForkClone(eventData, SYSCALL.VFORK);
-                    break;
-
-                case 120: // clone()
-                    handleForkClone(eventData, SYSCALL.CLONE);
-                    break;
-
-                case 11: // execve()
-                    handleExecve(eventData);
-                    break;
-
-                case 5: // open()
-                    handleOpen(eventData);
-                    break;
-
-                case 6: // close()
-                    handleClose(eventData);
-                    break;
-
-                case 9: // link()
-                	handleLink(eventData, SYSCALL.LINK);
-                	break;
-                case 83: // symlink()
-                    handleLink(eventData, SYSCALL.SYMLINK);
-                    break;
-
-                case 10: // unlink()
-                    break;
-
-                case 14: // mknod()
-                    break;
-
-                case 38: // rename()
-                    handleRename(eventData);
-                    break;
-
-                case 42: // pipe()
-                case 331: // pipe2()
-                case 359: // pipe2()
-                    handlePipe(eventData);
-                    break;
-
-                case 41: // dup()
-                case 63: // dup2()
-                    handleDup(eventData);
-                    break;
-
-                case 203: // setreuid()
-                	handleSetuid(eventData, SYSCALL.SETREUID);
-                    break;
-                case 208: // setresuid()
-                	handleSetuid(eventData, SYSCALL.SETRESUID);
-                    break;
-                case 213: // setuid()
-                    handleSetuid(eventData, SYSCALL.SETUID);
-                    break;
-
-                case 92: // truncate()
-                    handleTruncate(eventData, SYSCALL.TRUNCATE);
-                    break;
-
-                case 93: // ftruncate()
-                    handleTruncate(eventData, SYSCALL.FTRUNCATE);
-                    break;
-
-                case 15: // chmod()
-                    handleChmod(eventData, SYSCALL.CHMOD);
-                    break;
-
-                case 94: // fchmod()
-                    handleChmod(eventData, SYSCALL.FCHMOD);
-                    break;
-
-//                case 102: // socketcall()
-//                    processSocketCall(eventData);
-//                    break;
-
-                case 3: // read()
-                case 145: // readv()
-                case 180: // pread64()
-                case 4: // write()
-                case 146: // writev()
-                case 181: // pwrite64()
-                case 290: // sendto()
-                case 296: // sendmsg()
-                case 292: // recvfrom()
-                case 297: // recvmsg()
-                	handleIOEvent32(syscall, eventData);
-                	break;
-                case 283: // connect()
-                    handleConnect(eventData);
-                    break;
-                case 285: // accept()
-                    handleAccept(eventData, SYSCALL.ACCEPT);
-                    break;
-                case 281: // socket()
-                    break;
-                case 129: // kill()
-                	handleKill(eventData);
-                	break;
-                default:
-                	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
-	               		logger.log(Level.WARNING, "Unsupported audit event type with eventid '" + eventId + "'");
-                	}else{ //did contain syscall but we are not handling it yet
-                		logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
-                	}
-                    break;
-            }
-            eventBuffer.remove(eventId);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Error processing finish syscall event with eventid '"+eventId+"'", e);
-        }
-    }
     
-    private void handleIOEvent32(int syscall, Map<String, String> eventData){
-    	String pid = eventData.get("pid");
-        String hexFD = eventData.get("a0");
-        String fd = new BigInteger(hexFD, 16).toString();
-        Class<? extends ArtifactIdentity> artifactInfoClass = null;
-        
-        if(descriptors.getDescriptor(pid, fd) != null){
-        	artifactInfoClass = descriptors.getDescriptor(pid, fd).getClass();
-        }
-        
-        if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){
-    		if((syscall == 3 || syscall == 145 || syscall == 180 || syscall == 4 || syscall == 146 || syscall == 181) && USE_READ_WRITE){
-    			handleFileIOEvent32(syscall, eventData);
-    		}else if((syscall == 290 || syscall == 296 || syscall == 292 || syscall == 297) && USE_SOCK_SEND_RCV){
-//    			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
-//    			processNetworkIOEvent32(syscall, eventData);
+    private void handleSyscallEvent(String eventId) {
+    	try {
+
+    		Map<String, String> eventData = eventBuffer.get(eventId);
+    		Integer syscallNum = CommonFunctions.parseInt(eventData.get("syscall"), -1);
+
+    		int arch = -1;
+    		if(ARCH_32BIT){
+    			arch = 32;
     		}else{
-    			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
+    			arch = 64;
     		}
-        }else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
-    		handleNetworkIOEvent32(syscall, eventData);
-    	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) || PipeIdentity.class.equals(artifactInfoClass)){
-    		handleFileIOEvent32(syscall, eventData);
+
+    		SYSCALL syscall = SYSCALL.getSyscall(syscallNum, arch);
+    		
+    		if(syscall == null){
+    			logger.log(Level.WARNING, "A non-syscall audit event OR missing syscall record with for event with id '" + eventId + "'");
+    			return;
+    		}
+
+    		if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != SYSCALL.KILL){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
+    			eventBuffer.remove(eventId);
+    			return;
+    		}
+
+    		switch (syscall) {
+	    		case MMAP:
+	    		case MMAP2:
+	    			handleMmap(eventData, syscall);
+	    			break;
+	    		case MPROTECT:
+	    			handleMprotect(eventData, syscall);
+	    			break;
+	    		case VFORK:
+	    		case FORK:
+	    		case CLONE:
+	    			handleForkClone(eventData, syscall);
+	    			break;
+	    		case EXECVE:
+	    			handleExecve(eventData);
+	    			break;
+	    		case OPEN:
+	    			handleOpen(eventData);
+	    			break;
+	    		case CLOSE:
+	    			handleClose(eventData);
+	    			break;
+	    		case SYMLINK:
+	    		case LINK:
+	    			handleLink(eventData, syscall);
+	    			break;
+	    		case RENAME: 
+	    			handleRename(eventData);
+	    			break;
+	    		case PIPE:
+	    		case PIPE2:
+	    			handlePipe(eventData);
+	    			break;
+	    		case DUP:
+	    		case DUP2:
+	    			handleDup(eventData);
+	    			break;
+	    		case SETREUID:
+	    		case SETRESUID:
+	    		case SETUID:
+	    			handleSetuid(eventData, syscall);
+	    			break;                
+	
+	    		case TRUNCATE:
+	    		case FTRUNCATE:
+	    			handleTruncate(eventData, syscall);
+	    			break;
+	    		case CHMOD:
+	    		case FCHMOD:
+	    			handleChmod(eventData, syscall);
+	    			break;
+	
+	    		case READ: 
+	    		case READV:
+	    		case PREAD64:
+	    		case WRITE: 
+	    		case WRITEV:
+	    		case PWRITE64:
+	    		case SENDMSG: 
+	    		case RECVMSG: 
+	    		case SENDTO: 
+	    		case RECVFROM: 
+	    			handleIOEvent(syscall, eventData);
+	    			break;
+	    		case CONNECT:
+	    			handleConnect(eventData);
+	    			break;
+	    		case ACCEPT4:
+	    		case ACCEPT:
+	    			handleAccept(eventData, syscall);
+	    			break;
+	    			//                case SOCKET: // socket()
+	    			//                    break;
+	    		case KILL: // kill()
+	    			handleKill(eventData);
+	    			break;
+	    		default:
+	    			logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
+    		}
+    		eventBuffer.remove(eventId);
+    	} catch (Exception e) {
+    		logger.log(Level.WARNING, "Error processing finish syscall event with eventid '"+eventId+"'", e);
     	}
     }
-    
-    private void handleNetworkIOEvent32(int syscall, Map<String, String> eventData){
-    	if(USE_SOCK_SEND_RCV){
-			switch (syscall) {
-				case 4: // write()
-					handleSend(eventData, SYSCALL.WRITE);
-					break;
-				case 146: // writev()
-					handleSend(eventData, SYSCALL.WRITEV);
-					break;
-            	case 181: // pwrite64()	
-            		handleSend(eventData, SYSCALL.PWRITE64);
-            		break;
-    			case 290: // sendto()
-    				handleSend(eventData, SYSCALL.SENDTO);
-                	break;
-                case 296: // sendmsg()
-                	handleSend(eventData, SYSCALL.SENDMSG);
-                	break;
-                case 3: // read()
-                	handleRecv(eventData, SYSCALL.READ);
-                	break;
-                case 145: // readv()
-                	handleRecv(eventData, SYSCALL.READV);
-                	break;
-                case 180: // pread64()
-                	handleRecv(eventData, SYSCALL.PREAD64);
-                	break;
-                case 292: // recvfrom()
-                	handleRecv(eventData, SYSCALL.RECVFROM);
-                	break;
-                case 297: // recvmsg()
-                	handleRecv(eventData, SYSCALL.RECVMSG);
-                	break;
-                default:
-					break;
-			}
-		}
-    }
-    
-    private void handleFileIOEvent32(int syscall, Map<String, String> eventData){
-    	if(USE_READ_WRITE){
-			switch(syscall){
-    			case 3: // read()
-    				handleRead(eventData, SYSCALL.READ);
-                	break;
-                case 145: // readv()
-                	handleRead(eventData, SYSCALL.READV);
-                	break;
-                case 180: // pread64()
-                	handleRead(eventData, SYSCALL.PREAD64);
-                	break;
-                case 4: // write()
-                	handleWrite(eventData, SYSCALL.WRITE);
-                    break;
-                case 146: // writev()
-                	handleWrite(eventData, SYSCALL.WRITEV);
-                    break;
-                case 181: // pwrite64()
-                	handleWrite(eventData, SYSCALL.PWRITE64);
-                    break;
-				default:
-					break;
-			}
-		}
-    }
-        
-    private void handleIOEvent64(int syscall, Map<String, String> eventData){
+
+    private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData){
     	String pid = eventData.get("pid");
-        String hexFD = eventData.get("a0");
-        String fd = new BigInteger(hexFD, 16).toString();
-        Class<? extends ArtifactIdentity> artifactInfoClass = null;
-        
-        if(descriptors.getDescriptor(pid, fd) != null){
-        	artifactInfoClass = descriptors.getDescriptor(pid, fd).getClass();
-        }
-        
-        if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){ //either a new unknown i.e. null or a previously known unknown
-    		if((syscall == 0 || syscall == 19 || syscall == 17 || syscall == 1 || syscall == 20 || syscall == 18) && USE_READ_WRITE){
-    			handleFileIOEvent64(syscall, eventData);
-    		}else if((syscall == 44 || syscall == 45 || syscall == 46 || syscall == 47) && USE_SOCK_SEND_RCV){
-//    			unknownidentities can't be used for network artifacts because network artifacts require read and write versions but unknownidentities don't have them
-//    			processNetworkIOEvent64(syscall, eventData);
+    	String fd = eventData.get("a0");
+    	Class<? extends ArtifactIdentity> artifactInfoClass = null;
+
+    	if(descriptors.getDescriptor(pid, fd) != null){
+    		artifactInfoClass = descriptors.getDescriptor(pid, fd).getClass();
+    	}
+
+    	if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){ //either a new unknown i.e. null or a previously seen unknown
+    		if((syscall == SYSCALL.READ || syscall == SYSCALL.READV || syscall == SYSCALL.PREAD64 || syscall == SYSCALL.WRITE || syscall == SYSCALL.WRITEV || syscall == SYSCALL.PWRITE64) && USE_READ_WRITE){
+    			handleFileIOEvent(syscall, eventData);
+    		}else if((syscall == SYSCALL.SENDMSG || syscall == SYSCALL.SENDTO || syscall == SYSCALL.RECVFROM || syscall == SYSCALL.RECVMSG) && USE_SOCK_SEND_RCV){
+    			handleNetworkIOEvent(syscall, eventData);
     		}else {
     			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
     		}
-        }else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
-    		handleNetworkIOEvent64(syscall, eventData);
+    	}else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
+    		handleNetworkIOEvent(syscall, eventData);
     	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) || PipeIdentity.class.equals(artifactInfoClass)){
-    		handleFileIOEvent64(syscall, eventData);
+    		handleFileIOEvent(syscall, eventData);
     	}
     }
-    
-    private void handleNetworkIOEvent64(int syscall, Map<String, String> eventData){
+
+    private void handleNetworkIOEvent(SYSCALL syscall, Map<String, String> eventData){
     	if(USE_SOCK_SEND_RCV){
-			switch (syscall) {
-				case 1: // write()
-					handleSend(eventData, SYSCALL.WRITE);
-                	break;
-				case 20: // writev()
-					handleSend(eventData, SYSCALL.WRITEV);
-                	break;
-				case 18: // pwrite64()
-					handleSend(eventData, SYSCALL.PWRITE64);
-                	break;
-				case 44: // sendto()
-    				handleSend(eventData, SYSCALL.SENDTO);
-                	break;
-                case 46: // sendmsg()
-                	handleSend(eventData, SYSCALL.SENDMSG);
-                	break;
-                case 0: // read()
-                	handleRecv(eventData, SYSCALL.READ);
-                	break;
-                case 19: // readv()
-                	handleRecv(eventData, SYSCALL.READV);
-                	break;
-                case 17: // pread64()
-                	handleRecv(eventData, SYSCALL.PREAD64);
-                	break;
-                case 45: // recvfrom()
-                	handleRecv(eventData, SYSCALL.RECVFROM);
-                	break;
-                case 47: // recvmsg()
-                	handleRecv(eventData, SYSCALL.RECVMSG);
-                	break;
-                default:
-					break;
-			}
-		}
+    		switch (syscall) {
+	    		case WRITE: 
+	    		case WRITEV: 
+	    		case PWRITE64:
+	    		case SENDTO:
+	    		case SENDMSG:
+	    			handleSend(eventData, syscall);
+	    			break;
+	    		case READ:
+	    		case READV:
+	    		case PREAD64:
+	    		case RECVFROM:
+	    		case RECVMSG:
+	    			handleRecv(eventData, syscall);
+	    			break;
+	    		default:
+	    			break;
+    		}
+    	}
     }
-    
-    private void handleFileIOEvent64(int syscall, Map<String, String> eventData){
+
+    private void handleFileIOEvent(SYSCALL syscall, Map<String, String> eventData){
     	if(USE_READ_WRITE){
-			switch(syscall){
-    			case 0: // read()
-    				handleRead(eventData, SYSCALL.READ);
-                    break;
-                case 19: // readv()
-                	handleRead(eventData, SYSCALL.READV);
-                    break;
-                case 17: // pread64()
-                	handleRead(eventData, SYSCALL.PREAD64);
-                    break;
-                case 1: // write()
-                	handleWrite(eventData, SYSCALL.WRITE);
-                    break;
-                case 20: // writev()
-                	handleWrite(eventData, SYSCALL.WRITEV);
-                    break;
-                case 18: // pwrite64()
-                	handleWrite(eventData, SYSCALL.PWRITE64);
-                    break;
-				default:
-					break;
-			}
-		}
-    }
-
-    private void finishEvent64(String eventId) {
-        try {
-            // System call numbers are derived from:
-            // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
-
-            int NO_SYSCALL = -1;
-            Map<String, String> eventData = eventBuffer.get(eventId);
-            Integer syscall = CommonFunctions.parseInt(eventData.get("syscall"), NO_SYSCALL);
-
-            if(log_successful_events_only && "no".equals(eventData.get("success")) && syscall != 62){ //in case the audit log is being read from a user provided file and syscall must not be kill to log units properly
-            	eventBuffer.remove(eventId);
-            	return;
-            }
-            
-            switch (syscall) {
-//            source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
-	            case 9: //mmap
-	            	handleMmap(eventData, SYSCALL.MMAP);
-	            	break;
-	            case 10: //mprotect
-	            	handleMprotect(eventData, SYSCALL.MPROTECT);
-	            	break;
-                case 57: // fork()
-                	handleForkClone(eventData, SYSCALL.VFORK);
-                    break;
-                case 58: // vfork()
-                    handleForkClone(eventData, SYSCALL.FORK);
-                    break;
-
-                case 56: // clone()
-                    handleForkClone(eventData, SYSCALL.CLONE);
-                    break;
-
-                case 59: // execve()
-                    handleExecve(eventData);
-                    break;
-
-                case 2: // open()
-                    handleOpen(eventData);
-                    break;
-
-                case 3: // close()
-                    handleClose(eventData);
-                    break;
-
-                case 86: // link()
-                	handleLink(eventData, SYSCALL.LINK);
-                    break;
-                case 88: // symlink()
-                    handleLink(eventData, SYSCALL.SYMLINK);
-                    break;
-
-                case 87: // unlink()
-                    break;
-
-                case 133: // mknod()
-                    break;
-
-                case 82: // rename()
-                    handleRename(eventData);
-                    break;
-
-                case 22: // pipe()
-                case 293: // pipe2()
-                    handlePipe(eventData);
-                    break;
-
-                case 32: // dup()
-                case 33: // dup2()
-                    handleDup(eventData);
-                    break;
-
-                case 113: // setreuid()
-                	handleSetuid(eventData, SYSCALL.SETREUID);
-                    break;
-                case 117: // setresuid()
-                	handleSetuid(eventData, SYSCALL.SETRESUID);
-                    break;
-                case 105: // setuid()
-                    handleSetuid(eventData, SYSCALL.SETUID);
-                    break;
-
-                case 76: // truncate()
-                    handleTruncate(eventData, SYSCALL.TRUNCATE);
-                    break;
-
-                case 77: // ftruncate()
-                    handleTruncate(eventData, SYSCALL.FTRUNCATE);
-                    break;
-
-                case 90: // chmod()
-                    handleChmod(eventData, SYSCALL.CHMOD);
-                    break;
-
-                case 91: // fchmod()
-                    handleChmod(eventData, SYSCALL.FCHMOD);
-                    break;
-
-//                case 102: // socketcall()
-//                    processSocketCall(eventData);
-//                    break;
-                    
-                case 0: // read()
-                case 19: // readv()
-                case 17: // pread64()
-                case 1: // write()
-                case 20: // writev()
-                case 18: // pwrite64()
-                case 44: // sendto()
-                case 46: // sendmsg()
-                case 45: // recvfrom()
-                case 47: // recvmsg()
-                	handleIOEvent64(syscall, eventData);
-                	break;
-                case 42: // connect()
-                    handleConnect(eventData);
-                    break;
-                case 288: //accept4()
-                	handleAccept(eventData, SYSCALL.ACCEPT4);
-                    break;
-                case 43: // accept()
-                    handleAccept(eventData, SYSCALL.ACCEPT);
-                    break;
-                // ////////////////////////////////////////////////////////////////
-                case 41: // socket()
-                    break;
-                case 62:
-                	handleKill(eventData);
-                	break;
-                default:
-                	if(syscall == NO_SYSCALL){ //i.e. didn't contain a syscall record
-                		logger.log(Level.WARNING, "Unsupported audit event type with eventid '" + eventId + "'");
-                	}else{ //did contain syscall but we are not handling it yet
-                		logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
-	               	}
-                    break;
-            }
-            eventBuffer.remove(eventId);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Error processing finish syscall event with eventid '"+eventId+"'", e);
-        }
+    		switch(syscall){
+	    		case READ:
+	    		case READV:
+	    		case PREAD64:
+	    			handleRead(eventData, syscall);
+	    			break;
+	    		case WRITE:
+	    		case WRITEV:
+	    		case PWRITE64:
+	    			handleWrite(eventData, syscall);
+	    			break;
+	    		default:
+	    			break;
+    		}
+    	}
     }
     
     private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
