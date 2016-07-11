@@ -20,6 +20,9 @@
 
 package spade.reporter.audit;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class UnknownIdentity implements ArtifactIdentity{
 
 	private String pid, fd;
@@ -37,8 +40,13 @@ public class UnknownIdentity implements ArtifactIdentity{
 		return pid;
 	}
 	
-	public String getStringFormattedValue(){
-		return "/pid/"+pid+"/fd/"+fd;
+	@Override
+	public Map<String, String> getAnnotationsMap() {
+		Map<String, String> annotations = new HashMap<String, String>();
+//		annotations.put("pid", pid); //TODO
+//		annotations.put("fd", fd);
+		annotations.put("path", "/pid/"+pid+"/fd/"+fd);
+		return annotations;
 	}
 	
 	public String getSubtype(){

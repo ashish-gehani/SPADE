@@ -17,17 +17,16 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-
 package spade.reporter.audit;
 
-public class UnixSocketIdentity extends IdentityWithPath{
+public class NamedPipeIdentity extends IdentityWithPath{
 	
-	public UnixSocketIdentity(String path){
+	public NamedPipeIdentity(String path){
 		super(path);
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_SOCKET;
+		return SUBTYPE_PIPE;
 	}
 	
 }

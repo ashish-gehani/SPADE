@@ -55,11 +55,12 @@ import spade.reporter.audit.BatchReader;
 import spade.reporter.audit.DescriptorManager;
 import spade.reporter.audit.FileIdentity;
 import spade.reporter.audit.MemoryIdentity;
-import spade.reporter.audit.PipeIdentity;
+import spade.reporter.audit.NamedPipeIdentity;
+import spade.reporter.audit.NetworkSocketIdentity;
 import spade.reporter.audit.SYSCALL;
-import spade.reporter.audit.SocketIdentity;
 import spade.reporter.audit.UnixSocketIdentity;
 import spade.reporter.audit.UnknownIdentity;
+import spade.reporter.audit.UnnamedPipeIdentity;
 import spade.utility.BerkeleyDB;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
@@ -624,17 +625,20 @@ public class Audit extends AbstractReporter {
 		    						if(inodefd0.get(inode) == null){
 		    							inodefd0.put(inode, fd);
 		    						}else{
-		    							ArtifactIdentity pipeInfo = new PipeIdentity(fd, inodefd0.get(inode));
+		    							ArtifactIdentity pipeInfo = new UnnamedPipeIdentity(fd, inodefd0.get(inode));
 		    							fds.put(fd, pipeInfo);
 		    							fds.put(inodefd0.get(inode), pipeInfo);
 		    							inodefd0.remove(inode);
 		    						}
 	    						}else{ //named pipe
-	    							fds.put(fd, new PipeIdentity(path));
+	    							fds.put(fd, new NamedPipeIdentity(path));
 	    						}	    						
 	    					}else if("ipv4".equals(type) || "ipv6".equals(type)){
-	    						String[] hostport = tokens[8].split("->")[0].split(":");
-	    						fds.put(fd, new SocketIdentity(hostport[0], hostport[1]));
+	    						String protocol = tokens[7];
+	    						//example token 8 = 10.0.2.15:35859->172.231.72.152:443 (ESTABLISHED)
+	    						String[] srchostport = tokens[8].split("->")[0].split(":");
+	    						String[] dsthostport = tokens[8].split("->")[1].split("\\s+")[0].split(":");
+	    						fds.put(fd, new NetworkSocketIdentity(srchostport[0], srchostport[1], dsthostport[0], dsthostport[1], protocol));
 	    					}else if("reg".equals(type) || "chr".equals(type)){
 	    						String path = tokens[8];
 	    						fds.put(fd, new FileIdentity(path));  						
@@ -913,16 +917,21 @@ public class Audit extends AbstractReporter {
     	}
 
     	if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){ //either a new unknown i.e. null or a previously seen unknown
-    		if((syscall == SYSCALL.READ || syscall == SYSCALL.READV || syscall == SYSCALL.PREAD64 || syscall == SYSCALL.WRITE || syscall == SYSCALL.WRITEV || syscall == SYSCALL.PWRITE64) && USE_READ_WRITE){
-    			handleFileIOEvent(syscall, eventData);
-    		}else if((syscall == SYSCALL.SENDMSG || syscall == SYSCALL.SENDTO || syscall == SYSCALL.RECVFROM || syscall == SYSCALL.RECVMSG) && USE_SOCK_SEND_RCV){
-    			handleNetworkIOEvent(syscall, eventData);
+    		if((syscall == SYSCALL.READ || syscall == SYSCALL.READV || syscall == SYSCALL.PREAD64 || syscall == SYSCALL.WRITE || syscall == SYSCALL.WRITEV || syscall == SYSCALL.PWRITE64)){
+    			if(USE_READ_WRITE){
+    				handleFileIOEvent(syscall, eventData);
+    			}
+    		}else if((syscall == SYSCALL.SENDMSG || syscall == SYSCALL.SENDTO || syscall == SYSCALL.RECVFROM || syscall == SYSCALL.RECVMSG)){
+    			if(USE_SOCK_SEND_RCV){
+    				handleNetworkIOEvent(syscall, eventData);
+    			}
     		}else {
     			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
     		}
-    	}else if(SocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
+    	}else if(NetworkSocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
     		handleNetworkIOEvent(syscall, eventData);
-    	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) || PipeIdentity.class.equals(artifactInfoClass)){
+    	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) 
+    			|| UnnamedPipeIdentity.class.equals(artifactInfoClass) || NamedPipeIdentity.class.equals(artifactInfoClass)){
     		handleFileIOEvent(syscall, eventData);
     	}
     }
@@ -1122,28 +1131,21 @@ public class Audit extends AbstractReporter {
     	edge.addAnnotation(SOURCE, source);
     }
     
-    //handles memoryinfo
-    private Artifact createMemoryArtifact(ArtifactIdentity artifactInfo, boolean update){
-    	MemoryIdentity memoryInfo = (MemoryIdentity)artifactInfo;
+    //handles memoryidentity
+    private Artifact createMemoryArtifact(ArtifactIdentity memoryIdentity, boolean update){
     	Artifact artifact = new Artifact();
-        artifact.addAnnotation("subtype", artifactInfo.getSubtype());
-        artifact.addAnnotation("memory address", memoryInfo.getMemoryAddress());
-        if(memoryInfo.getSize() != null){
-        	artifact.addAnnotation("size", memoryInfo.getSize());
-        }
-        if(memoryInfo.getProtection() != null){
-        	artifact.addAnnotation("protection", memoryInfo.getProtection());
-        }
-        ArtifactProperties artifactProperties = getArtifactProperties(artifactInfo);
+        artifact.addAnnotation("subtype", memoryIdentity.getSubtype());
+        artifact.addAnnotations(memoryIdentity.getAnnotationsMap());
+        ArtifactProperties artifactProperties = getArtifactProperties(memoryIdentity);
         long version = artifactProperties.getMemoryVersion(update);
         artifact.addAnnotation("version", Long.toString(version));
         return artifact;
     }        
     
     //handles socketinfo, unixsocketinfo
-    private Artifact createNetworkArtifact(ArtifactIdentity artifactInfo, SYSCALL syscall) {
+    private Artifact createNetworkArtifact(ArtifactIdentity artifactIdentity, SYSCALL syscall) {
         Artifact artifact = new Artifact();
-        artifact.addAnnotation("subtype", artifactInfo.getSubtype());
+        artifact.addAnnotation("subtype", artifactIdentity.getSubtype());
         
         long version = 0;
         String hostAnnotation = null, portAnnotation = null;
@@ -1151,34 +1153,35 @@ public class Audit extends AbstractReporter {
         if(isRead == null){
         	return null; 
         }else if(isRead){
-        	version = getArtifactProperties(artifactInfo).getSocketReadVersion();
+        	version = getArtifactProperties(artifactIdentity).getSocketReadVersion();
         	if(version == ArtifactProperties.VERSION_UNINITIALIZED){
         		version = 0;
-        		getArtifactProperties(artifactInfo).setSocketReadVersion(version);
+        		getArtifactProperties(artifactIdentity).setSocketReadVersion(version);
         	}
         	hostAnnotation = "source host";
 			portAnnotation = "source port";
         }else if(!isRead){
-        	version = getArtifactProperties(artifactInfo).getSocketWriteVersion();
+        	version = getArtifactProperties(artifactIdentity).getSocketWriteVersion();
         	if(version == ArtifactProperties.VERSION_UNINITIALIZED){
         		version = 0;
-        		getArtifactProperties(artifactInfo).setSocketWriteVersion(version);
+        		getArtifactProperties(artifactIdentity).setSocketWriteVersion(version);
         	}
         	hostAnnotation = "destination host";
 			portAnnotation = "destination port";
         }
-        
+
         artifact.addAnnotation("version", Long.toString(version));
+        
+        if(artifactIdentity instanceof NetworkSocketIdentity){ //either internet socket
 
-        if(artifactInfo instanceof SocketIdentity){ //either internet socket
-
-    		artifact.addAnnotation(hostAnnotation, ((SocketIdentity) artifactInfo).getHost());
-			artifact.addAnnotation(portAnnotation, ((SocketIdentity) artifactInfo).getPort());
+        	//always address as source in the artifactidentity
+    		artifact.addAnnotation(hostAnnotation, ((NetworkSocketIdentity) artifactIdentity).getSourceHost());
+			artifact.addAnnotation(portAnnotation, ((NetworkSocketIdentity) artifactIdentity).getSourcePort());
 			
-        }else if(artifactInfo instanceof UnixSocketIdentity){ //or unix socket
+			
+        }else if(artifactIdentity instanceof UnixSocketIdentity){ //or unix socket
         	
-//        	artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
-        	logger.log(Level.WARNING, "Unix socket monitoring not supported yet");
+        	artifact.addAnnotations(artifactIdentity.getAnnotationsMap());
         	
         }
                 
@@ -1186,12 +1189,17 @@ public class Audit extends AbstractReporter {
     }
     
     private Artifact createArtifact(ArtifactIdentity artifactIdentity, boolean update, SYSCALL syscall){
-    	Artifact artifact = null;
     	if(artifactIdentity == null){
     		return null;
     	}
+    	
+    	Artifact artifact = new Artifact();
+    	
     	Class<? extends ArtifactIdentity> artifactIdentityClass = artifactIdentity.getClass();
-    	if(FileIdentity.class.equals(artifactIdentityClass) || PipeIdentity.class.equals(artifactIdentityClass)){
+    	if(FileIdentity.class.equals(artifactIdentityClass) 
+    			|| NamedPipeIdentity.class.equals(artifactIdentityClass)
+    			|| UnnamedPipeIdentity.class.equals(artifactIdentityClass)
+    			|| UnknownIdentity.class.equals(artifactIdentityClass)){
     		artifact = createFileArtifact(artifactIdentity, update);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
     	}else if(MemoryIdentity.class.equals(artifactIdentityClass)){
@@ -1203,23 +1211,25 @@ public class Audit extends AbstractReporter {
     		}else{
     			logger.log(Level.WARNING, "Missing source attribute for memory artifact because of unhandled syscall '"+syscall+"' ");
     		}		
-    	}else if(SocketIdentity.class.equals(artifactIdentityClass) || UnixSocketIdentity.class.equals(artifactIdentityClass)){
+    	}else if(NetworkSocketIdentity.class.equals(artifactIdentityClass) || UnixSocketIdentity.class.equals(artifactIdentityClass)){
     		artifact = createNetworkArtifact(artifactIdentity, syscall);
     		artifact.addAnnotation(SOURCE, DEV_AUDIT);
-    	}else if(UnknownIdentity.class.equals(artifactIdentityClass)){ //unknownidentities are always handled as files
-    		artifact = createFileArtifact(artifactIdentity, update);
-    		artifact.addAnnotation(SOURCE, DEV_AUDIT);
+    	}else{
+    		return null;
     	}
     	return artifact;
     }
     
-    //handles fileinfo, pipeinfo, unknowninfo
+    //handles fileidentity, namedpipeidentity, unnamedpipeidentity, unknownidentity
     private Artifact createFileArtifact(ArtifactIdentity artifactInfo, boolean update) {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("subtype", artifactInfo.getSubtype());
-        artifact.addAnnotation("path", artifactInfo.getStringFormattedValue());
-        if(update && artifactInfo.getStringFormattedValue().startsWith("/dev/")){
-        	update = false;
+        artifact.addAnnotations(artifactInfo.getAnnotationsMap());
+        String path = artifactInfo.getAnnotationsMap().get("path");
+        if(path != null){
+	        if(update && path.startsWith("/dev/")){
+	        	update = false;
+	        }
         }
         ArtifactProperties artifactProperties = getArtifactProperties(artifactInfo);
         long version = artifactProperties.getFileVersion(update);
@@ -1742,7 +1752,7 @@ public class Audit extends AbstractReporter {
 
         String fd0 = eventData.get("fd0");
         String fd1 = eventData.get("fd1");
-        ArtifactIdentity pipeInfo = new PipeIdentity(fd0, fd1);
+        ArtifactIdentity pipeInfo = new UnnamedPipeIdentity(fd0, fd1);
         descriptors.addDescriptor(pid, fd0, pipeInfo);
         descriptors.addDescriptor(pid, fd1, pipeInfo);
     }
@@ -1785,7 +1795,7 @@ public class Audit extends AbstractReporter {
 	            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
 	            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
 	            String address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-	            artifactInfo = new SocketIdentity(address, port);
+	            artifactInfo = new NetworkSocketIdentity(address, port, null, null, null);
 	        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
 	        	String port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
 	        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
@@ -1793,7 +1803,7 @@ public class Audit extends AbstractReporter {
 	        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
 	        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
 	        	String address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
-	        	artifactInfo = new SocketIdentity(address, port);
+	        	artifactInfo = new NetworkSocketIdentity(address, port, null, null, null);
 	        }else if(saddr.charAt(1) == '1'){
 	        	String path = "";
 	        	for(int a = 4; a<saddr.length() && saddr.charAt(a) != '0'; a+=2){

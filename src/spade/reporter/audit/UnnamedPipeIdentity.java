@@ -20,38 +20,45 @@
 
 package spade.reporter.audit;
 
-public class SocketIdentity implements ArtifactIdentity {
+import java.util.HashMap;
+import java.util.Map;
 
-	private String host, port;
+public class UnnamedPipeIdentity implements ArtifactIdentity{
+
+	private String fd0, fd1;
 	
-	public SocketIdentity(String host, String port){
-		this.host = host;
-		this.port = port;
+	public UnnamedPipeIdentity(String fd0, String fd1){
+		this.fd0 = fd0;
+		this.fd1 = fd1;
 	}
-	
-	public String getHost(){
-		return host;
+
+	public String getFd1() {
+		return fd1;
 	}
-	
-	public String getPort(){
-		return port;
+
+	public String getFd0() {
+		return fd0;
+	}
+
+	public String getSubtype(){
+		return SUBTYPE_PIPE;
 	}
 	
 	@Override
-	public String getStringFormattedValue() {
-		return "address: " + host + ", port: " + port; 
+	public Map<String, String> getAnnotationsMap() {
+		Map<String, String> annotations = new HashMap<String, String>();
+//		annotations.put("fd0", fd0); //TODO
+//		annotations.put("fd1", fd1);
+		annotations.put("path", "pipe["+fd0+"-"+fd1+"]");
+		return annotations;
 	}
 	
-	public String getSubtype(){
-		return SUBTYPE_SOCKET;
-	}
-
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((host == null) ? 0 : host.hashCode());
-		result = prime * result + ((port == null) ? 0 : port.hashCode());
+		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
+		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
 		return result;
 	}
 
@@ -63,17 +70,17 @@ public class SocketIdentity implements ArtifactIdentity {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		SocketIdentity other = (SocketIdentity) obj;
-		if (host == null) {
-			if (other.host != null)
+		UnnamedPipeIdentity other = (UnnamedPipeIdentity) obj;
+		if (fd1 == null) {
+			if (other.fd1 != null)
 				return false;
-		} else if (!host.equals(other.host))
+		} else if (!fd1.equals(other.fd1))
 			return false;
-		if (port == null) {
-			if (other.port != null)
+		if (fd0 == null) {
+			if (other.fd0 != null)
 				return false;
-		} else if (!port.equals(other.port))
+		} else if (!fd0.equals(other.fd0))
 			return false;
 		return true;
-	}
+	}	
 }

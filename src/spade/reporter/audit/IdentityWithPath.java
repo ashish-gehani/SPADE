@@ -20,50 +20,41 @@
 
 package spade.reporter.audit;
 
-public class PipeIdentity implements ArtifactIdentity{
+import java.util.HashMap;
+import java.util.Map;
 
-	private String fd1, fd2;
+/**
+ * Just a utility class. Added because FileIdentity, NamePipeIdentity and UnixSocketIdentity all have the same implementation.
+ * So they all extend this class
+ */
+
+public abstract class IdentityWithPath implements ArtifactIdentity{
+	
 	private String path;
 	
-	public PipeIdentity(String path){
+	public IdentityWithPath(String path){
+		path = path.replace("//", "/");
 		this.path = path;
 	}
 	
-	public PipeIdentity(String fd1, String fd2) {
-		this.fd1 = fd1;
-		this.fd2 = fd2;
-	}
-
-	public String getFd1() {
-		return fd1;
-	}
-
-	public String getFd2() {
-		return fd2;
+	@Override
+	public Map<String, String> getAnnotationsMap(){
+		Map<String, String> annotations = new HashMap<String, String>();
+		annotations.put("path", path);
+		return annotations;
 	}
 	
 	public String getPath(){
 		return path;
 	}
 	
-	public String getStringFormattedValue(){
-		if(path == null){
-			return "pipe:["+fd1+"-"+fd2+"]";
-		}else{
-			return path;
-		}		
-	}
-
-	public String getSubtype(){
-		return SUBTYPE_PIPE;
-	}
+	public abstract String getSubtype();
 	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
-		result = prime * result + ((fd2 == null) ? 0 : fd2.hashCode());
+		result = prime * result + ((path == null) ? 0 : path.hashCode());
 		return result;
 	}
 
@@ -75,17 +66,12 @@ public class PipeIdentity implements ArtifactIdentity{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		PipeIdentity other = (PipeIdentity) obj;
-		if (fd1 == null) {
-			if (other.fd1 != null)
+		IdentityWithPath other = (IdentityWithPath) obj;
+		if (path == null) {
+			if (other.path != null)
 				return false;
-		} else if (!fd1.equals(other.fd1))
-			return false;
-		if (fd2 == null) {
-			if (other.fd2 != null)
-				return false;
-		} else if (!fd2.equals(other.fd2))
+		} else if (!path.equals(other.path))
 			return false;
 		return true;
-	}	
+	}
 }

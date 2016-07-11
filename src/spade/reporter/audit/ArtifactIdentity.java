@@ -20,6 +20,8 @@
 
 package spade.reporter.audit;
 
+import java.util.Map;
+
 public interface ArtifactIdentity {
 	
 	public static final String SUBTYPE_FILE = "file",
@@ -28,7 +30,7 @@ public interface ArtifactIdentity {
 								SUBTYPE_PIPE = "pipe",
 								SUBTYPE_UNKNOWN = "unknown";
 	
-	public abstract String getStringFormattedValue();
+	public abstract Map<String, String> getAnnotationsMap();
 	
 	public abstract String getSubtype();
 		

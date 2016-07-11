@@ -20,6 +20,9 @@
 
 package spade.reporter.audit;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class MemoryIdentity implements ArtifactIdentity{
 	
 	private String memoryAddress;
@@ -35,18 +38,22 @@ public class MemoryIdentity implements ArtifactIdentity{
 	public String getMemoryAddress(){
 		return memoryAddress;
 	}
-	
-	@Override
-	public String getStringFormattedValue() {
-		return "0x"+memoryAddress;
-	}
-	
+		
 	public String getSize(){
 		return size;
 	}
 	
 	public String getProtection(){
 		return protection;
+	}
+	
+	@Override
+	public Map<String, String> getAnnotationsMap() {
+		Map<String, String> annotations = new HashMap<String, String>();
+		annotations.put("memory address", memoryAddress);
+		annotations.put("size", size);
+		annotations.put("protection", protection);
+		return annotations;
 	}
 	
 	public String getSubtype(){

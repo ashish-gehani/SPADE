@@ -694,11 +694,22 @@ public class CDM extends Kafka {
         } else if (entityType.equals("unknown")) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
-        	String pathTokens[] = vertex.getAnnotation("path").split("/");
-        	String pid = pathTokens[2];
-        	String fd = pathTokens[4];
-        	properties.put("pid", pid);
-        	properties.put("fd", fd);
+        	String path = vertex.getAnnotation("path");
+        	boolean added = false;
+        	if(path != null){
+	        	String pathTokens[] = path.split("/");
+	        	if(pathTokens.length >= 5){
+		        	String pid = pathTokens[2];
+		        	String fd = pathTokens[4];
+		        	properties.put("pid", pid);
+		        	properties.put("fd", fd);
+		        	added = true;
+	        	}
+        	}
+        	if(added){
+        		logger.log(Level.INFO, "Missing or malformed path annotation in unknown artifact type.");
+        		return tccdmDatums;
+        	}
         	properties.put("version", vertex.getAnnotation("version"));
         	baseObject.setProperties(properties);
         	unknownBuilder.setBaseObject(baseObject);
