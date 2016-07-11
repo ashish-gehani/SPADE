@@ -706,7 +706,7 @@ public class CDM extends Kafka {
 		        	added = true;
 	        	}
         	}
-        	if(added){
+        	if(!added){
         		logger.log(Level.INFO, "Missing or malformed path annotation in unknown artifact type.");
         		return tccdmDatums;
         	}
