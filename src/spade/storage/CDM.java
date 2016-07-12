@@ -54,6 +54,7 @@ import com.bbn.tc.schema.serialization.AvroConfig;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Vertex;
+import spade.reporter.audit.ArtifactIdentity;
 import spade.utility.CommonFunctions;
 
 /**
@@ -136,6 +137,21 @@ public class CDM extends Kafka {
         }
     }
 
+    //NOTE: only for WasGeneratedBy edges
+    private EdgeType getAffectsEdgeTypeBasedOnArtifactSubtype(String subtype){
+    	if("memory".equals(subtype)){
+    		return EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
+    	}else if("file".equals(subtype) || "pipe".equals(subtype)){
+    		return EdgeType.EDGE_EVENT_AFFECTS_FILE;
+    	}else if("unknown".equals(subtype)){
+    		return EdgeType.EDGE_EVENT_AFFECTS_SRCSINK;
+    	}else if("network".equals(subtype)){
+    		return EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
+    	}else{
+    		return null;
+    	}
+    }
+    
     @Override
     public boolean putEdge(AbstractEdge edge) {
         try {
@@ -202,10 +218,16 @@ public class CDM extends Kafka {
                     return false;
                 } else if (operation.equals("open")){
                 	eventBuilder.setType(EventType.EVENT_OPEN);
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'open' only for files
+                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'open' only for files or named pipes. 
                 } else if(operation.equals("create")){
-                	eventBuilder.setType(EventType.EVENT_CREATE_OBJECT); 
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'create' only for files
+                	//can come here because of either mknod (which can create different artifact types) OR open, creat, openat which is only for files or named pipes
+                	eventBuilder.setType(EventType.EVENT_CREATE_OBJECT);  
+                	String subtype = edge.getSourceVertex().getAnnotation("subtype");
+                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(subtype);
+                	if(affectsEdgeType == null){
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
+                		return false;
+                	}                	
                 } else if (operation.equals("write")) {
                 	eventBuilder.setType(EventType.EVENT_WRITE);
                     String size = edge.getAnnotation("size");
@@ -213,15 +235,8 @@ public class CDM extends Kafka {
                         eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
                     String subtype = edge.getSourceVertex().getAnnotation("subtype");
-                	if("memory".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
-                	}else if("file".equals(subtype) || "pipe".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-                	}else if("unknown".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SRCSINK;
-                	}else if("network".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
-                	}else{
+                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(subtype);
+                	if(affectsEdgeType == null){
                 		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
                 		return false;
                 	}
@@ -252,7 +267,12 @@ public class CDM extends Kafka {
                 } else if (operation.equals("chmod")) {
                     eventBuilder.setType(EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
                     properties.put("mode", edge.getAnnotation("mode"));
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                    String subtype = edge.getSourceVertex().getAnnotation("subtype");
+                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(subtype);
+                	if(affectsEdgeType == null){
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
+                		return false;
+                	}
                 } else if (operation.equals("rename_write")) {
                 	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
@@ -290,7 +310,7 @@ public class CDM extends Kafka {
                 	}
                 } else if (operation.equals("open")){
                 	eventBuilder.setType(EventType.EVENT_OPEN);
-                	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT; //'open' only for files
+                	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT; //'open' only for files or named pipes
                 } else if (operation.equals("read")) {
                 	eventBuilder.setType(EventType.EVENT_READ);
                     String size = edge.getAnnotation("size");
@@ -615,24 +635,35 @@ public class CDM extends Kafka {
         }
         AbstractObject baseObject = baseObjectBuilder.build();
         String entityType = vertex.getAnnotation("subtype");
-        if (entityType.equals("file")) {
+        if (entityType.equals(ArtifactIdentity.SUBTYPE_FILE)) {
             FileObject.Builder fileBuilder = FileObject.newBuilder();
             fileBuilder.setUuid(getUuid(vertex));
             fileBuilder.setBaseObject(baseObject);
             fileBuilder.setUrl("file://" + vertex.getAnnotation("path"));
             fileBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
+            Map<CharSequence, CharSequence> properties = new HashMap<>();
+            if(vertex.getAnnotation("epoch") != null){
+            	properties.put("epoch", vertex.getAnnotation("epoch"));
+            }
+            if(properties.size() > 0){
+            	baseObject.setProperties(properties);
+            }
             fileBuilder.setIsPipe(false);
             FileObject fileObject = fileBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(fileObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("network")) { //not handling unix sockets yet. TODO
+        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
             if(vertex.getAnnotation("path") != null){
             	//is a unix socket
             	return tccdmDatums;
             }
+            
             NetFlowObject.Builder netBuilder = NetFlowObject.newBuilder();
             netBuilder.setUuid(getUuid(vertex));
             Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+            if(vertex.getAnnotation("epoch") != null){
+            	properties.put("epoch", vertex.getAnnotation("epoch"));
+            }
             if(vertex.getAnnotation("version") != null){
             	properties.put("version", vertex.getAnnotation("version"));
             }
@@ -640,7 +671,7 @@ public class CDM extends Kafka {
             	baseObject.setProperties(properties);
             }
             netBuilder.setBaseObject(baseObject);
-            String srcAddress = vertex.getAnnotation("source host");
+            String srcAddress = vertex.getAnnotation("source address");
             if (srcAddress == null) {                                       // required by CDM
                 netBuilder.setSrcAddress("");
                 netBuilder.setSrcPort(0);
@@ -648,7 +679,7 @@ public class CDM extends Kafka {
                 netBuilder.setSrcAddress(srcAddress);
                 netBuilder.setSrcPort(Integer.parseInt(vertex.getAnnotation("source port")));
             }
-            String destAddress = vertex.getAnnotation("destination host");
+            String destAddress = vertex.getAnnotation("destination address");
             if (destAddress == null) {                                      // required by CDM
                 netBuilder.setDestAddress("");
                 netBuilder.setDestPort(0);
@@ -659,7 +690,7 @@ public class CDM extends Kafka {
             NetFlowObject netFlowObject = netBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(netFlowObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("memory")) {
+        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_MEMORY)) { //no epoch for memory
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	if(vertex.getAnnotation("size") != null){
         		properties.put("size", vertex.getAnnotation("size"));
@@ -681,17 +712,24 @@ public class CDM extends Kafka {
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("pipe")) {                            
+        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_PIPE)) {                            
         	FileObject.Builder pipeBuilder = FileObject.newBuilder();
         	pipeBuilder.setUuid(getUuid(vertex));
         	pipeBuilder.setBaseObject(baseObject);
             pipeBuilder.setUrl("file://" + vertex.getAnnotation("path")); 
             pipeBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
             pipeBuilder.setIsPipe(true);
+            Map<CharSequence, CharSequence> properties = new HashMap<>();
+            if(vertex.getAnnotation("epoch") != null){
+            	properties.put("epoch", vertex.getAnnotation("epoch"));
+            }
+            if(properties.size() > 0){
+            	baseObject.setProperties(properties);
+            }
             FileObject pipeObject = pipeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(pipeObject).build());
             return tccdmDatums;
-        } else if (entityType.equals("unknown")) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
+        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_UNKNOWN)) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	String path = vertex.getAnnotation("path");
@@ -710,8 +748,15 @@ public class CDM extends Kafka {
         		logger.log(Level.INFO, "Missing or malformed path annotation in unknown artifact type.");
         		return tccdmDatums;
         	}
-        	properties.put("version", vertex.getAnnotation("version"));
-        	baseObject.setProperties(properties);
+        	if(vertex.getAnnotation("version") != null){
+            	properties.put("version", vertex.getAnnotation("version"));
+            }
+            if(vertex.getAnnotation("epoch") != null){
+            	properties.put("epoch", vertex.getAnnotation("epoch"));
+            }
+            if(properties.size() > 0){
+            	baseObject.setProperties(properties);
+            }
         	unknownBuilder.setBaseObject(baseObject);
             unknownBuilder.setUuid(getUuid(vertex));
             unknownBuilder.setType(SrcSinkType.SOURCE_UNKNOWN);
