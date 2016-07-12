@@ -408,7 +408,7 @@ public class Audit extends AbstractReporter {
 	            }
 	            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
 	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
+	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 -S kill "
 	                    + (log_successful_events_only ? "-F success=1 " : "");
 	            
 	            
