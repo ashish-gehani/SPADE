@@ -672,21 +672,21 @@ public class CDM extends Kafka {
             }
             netBuilder.setBaseObject(baseObject);
             String srcAddress = vertex.getAnnotation("source address");
-            if (srcAddress == null) {                                       // required by CDM
-                netBuilder.setSrcAddress("");
-                netBuilder.setSrcPort(0);
-            } else {
-                netBuilder.setSrcAddress(srcAddress);
-                netBuilder.setSrcPort(Integer.parseInt(vertex.getAnnotation("source port")));
-            }
+            String srcPort = vertex.getAnnotation("source port");
             String destAddress = vertex.getAnnotation("destination address");
-            if (destAddress == null) {                                      // required by CDM
-                netBuilder.setDestAddress("");
-                netBuilder.setDestPort(0);
-            } else {
-                netBuilder.setDestAddress(destAddress);
-                netBuilder.setDestPort(Integer.parseInt(vertex.getAnnotation("destination port")));
-            }
+            String destPort = vertex.getAnnotation("destination port");
+            
+            srcAddress = srcAddress == null ? "" : srcAddress;
+            destAddress = destAddress == null ? "" : destAddress;
+            srcPort = srcPort == null ? "0" : srcPort;
+            destPort = srcPort == null ? "0" : destPort;
+            
+            netBuilder.setSrcAddress(srcAddress);
+            netBuilder.setSrcPort(CommonFunctions.parseInt(srcPort, 0));
+            
+            netBuilder.setDestAddress(destAddress);
+            netBuilder.setDestPort(CommonFunctions.parseInt(destPort, 0));
+            
             NetFlowObject netFlowObject = netBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(netFlowObject).build());
             return tccdmDatums;
