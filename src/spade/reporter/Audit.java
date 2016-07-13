@@ -918,7 +918,7 @@ public class Audit extends AbstractReporter {
 
     private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData){
     	String pid = eventData.get("pid");
-    	String fd = eventData.get("a0");
+    	String fd = new BigInteger(eventData.get("a0"), 16).toString();
     	Class<? extends ArtifactIdentity> artifactInfoClass = null;
 
     	if(descriptors.getDescriptor(pid, fd) != null){
