@@ -388,12 +388,18 @@ public class Audit extends AbstractReporter {
 	            eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
 	            eventProcessorThread.start();
 	
+		    String noSuccessAuditRules = "";
+	
 	            auditRules = "-a exit,always ";
+	            noSuccessAuditRules = "-a exit,always ";
 	            if (ARCH_32BIT){
 	            	auditRules += "-F arch=b32 ";
+	            	noSuccessAuditRules += "-F arch=b32 ";
 	            }else{
 	            	auditRules += "-F arch=b64 ";
+	            	noSuccessAuditRules += "-F arch=b64 ";
 	            }
+	            noSuccessAuditRules += "-S kill ";
 	            if (USE_READ_WRITE) {
 	                auditRules += "-S read -S readv -S write -S writev ";
 	            }
@@ -408,7 +414,7 @@ public class Audit extends AbstractReporter {
 	            }
 	            auditRules += "-S link -S symlink -S clone -S fork -S vfork -S execve -S open -S close "
 	                    + "-S mknod -S rename -S dup -S dup2 -S setreuid -S setresuid -S setuid "
-	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 -S kill "
+	                    + "-S connect -S accept -S chmod -S fchmod -S pipe -S truncate -S ftruncate -S pipe2 "
 	                    + (log_successful_events_only ? "-F success=1 " : "");
 	            
 	            
@@ -451,9 +457,12 @@ public class Audit extends AbstractReporter {
 	            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{ppidIgnoreAuditRule, auditctlOutput});
 	            }
 	            
+	            auditctlOutput = Execute.getOutput("auditctl " + noSuccessAuditRules + pidsForMainRule);
+            	    logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{noSuccessAuditRules + pidsForMainRule, auditctlOutput});
+	            
 	            //add the main rule. ALWAYS ADD THIS AFTER THE ABOVE INDIVIDUAL RULES HAVE BEEN ADDED TO AVOID INCLUSION OF AUDIT INFO OF ABOVE PIDS
 	            auditctlOutput = Execute.getOutput("auditctl " + auditRules + pidsForMainRule);
-            	logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules + pidsForMainRule, auditctlOutput});
+            	    logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditRules + pidsForMainRule, auditctlOutput});
             	
 	        } catch (Exception e) {
 	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
