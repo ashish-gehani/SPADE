@@ -906,7 +906,7 @@ public class Audit extends AbstractReporter {
     	try {
 
     		Map<String, String> eventData = eventBuffer.get(eventId);
-    		Integer syscallNum = CommonFunctions.parseInt(eventData.get("syscall"), -1);
+    		int syscallNum = CommonFunctions.parseInt(eventData.get("syscall"), -1);
 
     		int arch = -1;
     		if(ARCH_32BIT){
@@ -914,13 +914,13 @@ public class Audit extends AbstractReporter {
     		}else{
     			arch = 64;
     		}
-
-    		SYSCALL syscall = SYSCALL.getSyscall(syscallNum, arch);
     		
-    		if(syscall == null){
-    			logger.log(Level.WARNING, "A non-syscall audit event OR missing syscall record with for event with id '" + eventId + "'");
+    		if(syscallNum == -1){
+    			logger.log(Level.INFO, "A non-syscall audit event OR missing syscall record with for event with id '" + eventId + "'");
     			return;
     		}
+
+    		SYSCALL syscall = SYSCALL.getSyscall(syscallNum, arch);
 
     		if("1".equals(AUDITCTL_SYSCALL_SUCCESS_FLAG) && "no".equals(eventData.get("success"))){
     			//if only log successful events but the current event had success no then only monitor the following calls.
@@ -1036,8 +1036,8 @@ public class Audit extends AbstractReporter {
 //                case SOCKET: // socket()
 //                    break;
 	    		
-	    		default:
-	    			logger.log(Level.WARNING, "Unsupported syscall '"+syscall+"' for eventid '" + eventId + "'");
+	    		default: //SYSCALL.UNSUPPORTED
+	    			logger.log(Level.WARNING, "Unsupported syscall '"+syscallNum+"' for eventid '" + eventId + "'");
     		}
     		eventBuffer.remove(eventId);
     	} catch (Exception e) {

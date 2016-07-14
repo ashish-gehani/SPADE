@@ -26,7 +26,8 @@ public enum SYSCALL {
 	ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
 	OPEN, OPENAT, MMAP, MMAP2, MPROTECT, RENAME, EXECVE, UNKNOWN, KILL, 
 	MKNOD, CREAT, MKNODAT, BIND, DUP, DUP2, DUP3, EXIT,
-	EXIT_GROUP, CLOSE, PIPE, PIPE2, UPDATE, CREATE, UNIT, LOAD, SEND, RECV;
+	EXIT_GROUP, CLOSE, PIPE, PIPE2, UPDATE, CREATE, UNIT, LOAD, SEND, RECV,
+	UNSUPPORTED;
 
 	public static SYSCALL getSyscall(int syscallNum, int arch){
 		if(arch == 32){
@@ -139,7 +140,7 @@ public enum SYSCALL {
 			case 62:
 				return KILL;
 			default:
-				return null;
+				return UNSUPPORTED;
 		}
 	}
 
@@ -236,7 +237,7 @@ public enum SYSCALL {
 			case 129: // kill()
 				return KILL;
 			default:
-				return null;
+				return UNSUPPORTED;
 		}
 	}
 		
