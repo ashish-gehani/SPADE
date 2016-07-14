@@ -28,6 +28,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -138,12 +141,14 @@ public class Audit extends AbstractReporter {
     private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
 
     // Group 1: cwd
-    private static final Pattern pattern_cwd = Pattern.compile("cwd=\"*((?<=\")[^\"]*(?=\"))\"*");
+    //cwd is either a quoted string or an unquoted string in which case it is in hex format
+    private static final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
 
     // Group 1: item number
     // Group 2: name
     // Group 3: nametype
-    private static final Pattern pattern_path = Pattern.compile("item=([0-9]*)\\s*name=\"*((?<=\")[^\"]*(?=\"))\"*.*nametype=([a-zA-Z]*)");
+    //name is either a quoted string or an unquoted string in which case it is in hex format
+    private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+) .*nametype=([a-zA-Z]*)");
     
     //  Added to indicate in the output from where the process info was read. Either from 
     //  1) procfs or directly from 2) audit log. 
@@ -813,6 +818,12 @@ public class Audit extends AbstractReporter {
                 Matcher cwd_matcher = pattern_cwd.matcher(messageData);
                 if (cwd_matcher.find()) {
                     String cwd = cwd_matcher.group(1);
+                    cwd = cwd.trim();
+                    if(cwd.startsWith("\"") && cwd.endsWith("\"")){ //is a string path
+                    	cwd = cwd.substring(1, cwd.length()-1);
+                    }else{ //is in hex format
+                    	cwd = parseHexStringToUTF8(cwd);
+                    }                    
                     eventBuffer.get(eventId).put("cwd", cwd);
                 }
             } else if (type.equals("PATH")) {
@@ -821,6 +832,12 @@ public class Audit extends AbstractReporter {
                     String item = path_matcher.group(1);
                     String name = path_matcher.group(2);
                     String nametype = path_matcher.group(3);
+                    name = name.trim();
+                    if(name.startsWith("\"") && name.endsWith("\"")){ //is a string path
+                    	name = name.substring(1, name.length()-1);
+                    }else{ //is in hex format
+                    	name = parseHexStringToUTF8(name);
+                    }
                     eventBuffer.get(eventId).put("path" + item, name);
                     eventBuffer.get(eventId).put("nametype" + item, nametype);
                 }
@@ -1946,6 +1963,8 @@ public class Audit extends AbstractReporter {
     	if(artifactIdentity != null){
 	    	getArtifactProperties(artifactIdentity).markNewEpoch(eventData.get("eventid"));
 	    	
+	    	//TODO remove vertex and edge
+	    	
 	    	String pid = eventData.get("pid");
 	    	String time = eventData.get("time");
 	    	
@@ -2105,10 +2124,24 @@ public class Audit extends AbstractReporter {
     	
     }
     
+    private String parseHexStringToUTF8(String hexString){
+    	if(hexString == null){
+    		return null;
+    	}
+		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
+    	for(int a = 0; a<hexString.length()-2; a+=2){
+    		bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
+
+    	}
+    	bytes.rewind();
+    	Charset cs = Charset.forName("UTF-8");
+    	CharBuffer cb = cs.decode(bytes);
+    	return cb.toString();
+	}
+    
     private ArtifactIdentity parseSaddr(String saddr, SYSCALL syscall){
     	if(saddr != null && saddr.length() >= 2){
 	    	if(saddr.charAt(1) == '1'){ //unix socket
-	        	String path = "";
 	        	int a = 2;
 	        	while(a < saddr.length()){
 	        		//iterating until start of path found or string ends
@@ -2117,14 +2150,8 @@ public class Audit extends AbstractReporter {
 	        		}
 	        		a++;
 	        	}
-	        	for(; a<saddr.length()-2; a+=2){
-	        		char c = (char)(Integer.parseInt(saddr.substring(a, a+2), 16));
-	        		if(c == '0'){ //null char
-	        			break;
-	        		}
-	        		path += c;
-	        	}
-	        	if(!path.isEmpty()){
+	        	String path = parseHexStringToUTF8(saddr.substring(a));
+	        	if(path != null && !path.isEmpty()){
 	        		return new UnixSocketIdentity(path);
 	        	}
 	        }else{ //ip
