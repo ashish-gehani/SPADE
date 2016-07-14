@@ -427,13 +427,11 @@ public class Audit extends AbstractReporter {
 	            auditRulesWithSuccess += "-S open -S close -S creat -S openat -S mknodat -S mknod ";
 	            auditRulesWithSuccess += "-S dup -S dup2 -S dup3 ";
 	            auditRulesWithSuccess += "-S bind -S accept -S accept4 -S connect ";
-	            auditRulesWithSuccess += "-S kill ";
 	            auditRulesWithSuccess += "-S rename ";
 	            auditRulesWithSuccess += "-S setuid -S setreuid -S setresuid ";
 	            auditRulesWithSuccess += "-S chmod -S fchmod ";
 	            auditRulesWithSuccess += "-S pipe -S pipe2 ";
 	            auditRulesWithSuccess += "-S truncate -S ftruncate ";
-	            auditRulesWithSuccess += "-S exit -S exit_group ";
 	            auditRulesWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 	            
 	            //Find the pids of the processes to ignore (below) and the uid for the JVM
