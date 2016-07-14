@@ -1964,16 +1964,16 @@ public class Audit extends AbstractReporter {
 	    	getArtifactProperties(artifactIdentity).markNewEpoch(eventData.get("eventid"));
 	    	
 	    	//TODO remove vertex and edge
-	    	
-	    	String pid = eventData.get("pid");
-	    	String time = eventData.get("time");
-	    	
-	    	Artifact vertex = putArtifact(eventData, artifactIdentity, true); //updating version too
-            AbstractEdge edge = new WasGeneratedBy(vertex, getProcess(pid));
-	        edge.addAnnotation("operation", getOperation(SYSCALL.CREATE)); //TODO update syscall to correct one
-	        edge.addAnnotation("time", time);
-	        addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
-	        putEdge(edge);
+//	    	
+//	    	String pid = eventData.get("pid");
+//	    	String time = eventData.get("time");
+//	    	
+//	    	Artifact vertex = putArtifact(eventData, artifactIdentity, true); //updating version too
+//            AbstractEdge edge = new WasGeneratedBy(vertex, getProcess(pid));
+//	        edge.addAnnotation("operation", getOperation(SYSCALL.CREATE)); //TODO update syscall to correct one
+//	        edge.addAnnotation("time", time);
+//	        addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
+//	        putEdge(edge);
     	}
     }
 
