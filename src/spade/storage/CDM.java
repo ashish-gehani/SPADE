@@ -220,7 +220,6 @@ public class CDM extends Kafka {
                 	eventBuilder.setType(EventType.EVENT_OPEN);
                 	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'open' only for files or named pipes. 
                 } else if(operation.equals("create")){
-                	//can come here because of either mknod (which can create different artifact types) OR open, creat, openat which is only for files or named pipes
                 	eventBuilder.setType(EventType.EVENT_CREATE_OBJECT);  
                 	String subtype = edge.getSourceVertex().getAnnotation("subtype");
                 	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(subtype);

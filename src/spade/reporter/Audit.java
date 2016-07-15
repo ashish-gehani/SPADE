@@ -192,6 +192,9 @@ public class Audit extends AbstractReporter {
     // A map to keep track of counts of unit vertex with the same pid, unitid and iteration number.
     private Map<UnitVertexIdentifier, Integer> unitIterationRepetitionCounts = new HashMap<UnitVertexIdentifier, Integer>();
         
+    //cache maps paths. global so that we delete on exit
+    private String eventBufferCacheDatabasePath, artifactsCacheDatabasePath;
+    
     @Override
     public boolean launch(String arguments) {
 
@@ -366,6 +369,7 @@ public class Audit extends AbstractReporter {
     	        		}catch(Exception e){
     	        			logger.log(Level.WARNING, "Failed to close audit input log reader", e);
     	        		}
+    	        		deleteCacheMaps();
     	        	}
     			}
     		});
@@ -396,6 +400,8 @@ public class Audit extends AbstractReporter {
 	                        auditProcess.destroy();
 	                    } catch (IOException | InterruptedException e) {
 	                        logger.log(Level.SEVERE, "Error launching main runnable thread", e);
+	                    }finally{
+	                    	deleteCacheMaps();
 	                    }
 	                }
 	            };
@@ -504,11 +510,26 @@ public class Audit extends AbstractReporter {
 	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
 	            shutdown = true;
 	            return false;
+	        } finally{
+	        	deleteCacheMaps();
 	        }
 
         }
         
         return true;
+    }
+    
+    private void deleteCacheMaps(){
+    	try{
+    		if(eventBufferCacheDatabasePath != null && new File(eventBufferCacheDatabasePath).exists()){
+    			FileUtils.forceDelete(new File(eventBufferCacheDatabasePath));
+    		}
+    		if(artifactsCacheDatabasePath != null && new File(artifactsCacheDatabasePath).exists()){
+    			FileUtils.forceDelete(new File(artifactsCacheDatabasePath));
+    		}
+    	}catch(Exception e){
+    		logger.log(Level.WARNING, "Failed to delete cache maps at paths: '"+eventBufferCacheDatabasePath+"' and '"+artifactsCacheDatabasePath+"'");
+    	}
     }
     
     private boolean addAuditctlRule(String auditctlRule){
@@ -591,8 +612,8 @@ public class Audit extends AbstractReporter {
     	 try{
          	Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(Settings.getDefaultConfigFilePath(this.getClass()), "=");
          	long currentTime = System.currentTimeMillis(); 
-             String eventBufferCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "eventbuffer_" + currentTime;
-             String artifactsCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "artifacts_" + currentTime;
+             eventBufferCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "eventbuffer_" + currentTime;
+             artifactsCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "artifacts_" + currentTime;
              try{
      	        FileUtils.forceMkdir(new File(eventBufferCacheDatabasePath));
      	        FileUtils.forceMkdir(new File(artifactsCacheDatabasePath));
@@ -873,7 +894,7 @@ public class Audit extends AbstractReporter {
                     eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
                 }
             } else if(type.equals("PROCTITLE")){
-            	//event type not being handled at the moment. TO-DO
+            	//event type not being handled at the moment. TODO
             } else {
                 logger.log(Level.WARNING, "unknown type {0} for message: {1}", new Object[]{type, line});
             }
@@ -1643,6 +1664,8 @@ public class Audit extends AbstractReporter {
         	
         	Artifact vertex = putArtifact(eventData, artifactIdentity, true); //updating version too
             edge = new WasGeneratedBy(vertex, getProcess(pid));
+            
+            syscall = SYSCALL.CREATE;
             
         }else{
         	
