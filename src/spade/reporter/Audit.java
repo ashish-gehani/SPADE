@@ -2033,9 +2033,19 @@ public class Audit extends AbstractReporter {
         }
         
         ArtifactIdentity srcArtifactIdentity = getValidArtifactIdentityForPath(srcpath);
+        ArtifactIdentity dstArtifactIdentity = null;
         
-        //not determining dstArtifactIdentity based on srcArtifactIdentity, like in rename, because it is just an FS entry
-        ArtifactIdentity dstArtifactIdentity = new FileIdentity(dstpath);
+        if(FileIdentity.class.equals(srcArtifactIdentity.getClass())){
+        	dstArtifactIdentity = new FileIdentity(dstpath);
+        }else if(NamedPipeIdentity.class.equals(srcArtifactIdentity.getClass())){
+        	dstArtifactIdentity = new NamedPipeIdentity(dstpath);
+        }else if(UnixSocketIdentity.class.equals(srcArtifactIdentity.getClass())){
+        	dstArtifactIdentity = new UnixSocketIdentity(dstpath);
+        }else{
+        	logger.log(Level.INFO, "Unexpected artifact type '"+srcArtifactIdentity+"' for link. event id '"+eventData.get("eventid")+"'");
+        	return;
+        }
+        
         //destination is new so mark epoch
         getArtifactProperties(dstArtifactIdentity).markNewEpoch(eventData.get("eventid"));
 
