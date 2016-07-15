@@ -26,10 +26,16 @@ import java.util.Map;
 public class UnnamedPipeIdentity implements ArtifactIdentity{
 
 	private String fd0, fd1;
+	private String pid;
 	
-	public UnnamedPipeIdentity(String fd0, String fd1){
+	public UnnamedPipeIdentity(String pid, String fd0, String fd1){
+		this.pid = pid;
 		this.fd0 = fd0;
 		this.fd1 = fd1;
+	}
+	
+	public String getPid(){
+		return pid;
 	}
 
 	public String getFd1() {
@@ -50,15 +56,17 @@ public class UnnamedPipeIdentity implements ArtifactIdentity{
 //		annotations.put("fd0", fd0); //TODO
 //		annotations.put("fd1", fd1);
 		annotations.put("path", "pipe["+fd0+"-"+fd1+"]");
+		annotations.put("pid", pid);
 		return annotations;
 	}
-	
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
 		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
+		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
+		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
 		return result;
 	}
 
@@ -71,16 +79,23 @@ public class UnnamedPipeIdentity implements ArtifactIdentity{
 		if (getClass() != obj.getClass())
 			return false;
 		UnnamedPipeIdentity other = (UnnamedPipeIdentity) obj;
-		if (fd1 == null) {
-			if (other.fd1 != null)
-				return false;
-		} else if (!fd1.equals(other.fd1))
-			return false;
 		if (fd0 == null) {
 			if (other.fd0 != null)
 				return false;
 		} else if (!fd0.equals(other.fd0))
 			return false;
+		if (fd1 == null) {
+			if (other.fd1 != null)
+				return false;
+		} else if (!fd1.equals(other.fd1))
+			return false;
+		if (pid == null) {
+			if (other.pid != null)
+				return false;
+		} else if (!pid.equals(other.pid))
+			return false;
 		return true;
-	}	
+	}
+	
+	
 }

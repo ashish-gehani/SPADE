@@ -659,7 +659,26 @@ public class CDM extends Kafka {
             return tccdmDatums;
         } else if (entityType.equals(ArtifactIdentity.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
             if(vertex.getAnnotation("path") != null){
-            	//is a unix socket
+
+            	//TODO should do?
+            	/*FileObject.Builder unixSocketBuilder = FileObject.newBuilder();
+                unixSocketBuilder.setUuid(getUuid(vertex));
+                unixSocketBuilder.setBaseObject(baseObject);
+                unixSocketBuilder.setUrl("unix://" + vertex.getAnnotation("path"));
+                unixSocketBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
+                Map<CharSequence, CharSequence> properties = new HashMap<>();
+                if(vertex.getAnnotation("epoch") != null){
+                	properties.put("epoch", vertex.getAnnotation("epoch"));
+                }
+                if(properties.size() > 0){
+                	baseObject.setProperties(properties);
+                }
+                unixSocketBuilder.setIsPipe(false);
+                FileObject uniSocketObject = unixSocketBuilder.build();
+                tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(uniSocketObject).build());
+            	
+                */
+            	//return always from here
             	return tccdmDatums;
             }
             
@@ -724,6 +743,9 @@ public class CDM extends Kafka {
             Map<CharSequence, CharSequence> properties = new HashMap<>();
             if(vertex.getAnnotation("epoch") != null){
             	properties.put("epoch", vertex.getAnnotation("epoch"));
+            }
+            if(vertex.getAnnotation("pid") != null){
+            	properties.put("pid", vertex.getAnnotation("pid"));
             }
             if(properties.size() > 0){
             	baseObject.setProperties(properties);

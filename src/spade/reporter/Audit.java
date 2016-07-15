@@ -751,7 +751,7 @@ public class Audit extends AbstractReporter {
 		    						if(inodefd0.get(inode) == null){
 		    							inodefd0.put(inode, fd);
 		    						}else{
-		    							ArtifactIdentity pipeInfo = new UnnamedPipeIdentity(fd, inodefd0.get(inode));
+		    							ArtifactIdentity pipeInfo = new UnnamedPipeIdentity(pid, fd, inodefd0.get(inode));
 		    							fds.put(fd, pipeInfo);
 		    							fds.put(inodefd0.get(inode), pipeInfo);
 		    							inodefd0.remove(inode);
@@ -2119,7 +2119,7 @@ public class Audit extends AbstractReporter {
 
         String fd0 = eventData.get("fd0");
         String fd1 = eventData.get("fd1");
-        ArtifactIdentity pipeInfo = new UnnamedPipeIdentity(fd0, fd1);
+        ArtifactIdentity pipeInfo = new UnnamedPipeIdentity(pid, fd0, fd1);
         descriptors.addDescriptor(pid, fd0, pipeInfo);
         descriptors.addDescriptor(pid, fd1, pipeInfo);
         
