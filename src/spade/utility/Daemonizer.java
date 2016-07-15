@@ -64,13 +64,14 @@ public class Daemonizer {
     }
 
     public boolean isProcessRunning(int pid) throws IOException {
+	String pidStr = Integer.toString (pid);
         String line = "";
         Process process = Runtime.getRuntime().exec("ps -ef"); // portable across *nix
         InputStream stream = process.getInputStream();
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
         while ((line = reader.readLine()) != null) {
-            line = line.trim().replaceAll(" +", " ");
-            if (line.split(" ")[1].indexOf(pid+"") == 0) {
+            line = line.trim().replaceAll("\\s+", " ");
+            if (pidStr.equals (line.split(" ")[1])) {
                 return true;                
             }
         }
