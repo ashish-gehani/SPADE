@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+#set -x
 
 _dir=`pwd`				# Current absolute path
 _top=../..				# Relative root directory
@@ -40,20 +40,23 @@ _spadeStart  () {
     # from the SPADE start up message and use it to verify SPADE
     # termination.
 
+    _slog=/tmp/_spade-`date '+%Y%m%d%H%M%S'`-$$.log
+    export SPADE_LOG=$_slog
+
     _tmpfile=/tmp/_tmpfile$$
     $_top/bin/spade start 2>$_tmpfile 1>&2
 
-    # HACK: wait for SPADE start and log file creation :(
+    unset _pid
 
-    sleep 5
-
-    _pid=`sed -E 's/.+: //' $_tmpfile`		# current SPADE PID
+    until [ "${_pid:-}" != "" ]; do
+	_pid=`sed -E 's/.+: //' $_tmpfile`		# current SPADE PID
+    done
     rm $_tmpfile
 
-    # N.b.: the following may (randomly) fail because the log
-    # file may not exist!
-
-    _slog=`ls -1t $_top/log/*.log | head -1`	# current SPADE log
+    # Wait for log creation
+    while [ ! -r $_slog ]; do
+	sleep 1
+    done
 }
 
 _waitForFinish () {
@@ -77,7 +80,7 @@ for log in input/*.log; do
 
     _spadeStop
 
-    echo "Processing $log..."
+    echo -n "Processing $log..."
 
     _bname=`basename $log .log`		# base name of log
     _cdm=$_bname.cdm			# CDM storage file
@@ -86,10 +89,11 @@ for log in input/*.log; do
 
     # Write directives to the SPADE configuration file
 
-cat <<EOF > $_sconf
+cat << EOF > $_sconf
 add storage CDM output=$_dir/$_cdm
 add reporter Audit inputLog=$_dir/$log arch=64 units=true fileIO=true netIO=true
 EOF
+#cat $_sconf
 
     _spadeStart
 	_waitForFinish
@@ -124,8 +128,10 @@ EOF
     else
 	if [ "$_chksum" != "`cat $_cdmhash`" ]; then
 	  _nBad=$(( $_nBad + 1 ))
+	  echo "bad"
 	else
 	  _nGood=$(( $_nGood + 1 ))
+	  echo "good"
         fi
     fi
 
