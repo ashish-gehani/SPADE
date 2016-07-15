@@ -42,6 +42,7 @@ _spadeStart  () {
 
     _slog=/tmp/_spade-`date '+%Y%m%d%H%M%S'`-$$.log
     export SPADE_LOG=$_slog
+	export LOGMGR_FLUSH=true
 
     _tmpfile=/tmp/_tmpfile$$
     $_top/bin/spade start 2>$_tmpfile 1>&2
@@ -152,3 +153,7 @@ if [ $_nBad -ne 0 ]; then
 else
     exit 0
 fi
+
+# Local Variables:
+# tab-width: 4
+# End:
