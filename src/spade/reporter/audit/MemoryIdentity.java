@@ -27,12 +27,10 @@ public class MemoryIdentity implements ArtifactIdentity{
 	
 	private String memoryAddress;
 	private String size;
-	private String protection;
 	
-	public MemoryIdentity(String memoryAddress, String size, String protection){
+	public MemoryIdentity(String memoryAddress, String size){
 		this.memoryAddress = memoryAddress;
 		this.size = size;
-		this.protection = protection;
 	}
 	
 	public String getMemoryAddress(){
@@ -42,17 +40,12 @@ public class MemoryIdentity implements ArtifactIdentity{
 	public String getSize(){
 		return size;
 	}
-	
-	public String getProtection(){
-		return protection;
-	}
-	
+
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
 		annotations.put("memory address", memoryAddress);
 		annotations.put("size", size);
-		annotations.put("protection", protection);
 		return annotations;
 	}
 	
@@ -65,7 +58,6 @@ public class MemoryIdentity implements ArtifactIdentity{
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
-		result = prime * result + ((protection == null) ? 0 : protection.hashCode());
 		result = prime * result + ((size == null) ? 0 : size.hashCode());
 		return result;
 	}
@@ -83,11 +75,6 @@ public class MemoryIdentity implements ArtifactIdentity{
 			if (other.memoryAddress != null)
 				return false;
 		} else if (!memoryAddress.equals(other.memoryAddress))
-			return false;
-		if (protection == null) {
-			if (other.protection != null)
-				return false;
-		} else if (!protection.equals(other.protection))
 			return false;
 		if (size == null) {
 			if (other.size != null)

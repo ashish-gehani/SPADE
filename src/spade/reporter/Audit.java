@@ -1174,7 +1174,7 @@ public class Audit extends AbstractReporter {
     	
     	Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentity, false);
     	
-    	ArtifactIdentity memoryArtifactIdentity = new MemoryIdentity(address, length, protection);
+    	ArtifactIdentity memoryArtifactIdentity = new MemoryIdentity(address, length);
     	Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentity, true);
 		
 		Process process = checkProcessVertex(eventData, true, false);
@@ -1190,6 +1190,7 @@ public class Audit extends AbstractReporter {
 		addEventIdAndSourceAnnotationToEdge(usedEdge, eventData.get("eventid"), DEV_AUDIT);
 		
 		WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, fileArtifact);
+		wdfEdge.addAnnotation("protection", protection);
 		wdfEdge.addAnnotation("time", time);
 		wdfEdge.addAnnotation("operation", getOperation(syscall));
 		wdfEdge.addAnnotation("pid", pid);
@@ -1215,12 +1216,13 @@ public class Audit extends AbstractReporter {
     	String length = new BigInteger(eventData.get("a1")).toString(16);
     	String protection = new BigInteger(eventData.get("a2")).toString(16);
     	
-    	ArtifactIdentity memoryInfo = new MemoryIdentity(address, length, protection);
+    	ArtifactIdentity memoryInfo = new MemoryIdentity(address, length);
     	Artifact memoryArtifact = putArtifact(eventData, memoryInfo, true);
 		
 		Process process = checkProcessVertex(eventData, true, false);
 		
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
+		edge.addAnnotation("protection", protection);
 		edge.addAnnotation("time", time);
 		edge.addAnnotation("operation", getOperation(syscall));
 		addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
@@ -1275,11 +1277,11 @@ public class Audit extends AbstractReporter {
     			address = address.add(arg1);
     			pidToMemAddress.remove(pid);
     			if(arg0.intValue() == -201){
-    				memArtifact = putArtifact(eventData, new MemoryIdentity(address.toString(16), "", ""), false, BEEP);
+    				memArtifact = putArtifact(eventData, new MemoryIdentity(address.toString(16), ""), false, BEEP);
     				edge = new Used(process, memArtifact);
     				edge.addAnnotation("operation", getOperation(SYSCALL.READ));
     			}else if(arg0.intValue() == -301){
-    				memArtifact = putArtifact(eventData, new MemoryIdentity(address.toString(16), "", ""), true, BEEP);
+    				memArtifact = putArtifact(eventData, new MemoryIdentity(address.toString(16), ""), true, BEEP);
     				edge = new WasGeneratedBy(memArtifact, process);
     				edge.addAnnotation("operation", getOperation(SYSCALL.WRITE));
     			}

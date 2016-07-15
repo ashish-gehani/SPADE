@@ -258,6 +258,9 @@ public class CDM extends Kafka {
                 } else if (operation.equals("mprotect")) {
                     eventBuilder.setType(EventType.EVENT_MPROTECT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
+                    if(edge.getAnnotation("protection") != null){
+                    	properties.put("protection", edge.getAnnotation("protection"));
+                    }
                 } else if (operation.equals("connect")) {
                     eventBuilder.setType(EventType.EVENT_CONNECT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
@@ -371,6 +374,9 @@ public class CDM extends Kafka {
                 } else if(operation.equals("mmap") || operation.equals("mmap2")){
                 	eventBuilder.setType(EventType.EVENT_MMAP);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
+                    if(edge.getAnnotation("protection") != null){
+                    	properties.put("protection", edge.getAnnotation("protection"));
+                    }
                 } else if (operation.equals("update")) {   
                 	
                 	SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
@@ -694,9 +700,6 @@ public class CDM extends Kafka {
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	if(vertex.getAnnotation("size") != null){
         		properties.put("size", vertex.getAnnotation("size"));
-        	}
-        	if(vertex.getAnnotation("protection") != null){
-        		properties.put("protection", vertex.getAnnotation("protection"));
         	}
         	if(vertex.getAnnotation("version") != null){
         		properties.put("version", vertex.getAnnotation("version"));
