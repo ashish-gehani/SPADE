@@ -52,6 +52,7 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -75,6 +76,18 @@ public class Kernel {
 	
 	static{
 		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
+		/** /
+		try {
+			PrintStream pStream = new PrintStream ("/tmp/logMgr.txt");
+
+			pStream.println (System.getProperty ("java.util.logging.manager") + ": " +
+							 LogManager.getLogManager ());
+			pStream.flush ();
+			pStream.close ();
+		} catch (Exception e) {
+			// do nothing
+		}
+		/**/
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -231,6 +244,20 @@ public class Kernel {
         sslServerSocketFactory = sslContext.getServerSocketFactory();
     }
 
+	protected static FileHandler newFileHandler (final String logFilename) throws IOException
+	{
+		if (System.getProperty ("spade.utility.LogManager.flush") != null)
+			return new FileHandler (logFilename) {
+				@Override
+				public synchronized void publish (final LogRecord record) {
+					super.publish (record);
+					flush ();
+				};
+			};
+		else
+            return new FileHandler (logFilename);
+	}
+
     /**
      * The main initialization function.
      *
@@ -262,7 +289,7 @@ public class Kernel {
                 String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(currentTime);
                 logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + logStartTime + ".log";
             }
-            final Handler logFileHandler = new FileHandler(logFilename);
+            final Handler logFileHandler = newFileHandler(logFilename);
             logFileHandler.setFormatter(new SimpleFormatter());
             Logger.getLogger("").addHandler(logFileHandler);
             
