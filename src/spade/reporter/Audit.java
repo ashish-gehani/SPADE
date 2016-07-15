@@ -1152,6 +1152,11 @@ public class Audit extends AbstractReporter {
     	String protection = new BigInteger(eventData.get("a2")).toString(16); //convert to hexadecimal
     	String fd = eventData.get("fd");
     	
+    	if(fd == null){
+    		logger.log(Level.INFO, "FD record missing in mmap event. event id '"+eventData.get("eventid")+"'");
+    		return;
+    	}
+    	
     	ArtifactIdentity fileArtifactIdentity = descriptors.getDescriptor(pid, fd);
     	
     	if(fileArtifactIdentity == null){
@@ -2142,15 +2147,25 @@ public class Audit extends AbstractReporter {
     private ArtifactIdentity parseSaddr(String saddr, SYSCALL syscall){
     	if(saddr != null && saddr.length() >= 2){
 	    	if(saddr.charAt(1) == '1'){ //unix socket
-	        	int a = 2;
-	        	while(a < saddr.length()){
-	        		//iterating until start of path found or string ends
-	        		if(saddr.charAt(a) != '0'){
-	        			break;
+	    		
+	    		String path = "";
+	        	int start = saddr.indexOf("2F"); //2F in ASCII is '/'. so starting from there since unix file paths start from there
+	        	
+	        	if(start != -1){ //found
+	        		try{
+		        		for(; start < saddr.length() - 2; start+=2){
+		        			char c = (char)(Integer.parseInt(saddr.substring(start, start+2), 16));
+		        			if(c == 0){ //null char
+		        				break;
+		        			}
+		        			path += c;
+		        		}
+	        		}catch(Exception e){
+	        			logger.log(Level.INFO, "Failed to parse saddr value '"+saddr+"'");
+	        			return null;
 	        		}
-	        		a++;
 	        	}
-	        	String path = parseHexStringToUTF8(saddr.substring(a));
+	    		
 	        	if(path != null && !path.isEmpty()){
 	        		return new UnixSocketIdentity(path);
 	        	}
