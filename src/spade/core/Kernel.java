@@ -619,7 +619,7 @@ public class Kernel {
                 FileWriter configWriter = new FileWriter(tokens[2], false);
                 for (int i = 0; i < filters.size() - 1; i++) {
                     String arguments = filters.get(i).arguments;
-                    configWriter.write("filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i);
+                    configWriter.write("add filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i);
                     if (arguments != null) {
                         configWriter.write(" " + arguments);
                     }
@@ -630,7 +630,7 @@ public class Kernel {
                 }
                 for (AbstractStorage storage : storages) {
                     String arguments = storage.arguments;
-                    configWriter.write("storage " + storage.getClass().getName().split("\\.")[2]);
+                    configWriter.write("add storage " + storage.getClass().getName().split("\\.")[2]);
                     if (arguments != null) {
                         configWriter.write(" " + arguments);
                     }
@@ -638,7 +638,7 @@ public class Kernel {
                 }
                 for (AbstractReporter reporter : reporters) {
                     String arguments = reporter.arguments;
-                    configWriter.write("reporter " + reporter.getClass().getName().split("\\.")[2]);
+                    configWriter.write("add reporter " + reporter.getClass().getName().split("\\.")[2]);
                     if (arguments != null) {
                         configWriter.write(" " + arguments);
                     }
@@ -647,7 +647,7 @@ public class Kernel {
                 synchronized (transformers) {
                 	for(int i = 0; i<transformers.size(); i++){
                 		String arguments = transformers.get(i).arguments;
-                		configWriter.write("transformer " + transformers.get(i).getClass().getName().split("\\.")[2] + " " + (i + 1));
+                		configWriter.write("add transformer " + transformers.get(i).getClass().getName().split("\\.")[2] + " " + (i + 1));
                 		if(arguments != null){
                 			configWriter.write(" " + arguments);
                 		}
