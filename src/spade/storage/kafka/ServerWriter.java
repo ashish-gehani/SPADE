@@ -19,20 +19,41 @@
  */
 package spade.storage.kafka;
 
+import java.io.File;
+import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
+import spade.core.Settings;
 import spade.storage.Kafka;
+import spade.utility.FileUtility;
 
 public class ServerWriter implements DataWriter{
+	
+	private Logger logger = Logger.getLogger(ServerWriter.class.getName());
 				
 	private KafkaProducer<String, GenericContainer> serverWriter;
 	private String kafkaTopic;
 	
-	public ServerWriter(Properties properties){
+	private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+	
+	public ServerWriter(Properties properties) throws Exception{
+		try{
+			if(new File(defaultConfigFilePath).exists()){
+				Map<String, String> additionalProperties = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
+				if(additionalProperties != null && additionalProperties.size() > 0){
+					properties.putAll(additionalProperties);
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to create KafkaProducer. Failed to read config file '"+defaultConfigFilePath+"'");
+			throw e;
+		}
 		this.kafkaTopic = properties.getProperty(Kafka.TOPIC_KEY);
 		serverWriter = new KafkaProducer<>(properties);
 	}
