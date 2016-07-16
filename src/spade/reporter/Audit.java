@@ -1195,7 +1195,7 @@ public class Audit extends AbstractReporter {
     	
     	Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentity, false);
     	
-    	ArtifactIdentity memoryArtifactIdentity = new MemoryIdentity(address, length);
+    	ArtifactIdentity memoryArtifactIdentity = new MemoryIdentity(pid, address, length);
     	Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentity, true);
 		
 		Process process = checkProcessVertex(eventData, true, false);
@@ -1231,13 +1231,13 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	
-//    	String pid = eventData.get("pid");
+    	String pid = eventData.get("pid");
     	String time = eventData.get("time");
     	String address = new BigInteger(eventData.get("a0")).toString(16);
     	String length = new BigInteger(eventData.get("a1")).toString(16);
     	String protection = new BigInteger(eventData.get("a2")).toString(16);
     	
-    	ArtifactIdentity memoryInfo = new MemoryIdentity(address, length);
+    	ArtifactIdentity memoryInfo = new MemoryIdentity(pid, address, length);
     	Artifact memoryArtifact = putArtifact(eventData, memoryInfo, true);
 		
 		Process process = checkProcessVertex(eventData, true, false);
@@ -1298,11 +1298,11 @@ public class Audit extends AbstractReporter {
     			address = address.add(arg1);
     			pidToMemAddress.remove(pid);
     			if(arg0.intValue() == -201){
-    				memArtifact = putArtifact(eventData, new MemoryIdentity(address.toString(16), ""), false, BEEP);
+    				memArtifact = putArtifact(eventData, new MemoryIdentity(pid, address.toString(16), ""), false, BEEP);
     				edge = new Used(process, memArtifact);
     				edge.addAnnotation("operation", getOperation(SYSCALL.READ));
     			}else if(arg0.intValue() == -301){
-    				memArtifact = putArtifact(eventData, new MemoryIdentity(address.toString(16), ""), true, BEEP);
+    				memArtifact = putArtifact(eventData, new MemoryIdentity(pid, address.toString(16), ""), true, BEEP);
     				edge = new WasGeneratedBy(memArtifact, process);
     				edge.addAnnotation("operation", getOperation(SYSCALL.WRITE));
     			}

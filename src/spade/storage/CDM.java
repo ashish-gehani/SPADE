@@ -743,6 +743,9 @@ public class CDM extends Kafka {
         	if(vertex.getAnnotation("version") != null){
         		properties.put("version", vertex.getAnnotation("version"));
         	}
+        	if(vertex.getAnnotation("pid") != null){
+        		properties.put("pid", vertex.getAnnotation("pid"));
+        	}
         	if(properties.size() > 0){
         		baseObject.setProperties(properties);
         	}
