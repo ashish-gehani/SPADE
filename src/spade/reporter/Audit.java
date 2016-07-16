@@ -314,8 +314,9 @@ public class Audit extends AbstractReporter {
         	if(SORTLOG){
         		try{
         			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
-        			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"'");
-        			List<String> output = Execute.getOutput("./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog);
+        			String sortCommand = "./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog + " " + new File(SPADE_ROOT).getAbsolutePath().substring(0,new File(SPADE_ROOT).getAbsolutePath().length()-2) + File.separatorChar + "tmp";
+        			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"' using command '"+sortCommand+"'");
+        			List<String> output = Execute.getOutput(sortCommand);
         			logger.log(Level.INFO, output.toString());
         			
         			inputAuditLogFile = sortedInputAuditLog;
