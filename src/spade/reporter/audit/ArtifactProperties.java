@@ -22,134 +22,65 @@ package spade.reporter.audit;
 
 import java.io.Serializable;
 
+import spade.utility.CommonFunctions;
+
 public class ArtifactProperties implements Serializable{
 	
 	private static final long serialVersionUID = -1299250614232336780L;
 
-	public static final int VERSION_UNINITIALIZED = -1;
+	public static final long ARTIFACT_PROPERTY_UNINITIALIZED = -1;
 	
-	//used for every artifact except sockets
-	private long nonSocketVersion = VERSION_UNINITIALIZED;
-	
-	private long socketReadVersion = VERSION_UNINITIALIZED, socketWriteVersion = VERSION_UNINITIALIZED;
-	
-	private long bytesWrittenToSocket = 0, bytesReadFromSocket = 0;
+	private long version = ARTIFACT_PROPERTY_UNINITIALIZED;
 
-	/**
-	 * Returns updated version (if true) or returns 0 if value -1.
-	 * Returns 0 because versions start from 0 in audit
-	 * 
-	 */
-	private long getNonSocketVersion(boolean update) {
-		if(update || nonSocketVersion == -1){
-			nonSocketVersion++;
+	private long epoch = ARTIFACT_PROPERTY_UNINITIALIZED;
+	
+	private boolean epochPending = true;
+	
+	private long creationEventId = ARTIFACT_PROPERTY_UNINITIALIZED;
+	
+	public void markNewEpoch(long creationEventId){
+		this.creationEventId = creationEventId;
+		this.epochPending = true;
+		this.version = ARTIFACT_PROPERTY_UNINITIALIZED;
+	}	
+	
+	public void markNewEpoch(String creationEventIdString){
+		long creationEventId = CommonFunctions.parseLong(creationEventIdString, ARTIFACT_PROPERTY_UNINITIALIZED);
+		markNewEpoch(creationEventId);
+	}
+	
+	public long getCreationEventId(){
+		return creationEventId;
+	}
+
+	//autoincrements if pending true or uninitialized
+	public long getEpoch(){
+		if(epochPending || epoch == ARTIFACT_PROPERTY_UNINITIALIZED){
+			epochPending = false;
+			epoch++;
 		}
-		return nonSocketVersion;
+		return epoch;
 	}
 	
-	private long getNonSocketVersion() {
-		return nonSocketVersion;
-	}
-	
-	public long getFileVersion(boolean update){
-		return getNonSocketVersion(update);
-	}
-	
-	public long getFileVersion(){
-		return getNonSocketVersion();
-	}
-	
-	public long getPipeVersion(boolean update){
-		return getNonSocketVersion(update);
-	}
-	
-	public long getPipeVersion(){
-		return getNonSocketVersion();
-	}
-	
-	public long getMemoryVersion(boolean update){
-		return getNonSocketVersion(update);
-	}
-	
-	public long getMemoryVersion(){
-		return getNonSocketVersion();
-	}
-	
-	public long getUnknownVersion(boolean update){
-		return getNonSocketVersion(update);
-	}
-	
-	public long getUnknownVersion(){
-		return getNonSocketVersion();
-	}
-
-	public void setNonSocketVersion(long nonSocketVersion) {
-		this.nonSocketVersion = nonSocketVersion;
-	}
-
-	/**
-	 * Returns updated version (if true) or returns 0 if value -1.
-	 * Returns 0 because versions start from 0 in audit
-	 */
-	public long getSocketReadVersion(boolean update) {
-		if(update || socketReadVersion == -1){
-			socketReadVersion++;
+	public long getVersion(boolean increment){
+		if(increment || version == ARTIFACT_PROPERTY_UNINITIALIZED){
+			version++;
 		}
-		return socketReadVersion;
+		return version;
 	}
 	
-	public long getSocketReadVersion() {
-		return socketReadVersion;
-	}
-
-	public void setSocketReadVersion(long socketReadVersion) {
-		this.socketReadVersion = socketReadVersion;
-	}
-
-	/**
-	 * Returns updated version (if true) or returns 0 if value -1.
-	 * Returns 0 because versions start from 0 in audit
-	 */
-	public long getSocketWriteVersion(boolean update) {
-		if(update || socketWriteVersion == -1){
-			socketWriteVersion++;
-		}
-		return socketWriteVersion;
-	}
-	
-	public long getSocketWriteVersion() {
-		return socketWriteVersion;
-	}
-
-	public void setSocketWriteVersion(long socketWriteVersion) {
-		this.socketWriteVersion = socketWriteVersion;
-	}
-
-	public long getBytesWrittenToSocket() {
-		return bytesWrittenToSocket;
-	}
-
-	public void setBytesWrittenToSocket(long bytesWrittenToSocket) {
-		this.bytesWrittenToSocket = bytesWrittenToSocket;
-	}
-
-	public long getBytesReadFromSocket() {
-		return bytesReadFromSocket;
-	}
-
-	public void setBytesReadFromSocket(long bytesReadFromSocket) {
-		this.bytesReadFromSocket = bytesReadFromSocket;
+	public boolean isVersionUninitialized(){
+		return version == ARTIFACT_PROPERTY_UNINITIALIZED;
 	}
 
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + (int) (bytesReadFromSocket ^ (bytesReadFromSocket >>> 32));
-		result = prime * result + (int) (bytesWrittenToSocket ^ (bytesWrittenToSocket >>> 32));
-		result = prime * result + (int) (nonSocketVersion ^ (nonSocketVersion >>> 32));
-		result = prime * result + (int) (socketReadVersion ^ (socketReadVersion >>> 32));
-		result = prime * result + (int) (socketWriteVersion ^ (socketWriteVersion >>> 32));
+		result = prime * result + (int) (creationEventId ^ (creationEventId >>> 32));
+		result = prime * result + (int) (epoch ^ (epoch >>> 32));
+		result = prime * result + (epochPending ? 1231 : 1237);
+		result = prime * result + (int) (version ^ (version >>> 32));
 		return result;
 	}
 
@@ -162,17 +93,14 @@ public class ArtifactProperties implements Serializable{
 		if (getClass() != obj.getClass())
 			return false;
 		ArtifactProperties other = (ArtifactProperties) obj;
-		if (bytesReadFromSocket != other.bytesReadFromSocket)
+		if (creationEventId != other.creationEventId)
 			return false;
-		if (bytesWrittenToSocket != other.bytesWrittenToSocket)
+		if (epoch != other.epoch)
 			return false;
-		if (nonSocketVersion != other.nonSocketVersion)
+		if (epochPending != other.epochPending)
 			return false;
-		if (socketReadVersion != other.socketReadVersion)
-			return false;
-		if (socketWriteVersion != other.socketWriteVersion)
+		if (version != other.version)
 			return false;
 		return true;
-	}	
-	
+	}
 }

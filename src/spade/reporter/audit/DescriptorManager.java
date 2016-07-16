@@ -51,19 +51,20 @@ public class DescriptorManager {
 		if(descriptors.get(pid) == null){
 			descriptors.put(pid, new HashMap<String, ArtifactIdentity>());
 		}
-		if(descriptors.get(pid).get(fd) == null){
-			String path = null;
-			if("0".equals(fd)){
-	    		path = "stdin";
-	    	}else if("1".equals(fd)){
-	    		path = "stdout";
-	    	}else if("2".equals(fd)){
-	    		path = "stderr";
-	    	}
-			if(path != null){
-				descriptors.get(pid).put(fd, new FileIdentity(path));
-			}
-		}
+		//cannot be sure if the file descriptors 0,1,2 are stdout, stderr, stdin, respectively. so just use unknowns
+//		if(descriptors.get(pid).get(fd) == null){
+//			String path = null;
+//			if("0".equals(fd)){
+//	    		path = "stdin";
+//	    	}else if("1".equals(fd)){
+//	    		path = "stdout";
+//	    	}else if("2".equals(fd)){
+//	    		path = "stderr";
+//	    	}
+//			if(path != null){
+//				descriptors.get(pid).put(fd, new FileIdentity(path));
+//			}
+//		}
 		return descriptors.get(pid).get(fd);
 	}
 	

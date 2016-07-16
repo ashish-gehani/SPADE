@@ -21,6 +21,7 @@
 package spade.utility;
 
 import java.io.File;
+import java.nio.charset.Charset;
 import java.util.Comparator;
 import java.util.List;
 
@@ -29,15 +30,28 @@ import com.google.code.externalsorting.ExternalSort;
 public class SortAuditLog {
 
 	public static void main(String[] args){
-		if(args.length != 2){
-			System.err.println("Invalid arguments. Valid arguments = <inputAuditLog> <sortedOutputAuditLog>");
+		if(args.length < 2){
+			//temp directory is optional. if not given then uses the system temp directory
+			System.err.println("Invalid arguments. Valid arguments = <inputAuditLog> <sortedOutputAuditLog> [<temp directory for sorting>]");
 			return;
 		}
 		File inputAuditLogFile = new File(args[0]);
 		File sortedOutputLogFile = new File(args[1]);
+		File tempDirectory = null;
+		if(args.length >= 3){
+			tempDirectory = new File(args[2]);
+		}
 		if(!inputAuditLogFile.exists()){
 			System.err.println("Input audit log file doesn't exist");
 			return;
+		}
+		if(tempDirectory != null && !tempDirectory.exists()){
+			try{
+				tempDirectory.mkdir();
+			}catch(Exception e){
+				System.err.println("Failed to create '"+tempDirectory.getPath()+"' directory. Sorting failed.");
+				return;
+			}
 		}
 		
 		Comparator<String> comparator = new Comparator<String>(){
@@ -64,7 +78,12 @@ public class SortAuditLog {
 		//https://github.com/lemire/externalsortinginjava
 		
 		try{
-			List<File> l = ExternalSort.sortInBatch(inputAuditLogFile, comparator);
+			List<File> l = null;
+			if(tempDirectory != null){
+				l = ExternalSort.sortInBatch(inputAuditLogFile, comparator, ExternalSort.DEFAULTMAXTEMPFILES, Charset.defaultCharset(), tempDirectory, true);
+			}else{
+				l = ExternalSort.sortInBatch(inputAuditLogFile, comparator);
+			}			
 	        ExternalSort.mergeSortedFiles(l, sortedOutputLogFile, comparator);
 		}catch(Exception e){
 			System.err.print("Failed to sort log file");

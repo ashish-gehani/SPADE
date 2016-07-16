@@ -138,7 +138,8 @@ public class CDM extends Kafka {
     }
 
     //NOTE: only for WasGeneratedBy edges
-    private EdgeType getAffectsEdgeTypeBasedOnArtifactSubtype(String subtype){
+    private EdgeType getAffectsEdgeTypeBasedOnArtifactSubtype(AbstractVertex vertex){
+    	String subtype = vertex.getAnnotation("subtype");
     	if("memory".equals(subtype)){
     		return EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
     	}else if("file".equals(subtype) || "pipe".equals(subtype)){
@@ -146,6 +147,9 @@ public class CDM extends Kafka {
     	}else if("unknown".equals(subtype)){
     		return EdgeType.EDGE_EVENT_AFFECTS_SRCSINK;
     	}else if("network".equals(subtype)){
+    		if(vertex.getAnnotation("path") != null){ //is a unix socket
+    			return EdgeType.EDGE_EVENT_AFFECTS_FILE;
+    		}
     		return EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
     	}else{
     		return null;
@@ -220,12 +224,10 @@ public class CDM extends Kafka {
                 	eventBuilder.setType(EventType.EVENT_OPEN);
                 	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'open' only for files or named pipes. 
                 } else if(operation.equals("create")){
-                	//can come here because of either mknod (which can create different artifact types) OR open, creat, openat which is only for files or named pipes
                 	eventBuilder.setType(EventType.EVENT_CREATE_OBJECT);  
-                	String subtype = edge.getSourceVertex().getAnnotation("subtype");
-                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(subtype);
+                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(edge.getSourceVertex());
                 	if(affectsEdgeType == null){
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{edge.getSourceVertex().getAnnotation("subtype"), eventId});
                 		return false;
                 	}                	
                 } else if (operation.equals("write")) {
@@ -234,10 +236,9 @@ public class CDM extends Kafka {
                     if (size != null) {
                         eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                    String subtype = edge.getSourceVertex().getAnnotation("subtype");
-                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(subtype);
+                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(edge.getSourceVertex());
                 	if(affectsEdgeType == null){
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{edge.getSourceVertex().getAnnotation("subtype"), eventId});
                 		return false;
                 	}
                 } else if (operation.equals("send") || operation.equals("sendto") || operation.equals("sendmsg")) {
@@ -254,23 +255,33 @@ public class CDM extends Kafka {
                     if (size != null) {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
+                    if(edge.getSourceVertex().getAnnotation("path") != null){ //is unix socket if path exists
+                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                    }else{ //is network if no path
+                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
+                    }
                 } else if (operation.equals("mprotect")) {
                     eventBuilder.setType(EventType.EVENT_MPROTECT);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
+                    if(edge.getAnnotation("protection") != null){
+                    	properties.put("protection", edge.getAnnotation("protection"));
+                    }
                 } else if (operation.equals("connect")) {
                     eventBuilder.setType(EventType.EVENT_CONNECT);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
+                    if(edge.getSourceVertex().getAnnotation("path") != null){ //is unix socket if path exists
+                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                    }else{ //is network if no path
+                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
+                    }
                 } else if (operation.equals("truncate") || operation.equals("ftruncate")) {
                     eventBuilder.setType(EventType.EVENT_TRUNCATE);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
                 } else if (operation.equals("chmod")) {
                     eventBuilder.setType(EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
                     properties.put("mode", edge.getAnnotation("mode"));
-                    String subtype = edge.getSourceVertex().getAnnotation("subtype");
-                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(subtype);
+                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(edge.getSourceVertex());
                 	if(affectsEdgeType == null){
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
+                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{edge.getSourceVertex().getAnnotation("subtype"), eventId});
                 		return false;
                 	}
                 } else if (operation.equals("rename_write")) {
@@ -325,7 +336,11 @@ public class CDM extends Kafka {
                 	}else if("unknown".equals(subtype)){
                 		affectsEdgeType = EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
                 	}else if("network".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
+                		if(edge.getDestinationVertex().getAnnotation("path") != null){ //is unix socket if path exists
+                        	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
+                        }else{ //is network if no path
+                        	affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
+                        }
                 	}else{
                 		logger.log(Level.WARNING, "Invalid destination vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
                 		return false;
@@ -344,10 +359,18 @@ public class CDM extends Kafka {
                     if (size != null) {
                     	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
                     }
-                    affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
+                    if(edge.getDestinationVertex().getAnnotation("path") != null){ //is unix socket if path exists
+                    	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
+                    }else{ //is network if no path
+                    	affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
+                    }
                 } else if (operation.equals("accept")) {
                     eventBuilder.setType(EventType.EVENT_ACCEPT);
-                    affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
+                    if(edge.getDestinationVertex().getAnnotation("path") != null){ //is unix socket if path exists
+                    	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
+                    }else{ //is network if no path
+                    	affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
+                    }
                 } else if (operation.equals("rename_read")) {
                 	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
@@ -371,6 +394,9 @@ public class CDM extends Kafka {
                 } else if(operation.equals("mmap") || operation.equals("mmap2")){
                 	eventBuilder.setType(EventType.EVENT_MMAP);
                     affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
+                    if(edge.getAnnotation("protection") != null){
+                    	properties.put("protection", edge.getAnnotation("protection"));
+                    }
                 } else if (operation.equals("update")) {   
                 	
                 	SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
@@ -427,7 +453,7 @@ public class CDM extends Kafka {
                 /* Generate another _*_AFFECTS_* edge in the reverse direction */
                 affectsEdgeBuilder.setFromUuid(getUuid(edge.getDestinationVertex())); // UID of Object being affecting
                 affectsEdgeBuilder.setToUuid(getUuid(edge)); // Event record's UID
-                affectsEdgeBuilder.setType(EdgeType.EDGE_FILE_AFFECTS_EVENT);
+                affectsEdgeBuilder.setType(EdgeType.EDGE_FILE_AFFECTS_EVENT); //TODO handle subtypes more strictly
                 affectsEdgeBuilder.setTimestamp(timeLong);
                 affectsEdge = affectsEdgeBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
@@ -654,7 +680,26 @@ public class CDM extends Kafka {
             return tccdmDatums;
         } else if (entityType.equals(ArtifactIdentity.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
             if(vertex.getAnnotation("path") != null){
-            	//is a unix socket
+
+            	//TODO should do?
+            	FileObject.Builder unixSocketBuilder = FileObject.newBuilder();
+                unixSocketBuilder.setUuid(getUuid(vertex));
+                unixSocketBuilder.setBaseObject(baseObject);
+                unixSocketBuilder.setUrl("file://" + vertex.getAnnotation("path"));
+                unixSocketBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
+                Map<CharSequence, CharSequence> properties = new HashMap<>();
+                if(vertex.getAnnotation("epoch") != null){
+                	properties.put("epoch", vertex.getAnnotation("epoch"));
+                }
+                properties.put("isUnixSocket", "true");
+                if(properties.size() > 0){
+                	baseObject.setProperties(properties);
+                }
+                unixSocketBuilder.setIsPipe(false);
+                FileObject uniSocketObject = unixSocketBuilder.build();
+                tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(uniSocketObject).build());
+            	                
+            	//return always from here
             	return tccdmDatums;
             }
             
@@ -695,11 +740,11 @@ public class CDM extends Kafka {
         	if(vertex.getAnnotation("size") != null){
         		properties.put("size", vertex.getAnnotation("size"));
         	}
-        	if(vertex.getAnnotation("protection") != null){
-        		properties.put("protection", vertex.getAnnotation("protection"));
-        	}
         	if(vertex.getAnnotation("version") != null){
         		properties.put("version", vertex.getAnnotation("version"));
+        	}
+        	if(vertex.getAnnotation("pid") != null){
+        		properties.put("pid", vertex.getAnnotation("pid"));
         	}
         	if(properties.size() > 0){
         		baseObject.setProperties(properties);
@@ -722,6 +767,9 @@ public class CDM extends Kafka {
             Map<CharSequence, CharSequence> properties = new HashMap<>();
             if(vertex.getAnnotation("epoch") != null){
             	properties.put("epoch", vertex.getAnnotation("epoch"));
+            }
+            if(vertex.getAnnotation("pid") != null){
+            	properties.put("pid", vertex.getAnnotation("pid"));
             }
             if(properties.size() > 0){
             	baseObject.setProperties(properties);

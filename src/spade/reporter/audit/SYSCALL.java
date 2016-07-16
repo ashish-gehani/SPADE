@@ -24,8 +24,10 @@ public enum SYSCALL {
 	FORK, VFORK, CLONE, CHMOD, FCHMOD, SENDTO, SENDMSG, RECVFROM, RECVMSG, 
 	TRUNCATE, FTRUNCATE, READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
 	ACCEPT, ACCEPT4, CONNECT, SYMLINK, LINK, SETUID, SETREUID, SETRESUID,
-	OPEN, MMAP, MMAP2, MPROTECT, RENAME, EXECVE, UNKNOWN, KILL, DUP, DUP2, 
-	CLOSE, PIPE, PIPE2, UPDATE, CREATE, UNIT, LOAD, SEND, RECV;
+	OPEN, OPENAT, MMAP, MMAP2, MPROTECT, RENAME, EXECVE, UNKNOWN, KILL, 
+	MKNOD, CREAT, MKNODAT, BIND, DUP, DUP2, DUP3, EXIT,
+	EXIT_GROUP, CLOSE, PIPE, PIPE2, UPDATE, CREATE, UNIT, LOAD, SEND, RECV,
+	UNSUPPORTED;
 
 	public static SYSCALL getSyscall(int syscallNum, int arch){
 		if(arch == 32){
@@ -42,9 +44,13 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch (syscallNum) {
-			case 9: //mmap
+			case 60: //exit()
+				return EXIT;
+			case 231: //exit_group()
+				return EXIT_GROUP;
+			case 9: //mmap()
 				return MMAP;
-			case 10: //mprotect
+			case 10: //mprotect()
 				return MPROTECT;
 			case 57: // fork()
 				return VFORK;
@@ -54,6 +60,8 @@ public enum SYSCALL {
 				return CLONE;
 			case 59: // execve()
 				return EXECVE;
+			case 257: //openat()
+				return OPENAT;
 			case 2: // open()
 				return OPEN;
 			case 3: // close()
@@ -62,6 +70,12 @@ public enum SYSCALL {
 				return LINK;
 			case 88: // symlink()
 				return SYMLINK;
+			case 259: //mknodat
+				return MKNODAT;              	
+			case 133: // mknod()
+				return MKNOD;
+			case 85: //creat
+				return CREAT;
 			case 82: // rename()
 				return RENAME;
 			case 22: // pipe()
@@ -72,6 +86,8 @@ public enum SYSCALL {
 				return DUP;
 			case 33: // dup2()
 				return DUP2;
+			case 292: //dup3()
+				return DUP3;
 	
 			case 113: // setreuid()
 				return SETREUID;
@@ -111,16 +127,20 @@ public enum SYSCALL {
 			case 47: // recvmsg()
 				return RECVMSG;
 	
+			case 49: //bind
+				return BIND;
 			case 42: // connect()
 				return CONNECT;
 			case 288: //accept4()
 				return ACCEPT4;
 			case 43: // accept()
 				return ACCEPT;
+//              case 41: // socket()
+//                  break;
 			case 62:
 				return KILL;
 			default:
-				return null;
+				return UNSUPPORTED;
 		}
 	}
 
@@ -131,6 +151,10 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/i386/syscallent.h
 		switch (syscallNum) {
+			case 1: //exit()
+				return EXIT;
+			case 252: //exit_group()
+				return EXIT_GROUP;
 			case 90: //old_mmap
 			case 192: //mmap2
 				return MMAP2;
@@ -144,6 +168,9 @@ public enum SYSCALL {
 				return CLONE;
 			case 11: // execve()
 				return EXECVE;
+			case 295: //openat()
+			case 322: //openat()
+				return OPENAT;
 			case 5: // open()
 				return OPEN;
 			case 6: // close()
@@ -152,6 +179,8 @@ public enum SYSCALL {
 				return LINK;
 			case 83: // symlink()
 				return SYMLINK;
+			case 14: // mknod()
+				return MKNOD;
 			case 38: // rename()
 				return RENAME;
 			case 42: // pipe()
@@ -197,14 +226,18 @@ public enum SYSCALL {
 				return RECVFROM;
 			case 297: // recvmsg()
 				return RECVMSG;
+			case 282: //bind
+				return BIND;
 			case 283: // connect()
 				return CONNECT;
 			case 285: // accept()
 				return ACCEPT;
+//				case 281: // socket()
+//				    break;
 			case 129: // kill()
 				return KILL;
 			default:
-				return null;
+				return UNSUPPORTED;
 		}
 	}
 		

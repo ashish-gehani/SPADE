@@ -27,12 +27,12 @@ public class MemoryIdentity implements ArtifactIdentity{
 	
 	private String memoryAddress;
 	private String size;
-	private String protection;
+	private String pid;
 	
-	public MemoryIdentity(String memoryAddress, String size, String protection){
+	public MemoryIdentity(String pid, String memoryAddress, String size){
 		this.memoryAddress = memoryAddress;
 		this.size = size;
-		this.protection = protection;
+		this.pid = pid;
 	}
 	
 	public String getMemoryAddress(){
@@ -43,16 +43,16 @@ public class MemoryIdentity implements ArtifactIdentity{
 		return size;
 	}
 	
-	public String getProtection(){
-		return protection;
+	public String getPid(){
+		return pid;
 	}
-	
+
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
 		annotations.put("memory address", memoryAddress);
 		annotations.put("size", size);
-		annotations.put("protection", protection);
+		annotations.put("pid", pid);
 		return annotations;
 	}
 	
@@ -65,7 +65,7 @@ public class MemoryIdentity implements ArtifactIdentity{
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
-		result = prime * result + ((protection == null) ? 0 : protection.hashCode());
+		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
 		result = prime * result + ((size == null) ? 0 : size.hashCode());
 		return result;
 	}
@@ -84,10 +84,10 @@ public class MemoryIdentity implements ArtifactIdentity{
 				return false;
 		} else if (!memoryAddress.equals(other.memoryAddress))
 			return false;
-		if (protection == null) {
-			if (other.protection != null)
+		if (pid == null) {
+			if (other.pid != null)
 				return false;
-		} else if (!protection.equals(other.protection))
+		} else if (!pid.equals(other.pid))
 			return false;
 		if (size == null) {
 			if (other.size != null)
@@ -95,6 +95,6 @@ public class MemoryIdentity implements ArtifactIdentity{
 		} else if (!size.equals(other.size))
 			return false;
 		return true;
-	}	
+	}
 
 }
