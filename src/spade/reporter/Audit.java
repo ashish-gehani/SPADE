@@ -1861,11 +1861,15 @@ public class Audit extends AbstractReporter {
         // we use cwd and paths 2 and 3
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        String cwd = eventData.get("cwd");
+//        String cwd = eventData.get("cwd");
+        
+        String srcDirPath = eventData.get("path0");
+        String dstDirPath = eventData.get("path1");
+        
         checkProcessVertex(eventData, true, false);
 
-        String srcpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path2"));
-        String dstpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path3"));
+        String srcpath = constructAbsolutePathIfNotAbsolute(srcDirPath, eventData.get("path2"));
+        String dstpath = constructAbsolutePathIfNotAbsolute(dstDirPath, eventData.get("path3"));
                 
         if(srcpath == null || dstpath == null){
         	logger.log(Level.INFO, "Missing required PATH or CWD records in 'rename'. event id '"+eventData.get("eventid")+"'");
@@ -1915,7 +1919,6 @@ public class Audit extends AbstractReporter {
     	//mknodat() receives the following message(s):
     	// - SYSCALL
         // - CWD
-        // - PATH with nametype=PARENT
         // - PATH of the created file with nametype=CREATE
         // - EOE
     	
@@ -1941,7 +1944,7 @@ public class Audit extends AbstractReporter {
     			return;
     		}    		
     	}
-    	
+   	
     	//replace the second argument (which is mode in mknod) with the third (which is mode in mknodat)
 		eventData.put("a1", eventData.get("a2"));
 		handleMknod(eventData, SYSCALL.MKNODAT);
@@ -1959,22 +1962,30 @@ public class Audit extends AbstractReporter {
     	
     	Long mode = CommonFunctions.parseLong(modeString, 0L);
     	
-    	String cwd = eventData.get("cwd");
-        
+    	String parentPath = null;
+    	if(syscall == SYSCALL.MKNODAT){
+    		parentPath = eventData.get("cwd");
+    	}else if(syscall == SYSCALL.MKNOD){
+    		
+    		Map<Integer, String> parentPaths = getPathsWithNametype(eventData, "PARENT");
+    		if(parentPaths.size() != 0){
+    			parentPath = parentPaths.values().iterator().next();
+    		}
+    		
+    	}else{
+    		logger.log(Level.INFO, "Unexpected syscall '"+syscall+"' in mknod. event id '"+eventData.get("eventid")+"'");
+    		return;
+    	}
+    	        
         String path = null;
         
         Map<Integer, String> paths = getPathsWithNametype(eventData, "CREATE");
-        
-        if(paths.size() == 0 || cwd == null){
-        	logger.log(Level.INFO, "No PATH records with CREATE nametype for syscall {0}. event id {1}", new Object[]{syscall, eventData.get("eventid")});
-        	return;
-        }
-        
+                
         path = paths.values().iterator().next();        
-        path = constructAbsolutePathIfNotAbsolute(cwd, path);
+        path = constructAbsolutePathIfNotAbsolute(parentPath, path);
         
         if(path == null){
-        	logger.log(Level.INFO, "No CWD record for syscall {0}. event id {1}", new Object[]{syscall, eventData.get("eventid")});
+        	logger.log(Level.INFO, "Missing records for syscall {0}. event id {1}", new Object[]{syscall, eventData.get("eventid")});
         	return;
         }
         
@@ -2026,7 +2037,7 @@ public class Audit extends AbstractReporter {
         String syscallName = getOperation(syscall);
 
         String srcpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path0"));
-        String dstpath = constructAbsolutePathIfNotAbsolute(cwd, eventData.get("path2"));
+        String dstpath = constructAbsolutePathIfNotAbsolute(eventData.get("path1"), eventData.get("path2"));
         
         if(srcpath == null || dstpath == null){
         	logger.log(Level.INFO, "Missing CWD or PATH records in 'link' syscall. event id '"+eventData.get("eventid")+"'");
