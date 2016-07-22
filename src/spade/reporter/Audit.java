@@ -34,9 +34,11 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -194,6 +196,10 @@ public class Audit extends AbstractReporter {
         
     //cache maps paths. global so that we delete on exit
     private String eventBufferCacheDatabasePath, artifactsCacheDatabasePath;
+    
+    //a hashset to keep track of seen record types which aren't handled by Audit reporter yet. 
+    //Added to avoid output of redundant messages to spade log.
+    private final Set<String> seenTypesOfUnsupportedRecords = new HashSet<String>();
     
     @Override
     public boolean launch(String arguments) {
@@ -585,10 +591,10 @@ public class Audit extends AbstractReporter {
 	                    // Parse the current directory name to make sure it is
 	                    // numeric. If not, ignore and continue.
 	                    Integer.parseInt(currentPID);
-	                    Process processVertex = createProcessFromProcFS(currentPID);
-	                    addProcess(currentPID, processVertex);
+	                    Process processVertex = createProcessFromProcFS(currentPID); //create
+	                    addProcess(currentPID, processVertex);//add to memory
+	                    putVertex(processVertex);//add to buffer
 	                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
-	                    putVertex(processVertex);
 	                    if (parentVertex != null) {
 	                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
 	                        addEventIdAndSourceAnnotationToEdge(wtb, "0", PROC_FS);
@@ -895,9 +901,12 @@ public class Audit extends AbstractReporter {
                     eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
                 }
             } else if(type.equals("PROCTITLE")){
-            	//event type not being handled at the moment. TODO
+            	//record type not being handled at the moment. 
             } else {
-                logger.log(Level.WARNING, "unknown type {0} for message: {1}", new Object[]{type, line});
+            	if(!seenTypesOfUnsupportedRecords.contains(type)){
+            		seenTypesOfUnsupportedRecords.add(type);
+            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log the same message for this type again.", new Object[]{type, line});
+            	}                
             }
             
         } else {
@@ -962,7 +971,7 @@ public class Audit extends AbstractReporter {
     		if("1".equals(AUDITCTL_SYSCALL_SUCCESS_FLAG) && "no".equals(eventData.get("success"))){
     			//if only log successful events but the current event had success no then only monitor the following calls.
     			if(syscall == SYSCALL.KILL || syscall == SYSCALL.EXIT || syscall == SYSCALL.EXIT_GROUP){
-	    			//continue and log these failed syscalls
+	    			//continue and log these syscalls irrespective of success
     			}else{ //for all others don't log
     				eventBuffer.remove(eventId);
 	    			return;
@@ -1199,7 +1208,7 @@ public class Audit extends AbstractReporter {
     	ArtifactIdentity memoryArtifactIdentity = new MemoryIdentity(pid, address, length);
     	Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentity, true);
 		
-		Process process = checkProcessVertex(eventData, true, false);
+		Process process = putProcess(eventData); //create if doesn't exist
 		
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation("time", time);
@@ -1241,7 +1250,7 @@ public class Audit extends AbstractReporter {
     	ArtifactIdentity memoryInfo = new MemoryIdentity(pid, address, length);
     	Artifact memoryArtifact = putArtifact(eventData, memoryInfo, true);
 		
-		Process process = checkProcessVertex(eventData, true, false);
+		Process process = putProcess(eventData); //create if doesn't exist
 		
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
 		edge.addAnnotation("protection", protection);
@@ -1270,14 +1279,8 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	if(arg0.intValue() == -100){ //unit start
-    		Process addedUnit = pushUnitIterationOnStack(pid, unitId, time);
-    		if(addedUnit == null){ //failed to add because there was no process
-    			//add a process first using the info here and then add the unit
-    			Process process = checkProcessVertex(eventData, false, false);
-    			addProcess(pid, process);
-    			addedUnit = pushUnitIterationOnStack(pid, unitId, time);
-    		}
-    		putVertex(addedUnit);
+    		putProcess(eventData); //check if it exists. if not then add and return.
+    		Process addedUnit = pushUnitIterationOnStack(pid, unitId, time); //create unit and add it to data structure
     		//add edge between the new unit and the main unit to keep the graph connected
     		WasTriggeredBy wtb = new WasTriggeredBy(addedUnit, getContainingProcessVertex(pid));
         	wtb.addAnnotation("operation", getOperation(SYSCALL.UNIT));
@@ -1295,6 +1298,10 @@ public class Audit extends AbstractReporter {
     			Artifact memArtifact = null;
     			AbstractEdge edge = null;
     			Process process = getProcess(pid);
+    			if(process == null || process.getAnnotation("unit").equals("0")){ //process cannot be null or cannot be the containing process which is doing the memory read or write in BEEP
+    				logger.log(Level.INFO, "Unit vertex not found. Possibly missing unit creation 'kill' syscall. event id '"+eventData.get("eventid")+"'");
+    				return;
+    			}
     			address = address.shiftLeft(32);
     			address = address.add(arg1);
     			pidToMemAddress.remove(pid);
@@ -1309,8 +1316,6 @@ public class Audit extends AbstractReporter {
     			}
     			if(edge != null && memArtifact != null && process != null){
 	    			edge.addAnnotation("time", eventData.get("time"));
-	    			putVertex(process);
-	    			putVertex(memArtifact);
 	    			addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), BEEP);
 	    			putEdge(edge);
     			}
@@ -1425,16 +1430,19 @@ public class Audit extends AbstractReporter {
         	//otherwise it is just clone
         }        
         
-        checkProcessVertex(eventData, true, false);
+        Process oldProcess = putProcess(eventData); //will create if doesn't exist
 
-        Process newProcess = createProcessVertex(newPID, oldPID, eventData.get("comm"), null, null, 
-        		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"), 
-        		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
-        		DEV_AUDIT, time);
-
-        addProcess(newPID, newProcess);
-        putVertex(newProcess);
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(oldPID));
+        Map<String, String> newEventData = new HashMap<String, String>();
+        newEventData.putAll(eventData);
+        newEventData.put("pid", newPID);
+        newEventData.put("ppid", oldPID);
+        newEventData.put("commandline", oldProcess.getAnnotation("commandline"));
+        newEventData.put("cwd", eventData.get("cwd"));
+        newEventData.put("start time", time);
+        
+        Process newProcess = putProcess(newEventData);
+        
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
         wtb.addAnnotation("operation", getOperation(syscall));
         wtb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
@@ -1460,34 +1468,36 @@ public class Audit extends AbstractReporter {
         String pid = eventData.get("pid");
         String time = eventData.get("time");
         
-        //added to avoid the case where the process is seen for the first time doing execve.
-        checkProcessVertex(eventData, true, false); //done to make sure that the process doing execve has an existing process entry
-
-        Process newProcess = checkProcessVertex(eventData, false, true);
-        if (!newProcess.getAnnotations().containsKey("commandline")) {
-            // Unable to retrieve complete process information; generate vertex
-            // based on audit information
-            String commandline = null;
-            if(eventData.get("execve_argc") != null){
-            	Long argc = CommonFunctions.parseLong(eventData.get("execve_argc"), 0L);
-            	commandline = "";
-            	for(int i = 0; i < argc; i++){
-            		commandline += eventData.get("execve_a" + i) + " ";
-            	}
-            	commandline = commandline.trim();
-            }else{
-            	commandline = "[Record Missing]";
-            }
-            newProcess.addAnnotation("cwd", eventData.get("cwd"));
-            newProcess.addAnnotation("commandline", commandline);
+        if(getProcess(pid) == null){ //cannot create execve edge, if missing, because process might have had different user and group identifiers.
+        	logger.log(Level.INFO, "Unable to find the process that called execve. event id '"+eventData.get("eventid")+"'");
+        	return;
         }
-        putVertex(newProcess);
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
+        
+        Process oldProcess = putProcess(eventData);
+
+        String commandline = null;
+        if(eventData.get("execve_argc") != null){
+        	Long argc = CommonFunctions.parseLong(eventData.get("execve_argc"), 0L);
+        	commandline = "";
+        	for(int i = 0; i < argc; i++){
+        		commandline += eventData.get("execve_a" + i) + " ";
+        	}
+        	commandline = commandline.trim();
+        }else{
+        	commandline = "[Record Missing]";
+        }
+        
+        eventData.put("commandline", commandline);
+        eventData.put("start time", time);
+        
+        boolean RECREATE_AND_REPLACE = true;
+        Process newProcess = putProcess(eventData, RECREATE_AND_REPLACE);
+        
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
         wtb.addAnnotation("operation", getOperation(SYSCALL.EXECVE));
         wtb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wtb);
-        addProcess(pid, newProcess);
         
         //add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
         String cwd = eventData.get("cwd");
@@ -1526,7 +1536,7 @@ public class Audit extends AbstractReporter {
     	eventData.put("a2", eventData.get("a1")); //set mode to argument 3 (in open) from 2 (in creat)
     	eventData.put("a1", String.valueOf(defaultFlags)); //convert defaultflags argument to hexadecimal
     	
-    	handleOpen(eventData, SYSCALL.CREATE); //TODO change to creat. kept as create to keep CDM current data consistent
+    	handleOpen(eventData, SYSCALL.CREATE); //TODO change to creat. kept as create to keep current CDM data consistent
     	
     }
     
@@ -1623,7 +1633,7 @@ public class Audit extends AbstractReporter {
     	
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
-        boolean isCreate = syscall == SYSCALL.CREATE || syscall == SYSCALL.CREAT; //TODO later on change only to CREAT
+        boolean isCreate = syscall == SYSCALL.CREATE || syscall == SYSCALL.CREAT; //TODO later on change only to CREAT only
         String path = null;
         Map<Integer, String> paths = getPathsWithNametype(eventData, "CREATE"); 
         if(paths.size() == 0){
@@ -1647,8 +1657,7 @@ public class Audit extends AbstractReporter {
         	return;
         }
         
-        //this calls the putVertex function on the process vertex internally, that's why the process vertex isn't added here
-        checkProcessVertex(eventData, true, false); 
+        Process process = putProcess(eventData);
         
         ArtifactIdentity artifactIdentity = getValidArtifactIdentityForPath(path);
         
@@ -1664,7 +1673,7 @@ public class Audit extends AbstractReporter {
         	getArtifactProperties(artifactIdentity).markNewEpoch(eventData.get("eventid"));
         	
         	Artifact vertex = putArtifact(eventData, artifactIdentity, true); //updating version too
-            edge = new WasGeneratedBy(vertex, getProcess(pid));
+            edge = new WasGeneratedBy(vertex, process);
             
             syscall = SYSCALL.CREATE;
             
@@ -1677,10 +1686,10 @@ public class Audit extends AbstractReporter {
         
         	if ((flags & O_RDONLY) == O_RDONLY) {
         		Artifact vertex = putArtifact(eventData, artifactIdentity, false);
-	            edge = new Used(getProcess(pid), vertex);
+	            edge = new Used(process, vertex);
         	} else if((flags & O_WRONLY) == O_WRONLY || (flags & O_RDWR) == O_RDWR){
         		Artifact vertex = putArtifact(eventData, artifactIdentity, true);
- 	            edge = new WasGeneratedBy(vertex, getProcess(pid));
+ 	            edge = new WasGeneratedBy(vertex, process);
 	        } else{
 	        	logger.log(Level.INFO, "Unknown flag for open '"+flags+"'. event id '"+eventData.get("eventid")+"'" );
 	        	return;
@@ -1719,7 +1728,7 @@ public class Audit extends AbstractReporter {
         String pid = eventData.get("pid");
         String fd = eventData.get("a0");
         String bytesRead = eventData.get("exit");
-        checkProcessVertex(eventData, true, false);
+        Process process = putProcess(eventData);
 
         String time = eventData.get("time");
         
@@ -1730,7 +1739,7 @@ public class Audit extends AbstractReporter {
         
         ArtifactIdentity artifactIdentity = descriptors.getDescriptor(pid, fd);
         Artifact vertex = putArtifact(eventData, artifactIdentity, false);
-        Used used = new Used(getProcess(pid), vertex);
+        Used used = new Used(process, vertex);
         used.addAnnotation("operation", getOperation(syscall));
         used.addAnnotation("time", time);
         used.addAnnotation("size", bytesRead);
@@ -1744,7 +1753,7 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
+        Process process = putProcess(eventData);
 
         String fd = eventData.get("a0");
         String time = eventData.get("time");
@@ -1758,7 +1767,7 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity artifactIdentity = descriptors.getDescriptor(pid, fd);
         
         Artifact vertex = putArtifact(eventData, artifactIdentity, true);
-        WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
         wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", bytesWritten);
@@ -1771,7 +1780,7 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
+        Process process = putProcess(eventData);
 
         String time = eventData.get("time");
         ArtifactIdentity artifactIdentity = null;
@@ -1802,7 +1811,7 @@ public class Audit extends AbstractReporter {
 
         if(FileIdentity.class.equals(artifactIdentity.getClass()) || UnknownIdentity.class.equals(artifactIdentity.getClass())){
         	Artifact vertex = putArtifact(eventData, artifactIdentity, true);
-            WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
+            WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
             wgb.addAnnotation("operation", getOperation(syscall));
             wgb.addAnnotation("time", time);
             addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
@@ -1817,7 +1826,6 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
 
         String fd = eventData.get("a0");
         String newFD = eventData.get("exit"); //new fd returned in all: dup, dup2, dup3
@@ -1838,15 +1846,20 @@ public class Audit extends AbstractReporter {
         // - EOE
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
-        Process newProcess = checkProcessVertex(eventData, false, false);
-        putVertex(newProcess);
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, getProcess(pid));
+        if(getProcess(pid) == null){ //if the calling process is missing then can't create the edge because don't know the uids before the syscall
+        	logger.log(Level.INFO, "Cannot create '"+syscall+"' edge because affecting vertex missing");
+        	return;
+        }
+        boolean RECREATE_AND_REPLACE = true;
+        Process oldProcess = putProcess(eventData); //just get the existing one
+        eventData.put("start time", oldProcess.getAnnotation("start time"));
+        Process newProcess = putProcess(eventData, RECREATE_AND_REPLACE); //replace the old one with the new one
+
+        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
         wtb.addAnnotation("operation", getOperation(syscall));
         wtb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
         putEdge(wtb);
-        addProcess(pid, newProcess);
     }
 
     private void handleRename(Map<String, String> eventData) {
@@ -1866,7 +1879,7 @@ public class Audit extends AbstractReporter {
         String srcDirPath = eventData.get("path0");
         String dstDirPath = eventData.get("path1");
         
-        checkProcessVertex(eventData, true, false);
+        Process process = putProcess(eventData);
 
         String srcpath = constructAbsolutePathIfNotAbsolute(srcDirPath, eventData.get("path2"));
         String dstpath = constructAbsolutePathIfNotAbsolute(dstDirPath, eventData.get("path3"));
@@ -1894,14 +1907,14 @@ public class Audit extends AbstractReporter {
         getArtifactProperties(dstArtifactIdentity).markNewEpoch(eventData.get("eventid"));
         
         Artifact srcVertex = putArtifact(eventData, srcArtifactIdentity, false);
-        Used used = new Used(getProcess(pid), srcVertex);
+        Used used = new Used(process, srcVertex);
         used.addAnnotation("operation", getOperation(SYSCALL.RENAME)+"_"+getOperation(SYSCALL.READ));
         used.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
 
         Artifact dstVertex = putArtifact(eventData, dstArtifactIdentity, true);
-        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
         wgb.addAnnotation("operation", getOperation(SYSCALL.RENAME)+"_"+getOperation(SYSCALL.WRITE));
         wgb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
@@ -2004,18 +2017,6 @@ public class Audit extends AbstractReporter {
     	
     	if(artifactIdentity != null){
 	    	getArtifactProperties(artifactIdentity).markNewEpoch(eventData.get("eventid"));
-	    	
-	    	//TODO remove vertex and edge
-//	    	
-//	    	String pid = eventData.get("pid");
-//	    	String time = eventData.get("time");
-//	    	
-//	    	Artifact vertex = putArtifact(eventData, artifactIdentity, true); //updating version too
-//            AbstractEdge edge = new WasGeneratedBy(vertex, getProcess(pid));
-//	        edge.addAnnotation("operation", getOperation(SYSCALL.CREATE)); //TODO update syscall to correct one
-//	        edge.addAnnotation("time", time);
-//	        addEventIdAndSourceAnnotationToEdge(edge, eventData.get("eventid"), DEV_AUDIT);
-//	        putEdge(edge);
     	}
     }
 
@@ -2032,7 +2033,7 @@ public class Audit extends AbstractReporter {
         String time = eventData.get("time");
         String pid = eventData.get("pid");
         String cwd = eventData.get("cwd");
-        checkProcessVertex(eventData, true, false);
+        Process process = putProcess(eventData);
         
         String syscallName = getOperation(syscall);
 
@@ -2062,14 +2063,14 @@ public class Audit extends AbstractReporter {
         getArtifactProperties(dstArtifactIdentity).markNewEpoch(eventData.get("eventid"));
 
         Artifact srcVertex = putArtifact(eventData, srcArtifactIdentity, false);
-        Used used = new Used(getProcess(pid), srcVertex);
+        Used used = new Used(process, srcVertex);
         used.addAnnotation("operation", syscallName + "_" + getOperation(SYSCALL.READ));
         used.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
 
         Artifact dstVertex = putArtifact(eventData, dstArtifactIdentity, true);
-        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, getProcess(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
         wgb.addAnnotation("operation", syscallName + "_" + getOperation(SYSCALL.WRITE));
         wgb.addAnnotation("time", time);
         addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
@@ -2091,7 +2092,7 @@ public class Audit extends AbstractReporter {
         // - EOE
         String time = eventData.get("time");
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
+        Process process = putProcess(eventData);
         // mode is in hex format in <a1>
         String mode = new BigInteger(eventData.get("a1")).toString(8);
         // if syscall is chmod, then path is <path0> relative to <cwd>
@@ -2123,7 +2124,7 @@ public class Audit extends AbstractReporter {
         }
         
         Artifact vertex = putArtifact(eventData, artifactIdentity, true);
-        WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
         wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("mode", mode);
         wgb.addAnnotation("time", time);
@@ -2137,7 +2138,6 @@ public class Audit extends AbstractReporter {
         // - FD_PAIR
         // - EOE
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
 
         String fd0 = eventData.get("fd0");
         String fd1 = eventData.get("fd1");
@@ -2150,7 +2150,7 @@ public class Audit extends AbstractReporter {
     
     
     
-    private void handleNetfilterPacketEvent(Map<String, String> eventData){
+//    private void handleNetfilterPacketEvent(Map<String, String> eventData){
 //      Refer to the following link for protocol numbers
 //    	http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 //    	String protocol = eventData.get("proto");
@@ -2174,7 +2174,7 @@ public class Audit extends AbstractReporter {
 //        	SocketInfo destination = new SocketInfo(destinationAddress, destinationPort);
 //    	}
     	
-    }
+//    }
     
     private String parseHexStringToUTF8(String hexString){
     	if(hexString == null){
@@ -2232,7 +2232,7 @@ public class Audit extends AbstractReporter {
 		        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
 		        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
 		        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
-		        	address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4); //TODO format for ipv6?
+		        	address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
 		        }
 		    	
 		    	if(address != null && port != null){
@@ -2317,13 +2317,14 @@ public class Audit extends AbstractReporter {
         	if(UnixSocketIdentity.class.equals(parsedArtifactIdentity.getClass()) && !UNIX_SOCKETS){
         		return;
         	}
+        	Process process = putProcess(eventData);
         	// update file descriptor table
             String fd = eventData.get("a0");
             descriptors.addDescriptor(pid, fd, parsedArtifactIdentity);
             getArtifactProperties(parsedArtifactIdentity).markNewEpoch(eventData.get("eventid"));
         	
             Artifact artifact = putArtifact(eventData, parsedArtifactIdentity, false);
-            WasGeneratedBy wgb = new WasGeneratedBy(artifact, getProcess(pid));
+            WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
             wgb.addAnnotation("time", time);
             wgb.addAnnotation("operation", getOperation(SYSCALL.CONNECT));
             addEventIdAndSourceAnnotationToEdge(wgb, eventData.get("eventid"), DEV_AUDIT);
@@ -2386,10 +2387,11 @@ public class Audit extends AbstractReporter {
         //if reached this point then can process the accept event 
         
         ArtifactIdentity artifactIdentity = descriptors.getDescriptor(pid, fd);
-        if (artifactIdentity != null) { //well shouldn't be null since all cases handled above but for future code changes  
+        if (artifactIdentity != null) { //well shouldn't be null since all cases handled above but for future code changes
+        	Process process = putProcess(eventData);
         	getArtifactProperties(artifactIdentity).markNewEpoch(eventData.get("eventid"));
             Artifact socket = putArtifact(eventData, artifactIdentity, false);
-            Used used = new Used(getProcess(pid), socket);
+            Used used = new Used(process, socket);
             used.addAnnotation("time", time);
             used.addAnnotation("operation", getOperation(syscall));
             addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
@@ -2404,7 +2406,7 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
+        Process process = putProcess(eventData);
 
         String fd = eventData.get("a0");
         String time = eventData.get("time");
@@ -2422,7 +2424,7 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);
         
         Artifact vertex = putArtifact(eventData, artifactInfo, true);
-        WasGeneratedBy wgb = new WasGeneratedBy(vertex, getProcess(pid));
+        WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
         wgb.addAnnotation("operation", getOperation(syscall));
         wgb.addAnnotation("time", time);
         wgb.addAnnotation("size", bytesSent);
@@ -2435,7 +2437,8 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
         String pid = eventData.get("pid");
-        checkProcessVertex(eventData, true, false);
+        
+        Process process = putProcess(eventData);
 
         String fd = eventData.get("a0");
         String time = eventData.get("time");
@@ -2453,7 +2456,7 @@ public class Audit extends AbstractReporter {
         ArtifactIdentity artifactInfo = descriptors.getDescriptor(pid, fd);     
         
         Artifact vertex = putArtifact(eventData, artifactInfo, false);
-    	Used used = new Used(getProcess(pid), vertex);
+    	Used used = new Used(process, vertex);
         used.addAnnotation("operation", getOperation(syscall));
         used.addAnnotation("time", time);
         used.addAnnotation("size", bytesReceived);
@@ -2483,35 +2486,20 @@ public class Audit extends AbstractReporter {
     	}
     	return path;
     }
-
-    private Process checkProcessVertex(Map<String, String> eventData, boolean link, boolean refresh) {
-        String pid = eventData.get("pid");
-        if (getProcess(pid) != null && !refresh) {
-            return getProcess(pid);
+    
+    private Process putProcess(Map<String, String> eventData){
+    	return putProcess(eventData, false);
+    }
+    
+    private Process putProcess(Map<String, String> eventData, boolean recreateAndReplace){
+    	String pid = eventData.get("pid");
+    	Process process = getProcess(pid);
+        if(process == null || recreateAndReplace){
+        	process = createProcessVertex(eventData);
+        	addProcess(pid, process);
+        	putVertex(process);
         }
-        Process resultProcess = PROCFS ? createProcessFromProcFS(pid) : null;
-        if (resultProcess == null) {
-            resultProcess = createProcessVertex(pid, eventData.get("ppid"), eventData.get("comm"), null, null, 
-            		eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"),
-            		eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), 
-            		DEV_AUDIT, null);
-        }
-        if (link == true) {
-            Map<String, ArtifactIdentity> fds = getFileDescriptors(pid);
-            if (fds != null) {
-            	descriptors.addDescriptors(pid, fds);
-            }
-            putVertex(resultProcess);
-            addProcess(pid, resultProcess);
-            String ppid = resultProcess.getAnnotation("ppid");
-            if (getProcess(ppid) != null) {
-                WasTriggeredBy wtb = new WasTriggeredBy(resultProcess, getProcess(ppid));
-                addEventIdAndSourceAnnotationToEdge(wtb, "0", DEV_AUDIT);
-                wtb.addAnnotation("operation", getOperation(SYSCALL.UNKNOWN));
-                putEdge(wtb);
-            }
-        }
-        return resultProcess;
+        return process;
     }
 
     private String getOperation(SYSCALL syscall){
@@ -2630,11 +2618,18 @@ public class Audit extends AbstractReporter {
     	return returnSyscall.toString().toLowerCase();
     }
     
+    private Process createProcessVertex(Map<String, String> eventData){
+    	return createProcessVertex(eventData.get("pid"), eventData.get("ppid"), eventData.get("comm"), eventData.get("commandline"),
+    			eventData.get("cwd"), eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"), 
+    			eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), eventData.get(SOURCE), 
+    			eventData.get("start time"), eventData.get("unit"));
+    }
+    
 //  NOTE: this function to be used always to create a process vertex
     private Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
     		String uid, String euid, String suid, String fsuid, 
     		String gid, String egid, String sgid, String fsgid,
-    		String source, String startTime){
+    		String source, String startTime, String unitId){
     	
     	Process process = new Process();
     	process.addAnnotation("pid", pid);
@@ -2644,7 +2639,14 @@ public class Audit extends AbstractReporter {
     	process.addAnnotation("euid", euid);
     	process.addAnnotation("gid", gid);
     	process.addAnnotation("egid", egid);
-    	process.addAnnotation(SOURCE, source);
+    	
+    	if(source == null){
+    		process.addAnnotation(SOURCE, DEV_AUDIT);
+    	}else{
+    		process.addAnnotation(SOURCE, source);
+    	}
+    	
+    	//optional annotations below:
     	
     	if(commandline != null){
     		process.addAnnotation("commandline", commandline);
@@ -2663,6 +2665,14 @@ public class Audit extends AbstractReporter {
     	
     	if(startTime != null){
     		process.addAnnotation("start time", startTime);
+    	}
+    	
+    	if(CREATE_BEEP_UNITS){
+    		if(unitId == null){
+    			process.addAnnotation("unit", "0"); // 0 indicates containing process
+    		}else{
+    			process.addAnnotation("unit", unitId);
+    		}
     	}
     	
     	return process;
@@ -2728,7 +2738,7 @@ public class Audit extends AbstractReporter {
                 Process newProcess = createProcessVertex(pid, ppidline, nameline, null, null, 
                 		uidTokens[1], uidTokens[2], uidTokens[3], uidTokens[4], 
                 		gidTokens[1], gidTokens[2], gidTokens[3], gidTokens[4], 
-                		PROC_FS, Long.toString(startTime));
+                		PROC_FS, Long.toString(startTime), "0");
                 
                 // newProcess.addAnnotation("starttime_unix", stime);
                 // newProcess.addAnnotation("starttime_simple", stime_readable);
@@ -2792,9 +2802,6 @@ public class Audit extends AbstractReporter {
     private void addProcess(String pid, Process process){ 
     	iterationNumber.remove(pid); //start iteration count from start
     	processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
-    	if(CREATE_BEEP_UNITS){
-    		process.addAnnotation("unit", "0"); //containing process always has the unit id '0'. and no iteration count
-    	}
     	processUnitStack.get(pid).addFirst(process);
     }
     
@@ -2819,23 +2826,24 @@ public class Audit extends AbstractReporter {
     	if(nextIterationNumber > 0){ //if greater than zero then remove otherwise this is the first one
     		removePreviousIteration(pid, unitId, nextIterationNumber);
     	}
-    	Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime); //first element is always the main process vertex
-    	newUnit.addAnnotation("unit", unitId);
+    	Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId); //first element is always the main process vertex
     	newUnit.addAnnotation("iteration", String.valueOf(nextIterationNumber));
     	
     	if(lastTimestamp == NOT_SET || !startTime.equals(lastTimestamp)){
-		lastTimestamp = startTime;
-		unitIterationRepetitionCounts.clear();
-	}
+			lastTimestamp = startTime;
+			unitIterationRepetitionCounts.clear();
+		}
     	
     	UnitVertexIdentifier unitVertexIdentifier = new UnitVertexIdentifier(pid, unitId, String.valueOf(nextIterationNumber));
-	if(unitIterationRepetitionCounts.get(unitVertexIdentifier) == null){
-		unitIterationRepetitionCounts.put(unitVertexIdentifier, -1);
-	}
-	unitIterationRepetitionCounts.put(unitVertexIdentifier, unitIterationRepetitionCounts.get(unitVertexIdentifier)+1);
-	newUnit.addAnnotation("count", String.valueOf(unitIterationRepetitionCounts.get(unitVertexIdentifier)));
-    	
+		if(unitIterationRepetitionCounts.get(unitVertexIdentifier) == null){
+			unitIterationRepetitionCounts.put(unitVertexIdentifier, -1);
+		}
+		unitIterationRepetitionCounts.put(unitVertexIdentifier, unitIterationRepetitionCounts.get(unitVertexIdentifier)+1);
+		newUnit.addAnnotation("count", String.valueOf(unitIterationRepetitionCounts.get(unitVertexIdentifier)));
+	    	
     	processUnitStack.get(pid).addLast(newUnit);
+    	
+    	putVertex(newUnit); //add to buffer
     	return newUnit;
     }
     
@@ -2860,7 +2868,7 @@ public class Audit extends AbstractReporter {
     	}
     }
     
-    //only removes the last one
+    //only removes the last iteration from the stack f
     private void removePreviousIteration(String pid, String unitId, Long currentIteration){
     	if("0".equals(unitId)){
     		return; //unit 0 is containing process and should be removed using the addProcess method
@@ -2882,12 +2890,13 @@ public class Audit extends AbstractReporter {
     	}
     }
     
-    private Process createBEEPCopyOfProcess(Process process, String startTime){
+    //create a copy of the process with source 'beep', given unitId and given start time.    
+    private Process createBEEPCopyOfProcess(Process process, String startTime, String unitId){
     	//passing commandline and cwd as null because we don't want those two fields copied onto units
     	return createProcessVertex(process.getAnnotation("pid"), process.getAnnotation("ppid"), process.getAnnotation("name"), null, null, 
     			process.getAnnotation("uid"), process.getAnnotation("euid"), process.getAnnotation("suid"), process.getAnnotation("fsuid"), 
     			process.getAnnotation("gid"), process.getAnnotation("egid"), process.getAnnotation("sgid"), process.getAnnotation("fsgid"), 
-    			BEEP, startTime);
+    			BEEP, startTime, unitId);
     }
     
     
