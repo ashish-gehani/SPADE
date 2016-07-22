@@ -24,32 +24,64 @@ import java.io.File;
 import java.nio.charset.Charset;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import com.google.code.externalsorting.ExternalSort;
+
+import spade.core.Settings;
 
 public class SortAuditLog {
 
 	public static void main(String[] args){
 		if(args.length < 2){
-			//temp directory is optional. if not given then uses the system temp directory
+			//temp directory is optional. if not given then read from config file and otherwise use the system temp directory
 			System.err.println("Invalid arguments. Valid arguments = <inputAuditLog> <sortedOutputAuditLog> [<temp directory for sorting>]");
 			return;
 		}
 		File inputAuditLogFile = new File(args[0]);
 		File sortedOutputLogFile = new File(args[1]);
 		File tempDirectory = null;
-		if(args.length >= 3){
-			tempDirectory = new File(args[2]);
+		if(args.length >= 3){ //passed in temp dir
+			if(args[2].trim().isEmpty()){
+				System.err.println("Invalid temp directory path in arguments");
+				return;
+			}else{
+				tempDirectory = new File(args[2]);
+			}
+		}else{ //didn't pass in temp directory. use the one in config file
+			try{
+				File configFile = new File(Settings.getDefaultConfigFilePath(SortAuditLog.class));
+				if(configFile.exists()){
+					Map<String, String> configProperties = FileUtility.readConfigFileAsKeyValueMap(configFile.getAbsolutePath(), "=");
+					String tempDirectoryPath = configProperties.get("tempSortingDirectory");
+					if(tempDirectoryPath != null){
+						tempDirectory = new File(tempDirectoryPath);
+					}
+				}
+			}catch(Exception e){
+				System.err.println("Failed to read config file. Exited");
+				return;
+			}finally{
+				if(tempDirectory == null){ //failed to read the config file too. Use the system temp 
+					String systemTempDirectoryPath = System.getProperty("java.io.tmpdir");
+					if(systemTempDirectoryPath != null){
+						tempDirectory = new File(systemTempDirectoryPath);
+					}else{
+						System.err.println("Failed to locate a system temp directory. Exited.");
+						return;
+					}
+				}
+			}
 		}
 		if(!inputAuditLogFile.exists()){
-			System.err.println("Input audit log file doesn't exist");
+			System.err.println("Input audit log file doesn't exist. Exited.");
 			return;
 		}
 		if(tempDirectory != null && !tempDirectory.exists()){
 			try{
 				tempDirectory.mkdir();
 			}catch(Exception e){
-				System.err.println("Failed to create '"+tempDirectory.getPath()+"' directory. Sorting failed.");
+				System.err.println("Failed to create '"+tempDirectory.getAbsolutePath()+"' directory. Exited.");
 				return;
 			}
 		}
@@ -75,95 +107,15 @@ public class SortAuditLog {
 			}
 		};
 		
-		//https://github.com/lemire/externalsortinginjava
+		// https://github.com/lemire/externalsortinginjava
 		
 		try{
-			List<File> l = null;
-			if(tempDirectory != null){
-				l = ExternalSort.sortInBatch(inputAuditLogFile, comparator, ExternalSort.DEFAULTMAXTEMPFILES, Charset.defaultCharset(), tempDirectory, true);
-			}else{
-				l = ExternalSort.sortInBatch(inputAuditLogFile, comparator);
-			}			
+			List<File> l = ExternalSort.sortInBatch(inputAuditLogFile, comparator, ExternalSort.DEFAULTMAXTEMPFILES, Charset.defaultCharset(), tempDirectory, true);
 	        ExternalSort.mergeSortedFiles(l, sortedOutputLogFile, comparator);
 		}catch(Exception e){
 			System.err.print("Failed to sort log file");
 			e.printStackTrace(System.err);
 		}
-		
-		
-		/* OLD NAIVE SORTING IMPLEMENTATION */
-		
-		/*
-		
-		List<String> auditRecords = new ArrayList<String>();
-		
-		//Read input audit log file
-		BufferedReader inputLogReader = null;
-		try{
-			inputLogReader = new BufferedReader(new FileReader(inputAuditLogFile));
-			String auditRecord = null;
-			while((auditRecord = inputLogReader.readLine()) != null){
-				if(!auditRecord.trim().isEmpty()){
-					auditRecords.add(auditRecord);
-				}
-			}
-		}catch(Exception e){
-			System.err.print("Failed to read input audit log file");
-			e.printStackTrace(System.err);
-			return;
-		}finally {
-			try{
-				if(inputLogReader != null){
-					inputLogReader.close();
-				}
-			}catch(Exception e){
-				System.err.print("Failed to close input log reader");
-				e.printStackTrace(System.err);
-			}
-		}
-		
-		//Sort audit log file based on event id which is between : and ) in the beginning of every line
-		Collections.sort(auditRecords, new Comparator<String>(){
-			@Override
-			public int compare(String record1, String record2) {
-				try{
-					//example -> type=DAEMON_START msg=audit(1443402415.959:2435):
-					int record1ColonIndex = record1.indexOf(":");
-					int record1CloseBracketIndex = record1.indexOf(")");
-					int record2ColonIndex = record2.indexOf(":");
-					int record2CloseBracketIndex = record2.indexOf(")");
-					String record1EventId = record1.substring(record1ColonIndex+1, record1CloseBracketIndex);
-					String record2EventId = record2.substring(record2ColonIndex+1, record2CloseBracketIndex);
-					Long record1EventIdLong = Long.parseLong(record1EventId);
-					Long record2EventIdLong = Long.parseLong(record2EventId);
-					return (int)(record1EventIdLong - record2EventIdLong);
-				}catch(Exception e){
-					e.printStackTrace(System.err);
-				}
-				return 0;
-			}
-		});
-		
-		//Write sorted log file to output file
-		PrintWriter sortedLogWriter = null;
-		try{
-			sortedLogWriter = new PrintWriter(sortedOutputLogFile);
-			for(String auditRecord : auditRecords){
-				sortedLogWriter.println(auditRecord);
-			}
-		}catch(Exception e){
-			e.printStackTrace(System.err);
-		}finally{
-			try{
-				if(sortedLogWriter != null){
-					sortedLogWriter.close();
-				}
-			}catch(Exception e){
-				e.printStackTrace(System.err);
-			}
-		}
-		
-		*/
 	}
 	
 }

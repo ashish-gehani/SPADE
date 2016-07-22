@@ -140,7 +140,7 @@ public class Audit extends AbstractReporter {
     // Group 2: type
     // Group 3: time
     // Group 4: recordid
-    private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(\\w*) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+    private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
 
     // Group 1: cwd
     //cwd is either a quoted string or an unquoted string in which case it is in hex format
@@ -320,7 +320,7 @@ public class Audit extends AbstractReporter {
         	if(SORTLOG){
         		try{
         			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
-        			String sortCommand = "./bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog + " " + new File(SPADE_ROOT).getAbsolutePath().substring(0,new File(SPADE_ROOT).getAbsolutePath().length()-2) + File.separatorChar + "tmp";
+        			String sortCommand = SPADE_ROOT + "bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog;
         			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"' using command '"+sortCommand+"'");
         			List<String> output = Execute.getOutput(sortCommand);
         			logger.log(Level.INFO, output.toString());
@@ -908,7 +908,7 @@ public class Audit extends AbstractReporter {
             } else {
             	if(!seenTypesOfUnsupportedRecords.contains(type)){
             		seenTypesOfUnsupportedRecords.add(type);
-            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log the same message for this type again.", new Object[]{type, line});
+            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
             	}                
             }
             
@@ -1560,7 +1560,7 @@ public class Audit extends AbstractReporter {
 			//if null of if not file then cannot process it
 			ArtifactIdentity artifactIdentity = descriptors.getDescriptor(pid, dirFdString);
 			if(artifactIdentity == null || !FileIdentity.class.equals(artifactIdentity.getClass())){
-				logger.log(Level.INFO, "openat doesn't support directory fds of type={0}. event id {1}", new Object[]{artifactIdentity, eventData.get("eventid")});
+				logger.log(Level.INFO, "openat doesn't support directory fds of type={0}. event id {1}", new Object[]{String.valueOf(artifactIdentity), String.valueOf(eventData.get("eventid"))});
 				return;
 			}else{ //is file
 				String dirPath = ((FileIdentity) artifactIdentity).getPath();
