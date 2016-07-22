@@ -466,6 +466,7 @@ public class Audit extends AbstractReporter {
 	            String uid = getOwnUid();
 	            
 	            if(uid == null){
+	            	shutdown = true;
 	            	return false;
 	            }
 	            
@@ -495,21 +496,25 @@ public class Audit extends AbstractReporter {
 	            for(int a = fieldsForAuditRuleCount; a<pidsToIgnore.size(); a++){
 	            	String pidIgnoreAuditRule = "auditctl -a exit,never -F pid="+pidsToIgnore.get(a);
 	            	if(!addAuditctlRule(pidIgnoreAuditRule)){
+	            		shutdown = true;
 	            		return false;
 	            	}
 	            	
 	            	String ppidIgnoreAuditRule = "auditctl -a exit,never -F ppid="+pidsToIgnore.get(a);
 	            	if(!addAuditctlRule(ppidIgnoreAuditRule)){
+	            		shutdown = true;
 	            		return false;
 	            	}
 	            }
 	            
             	if(!addAuditctlRule(auditRuleWithoutSuccess + fieldsForAuditRule)){
+            		shutdown = true;
             		return false;
             	}
             	
             	//add the main rule. ALWAYS ADD THIS AFTER THE ABOVE INDIVIDUAL RULES HAVE BEEN ADDED TO AVOID INCLUSION OF AUDIT INFO OF ABOVE PIDS
             	if(!addAuditctlRule(auditRulesWithSuccess + fieldsForAuditRule)){
+            		shutdown = true;
             		return false;
             	}
             	
@@ -517,8 +522,6 @@ public class Audit extends AbstractReporter {
 	            logger.log(Level.SEVERE, "Error configuring audit rules", e);
 	            shutdown = true;
 	            return false;
-	        } finally{
-	        	deleteCacheMaps();
 	        }
 
         }
