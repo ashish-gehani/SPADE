@@ -1443,7 +1443,8 @@ public class Audit extends AbstractReporter {
         newEventData.put("cwd", eventData.get("cwd"));
         newEventData.put("start time", time);
         
-        Process newProcess = putProcess(newEventData);
+        boolean RECREATE_AND_REPLACE = true;
+        Process newProcess = putProcess(newEventData, RECREATE_AND_REPLACE);
         
         WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
         wtb.addAnnotation("operation", getOperation(syscall));
