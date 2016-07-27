@@ -79,7 +79,7 @@ public class CDM extends Kafka {
     // for volume stats
     private long startTime, endTime;
     private long recordCount;
-
+    
     private Map<String, ProcessInformation> pidMappings = new HashMap<>();
     
     @Override
@@ -137,8 +137,13 @@ public class CDM extends Kafka {
         }
     }
 
-    //NOTE: only for WasGeneratedBy edges
-    private EdgeType getAffectsEdgeTypeBasedOnArtifactSubtype(AbstractVertex vertex){
+    /**
+     * Based on the subtype of artifact returns the appropriate edge type from event to artifact
+     * 
+     * @param vertex artifact vertex with subtype annotation
+     * @return appropriate EdgeType
+     */
+    private EdgeType getEventAffectsArtifactEdgeType(AbstractVertex vertex){
     	String subtype = vertex.getAnnotation("subtype");
     	if("memory".equals(subtype)){
     		return EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
@@ -156,330 +161,272 @@ public class CDM extends Kafka {
     	}
     }
     
+    /**
+     * Based on the subtype of artifact returns the appropriate edge type from artifact to event
+     * 
+     * @param vertex artifact vertex with subtype annotation
+     * @return appropriate EdgeType
+     */
+    private EdgeType getArtifactAffectsEventEdgeType(AbstractVertex vertex){
+    	String subtype = vertex.getAnnotation("subtype");
+    	if("memory".equals(subtype)){
+    		return EdgeType.EDGE_MEMORY_AFFECTS_EVENT;
+    	}else if("file".equals(subtype) || "pipe".equals(subtype)){
+    		return EdgeType.EDGE_FILE_AFFECTS_EVENT;
+    	}else if("unknown".equals(subtype)){
+    		return EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
+    	}else if("network".equals(subtype)){
+    		if(vertex.getAnnotation("path") != null){ //is a unix socket
+    			return EdgeType.EDGE_FILE_AFFECTS_EVENT;
+    		}
+    		return EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
+    	}else{
+    		return null;
+    	}
+    }
+    
+    /**
+     * Creates a simple edge
+     * 
+     * @param fromUuid the uuid of the source vertex
+     * @param toUuid the uuid of the destination vertex
+     * @param edgeType the type of the edge
+     * @param time the time of the edge
+     * @return a simple edge instance
+     */
+    private SimpleEdge createSimpleEdge(UUID fromUuid, UUID toUuid, EdgeType edgeType, Long time){
+    	SimpleEdge.Builder simpleEdgeBuilder = SimpleEdge.newBuilder();
+        simpleEdgeBuilder.setFromUuid(fromUuid);  // Event record's UID
+        simpleEdgeBuilder.setToUuid(toUuid);  //source vertex is the child
+        simpleEdgeBuilder.setType(edgeType);
+        simpleEdgeBuilder.setTimestamp(time);
+        SimpleEdge simpleEdge = simpleEdgeBuilder.build();
+        return simpleEdge;
+    }
+    
     @Override
     public boolean putEdge(AbstractEdge edge) {
         try {
             List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
             EdgeType affectsEdgeType = null;
-
-            /* Generate the Event record */
+ 
             Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), 0L); //the default event id value is decided to be 0
-            Event.Builder eventBuilder = Event.newBuilder();
-            eventBuilder.setUuid(getUuid(edge));
-            String time = edge.getAnnotation("time");
-            Long timeLong = convertTimeToMicroseconds(eventId, time, 0L);
-            eventBuilder.setTimestampMicros(timeLong);
-            eventBuilder.setSequence(eventId);
-            
+            Long time = convertTimeToMicroseconds(eventId, edge.getAnnotation("time"), 0L);
             InstrumentationSource edgeSource = getInstrumentationSource(edge.getAnnotation("source"));
-            if(edgeSource == null){
+            String actingProcessPidString = null;
+            EventType eventType = null;
+            String protectionValue = null;
+            Long sizeValue = null;
+            String modeValue = null;
+            
+            String opmEdgeType = edge.type();
+            if(opmEdgeType == null){
             	logger.log(Level.WARNING,
-                        "Unexpected Edge source: {0}. event id = {1}", new Object[]{edgeSource, eventId});
-            }else{
-            	eventBuilder.setSource(edgeSource);
+                        "NULL OPM edge type! event id = {1}", new Object[]{opmEdgeType, eventId});
+                return false;
             }
-            
-            String pid = null;
-            
-            Map<CharSequence, CharSequence> properties = new HashMap<>();
-            properties.put("event id", String.valueOf(eventId));
-            String edgeType = edge.type();
-            String operation = edge.getAnnotation("operation");
-            if (edgeType.equals("WasTriggeredBy")) {
-            	pid = edge.getDestinationVertex().getAnnotation("pid");
-                if (operation == null) {
-                    logger.log(Level.WARNING,
-                            "NULL WasTriggeredBy/WasInformedBy operation! event id = {0}", eventId);
+            String opmOperation = edge.getAnnotation("operation");
+            if(opmOperation == null){
+            	logger.log(Level.WARNING,
+                        "NULL {0} operation! event id = {1}", new Object[]{opmEdgeType, eventId});
+                return false;
+            }
+            if (opmEdgeType.equals("WasTriggeredBy")) {
+            	actingProcessPidString = edge.getDestinationVertex().getAnnotation("pid"); //parent process
+            	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
+            	if(opmOperation.equals("fork")){
+            		eventType = EventType.EVENT_FORK;
+            	}else if(opmOperation.equals("clone")){
+            		eventType = EventType.EVENT_CLONE;
+            	}else if(opmOperation.equals("execve")){
+            		//uuid of edge is the uuid of the exec event vertex. putting that against the pid of the new process vertex
+            		putExecEventUUID(edge.getSourceVertex().getAnnotation("pid"), getUuid(edge));
+            		eventType = EventType.EVENT_EXECUTE;
+            	}else if(opmOperation.equals("unknown")){
+            		eventType = EventType.EVENT_UNKNOWN;
+            	}else if(opmOperation.equals("setuid")){
+            		eventType = EventType.EVENT_CHANGE_PRINCIPAL;
+            	}else if(opmOperation.equals("unit")){
+            		eventType = EventType.EVENT_UNIT;
+            	}else{
+            		logger.log(Level.WARNING,
+                            "Unexpected WasTriggeredBy/WasInformedBy operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
                     return false;
-                } else if(operation.equals("unknown")) {
-                	eventBuilder.setType(EventType.EVENT_KERNEL_UNKNOWN);
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                } else if (operation.equals("fork")) {
-                    eventBuilder.setType(EventType.EVENT_FORK);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                } else if (operation.equals("clone")) {
-                	eventBuilder.setType(EventType.EVENT_CLONE); 
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                } else if (operation.equals("execve")) {
-                    eventBuilder.setType(EventType.EVENT_EXECUTE);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                } else if (operation.equals("setuid")) {
-                    eventBuilder.setType(EventType.EVENT_CHANGE_PRINCIPAL);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                } else if (operation.equals("unit")) {   
-                	eventBuilder.setType(EventType.EVENT_UNIT);
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-                } else {
-                    logger.log(Level.WARNING,
-                            "Unexpected WasTriggeredBy/WasInformedBy operation: {0}. event id = {1}", new Object[]{operation, eventId});
-                    return false;
-                }
-            } else if (edgeType.equals("WasGeneratedBy")) {
-            	pid = edge.getDestinationVertex().getAnnotation("pid");
-                if (operation == null) {
-                    logger.log(Level.WARNING,
-                            "NULL WasGeneratedBy operation! event id = {0}", eventId);
-                    return false;
-                } else if (operation.equals("open")){
-                	eventBuilder.setType(EventType.EVENT_OPEN);
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE; //'open' only for files or named pipes. 
-                } else if(operation.equals("create")){
-                	eventBuilder.setType(EventType.EVENT_CREATE_OBJECT);  
-                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(edge.getSourceVertex());
-                	if(affectsEdgeType == null){
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{edge.getSourceVertex().getAnnotation("subtype"), eventId});
-                		return false;
-                	}                	
-                } else if (operation.equals("write")) {
-                	eventBuilder.setType(EventType.EVENT_WRITE);
-                    String size = edge.getAnnotation("size");
-                    if (size != null) {
-                        eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
-                    }
-                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(edge.getSourceVertex());
-                	if(affectsEdgeType == null){
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{edge.getSourceVertex().getAnnotation("subtype"), eventId});
-                		return false;
-                	}
-                } else if (operation.equals("send") || operation.equals("sendto") || operation.equals("sendmsg")) {
-                	EventType eventType = null;
-                	if(operation.equals("sendmsg")){
+            	}
+            } else if (opmEdgeType.equals("WasGeneratedBy")) {
+            	actingProcessPidString = edge.getDestinationVertex().getAnnotation("pid");
+            	affectsEdgeType = getEventAffectsArtifactEdgeType(edge.getSourceVertex());
+                if (opmOperation.equals("open")){
+                	eventType = EventType.EVENT_OPEN;
+                } else if(opmOperation.equals("create")){
+                	eventType = EventType.EVENT_CREATE_OBJECT;  
+                } else if (opmOperation.equals("write")) {
+                	eventType = EventType.EVENT_WRITE;
+                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
+                } else if (opmOperation.equals("send") || opmOperation.equals("sendto") || opmOperation.equals("sendmsg")) {
+                	if(opmOperation.equals("sendmsg")){
                 		eventType = EventType.EVENT_SENDMSG;
-                	}else if(operation.equals("sendto")){
+                	}else if(opmOperation.equals("sendto")){
                 		eventType = EventType.EVENT_SENDTO;
                 	}else{
                 		eventType = EventType.EVENT_SENDMSG;
                 	}
-                    eventBuilder.setType(eventType);
-                    String size = edge.getAnnotation("size");
-                    if (size != null) {
-                    	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
-                    }
-                    if(edge.getSourceVertex().getAnnotation("path") != null){ //is unix socket if path exists
-                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-                    }else{ //is network if no path
-                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
-                    }
-                } else if (operation.equals("mprotect")) {
-                    eventBuilder.setType(EventType.EVENT_MPROTECT);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
-                    if(edge.getAnnotation("protection") != null){
-                    	properties.put("protection", edge.getAnnotation("protection"));
-                    }
-                } else if (operation.equals("connect")) {
-                    eventBuilder.setType(EventType.EVENT_CONNECT);
-                    if(edge.getSourceVertex().getAnnotation("path") != null){ //is unix socket if path exists
-                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-                    }else{ //is network if no path
-                    	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
-                    }
-                } else if (operation.equals("truncate") || operation.equals("ftruncate")) {
-                    eventBuilder.setType(EventType.EVENT_TRUNCATE);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-                } else if (operation.equals("chmod")) {
-                    eventBuilder.setType(EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
-                    properties.put("mode", edge.getAnnotation("mode"));
-                	affectsEdgeType = getAffectsEdgeTypeBasedOnArtifactSubtype(edge.getSourceVertex());
-                	if(affectsEdgeType == null){
-                		logger.log(Level.WARNING, "Invalid source vertex subtype {0}. event id = {1}", new Object[]{edge.getSourceVertex().getAnnotation("subtype"), eventId});
-                		return false;
-                	}
-                } else if (operation.equals("rename_write")) {
+                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
+                } else if (opmOperation.equals("mprotect")) {
+                	eventType = EventType.EVENT_MPROTECT;
+                	protectionValue = edge.getAnnotation("protection");
+                } else if (opmOperation.equals("connect")) {
+                	eventType = EventType.EVENT_CONNECT;
+                } else if (opmOperation.equals("truncate") || opmOperation.equals("ftruncate")) {
+                	eventType = EventType.EVENT_TRUNCATE;
+                } else if (opmOperation.equals("chmod") || opmOperation.equals("fchmod")) {
+                	eventType = EventType.EVENT_MODIFY_FILE_ATTRIBUTES;
+                	modeValue = edge.getAnnotation("mode");
+                } else if (opmOperation.equals("rename_write")) {
                 	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
-                } else if (operation.equals("link_write")) {
+                } else if (opmOperation.equals("link_write")) {
                 	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
-                } else if (operation.equals("mmap_write")) {
+                } else if (opmOperation.equals("mmap_write")) {
                 	//handled automatically in case of WasDerivedFrom 'mmap' operation
                     return false;
                 }else {
                     logger.log(Level.WARNING,
-                            "Unexpected WasGeneratedBy operation: {0}. event id = {1}", new Object[]{operation, eventId});
+                            "Unexpected WasGeneratedBy operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
                     return false;
                 }
-            } else if (edgeType.equals("Used")) {
-            	pid = edge.getSourceVertex().getAnnotation("pid");
-                if (operation == null) {
-                    logger.log(Level.WARNING,
-                            "NULL Used operation! event id = {0}", eventId);
-                    return false;
-                } else if(operation.equals("load")){
-                	if(getExecEventUUID(pid) != null){
-	                	SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
-	                    affectsEdgeBuilder.setFromUuid(getExecEventUUID(pid));  // Event record's UID
-	                    affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex())); // UID of Object being affected
-	                    affectsEdgeBuilder.setType(EdgeType.EDGE_FILE_AFFECTS_EVENT);
-	                    affectsEdgeBuilder.setTimestamp(timeLong);
-	                    SimpleEdge affectsEdge = affectsEdgeBuilder.build();
-	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
+            } else if (opmEdgeType.equals("Used")) {
+            	actingProcessPidString = edge.getSourceVertex().getAnnotation("pid");
+            	affectsEdgeType = getArtifactAffectsEventEdgeType(edge.getDestinationVertex());
+                if(opmOperation.equals("load")){
+                	if(getExecEventUUID(actingProcessPidString) != null){
+                		SimpleEdge loadEdge = createSimpleEdge(getExecEventUUID(actingProcessPidString), getUuid(edge.getDestinationVertex()), 
+                				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
+	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
 	                    recordCount += publishRecords(tccdmDatums);
 	                    return true; //no need to create an event for this so returning from here after adding the edge
                 	}else{
-                		logger.log(Level.WARNING, "Unable to create load edge for pid " + pid + ". event id = " + eventId);
+                		logger.log(Level.WARNING, "Unable to create load edge for pid " + actingProcessPidString + ". event id = " + eventId);
                 		return false;
                 	}
-                } else if (operation.equals("open")){
-                	eventBuilder.setType(EventType.EVENT_OPEN);
-                	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT; //'open' only for files or named pipes
-                } else if (operation.equals("read")) {
-                	eventBuilder.setType(EventType.EVENT_READ);
-                    String size = edge.getAnnotation("size");
-                    if (size != null) {
-                        eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
-                    }
-                    String subtype = edge.getDestinationVertex().getAnnotation("subtype");
-                	if("memory".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_MEMORY_AFFECTS_EVENT;
-                	}else if("file".equals(subtype) || "pipe".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
-                	}else if("unknown".equals(subtype)){
-                		affectsEdgeType = EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
-                	}else if("network".equals(subtype)){
-                		if(edge.getDestinationVertex().getAnnotation("path") != null){ //is unix socket if path exists
-                        	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
-                        }else{ //is network if no path
-                        	affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
-                        }
-                	}else{
-                		logger.log(Level.WARNING, "Invalid destination vertex subtype {0}. event id = {1}", new Object[]{subtype, eventId});
-                		return false;
-                	}
-                } else if (operation.equals("recv") || operation.equals("recvfrom") || operation.equals("recvmsg")) {
-                	EventType eventType = null;
-                	if(operation.equals("recvmsg")){
+                } else if (opmOperation.equals("open")){
+                	eventType = EventType.EVENT_OPEN; 
+                } else if (opmOperation.equals("read")) {
+                	eventType = EventType.EVENT_READ;
+                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
+                } else if (opmOperation.equals("recv") || opmOperation.equals("recvfrom") || opmOperation.equals("recvmsg")) {
+                	if(opmOperation.equals("recvmsg")){
                 		eventType = EventType.EVENT_RECVMSG;
-                	}else if(operation.equals("recvfrom")){
+                	}else if(opmOperation.equals("recvfrom")){
                 		eventType = EventType.EVENT_RECVFROM;
                 	}else{
                 		eventType = EventType.EVENT_RECVMSG;
-                	}
-                    eventBuilder.setType(eventType);
-                    String size = edge.getAnnotation("size");
-                    if (size != null) {
-                    	eventBuilder.setSize(CommonFunctions.parseLong(size, 0L));
-                    }
-                    if(edge.getDestinationVertex().getAnnotation("path") != null){ //is unix socket if path exists
-                    	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
-                    }else{ //is network if no path
-                    	affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
-                    }
-                } else if (operation.equals("accept")) {
-                    eventBuilder.setType(EventType.EVENT_ACCEPT);
-                    if(edge.getDestinationVertex().getAnnotation("path") != null){ //is unix socket if path exists
-                    	affectsEdgeType = EdgeType.EDGE_FILE_AFFECTS_EVENT;
-                    }else{ //is network if no path
-                    	affectsEdgeType = EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
-                    }
-                } else if (operation.equals("rename_read")) {
+                	}                    
+                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
+                } else if (opmOperation.equals("accept") || opmOperation.equals("accept4")) {
+                	eventType = EventType.EVENT_ACCEPT;
+                } else if (opmOperation.equals("rename_read")) {
                 	//handled automatically in case of WasDerivedFrom 'rename' operation
                     return false;
-                } else if (operation.equals("link_read")) {
+                } else if (opmOperation.equals("link_read")) {
                 	//handled automatically in case of WasDerivedFrom 'link' operation
                     return false;
-                } else if(operation.equals("mmap_read")){
+                } else if(opmOperation.equals("mmap_read")){
                 	//handled automatically in case of WasDerivedFrom 'mmap' operation
                 	return false;
                 } else {
                     logger.log(Level.WARNING,
-                            "Unexpected Used operation: {0}. event id = {1}", new Object[]{operation, eventId});
+                            "Unexpected Used operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
                     return false;
                 }
-            } else if (edgeType.equals("WasDerivedFrom")) {
-            	pid = edge.getAnnotation("pid");
-                if (operation == null) {
-                    logger.log(Level.WARNING,
-                            "NULL WasDerivedFrom operation! event id = {0}", eventId);
-                    return false;
-                } else if(operation.equals("mmap") || operation.equals("mmap2")){
-                	eventBuilder.setType(EventType.EVENT_MMAP);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
-                    if(edge.getAnnotation("protection") != null){
-                    	properties.put("protection", edge.getAnnotation("protection"));
-                    }
-                } else if (operation.equals("update")) {   
-                	
-                	SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
-                    affectsEdgeBuilder.setFromUuid(getUuid(edge.getSourceVertex()));  
-                    affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex())); 
-                    affectsEdgeBuilder.setType(EdgeType.EDGE_OBJECT_PREV_VERSION);
-                    affectsEdgeBuilder.setTimestamp(timeLong);
-                    SimpleEdge affectsEdge = affectsEdgeBuilder.build();
-                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
+            } else if (opmEdgeType.equals("WasDerivedFrom")) {
+            	actingProcessPidString = edge.getAnnotation("pid");
+            	affectsEdgeType = getEventAffectsArtifactEdgeType(edge.getSourceVertex());
+                if(opmOperation.equals("mmap") || opmOperation.equals("mmap2")){
+                	eventType = EventType.EVENT_MMAP;
+                	protectionValue = edge.getAnnotation("protection");
+                } else if (opmOperation.equals("update")) {   
+                	SimpleEdge updateEdge = createSimpleEdge(getUuid(edge.getSourceVertex()), getUuid(edge.getDestinationVertex()), 
+                			EdgeType.EDGE_OBJECT_PREV_VERSION, time);
+                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(updateEdge).build());
                     recordCount += publishRecords(tccdmDatums);
                     return true; //no need to create an event for this so returning from here after adding the edge
-                    
-                } else if (operation.equals("rename")) {
-                    eventBuilder.setType(EventType.EVENT_RENAME);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
-                } else if (operation.equals("link")) {
-                    eventBuilder.setType(EventType.EVENT_LINK);
-                    affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_FILE;
+                } else if (opmOperation.equals("rename")) {
+                	eventType = EventType.EVENT_RENAME;
+                } else if (opmOperation.equals("link")) {
+                	eventType = EventType.EVENT_LINK;
                 } else {
                     logger.log(Level.WARNING,
-                            "Unexpected WasDerivedFrom operation: {0}. event id = {1}", new Object[]{operation, eventId});
+                            "Unexpected WasDerivedFrom operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
                     return false;
                 }
             } else {
-                logger.log(Level.WARNING, "Unexpected edge type: {0}. event id = {1}", new Object[]{edgeType, eventId});
+                logger.log(Level.WARNING, "Unexpected edge type: {0}. event id = {1}", new Object[]{opmEdgeType, eventId});
                 return false;
             }
-            Integer pid_int = CommonFunctions.parseInt(pid, null);
-            if(pid_int == null){
+            
+            Integer actingProcessPid = CommonFunctions.parseInt(actingProcessPidString, null);
+            if(actingProcessPid == null){
             	logger.log(Level.WARNING, "Unknown thread ID for event ID: {0}", eventId);
             	return false;
             }
-            eventBuilder.setThreadId(pid_int);
-            eventBuilder.setProperties(properties);
+            Map<CharSequence, CharSequence> eventProperties = new HashMap<>();
+            if(eventId != null){
+            	eventProperties.put("event id", String.valueOf(eventId));
+            }
+            if(protectionValue != null){
+            	eventProperties.put("protection", protectionValue);
+            }
+            if(modeValue != null){
+            	eventProperties.put("mode", modeValue);
+            }
+            
+            /* Generate the Event record */
+            Event.Builder eventBuilder = Event.newBuilder();
+            if(sizeValue != null){
+            	eventBuilder.setSize(sizeValue);
+            }
+            eventBuilder.setUuid(getUuid(edge)); //set uuid
+            eventBuilder.setType(eventType);
+            eventBuilder.setTimestampMicros(time);
+            eventBuilder.setSequence(eventId);
+            eventBuilder.setSource(edgeSource);
+            eventBuilder.setProperties(eventProperties);
+            eventBuilder.setThreadId(actingProcessPid);
             Event event = eventBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(event).build());
 
             /* Generate the _*_AFFECTS_* edge record */
-            SimpleEdge.Builder affectsEdgeBuilder = SimpleEdge.newBuilder();
-            affectsEdgeBuilder.setFromUuid(getUuid(edge));  // Event record's UID
-            if(edgeType.equals("Used")){// UID of Object being affected.
-            	affectsEdgeBuilder.setToUuid(getUuid(edge.getDestinationVertex()));
-            }else{
-            	affectsEdgeBuilder.setToUuid(getUuid(edge.getSourceVertex()));  
+            UUID uuidOfProcessVertex = null;
+            SimpleEdge affectsEdge = null; 
+            if(opmEdgeType.equals("Used")){ //artifact affects event
+            	affectsEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getUuid(edge), 
+            			affectsEdgeType, time);
+            	uuidOfProcessVertex = getUuid(edge.getSourceVertex()); //getting the source because that is the process
+            }else{ //event affects artifact
+            	affectsEdge = createSimpleEdge(getUuid(edge), getUuid(edge.getSourceVertex()), 
+            			affectsEdgeType, time);
+            	uuidOfProcessVertex = getUuid(edge.getDestinationVertex()); //getting the destination because that is the process
             }
-            affectsEdgeBuilder.setType(affectsEdgeType);
-            affectsEdgeBuilder.setTimestamp(timeLong);
-            SimpleEdge affectsEdge = affectsEdgeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
-
-            UUID uuidOfDestinationProcessVertex = getUuid(edge.getDestinationVertex());
             
-            if (edgeType.equals("WasDerivedFrom")) {
+            if (opmEdgeType.equals("WasDerivedFrom")) {
                 /* Generate another _*_AFFECTS_* edge in the reverse direction */
-                affectsEdgeBuilder.setFromUuid(getUuid(edge.getDestinationVertex())); // UID of Object being affecting
-                affectsEdgeBuilder.setToUuid(getUuid(edge)); // Event record's UID
-                affectsEdgeBuilder.setType(EdgeType.EDGE_FILE_AFFECTS_EVENT); //TODO handle subtypes more strictly
-                affectsEdgeBuilder.setTimestamp(timeLong);
-                affectsEdge = affectsEdgeBuilder.build();
-                tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
+            	SimpleEdge affectsEventEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getUuid(edge), 
+            			getArtifactAffectsEventEdgeType(edge.getDestinationVertex()), time);
+                tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEventEdge).build());
                 
-                uuidOfDestinationProcessVertex = getProcessSubjectUUID(edge.getAnnotation("pid"));
+                uuidOfProcessVertex = getProcessSubjectUUID(String.valueOf(actingProcessPid));
             }
             
-            if(uuidOfDestinationProcessVertex != null){
+            if(uuidOfProcessVertex != null){
 	            /* Generate the EVENT_ISGENERATEDBY_SUBJECT edge record */
-	            SimpleEdge.Builder generatedByEdgeBuilder = SimpleEdge.newBuilder();
-	            generatedByEdgeBuilder.setFromUuid(getUuid(edge)); // Event record's UID
-	            if(edgeType.equals("Used")){ //UID of Subject generating event
-	            	generatedByEdgeBuilder.setToUuid(getUuid(edge.getSourceVertex()));
-	            }else{
-	            	generatedByEdgeBuilder.setToUuid(uuidOfDestinationProcessVertex); 
-	            }
-	            generatedByEdgeBuilder.setType(EdgeType.EDGE_EVENT_ISGENERATEDBY_SUBJECT);
-	            generatedByEdgeBuilder.setTimestamp(timeLong);
-	            SimpleEdge generatedByEdge = generatedByEdgeBuilder.build();
-	            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(generatedByEdge).build());
+            	SimpleEdge eventToProcessEdge = createSimpleEdge(getUuid(edge), uuidOfProcessVertex, 
+            			EdgeType.EDGE_EVENT_ISGENERATEDBY_SUBJECT, time);
+	            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(eventToProcessEdge).build());
             }else{
             	logger.log(Level.WARNING, "Failed to find process uuid in process cache map for pid {0}. event id = {1}", new Object[]{edge.getAnnotation("pid"), eventId});
-            }
-            
-            if(eventBuilder.getType().equals(EventType.EVENT_EXECUTE)){
-            	putExecEventUUID(edge.getSourceVertex().getAnnotation("pid"), getUuid(edge));//uuid of edge is the uuid of the exec event vertex
             }
 
             // Now we publish the records in Kafka.
@@ -560,7 +507,7 @@ public class CDM extends Kafka {
         if (unit != null) {
             subjectBuilder.setUnitId(Integer.parseInt(unit));
         }
-        subjectBuilder.setCmdLine(vertex.getAnnotation("commandline"));           // optional, so null is ok
+        subjectBuilder.setCmdLine(vertex.getAnnotation("commandline")); // optional, so null is ok
         Map<CharSequence, CharSequence> properties = new HashMap<>();
         String iteration = vertex.getAnnotation("iteration");
         if(iteration != null){
@@ -645,6 +592,9 @@ public class CDM extends Kafka {
     		return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
     	}else if("beep".equals(source)){
     		return InstrumentationSource.SOURCE_LINUX_BEEP_TRACE;
+    	}else{
+    		logger.log(Level.WARNING,
+                    "Unexpected Edge source: {0}", new Object[]{source});
     	}
     	return null;
     }
@@ -762,7 +712,7 @@ public class CDM extends Kafka {
         	pipeBuilder.setUuid(getUuid(vertex));
         	pipeBuilder.setBaseObject(baseObject);
             pipeBuilder.setUrl("file://" + vertex.getAnnotation("path")); 
-            pipeBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
+            pipeBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), null));
             pipeBuilder.setIsPipe(true);
             Map<CharSequence, CharSequence> properties = new HashMap<>();
             if(vertex.getAnnotation("epoch") != null){
