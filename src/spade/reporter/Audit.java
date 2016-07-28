@@ -76,6 +76,10 @@ import spade.vertex.opm.Process;
 
 /**
  *
+ * IMPORTANT NOTE: To output OPM objects just once, use putProcess and putArtifact functions 
+ * because they take care of that using internal data structures but more importantly those functions
+ * contains the logic on how to create processes and artifacts which MUST be kept consistent across a run.
+ *
  * @author Dawood Tariq, Sharjeel Ahmed Qureshi
  */
 public class Audit extends AbstractReporter {
@@ -566,6 +570,12 @@ public class Audit extends AbstractReporter {
     	}
     }
     
+    /**
+     * Used to tell if the output of a command gotten from Execute.getOutput function has errors or not
+     * 
+     * @param outputLines output lines received from Execute.getOutput
+     * @return true if errors exist, otherwise false
+     */
     private boolean outputHasError(List<String> outputLines){
     	if(outputLines != null){
 	    	for(String outputLine : outputLines){
@@ -599,10 +609,7 @@ public class Audit extends AbstractReporter {
 	                    putVertex(processVertex);//add to buffer
 	                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
 	                    if (parentVertex != null) {
-	                        WasTriggeredBy wtb = new WasTriggeredBy(processVertex, parentVertex);
-	                        addEventIdAndSourceAnnotationToEdge(wtb, "0", PROC_FS);
-	                        wtb.addAnnotation("operation", getOperation(SYSCALL.UNKNOWN));
-	                        putEdge(wtb);
+	                    	putWasTriggeredByEdge(processVertex, parentVertex, "0", null, PROC_FS, getOperation(SYSCALL.UNKNOWN));
 	                    }
 	
 	                    // Get existing file descriptors for this process
@@ -695,14 +702,6 @@ public class Audit extends AbstractReporter {
 	            pidReader.close();
         	}
             
-        	//ignoring these pids using uid now
-//            // Get the PIDs of SPADE's JVM from /proc/self
-//            File[] procTaskDirectories = new File("/proc/self/task").listFiles();
-//            for (File procTaskDirectory : procTaskDirectories) {
-//                String pid = procTaskDirectory.getCanonicalFile().getName();
-//                pids.add(pid);
-//            }
-            
             return pids;
         } catch (IOException e) {
             logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + pids, e);
@@ -793,6 +792,20 @@ public class Audit extends AbstractReporter {
     	}
     	
     	return fds;
+    }
+	
+	/*
+     * Takes a string with keyvalue pairs and returns a Map Input e.g.
+     * "key1=val1 key2=val2" etc. Input string validation is callee's
+     * responsiblity
+     */
+    private static Map<String, String> parseKeyValPairs(String messageData) {
+        Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+        Map<String, String> keyValPairs = new HashMap<>();
+        while (key_value_matcher.find()) {
+            keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
+        }
+        return keyValPairs;
     }
 
 	//TODO What to do when WAIT_FOR_LOG_END is set to true and auditLogThread won't stop on exit?
@@ -917,20 +930,6 @@ public class Audit extends AbstractReporter {
         }
     }
 
-    /*
-     * Takes a string with keyvalue pairs and returns a Map Input e.g.
-     * "key1=val1 key2=val2" etc. Input string validation is callee's
-     * responsiblity
-     */
-    private static Map<String, String> parseKeyValPairs(String messageData) {
-        Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-        Map<String, String> keyValPairs = new HashMap<>();
-        while (key_value_matcher.find()) {
-            keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
-        }
-        return keyValPairs;
-    }
-    
     private void finishEvent(String eventId){
 
     	if (eventBuffer.get(eventId) == null) {
@@ -938,19 +937,31 @@ public class Audit extends AbstractReporter {
     		return;
     	}
 
-//    	if("NETFILTER_PKT".equals(eventBuffer.get(eventId).get("type"))){ //for events with no syscalls
-//    		try{
-//    			handleNetfilterPacketEvent(eventBuffer.get(eventId));
-//    		}catch(Exception e){
-//    			logger.log(Level.WARNING, "Error processing finish syscall event with event id '"+eventId+"'", e);
-//    		}
-//    	}else{ //for events with syscalls
-//    		handleSyscallEvent(eventId);
-//    	}
+    	/*if("NETFILTER_PKT".equals(eventBuffer.get(eventId).get("type"))){ //for events with no syscalls
+    		try{
+    			handleNetfilterPacketEvent(eventBuffer.get(eventId));
+    		}catch(Exception e){
+    			logger.log(Level.WARNING, "Error processing finish syscall event with event id '"+eventId+"'", e);
+    		}
+    	}else{ //for events with syscalls
+    		handleSyscallEvent(eventId);
+    	}*/
     	
     	handleSyscallEvent(eventId);
     }
     
+    /**
+     * Gets the key value map from the internal data structure and gets the system call from the map.
+     * Gets the appropriate system call based on current architecture
+     * If global flag to log only successful events is set to true but the current event wasn't successful then only handle it if was either a kill
+     * system call or exit system call or exit_group system call.
+     * 
+     * IMPORTANT: Converts all 4 arguments, a0 o a3 to decimal integers from hexadecimal integers and puts them back in the key value map
+     * 
+     * Calls the appropriate system call handler based on the system call
+     * 
+     * @param eventId id of the event against which the key value maps are saved
+     */
     private void handleSyscallEvent(String eventId) {
     	try {
 
@@ -1094,20 +1105,24 @@ public class Audit extends AbstractReporter {
     	}
     }
     
-    private void handleExit(Map<String, String> eventData, SYSCALL syscall){
-    	//TODO
-    }
-    
+    /**
+     * Only for IO syscalls where the FD is argument 0 (a0).
+     * If the descriptor is not a valid descriptor then handled as file or socket based on the syscall.
+     * Otherwise handled based on artifact identity type
+     * 
+     * @param syscall system call
+     * @param eventData audit event data gotten in the log
+     */
     private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData){
     	String pid = eventData.get("pid");
     	String fd = eventData.get("a0");
-    	Class<? extends ArtifactIdentity> artifactInfoClass = null;
+    	Class<? extends ArtifactIdentity> artifactIdentityClass = null;
 
     	if(descriptors.getDescriptor(pid, fd) != null){
-    		artifactInfoClass = descriptors.getDescriptor(pid, fd).getClass();
+    		artifactIdentityClass = descriptors.getDescriptor(pid, fd).getClass();
     	}
     	
-    	if(artifactInfoClass == null || UnknownIdentity.class.equals(artifactInfoClass)){ //either a new unknown i.e. null or a previously seen unknown
+    	if(artifactIdentityClass == null || UnknownIdentity.class.equals(artifactIdentityClass)){ //either a new unknown i.e. null or a previously seen unknown
     		if((syscall == SYSCALL.READ || syscall == SYSCALL.READV || syscall == SYSCALL.PREAD64 || syscall == SYSCALL.WRITE || syscall == SYSCALL.WRITEV || syscall == SYSCALL.PWRITE64)){
     			if(USE_READ_WRITE){
     				handleFileIOEvent(syscall, eventData);
@@ -1119,10 +1134,10 @@ public class Audit extends AbstractReporter {
     		}else {
     			logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
     		}
-    	}else if(NetworkSocketIdentity.class.equals(artifactInfoClass) || UnixSocketIdentity.class.equals(artifactInfoClass)){ 
+    	}else if(NetworkSocketIdentity.class.equals(artifactIdentityClass) || UnixSocketIdentity.class.equals(artifactIdentityClass)){ 
     		handleNetworkIOEvent(syscall, eventData);
-    	}else if(FileIdentity.class.equals(artifactInfoClass) || MemoryIdentity.class.equals(artifactInfoClass) 
-    			|| UnnamedPipeIdentity.class.equals(artifactInfoClass) || NamedPipeIdentity.class.equals(artifactInfoClass)){
+    	}else if(FileIdentity.class.equals(artifactIdentityClass) || MemoryIdentity.class.equals(artifactIdentityClass) 
+    			|| UnnamedPipeIdentity.class.equals(artifactIdentityClass) || NamedPipeIdentity.class.equals(artifactIdentityClass)){
     		handleFileIOEvent(syscall, eventData);
     	}
     }
@@ -1167,6 +1182,15 @@ public class Audit extends AbstractReporter {
 	    			break;
     		}
     	}
+    }
+    
+    private void handleExit(Map<String, String> eventData, SYSCALL syscall){
+    	// kill() receive the following message(s):
+        // - SYSCALL
+        // - EOE
+    	
+    	String pid = eventData.get("pid");
+    	processUnitStack.remove(pid); //remove from memory
     }
     
     private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -1285,14 +1309,10 @@ public class Audit extends AbstractReporter {
     		putProcess(eventData); //check if it exists. if not then add and return.
     		Process addedUnit = pushUnitIterationOnStack(pid, unitId, time); //create unit and add it to data structure
     		//add edge between the new unit and the main unit to keep the graph connected
-    		WasTriggeredBy wtb = new WasTriggeredBy(addedUnit, getContainingProcessVertex(pid));
-        	wtb.addAnnotation("operation", getOperation(SYSCALL.UNIT));
-        	wtb.addAnnotation("time", eventData.get("time"));
-        	addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), BEEP);
-        	putEdge(wtb);
+        	putWasTriggeredByEdge(addedUnit, getContainingProcessVertex(pid), eventData.get("eventid"), time, BEEP, getOperation(SYSCALL.UNIT));
     	}else if(arg0.intValue() == -101){ //unit end
     		//remove all iterations of the given unit
-    		popUnitIterationsFromStack(pid, unitId, time);
+    		popUnitIterationsFromStack(pid, unitId);
     	}else if(arg0.intValue() == -200 || arg0.intValue() == -300){ //-200 highbits of read, -300 highbits of write
     		pidToMemAddress.put(pid, arg1);
     	}else if(arg0.intValue() == -201 || arg0.intValue() == -301){ //-201 lowbits of read, -301 lowbits of write 
@@ -1325,93 +1345,6 @@ public class Audit extends AbstractReporter {
     		}
     	}
     }
-    
-    private void addEventIdAndSourceAnnotationToEdge(AbstractEdge edge, String eventId, String source){
-    	edge.addAnnotation(EVENT_ID, eventId);
-    	edge.addAnnotation(SOURCE, source);
-    }
-    
-    private Artifact putArtifact(Map<String, String> eventData, ArtifactIdentity artifactIdentity,
-    								boolean updateVersion){
-    	return putArtifact(eventData, artifactIdentity, updateVersion, null);
-    }
-    
-    private Artifact putArtifact(Map<String, String> eventData, ArtifactIdentity artifactIdentity, 
-    								boolean updateVersion, String useThisSource){
-    	/*
-    	 * Sort of general rules that encompass all artifacts:
-    	 * if artifactidentity null then null
-    	 * check if version is uninitialized which is an indicator whether to call putVertex or not (doing this before getting the actual version because it might modify it)
-    	 * add subtype, source and artifact specific annotations
-    	 * after adding artifact specific annotations check if the artifact is path based (file, named pipe or unix socket) and do path-based artifact specific checks
-    	 * add version annotation
-    	 * only add epoch annotation if not memory artifact
-    	 * put vertex is version was uninitialized which means that this artifact is being seen for the first time
-    	 * if artifact is a file then put a version update edge if version was updated
-    	 */
-    	if(artifactIdentity == null || (artifactIdentity.getClass().equals(UnixSocketIdentity.class) && !UNIX_SOCKETS)){
-    		return null;
-    	}
-    
-    	ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentity);
-
-    	Artifact artifact = new Artifact();
-    	artifact.addAnnotation("subtype", artifactIdentity.getSubtype().toString().toLowerCase());
-    	artifact.addAnnotations(artifactIdentity.getAnnotationsMap());
-    	
-    	if(useThisSource != null){
-    		artifact.addAnnotation(SOURCE, useThisSource);
-    	}else{
-    		artifact.addAnnotation(SOURCE, DEV_AUDIT);
-    	}
-
-    	Class<? extends ArtifactIdentity> artifactIdentityClass = artifactIdentity.getClass();
-    	if(FileIdentity.class.equals(artifactIdentityClass)
-    			|| NamedPipeIdentity.class.equals(artifactIdentityClass)
-    			|| UnixSocketIdentity.class.equals(artifactIdentityClass)){
-    		String path = artifact.getAnnotation("path");
-    		if(path != null){
-	    		if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
-	            	updateVersion = false;
-	            }
-    		}
-    	}
-    	
-    	if(NetworkSocketIdentity.class.equals(artifactIdentityClass)){ //if network socket and if no version then don't update version
-    		if(!NET_SOCKET_VERSIONING){
-    			updateVersion = false;
-    		}
-    	}
-    	
-    	//version is always uninitialized if the epoch has been seen so using that to infer about epoch
-    	boolean vertexNotSeenBefore = updateVersion || artifactProperties.isVersionUninitialized(); //do this before getVersion because it updates it based on updateVersion flag
-    	
-    	artifact.addAnnotation("version", String.valueOf(artifactProperties.getVersion(updateVersion)));
-    	
-    	if(!MemoryIdentity.class.equals(artifactIdentityClass)){ //epoch for everything except memory
-    		artifact.addAnnotation("epoch", String.valueOf(artifactProperties.getEpoch()));
-    	}   	
-    	
-    	if(vertexNotSeenBefore){//not seen because of either it has been updated or it is the first time it is seen
-    		putVertex(artifact);
-    	}
-    	
-    	//always at the end after the vertex has been added
-    	if(updateVersion && FileIdentity.class.equals(artifactIdentity.getClass())){ //put the version update edge if version updated for a file
-    		putVersionUpdateEdge(artifact, eventData.get("time"), eventData.get("eventid"), eventData.get("pid"));
-    	}
-    	    	
-    	return artifact;
-    }
-    
-    private ArtifactProperties getArtifactProperties(ArtifactIdentity artifactInfo){
-    	ArtifactProperties artifactProperties = artifactIdentityToArtifactProperties.get(artifactInfo);
-    	if(artifactProperties == null){
-    		artifactProperties = new ArtifactProperties();
-    	}
-    	artifactIdentityToArtifactProperties.put(artifactInfo, artifactProperties);
-    	return artifactProperties;
-    }
 
     private void handleForkClone(Map<String, String> eventData, SYSCALL syscall) {
         // fork() and clone() receive the following message(s):
@@ -1435,6 +1368,7 @@ public class Audit extends AbstractReporter {
         
         Process oldProcess = putProcess(eventData); //will create if doesn't exist
 
+        // Whenever any new annotation is added to a Process which doesn't come from audit log then update the following ones. TODO
         Map<String, String> newEventData = new HashMap<String, String>();
         newEventData.putAll(eventData);
         newEventData.put("pid", newPID);
@@ -1443,17 +1377,13 @@ public class Audit extends AbstractReporter {
         newEventData.put("cwd", eventData.get("cwd"));
         newEventData.put("start time", time);
         
-        boolean RECREATE_AND_REPLACE = true;
+        boolean RECREATE_AND_REPLACE = true; //true because a new process with the same pid might be being created. pids are recycled.
         Process newProcess = putProcess(newEventData, RECREATE_AND_REPLACE);
         
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
-        wtb.addAnnotation("operation", getOperation(syscall));
-        wtb.addAnnotation("time", time);
-        addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
-        putEdge(wtb); // Copy file descriptors from old process to new one
+        putWasTriggeredByEdge(newProcess, oldProcess, eventData.get("eventid"), time, DEV_AUDIT, getOperation(syscall));
         
-        if(syscall == SYSCALL.CLONE){ //share file descriptors when clone
-        	descriptors.linkDescriptors(oldPID, newPID);
+        if(syscall == SYSCALL.CLONE){
+        	descriptors.linkDescriptors(oldPID, newPID);//share file descriptors when clone
         }else if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){ //copy file descriptors just once here when fork
         	descriptors.copyDescriptors(oldPID, newPID);
         }
@@ -1469,15 +1399,19 @@ public class Audit extends AbstractReporter {
         // - PATH
         // - EOE
 
+    	/*
+    	 * Steps:
+    	 * 0) check and get if the vertex with the pid exists already
+    	 * 1) create the new vertex with the commandline which also replaces the vertex with the same pid
+    	 * 2) if the vertex gotten in step 0 is null then it means that we missed that vertex
+    	 * and cannot know what it uids and gids were. So, not trying to repair that vertex and not going
+    	 * to put the edge from the child to the parent.
+    	 * 3) add the Used edges from the newly created vertex in step 1 to the libraries used when execve
+    	 *  was done
+    	 */
+    	
         String pid = eventData.get("pid");
         String time = eventData.get("time");
-        
-        if(getProcess(pid) == null){ //cannot create execve edge, if missing, because process might have had different user and group identifiers.
-        	logger.log(Level.INFO, "Unable to find the process that called execve. event id '"+eventData.get("eventid")+"'");
-        	return;
-        }
-        
-        Process oldProcess = putProcess(eventData);
 
         String commandline = null;
         if(eventData.get("execve_argc") != null){
@@ -1494,14 +1428,19 @@ public class Audit extends AbstractReporter {
         eventData.put("commandline", commandline);
         eventData.put("start time", time);
         
-        boolean RECREATE_AND_REPLACE = true;
+        //doing it before recreating and replacing the vertex with the same pid
+        //try to get it. if doesn't exist then don't add it because it's user or group identifiers might have been different
+        Process oldProcess = getProcess(pid); 
+        
+        boolean RECREATE_AND_REPLACE = true; //true because a process vertex with the same pid created in execve
+        //this call would clear all the units for the pid because the process is doing execve, replacing itself.
         Process newProcess = putProcess(eventData, RECREATE_AND_REPLACE);
         
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
-        wtb.addAnnotation("operation", getOperation(SYSCALL.EXECVE));
-        wtb.addAnnotation("time", time);
-        addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
-        putEdge(wtb);
+        if(oldProcess != null){
+	        putWasTriggeredByEdge(newProcess, oldProcess, eventData.get("eventid"), time, DEV_AUDIT, getOperation(SYSCALL.EXECVE));
+        }else{
+        	logger.log(Level.INFO, "Unable to find the process that did the execve. Not creating the execve edge. event id '"+eventData.get("eventid")+"'");
+        }
         
         //add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
         String cwd = eventData.get("cwd");
@@ -1576,51 +1515,6 @@ public class Audit extends AbstractReporter {
     	eventData.put("a2", eventData.get("a3")); //moved mode to third like in open
     	
     	handleOpen(eventData, SYSCALL.OPENAT);
-    }
-    
-    //path based artifacts = file, namedpipe, unixsocket, null can only be returned.
-    private ArtifactIdentity getValidArtifactIdentityForPath(String path){
-    	FileIdentity fileIdentity = new FileIdentity(path);
-    	NamedPipeIdentity namedPipeIdentity = new NamedPipeIdentity(path);
-    	UnixSocketIdentity unixSocketIdentity = new UnixSocketIdentity(path);
-    	//NOTE: get them directly without using the utility function. done to get null properties if not initialized yet.
-    	//dont use the getArtifactProperties function here
-    	ArtifactProperties fileProperties = artifactIdentityToArtifactProperties.get(fileIdentity); 
-    	ArtifactProperties namedPipeProperties = artifactIdentityToArtifactProperties.get(namedPipeIdentity);
-    	ArtifactProperties unixSocketProperties = artifactIdentityToArtifactProperties.get(unixSocketIdentity);
-    	
-    	fileProperties = fileProperties == null ? new ArtifactProperties() : fileProperties;
-    	namedPipeProperties = namedPipeProperties == null ? new ArtifactProperties() : namedPipeProperties;
-    	unixSocketProperties = unixSocketProperties == null ? new ArtifactProperties() : unixSocketProperties;
-    	
-    	long fileCreationEventId = fileProperties.getCreationEventId();
-		long namedPipeCreationEventId = namedPipeProperties.getCreationEventId();
-		long unixSocketCreationEventId = namedPipeProperties.getCreationEventId();
-
-		//creation event ids won't be same unless two or more haven't been initialized yet. the uninitialized value would just be equal 
-		
-		if(fileCreationEventId >= namedPipeCreationEventId && fileCreationEventId >= unixSocketCreationEventId){ //always first because if all equals then we want file
-			return fileIdentity;
-		}else if(namedPipeCreationEventId >= fileCreationEventId && namedPipeCreationEventId >= unixSocketCreationEventId) {
-			return namedPipeIdentity; 
-		}else if(unixSocketCreationEventId >= fileCreationEventId && unixSocketCreationEventId >= namedPipeCreationEventId){
-			return unixSocketIdentity; 
-		}else{
-			return fileIdentity;
-		}
-    }
-    
-    private Map<Integer, String> getPathsWithNametype(Map<String, String> eventData, String nametypeValue){
-    	Map<Integer, String> indexToPathMap = new HashMap<Integer, String>();
-    	if(eventData != null && nametypeValue != null){
-    		Long items = CommonFunctions.parseLong(eventData.get("items"), 0L);
-    		for(int itemcount = 0; itemcount < items; itemcount++){
-    			if(nametypeValue.equals(eventData.get("nametype"+itemcount))){
-    				indexToPathMap.put(itemcount, eventData.get("path"+itemcount));
-    			}
-    		}
-    	}    	
-    	return indexToPathMap;
     }
 
     private void handleOpen(Map<String, String> eventData, SYSCALL syscall) {
@@ -1848,22 +1742,100 @@ public class Audit extends AbstractReporter {
         // setuid() receives the following message(s):
         // - SYSCALL
         // - EOE
-        String time = eventData.get("time");
+    	
+    	String time = eventData.get("time");
         String pid = eventData.get("pid");
-        if(getProcess(pid) == null){ //if the calling process is missing then can't create the edge because don't know the uids before the syscall
-        	logger.log(Level.INFO, "Cannot create '"+syscall+"' edge because affecting vertex missing");
-        	return;
+        String eventId = eventData.get("eventid");
+        
+        /*
+         * Pseudo-code
+         * 
+         * oldProcess = current process with pid
+         * if oldProcess is null then
+         * 		putVertex(eventData)
+         * 		put no edge since we don't have oldProcess
+         * else
+         * 		if oldProcess is not an iteration i.e. a simple process then
+         * 			newProcess = putVertex(eventData)
+         * 			draw edge from newProcess to oldProcess
+         * 		else if oldProcess is an iteration then
+         * 			oldContainingProcess = get old containing process
+         * 			newContainingProcess = create new containing process
+         * 			oldRunningIterationsList = list of all currently valid unit iterations (can be multiple when nested loop only)
+         * 			newRunningIterationsList = copy of all unit iterations with updated fields
+         * 			put newContainingVertex and all newRunningIterationsList to storage
+         * 			create edge from newContainingProcess to oldContainingProcess
+         * 			for each newRunningIteration in newRunningIterationsList
+         * 				draw edge from newRunningIteration to oldRunningIteration
+         * 				draw edge from newRunningIteration to newContainingProcess
+         * 			create edge from newProcessIteration to oldProcess (which is a unit iteration)
+         * 			//now update internal data structures	
+         * 			manually replace oldContainingProcess with newContainingProcess
+         * 			
+         * 			manually add newProcessIteration to the process stack. Doing this manually so as to not reset the iteration counter for the process
+         * 	
+         */
+        
+        Process exitingVertex = getProcess(pid);
+        
+        if(exitingVertex == null){
+        	putProcess(eventData); //can't add the edge since no existing vertex with the same pid
+        }else{
+        	
+        	// Following are the annotations that need to be updated in processes and units while keep all other the same
+        	Map<String, String> annotationsToUpdate = new HashMap<String, String>();
+    		annotationsToUpdate.put("auid", eventData.get("auid"));
+    		annotationsToUpdate.put("uid", eventData.get("uid"));
+    		annotationsToUpdate.put("suid", eventData.get("suid"));
+    		annotationsToUpdate.put("euid", eventData.get("euid"));
+    		annotationsToUpdate.put("fsuid", eventData.get("fsuid"));
+        	
+        	/* A check for containing process. Either no unit annotation meaning that units weren't enabled or
+        	 * the units are enabled and the unit annotation value is zero i.e. the containing process	
+        	 */  
+        	if(exitingVertex.getAnnotation("unit") == null || exitingVertex.getAnnotation("unit").equals("0")){
+        		Map<String, String> existingProcessAnnotations = exitingVertex.getAnnotations();
+        		Map<String, String> newProcessAnnotations = updateKeyValuesInMap(existingProcessAnnotations, annotationsToUpdate);
+        		//here then it means that there are no active units for the process
+        		//update the modified annotations by the syscall and create the new process vertex
+        		boolean RECREATE_AND_REPLACE = true; //has to be true since already an entry for the same pid exists
+        		Process newProcess = putProcess(newProcessAnnotations, RECREATE_AND_REPLACE); 
+        		//drawing edge from the new to the old
+        		putWasTriggeredByEdge(newProcess, exitingVertex, eventId, time, DEV_AUDIT, getOperation(syscall));
+        	}else{ //is a unit i.e. unit annotation is non-null and non-zero. 
+        		
+        		// oldProcessUnitStack has only active iterations. Should be only one active one since nested loops haven't been instrumented yet in BEEP.
+        		// but taking care of nested loops still anyway. 
+        		// IMPORTANT: Getting this here first because putProcess call on newContainingProcess would discard it
+        		LinkedList<Process> oldProcessUnitStack = processUnitStack.get(pid);
+        		
+        		Process oldContainingProcess = getContainingProcessVertex(pid);
+        		Map<String, String> oldContainingProcessAnnotations = oldContainingProcess.getAnnotations();
+        		Map<String, String> newContainingProcessAnnotations = updateKeyValuesInMap(oldContainingProcessAnnotations, annotationsToUpdate);
+        		boolean RECREATE_AND_REPLACE = true; //has to be true since already an entry for the same pid exists
+        		Process newContainingProcess = putProcess(newContainingProcessAnnotations, RECREATE_AND_REPLACE);
+        		
+        		//Get the new process unit stack now in which the new units would be added. New because putProcess above has replaced the old one
+        		LinkedList<Process> newProcessUnitStack = processUnitStack.get(pid);
+        		
+        		putWasTriggeredByEdge(newContainingProcess, oldContainingProcess, eventId, time, DEV_AUDIT, getOperation(syscall));
+        		
+        		//recreating the rest of the stack manually because existing iteration and count annotations need to be preserved
+        		for(int a = 1; a<oldProcessUnitStack.size(); a++){ //start from 1 because 0 is the containing process
+        			Process oldProcessUnit = oldProcessUnitStack.get(a);
+        			Map<String, String> oldProcessUnitAnnotations = oldProcessUnit.getAnnotations();
+        			Map<String, String> newProcessUnitAnnotations = updateKeyValuesInMap(oldProcessUnitAnnotations, annotationsToUpdate);
+        			Process newProcessUnit = createProcessVertex(newProcessUnitAnnotations); //create process unit
+        			newProcessUnitStack.addLast(newProcessUnit); //add to memory
+        			putVertex(newProcessUnit); //add to buffer
+        			
+        			//drawing an edge from newProcessUnit to currentProcessUnit with operation based on current syscall
+        			putWasTriggeredByEdge(newProcessUnit, oldProcessUnit, eventId, time, DEV_AUDIT, getOperation(syscall));
+        			//drawing an edge from newProcessUnit to newContainingProcess with operation unit to keep things consistent
+        			putWasTriggeredByEdge(newProcessUnit, newContainingProcess, eventId, time, BEEP, getOperation(SYSCALL.UNIT));
+        		}
+        	}
         }
-        boolean RECREATE_AND_REPLACE = true;
-        Process oldProcess = putProcess(eventData); //just get the existing one
-        eventData.put("start time", oldProcess.getAnnotation("start time"));
-        Process newProcess = putProcess(eventData, RECREATE_AND_REPLACE); //replace the old one with the new one
-
-        WasTriggeredBy wtb = new WasTriggeredBy(newProcess, oldProcess);
-        wtb.addAnnotation("operation", getOperation(syscall));
-        wtb.addAnnotation("time", time);
-        addEventIdAndSourceAnnotationToEdge(wtb, eventData.get("eventid"), DEV_AUDIT);
-        putEdge(wtb);
     }
 
     private void handleRename(Map<String, String> eventData) {
@@ -2150,141 +2122,34 @@ public class Audit extends AbstractReporter {
         descriptors.addDescriptor(pid, fd1, pipeInfo);
         
         getArtifactProperties(pipeInfo).markNewEpoch(eventData.get("eventid"));
-    }
+    }    
     
     
-    
-//    private void handleNetfilterPacketEvent(Map<String, String> eventData){
-//      Refer to the following link for protocol numbers
+    /*private void handleNetfilterPacketEvent(Map<String, String> eventData){
+      Refer to the following link for protocol numbers
 //    	http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-//    	String protocol = eventData.get("proto");
+    	String protocol = eventData.get("proto");
     	
-//    	if(protocol.equals("6") || protocol.equals("17")){ // 6 is tcp and 17 is udp
-//    		String length = eventData.get("len");
-//        	
-////        	hook = 1 is input, hook = 3 is forward
-//        	String hook = eventData.get("hook");
-//        	
-//        	String sourceAddress = eventData.get("saddr");
-//        	String destinationAddress = eventData.get("daddr");
-//        	
-//        	String sourcePort = eventData.get("sport");
-//        	String destinationPort = eventData.get("dport");
-//        	
-//        	String time = eventData.get("time");
-//        	String eventId = eventData.get("eventid");
-//        	
-//        	SocketInfo source = new SocketInfo(sourceAddress, sourcePort);
-//        	SocketInfo destination = new SocketInfo(destinationAddress, destinationPort);
-//    	}
-    	
-//    }
-    
-    private String parseHexStringToUTF8(String hexString){
-    	if(hexString == null){
-    		return null;
-    	}
-		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
-    	for(int a = 0; a<hexString.length()-2; a+=2){
-    		bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
-
-    	}
-    	bytes.rewind();
-    	Charset cs = Charset.forName("UTF-8");
-    	CharBuffer cb = cs.decode(bytes);
-    	return cb.toString();
-	}
-    
-    private ArtifactIdentity parseSaddr(String saddr, SYSCALL syscall){
-    	if(saddr != null && saddr.length() >= 2){
-	    	if(saddr.charAt(1) == '1'){ //unix socket
-	    		
-	    		String path = "";
-	        	int start = saddr.indexOf("2F"); //2F in ASCII is '/'. so starting from there since unix file paths start from there
-	        	
-	        	if(start != -1){ //found
-	        		try{
-		        		for(; start < saddr.length() - 2; start+=2){
-		        			char c = (char)(Integer.parseInt(saddr.substring(start, start+2), 16));
-		        			if(c == 0){ //null char
-		        				break;
-		        			}
-		        			path += c;
-		        		}
-	        		}catch(Exception e){
-	        			logger.log(Level.INFO, "Failed to parse saddr value '"+saddr+"'");
-	        			return null;
-	        		}
-	        	}
-	    		
-	        	if(path != null && !path.isEmpty()){
-	        		return new UnixSocketIdentity(path);
-	        	}
-	        }else{ //ip
-	    	
-	        	String address = null, port = null;
-		    	if (saddr.charAt(1) == '2') {
-		            port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-		            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-		            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-		            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-		            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-		            address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-		        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
-		        	port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-		        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
-		        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
-		        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
-		        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
-		        	address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
-		        }
-		    	
-		    	if(address != null && port != null){
-		    		if(syscall == SYSCALL.BIND){ //put address as destination
-		    			return new NetworkSocketIdentity("", "", address, port, "");
-		    		}else if(syscall == SYSCALL.CONNECT){ //put address as destination
-		    			return new NetworkSocketIdentity("", "", address, port, "");
-		    		}else if(syscall == SYSCALL.ACCEPT || syscall == SYSCALL.ACCEPT4){ //put address as source
-		    			return new NetworkSocketIdentity(address, port, "", "", "");
-		    		}else{
-		    			logger.log(Level.INFO, "Unsupported syscall '"+syscall+"' to parse saddr '"+saddr+"'");
-		    		}
-		    	}
-		    	
-	        }
+    	if(protocol.equals("6") || protocol.equals("17")){ // 6 is tcp and 17 is udp
+    		String length = eventData.get("len");
+        	
+        	hook = 1 is input, hook = 3 is forward
+        	String hook = eventData.get("hook");
+        	
+        	String sourceAddress = eventData.get("saddr");
+        	String destinationAddress = eventData.get("daddr");
+        	
+        	String sourcePort = eventData.get("sport");
+        	String destinationPort = eventData.get("dport");
+        	
+        	String time = eventData.get("time");
+        	String eventId = eventData.get("eventid");
+        	
+        	SocketInfo source = new SocketInfo(sourceAddress, sourcePort);
+        	SocketInfo destination = new SocketInfo(destinationAddress, destinationPort);
     	}
     	
-    	return null;
-    }
-
-	 /* incorrect implementation and not in 64bit archs
-	  private void handleSocketcall(Map<String, String> eventData) {
-	  	String saddr = eventData.get("saddr");
-	  	int callType = Integer.parseInt(eventData.get("socketcall_a0"));
-	  	SYSCALL syscall = null;
-	  	// socketcall number is derived from /usr/include/linux/net.h
-	  	if(callType == 2){
-	  		syscall = SYSCALL.BIND;
-	  	}else if(callType == 3){
-	  		syscall = SYSCALL.CONNECT;
-	  	}else if(callType == 5){
-	  		syscall = SYSCALL.ACCEPT;
-	  	}
-	      ArtifactIdentity artifactInfo = parseSaddr(saddr, syscall);
-	      if (artifactInfo != null) {
-	      	if(UnixSocketIdentity.class.equals(artifactInfo.getClass()) && !UNIX_SOCKETS){
-	      		return;
-	      	}        	
-	          
-	          if(callType == 2){ //bind
-	          	handleBind(eventData);
-	          }else if (callType == 3) { //connect
-	          	handleConnect(eventData);
-	          } else if (callType == 5) { //accept
-	          	handleAccept(eventData, SYSCALL.ACCEPT);
-	          }
-	      }
-	  } */
+    }*/
     
     private void handleBind(Map<String, String> eventData, SYSCALL syscall) {
     	// bind() receives the following message(s):
@@ -2467,46 +2332,361 @@ public class Audit extends AbstractReporter {
         addEventIdAndSourceAnnotationToEdge(used, eventData.get("eventid"), DEV_AUDIT);
         putEdge(used);
     }
-        
+    
+    /**
+     * Adding {@link #EVENT_ID EVENT_ID} and {@link #SOURCE SOURCE} annotations to the edge if not null
+     * 
+     * @param edge edge to add annotations to
+     * @param eventId the event id in the audit log
+     * @param source the source of the edge. 
+     */    
+    private void addEventIdAndSourceAnnotationToEdge(AbstractEdge edge, String eventId, String source){
+    	if(edge != null){
+	    	if(eventId != null){
+	    		edge.addAnnotation(EVENT_ID, eventId);
+	    	}
+	    	if(source != null){
+	    		edge.addAnnotation(SOURCE, source);
+	    	}
+    	}
+    }
+    
+    /**
+     * Creates the artifact according to the rules decided on for the current version of Audit reporter
+     * and then puts the artifact in the buffer at the end if it wasn't put before.
+     * 
+     * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
+     * @param artifactIdentity artifact to create
+     * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
+     * @return the created artifact
+     */
+    private Artifact putArtifact(Map<String, String> eventData, ArtifactIdentity artifactIdentity,
+    								boolean updateVersion){
+    	return putArtifact(eventData, artifactIdentity, updateVersion, null);
+    }
+    
+    /**
+     * Creates the artifact according to the rules decided on for the current version of Audit reporter
+     * and then puts the artifact in the buffer at the end if it wasn't put before.
+     * 
+     * Rules:
+     * 1) If unix socket identity and unix sockets disabled using {@link #UNIX_SOCKETS UNIX_SOCKETS} then null returned
+     * 2) If useThisSource param is null then {@link #DEV_AUDIT DEV_AUDIT} is used
+     * 3) If file identity, pipe identity or unix socket identity and path starts with /dev then set updateVersion to false
+     * 4) If network socket identity versioning is false then set updateVersion to false
+     * 5) If memory identity then don't put the epoch annotation
+     * 6) Put vertex to buffer if not added before. We know if it is added before or not based on updateVersion and if version wasn't initialized before this call
+     * 7) Draw version update edge if file identity and version has been updated
+     * 
+     * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
+     * @param artifactIdentity artifact to create
+     * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
+     * @param useThisSource the source value to use. if null then {@link #DEV_AUDIT DEV_AUDIT} is used.
+     * @return the created artifact
+     */
+    private Artifact putArtifact(Map<String, String> eventData, ArtifactIdentity artifactIdentity, 
+    								boolean updateVersion, String useThisSource){
+    	if(artifactIdentity == null || (artifactIdentity.getClass().equals(UnixSocketIdentity.class) && !UNIX_SOCKETS)){
+    		return null;
+    	}
+    
+    	ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentity);
+
+    	Artifact artifact = new Artifact();
+    	artifact.addAnnotation("subtype", artifactIdentity.getSubtype().toString().toLowerCase());
+    	artifact.addAnnotations(artifactIdentity.getAnnotationsMap());
+    	
+    	if(useThisSource != null){
+    		artifact.addAnnotation(SOURCE, useThisSource);
+    	}else{
+    		artifact.addAnnotation(SOURCE, DEV_AUDIT);
+    	}
+
+    	Class<? extends ArtifactIdentity> artifactIdentityClass = artifactIdentity.getClass();
+    	if(FileIdentity.class.equals(artifactIdentityClass)
+    			|| NamedPipeIdentity.class.equals(artifactIdentityClass)
+    			|| UnixSocketIdentity.class.equals(artifactIdentityClass)){
+    		String path = artifact.getAnnotation("path");
+    		if(path != null){
+	    		if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
+	            	updateVersion = false;
+	            }
+    		}
+    	}
+    	
+    	if(NetworkSocketIdentity.class.equals(artifactIdentityClass)){ //if network socket and if no version then don't update version
+    		if(!NET_SOCKET_VERSIONING){
+    			updateVersion = false;
+    		}
+    	}
+    	
+    	//version is always uninitialized if the epoch has been seen so using that to infer about epoch
+    	boolean vertexNotSeenBefore = updateVersion || artifactProperties.isVersionUninitialized(); //do this before getVersion because it updates it based on updateVersion flag
+    	
+    	artifact.addAnnotation("version", String.valueOf(artifactProperties.getVersion(updateVersion)));
+    	
+    	if(!MemoryIdentity.class.equals(artifactIdentityClass)){ //epoch for everything except memory
+    		artifact.addAnnotation("epoch", String.valueOf(artifactProperties.getEpoch()));
+    	}   	
+    	
+    	if(vertexNotSeenBefore){//not seen because of either it has been updated or it is the first time it is seen
+    		putVertex(artifact);
+    	}
+    	
+    	//always at the end after the vertex has been added
+    	if(updateVersion && FileIdentity.class.equals(artifactIdentity.getClass())){ //put the version update edge if version updated for a file
+    		if(eventData != null){
+    			putVersionUpdateEdge(artifact, eventData.get("time"), eventData.get("eventid"), eventData.get("pid"));
+    		}else{
+    			logger.log(Level.WARNING, "Failed to create version update for artifact '" +artifact + "' because time, eventid and pid missing");
+    		}
+    	}
+    	    	
+    	return artifact;
+    }
+    
+    /**
+     * Returns artifact properties for the given artifact identity. If there is no entry for the artifact identity
+     * then it adds one for it and returns that. Simply observing it would modify it. Access the data structure 
+     * {@link #artifactIdentityToArtifactProperties artifactIdentityToArtifactProperties} directly if need to see
+     * if an entry for the given key exists.
+     * 
+     * @param artifactIdentity artifact identity object to get properties of
+     * @return returns artifact properties in the map
+     */
+    private ArtifactProperties getArtifactProperties(ArtifactIdentity artifactIdentity){
+    	ArtifactProperties artifactProperties = artifactIdentityToArtifactProperties.get(artifactIdentity);
+    	if(artifactProperties == null){
+    		artifactProperties = new ArtifactProperties();
+    	}
+    	artifactIdentityToArtifactProperties.put(artifactIdentity, artifactProperties);
+    	return artifactProperties;
+    }
+    
+    /**
+     * Utility function to create a WasTriggeredByEdge
+     * 
+     * @param sourceVertex source process vertex of edge
+     * @param destinationVertex destination process vertex of the edge
+     * @param eventId event id as gotten in the audit log
+     * @param time time as gotten in the audit log
+     * @param source the source of the edge i.e. {@link #DEV_AUDIT DEV_AUDIT}, {@link #BEEP BEEP} or {@link #PROCFS PROCFS}
+     * @param operation operation done in the syscall
+     */
+    private void putWasTriggeredByEdge(Process sourceVertex, Process destinationVertex, String eventId, String time, String source, String operation){
+    	if(sourceVertex == null || destinationVertex == null){
+    		logger.log(Level.WARNING, "Source {0} or destination {1} vertex null for WasTriggeredBy edge.", new Object[]{String.valueOf(sourceVertex), String.valueOf(destinationVertex)});
+    		return;
+    	}
+    	WasTriggeredBy edge = new WasTriggeredBy(sourceVertex, destinationVertex);
+		addEventIdAndSourceAnnotationToEdge(edge, eventId, DEV_AUDIT);
+		if(time != null){
+			edge.addAnnotation("time", time);
+		}
+		if(operation != null){
+			edge.addAnnotation("operation", operation);
+		}
+		putEdge(edge);
+    }
+    
+    /**
+     * Utility function to get a new map with the existing key-values and given key-values replaced. 
+     * 
+     * @param keyValues existing key-values
+     * @param newKeyValues key-values to update or replace
+     * @return a new map with existing and updated key-values
+     */    
+    private Map<String, String> updateKeyValuesInMap(Map<String, String> keyValues, Map<String, String> newKeyValues){
+    	Map<String, String> result = new HashMap<String, String>();
+    	if(keyValues != null){
+    		result.putAll(keyValues);
+    	}
+    	if(newKeyValues != null){
+    		result.putAll(newKeyValues);
+    	}
+    	return result;
+    }
+    
+    /**
+     * Converts hex string as UTF-8
+     * 
+     * @param hexString string to parse
+     * @return parsed string
+     */
+    private String parseHexStringToUTF8(String hexString){
+    	if(hexString == null){
+    		return null;
+    	}
+		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
+    	for(int a = 0; a<hexString.length()-2; a+=2){
+    		bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
+
+    	}
+    	bytes.rewind();
+    	Charset cs = Charset.forName("UTF-8");
+    	CharBuffer cb = cs.decode(bytes);
+    	return cb.toString();
+	}
+    
+    /**
+     * Returns either NetworkSocketIdentity or UnixSocketIdentity depending on the type in saddr.
+     * 
+     * If saddr starts with 01 then unix socket
+     * If saddr starts with 02 then ipv4 network socket
+     * If saddr starts with 0A then ipv6 network socket
+     * If none of the above then null returned
+     * 
+     * Syscall parameter is using to identify (in case of network sockets) whether the address and port are 
+     * source or destination ones.
+     * 
+     * @param saddr a hex string of format 0100... or 0200... or 0A...
+     * @param syscall syscall in which this saddr was received
+     * @return the appropriate subclass of ArtifactIdentity or null
+     */
+    private ArtifactIdentity parseSaddr(String saddr, SYSCALL syscall){
+    	if(saddr != null && saddr.length() >= 2){
+	    	if(saddr.charAt(1) == '1'){ //unix socket
+	    		
+	    		String path = "";
+	        	int start = saddr.indexOf("2F"); //2F in ASCII is '/'. so starting from there since unix file paths start from there
+	        	
+	        	if(start != -1){ //found
+	        		try{
+		        		for(; start < saddr.length() - 2; start+=2){
+		        			char c = (char)(Integer.parseInt(saddr.substring(start, start+2), 16));
+		        			if(c == 0){ //null char
+		        				break;
+		        			}
+		        			path += c;
+		        		}
+	        		}catch(Exception e){
+	        			logger.log(Level.INFO, "Failed to parse saddr value '"+saddr+"'");
+	        			return null;
+	        		}
+	        	}
+	    		
+	        	if(path != null && !path.isEmpty()){
+	        		return new UnixSocketIdentity(path);
+	        	}
+	        }else{ //ip
+	    	
+	        	String address = null, port = null;
+		    	if (saddr.charAt(1) == '2') {
+		            port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+		            int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+		            int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+		            int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+		            int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+		            address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+		        }else if(saddr.charAt(1) == 'A' || saddr.charAt(1) == 'a'){
+		        	port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+		        	int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
+		        	int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
+		        	int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
+		        	int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
+		        	address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
+		        }
+		    	
+		    	if(address != null && port != null){
+		    		if(syscall == SYSCALL.BIND){ //put address as destination
+		    			return new NetworkSocketIdentity("", "", address, port, "");
+		    		}else if(syscall == SYSCALL.CONNECT){ //put address as destination
+		    			return new NetworkSocketIdentity("", "", address, port, "");
+		    		}else if(syscall == SYSCALL.ACCEPT || syscall == SYSCALL.ACCEPT4){ //put address as source
+		    			return new NetworkSocketIdentity(address, port, "", "", "");
+		    		}else{
+		    			logger.log(Level.INFO, "Unsupported syscall '"+syscall+"' to parse saddr '"+saddr+"'");
+		    		}
+		    	}
+		    	
+	        }
+    	}
+    	
+    	return null;
+    }
+     
+    /**
+     * Tries to create an absolute path using the parentDirectoryPath param. If path param is absolute to begin with
+     * then it returns it. If not then it concatenates if with the parent directory's path and returns that.
+     *
+     * @param parentDirectoryPath path of the parent directory
+     * @param path path on the file system
+     * @return absolute path on the file system. Null if path is null or if path is not absolute and parentDirectoryPath is null
+     */
     private String constructAbsolutePathIfNotAbsolute(String parentDirectoryPath, String path){
     	if(path == null){
     		return null;
     	}
-    	if(!path.startsWith("/")){ //is not absolute
+    	if(!path.startsWith(File.separator)){ //is not absolute
     		//what kind of not absolute
-    		if(path.startsWith("./")){
+    		if(path.startsWith("." + File.separatorChar)){
     			path = path.substring(2);
     		}
-    		//path doesn't start with '/' if here
+    		//path doesn't start with '/' (for unix-based) if here
     		//do the constructing
     		if(parentDirectoryPath == null){
     			return null;
     		}
-    		if (parentDirectoryPath.endsWith("/")) {
+    		if (parentDirectoryPath.endsWith(File.separator)) {
                 return parentDirectoryPath + path;
             } else {
-                return parentDirectoryPath + "/" + path;
+                return parentDirectoryPath + File.separatorChar + path;
             }
     	}
     	return path;
     }
     
-    private Process putProcess(Map<String, String> eventData){
-    	return putProcess(eventData, false);
-    }
-    
-    private Process putProcess(Map<String, String> eventData, boolean recreateAndReplace){
-    	String pid = eventData.get("pid");
-    	Process process = getProcess(pid);
-        if(process == null || recreateAndReplace){
-        	process = createProcessVertex(eventData);
-        	addProcess(pid, process);
-        	putVertex(process);
-        }
-        return process;
+    /**
+     * Creates a version update edge i.e. from the new version of an artifact to the old version of the same artifact.
+     * At the moment only being done for file artifacts. See {@link #putArtifact(Map, ArtifactIdentity, boolean, String) putArtifact}.
+     * 
+     * If the previous version number of the artifact is less than 0 then the edge won't be drawn because that means that there was
+     * no previous version. 
+     * 
+     * @param newArtifact artifact which has the updated version
+     * @param time timestamp when this happened
+     * @param eventId event id of the new version of the artifact creation
+     * @param pid pid of the process which did the update
+     */
+    private void putVersionUpdateEdge(Artifact newArtifact, String time, String eventId, String pid){
+    	if(newArtifact == null || time == null || eventId == null || pid == null){
+    		logger.log(Level.WARNING, "Invalid arguments. newArtifact="+newArtifact+", time="+time+", eventId="+eventId+", pid="+pid);
+    		return;
+    	}
+    	Artifact oldArtifact = new Artifact();
+    	oldArtifact.addAnnotations(newArtifact.getAnnotations());
+    	Long oldVersion = null;
+    	try{
+    		//this takes care of the case where not to put version update in case an epoch has happened because on epoch version is reset to 0. 
+    		//so, there would be no previous version to update from.
+    		oldVersion = CommonFunctions.parseLong(newArtifact.getAnnotation("version"), -1L) - 1;
+    		if(oldVersion < 0){ //i.e. no previous one, it is the first artifact for the path
+    			return;
+    		}
+    	}catch(Exception e){
+    		logger.log(Level.WARNING, "Failed to create version update edge between (" + newArtifact.toString() + ") and ("+oldArtifact.toString()+")" , e);
+    		return;
+    	}
+    	oldArtifact.addAnnotation("version", String.valueOf(oldVersion));
+    	WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
+    	versionUpdate.addAnnotation("pid", pid);
+    	versionUpdate.addAnnotation("operation", getOperation(SYSCALL.UPDATE));
+    	versionUpdate.addAnnotation("time", time);
+    	addEventIdAndSourceAnnotationToEdge(versionUpdate, eventId, DEV_AUDIT);
+    	putEdge(versionUpdate);
     }
 
+    /**
+     * Groups system call names by functionality and returns that name to simplify identification of the type of system call.
+     * Grouping only done if {@link #SIMPLIFY SIMPLIFY} is true otherwise the system call name is returned simply.
+     * 
+     * @param syscall system call to get operation for
+     * @return operation corresponding to the syscall
+     */
     private String getOperation(SYSCALL syscall){
+    	if(syscall == null){
+    		return null;
+    	}
     	SYSCALL returnSyscall = syscall;
     	if(SIMPLIFY){
     		switch (syscall) {
@@ -2622,18 +2802,177 @@ public class Audit extends AbstractReporter {
     	return returnSyscall.toString().toLowerCase();
     }
     
-    private Process createProcessVertex(Map<String, String> eventData){
-    	return createProcessVertex(eventData.get("pid"), eventData.get("ppid"), eventData.get("comm"), eventData.get("commandline"),
-    			eventData.get("cwd"), eventData.get("uid"), eventData.get("euid"), eventData.get("suid"), eventData.get("fsuid"), 
-    			eventData.get("gid"), eventData.get("egid"), eventData.get("sgid"), eventData.get("fsgid"), eventData.get(SOURCE), 
-    			eventData.get("start time"), eventData.get("unit"));
+    /**
+     * Checks the internal data structure for artifacts to see if a path-based artifact identity with the same path exists.
+     * If multiple type of artifact identities with the same path exist then it returns the one which was created last i.e. with
+     * the biggest event id.
+     * 
+     * If unable to find an artifact identity with the given path then it returns a file artifact identity with that path. 
+     * Rule: Everything is a file until proven otherwise.
+     * 
+     * Note: The internal data structure {@link #artifactIdentityToArtifactProperties artifactIdentityToArtifactProperties} 
+     * has to be accessed directly in this function instead of using the function {@link #getArtifactProperties(ArtifactIdentity) 
+     * getArtifactProperties} because that function adds and returns the properties for the artifact identity even if doesn't exist.
+     * Using that function would say something existed which didn't exist before.
+     * 
+     * @param path path to check against
+     * @return the artifact identity with the matched path or a file artifact identity if path didn't match any artifact identity
+     */
+    private ArtifactIdentity getValidArtifactIdentityForPath(String path){
+    	FileIdentity fileIdentity = new FileIdentity(path);
+    	NamedPipeIdentity namedPipeIdentity = new NamedPipeIdentity(path);
+    	UnixSocketIdentity unixSocketIdentity = new UnixSocketIdentity(path);
+    	//NOTE: get them directly without using the utility function. done to get null properties if not initialized yet.
+    	//dont use the getArtifactProperties function here
+    	ArtifactProperties fileProperties = artifactIdentityToArtifactProperties.get(fileIdentity); 
+    	ArtifactProperties namedPipeProperties = artifactIdentityToArtifactProperties.get(namedPipeIdentity);
+    	ArtifactProperties unixSocketProperties = artifactIdentityToArtifactProperties.get(unixSocketIdentity);
+    	
+    	fileProperties = fileProperties == null ? new ArtifactProperties() : fileProperties;
+    	namedPipeProperties = namedPipeProperties == null ? new ArtifactProperties() : namedPipeProperties;
+    	unixSocketProperties = unixSocketProperties == null ? new ArtifactProperties() : unixSocketProperties;
+    	
+    	long fileCreationEventId = fileProperties.getCreationEventId();
+		long namedPipeCreationEventId = namedPipeProperties.getCreationEventId();
+		long unixSocketCreationEventId = namedPipeProperties.getCreationEventId();
+
+		//creation event ids won't be same unless two or more haven't been initialized yet. the uninitialized value would just be equal 
+		
+		if(fileCreationEventId >= namedPipeCreationEventId && fileCreationEventId >= unixSocketCreationEventId){ //always first because if all equals then we want file
+			return fileIdentity;
+		}else if(namedPipeCreationEventId >= fileCreationEventId && namedPipeCreationEventId >= unixSocketCreationEventId) {
+			return namedPipeIdentity; 
+		}else if(unixSocketCreationEventId >= fileCreationEventId && unixSocketCreationEventId >= namedPipeCreationEventId){
+			return unixSocketIdentity; 
+		}else{
+			return fileIdentity;
+		}
     }
     
-//  NOTE: this function to be used always to create a process vertex
+    /**
+     * Every path record in Audit log has a key 'nametype' which can be used to identify what the artifact
+     * referenced in the path record was.
+     * 
+     * Possible options for nametype:
+     * 1) PARENT -> parent directory of the path
+     * 2) CREATE -> path was created
+     * 3) NORMAL -> path was just used for read or write
+     * 4) DELETE -> path was deleted
+     * 5) UNKNOWN -> can't tell what was done with the path. So far seen that it only happens when a syscall fails.
+     *  
+     * @param eventData eventData that contains the paths information in the format: path[Index], nametype[Index]. example, path0, nametype0 
+     * @param nametypeValue one of the above-mentioned values. Case sensitive compare operation on nametypeValue
+     * @return returns a Map where key is the index and the value is the path name.
+     */
+    private Map<Integer, String> getPathsWithNametype(Map<String, String> eventData, String nametypeValue){
+    	Map<Integer, String> indexToPathMap = new HashMap<Integer, String>();
+    	if(eventData != null && nametypeValue != null){
+    		Long items = CommonFunctions.parseLong(eventData.get("items"), 0L);
+    		for(int itemcount = 0; itemcount < items; itemcount++){
+    			if(nametypeValue.equals(eventData.get("nametype"+itemcount))){
+    				indexToPathMap.put(itemcount, eventData.get("path"+itemcount));
+    			}
+    		}
+    	}    	
+    	return indexToPathMap;
+    }
+    
+    //////////////////////////////////////// Process and Unit management code below
+    
+    /**
+     * The eventData is used to get the pid and then get the process vertex if it already exists.
+     * If the vertex didn't exist then it creates the new one and returns that. The new vertex is created
+     * using the information in the eventData. The putVertex function is also called on the vertex if
+     * it was created in this function and the new vertex is also added to the internal process map.
+     * 
+     * @param eventData key value pairs to use to create vertex from. This is in most cases all the key values
+     * gotten in a syscall audit record. But additional information can also be added to this to be used by 
+     * createProcessVertex function.
+     * @return the vertex with the pid in the eventData map
+     */
+    private Process putProcess(Map<String, String> eventData){
+    	return putProcess(eventData, false);
+    }
+    
+    
+    /**
+     * See {@link #putProcess(Map) putProcess}
+     * 
+     * @param annotations key value pairs to use to create vertex from. This is in most cases all the key values
+     * gotten in a syscall audit record. But additional information can also be added to this to be used by 
+     * createProcessVertex function.
+     * @param recreateAndReplace if true, it would create a new vertex using information in the eventData and 
+     * replace the existing one if there is one. If false, it would recreate the vertex. 
+     * @return
+     */
+    private Process putProcess(Map<String, String> annotations, boolean recreateAndReplace){
+    	if(annotations != null){
+	    	String pid = annotations.get("pid");
+	    	Process process = getProcess(pid);
+	        if(process == null || recreateAndReplace){
+	        	process = createProcessVertex(annotations);
+	        	addProcess(pid, process);
+	        	putVertex(process);
+	        }
+	        return process;
+    	}
+    	return null;
+    }
+    
+    /**
+     * A convenience wrapper of 
+     * {@link #createProcessVertex(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String) createProcessVertex}.
+     * 
+     * Takes out the values for keys required by the above referenced function and calls it
+     * 
+     * Note: Values NOT in eventData when received from audit log -> commandline, cwd, SOURCE, start time, unit, iteration, and count.
+     * So, put them manually in the map before calling this function.
+     * 
+     * @param annotations a key value map that usually contains the key values gotten in the audit syscall record
+     * @return returns a Process instance with the passed in annotations
+     */    
+    private Process createProcessVertex(Map<String, String> annotations){
+    	if(annotations == null){
+    		return null;
+    	}
+    	return createProcessVertex(annotations.get("pid"), annotations.get("ppid"), 
+    			//if data from audit log then 'name' is 'comm' otherwise audit annotation key is 'name'
+    			annotations.get("name") == null ? annotations.get("comm") : annotations.get("name"), 
+    			annotations.get("commandline"),
+    			annotations.get("cwd"), annotations.get("uid"), annotations.get("euid"), annotations.get("suid"), annotations.get("fsuid"), 
+    			annotations.get("gid"), annotations.get("egid"), annotations.get("sgid"), annotations.get("fsgid"), annotations.get(SOURCE), 
+    			annotations.get("start time"), annotations.get("unit"), annotations.get("iteration"), annotations.get("count"));
+    }
+    
+    /**
+     * The function to be used always to create a Process vertex. Don't use 'new Process()' invocation directly under any circumstances.
+     * 
+     * The function applies some rules on various annotations based on global variables. Always use this function to keep things consistent.
+     * 
+     * @param pid pid of the process
+     * @param ppid parent's pid of the process
+     * @param name name or 'comm' of the process as in Audit log syscall record
+     * @param commandline gotten through execve syscall event only or when copied from an existing one [Optional]
+     * @param cwd current working directory of the process [Optional]
+     * @param uid user id of the process
+     * @param euid effective user id of the process
+     * @param suid saved user id of the process
+     * @param fsuid file system user id of the process
+     * @param gid group id of the process
+     * @param egid effective group id of the process
+     * @param sgid saved group id of the process
+     * @param fsgid file system group id of the process
+     * @param source source of the process information: /dev/audit, beep or /proc only. Defaults to /dev/audit if none given.
+     * @param startTime time at which the process was created [Optional]
+     * @param unit id of the unit loop. [Optional]
+     * @param iteration iteration of the unit loop. [Optional]
+     * @param count count of a unit with all other annotation values same. [Optional]
+     * @return returns a Process instance with the passed in annotations.
+     */
     private Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
     		String uid, String euid, String suid, String fsuid, 
     		String gid, String egid, String sgid, String fsgid,
-    		String source, String startTime, String unitId){
+    		String source, String startTime, String unit, String iteration, String count){
     	
     	Process process = new Process();
     	process.addAnnotation("pid", pid);
@@ -2672,16 +3011,31 @@ public class Audit extends AbstractReporter {
     	}
     	
     	if(CREATE_BEEP_UNITS){
-    		if(unitId == null){
+    		if(unit == null){
     			process.addAnnotation("unit", "0"); // 0 indicates containing process
     		}else{
-    			process.addAnnotation("unit", unitId);
+    			process.addAnnotation("unit", unit);
+    			// The iteration and count annotations are only for units and not the containing process
+    			if(iteration != null){
+        			process.addAnnotation("iteration", iteration);
+        		}
+        		if(count != null){
+        			process.addAnnotation("count", count);
+        		}
     		}
     	}
     	
     	return process;
     }
 
+    /**
+     * Creates a process object by reading from the /proc FS. Calls the
+ 	 * {@link #createProcessVertex(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String)}
+ 	 * internally to create the process vertex.
+ 	 * 
+     * @param pid pid of the process to look for in the /proc FS
+     * @return a Process object populated using /proc FS
+     */
     private Process createProcessFromProcFS(String pid) {
         // Check if this pid exists in the /proc/ filesystem
         if ((new java.io.File("/proc/" + pid).exists())) {
@@ -2742,7 +3096,7 @@ public class Audit extends AbstractReporter {
                 Process newProcess = createProcessVertex(pid, ppidline, nameline, null, null, 
                 		uidTokens[1], uidTokens[2], uidTokens[3], uidTokens[4], 
                 		gidTokens[1], gidTokens[2], gidTokens[3], gidTokens[4], 
-                		PROC_FS, Long.toString(startTime), "0");
+                		PROC_FS, Long.toString(startTime), CREATE_BEEP_UNITS ? "0" : null, null, null);
                 
                 // newProcess.addAnnotation("starttime_unix", stime);
                 // newProcess.addAnnotation("starttime_simple", stime_readable);
@@ -2757,34 +3111,13 @@ public class Audit extends AbstractReporter {
         }
     }
     
-    private void putVersionUpdateEdge(Artifact newArtifact, String time, String eventId, String pid){
-    	if(newArtifact == null || time == null || eventId == null || pid == null){
-    		logger.log(Level.INFO, "Invalid arguments. newArtifact="+newArtifact+", time="+time+", eventId="+eventId+", pid="+pid);
-    		return;
-    	}
-    	Artifact oldArtifact = new Artifact();
-    	oldArtifact.addAnnotations(newArtifact.getAnnotations());
-    	Long oldVersion = null;
-    	try{
-    		//this takes care of the case where not to put version update in case an epoch has happened because on epoch version is reset to 0. 
-    		//so, there would be no previous version to update from.
-    		oldVersion = CommonFunctions.parseLong(newArtifact.getAnnotation("version"), -1L) - 1;
-    		if(oldVersion < 0){ //i.e. no previous one, it is the first artifact for the path
-    			return;
-    		}
-    	}catch(Exception e){
-    		logger.log(Level.WARNING, "Failed to create version update edge between (" + newArtifact.toString() + ") and ("+oldArtifact.toString()+")" , e);
-    		return;
-    	}
-    	oldArtifact.addAnnotation("version", String.valueOf(oldVersion));
-    	WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
-    	versionUpdate.addAnnotation("pid", pid);
-    	versionUpdate.addAnnotation("operation", getOperation(SYSCALL.UPDATE));
-    	versionUpdate.addAnnotation("time", time);
-    	addEventIdAndSourceAnnotationToEdge(versionUpdate, eventId, DEV_AUDIT);
-    	putEdge(versionUpdate);
-    }
-        
+    /**
+     * Returns the next iteration number for the pid and unitId combination.
+     * 
+     * @param pid pid of the process to which the unit would belong
+     * @param unitId id of the loop of which the iteration is
+     * @return the iteration number. Always greater than or equal to 0 and starts from 0
+     */        
     private Long getNextIterationNumber(String pid, String unitId){
     	if(iterationNumber.get(pid) == null){
     		iterationNumber.put(pid, new HashMap<String, Long>());
@@ -2796,6 +3129,12 @@ public class Audit extends AbstractReporter {
     	return iterationNumber.get(pid).get(unitId);
     }
     
+    /**
+     * Returns the main process i.e. at the zeroth index in the process stack for the pid, if any.
+     * 
+     * @param pid pid of the process
+     * @return the main process with unit id 0. null if none found.
+     */
     private Process getContainingProcessVertex(String pid){
     	if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 0){
     		return processUnitStack.get(pid).getFirst();
@@ -2803,12 +3142,33 @@ public class Audit extends AbstractReporter {
     	return null;
     }
     
+    /**
+     * This function resets the stack for a pid used to keep the main containing process for a pid
+     * and all the units for that pid. It clears the stack. Only call this when it is intended to clear 
+     * all the state related to a process, state being the units and the existing process. Example, execve.
+     *
+     * @param pid pid of the process to return
+     * @param process the process to add against the pid
+     */
     private void addProcess(String pid, Process process){ 
-    	iterationNumber.remove(pid); //start iteration count from start
-    	processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
-    	processUnitStack.get(pid).addFirst(process);
+    	if(pid == null || process == null){
+    		logger.log(Level.WARNING, "Failed to add process vertex in addProcess function because pid or process passed is null. Pid {0}, Process {1}", new Object[]{pid, String.valueOf(process)});
+    	}else{
+	    	iterationNumber.remove(pid); //start iteration count from start
+	    	processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
+	    	processUnitStack.get(pid).addFirst(process);
+    	}
     }
     
+    /**
+     * Checks the internal process hashmap and returns the process vertex. 
+     * The process hashmap must have at least one vertex for that pid to return with not null.
+     * The function returns the process vertex whichever is on top of the stack using a peek i.e.
+     * can be a unit iteration
+     * 
+     * @param pid pid of the process to return
+     * @return process process with the given pid or null (if none found)
+     */
     private Process getProcess(String pid){
     	if(processUnitStack.get(pid) != null && !processUnitStack.get(pid).isEmpty()){
     		Process process = processUnitStack.get(pid).peekLast();
@@ -2817,6 +3177,21 @@ public class Audit extends AbstractReporter {
     	return null;
     }
     
+    /**
+     * Creates a unit iteration vertex, pushes it onto the vertex stack and calls putVertex on the created vertex.
+     * Before adding this new unit iteration the previous one is removed from the stack.
+     * The new unit iteration vertex is a copy of the annotation process with a new iteration number.
+     * Furthermore, a count annotation is used to distinguish between the ith iteration of unitId x and the jth iteration 
+     * of unitId x where i=j and a unit end was seen between the ith and the jth iteration, all in one timestamp of audit 
+     * log.
+     * 
+     * Finally, the created unit iteration is added to the memory stack and putVertex is called on it.
+     * 
+     * @param pid the pid of the process which created this unit iteration
+     * @param unitId the id of the unit as gotten from the audit log
+     * @param startTime the time at which this unit was created
+     * @return the created unit iteration vertex. null if there was no containing process for the pid
+     */
     private Process pushUnitIterationOnStack(String pid, String unitId, String startTime){
     	if("0".equals(unitId)){
     		return null; //unit 0 is containing process and cannot have iterations
@@ -2825,13 +3200,11 @@ public class Audit extends AbstractReporter {
     	if(containingProcess == null){
     		return null;
     	}
-    	//remove the previous iteration (if any) for the pid and unitId combination
+    	//get next iteration number and remove the previous iteration (if any) for the pid and unitId combination
     	Long nextIterationNumber = getNextIterationNumber(pid, unitId);
     	if(nextIterationNumber > 0){ //if greater than zero then remove otherwise this is the first one
     		removePreviousIteration(pid, unitId, nextIterationNumber);
     	}
-    	Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId); //first element is always the main process vertex
-    	newUnit.addAnnotation("iteration", String.valueOf(nextIterationNumber));
     	
     	if(lastTimestamp == NOT_SET || !startTime.equals(lastTimestamp)){
 			lastTimestamp = startTime;
@@ -2843,19 +3216,26 @@ public class Audit extends AbstractReporter {
 			unitIterationRepetitionCounts.put(unitVertexIdentifier, -1);
 		}
 		unitIterationRepetitionCounts.put(unitVertexIdentifier, unitIterationRepetitionCounts.get(unitVertexIdentifier)+1);
-		newUnit.addAnnotation("count", String.valueOf(unitIterationRepetitionCounts.get(unitVertexIdentifier)));
-	    	
-    	processUnitStack.get(pid).addLast(newUnit);
+		
+		String count = String.valueOf(unitIterationRepetitionCounts.get(unitVertexIdentifier));
+		
+		Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId, String.valueOf(nextIterationNumber), count); //first element is always the main process vertex
     	
-    	putVertex(newUnit); //add to buffer
+		processUnitStack.get(pid).addLast(newUnit);
+    	
+    	putVertex(newUnit); //add to internal buffer. not calling putProcess here beacuse that would reset the stack
     	return newUnit;
     }
     
-    /*
-     * This function removes all the units with given unitid and their iteration units from the process stack, leaving only the main process (with unit 0) behind.  
+    /**
+     * This function removes all the units of the given unitId and their iteration units from the process stack.
+     * Also resets the iteration count for the given unitId
+     * 
+     *   @param pid pid of the process
+     *   @param unitId id of the unit for which the iterations have to be removed
      */
-    private void popUnitIterationsFromStack(String pid, String unitId, String endTime){
-    	if("0".equals(unitId)){
+    private void popUnitIterationsFromStack(String pid, String unitId){
+    	if("0".equals(unitId) || unitId == null){
     		return; //unit 0 is containing process and should be removed using the addProcess method
     	}
     	if(processUnitStack.get(pid) != null){
@@ -2872,9 +3252,17 @@ public class Audit extends AbstractReporter {
     	}
     }
     
-    //only removes the last iteration from the stack f
+    /**
+     * Only removes the previous unit iteration i.e. the currentIteration-1 iteration.
+     * Used to remove the last iteration when a new iteration occurs for the pid and unitId
+     * combination because each unit iteration's lifetime is only till the new one
+     * 
+     * @param pid pid of the process to which the unit belongs
+     * @param unitId unitId of the unit whose iteration is going to be removed
+     * @param currentIteration number of the iteration whose previous one needs to be removed
+     */
     private void removePreviousIteration(String pid, String unitId, Long currentIteration){
-    	if("0".equals(unitId)){
+    	if("0".equals(unitId) || unitId == null || currentIteration == null){
     		return; //unit 0 is containing process and should be removed using the addProcess method
     	}
     	if(processUnitStack.get(pid) != null){
@@ -2883,7 +3271,7 @@ public class Audit extends AbstractReporter {
     			Process unit = processUnitStack.get(pid).get(a);
     			if(unitId.equals(unit.getAnnotation("unit"))){
     				Long iteration = CommonFunctions.parseLong(unit.getAnnotation("iteration"), currentIteration+1); 
-    				//so that we by mistake don't remove an iteration which didn't have a proper iteration value
+    				//default value is currentIteration+1, so that we by mistake don't remove an iteration which didn't have a proper iteration value
     				if(iteration < currentIteration){
     					processUnitStack.get(pid).remove(a);
     					//just removing one
@@ -2894,19 +3282,30 @@ public class Audit extends AbstractReporter {
     	}
     }
     
-    //create a copy of the process with source 'beep', given unitId and given start time.    
-    private Process createBEEPCopyOfProcess(Process process, String startTime, String unitId){
-    	//passing commandline and cwd as null because we don't want those two fields copied onto units
-    	return createProcessVertex(process.getAnnotation("pid"), process.getAnnotation("ppid"), process.getAnnotation("name"), null, null, 
+    /**
+     * Creates a copy of the given process with the source annotation being 'beep'  
+     * 
+     * @param process process to create a copy of
+     * @param startTime start time of the unit
+     * @param unitId id of the unit
+     * @return a copy with the copied and the updated annotations as in the process argument
+     */
+    private Process createBEEPCopyOfProcess(Process process, String startTime, String unitId, String iteration, String count){
+    	if(process == null){
+    		return null;
+    	}
+    	return createProcessVertex(process.getAnnotation("pid"), process.getAnnotation("ppid"), process.getAnnotation("name"), 
+    			process.getAnnotation("commandline"), process.getAnnotation("cwd"), 
     			process.getAnnotation("uid"), process.getAnnotation("euid"), process.getAnnotation("suid"), process.getAnnotation("fsuid"), 
     			process.getAnnotation("gid"), process.getAnnotation("egid"), process.getAnnotation("sgid"), process.getAnnotation("fsgid"), 
-    			BEEP, startTime, unitId);
+    			BEEP, startTime, unitId, iteration, count);
     }
-    
     
 }
 
-//Added for the case where there can be two of these exactly the same in a single timestamp
+/**
+ * Used to uniquely identity a unit iteration for a single timestamp. See {@link #pushUnitIterationOnStack(String, String, String) pushUnitIterationOnStack}.
+ */
 class UnitVertexIdentifier{
 	private String pid, unitId, iteration;
 	public UnitVertexIdentifier(String pid, String unitId, String iteration){
