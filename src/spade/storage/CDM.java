@@ -301,7 +301,7 @@ public class CDM extends Kafka {
             	affectsEdgeType = getArtifactAffectsEventEdgeType(edge.getDestinationVertex());
                 if(opmOperation.equals("load")){
                 	if(getExecEventUUID(actingProcessPidString) != null){
-                		SimpleEdge loadEdge = createSimpleEdge(getExecEventUUID(actingProcessPidString), getUuid(edge.getDestinationVertex()), 
+                		SimpleEdge loadEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getExecEventUUID(actingProcessPidString),
                 				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
 	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
 	                    recordCount += publishRecords(tccdmDatums);
