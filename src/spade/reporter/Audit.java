@@ -3085,15 +3085,15 @@ public class Audit extends AbstractReporter {
 //                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(startTime));
 //                String stime = Long.toString(startTime);
 //
-//                String name = nameline.split("\\s+")[1];
-//                String ppid = ppidline.split("\\s+")[1];
+                String name = nameline.split("name:")[1].trim();
+                String ppid = ppidline.split("\\s+")[1];
                 cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
 
                 // see for order of uid, euid, suid, fsiud: http://man7.org/linux/man-pages/man5/proc.5.html
                 String gidTokens[] = gidline.split("\\s+");
                 String uidTokens[] = uidline.split("\\s+");
                 
-                Process newProcess = createProcessVertex(pid, ppidline, nameline, null, null, 
+                Process newProcess = createProcessVertex(pid, ppid, name, null, null, 
                 		uidTokens[1], uidTokens[2], uidTokens[3], uidTokens[4], 
                 		gidTokens[1], gidTokens[2], gidTokens[3], gidTokens[4], 
                 		PROC_FS, Long.toString(startTime), CREATE_BEEP_UNITS ? "0" : null, null, null);

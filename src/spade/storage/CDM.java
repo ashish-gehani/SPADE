@@ -243,7 +243,7 @@ public class CDM extends Kafka {
             		putExecEventUUID(edge.getSourceVertex().getAnnotation("pid"), getUuid(edge));
             		eventType = EventType.EVENT_EXECUTE;
             	}else if(opmOperation.equals("unknown")){
-            		eventType = EventType.EVENT_UNKNOWN;
+            		eventType = EventType.EVENT_KERNEL_UNKNOWN;
             	}else if(opmOperation.equals("setuid")){
             		eventType = EventType.EVENT_CHANGE_PRINCIPAL;
             	}else if(opmOperation.equals("unit")){
@@ -490,7 +490,7 @@ public class CDM extends Kafka {
         	subjectBuilder.setSource(activitySource); 
         } else {
             logger.log(Level.WARNING,
-                    "Unexpected Activity source: {0}", activitySource);
+                    "Unexpected Activity source: {0}", vertex.getAnnotation("source"));
             return tccdmDatums;
         }
         
@@ -594,7 +594,7 @@ public class CDM extends Kafka {
     		return InstrumentationSource.SOURCE_LINUX_BEEP_TRACE;
     	}else{
     		logger.log(Level.WARNING,
-                    "Unexpected Edge source: {0}", new Object[]{source});
+                    "Unexpected source: {0}", new Object[]{source});
     	}
     	return null;
     }
