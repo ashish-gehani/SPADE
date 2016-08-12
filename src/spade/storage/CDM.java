@@ -21,10 +21,12 @@ package spade.storage;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -81,6 +83,9 @@ public class CDM extends Kafka {
     private long recordCount;
     
     private Map<String, ProcessInformation> pidMappings = new HashMap<>();
+    
+    // A set to keep track of principals that have been published
+    private Set<UUID> principalUUIDs = new HashSet<UUID>(); 
     
     @Override
     public boolean initialize(String arguments) {
@@ -539,24 +544,26 @@ public class CDM extends Kafka {
         tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(subject).build()); //added subject
         
         AbstractVertex principalVertex = createPrincipalVertex(vertex);
-        Principal principal = createPrincipal(principalVertex);
+        UUID principalVertexUUID = getUuid(principalVertex);
         
-        /* XXX Created a principal to put uid, euid, gid and egid in, (check if it's new or not? if new then publish) 
-         * Also, creating an edge to connect Subject and Principal
-         */
-        
-        if(principal != null){
-        	tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build()); //added principal
-        	
-        	SimpleEdge.Builder simpleEdgeBuilder = SimpleEdge.newBuilder();
-        	simpleEdgeBuilder.setFromUuid(getUuid(vertex));
-        	simpleEdgeBuilder.setToUuid(getUuid(principalVertex));
-        	simpleEdgeBuilder.setType(EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL);
-        	Long startTime = convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L);
-        	simpleEdgeBuilder.setTimestamp(startTime);
-        	SimpleEdge simpleEdge = simpleEdgeBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build()); //added edge
+        // Add principal vertex only if it hasn't been seen before. 
+        // Only added when seen for the first time
+        if(!principalUUIDs.contains(principalVertexUUID)){
+        	Principal principal = createPrincipal(principalVertex);
+        	if(principal != null){
+        		tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build());
+        		principalUUIDs.add(principalVertexUUID);
+        	}
         }
+        
+        // Making sure that the principal vertex was published successfully
+        if(principalUUIDs.contains(principalVertexUUID)){
+	        SimpleEdge simpleEdge = createSimpleEdge(getUuid(vertex), principalVertexUUID, 
+	        		EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL, 
+	        		convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L));
+	        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
+        }
+        
         return tccdmDatums;
     }
     

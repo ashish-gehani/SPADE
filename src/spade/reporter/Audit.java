@@ -1337,10 +1337,10 @@ public class Audit extends AbstractReporter {
 		Process process = putProcess(eventData); //create if doesn't exist
 		
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
-		putEdge(wgbEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.READ), time, eventId, DEV_AUDIT);
+		putEdge(wgbEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.WRITE), time, eventId, DEV_AUDIT);
 		
 		Used usedEdge = new Used(process, fileArtifact);
-		putEdge(usedEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.WRITE), time, eventId, DEV_AUDIT);
+		putEdge(usedEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.READ), time, eventId, DEV_AUDIT);
 		
 		WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, fileArtifact);
 		wdfEdge.addAnnotation("protection", protection);
