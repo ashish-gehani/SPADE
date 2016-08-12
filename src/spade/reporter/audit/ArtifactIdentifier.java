@@ -22,7 +22,13 @@ package spade.reporter.audit;
 
 import java.util.Map;
 
-public interface ArtifactIdentity {
+/**
+ * A class to be extended by all artifact types to be used in the Audit reporter.
+ * 
+ * Used to build annotations specific to an artifact and the subtype of the artifact.
+ * 
+ */
+public abstract class ArtifactIdentifier {
 	
 	public static final String SUBTYPE_FILE = "file",
 								SUBTYPE_SOCKET = "network",
@@ -30,8 +36,44 @@ public interface ArtifactIdentity {
 								SUBTYPE_PIPE = "pipe",
 								SUBTYPE_UNKNOWN = "unknown";
 	
+	/**
+	 * Used to tell whether the artifact has been written to
+	 * Note: Value of this variable NOT to be used in {@link #equals(Object) equals} or {@link #hashCode() hashCode} function
+	 */
+	private boolean hasBeenWrittenTo = false;
+	
+	/**
+	 * Returns the value of the variable used to tell if the artifact file descriptor was written to
+	 * 
+	 * @return true, false
+	 */
+	public boolean hasBeenWrittenTo(){
+		return hasBeenWrittenTo;
+	}
+	
+	/**
+	 * Sets whether the file descriptor was written to
+	 *
+	 * @param hasBeenWrittenTo true, false
+	 */
+	public void setHasBeenWrittenTo(boolean hasBeenWrittenTo){
+		this.hasBeenWrittenTo = hasBeenWrittenTo;
+	}
+	
+	/**
+	 * Returns the annotations to add to the OPM Artifact
+	 * 
+	 * @return map of annotations
+	 */
 	public abstract Map<String, String> getAnnotationsMap();
 	
+	/**
+	 * Returns subtype of the artifact
+	 * 
+	 * Must return one of the values: file, network, memory, pipe, unknown
+	 * 
+	 * @return file, network, memory, pipe, unknown
+	 */
 	public abstract String getSubtype();
 		
 }

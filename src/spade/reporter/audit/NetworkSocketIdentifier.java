@@ -23,13 +23,13 @@ package spade.reporter.audit;
 import java.util.HashMap;
 import java.util.Map;
 
-public class NetworkSocketIdentity implements ArtifactIdentity {
+public class NetworkSocketIdentifier extends ArtifactIdentifier {
 
 	private String sourceHost, sourcePort,
 					destinationHost, destinationPort,
 					protocol;
 
-	public NetworkSocketIdentity(String sourceHost, String sourcePort, String destinationHost, String destinationPort, String protocol){
+	public NetworkSocketIdentifier(String sourceHost, String sourcePort, String destinationHost, String destinationPort, String protocol){
 		this.sourceHost = sourceHost;
 		this.sourcePort = sourcePort;
 		this.destinationHost = destinationHost;
@@ -92,7 +92,7 @@ public class NetworkSocketIdentity implements ArtifactIdentity {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		NetworkSocketIdentity other = (NetworkSocketIdentity) obj;
+		NetworkSocketIdentifier other = (NetworkSocketIdentifier) obj;
 		if (destinationHost == null) {
 			if (other.destinationHost != null)
 				return false;

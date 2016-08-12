@@ -23,49 +23,41 @@ package spade.reporter.audit;
 import java.util.HashMap;
 import java.util.Map;
 
-public class UnnamedPipeIdentity implements ArtifactIdentity{
+public class UnknownIdentifier extends ArtifactIdentifier{
 
-	private String fd0, fd1;
-	private String pid;
+	private String pid, fd;
 	
-	public UnnamedPipeIdentity(String pid, String fd0, String fd1){
+	public UnknownIdentifier(String pid, String fd){
 		this.pid = pid;
-		this.fd0 = fd0;
-		this.fd1 = fd1;
+		this.fd = fd;
 	}
 	
-	public String getPid(){
+	public String getFD(){
+		return fd;
+	}
+
+	public String getPID(){
 		return pid;
-	}
-
-	public String getFd1() {
-		return fd1;
-	}
-
-	public String getFd0() {
-		return fd0;
-	}
-
-	public String getSubtype(){
-		return SUBTYPE_PIPE;
 	}
 	
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-//		annotations.put("fd0", fd0); //TODO
-//		annotations.put("fd1", fd1);
-		annotations.put("path", "pipe["+fd0+"-"+fd1+"]");
-		annotations.put("pid", pid);
+//		annotations.put("pid", pid); //TODO
+//		annotations.put("fd", fd);
+		annotations.put("path", "/pid/"+pid+"/fd/"+fd);
 		return annotations;
 	}
-
+	
+	public String getSubtype(){
+		return SUBTYPE_UNKNOWN;
+	}
+	
 	@Override
-	public int hashCode() {
+	public int hashCode(){
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
-		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
+		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
 		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
 		return result;
 	}
@@ -78,16 +70,11 @@ public class UnnamedPipeIdentity implements ArtifactIdentity{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		UnnamedPipeIdentity other = (UnnamedPipeIdentity) obj;
-		if (fd0 == null) {
-			if (other.fd0 != null)
+		UnknownIdentifier other = (UnknownIdentifier) obj;
+		if (fd == null) {
+			if (other.fd != null)
 				return false;
-		} else if (!fd0.equals(other.fd0))
-			return false;
-		if (fd1 == null) {
-			if (other.fd1 != null)
-				return false;
-		} else if (!fd1.equals(other.fd1))
+		} else if (!fd.equals(other.fd))
 			return false;
 		if (pid == null) {
 			if (other.pid != null)
@@ -96,6 +83,4 @@ public class UnnamedPipeIdentity implements ArtifactIdentity{
 			return false;
 		return true;
 	}
-	
-	
 }

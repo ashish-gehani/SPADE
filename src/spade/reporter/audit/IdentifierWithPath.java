@@ -23,50 +23,38 @@ package spade.reporter.audit;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MemoryIdentity implements ArtifactIdentity{
-	
-	private String memoryAddress;
-	private String size;
-	private String pid;
-	
-	public MemoryIdentity(String pid, String memoryAddress, String size){
-		this.memoryAddress = memoryAddress;
-		this.size = size;
-		this.pid = pid;
-	}
-	
-	public String getMemoryAddress(){
-		return memoryAddress;
-	}
-		
-	public String getSize(){
-		return size;
-	}
-	
-	public String getPid(){
-		return pid;
-	}
+/**
+ * Just a utility class. Added because FileIdentity, NamePipeIdentity and UnixSocketIdentity all have the same implementation.
+ * So they all extend this class
+ */
 
+public abstract class IdentifierWithPath extends ArtifactIdentifier{
+	
+	private String path;
+	
+	public IdentifierWithPath(String path){
+		path = path.replace("//", "/");
+		this.path = path;
+	}
+	
 	@Override
-	public Map<String, String> getAnnotationsMap() {
+	public Map<String, String> getAnnotationsMap(){
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put("memory address", memoryAddress);
-		annotations.put("size", size);
-		annotations.put("pid", pid);
+		annotations.put("path", path);
 		return annotations;
 	}
 	
-	public String getSubtype(){
-		return SUBTYPE_MEMORY;
+	public String getPath(){
+		return path;
 	}
-
+	
+	public abstract String getSubtype();
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
-		result = prime * result + ((size == null) ? 0 : size.hashCode());
+		result = prime * result + ((path == null) ? 0 : path.hashCode());
 		return result;
 	}
 
@@ -78,23 +66,12 @@ public class MemoryIdentity implements ArtifactIdentity{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		MemoryIdentity other = (MemoryIdentity) obj;
-		if (memoryAddress == null) {
-			if (other.memoryAddress != null)
+		IdentifierWithPath other = (IdentifierWithPath) obj;
+		if (path == null) {
+			if (other.path != null)
 				return false;
-		} else if (!memoryAddress.equals(other.memoryAddress))
-			return false;
-		if (pid == null) {
-			if (other.pid != null)
-				return false;
-		} else if (!pid.equals(other.pid))
-			return false;
-		if (size == null) {
-			if (other.size != null)
-				return false;
-		} else if (!size.equals(other.size))
+		} else if (!path.equals(other.path))
 			return false;
 		return true;
 	}
-
 }

@@ -24,32 +24,36 @@ import java.util.Map;
 
 public class DescriptorManager {
 
-	private Map<String, Map<String, ArtifactIdentity>> descriptors = new HashMap<>();
+	private Map<String, Map<String, ArtifactIdentifier>> descriptors = new HashMap<>();
 	
-	public void addDescriptor(String pid, String fd, ArtifactIdentity artifactInfo){
+	public void addDescriptor(String pid, String fd, ArtifactIdentifier artifactInfo){
 		if(descriptors.get(pid) == null){
-			descriptors.put(pid, new HashMap<String, ArtifactIdentity>());
+			descriptors.put(pid, new HashMap<String, ArtifactIdentifier>());
 		}
 		descriptors.get(pid).put(fd, artifactInfo);
 	}
 	
-	public void addDescriptors(String pid, Map<String, ArtifactIdentity> newDescriptors){
+	public void addDescriptors(String pid, Map<String, ArtifactIdentifier> newDescriptors){
 		if(descriptors.get(pid) == null){
-			descriptors.put(pid, new HashMap<String, ArtifactIdentity>());
+			descriptors.put(pid, new HashMap<String, ArtifactIdentifier>());
 		}
 		descriptors.get(pid).putAll(newDescriptors);
 	}
 	
-	public ArtifactIdentity removeDescriptor(String pid, String fd){
+	public void removeDescriptorsOf(String pid){
+		descriptors.remove(pid);
+	}
+	
+	public ArtifactIdentifier removeDescriptor(String pid, String fd){
 		if(descriptors.get(pid) == null){
 			return null;
 		}
 		return descriptors.get(pid).remove(fd);
 	}
 	
-	public ArtifactIdentity getDescriptor(String pid, String fd){
+	public ArtifactIdentifier getDescriptor(String pid, String fd){
 		if(descriptors.get(pid) == null){
-			descriptors.put(pid, new HashMap<String, ArtifactIdentity>());
+			descriptors.put(pid, new HashMap<String, ArtifactIdentifier>());
 		}
 		//cannot be sure if the file descriptors 0,1,2 are stdout, stderr, stdin, respectively. so just use unknowns
 //		if(descriptors.get(pid).get(fd) == null){
@@ -73,14 +77,14 @@ public class DescriptorManager {
 			return;
 		}
 		if(descriptors.get(toPid) == null){
-			descriptors.put(toPid, new HashMap<String, ArtifactIdentity>());
+			descriptors.put(toPid, new HashMap<String, ArtifactIdentifier>());
 		}
 		descriptors.get(toPid).putAll(descriptors.get(fromPid));
 	}
 	
 	public void linkDescriptors(String fromPid, String toPid){
 		if(descriptors.get(fromPid) == null){
-			descriptors.put(fromPid, new HashMap<String, ArtifactIdentity>());
+			descriptors.put(fromPid, new HashMap<String, ArtifactIdentifier>());
 		}
 		descriptors.put(toPid, descriptors.get(fromPid));
 	}
@@ -89,10 +93,10 @@ public class DescriptorManager {
 		if(descriptors.get(pid) == null){
 			return;
 		}
-		descriptors.put(pid, new HashMap<String, ArtifactIdentity>(descriptors.get(pid)));
+		descriptors.put(pid, new HashMap<String, ArtifactIdentifier>(descriptors.get(pid)));
 	}
 	
 	public void addUnknownDescriptor(String pid, String fd){
-		addDescriptor(pid, fd, new UnknownIdentity(pid, fd));
+		addDescriptor(pid, fd, new UnknownIdentifier(pid, fd));
 	}
 }

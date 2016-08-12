@@ -54,7 +54,7 @@ import com.bbn.tc.schema.serialization.AvroConfig;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Vertex;
-import spade.reporter.audit.ArtifactIdentity;
+import spade.reporter.audit.ArtifactIdentifier;
 import spade.utility.CommonFunctions;
 
 /**
@@ -234,7 +234,9 @@ public class CDM extends Kafka {
             if (opmEdgeType.equals("WasTriggeredBy")) {
             	actingProcessPidString = edge.getDestinationVertex().getAnnotation("pid"); //parent process
             	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-            	if(opmOperation.equals("fork")){
+            	if(opmOperation.equals("exit")){
+            		eventType = EventType.EVENT_EXIT;
+            	}else if(opmOperation.equals("fork")){
             		eventType = EventType.EVENT_FORK;
             	}else if(opmOperation.equals("clone")){
             		eventType = EventType.EVENT_CLONE;
@@ -256,7 +258,11 @@ public class CDM extends Kafka {
             } else if (opmEdgeType.equals("WasGeneratedBy")) {
             	actingProcessPidString = edge.getDestinationVertex().getAnnotation("pid");
             	affectsEdgeType = getEventAffectsArtifactEdgeType(edge.getSourceVertex());
-                if (opmOperation.equals("open")){
+            	if(opmOperation.equals("close")){
+                	eventType = EventType.EVENT_CLOSE;
+                }else if(opmOperation.equals("unlink")){
+                	eventType = EventType.EVENT_UNLINK;
+                }else if (opmOperation.equals("open")){
                 	eventType = EventType.EVENT_OPEN;
                 } else if(opmOperation.equals("create")){
                 	eventType = EventType.EVENT_CREATE_OBJECT;  
@@ -299,7 +305,11 @@ public class CDM extends Kafka {
             } else if (opmEdgeType.equals("Used")) {
             	actingProcessPidString = edge.getSourceVertex().getAnnotation("pid");
             	affectsEdgeType = getArtifactAffectsEventEdgeType(edge.getDestinationVertex());
-                if(opmOperation.equals("load")){
+            	if(opmOperation.equals("create")){
+                	eventType = EventType.EVENT_CREATE_OBJECT;  
+                } else if(opmOperation.equals("close")){
+                	eventType = EventType.EVENT_CLOSE;
+                }else if(opmOperation.equals("load")){
                 	if(getExecEventUUID(actingProcessPidString) != null){
                 		SimpleEdge loadEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getExecEventUUID(actingProcessPidString),
                 				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
@@ -611,7 +621,7 @@ public class CDM extends Kafka {
         }
         AbstractObject baseObject = baseObjectBuilder.build();
         String entityType = vertex.getAnnotation("subtype");
-        if (entityType.equals(ArtifactIdentity.SUBTYPE_FILE)) {
+        if (entityType.equals(ArtifactIdentifier.SUBTYPE_FILE)) {
             FileObject.Builder fileBuilder = FileObject.newBuilder();
             fileBuilder.setUuid(getUuid(vertex));
             fileBuilder.setBaseObject(baseObject);
@@ -628,7 +638,7 @@ public class CDM extends Kafka {
             FileObject fileObject = fileBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(fileObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
+        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
             if(vertex.getAnnotation("path") != null){
 
             	//TODO should do?
@@ -685,7 +695,7 @@ public class CDM extends Kafka {
             NetFlowObject netFlowObject = netBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(netFlowObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_MEMORY)) { //no epoch for memory
+        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_MEMORY)) { //no epoch for memory
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	if(vertex.getAnnotation("size") != null){
         		properties.put("size", vertex.getAnnotation("size"));
@@ -707,7 +717,7 @@ public class CDM extends Kafka {
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_PIPE)) {                            
+        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_PIPE)) {                            
         	FileObject.Builder pipeBuilder = FileObject.newBuilder();
         	pipeBuilder.setUuid(getUuid(vertex));
         	pipeBuilder.setBaseObject(baseObject);
@@ -727,7 +737,7 @@ public class CDM extends Kafka {
             FileObject pipeObject = pipeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(pipeObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentity.SUBTYPE_UNKNOWN)) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
+        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_UNKNOWN)) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	String path = vertex.getAnnotation("path");

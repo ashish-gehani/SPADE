@@ -23,38 +23,50 @@ package spade.reporter.audit;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Just a utility class. Added because FileIdentity, NamePipeIdentity and UnixSocketIdentity all have the same implementation.
- * So they all extend this class
- */
+public class UnnamedPipeIdentifier extends ArtifactIdentifier{
 
-public abstract class IdentityWithPath implements ArtifactIdentity{
+	private String fd0, fd1;
+	private String pid;
 	
-	private String path;
+	public UnnamedPipeIdentifier(String pid, String fd0, String fd1){
+		this.pid = pid;
+		this.fd0 = fd0;
+		this.fd1 = fd1;
+	}
 	
-	public IdentityWithPath(String path){
-		path = path.replace("//", "/");
-		this.path = path;
+	public String getPid(){
+		return pid;
+	}
+
+	public String getFd1() {
+		return fd1;
+	}
+
+	public String getFd0() {
+		return fd0;
+	}
+
+	public String getSubtype(){
+		return SUBTYPE_PIPE;
 	}
 	
 	@Override
-	public Map<String, String> getAnnotationsMap(){
+	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put("path", path);
+//		annotations.put("fd0", fd0); //TODO
+//		annotations.put("fd1", fd1);
+		annotations.put("path", "pipe["+fd0+"-"+fd1+"]");
+		annotations.put("pid", pid);
 		return annotations;
 	}
-	
-	public String getPath(){
-		return path;
-	}
-	
-	public abstract String getSubtype();
-	
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((path == null) ? 0 : path.hashCode());
+		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
+		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
+		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
 		return result;
 	}
 
@@ -66,12 +78,24 @@ public abstract class IdentityWithPath implements ArtifactIdentity{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		IdentityWithPath other = (IdentityWithPath) obj;
-		if (path == null) {
-			if (other.path != null)
+		UnnamedPipeIdentifier other = (UnnamedPipeIdentifier) obj;
+		if (fd0 == null) {
+			if (other.fd0 != null)
 				return false;
-		} else if (!path.equals(other.path))
+		} else if (!fd0.equals(other.fd0))
+			return false;
+		if (fd1 == null) {
+			if (other.fd1 != null)
+				return false;
+		} else if (!fd1.equals(other.fd1))
+			return false;
+		if (pid == null) {
+			if (other.pid != null)
+				return false;
+		} else if (!pid.equals(other.pid))
 			return false;
 		return true;
 	}
+	
+	
 }

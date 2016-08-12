@@ -20,14 +20,14 @@
 
 package spade.reporter.audit;
 
-public class UnixSocketIdentity extends IdentityWithPath{
+public class FileIdentifier extends IdentifierWithPath{
 	
-	public UnixSocketIdentity(String path){
+	public FileIdentifier(String path){
 		super(path);
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_SOCKET;
+		return SUBTYPE_FILE;
 	}
 	
 }

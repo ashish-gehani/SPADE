@@ -23,42 +23,50 @@ package spade.reporter.audit;
 import java.util.HashMap;
 import java.util.Map;
 
-public class UnknownIdentity implements ArtifactIdentity{
-
-	private String pid, fd;
+public class MemoryIdentifier extends ArtifactIdentifier{
 	
-	public UnknownIdentity(String pid, String fd){
+	private String memoryAddress;
+	private String size;
+	private String pid;
+	
+	public MemoryIdentifier(String pid, String memoryAddress, String size){
+		this.memoryAddress = memoryAddress;
+		this.size = size;
 		this.pid = pid;
-		this.fd = fd;
 	}
 	
-	public String getFD(){
-		return fd;
+	public String getMemoryAddress(){
+		return memoryAddress;
 	}
-
-	public String getPID(){
+		
+	public String getSize(){
+		return size;
+	}
+	
+	public String getPid(){
 		return pid;
 	}
-	
+
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-//		annotations.put("pid", pid); //TODO
-//		annotations.put("fd", fd);
-		annotations.put("path", "/pid/"+pid+"/fd/"+fd);
+		annotations.put("memory address", memoryAddress);
+		annotations.put("size", size);
+		annotations.put("pid", pid);
 		return annotations;
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_UNKNOWN;
+		return SUBTYPE_MEMORY;
 	}
-	
+
 	@Override
-	public int hashCode(){
+	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
+		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
 		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((size == null) ? 0 : size.hashCode());
 		return result;
 	}
 
@@ -70,17 +78,23 @@ public class UnknownIdentity implements ArtifactIdentity{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		UnknownIdentity other = (UnknownIdentity) obj;
-		if (fd == null) {
-			if (other.fd != null)
+		MemoryIdentifier other = (MemoryIdentifier) obj;
+		if (memoryAddress == null) {
+			if (other.memoryAddress != null)
 				return false;
-		} else if (!fd.equals(other.fd))
+		} else if (!memoryAddress.equals(other.memoryAddress))
 			return false;
 		if (pid == null) {
 			if (other.pid != null)
 				return false;
 		} else if (!pid.equals(other.pid))
 			return false;
+		if (size == null) {
+			if (other.size != null)
+				return false;
+		} else if (!size.equals(other.size))
+			return false;
 		return true;
 	}
+
 }

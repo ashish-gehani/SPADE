@@ -19,9 +19,9 @@
  */
 package spade.reporter.audit;
 
-public class NamedPipeIdentity extends IdentityWithPath{
+public class NamedPipeIdentifier extends IdentifierWithPath{
 	
-	public NamedPipeIdentity(String path){
+	public NamedPipeIdentifier(String path){
 		super(path);
 	}
 	
