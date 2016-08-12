@@ -189,8 +189,6 @@ public class Audit extends AbstractReporter {
     
     private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
     
-    private String inputAuditLogFile = null;
-    
     // Just a human-friendly renaming of null
     private final static String NOT_SET = null;
     // Timestamp that is used to identify when the time has changed in unit begin. Assumes that the timestamps are received in sorted order
@@ -204,6 +202,9 @@ public class Audit extends AbstractReporter {
     //a hashset to keep track of seen record types which aren't handled by Audit reporter yet. 
     //Added to avoid output of redundant messages to spade log.
     private final Set<String> seenTypesOfUnsupportedRecords = new HashSet<String>();
+           
+    //List of audit log files
+    private final List<String> inputAuditLogFiles = new ArrayList<String>();
     
     @Override
     public boolean launch(String arguments) {
@@ -300,10 +301,10 @@ public class Audit extends AbstractReporter {
             logger.log(Level.WARNING, "Error reading boot time information from /proc/", e);
         }
         
-        inputAuditLogFile = args.get("inputLog");
-        if(inputAuditLogFile != null){ //if a path is passed but it is not a valid file then throw an error
+        String inputAuditLogFileArgument = args.get("inputLog");
+        if(inputAuditLogFileArgument != null){ //if a path is passed but it is not a valid file then throw an error
         	
-        	if(!new File(inputAuditLogFile).exists()){
+        	if(!new File(inputAuditLogFileArgument).exists()){
         		logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist.");
         		return false;
         	}
@@ -321,67 +322,102 @@ public class Audit extends AbstractReporter {
         		return false;
         	}
         	
-        	if(SORTLOG){
-        		try{
-        			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
-        			String sortCommand = SPADE_ROOT + "bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog;
-        			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"' using command '"+sortCommand+"'");
-        			List<String> output = Execute.getOutput(sortCommand);
-        			logger.log(Level.INFO, output.toString());
-        			
-        			inputAuditLogFile = sortedInputAuditLog;
-        			if(!new File(inputAuditLogFile).exists()){
-                		logger.log(Level.SEVERE, "Failed to write sorted file to '"+inputAuditLogFile+"'");
-                		return false;
-                	}else{
-                		logger.log(Level.INFO, "File sorted successfully");
-                	}
-        			
-        		}catch(Exception e){
-        			logger.log(Level.SEVERE, "Failed to sort input audit log file at '"+inputAuditLogFile+"'", e);
-        			return false;
-        		}
-        	}
-        	        	
+        	boolean rotate = false;
+            if("true".equals(args.get("rotate"))){
+            	rotate = true;
+            }
+            
+            inputAuditLogFiles.add(inputAuditLogFileArgument); //add the file in the argument
+            if(rotate){ //if rotate is true then add the rest too based on the decided convention
+            	//convention: name format of files to be processed -> name.1, name.2 and so on where name is the name of the file passed in as argument
+            	//can only process 99 logs
+            	for(int logCount = 1; logCount<=99; logCount++){
+            		if(new File(inputAuditLogFileArgument + "." + logCount).exists()){
+            			inputAuditLogFiles.add(inputAuditLogFileArgument + "." + logCount);
+            		}else{ //if a missing log then don't process any ones after that even if they exist
+            			break;
+            		}
+            	}
+            }
+            
+            logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
+                    	
         	auditLogThread = new Thread(new Runnable(){
     			public void run(){
-    				BatchReader inputLogReader = null;
-    	        	try{
-    	        		inputLogReader = new BatchReader(new BufferedReader(new FileReader(inputAuditLogFile)));
-    	        		String line = null;
-    	        		while((!shutdown || WAIT_FOR_LOG_END) && (line = inputLogReader.readLine()) != null){
-    	        			parseEventLine(line);
-    	        		}
-    	        		
-    	        		// Either the reporter has been shutdown or the log has been ingested
-    	        		boolean printed = false;
-
-        	        	while(!shutdown){
-        	        		if(!printed && getBuffer().size() == 0){//buffer processed
-        	        			printed = true;
-        	        			logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
-        	        		}
-        	        		try{
-        	        			Thread.sleep(BUFFER_DRAIN_DELAY);
-        	        		}catch(Exception e){
-        	        			//logger.log(Level.SEVERE, null, e);
-        	        		}
+    				
+    				for(String inputAuditLogFile : inputAuditLogFiles){
+    					
+    					if(shutdown){
+    						break; //exit loop if shutdown has been called
     					}
-        	        	if(!printed){
-        	        		logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
+    					
+    					if(SORTLOG){
+        	        		try{
+        	        			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
+        	        			String sortCommand = SPADE_ROOT + "bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog;
+        	        			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"' using command '"+sortCommand+"'");
+        	        			List<String> output = Execute.getOutput(sortCommand);
+        	        			logger.log(Level.INFO, output.toString());
+        	        			
+        	        			inputAuditLogFile = sortedInputAuditLog;
+        	        			if(!new File(inputAuditLogFile).exists()){
+        	                		logger.log(Level.SEVERE, "Failed to write sorted file to '"+inputAuditLogFile+"'");
+        	                		break; // a way of exiting the thread
+        	                	}else{
+        	                		logger.log(Level.INFO, "File sorted successfully");
+        	                	}
+        	        			
+        	        		}catch(Exception e){
+        	        			logger.log(Level.SEVERE, "Failed to sort input audit log file at '"+inputAuditLogFile+"'", e);
+        	        			break; // a way of exiting the thread
+        	        		}
         	        	}
-    	        	}catch(Exception e){
-    	        		logger.log(Level.SEVERE, "Audit log processing failed: " + inputAuditLogFile, e);
-    	        	}finally{
-    	        		try{
-    	        			if(inputLogReader != null){
-    	        				inputLogReader.close();
-    	        			}
-    	        		}catch(Exception e){
-    	        			logger.log(Level.WARNING, "Failed to close audit input log reader", e);
-    	        		}
-    	        		deleteCacheMaps();
-    	        	}
+        				
+        				BatchReader inputLogReader = null;
+        	        	try{
+        	        		inputLogReader = new BatchReader(new BufferedReader(new FileReader(inputAuditLogFile)));
+        	        		String line = "";
+        	        		while((!shutdown || WAIT_FOR_LOG_END) && (line = inputLogReader.readLine()) != null){
+        	        			parseEventLine(line);
+        	        		}
+        	        		
+        	        		// Possible cases to be here: 1) shutdown called i.e. log not read completely, 2) log read completely
+        	        		// Let the buffer drain while checking for shutdown
+            	        	while(getBuffer().size() > 0){
+            	        		if(shutdown){
+            	        			break;
+            	        		}
+            	        		try{
+            	        			Thread.sleep(BUFFER_DRAIN_DELAY);
+            	        		}catch(Exception e){
+            	        			//logger.log(Level.SEVERE, null, e);
+            	        		}
+        					}
+            	        	
+            	        	if(line == null){ // Means that EOF was reached
+        	        			if(getBuffer().size() == 0){ // Buffer emptied
+        	        				logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
+        	        			}else{ // Buffer size isn't 0 then it means that shutdown was called
+        	        				logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFile);
+        	        			}
+        	        		}else{ // Means that shutdown was called before EOF reached 
+        	        			logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFile);
+        	        		}
+        	        	}catch(Exception e){
+        	        		logger.log(Level.SEVERE, "Audit log processing failed: " + inputAuditLogFile, e);
+        	        		break;
+        	        	}finally{
+        	        		try{
+        	        			if(inputLogReader != null){
+        	        				inputLogReader.close();
+        	        			}
+        	        		}catch(Exception e){
+        	        			logger.log(Level.WARNING, "Failed to close audit input log reader", e);
+        	        		}
+        	        	}
+    				}
+    				//after processing all the files delete the cache maps or when shutdown has been called
+    				deleteCacheMaps();
     			}
     		});
         	auditLogThread.start();
