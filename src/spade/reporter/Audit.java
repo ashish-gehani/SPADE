@@ -184,6 +184,9 @@ public class Audit extends AbstractReporter {
     
     private boolean WAIT_FOR_LOG_END = false;
     
+    // Flag to use to decide whether to generate OPM objects for the following syscalls or not: exit, close, unlink
+    private boolean CONTROL = true;
+    
 //  To toggle monitoring of mmap, mmap2 and mprotect syscalls
     private boolean USE_MEMORY_SYSCALLS = true;
     
@@ -275,6 +278,9 @@ public class Audit extends AbstractReporter {
         }
         if("0".equals(args.get("auditctlSuccessFlag"))){
         	AUDITCTL_SYSCALL_SUCCESS_FLAG = "0";
+        }
+        if("false".equals(args.get("control"))){
+        	CONTROL = false;
         }
         // End of experimental arguments
 
@@ -1234,40 +1240,42 @@ public class Audit extends AbstractReporter {
     	// - CWD
     	// - EOE
     	
-    	String eventId = eventData.get("eventid");
-    	String pid = eventData.get("pid");
-    	String cwd = eventData.get("cwd");
-    	String deletedPath = null;
-    	
-    	Map<Integer, String> deletedPaths = getPathsWithNametype(eventData, "DELETE");
-    	
-    	if(deletedPaths.size() == 0){
-    		log(Level.INFO, "PATH record with nametype DELETE missing", null, eventId, syscall);
-    		return;
-    	}else{
-    		deletedPath = deletedPaths.values().iterator().next();
+    	if(CONTROL){
+	    	String eventId = eventData.get("eventid");
+	    	String pid = eventData.get("pid");
+	    	String cwd = eventData.get("cwd");
+	    	String deletedPath = null;
+	    	
+	    	Map<Integer, String> deletedPaths = getPathsWithNametype(eventData, "DELETE");
+	    	
+	    	if(deletedPaths.size() == 0){
+	    		log(Level.INFO, "PATH record with nametype DELETE missing", null, eventId, syscall);
+	    		return;
+	    	}else{
+	    		deletedPath = deletedPaths.values().iterator().next();
+	    	}
+	    	 
+	    	if(syscall == SYSCALL.UNLINK){
+		    	deletedPath = constructPath(deletedPath, cwd);
+	    	}else if(syscall == SYSCALL.UNLINKAT){
+	    		deletedPath = constructPathSpecial(deletedPath, eventData.get("a0"), cwd, pid, eventId, syscall); 		
+	    	}else{
+	    		log(Level.INFO, "Unexpected syscall '"+syscall+"' in UNLINK handler", null, eventId, syscall);
+	    		return;
+	    	}
+	    	
+	    	if(deletedPath == null){
+	    		log(Level.INFO, "Failed to build absolute path from log data", null, eventId, syscall);
+	    		return;
+	    	}
+	    	
+	    	ArtifactIdentifier artifactIdentifier = getValidArtifactIdentifierForPath(deletedPath);
+	    	
+	    	Artifact artifact = putArtifact(eventData, artifactIdentifier, false);    	
+	    	Process process = putProcess(eventData);    	
+	    	WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
+	    	putEdge(deletedEdge, getOperation(syscall), eventData.get("time"), eventData.get("eventid"), DEV_AUDIT);
     	}
-    	 
-    	if(syscall == SYSCALL.UNLINK){
-	    	deletedPath = constructPath(deletedPath, cwd);
-    	}else if(syscall == SYSCALL.UNLINKAT){
-    		deletedPath = constructPathSpecial(deletedPath, eventData.get("a0"), cwd, pid, eventId, syscall); 		
-    	}else{
-    		log(Level.INFO, "Unexpected syscall '"+syscall+"' in UNLINK handler", null, eventId, syscall);
-    		return;
-    	}
-    	
-    	if(deletedPath == null){
-    		log(Level.INFO, "Failed to build absolute path from log data", null, eventId, syscall);
-    		return;
-    	}
-    	
-    	ArtifactIdentifier artifactIdentifier = getValidArtifactIdentifierForPath(deletedPath);
-    	
-    	Artifact artifact = putArtifact(eventData, artifactIdentifier, false);    	
-    	Process process = putProcess(eventData);    	
-    	WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
-    	putEdge(deletedEdge, getOperation(syscall), eventData.get("time"), eventData.get("eventid"), DEV_AUDIT);
     }
     
     private void handleExit(Map<String, String> eventData, SYSCALL syscall){
@@ -1277,8 +1285,12 @@ public class Audit extends AbstractReporter {
     	
     	String pid = eventData.get("pid");
     	
-    	Process process = putProcess(eventData); //put Process vertex if it didn't exist before
-    	process = getContainingProcessVertex(pid); //edge to be drawn from the containing to the containing one
+    	if(CONTROL){
+	    	Process process = putProcess(eventData); //put Process vertex if it didn't exist before
+	    	process = getContainingProcessVertex(pid); //edge to be drawn from the containing to the containing one
+    	   	WasTriggeredBy exitEdge = new WasTriggeredBy(process, process);
+	    	putEdge(exitEdge, getOperation(syscall), eventData.get("time"), eventData.get("eventid"), DEV_AUDIT);
+    	}
     	
     	// Now clearing the process unit stack after the Process vertex has been gotten.
     	// If cleared before putVertex then it would populate the processUnitStack after it has been cleared.
@@ -1287,9 +1299,6 @@ public class Audit extends AbstractReporter {
     	pidToMemAddress.remove(pid);  // Remove all the beep unit memory addresses
     	iterationNumber.remove(pid); // Remove the iteration numbers for the units of this process
     	descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
-    	    	
-    	WasTriggeredBy exitEdge = new WasTriggeredBy(process, process);
-    	putEdge(exitEdge, getOperation(syscall), eventData.get("time"), eventData.get("eventid"), DEV_AUDIT);
     }
     
     private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -1671,12 +1680,16 @@ public class Audit extends AbstractReporter {
     		artifactIdentifier = new FileIdentifier(path);
     	}
     
+        boolean openedForRead = false;
+        
     	if ((flags & O_RDONLY) == O_RDONLY) {
     		Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
             edge = new Used(process, vertex);
+            openedForRead = true;
     	} else if((flags & O_WRONLY) == O_WRONLY || (flags & O_RDWR) == O_RDWR){
     		Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
 	        edge = new WasGeneratedBy(vertex, process);
+	        openedForRead = false;
         } else{
         	log(Level.INFO, "Unhandled value of FLAGS argument '"+flags+"'", null, eventData.get("eventid"), syscall);
         	return;
@@ -1684,7 +1697,7 @@ public class Audit extends AbstractReporter {
         
         if(edge != null){
         	//everything happened successfully. add it to descriptors
-        	descriptors.addDescriptor(pid, fd, artifactIdentifier);
+        	descriptors.addDescriptor(pid, fd, artifactIdentifier, openedForRead);
         	
 	        putEdge(edge, getOperation(syscall), time, eventData.get("eventid"), DEV_AUDIT);
         }
@@ -1695,23 +1708,31 @@ public class Audit extends AbstractReporter {
         // - SYSCALL
         // - EOE
     	String pid = eventData.get("pid");
-    	String time = eventData.get("time");
-    	String eventId = eventData.get("eventid");
-        String fd = String.valueOf(CommonFunctions.parseLong(eventData.get("a0"), -1L));
-        ArtifactIdentifier closedArtifactIdentifier = descriptors.removeDescriptor(pid, fd);
-        if(closedArtifactIdentifier != null){
-        	Process process = putProcess(eventData);
-	        Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, false);
-	        AbstractEdge edge = null;
-        	if(closedArtifactIdentifier.hasBeenWrittenTo()){
-        		edge = new WasGeneratedBy(artifact, process);  
-        	}else{
-        		edge = new Used(process, artifact);
-        	}	        
-	        putEdge(edge, getOperation(SYSCALL.CLOSE), time, eventId, DEV_AUDIT);
-        }else{
-        	log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, eventId, SYSCALL.CLOSE);
-        }
+    	String fd = String.valueOf(CommonFunctions.parseLong(eventData.get("a0"), -1L));
+    	ArtifactIdentifier closedArtifactIdentifier = descriptors.removeDescriptor(pid, fd);
+
+    	if(CONTROL){
+	    	String time = eventData.get("time");
+	    	String eventId = eventData.get("eventid");
+	        if(closedArtifactIdentifier != null){
+	        	Process process = putProcess(eventData);
+		        Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, false);
+		        AbstractEdge edge = null;
+		        Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
+	        	if(wasOpenedForRead == null){
+	        		// Not drawing an edge because didn't seen an open
+	        	}else if(wasOpenedForRead){
+	        		edge = new Used(process, artifact);
+	        	}else {
+	        		edge = new WasGeneratedBy(artifact, process);
+	        	}	   
+	        	if(edge != null){
+	        		putEdge(edge, getOperation(SYSCALL.CLOSE), time, eventId, DEV_AUDIT);
+	        	}
+	        }else{
+	        	log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, eventId, SYSCALL.CLOSE);
+	        }
+    	}
        
         //there is an option to either handle epochs 1) when artifact opened/created or 2) when artifacts deleted/closed.
         //handling epoch at opened/created in all cases
@@ -1764,7 +1785,6 @@ public class Audit extends AbstractReporter {
 	        WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 	        wgb.addAnnotation("size", bytesWritten);
 	        putEdge(wgb, getOperation(syscall), time, eventData.get("eventid"), DEV_AUDIT);
-	        artifactIdentifier.setHasBeenWrittenTo(true);
         }
     }
 
@@ -1825,7 +1845,7 @@ public class Audit extends AbstractReporter {
 	        	descriptors.addUnknownDescriptor(pid, fd);
 	        	getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(eventData.get("eventid"));
 	        }
-	        descriptors.addDescriptor(pid, newFD, descriptors.getDescriptor(pid, fd));
+	        descriptors.duplicateDescriptor(pid, fd, newFD);
         }
     }
 
@@ -2263,11 +2283,13 @@ public class Audit extends AbstractReporter {
 
         String fd0 = eventData.get("fd0");
         String fd1 = eventData.get("fd1");
-        ArtifactIdentifier pipeInfo = new UnnamedPipeIdentifier(pid, fd0, fd1);
-        descriptors.addDescriptor(pid, fd0, pipeInfo);
-        descriptors.addDescriptor(pid, fd1, pipeInfo);
+        ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
+        ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
+        descriptors.addDescriptor(pid, fd0, readPipeIdentifier, true);
+        descriptors.addDescriptor(pid, fd1, writePipeIdentifier, false);
         
-        getArtifactProperties(pipeInfo).markNewEpoch(eventData.get("eventid"));
+        getArtifactProperties(readPipeIdentifier).markNewEpoch(eventData.get("eventid"));
+        getArtifactProperties(writePipeIdentifier).markNewEpoch(eventData.get("eventid"));
     }    
     
     
@@ -2313,7 +2335,7 @@ public class Audit extends AbstractReporter {
             //Doing this to be able to link the accept syscalls to the correct artifactIdentifier.
             //In case of unix socket accept, the saddr is almost always reliably invalid
             String socketFd = eventData.get("a0");
-            descriptors.addDescriptor(pid, socketFd, artifactIdentifier);
+            descriptors.addDescriptor(pid, socketFd, artifactIdentifier, false);
         }else{
         	log(Level.INFO, "Invalid saddr '"+saddr+"'", null, eventData.get("eventid"), syscall);
         }
@@ -2336,7 +2358,7 @@ public class Audit extends AbstractReporter {
         	Process process = putProcess(eventData);
         	// update file descriptor table
             String fd = eventData.get("a0");
-            descriptors.addDescriptor(pid, fd, parsedArtifactIdentifier);
+            descriptors.addDescriptor(pid, fd, parsedArtifactIdentifier, false);
             getArtifactProperties(parsedArtifactIdentifier).markNewEpoch(eventData.get("eventid"));
         	
             Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, false);
@@ -2371,7 +2393,7 @@ public class Audit extends AbstractReporter {
         		if(UnixSocketIdentifier.class.equals(boundArtifactIdentifier.getClass()) && !UNIX_SOCKETS){
             		return;
             	}
-        		descriptors.addDescriptor(pid, fd, boundArtifactIdentifier);
+        		descriptors.addDescriptor(pid, fd, boundArtifactIdentifier, false);
         	}
         }else if(UnixSocketIdentifier.class.equals(parsedArtifactIdentifier.getClass())){
         	if(UnixSocketIdentifier.class.equals(parsedArtifactIdentifier.getClass()) && !UNIX_SOCKETS){
@@ -2381,18 +2403,18 @@ public class Audit extends AbstractReporter {
         		log(Level.INFO, "Invalid or no 'saddr' in syscall", null, eventId, syscall);
         		return;
         	}else{ //is a unix socket identifier
-        		descriptors.addDescriptor(pid, fd, boundArtifactIdentifier);
+        		descriptors.addDescriptor(pid, fd, boundArtifactIdentifier, false);
         	}
         }else if(NetworkSocketIdentifier.class.equals(parsedArtifactIdentifier.getClass())){
         	//anything goes. dont really need the bound. but if it is there then its good
         	if(boundArtifactIdentifier == null || !NetworkSocketIdentifier.class.equals(boundArtifactIdentifier.getClass())){
-        		descriptors.addDescriptor(pid, socketFd, new NetworkSocketIdentifier("", "", "", "", "")); //add a dummy one if null or a mismatch
+        		descriptors.addDescriptor(pid, socketFd, new NetworkSocketIdentifier("", "", "", "", ""), false); //add a dummy one if null or a mismatch
         	}
         	NetworkSocketIdentifier boundSocketIdentifier = (NetworkSocketIdentifier)descriptors.getDescriptor(pid, socketFd);
         	NetworkSocketIdentifier parsedSocketIdentifier = (NetworkSocketIdentifier)parsedArtifactIdentifier;
         	ArtifactIdentifier socketIdentifier = new NetworkSocketIdentifier(parsedSocketIdentifier.getSourceHost(), parsedSocketIdentifier.getSourcePort(),
         			boundSocketIdentifier.getDestinationHost(), boundSocketIdentifier.getDestinationPort(), parsedSocketIdentifier.getProtocol());
-        	descriptors.addDescriptor(pid, fd, socketIdentifier);
+        	descriptors.addDescriptor(pid, fd, socketIdentifier, false);
         }else{
         	log(Level.INFO, "Unexpected artifact type '"+parsedArtifactIdentifier.getClass()+"'", null, eventId, syscall);
         	return;
@@ -2439,7 +2461,6 @@ public class Audit extends AbstractReporter {
 	        WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 	        wgb.addAnnotation("size", bytesSent);
 	        putEdge(wgb, getOperation(syscall), time, eventData.get("eventid"), DEV_AUDIT);
-	        artifactIdentifier.setHasBeenWrittenTo(true);
         }        
     }
     

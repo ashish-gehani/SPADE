@@ -37,27 +37,32 @@ public abstract class ArtifactIdentifier {
 								SUBTYPE_UNKNOWN = "unknown";
 	
 	/**
-	 * Used to tell whether the artifact has been written to
+	 * Used to tell whether the artifact was opened for reading or writing
+	 * 
+	 * 1) true means that it was opened for read
+	 * 2) false means that it was opened for write
+	 * 3) null means that opened wasn't seen
+	 * 
 	 * Note: Value of this variable NOT to be used in {@link #equals(Object) equals} or {@link #hashCode() hashCode} function
 	 */
-	private boolean hasBeenWrittenTo = false;
+	private Boolean openedForRead = null;
 	
 	/**
-	 * Returns the value of the variable used to tell if the artifact file descriptor was written to
+	 * Returns the value of the variable used to tell if the artifact file descriptor was opened for read or write
 	 * 
-	 * @return true, false
+	 * @return true, false, null
 	 */
-	public boolean hasBeenWrittenTo(){
-		return hasBeenWrittenTo;
+	public Boolean wasOpenedForRead(){
+		return openedForRead;
 	}
 	
 	/**
-	 * Sets whether the file descriptor was written to
+	 * Sets whether the artifact was opened for read or write
 	 *
-	 * @param hasBeenWrittenTo true, false
+	 * @param hasBeenWrittenTo true, false, null
 	 */
-	public void setHasBeenWrittenTo(boolean hasBeenWrittenTo){
-		this.hasBeenWrittenTo = hasBeenWrittenTo;
+	public void setOpenedForRead(Boolean openedForRead){
+		this.openedForRead = openedForRead;
 	}
 	
 	/**

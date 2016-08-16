@@ -24,15 +24,36 @@ import java.util.Map;
 
 public class DescriptorManager {
 
+	/**
+	 * Map of process id to file descriptor to the artifact identifier
+	 */
 	private Map<String, Map<String, ArtifactIdentifier>> descriptors = new HashMap<>();
-	
-	public void addDescriptor(String pid, String fd, ArtifactIdentifier artifactInfo){
+		
+	/**
+	 * Adds an artifact identifier against the pid, fd combination
+	 * 
+	 * @param pid process id
+	 * @param fd file descriptor number
+	 * @param artifactIdentifier ArtifactIdentifier subclass
+	 * @param wasOpenedForRead null, true, false. Whether the artifact was opened for read or write
+	 */
+	public void addDescriptor(String pid, String fd, ArtifactIdentifier artifactIdentifier, Boolean wasOpenedForRead){
+		if(artifactIdentifier == null){
+			return;
+		}
 		if(descriptors.get(pid) == null){
 			descriptors.put(pid, new HashMap<String, ArtifactIdentifier>());
 		}
-		descriptors.get(pid).put(fd, artifactInfo);
+		descriptors.get(pid).put(fd, artifactIdentifier);
+		artifactIdentifier.setOpenedForRead(wasOpenedForRead);
 	}
 	
+	/**
+	 * Copies all artifact identifiers from the given map to the given process id
+	 * 
+	 * @param pid process id
+	 * @param newDescriptors descriptors to add the given process id
+	 */
 	public void addDescriptors(String pid, Map<String, ArtifactIdentifier> newDescriptors){
 		if(descriptors.get(pid) == null){
 			descriptors.put(pid, new HashMap<String, ArtifactIdentifier>());
@@ -40,10 +61,22 @@ public class DescriptorManager {
 		descriptors.get(pid).putAll(newDescriptors);
 	}
 	
+	/**
+	 * Remove descriptors from internal map for the given process id
+	 * 
+	 * @param pid process id
+	 */
 	public void removeDescriptorsOf(String pid){
 		descriptors.remove(pid);
 	}
 	
+	/**
+	 * Removes the descriptor if it exists and returns that
+	 * 
+	 * @param pid process id
+	 * @param fd file descriptor number
+	 * @return ArtifactIdentifier subclass instance or null
+	 */
 	public ArtifactIdentifier removeDescriptor(String pid, String fd){
 		if(descriptors.get(pid) == null){
 			return null;
@@ -51,6 +84,13 @@ public class DescriptorManager {
 		return descriptors.get(pid).remove(fd);
 	}
 	
+	/**
+	 * Returns a descriptor
+	 * 
+	 * @param pid process id
+	 * @param fd file descriptor number
+	 * @return ArtifactIdentifier subclass instance or null
+	 */
 	public ArtifactIdentifier getDescriptor(String pid, String fd){
 		if(descriptors.get(pid) == null){
 			descriptors.put(pid, new HashMap<String, ArtifactIdentifier>());
@@ -72,6 +112,31 @@ public class DescriptorManager {
 		return descriptors.get(pid).get(fd);
 	}
 	
+	/**
+	 * Duplicates a descriptor by copying it
+	 *  
+	 * @param pid process id
+	 * @param oldFd old file descriptor number
+	 * @param newFd new file descriptor number
+	 */
+	public void duplicateDescriptor(String pid, String oldFd, String newFd){
+		if(descriptors.get(pid) == null){
+			return;
+		}else{
+			if(descriptors.get(pid).get(oldFd) == null){
+				return;
+			}else{
+				descriptors.get(pid).put(newFd, descriptors.get(pid).get(oldFd));
+			}
+		}
+	}
+	
+	/**
+	 * Copies all the descriptors from one pid to another while retaining the old ones if any
+	 * 
+	 * @param fromPid process id of the process to copy from
+	 * @param toPid process id of the process to copy to
+	 */
 	public void copyDescriptors(String fromPid, String toPid){
 		if(descriptors.get(fromPid) == null){
 			return;
@@ -82,6 +147,13 @@ public class DescriptorManager {
 		descriptors.get(toPid).putAll(descriptors.get(fromPid));
 	}
 	
+	/**
+	 * Replaces all the FDs of the process id with the given one.
+	 * The FDs aren't copied but linked by reference.
+	 * 
+	 * @param fromPid process id to link FDs of
+	 * @param toPid process id to link FDs to
+	 */
 	public void linkDescriptors(String fromPid, String toPid){
 		if(descriptors.get(fromPid) == null){
 			descriptors.put(fromPid, new HashMap<String, ArtifactIdentifier>());
@@ -89,6 +161,11 @@ public class DescriptorManager {
 		descriptors.put(toPid, descriptors.get(fromPid));
 	}
 	
+	/**
+	 * Unlinks the reference of the FDs for the given process id and hard copies them
+	 * 
+	 * @param pid process id
+	 */
 	public void unlinkDescriptors(String pid){
 		if(descriptors.get(pid) == null){
 			return;
@@ -96,7 +173,13 @@ public class DescriptorManager {
 		descriptors.put(pid, new HashMap<String, ArtifactIdentifier>(descriptors.get(pid)));
 	}
 	
+	/**
+	 * Adds an UnknownIdentifier
+	 * 
+	 * @param pid process id
+	 * @param fd file descriptor number
+	 */
 	public void addUnknownDescriptor(String pid, String fd){
-		addDescriptor(pid, fd, new UnknownIdentifier(pid, fd));
+		addDescriptor(pid, fd, new UnknownIdentifier(pid, fd), null);
 	}
 }
