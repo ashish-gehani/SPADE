@@ -117,7 +117,7 @@ public class Control {
                     
                     synchronized (SPADEControlInLock) {
                     	SPADEControlInLock.notify(); //notify the main thread that it is safe to use spadeControlIn now.
-					}
+		    }
 
                     while (!shutdown) {
                         // This thread keeps reading from the output pipe and
@@ -153,7 +153,8 @@ public class Control {
                     SPADEControlIn.close();
                 } catch (NumberFormatException | IOException | InterruptedException exception) {
                     if (!shutdown) {
-                        System.out.println("Error connecting to SPADE Kernel");
+                        System.out.println("Exception when communicating with SPADE Kernel");
+			exception.printStackTrace(errorStream);
                     }
                     System.exit(-1);
                 }
