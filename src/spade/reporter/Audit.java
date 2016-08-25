@@ -174,6 +174,8 @@ public class Audit extends AbstractReporter {
     //pid to set of process hashes seen so far. Used to check if a process vertex has been added to internal buffer before or not
     private Map<String, Set<String>> pidToProcessHashes = new HashMap<String, Set<String>>();
     
+    private java.lang.Process auditProcess = null;
+    
     @Override
     public boolean launch(String arguments) {
 
@@ -394,7 +396,7 @@ public class Audit extends AbstractReporter {
 	            Runnable eventProcessor = new Runnable() {
 	                public void run() {
 	                    try {
-	                        java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
+	                        auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
 	                        AuditEventReader auditEventReader = new AuditEventReader(auditReaderWindowSize, auditProcess.getInputStream());
 	                        if(auditOutputLogPath != null){
 	                        	auditEventReader.setOutputLog(new FileOutputStream(auditOutputLogPath));
@@ -409,8 +411,7 @@ public class Audit extends AbstractReporter {
 	                        //So, deleting the rules before destroying the spadeSocketBridge process.
 	                        
 	                        Runtime.getRuntime().exec("auditctl -D").waitFor();
-	                        auditProcess.destroy();
-	                        
+	                        //moved process destroy to shutdown so that stream is closed on shutdown and process breaks out of readEventData above.
 	                        if(shutdown){
 	                        	auditEventReader.stopReading();
 	                        	Map<String, String> eventData = null;
@@ -418,7 +419,6 @@ public class Audit extends AbstractReporter {
 	                        		finishEvent(eventData);
 	                        	}
 	                        }
-	                        
 	                        auditEventReader.close();
 	                    } catch (Exception e) {
 	                        logger.log(Level.SEVERE, "Error launching main runnable thread", e);
@@ -817,6 +817,14 @@ public class Audit extends AbstractReporter {
         	}
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error shutting down", e);
+        }
+        try{
+        	if(auditProcess != null){
+        		//moved process destroy to shutdown so that stream is closed on shutdown in case of live audit and process breaks out of the blocking read call
+        		auditProcess.destroyForcibly();
+        	}
+        }catch(Exception e){
+        	logger.log(Level.SEVERE, "Error trying to kill process spadeSocketBridge", e);
         }
         return true;
     }
