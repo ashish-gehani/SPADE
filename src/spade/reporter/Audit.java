@@ -409,7 +409,7 @@ public class Audit extends AbstractReporter {
 		                            	finishEvent(eventData);
 		                            }
 	                        	}catch(Exception e){
-	                        		if(shutdown && !auditProcess.isAlive()){ 
+	                        		if(shutdown){ 
 	                        			// log nothing because exception happened of shutdown function call destroying the process
 	                        		}else{
 	                        			logger.log(Level.SEVERE, "Failed to read from spadeSocketBridge", e);
@@ -424,13 +424,10 @@ public class Audit extends AbstractReporter {
 	                        
 	                        // Try to empty the buffers
                         	try{
-                        		int i = 0;
                         		Map<String, String> eventData = null;
 	                        	while((eventData = auditEventReader.readEventData()) != null){
-	                        		i++;
 	                        		finishEvent(eventData);
 	                        	}
-	                        	logger.log(Level.SEVERE, i + " events read from buffer");
                         	}catch(Exception e){
                         		logger.log(Level.SEVERE, "Failed to empty buffers", e);
                         	}
