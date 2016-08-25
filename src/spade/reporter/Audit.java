@@ -20,17 +20,13 @@
 package spade.reporter;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -45,6 +41,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
@@ -56,7 +53,7 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.ArtifactIdentifier;
 import spade.reporter.audit.ArtifactProperties;
-import spade.reporter.audit.BatchReader;
+import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.DescriptorManager;
 import spade.reporter.audit.FileIdentifier;
 import spade.reporter.audit.MemoryIdentifier;
@@ -106,10 +103,6 @@ public class Audit extends AbstractReporter {
   
     private final long BUFFER_DRAIN_DELAY = 500;
     
-    // Store log for debugging purposes
-    private boolean DEBUG_DUMP_LOG;
-    private String DEBUG_DUMP_FILE;
-    private BufferedReader eventReader;
     private volatile boolean shutdown = false;
     private long boottime = 0;
     private final long THREAD_CLEANUP_TIMEOUT = 1000;
@@ -127,10 +120,6 @@ public class Audit extends AbstractReporter {
 
     private final DescriptorManager descriptors = new DescriptorManager();
     
-    // Event buffer map based on <audit_record_id <key, value>> pairs
-//    private final Map<String, Map<String, String>> eventBuffer = new HashMap<>();
-    private ExternalMemoryMap<String, HashMap<String, String>> eventBuffer;
-    
     // Map for artifact infos to versions and bytes read/written on sockets 
     private ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties> artifactIdentifierToArtifactProperties;
     
@@ -140,22 +129,6 @@ public class Audit extends AbstractReporter {
     // Group 2: value
     private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
 
-    // Group 1: node
-    // Group 2: type
-    // Group 3: time
-    // Group 4: recordid
-    private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
-
-    // Group 1: cwd
-    //cwd is either a quoted string or an unquoted string in which case it is in hex format
-    private static final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
-
-    // Group 1: item number
-    // Group 2: name
-    // Group 3: nametype
-    //name is either a quoted string or an unquoted string in which case it is in hex format
-    private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+) .*nametype=([a-zA-Z]*)");
-    
     //  Added to indicate in the output from where the process info was read. Either from 
     //  1) procfs or directly from 2) audit log. 
     private static final String SOURCE = "source",
@@ -164,8 +137,6 @@ public class Audit extends AbstractReporter {
             BEEP = "beep";
     
     private Thread auditLogThread = null;
-    
-    private BufferedWriter dumpWriter = null;
         
     private boolean CREATE_BEEP_UNITS = false;
         
@@ -175,8 +146,6 @@ public class Audit extends AbstractReporter {
     
     private boolean SIMPLIFY = true;
     private boolean PROCFS = false;
-    
-    private boolean SORTLOG = true;
     
     private boolean NET_SOCKET_VERSIONING = false;
     
@@ -200,14 +169,10 @@ public class Audit extends AbstractReporter {
     private Map<UnitVertexIdentifier, Integer> unitIterationRepetitionCounts = new HashMap<UnitVertexIdentifier, Integer>();
         
     //cache maps paths. global so that we delete on exit
-    private String eventBufferCacheDatabasePath, artifactsCacheDatabasePath;
+    private String artifactsCacheDatabasePath;
     
-    //a hashset to keep track of seen record types which aren't handled by Audit reporter yet. 
-    //Added to avoid output of redundant messages to spade log.
-    private final Set<String> seenTypesOfUnsupportedRecords = new HashSet<String>();
-           
-    //List of audit log files
-    private final List<String> inputAuditLogFiles = new ArrayList<String>();
+    //pid to set of process hashes seen so far. Used to check if a process vertex has been added to internal buffer before or not
+    private Map<String, Set<String>> pidToProcessHashes = new HashMap<String, Set<String>>();
     
     @Override
     public boolean launch(String arguments) {
@@ -225,22 +190,19 @@ public class Audit extends AbstractReporter {
         }
 
         AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeSocketBridge";
-        DEBUG_DUMP_FILE = SPADE_ROOT + "log/LinuxAudit.log";
+        String auditOutputLog = SPADE_ROOT + "log/LinuxAudit.log";
 
         Map<String, String> args = parseKeyValPairs(arguments);
-        if (args.containsKey("outputLog")) {
-            DEBUG_DUMP_LOG = true;
-            if (!args.get("outputLog").isEmpty()) {
-                DEBUG_DUMP_FILE = args.get("outputLog");
-            }
-            try{
-            	dumpWriter = new BufferedWriter(new FileWriter(DEBUG_DUMP_FILE));
-            }catch(Exception e){
-            	logger.log(Level.WARNING, "Failed to create output log writer. Continuing...", e);
-            }
+        if (args.containsKey("outputLog") && !args.get("outputLog").isEmpty()) {
+        	auditOutputLog = args.get("outputLog");
+        	if(!new File(auditOutputLog).getParentFile().exists()){
+        		auditOutputLog = null;
+        	}
         } else {
-            DEBUG_DUMP_LOG = false;
+        	auditOutputLog = null;
         }
+        
+        final String auditOutputLogPath = auditOutputLog;
         
         // Check if file IO and net IO is also asked by the user to be turned on
         if ("true".equals(args.get("fileIO"))) {
@@ -251,10 +213,6 @@ public class Audit extends AbstractReporter {
         }
         if("true".equals(args.get("units"))){
         	CREATE_BEEP_UNITS = true;
-        }
-        
-        if("false".equals(args.get("sortLog"))){
-        	SORTLOG = false;
         }
         
         // Arguments below are only for experimental use
@@ -307,6 +265,32 @@ public class Audit extends AbstractReporter {
             logger.log(Level.WARNING, "Error reading boot time information from /proc/", e);
         }
         
+        Long auditReaderWindowSizeValue = null;
+        try{
+        	Map<String, String> auditConfigProperties = FileUtility.readConfigFileAsKeyValueMap(Settings.getDefaultConfigFilePath(this.getClass()), "=");
+        	if(auditConfigProperties.get("windowSize") == null){
+        		logger.log(Level.SEVERE, "Undefined window size in audit config");
+        		return false;
+        	}else{
+        		auditReaderWindowSizeValue = CommonFunctions.parseLong(auditConfigProperties.get("windowSize"), null);
+        		if(auditReaderWindowSizeValue == null){
+        			logger.log(Level.SEVERE, "Invalid window size defined in audit config");
+        			return false;
+        		}else{
+        			if(auditReaderWindowSizeValue < 1){
+        				logger.log(Level.SEVERE, "Window size must be greater than 1 (defined in audit config)");
+            			return false;
+        			}
+        		}
+        	}
+        }catch(Exception e){
+        	logger.log(Level.SEVERE, "Failed to read audit config file", e);
+        	return false;
+        }
+        
+        // the value being assigned cannot be null
+        final long auditReaderWindowSize = auditReaderWindowSizeValue;
+        
         String inputAuditLogFileArgument = args.get("inputLog");
         if(inputAuditLogFileArgument != null){ //if a path is passed but it is not a valid file then throw an error
         	
@@ -333,15 +317,14 @@ public class Audit extends AbstractReporter {
             	rotate = true;
             }
             
-            inputAuditLogFiles.add(inputAuditLogFileArgument); //add the file in the argument
+            final LinkedList<String> inputAuditLogFiles = new LinkedList<String>();
+            inputAuditLogFiles.addFirst(inputAuditLogFileArgument); //add the file in the argument
             if(rotate){ //if rotate is true then add the rest too based on the decided convention
             	//convention: name format of files to be processed -> name.1, name.2 and so on where name is the name of the file passed in as argument
             	//can only process 99 logs
             	for(int logCount = 1; logCount<=99; logCount++){
             		if(new File(inputAuditLogFileArgument + "." + logCount).exists()){
-            			inputAuditLogFiles.add(inputAuditLogFileArgument + "." + logCount);
-            		}else{ //if a missing log then don't process any ones after that even if they exist
-            			break;
+            			inputAuditLogFiles.addFirst(inputAuditLogFileArgument + "." + logCount); //adding first so that they are added in the reverse order
             		}
             	}
             }
@@ -351,77 +334,50 @@ public class Audit extends AbstractReporter {
         	auditLogThread = new Thread(new Runnable(){
     			public void run(){
     				
-    				for(String inputAuditLogFile : inputAuditLogFiles){
-    					
-    					if(shutdown){
-    						break; //exit loop if shutdown has been called
+    				AuditEventReader auditEventReader = null;
+    	        	try{
+    	        		auditEventReader = new AuditEventReader(auditReaderWindowSize, inputAuditLogFiles.toArray(new String[]{}));
+    	        		if(auditOutputLogPath != null){
+    	        			auditEventReader.setOutputLog(new FileOutputStream(auditOutputLogPath));
+    	        		}
+    	        		Map<String, String> eventData = new HashMap<String ,String>();
+    	        		while((!shutdown || WAIT_FOR_LOG_END) && (eventData = auditEventReader.readEventData()) != null){
+    	        			finishEvent(eventData);
+    	        		}
+    	        		
+    	        		// Possible cases to be here: 1) shutdown called i.e. log not read completely, 2) log read completely
+    	        		// Let the buffer drain while checking for shutdown
+        	        	while(getBuffer().size() > 0){
+        	        		if(shutdown){
+        	        			break;
+        	        		}
+        	        		try{
+        	        			Thread.sleep(BUFFER_DRAIN_DELAY);
+        	        		}catch(Exception e){
+        	        			//logger.log(Level.SEVERE, null, e);
+        	        		}
     					}
-    					
-    					if(SORTLOG){
-        	        		try{
-        	        			String sortedInputAuditLog = inputAuditLogFile + "." + System.currentTimeMillis();
-        	        			String sortCommand = SPADE_ROOT + "bin/sortAuditLog " + inputAuditLogFile + " " + sortedInputAuditLog;
-        	        			logger.log(Level.INFO, "Sorting audit log file '"+inputAuditLogFile+"' using command '"+sortCommand+"'");
-        	        			List<String> output = Execute.getOutput(sortCommand);
-        	        			logger.log(Level.INFO, output.toString());
-        	        			
-        	        			inputAuditLogFile = sortedInputAuditLog;
-        	        			if(!new File(inputAuditLogFile).exists()){
-        	                		logger.log(Level.SEVERE, "Failed to write sorted file to '"+inputAuditLogFile+"'");
-        	                		break; // a way of exiting the thread
-        	                	}else{
-        	                		logger.log(Level.INFO, "File sorted successfully");
-        	                	}
-        	        			
-        	        		}catch(Exception e){
-        	        			logger.log(Level.SEVERE, "Failed to sort input audit log file at '"+inputAuditLogFile+"'", e);
-        	        			break; // a way of exiting the thread
-        	        		}
-        	        	}
-        				
-        				BatchReader inputLogReader = null;
-        	        	try{
-        	        		inputLogReader = new BatchReader(new BufferedReader(new FileReader(inputAuditLogFile)));
-        	        		String line = "";
-        	        		while((!shutdown || WAIT_FOR_LOG_END) && (line = inputLogReader.readLine()) != null){
-        	        			parseEventLine(line);
-        	        		}
-        	        		
-        	        		// Possible cases to be here: 1) shutdown called i.e. log not read completely, 2) log read completely
-        	        		// Let the buffer drain while checking for shutdown
-            	        	while(getBuffer().size() > 0){
-            	        		if(shutdown){
-            	        			break;
-            	        		}
-            	        		try{
-            	        			Thread.sleep(BUFFER_DRAIN_DELAY);
-            	        		}catch(Exception e){
-            	        			//logger.log(Level.SEVERE, null, e);
-            	        		}
-        					}
-            	        	
-            	        	if(line == null){ // Means that EOF was reached
-        	        			if(getBuffer().size() == 0){ // Buffer emptied
-        	        				logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFile);
-        	        			}else{ // Buffer size isn't 0 then it means that shutdown was called
-        	        				logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFile);
-        	        			}
-        	        		}else{ // Means that shutdown was called before EOF reached 
-        	        			logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFile);
-        	        		}
-        	        	}catch(Exception e){
-        	        		logger.log(Level.SEVERE, "Audit log processing failed: " + inputAuditLogFile, e);
-        	        		break;
-        	        	}finally{
-        	        		try{
-        	        			if(inputLogReader != null){
-        	        				inputLogReader.close();
-        	        			}
-        	        		}catch(Exception e){
-        	        			logger.log(Level.WARNING, "Failed to close audit input log reader", e);
-        	        		}
-        	        	}
-    				}
+        	        	
+        	        	if(eventData == null){ // Means that EOF was reached
+    	        			if(getBuffer().size() == 0){ // Buffer emptied
+    	        				logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFiles);
+    	        			}else{ // Buffer size isn't 0 then it means that shutdown was called
+    	        				logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFiles);
+    	        			}
+    	        		}else{ // Means that shutdown was called before EOF reached 
+    	        			logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFiles);
+    	        		}
+    	        	}catch(Exception e){
+    	        		logger.log(Level.SEVERE, "Audit log processing failed: " + inputAuditLogFiles, e);
+    	        	}finally{
+    	        		try{
+    	        			if(auditEventReader != null){
+    	        				auditEventReader.close();
+    	        			}
+    	        		}catch(Exception e){
+    	        			logger.log(Level.WARNING, "Failed to close audit input log reader", e);
+    	        		}
+    	        	}
     				//after processing all the files delete the cache maps or when shutdown has been called
     				deleteCacheMaps();
     			}
@@ -439,19 +395,23 @@ public class Audit extends AbstractReporter {
 	                public void run() {
 	                    try {
 	                        java.lang.Process auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-	                        eventReader = new BufferedReader(new InputStreamReader(auditProcess.getInputStream()));
+	                        AuditEventReader auditEventReader = new AuditEventReader(auditReaderWindowSize, auditProcess.getInputStream());
+	                        if(auditOutputLogPath != null){
+	                        	auditEventReader.setOutputLog(new FileOutputStream(auditOutputLogPath));
+	                        }
 	                        while (!shutdown) {
-	                            String line = eventReader.readLine();
-	                            if ((line != null) && !line.isEmpty()) {
-	                                parseEventLine(line);
+	                            Map<String, String> eventData = auditEventReader.readEventData();
+	                            if ((eventData != null)) {
+	                            	finishEvent(eventData);
 	                            }
 	                        }
 	                        //Added this command here because once the spadeSocketBridge process has exited any rules involving it cannot be cleared.
 	                        //So, deleting the rules before destroying the spadeSocketBridge process.
+	                        
 	                        Runtime.getRuntime().exec("auditctl -D").waitFor();
-	                        eventReader.close();
 	                        auditProcess.destroy();
-	                    } catch (IOException | InterruptedException e) {
+	                        auditEventReader.close();
+	                    } catch (Exception e) {
 	                        logger.log(Level.SEVERE, "Error launching main runnable thread", e);
 	                    }finally{
 	                    	deleteCacheMaps();
@@ -577,14 +537,11 @@ public class Audit extends AbstractReporter {
     
     private void deleteCacheMaps(){
     	try{
-    		if(eventBufferCacheDatabasePath != null && new File(eventBufferCacheDatabasePath).exists()){
-    			FileUtils.forceDelete(new File(eventBufferCacheDatabasePath));
-    		}
     		if(artifactsCacheDatabasePath != null && new File(artifactsCacheDatabasePath).exists()){
     			FileUtils.forceDelete(new File(artifactsCacheDatabasePath));
     		}
     	}catch(Exception e){
-    		logger.log(Level.WARNING, "Failed to delete cache maps at paths: '"+eventBufferCacheDatabasePath+"' and '"+artifactsCacheDatabasePath+"'");
+    		logger.log(Level.WARNING, "Failed to delete cache maps at path: '"+artifactsCacheDatabasePath+"'");
     	}
     }
     
@@ -648,7 +605,9 @@ public class Audit extends AbstractReporter {
 	                    Integer.parseInt(currentPID);
 	                    Process processVertex = createProcessFromProcFS(currentPID); //create
 	                    addProcess(currentPID, processVertex);//add to memory
-	                    putVertex(processVertex);//add to buffer
+	                    if(!processVertexHasBeenPutBefore(processVertex)){
+	        	    		putVertex(processVertex);//add to internal buffer
+	        			}
 	                    Process parentVertex = getProcess(processVertex.getAnnotation("ppid"));
 	                    if (parentVertex != null) {
 	                    	WasTriggeredBy childToParent = new WasTriggeredBy(processVertex, parentVertex);
@@ -672,12 +631,9 @@ public class Audit extends AbstractReporter {
     	 try{
          	Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(Settings.getDefaultConfigFilePath(this.getClass()), "=");
          	long currentTime = System.currentTimeMillis(); 
-             eventBufferCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "eventbuffer_" + currentTime;
              artifactsCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "artifacts_" + currentTime;
              try{
-     	        FileUtils.forceMkdir(new File(eventBufferCacheDatabasePath));
      	        FileUtils.forceMkdir(new File(artifactsCacheDatabasePath));
-     	        FileUtils.forceDeleteOnExit(new File(eventBufferCacheDatabasePath));
      	        FileUtils.forceDeleteOnExit(new File(artifactsCacheDatabasePath));
              }catch(Exception e){
              	logger.log(Level.SEVERE, "Failed to create cache database directories", e);
@@ -685,33 +641,21 @@ public class Audit extends AbstractReporter {
              }
              
              try{
-             	Integer eventBufferCacheSize = CommonFunctions.parseInt(configMap.get("eventBufferCacheSize"), null);
-             	String eventBufferDatabaseName = configMap.get("eventBufferDatabaseName");
-             	Double eventBufferFalsePositiveProbability = CommonFunctions.parseDouble(configMap.get("eventBufferBloomfilterFalsePositiveProbability"), null);
-             	Integer eventBufferExpectedNumberOfElements = CommonFunctions.parseInt(configMap.get("eventBufferBloomFilterExpectedNumberOfElements"), null);
-             	
              	Integer artifactsCacheSize = CommonFunctions.parseInt(configMap.get("artifactsCacheSize"), null);
              	String artifactsDatabaseName = configMap.get("artifactsDatabaseName");
              	Double artifactsFalsePositiveProbability = CommonFunctions.parseDouble(configMap.get("artifactsBloomfilterFalsePositiveProbability"), null);
              	Integer artifactsExpectedNumberOfElements = CommonFunctions.parseInt(configMap.get("artifactsBloomFilterExpectedNumberOfElements"), null);
              	
-             	logger.log(Level.INFO, "Audit cache properties: eventBufferCacheSize={0}, eventBufferDatabaseName={1}, "
-             			+ "eventBufferBloomfilterFalsePositiveProbability={2}, eventBufferBloomFilterExpectedNumberOfElements={3}, "
-             			+ "artifactsCacheSize={4}, artifactsDatabaseName={5}, artifactsBloomfilterFalsePositiveProbability={6}, "
-             			+ "artifactsBloomFilterExpectedNumberOfElements={7}", new Object[]{eventBufferCacheSize, eventBufferDatabaseName,
-             					eventBufferFalsePositiveProbability, eventBufferExpectedNumberOfElements, artifactsCacheSize, 
+             	logger.log(Level.INFO, "Audit cache properties: artifactsCacheSize={0}, artifactsDatabaseName={1}, artifactsBloomfilterFalsePositiveProbability={2}, "
+             			+ "artifactsBloomFilterExpectedNumberOfElements={3}", new Object[]{artifactsCacheSize, 
              					artifactsDatabaseName, artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements});
              	
-             	if(eventBufferCacheSize == null || eventBufferDatabaseName == null || eventBufferFalsePositiveProbability == null || 
-             			eventBufferExpectedNumberOfElements == null || artifactsCacheSize == null || artifactsDatabaseName == null || 
+             	if(artifactsCacheSize == null || artifactsDatabaseName == null || 
              			artifactsFalsePositiveProbability == null || artifactsExpectedNumberOfElements == null){
              		logger.log(Level.SEVERE, "Undefined cache properties in Audit config");
              		return false;
              	}
              	
-             	eventBuffer = new ExternalMemoryMap<String, HashMap<String, String>>(eventBufferCacheSize, 
-                 				new BerkeleyDB<HashMap<String, String>>(eventBufferCacheDatabasePath, eventBufferDatabaseName), 
-                 				eventBufferFalsePositiveProbability, eventBufferExpectedNumberOfElements);
                 artifactIdentifierToArtifactProperties = 
                  		new ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties>(artifactsCacheSize, 
                  				new BerkeleyDB<ArtifactProperties>(artifactsCacheDatabasePath, artifactsDatabaseName), 
@@ -856,9 +800,6 @@ public class Audit extends AbstractReporter {
     public boolean shutdown() {
         shutdown = true;
         try {
-        	if(dumpWriter != null){
-        		dumpWriter.close();
-        	}
         	if(eventProcessorThread != null){
         		eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
         	}
@@ -871,112 +812,12 @@ public class Audit extends AbstractReporter {
         return true;
     }
     
-    private void parseEventLine(String line) {
-    	
-    	if (DEBUG_DUMP_LOG) {
-    		try{
-    			dumpWriter.write(line + System.getProperty("line.separator"));
-            	dumpWriter.flush();
-    		}catch(Exception e){
-    			logger.log(Level.WARNING, "Failed to write to output log", e);
-    		}
-        }
-    	
-        Matcher event_start_matcher = pattern_message_start.matcher(line);
-        if (event_start_matcher.find()) {
-//            String node = event_start_matcher.group(1);
-            String type = event_start_matcher.group(2);
-            String time = event_start_matcher.group(3);
-            String eventId = event_start_matcher.group(4);
-            String messageData = line.substring(event_start_matcher.end());
-            
-            if(eventBuffer.get(eventId) == null){
-            	eventBuffer.put(eventId, new HashMap<String, String>());
-            	eventBuffer.get(eventId).put("eventid", eventId);
-            }
-            
-            if (type.equals("SYSCALL")) {
-                Map<String, String> eventData = parseKeyValPairs(messageData);
-                eventData.put("time", time);
-            	eventBuffer.get(eventId).putAll(eventData);
-            } else if (type.equals("EOE")) {
-                finishEvent(eventId);
-            } else if (type.equals("CWD")) {
-                Matcher cwd_matcher = pattern_cwd.matcher(messageData);
-                if (cwd_matcher.find()) {
-                    String cwd = cwd_matcher.group(1);
-                    cwd = cwd.trim();
-                    if(cwd.startsWith("\"") && cwd.endsWith("\"")){ //is a string path
-                    	cwd = cwd.substring(1, cwd.length()-1);
-                    }else{ //is in hex format
-                    	cwd = parseHexStringToUTF8(cwd);
-                    }                    
-                    eventBuffer.get(eventId).put("cwd", cwd);
-                }
-            } else if (type.equals("PATH")) {
-                Matcher path_matcher = pattern_path.matcher(messageData);
-                if (path_matcher.find()) {
-                    String item = path_matcher.group(1);
-                    String name = path_matcher.group(2);
-                    String nametype = path_matcher.group(3);
-                    name = name.trim();
-                    if(name.startsWith("\"") && name.endsWith("\"")){ //is a string path
-                    	name = name.substring(1, name.length()-1);
-                    }else{ //is in hex format
-                    	name = parseHexStringToUTF8(name);
-                    }
-                    eventBuffer.get(eventId).put("path" + item, name);
-                    eventBuffer.get(eventId).put("nametype" + item, nametype);
-                }
-            } else if (type.equals("EXECVE")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                    eventBuffer.get(eventId).put("execve_" + key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if (type.equals("FD_PAIR")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if (type.equals("SOCKETCALL")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                    eventBuffer.get(eventId).put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if (type.equals("SOCKADDR")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if(type.equals("NETFILTER_PKT")){
-            	Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-            	while (key_value_matcher.find()) {
-                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            	finishEvent(eventId);
-            } else if (type.equals("MMAP")){
-            	Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                    eventBuffer.get(eventId).put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if(type.equals("PROCTITLE")){
-            	//record type not being handled at the moment. 
-            } else {
-            	if(!seenTypesOfUnsupportedRecords.contains(type)){
-            		seenTypesOfUnsupportedRecords.add(type);
-            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
-            	}                
-            }
-            
-        } else {
-            logger.log(Level.WARNING, "unable to match line: {0}", line);
-        }
-    }
+    
 
-    private void finishEvent(String eventId){
+    private void finishEvent(Map<String, String> eventData){
 
-    	if (eventBuffer.get(eventId) == null) {
-    		logger.log(Level.WARNING, "EOE for eventID {0} received with no prior Event Info", new Object[]{eventId});
+    	if (eventData == null) {
+    		logger.log(Level.WARNING, "Null event data read");
     		return;
     	}
 
@@ -990,7 +831,7 @@ public class Audit extends AbstractReporter {
     		handleSyscallEvent(eventId);
     	}*/
     	
-    	handleSyscallEvent(eventId);
+    	handleSyscallEvent(eventData);
     }
     
     /**
@@ -1005,10 +846,10 @@ public class Audit extends AbstractReporter {
      * 
      * @param eventId id of the event against which the key value maps are saved
      */
-    private void handleSyscallEvent(String eventId) {
+    private void handleSyscallEvent(Map<String, String> eventData) {
+    	String eventId = eventData.get("eventid");
     	try {
-
-    		Map<String, String> eventData = eventBuffer.get(eventId);
+    		
     		int syscallNum = CommonFunctions.parseInt(eventData.get("syscall"), -1);
 
     		int arch = -1;
@@ -1030,7 +871,6 @@ public class Audit extends AbstractReporter {
     			if(syscall == SYSCALL.KILL || syscall == SYSCALL.EXIT || syscall == SYSCALL.EXIT_GROUP){
 	    			//continue and log these syscalls irrespective of success
     			}else{ //for all others don't log
-    				eventBuffer.remove(eventId);
 	    			return;
     			}
     		}
@@ -1147,7 +987,6 @@ public class Audit extends AbstractReporter {
 	    		default: //SYSCALL.UNSUPPORTED
 	    			log(Level.INFO, "Unsupported syscall '"+syscallNum+"'", null, eventId, syscall);
     		}
-    		eventBuffer.remove(eventId);
     	} catch (Exception e) {
     		logger.log(Level.WARNING, "Error processing finish syscall event with eventid '"+eventId+"'", e);
     	}
@@ -1299,6 +1138,7 @@ public class Audit extends AbstractReporter {
     	pidToMemAddress.remove(pid);  // Remove all the beep unit memory addresses
     	iterationNumber.remove(pid); // Remove the iteration numbers for the units of this process
     	descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
+    	pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
     }
     
     private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -1940,7 +1780,9 @@ public class Audit extends AbstractReporter {
         			Map<String, String> newProcessUnitAnnotations = updateKeyValuesInMap(oldProcessUnitAnnotations, annotationsToUpdate);
         			Process newProcessUnit = createProcessVertex(newProcessUnitAnnotations); //create process unit
         			newProcessUnitStack.addLast(newProcessUnit); //add to memory
-        			putVertex(newProcessUnit); //add to buffer
+        			if(!processVertexHasBeenPutBefore(newProcessUnit)){
+        	    		putVertex(newProcessUnit);//add to internal buffer
+        			}
         			
         			//drawing an edge from newProcessUnit to currentProcessUnit with operation based on current syscall
         			WasTriggeredBy newUnitToOldUnit = new WasTriggeredBy(newProcessUnit, oldProcessUnit);
@@ -2744,27 +2586,6 @@ public class Audit extends AbstractReporter {
     }
     
     /**
-     * Converts hex string as UTF-8
-     * 
-     * @param hexString string to parse
-     * @return parsed string
-     */
-    private String parseHexStringToUTF8(String hexString){
-    	if(hexString == null){
-    		return null;
-    	}
-		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
-    	for(int a = 0; a<hexString.length()-2; a+=2){
-    		bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
-
-    	}
-    	bytes.rewind();
-    	Charset cs = Charset.forName("UTF-8");
-    	CharBuffer cb = cs.decode(bytes);
-    	return cb.toString();
-	}
-    
-    /**
      * Returns either NetworkSocketIdentifier or UnixSocketIdentifier depending on the type in saddr.
      * 
      * If saddr starts with 01 then unix socket
@@ -3128,11 +2949,39 @@ public class Audit extends AbstractReporter {
 	        if(process == null || recreateAndReplace){
 	        	process = createProcessVertex(annotations);
 	        	addProcess(pid, process);
-	        	putVertex(process);
+	        	      	
+	        	if(!processVertexHasBeenPutBefore(process)){
+	        		putVertex(process);
+	        	}	        	
 	        }
 	        return process;
     	}
     	return null;
+    }
+    
+    /**
+     * Checks if the hash of the process vertex exists in the map {@link #pidToProcessHashes pidToProcessHashes}
+     * 
+     * If it didn't exist then it returns false but it does add it
+     * 
+     * True if it exists
+     * False if it doesn't exist
+     * 
+     * @param process process vertex to check
+     * @return true/false
+     */
+    private boolean processVertexHasBeenPutBefore(Process process){
+    	String pid = process.getAnnotation("pid");
+    	String hash = DigestUtils.sha256Hex(process.toString());
+    	if(pidToProcessHashes.get(pid) == null){
+    		pidToProcessHashes.put(pid, new HashSet<String>());
+    	}
+		if(pidToProcessHashes.get(pid).contains(hash)){
+			return true;
+		}else{
+			pidToProcessHashes.get(pid).add(hash); //add it
+			return false;
+		}
     }
     
     /**
@@ -3440,7 +3289,9 @@ public class Audit extends AbstractReporter {
     	
 		processUnitStack.get(pid).addLast(newUnit);
     	
-    	putVertex(newUnit); //add to internal buffer. not calling putProcess here beacuse that would reset the stack
+		if(!processVertexHasBeenPutBefore(newUnit)){
+    		putVertex(newUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
+		}
     	return newUnit;
     }
     
