@@ -395,34 +395,60 @@ public class Audit extends AbstractReporter {
 	            Runtime.getRuntime().exec("auditctl -D").waitFor();
 	            Runnable eventProcessor = new Runnable() {
 	                public void run() {
+	                	AuditEventReader auditEventReader = null;
 	                    try {
 	                        auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-	                        AuditEventReader auditEventReader = new AuditEventReader(auditReaderWindowSize, auditProcess.getInputStream());
+	                        auditEventReader = new AuditEventReader(auditReaderWindowSize, auditProcess.getInputStream());
 	                        if(auditOutputLogPath != null){
 	                        	auditEventReader.setOutputLog(new FileOutputStream(auditOutputLogPath));
 	                        }
 	                        while (!shutdown) {
-	                            Map<String, String> eventData = auditEventReader.readEventData();
-	                            if ((eventData != null)) {
-	                            	finishEvent(eventData);
-	                            }
-	                        }
-	                        //Added this command here because once the spadeSocketBridge process has exited any rules involving it cannot be cleared.
-	                        //So, deleting the rules before destroying the spadeSocketBridge process.
-	                        
-	                        Runtime.getRuntime().exec("auditctl -D").waitFor();
-	                        //moved process destroy to shutdown so that stream is closed on shutdown and process breaks out of readEventData above.
-	                        if(shutdown){
-	                        	auditEventReader.stopReading();
-	                        	Map<String, String> eventData = null;
-	                        	while((eventData = auditEventReader.readEventData()) != null){
-	                        		finishEvent(eventData);
+	                        	try{
+	                        		Map<String, String> eventData = auditEventReader.readEventData();
+		                            if ((eventData != null)) {
+		                            	finishEvent(eventData);
+		                            }
+	                        	}catch(Exception e){
+	                        		if(shutdown && !auditProcess.isAlive()){ 
+	                        			// log nothing because exception happened of shutdown function call destroying the process
+	                        		}else{
+	                        			logger.log(Level.SEVERE, "Failed to read from spadeSocketBridge", e);
+	                        		}
 	                        	}
 	                        }
-	                        auditEventReader.close();
+	                        
+	                        // * Here because shutdown has been called
+	                        
+	                        // Stop reading from the input stream anymore and just clear the buffers
+	                        auditEventReader.stopReading();
+	                        
+	                        // Try to empty the buffers
+                        	try{
+                        		int i = 0;
+                        		Map<String, String> eventData = null;
+	                        	while((eventData = auditEventReader.readEventData()) != null){
+	                        		i++;
+	                        		finishEvent(eventData);
+	                        	}
+	                        	logger.log(Level.SEVERE, i + " events read from buffer");
+                        	}catch(Exception e){
+                        		logger.log(Level.SEVERE, "Failed to empty buffers", e);
+                        	}
 	                    } catch (Exception e) {
 	                        logger.log(Level.SEVERE, "Error launching main runnable thread", e);
 	                    }finally{
+	                    	if(auditEventReader != null){
+	                    		try{
+	                    			auditEventReader.close();
+	                    		}catch(Exception e){
+	                    			logger.log(Level.SEVERE, "Failed to close audit event reader", e);
+	                    		}
+	                    	}
+	                    	try{
+	                    		Runtime.getRuntime().exec("auditctl -D").waitFor();
+	                    	}catch(Exception e){
+	                    		logger.log(Level.SEVERE, "Failed to clear audit rules", e);
+	                    	}         
 	                    	deleteCacheMaps();
 	                    }
 	                }
@@ -820,8 +846,8 @@ public class Audit extends AbstractReporter {
         }
         try{
         	if(auditProcess != null){
-        		//moved process destroy to shutdown so that stream is closed on shutdown in case of live audit and process breaks out of the blocking read call
-        		auditProcess.destroyForcibly();
+        		// Destroy the process so that input stream of the process is closed
+        		auditProcess.destroy();
         	}
         }catch(Exception e){
         	logger.log(Level.SEVERE, "Error trying to kill process spadeSocketBridge", e);
