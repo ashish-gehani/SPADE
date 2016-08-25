@@ -410,6 +410,15 @@ public class Audit extends AbstractReporter {
 	                        
 	                        Runtime.getRuntime().exec("auditctl -D").waitFor();
 	                        auditProcess.destroy();
+	                        
+	                        if(shutdown){
+	                        	auditEventReader.stopReading();
+	                        	Map<String, String> eventData = null;
+	                        	while((eventData = auditEventReader.readEventData()) != null){
+	                        		finishEvent(eventData);
+	                        	}
+	                        }
+	                        
 	                        auditEventReader.close();
 	                    } catch (Exception e) {
 	                        logger.log(Level.SEVERE, "Error launching main runnable thread", e);

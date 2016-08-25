@@ -258,6 +258,14 @@ public class AuditEventReader {
 	}
 	
 	/**
+	 * Sets the current input stream to null and now will start emptying the buffers
+	 * instead of going to the next stream, if any.
+	 */
+	public void stopReading(){
+		currentInputStreamReader = null;
+	}
+	
+	/**
 	 * Closes any open input streams and the output stream (if opened)
 	 */
 	public void close(){
@@ -275,6 +283,13 @@ public class AuditEventReader {
 				}catch(Exception e){
 					logger.log(Level.SEVERE, "Failed to close input stream", e);
 				}
+			}
+		}
+		if(currentInputStreamReader != null){
+			try{
+				currentInputStreamReader.close();
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to close input stream", e);
 			}
 		}
 	}
