@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -398,7 +399,9 @@ public class Audit extends AbstractReporter {
 	                	AuditEventReader auditEventReader = null;
 	                    try {
 	                        auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
-	                        auditEventReader = new AuditEventReader(auditReaderWindowSize, auditProcess.getInputStream());
+	                        List<SimpleEntry<String, InputStream>> keysAndStreams = new ArrayList<SimpleEntry<String, InputStream>>();
+	                        keysAndStreams.add(new SimpleEntry<String, InputStream>("live audit", auditProcess.getInputStream()));
+	                        auditEventReader = new AuditEventReader(auditReaderWindowSize, keysAndStreams);
 	                        if(auditOutputLogPath != null){
 	                        	auditEventReader.setOutputLog(new FileOutputStream(auditOutputLogPath));
 	                        }

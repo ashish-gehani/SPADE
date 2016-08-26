@@ -77,33 +77,19 @@ import spade.utility.CommonFunctions;
 public class CDM extends Kafka {
 	
 	private static final Logger logger = Logger.getLogger(CDM.class.getName());
-
-    // for volume stats
-    private long startTime, endTime;
-    private long recordCount;
     
     private Map<String, ProcessInformation> pidMappings = new HashMap<>();
     
-    // A set to keep track of principals that have been published
+    // A set to keep track of principals that have been published to avoid duplication
     private Set<UUID> principalUUIDs = new HashSet<UUID>(); 
+    
+    private Map<Long, Set<UUID>> eventIdToPendingLoadedFilesUUIDs = new HashMap<Long, Set<UUID>>();
     
     @Override
     public boolean initialize(String arguments) {
-    	
-    	if(super.initialize(arguments)){
-    		/* Note: This is not an accurate start time because we really want the first reported event,
-             * but fine for now
-             */
-            startTime = System.currentTimeMillis();
-            endTime = 0;
-            recordCount = 0;
-
-            return true;
-    	}else{
-    		return false;
-    	} 
+    	return super.initialize(arguments);
     }
-    
+        
     @Override
     protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
 		Properties properties = new Properties();
@@ -134,7 +120,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(tccdmDatums);
+            publishRecords(tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -249,6 +235,20 @@ public class CDM extends Kafka {
             		//uuid of edge is the uuid of the exec event vertex. putting that against the pid of the new process vertex
             		putExecEventUUID(edge.getSourceVertex().getAnnotation("pid"), getUuid(edge));
             		eventType = EventType.EVENT_EXECUTE;
+            		
+            		// Add any pending load edges
+            		
+            		Set<UUID> pendingLoadedFilesUUIDs = eventIdToPendingLoadedFilesUUIDs.get(eventId);
+            		
+            		if(pendingLoadedFilesUUIDs != null){
+            			for(UUID pendingLoadedFileUUID : pendingLoadedFilesUUIDs){
+            				SimpleEdge loadEdge = createSimpleEdge(pendingLoadedFileUUID, getUuid(edge),
+                    				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
+    	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
+            			}
+            			eventIdToPendingLoadedFilesUUIDs.remove(eventId); //remove since all have been added
+            		}
+            		
             	}else if(opmOperation.equals("unknown")){
             		eventType = EventType.EVENT_KERNEL_UNKNOWN;
             	}else if(opmOperation.equals("setuid")){
@@ -319,11 +319,14 @@ public class CDM extends Kafka {
                 		SimpleEdge loadEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getExecEventUUID(actingProcessPidString),
                 				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
 	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
-	                    recordCount += publishRecords(tccdmDatums);
+	                    publishRecords(tccdmDatums);
 	                    return true; //no need to create an event for this so returning from here after adding the edge
                 	}else{
-                		logger.log(Level.WARNING, "Unable to create load edge for pid " + actingProcessPidString + ". event id = " + eventId);
-                		return false;
+                		if(eventIdToPendingLoadedFilesUUIDs.get(eventId) == null){
+                			eventIdToPendingLoadedFilesUUIDs.put(eventId, new HashSet<UUID>());
+                		}
+                		eventIdToPendingLoadedFilesUUIDs.get(eventId).add(getUuid(edge.getDestinationVertex()));
+                		return true;
                 	}
                 } else if (opmOperation.equals("open")){
                 	eventType = EventType.EVENT_OPEN; 
@@ -365,7 +368,7 @@ public class CDM extends Kafka {
                 	SimpleEdge updateEdge = createSimpleEdge(getUuid(edge.getSourceVertex()), getUuid(edge.getDestinationVertex()), 
                 			EdgeType.EDGE_OBJECT_PREV_VERSION, time);
                     tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(updateEdge).build());
-                    recordCount += publishRecords(tccdmDatums);
+                    publishRecords(tccdmDatums);
                     return true; //no need to create an event for this so returning from here after adding the edge
                 } else if (opmOperation.equals("rename")) {
                 	eventType = EventType.EVENT_RENAME;
@@ -445,7 +448,7 @@ public class CDM extends Kafka {
             }
 
             // Now we publish the records in Kafka.
-            recordCount += publishRecords(tccdmDatums);
+            publishRecords(tccdmDatums);
             return true;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -456,19 +459,14 @@ public class CDM extends Kafka {
     @Override
     public boolean shutdown() {
         try {
-            logger.log(Level.INFO, "{0} records", recordCount);
-            /* Note: end time is not accurate, because reporter may have ended much earlier than storage,
-             * but good enough for demo purposes. If we remove storage before reporter, then we can
-             * get the correct stats
-             */
-            endTime = System.currentTimeMillis();
-            float runTime = (float) (endTime - startTime) / 1000; // # in secs
-            if (runTime > 0) {
-                float recordVolume = (float) recordCount / runTime; // # edges/sec
-
-                logger.log(Level.INFO, "Reporter runtime: {0} secs", runTime);
-                logger.log(Level.INFO, "Record volume: {0} edges/sec", recordVolume);
-            }
+            
+            for(Map.Entry<Long, Set<UUID>> entry : eventIdToPendingLoadedFilesUUIDs.entrySet()){
+            	Long eventId = entry.getKey();
+            	if(entry.getValue() != null && entry.getValue().size() > 0){
+            		logger.log(Level.WARNING, "Missing execve event with id '"+eventId+"'. Failed to add " + entry.getValue().size() + " load edges");
+            	}
+            }            
+            
             return super.shutdown();
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);

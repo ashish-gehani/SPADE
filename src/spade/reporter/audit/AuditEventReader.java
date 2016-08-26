@@ -29,9 +29,11 @@ import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -40,16 +42,23 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import spade.core.Settings;
 import spade.utility.CommonFunctions;
-
-//import spade.utility.CommonFunctions;
+import spade.utility.FileUtility;
 
 /**
  * Audit log reader which reads the log and sorts it in a sliding window of 'x' audit records
+ * 
  */
 public class AuditEventReader {
 	
 	private Logger logger = Logger.getLogger(this.getClass().getName());
+	
+	private long reportStatsAfterEveryMs = 60*1000;
+	
+	private long recordCount = 0;
+    private long startTime 			   = System.currentTimeMillis(), 
+    			 statsLastReportedTime = System.currentTimeMillis();
 	
 	// Group 1: key
     // Group 2: value
@@ -75,16 +84,18 @@ public class AuditEventReader {
     private static final Pattern pattern_eventid = Pattern.compile("msg=audit\\([0-9\\.]+\\:([0-9]+)\\):");
 
     /**
-     * Reference to the current input stream which is being read. 
- 	 * Null means that either it has not been initialized yet or
- 	 * all streams have been read completely.
+     * Reference to the current input stream entry alone with key
+     * which is being read. Null means that either it has not been 
+     * initialized yet (constructor ensures that this doesn't happen) 
+     * or all streams have been read completely.
      */
-	private BufferedReader currentInputStreamReader;	
+	private SimpleEntry<String, BufferedReader> currentInputStreamReaderEntry;	
 	
 	/**
-	 * List of input streams to read from in the order in the list.
+	 * List of key value pairs of <stream identifier, input streams> to read from in the order in the list.
+	 * In case of files the stream identifier is the path of the file
 	 */
-	private LinkedList<InputStream> inputStreams = new LinkedList<InputStream>();
+	private LinkedList<SimpleEntry<String, InputStream>> inputStreamEntries = new LinkedList<SimpleEntry<String, InputStream>>();
 	
 	/**
 	 * Sorted event ids in the current window
@@ -131,70 +142,105 @@ public class AuditEventReader {
 			throw new IllegalArgumentException("Buffer size for audit records must be greater than 0");
 		}
 		if(logFiles == null){
-			throw new IllegalArgumentException("Null audit logs");
+			throw new IllegalArgumentException("Null audit log files specified");
 		}else if(logFiles.length == 0){
-			throw new IllegalArgumentException("No audit logs");
+			throw new IllegalArgumentException("No audit log files specified");
 		}
 		
 		for(String logFile : logFiles){
-			File file = new File(logFile);
-			if(file.exists()){
-				this.inputStreams.addLast(new FileInputStream(file));
+			if(logFile != null){
+				File file = new File(logFile);
+				if(file.exists()){
+					this.inputStreamEntries.addLast(new SimpleEntry<String, InputStream>(logFile, new FileInputStream(file)));
+				}else{
+					throw new IllegalArgumentException("Log file " + file.getAbsolutePath() + " doesn't exist");
+				}	
 			}else{
-				throw new IllegalArgumentException("Log file " + file.getAbsolutePath() + " doesn't exist");
+				throw new IllegalArgumentException("All file paths must be non-null");
 			}
 		}
 		
-		if(this.inputStreams.size() == 0){
-			throw new IllegalArgumentException("No valid log files");
+		// Shouldn't happen but just in case
+		if(this.inputStreamEntries.size() == 0){
+			throw new IllegalArgumentException("No valid log files specified");
 		}
 		
+		// Making sure that the current inputstream reader is non-null when readEventData is called afterwards
 		initializeCurrentStreamReader();
 		this.maxRecordBufferSize = maxRecordBufferSize;
+		setGlobalsFromConfig();
 	}
 	
 	/**
 	 * Create instance of the class that reads the given list of streams in the given order
 	 * 
 	 * @param maxRecordBufferSize window size (cannot be less than 1, bigger the better)
-	 * @param inputStreams streams to read (cannot be empty or null and all streams must be non null)
+	 * @param inputStreamEntries streams to read (cannot be empty or null and all streams must be non null along with their keys)
 	 * @throws Exception IllegalArgumentException or IOException
 	 */
-	public AuditEventReader(long maxRecordBufferSize, InputStream... inputStreams) throws Exception{
+	public AuditEventReader(long maxRecordBufferSize, List<SimpleEntry<String, InputStream>> inputStreamEntries) throws Exception{
 		if(maxRecordBufferSize < 1){
 			throw new IllegalArgumentException("Buffer size for audit records must be greater than 0");
 		}
-		if(inputStreams == null){
-			throw new IllegalArgumentException("Null input streams.");
-		}else if(inputStreams.length == 0){
-			throw new IllegalArgumentException("No input streams.");
+		if(inputStreamEntries == null){
+			throw new IllegalArgumentException("Null input streams specified");
+		}else if(inputStreamEntries.size() == 0){
+			throw new IllegalArgumentException("No input streams specified");
 		}
-		for(InputStream inputStream : inputStreams){
-			if(inputStream != null){
-				this.inputStreams.addLast(inputStream);
+		for(SimpleEntry<String, InputStream> inputStreamEntry : inputStreamEntries){
+			String key = inputStreamEntry.getKey();
+			InputStream inputStream = inputStreamEntry.getValue();
+			if(key != null && inputStream != null){
+				this.inputStreamEntries.addLast(new SimpleEntry<String, InputStream>(key, inputStream));
+			}else{
+				throw new IllegalArgumentException("Input stream entry -> [" + key + ", " + inputStream + "]. Both must be non-null");
 			}
 		}
-		if(this.inputStreams.size() == 0){
-			throw new IllegalArgumentException("No valid input streams.");
+		if(this.inputStreamEntries.size() == 0){
+			throw new IllegalArgumentException("No valid input streams");
 		}
 		initializeCurrentStreamReader();
 		this.maxRecordBufferSize = maxRecordBufferSize;
+		setGlobalsFromConfig();
+	}
+	
+	private void setGlobalsFromConfig(){
+		String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+		try{
+			if(new File(defaultConfigFilePath).exists()){
+				Map<String, String> properties = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
+				if(properties != null && properties.size() > 0){
+					Long reportingInterval = CommonFunctions.parseLong(properties.get("reportingIntervalMillis"), null);
+					if(reportingInterval != null){
+						if(reportingInterval < 1){ //at least 1 ms
+							logger.log(Level.WARNING, "Statistics reporting interval cannot be less than 1 ms. Using default value of 60000 ms");
+						}else{
+							reportStatsAfterEveryMs = reportingInterval;
+						}
+					}
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read config file '"+defaultConfigFilePath+"'");
+		}
 	}
 	
 	/**
 	 * Convenience function to get the next stream and to initialize(open) it.
 	 * 
-	 * It closes the current stream if not null.
+	 * It closes the current stream if not null. 
 	 * 
 	 * @throws Exception IOException
 	 */
 	private void initializeCurrentStreamReader() throws Exception{
-		if(currentInputStreamReader != null){
-			currentInputStreamReader.close();
-			currentInputStreamReader = null; //set to null
+		if(currentInputStreamReaderEntry != null){
+			currentInputStreamReaderEntry.getValue().close();
+			currentInputStreamReaderEntry = null; //set to null
 		}
-		if(inputStreams.size() > 0){
-			currentInputStreamReader = new BufferedReader(new InputStreamReader(inputStreams.removeFirst()));
+		if(inputStreamEntries.size() > 0){
+			SimpleEntry<String, InputStream> nextEntry = inputStreamEntries.removeFirst();
+			currentInputStreamReaderEntry = new SimpleEntry<String, BufferedReader>(
+					nextEntry.getKey(), new BufferedReader(new InputStreamReader(nextEntry.getValue())));
 		}
 	}
 	
@@ -212,6 +258,14 @@ public class AuditEventReader {
 		}
 	}
 	
+	private void printStats(){
+        float runTime = (float) (System.currentTimeMillis() - startTime) / 1000; // # in secs
+        if (runTime > 0) {
+            float recordVolume = (float) recordCount / runTime; // # records/sec
+            logger.log(Level.INFO, "{0} records read in {1} secs. Record volume: {2} records/sec", new Object[]{recordCount, runTime, recordVolume});
+        }
+    }
+	
 	/**
 	 * Returns a map of key values for the event that is read from the stream(s)
 	 * 
@@ -221,17 +275,26 @@ public class AuditEventReader {
 	 * @throws Exception IOException
 	 */
 	public Map<String, String> readEventData() throws Exception{
-		if(currentInputStreamReader == null){ //all streams processed
+		
+		long currentTime = System.currentTimeMillis();
+    	if((currentTime - statsLastReportedTime) >= reportStatsAfterEveryMs){
+    		statsLastReportedTime = currentTime;
+    		printStats();
+    	}
+		
+		if(currentInputStreamReaderEntry == null){ //all streams processed
 			return getEventData();		
 		}else{ // not all streams processed
-			while(currentRecordCount < maxRecordBufferSize){ //read audit records until max read
-				String line = currentInputStreamReader.readLine();
+			while(currentRecordCount < maxRecordBufferSize){ //read audit records until max amount read
+				String line = currentInputStreamReaderEntry.getValue().readLine();
 				if(line == null){ //if input stream read completely
+					logger.log(Level.INFO, "Reading succeeded of '" + currentInputStreamReaderEntry.getKey() + "'");
 					initializeCurrentStreamReader(); //initialize the next stream
-					if(currentInputStreamReader == null){ //if there was no next stream to be initialized
+					if(currentInputStreamReaderEntry == null){ //if there was no next stream to be initialized
 						break;
 					}
-				}else{ //if input stream no completely read yet
+				}else{ //if input stream not completely read yet
+					recordCount++;
 					Matcher event_start_matcher = pattern_eventid.matcher(line);
 					if (event_start_matcher.find()){ //get the event id
 						Long eventId = CommonFunctions.parseLong(event_start_matcher.group(1), null);
@@ -260,15 +323,17 @@ public class AuditEventReader {
 	/**
 	 * Sets the current input stream to null and now will start emptying the buffers
 	 * instead of going to the next stream, if any.
+	 * 
 	 */
 	public void stopReading(){
-		currentInputStreamReader = null;
+		currentInputStreamReaderEntry = null;
 	}
 	
 	/**
 	 * Closes any open input streams and the output stream (if opened)
 	 */
 	public void close(){
+		printStats();
 		if(outputLogWriter != null){
 			try{
 				outputLogWriter.close();
@@ -276,20 +341,23 @@ public class AuditEventReader {
 				logger.log(Level.SEVERE, "Failed to close output log writer", e);
 			}
 		}
-		if(inputStreams != null && inputStreams.size() > 0){
-			for(InputStream inputStream : inputStreams){
+		if(inputStreamEntries != null && inputStreamEntries.size() > 0){
+			for(SimpleEntry<String, InputStream> inputStreamEntry : inputStreamEntries){
+				String key = inputStreamEntry.getKey();
+				InputStream inputStream = inputStreamEntry.getValue();
 				try{
 					inputStream.close();
 				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to close input stream", e);
+					logger.log(Level.SEVERE, "Failed to close input stream for '"+key+"'", e);
 				}
 			}
 		}
-		if(currentInputStreamReader != null){
+		if(currentInputStreamReaderEntry != null){
+			String key = currentInputStreamReaderEntry.getKey();
 			try{
-				currentInputStreamReader.close();
+				currentInputStreamReaderEntry.getValue().close();
 			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to close input stream", e);
+				logger.log(Level.SEVERE, "Failed to close input stream for key '"+key+"'", e);
 			}
 		}
 	}
