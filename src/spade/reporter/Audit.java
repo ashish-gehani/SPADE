@@ -177,8 +177,34 @@ public class Audit extends AbstractReporter {
     
     private java.lang.Process auditProcess = null;
     
+    //Reporting variables
+  	private boolean reportingEnabled = false;
+  	private long reportEveryMs;
+    private long lastReportedTime;
+    
     @Override
     public boolean launch(String arguments) {
+    	
+    	String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+		try{
+			if(new File(defaultConfigFilePath).exists()){
+				Map<String, String> properties = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
+				if(properties != null && properties.size() > 0){
+					Long reportingInterval = CommonFunctions.parseLong(properties.get("reportingIntervalSeconds"), null);
+					if(reportingInterval != null){
+						if(reportingInterval < 1){ //at least 1 ms
+							logger.log(Level.INFO, "Statistics reporting turned off");
+						}else{
+							reportingEnabled = true;
+							reportEveryMs = reportingInterval * 1000;
+							lastReportedTime = System.currentTimeMillis();
+						}
+					}
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read config file '"+defaultConfigFilePath+"'");
+		}
 
         arguments = arguments == null ? "" : arguments;
 
@@ -855,10 +881,23 @@ public class Audit extends AbstractReporter {
         return true;
     }
     
-    
+    private void printStats(){
+    	Runtime runtime = Runtime.getRuntime();
+    	long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024*1024);   	
+    	long internalBufferSize = getBuffer().size();
+    	logger.log(Level.INFO, "Internal buffer size: {0}, JVM memory in use: {1}MB", new Object[]{internalBufferSize, usedMemoryMB});
+    }
 
     private void finishEvent(Map<String, String> eventData){
 
+    	if(reportingEnabled){
+			long currentTime = System.currentTimeMillis();
+	    	if((currentTime - lastReportedTime) >= reportEveryMs){
+	    		printStats();
+	    		lastReportedTime = currentTime;
+	    	}
+		}
+    	
     	if (eventData == null) {
     		logger.log(Level.WARNING, "Null event data read");
     		return;
@@ -3015,7 +3054,7 @@ public class Audit extends AbstractReporter {
      */
     private boolean processVertexHasBeenPutBefore(Process process){
     	String pid = process.getAnnotation("pid");
-    	String hash = DigestUtils.sha256Hex(process.toString());
+    	String hash = DigestUtils.md5Hex(process.toString());
     	if(pidToProcessHashes.get(pid) == null){
     		pidToProcessHashes.put(pid, new HashSet<String>());
     	}

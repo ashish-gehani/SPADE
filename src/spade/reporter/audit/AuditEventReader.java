@@ -54,11 +54,11 @@ public class AuditEventReader {
 	
 	private Logger logger = Logger.getLogger(this.getClass().getName());
 	
-	private long reportStatsAfterEveryMs = 60*1000;
-	
-	private long recordCount = 0;
-    private long startTime 			   = System.currentTimeMillis(), 
-    			 statsLastReportedTime = System.currentTimeMillis();
+	//Reporting variables
+	private boolean reportingEnabled = false;
+	private long reportEveryMs;
+    private long startTime, lastReportedTime;
+    private long lastReportedRecordCount, recordCount;
 	
 	// Group 1: key
     // Group 2: value
@@ -110,7 +110,7 @@ public class AuditEventReader {
 	/**
 	 * Number of audit records read so far out of the window size
 	 */
-	private long currentRecordCount = 0;
+	private long currentlyBufferedRecords = 0;
 	
 	/**
 	 * Window size to buffer and sort at a time
@@ -168,6 +168,7 @@ public class AuditEventReader {
 		// Making sure that the current inputstream reader is non-null when readEventData is called afterwards
 		initializeCurrentStreamReader();
 		this.maxRecordBufferSize = maxRecordBufferSize;
+		
 		setGlobalsFromConfig();
 	}
 	
@@ -201,6 +202,7 @@ public class AuditEventReader {
 		}
 		initializeCurrentStreamReader();
 		this.maxRecordBufferSize = maxRecordBufferSize;
+		
 		setGlobalsFromConfig();
 	}
 	
@@ -210,12 +212,15 @@ public class AuditEventReader {
 			if(new File(defaultConfigFilePath).exists()){
 				Map<String, String> properties = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
 				if(properties != null && properties.size() > 0){
-					Long reportingInterval = CommonFunctions.parseLong(properties.get("reportingIntervalMillis"), null);
+					Long reportingInterval = CommonFunctions.parseLong(properties.get("reportingIntervalSeconds"), null);
 					if(reportingInterval != null){
 						if(reportingInterval < 1){ //at least 1 ms
-							logger.log(Level.WARNING, "Statistics reporting interval cannot be less than 1 ms. Using default value of 60000 ms");
+							logger.log(Level.INFO, "Statistics reporting turned off");
 						}else{
-							reportStatsAfterEveryMs = reportingInterval;
+							reportingEnabled = true;
+							reportEveryMs = reportingInterval * 1000;
+							startTime = lastReportedTime = System.currentTimeMillis();
+					        recordCount = lastReportedRecordCount = 0;
 						}
 					}
 				}
@@ -259,11 +264,13 @@ public class AuditEventReader {
 	}
 	
 	private void printStats(){
-        float runTime = (float) (System.currentTimeMillis() - startTime) / 1000; // # in secs
-        if (runTime > 0) {
-            float recordVolume = (float) recordCount / runTime; // # records/sec
-            logger.log(Level.INFO, "{0} records read in {1} secs. Record volume: {2} records/sec", new Object[]{recordCount, runTime, recordVolume});
-        }
+		long currentTime = System.currentTimeMillis();
+        float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
+        float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
+        float overallRecordVolume = (float) recordCount / intervalTime; // # records/sec
+        float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / overallTime; // # records/sec
+        logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
+        		new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
     }
 	
 	/**
@@ -276,16 +283,19 @@ public class AuditEventReader {
 	 */
 	public Map<String, String> readEventData() throws Exception{
 		
-		long currentTime = System.currentTimeMillis();
-    	if((currentTime - statsLastReportedTime) >= reportStatsAfterEveryMs){
-    		statsLastReportedTime = currentTime;
-    		printStats();
-    	}
+		if(reportingEnabled){
+			long currentTime = System.currentTimeMillis();
+	    	if((currentTime - lastReportedTime) >= reportEveryMs){
+	    		printStats();
+	    		lastReportedTime = currentTime;
+	    		lastReportedRecordCount = recordCount;
+	    	}
+		}
 		
 		if(currentInputStreamReaderEntry == null){ //all streams processed
 			return getEventData();		
 		}else{ // not all streams processed
-			while(currentRecordCount < maxRecordBufferSize){ //read audit records until max amount read
+			while(currentlyBufferedRecords < maxRecordBufferSize){ //read audit records until max amount read
 				String line = currentInputStreamReaderEntry.getValue().readLine();
 				if(line == null){ //if input stream read completely
 					logger.log(Level.INFO, "Reading succeeded of '" + currentInputStreamReaderEntry.getKey() + "'");
@@ -294,7 +304,9 @@ public class AuditEventReader {
 						break;
 					}
 				}else{ //if input stream not completely read yet
-					recordCount++;
+					if(reportingEnabled){
+						recordCount++;
+					}
 					Matcher event_start_matcher = pattern_eventid.matcher(line);
 					if (event_start_matcher.find()){ //get the event id
 						Long eventId = CommonFunctions.parseLong(event_start_matcher.group(1), null);
@@ -304,7 +316,7 @@ public class AuditEventReader {
 							if(eventId < lastEventId){
 								logger.log(Level.WARNING, "Out of order event beyond the window size -> " + line);
 							}else{
-								currentRecordCount++; //increment the record count
+								currentlyBufferedRecords++; //increment the record count
 								if(eventIdToEventRecords.get(eventId) == null){
 									eventIdToEventRecords.put(eventId, new HashSet<String>());
 									eventIds.add(eventId); //add event id
@@ -333,7 +345,9 @@ public class AuditEventReader {
 	 * Closes any open input streams and the output stream (if opened)
 	 */
 	public void close(){
-		printStats();
+		if(reportingEnabled){
+			printStats();
+		}
 		if(outputLogWriter != null){
 			try{
 				outputLogWriter.close();
@@ -375,7 +389,7 @@ public class AuditEventReader {
 		}else{
 			lastEventId = eventId;
 			Set<String> eventRecords = eventIdToEventRecords.remove(eventId);
-			currentRecordCount -= eventRecords.size();
+			currentlyBufferedRecords -= eventRecords.size();
 			
 			Map<String, String> eventData = new HashMap<String, String>();
 			

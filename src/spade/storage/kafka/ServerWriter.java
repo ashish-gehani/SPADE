@@ -38,11 +38,11 @@ public class ServerWriter implements DataWriter{
 	
 	private Logger logger = Logger.getLogger(ServerWriter.class.getName());
 	
-	private long reportStatsAfterEveryMs = 60*1000; //default
-	
-    // for volume stats
-    private long startTime, statsLastReportedTime;
-    private long recordCount;
+	//Reporting variables
+	private boolean reportingEnabled = false;
+	private long reportEveryMs;
+    private long startTime, lastReportedTime;
+    private long lastReportedRecordCount, recordCount;
 				
 	private KafkaProducer<String, GenericContainer> serverWriter;
 	private String kafkaTopic;
@@ -56,12 +56,15 @@ public class ServerWriter implements DataWriter{
 				if(additionalProperties != null && additionalProperties.size() > 0){
 					properties.putAll(additionalProperties);
 					
-					Long reportingInterval = CommonFunctions.parseLong(additionalProperties.get("reportingIntervalMillis"), null);
+					Long reportingInterval = CommonFunctions.parseLong(additionalProperties.get("reportingIntervalSeconds"), null);
 					if(reportingInterval != null){
 						if(reportingInterval < 1){ //at least 1 ms
-							logger.log(Level.WARNING, "Statistics reporting interval cannot be less than 1 ms. Using default value of 60000 ms");
+							logger.log(Level.INFO, "Statistics reporting turned off");
 						}else{
-							reportStatsAfterEveryMs = reportingInterval;
+							reportingEnabled = true;
+							reportEveryMs = reportingInterval * 1000; //convert to milliseconds
+							startTime = lastReportedTime = System.currentTimeMillis();
+					        recordCount = lastReportedRecordCount = 0;
 						}
 					}
 				}
@@ -72,40 +75,41 @@ public class ServerWriter implements DataWriter{
 		}
 		this.kafkaTopic = properties.getProperty(Kafka.TOPIC_KEY);
 		serverWriter = new KafkaProducer<>(properties);
-		
-		statsLastReportedTime = System.currentTimeMillis();
-        startTime = System.currentTimeMillis();
-        recordCount = 0;
 	}
 	
 	private void printStats(){
-        float runTime = (float) (System.currentTimeMillis() - startTime) / 1000; // # in secs
-        if (runTime > 0) {
-            float recordVolume = (float) recordCount / runTime; // # records/sec
-            logger.log(Level.INFO, "{0} records sent in {1} secs. Record volume: {2} records/sec", new Object[]{recordCount, runTime, recordVolume});
-        }
+		long currentTime = System.currentTimeMillis();
+        float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
+        float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
+        float overallRecordVolume = (float) recordCount / intervalTime; // # records/sec
+        float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / overallTime; // # records/sec
+        logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
+        		new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
     }
 	
 	public void writeRecord(GenericContainer genericContainer) throws Exception{
-		
-		long currentTime = System.currentTimeMillis();
-    	if((currentTime - statsLastReportedTime) >= reportStatsAfterEveryMs){
-    		statsLastReportedTime = currentTime;
-    		printStats();
-    	}
-		
 		/**
          * Publish the records in Kafka. Note how the serialization framework doesn't care about
          * the record type (any type from the union schema may be sent)
          */
-		String key = Long.toString(System.currentTimeMillis());
-        ProducerRecord<String, GenericContainer> record = new ProducerRecord<>(kafkaTopic, key, genericContainer);
-        serverWriter.send(record); //removed the get call so that we don't have to wait for the send to complete
-        recordCount++;
+        ProducerRecord<String, GenericContainer> record = new ProducerRecord<>(kafkaTopic, genericContainer);
+        serverWriter.send(record); //asynchronous send
+        
+        if(reportingEnabled){
+        	recordCount++;
+			long currentTime = System.currentTimeMillis();
+	    	if((currentTime - lastReportedTime) >= reportEveryMs){
+	    		printStats();
+	    		lastReportedTime = currentTime;
+	    		lastReportedRecordCount = recordCount;
+	    	}
+		}
     }
 	
 	public void close() throws Exception{
-    	printStats();
+		if(reportingEnabled){
+			printStats();
+		}
 		serverWriter.close();
 	}
 }
