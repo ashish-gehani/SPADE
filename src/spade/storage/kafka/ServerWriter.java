@@ -35,27 +35,27 @@ import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
 
 public class ServerWriter implements DataWriter{
-	
+
 	private Logger logger = Logger.getLogger(ServerWriter.class.getName());
-	
+
 	//Reporting variables
 	private boolean reportingEnabled = false;
 	private long reportEveryMs;
-    private long startTime, lastReportedTime;
-    private long lastReportedRecordCount, recordCount;
-				
+	private long startTime, lastReportedTime;
+	private long lastReportedRecordCount, recordCount;
+
 	private KafkaProducer<String, GenericContainer> serverWriter;
 	private String kafkaTopic;
-	
+
 	private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
-	
+
 	public ServerWriter(Properties properties) throws Exception{
 		try{
 			if(new File(defaultConfigFilePath).exists()){
 				Map<String, String> additionalProperties = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
 				if(additionalProperties != null && additionalProperties.size() > 0){
 					properties.putAll(additionalProperties);
-					
+
 					Long reportingInterval = CommonFunctions.parseLong(additionalProperties.get("reportingIntervalSeconds"), null);
 					if(reportingInterval != null){
 						if(reportingInterval < 1){ //at least 1 ms
@@ -64,7 +64,7 @@ public class ServerWriter implements DataWriter{
 							reportingEnabled = true;
 							reportEveryMs = reportingInterval * 1000; //convert to milliseconds
 							startTime = lastReportedTime = System.currentTimeMillis();
-					        recordCount = lastReportedRecordCount = 0;
+							recordCount = lastReportedRecordCount = 0;
 						}
 					}
 				}
@@ -76,36 +76,38 @@ public class ServerWriter implements DataWriter{
 		this.kafkaTopic = properties.getProperty(Kafka.TOPIC_KEY);
 		serverWriter = new KafkaProducer<>(properties);
 	}
-	
+
 	private void printStats(){
 		long currentTime = System.currentTimeMillis();
-        float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
-        float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
-        float overallRecordVolume = (float) recordCount / intervalTime; // # records/sec
-        float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / overallTime; // # records/sec
-        logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
-        		new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
-    }
-	
+		float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
+		float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
+		if(overallTime > 0 && intervalTime > 0){
+			float overallRecordVolume = (float) recordCount / overallTime; // # records/sec
+			float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / intervalTime; // # records/sec
+			logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
+					new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
+		}
+	}
+
 	public void writeRecord(GenericContainer genericContainer) throws Exception{
 		/**
-         * Publish the records in Kafka. Note how the serialization framework doesn't care about
-         * the record type (any type from the union schema may be sent)
-         */
-        ProducerRecord<String, GenericContainer> record = new ProducerRecord<>(kafkaTopic, genericContainer);
-        serverWriter.send(record); //asynchronous send
-        
-        if(reportingEnabled){
-        	recordCount++;
+		 * Publish the records in Kafka. Note how the serialization framework doesn't care about
+		 * the record type (any type from the union schema may be sent)
+		 */
+		ProducerRecord<String, GenericContainer> record = new ProducerRecord<>(kafkaTopic, genericContainer);
+		serverWriter.send(record); //asynchronous send
+
+		if(reportingEnabled){
+			recordCount++;
 			long currentTime = System.currentTimeMillis();
-	    	if((currentTime - lastReportedTime) >= reportEveryMs){
-	    		printStats();
-	    		lastReportedTime = currentTime;
-	    		lastReportedRecordCount = recordCount;
-	    	}
+			if((currentTime - lastReportedTime) >= reportEveryMs){
+				printStats();
+				lastReportedTime = currentTime;
+				lastReportedRecordCount = recordCount;
+			}
 		}
-    }
-	
+	}
+
 	public void close() throws Exception{
 		if(reportingEnabled){
 			printStats();

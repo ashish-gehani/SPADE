@@ -51,84 +51,84 @@ import spade.utility.FileUtility;
  * 
  */
 public class AuditEventReader {
-	
+
 	private Logger logger = Logger.getLogger(this.getClass().getName());
-	
+
 	//Reporting variables
 	private boolean reportingEnabled = false;
 	private long reportEveryMs;
-    private long startTime, lastReportedTime;
-    private long lastReportedRecordCount, recordCount;
-	
+	private long startTime, lastReportedTime;
+	private long lastReportedRecordCount, recordCount;
+
 	// Group 1: key
-    // Group 2: value
-    private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
+	// Group 2: value
+	private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
 
-    // Group 1: node
-    // Group 2: type
-    // Group 3: time
-    // Group 4: recordid
-    private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+	// Group 1: node
+	// Group 2: type
+	// Group 3: time
+	// Group 4: recordid
+	private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
 
-    // Group 1: cwd
-    //cwd is either a quoted string or an unquoted string in which case it is in hex format
-    private static final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
+	// Group 1: cwd
+	//cwd is either a quoted string or an unquoted string in which case it is in hex format
+	private static final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
 
-    // Group 1: item number
-    // Group 2: name
-    // Group 3: nametype
-    //name is either a quoted string or an unquoted string in which case it is in hex format
-    private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+) .*nametype=([a-zA-Z]*)");
+	// Group 1: item number
+	// Group 2: name
+	// Group 3: nametype
+	//name is either a quoted string or an unquoted string in which case it is in hex format
+	private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+) .*nametype=([a-zA-Z]*)");
 
-    // Group 1: eventid
-    private static final Pattern pattern_eventid = Pattern.compile("msg=audit\\([0-9\\.]+\\:([0-9]+)\\):");
+	// Group 1: eventid
+	private static final Pattern pattern_eventid = Pattern.compile("msg=audit\\([0-9\\.]+\\:([0-9]+)\\):");
 
-    /**
-     * Reference to the current input stream entry alone with key
-     * which is being read. Null means that either it has not been 
-     * initialized yet (constructor ensures that this doesn't happen) 
-     * or all streams have been read completely.
-     */
+	/**
+	 * Reference to the current input stream entry alone with key
+	 * which is being read. Null means that either it has not been 
+	 * initialized yet (constructor ensures that this doesn't happen) 
+	 * or all streams have been read completely.
+	 */
 	private SimpleEntry<String, BufferedReader> currentInputStreamReaderEntry;	
-	
+
 	/**
 	 * List of key value pairs of <stream identifier, input streams> to read from in the order in the list.
 	 * In case of files the stream identifier is the path of the file
 	 */
 	private LinkedList<SimpleEntry<String, InputStream>> inputStreamEntries = new LinkedList<SimpleEntry<String, InputStream>>();
-	
+
 	/**
 	 * Sorted event ids in the current window
 	 */
 	private TreeSet<Long> eventIds = new TreeSet<Long>();
-	
+
 	/**
 	 * List of audit records for event ids received in the current window
 	 */
 	private Map<Long, Set<String>> eventIdToEventRecords = new HashMap<Long, Set<String>>();
-	
+
 	/**
 	 * Number of audit records read so far out of the window size
 	 */
 	private long currentlyBufferedRecords = 0;
-	
+
 	/**
 	 * Window size to buffer and sort at a time
 	 */
 	private long maxRecordBufferSize = 0;
-	
+
 	/**
 	 * Write output log to this file (for debugging or later use of the log)
 	 */
 	private PrintWriter outputLogWriter;
-	
+
 	/**
 	 * Id of the last event that was output. Used to discard out of order event
 	 * records across window size. So, if event with id 'x' has been sent out
 	 * then if any event with id 'y' is read, where y < x, then 'y' is discarded
 	 */
 	private long lastEventId = -1;
-	
+
 	/**
 	 * Create instance of the class that reads the given list of files in the given order
 	 * 
@@ -137,7 +137,7 @@ public class AuditEventReader {
 	 * @throws Exception IllegalArgumentException or IOException
 	 */
 	public AuditEventReader(long maxRecordBufferSize, String... logFiles) throws Exception{
-		
+
 		if(maxRecordBufferSize < 1){
 			throw new IllegalArgumentException("Buffer size for audit records must be greater than 0");
 		}
@@ -146,7 +146,7 @@ public class AuditEventReader {
 		}else if(logFiles.length == 0){
 			throw new IllegalArgumentException("No audit log files specified");
 		}
-		
+
 		for(String logFile : logFiles){
 			if(logFile != null){
 				File file = new File(logFile);
@@ -159,19 +159,19 @@ public class AuditEventReader {
 				throw new IllegalArgumentException("All file paths must be non-null");
 			}
 		}
-		
+
 		// Shouldn't happen but just in case
 		if(this.inputStreamEntries.size() == 0){
 			throw new IllegalArgumentException("No valid log files specified");
 		}
-		
+
 		// Making sure that the current inputstream reader is non-null when readEventData is called afterwards
 		initializeCurrentStreamReader();
 		this.maxRecordBufferSize = maxRecordBufferSize;
-		
+
 		setGlobalsFromConfig();
 	}
-	
+
 	/**
 	 * Create instance of the class that reads the given list of streams in the given order
 	 * 
@@ -202,10 +202,10 @@ public class AuditEventReader {
 		}
 		initializeCurrentStreamReader();
 		this.maxRecordBufferSize = maxRecordBufferSize;
-		
+
 		setGlobalsFromConfig();
 	}
-	
+
 	private void setGlobalsFromConfig(){
 		String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
@@ -220,7 +220,7 @@ public class AuditEventReader {
 							reportingEnabled = true;
 							reportEveryMs = reportingInterval * 1000;
 							startTime = lastReportedTime = System.currentTimeMillis();
-					        recordCount = lastReportedRecordCount = 0;
+							recordCount = lastReportedRecordCount = 0;
 						}
 					}
 				}
@@ -229,7 +229,7 @@ public class AuditEventReader {
 			logger.log(Level.SEVERE, "Failed to read config file '"+defaultConfigFilePath+"'");
 		}
 	}
-	
+
 	/**
 	 * Convenience function to get the next stream and to initialize(open) it.
 	 * 
@@ -248,7 +248,7 @@ public class AuditEventReader {
 					nextEntry.getKey(), new BufferedReader(new InputStreamReader(nextEntry.getValue())));
 		}
 	}
-	
+
 	/**
 	 * Function to set the output log stream to which the sorted log is written
 	 * 
@@ -262,17 +262,19 @@ public class AuditEventReader {
 			outputLogWriter = new PrintWriter(outputStream);
 		}
 	}
-	
+
 	private void printStats(){
 		long currentTime = System.currentTimeMillis();
-        float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
-        float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
-        float overallRecordVolume = (float) recordCount / intervalTime; // # records/sec
-        float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / overallTime; // # records/sec
-        logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
-        		new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
-    }
-	
+		float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
+		float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
+		if(overallTime > 0 && intervalTime > 0){
+			float overallRecordVolume = (float) recordCount / overallTime; // # records/sec
+			float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / intervalTime; // # records/sec
+			logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
+					new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
+		}
+	}
+
 	/**
 	 * Returns a map of key values for the event that is read from the stream(s)
 	 * 
@@ -282,16 +284,16 @@ public class AuditEventReader {
 	 * @throws Exception IOException
 	 */
 	public Map<String, String> readEventData() throws Exception{
-		
+
 		if(reportingEnabled){
 			long currentTime = System.currentTimeMillis();
-	    	if((currentTime - lastReportedTime) >= reportEveryMs){
-	    		printStats();
-	    		lastReportedTime = currentTime;
-	    		lastReportedRecordCount = recordCount;
-	    	}
+			if((currentTime - lastReportedTime) >= reportEveryMs){
+				printStats();
+				lastReportedTime = currentTime;
+				lastReportedRecordCount = recordCount;
+			}
 		}
-		
+
 		if(currentInputStreamReaderEntry == null){ //all streams processed
 			return getEventData();		
 		}else{ // not all streams processed
@@ -331,7 +333,7 @@ public class AuditEventReader {
 			return getEventData();				
 		}
 	}
-	
+
 	/**
 	 * Sets the current input stream to null and now will start emptying the buffers
 	 * instead of going to the next stream, if any.
@@ -340,7 +342,7 @@ public class AuditEventReader {
 	public void stopReading(){
 		currentInputStreamReaderEntry = null;
 	}
-	
+
 	/**
 	 * Closes any open input streams and the output stream (if opened)
 	 */
@@ -375,7 +377,7 @@ public class AuditEventReader {
 			}
 		}
 	}
-	
+
 	/**
 	 * Returns the map of key values for the event with the smallest event id
 	 * 
@@ -390,26 +392,26 @@ public class AuditEventReader {
 			lastEventId = eventId;
 			Set<String> eventRecords = eventIdToEventRecords.remove(eventId);
 			currentlyBufferedRecords -= eventRecords.size();
-			
+
 			Map<String, String> eventData = new HashMap<String, String>();
-			
+
 			if(eventRecords != null){
-			
+
 				for(String eventRecord : eventRecords){
-					
+
 					if(outputLogWriter != null){
 						outputLogWriter.println(eventRecord);
 					}
-					
+
 					eventData.putAll(parseEventLine(eventRecord));
 				}
-			
+
 			}
-			
+
 			return eventData;
 		}	
 	}
-	
+
 	/**
 	 * Creates a map with key values as needed by the Audit reporter from audit records of an event
 	 * 
@@ -417,150 +419,150 @@ public class AuditEventReader {
 	 * @return map of key values for the argument record
 	 */
 	private Map<String, String> parseEventLine(String line) {
-    	
-		Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
-    	
-        Matcher event_start_matcher = pattern_message_start.matcher(line);
-        if (event_start_matcher.find()) {
-        	String node = event_start_matcher.group(1);
-            String type = event_start_matcher.group(2);
-            String time = event_start_matcher.group(3);
-            String eventId = event_start_matcher.group(4);
-            String messageData = line.substring(event_start_matcher.end());
-            
-            auditRecordKeyValues.put("eventid", eventId);
-            auditRecordKeyValues.put("node", node);
-            
-            if (type.equals("SYSCALL")) {
-                Map<String, String> eventData = parseKeyValPairs(messageData);
-                eventData.put("time", time);
-                auditRecordKeyValues.putAll(eventData);
-            } else if (type.equals("CWD")) {
-                Matcher cwd_matcher = pattern_cwd.matcher(messageData);
-                if (cwd_matcher.find()) {
-                    String cwd = cwd_matcher.group(1);
-                    cwd = cwd.trim();
-                    if(cwd.startsWith("\"") && cwd.endsWith("\"")){ //is a string path
-                    	cwd = cwd.substring(1, cwd.length()-1);
-                    }else{ //is in hex format
-                    	try{
-                    		cwd = parseHexStringToUTF8(cwd);
-                    	}catch(Exception e){
-                    		//failed to parse
-                    	}
-                    }                    
-                    auditRecordKeyValues.put("cwd", cwd);
-                }
-            } else if (type.equals("PATH")) {
-                Matcher path_matcher = pattern_path.matcher(messageData);
-                if (path_matcher.find()) {
-                    String item = path_matcher.group(1);
-                    String name = path_matcher.group(2);
-                    String nametype = path_matcher.group(3);
-                    name = name.trim();
-                    if(name.startsWith("\"") && name.endsWith("\"")){ //is a string path
-                    	name = name.substring(1, name.length()-1);
-                    }else{ //is in hex format
-                    	try{
-                    		name = parseHexStringToUTF8(name);
-                    	}catch(Exception e){
-                    		//failed to parse
-                    	}
-                    }
-                    auditRecordKeyValues.put("path" + item, name);
-                    auditRecordKeyValues.put("nametype" + item, nametype);
-                }
-            } else if (type.equals("EXECVE")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                	auditRecordKeyValues.put("execve_" + key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if (type.equals("FD_PAIR")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                	auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if (type.equals("SOCKETCALL")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                	auditRecordKeyValues.put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if (type.equals("SOCKADDR")) {
-                Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                	auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if(type.equals("NETFILTER_PKT")){
-            	Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-            	while (key_value_matcher.find()) {
-            		auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if (type.equals("MMAP")){
-            	Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-                while (key_value_matcher.find()) {
-                	auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-                }
-            } else if(type.equals("PROCTITLE")){
-            	//record type not being handled at the moment. 
-            } else {
-//            	if(!seenTypesOfUnsupportedRecords.contains(type)){
-//            		seenTypesOfUnsupportedRecords.add(type);
-//            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
-//            	}                
-            }
-            
-        } else {
-            
-        }
-        
-        return auditRecordKeyValues;
-    }
-	
-	/**
-     * Converts hex string as UTF-8
-     * 
-     * @param hexString string to parse
-     * @return parsed string
-     */
-    private String parseHexStringToUTF8(String hexString){
-    	if(hexString == null){
-    		return null;
-    	}
-    	
-    	//find the null char i.e. the end of the string
-    	for(int a = 0; a<hexString.length()-2; a+=2){
-    		String hexByte = hexString.substring(a,a+2);
-    		Integer intByte = Integer.parseInt(hexByte, 16);
-    		char c = (char)(intByte.intValue());
-    		if(c == 0){ //null char
-    			hexString = hexString.substring(0, a+1);
-    			break;
-    		}
-    	}
-    	
-		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
-    	for(int a = 0; a<hexString.length()-2; a+=2){
-    		bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
 
-    	}
-    	bytes.rewind();
-    	Charset cs = Charset.forName("UTF-8");
-    	CharBuffer cb = cs.decode(bytes);
-    	return cb.toString();
+		Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+
+		Matcher event_start_matcher = pattern_message_start.matcher(line);
+		if (event_start_matcher.find()) {
+			String node = event_start_matcher.group(1);
+			String type = event_start_matcher.group(2);
+			String time = event_start_matcher.group(3);
+			String eventId = event_start_matcher.group(4);
+			String messageData = line.substring(event_start_matcher.end());
+
+			auditRecordKeyValues.put("eventid", eventId);
+			auditRecordKeyValues.put("node", node);
+
+			if (type.equals("SYSCALL")) {
+				Map<String, String> eventData = parseKeyValPairs(messageData);
+				eventData.put("time", time);
+				auditRecordKeyValues.putAll(eventData);
+			} else if (type.equals("CWD")) {
+				Matcher cwd_matcher = pattern_cwd.matcher(messageData);
+				if (cwd_matcher.find()) {
+					String cwd = cwd_matcher.group(1);
+					cwd = cwd.trim();
+					if(cwd.startsWith("\"") && cwd.endsWith("\"")){ //is a string path
+						cwd = cwd.substring(1, cwd.length()-1);
+					}else{ //is in hex format
+						try{
+							cwd = parseHexStringToUTF8(cwd);
+						}catch(Exception e){
+							//failed to parse
+						}
+					}                    
+					auditRecordKeyValues.put("cwd", cwd);
+				}
+			} else if (type.equals("PATH")) {
+				Matcher path_matcher = pattern_path.matcher(messageData);
+				if (path_matcher.find()) {
+					String item = path_matcher.group(1);
+					String name = path_matcher.group(2);
+					String nametype = path_matcher.group(3);
+					name = name.trim();
+					if(name.startsWith("\"") && name.endsWith("\"")){ //is a string path
+						name = name.substring(1, name.length()-1);
+					}else{ //is in hex format
+						try{
+							name = parseHexStringToUTF8(name);
+						}catch(Exception e){
+							//failed to parse
+						}
+					}
+					auditRecordKeyValues.put("path" + item, name);
+					auditRecordKeyValues.put("nametype" + item, nametype);
+				}
+			} else if (type.equals("EXECVE")) {
+				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+				while (key_value_matcher.find()) {
+					auditRecordKeyValues.put("execve_" + key_value_matcher.group(1), key_value_matcher.group(2));
+				}
+			} else if (type.equals("FD_PAIR")) {
+				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+				while (key_value_matcher.find()) {
+					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+				}
+			} else if (type.equals("SOCKETCALL")) {
+				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+				while (key_value_matcher.find()) {
+					auditRecordKeyValues.put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
+				}
+			} else if (type.equals("SOCKADDR")) {
+				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+				while (key_value_matcher.find()) {
+					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+				}
+			} else if(type.equals("NETFILTER_PKT")){
+				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+				while (key_value_matcher.find()) {
+					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+				}
+			} else if (type.equals("MMAP")){
+				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+				while (key_value_matcher.find()) {
+					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+				}
+			} else if(type.equals("PROCTITLE")){
+				//record type not being handled at the moment. 
+			} else {
+				//            	if(!seenTypesOfUnsupportedRecords.contains(type)){
+				//            		seenTypesOfUnsupportedRecords.add(type);
+				//            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
+				//            	}                
+			}
+
+		} else {
+
+		}
+
+		return auditRecordKeyValues;
 	}
-	
+
 	/**
-     * Takes a string with keyvalue pairs and returns a Map Input e.g.
-     * "key1=val1 key2=val2" etc. Input string validation is callee's
-     * responsibility
-     */
-    private static Map<String, String> parseKeyValPairs(String messageData) {
-        Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-        Map<String, String> keyValPairs = new HashMap<>();
-        while (key_value_matcher.find()) {
-            keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
-        }
-        return keyValPairs;
-    }
-	
+	 * Converts hex string as UTF-8
+	 * 
+	 * @param hexString string to parse
+	 * @return parsed string
+	 */
+	private String parseHexStringToUTF8(String hexString){
+		if(hexString == null){
+			return null;
+		}
+
+		//find the null char i.e. the end of the string
+		for(int a = 0; a<hexString.length()-2; a+=2){
+			String hexByte = hexString.substring(a,a+2);
+			Integer intByte = Integer.parseInt(hexByte, 16);
+			char c = (char)(intByte.intValue());
+			if(c == 0){ //null char
+				hexString = hexString.substring(0, a+1);
+				break;
+			}
+		}
+
+		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
+		for(int a = 0; a<hexString.length()-2; a+=2){
+			bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
+
+		}
+		bytes.rewind();
+		Charset cs = Charset.forName("UTF-8");
+		CharBuffer cb = cs.decode(bytes);
+		return cb.toString();
+	}
+
+	/**
+	 * Takes a string with keyvalue pairs and returns a Map Input e.g.
+	 * "key1=val1 key2=val2" etc. Input string validation is callee's
+	 * responsibility
+	 */
+	private static Map<String, String> parseKeyValPairs(String messageData) {
+		Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+		Map<String, String> keyValPairs = new HashMap<>();
+		while (key_value_matcher.find()) {
+			keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
+		}
+		return keyValPairs;
+	}
+
 }
