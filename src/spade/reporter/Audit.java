@@ -517,21 +517,28 @@ public class Audit extends AbstractReporter {
 					List<String> auditRules = new ArrayList<String>();
 
 					if("all".equals(rulesType)){
-						String auditRule = "auditctl -a exit,always ";
+						String specialSyscallsRule = "auditctl -a exit,always ";
+						String allSyscallsAuditRule = "auditctl -a exit,always ";
 
-						auditRule += archField;
+						allSyscallsAuditRule += archField;
+						specialSyscallsRule += archField;
 
-						auditRule += "-S all ";
+						allSyscallsAuditRule += "-S all ";
+						specialSyscallsRule += "-S exit -S exit_group -S kill ";
 
-						auditRule += uidField;
+						allSyscallsAuditRule += uidField;
+						specialSyscallsRule += uidField;
 
-						int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(auditRule, pidsToIgnore);
+						allSyscallsAuditRule += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
+						
+						int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(allSyscallsAuditRule, pidsToIgnore);
 
 						List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
-						auditRules.addAll(exitNeverAuditRules);
+						auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
 
 						String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
-						auditRules.add(auditRule + fieldsForAuditRule);
+						auditRules.add(specialSyscallsRule + fieldsForAuditRule);
+						auditRules.add(allSyscallsAuditRule + fieldsForAuditRule);
 
 					}else if(rulesType == null){
 
@@ -574,7 +581,7 @@ public class Audit extends AbstractReporter {
 						int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(auditRuleWithSuccess, pidsToIgnore);
 
 						List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
-						auditRules.addAll(exitNeverAuditRules);
+						auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
 
 						String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
 						auditRules.add(auditRuleWithoutSuccess + fieldsForAuditRule);
