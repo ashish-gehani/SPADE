@@ -530,18 +530,18 @@ public class AuditEventReader {
 		}
 
 		//find the null char i.e. the end of the string
-		for(int a = 0; a<hexString.length()-2; a+=2){
+		for(int a = 0; a<=hexString.length()-2; a+=2){
 			String hexByte = hexString.substring(a,a+2);
 			Integer intByte = Integer.parseInt(hexByte, 16);
 			char c = (char)(intByte.intValue());
 			if(c == 0){ //null char
-				hexString = hexString.substring(0, a+1);
+				hexString = hexString.substring(0, a);
 				break;
 			}
 		}
 
 		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
-		for(int a = 0; a<hexString.length()-2; a+=2){
+		for(int a = 0; a<=hexString.length()-2; a+=2){
 			bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
 
 		}

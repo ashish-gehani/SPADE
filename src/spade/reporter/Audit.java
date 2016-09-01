@@ -42,7 +42,6 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
@@ -172,8 +171,8 @@ public class Audit extends AbstractReporter {
 	//cache maps paths. global so that we delete on exit
 	private String artifactsCacheDatabasePath;
 
-	//pid to set of process hashes seen so far. Used to check if a process vertex has been added to internal buffer before or not
-	private Map<String, Set<String>> pidToProcessHashes = new HashMap<String, Set<String>>();
+	//pid to set of process uids seen so far. Used to check if a process vertex has been added to internal buffer before or not
+	private Map<String, Set<String>> pidToProcessUIDs = new HashMap<String, Set<String>>();
 
 	private java.lang.Process auditProcess = null;
 
@@ -1288,7 +1287,7 @@ public class Audit extends AbstractReporter {
 		pidToMemAddress.remove(pid);  // Remove all the beep unit memory addresses
 		iterationNumber.remove(pid); // Remove the iteration numbers for the units of this process
 		descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
-		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
+		pidToProcessUIDs.remove(pid); // Remove all hashes of process vertices for this pid
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -2756,11 +2755,23 @@ public class Audit extends AbstractReporter {
 			if(saddr.charAt(1) == '1'){ //unix socket
 
 				String path = "";
-				int start = saddr.indexOf("2F"); //2F in ASCII is '/'. so starting from there since unix file paths start from there
+				int start = -1;
 
+				//starting from 2 since first two characters are 01
+				for(int a = 2;a <= saddr.length()-2; a+=2){
+					if(saddr.substring(a,a+2).equals("00")){ //null char
+						//continue until non-null found
+						continue;
+					}else{
+						//first non-null char i.e. we are going to start from here
+						start = a;
+						break;
+					}
+				}
+				
 				if(start != -1){ //found
 					try{
-						for(; start < saddr.length() - 2; start+=2){
+						for(; start <= saddr.length() - 2; start+=2){
 							char c = (char)(Integer.parseInt(saddr.substring(start, start+2), 16));
 							if(c == 0){ //null char
 								break;
@@ -3110,7 +3121,7 @@ public class Audit extends AbstractReporter {
 	}
 
 	/**
-	 * Checks if the hash of the process vertex exists in the map {@link #pidToProcessHashes pidToProcessHashes}
+	 * Checks if the UIDs of the process vertex exist in the map {@link #pidToProcessUIDs pidToProcessUIDs}
 	 * 
 	 * If it didn't exist then it returns false but it does add it
 	 * 
@@ -3122,14 +3133,20 @@ public class Audit extends AbstractReporter {
 	 */
 	private boolean processVertexHasBeenPutBefore(Process process){
 		String pid = process.getAnnotation("pid");
-		String hash = DigestUtils.md5Hex(process.toString());
-		if(pidToProcessHashes.get(pid) == null){
-			pidToProcessHashes.put(pid, new HashSet<String>());
+		
+		String uidString = process.getAnnotation("uid") + "," + process.getAnnotation("euid");
+		
+		if(!SIMPLIFY){
+			uidString += "," + process.getAnnotation("suid") + process.getAnnotation("fsuid");
 		}
-		if(pidToProcessHashes.get(pid).contains(hash)){
+		
+		if(pidToProcessUIDs.get(pid) == null){
+			pidToProcessUIDs.put(pid, new HashSet<String>());
+		}
+		if(pidToProcessUIDs.get(pid).contains(uidString)){
 			return true;
 		}else{
-			pidToProcessHashes.get(pid).add(hash); //add it
+			pidToProcessUIDs.get(pid).add(uidString); //add it
 			return false;
 		}
 	}

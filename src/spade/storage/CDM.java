@@ -87,7 +87,41 @@ public class CDM extends Kafka {
     
     @Override
     public boolean initialize(String arguments) {
-    	return super.initialize(arguments);
+    	boolean initResult = super.initialize(arguments);
+    	
+    	publishStreamMarkerObject(true);
+    	    	
+    	return initResult;
+    }
+    
+    /**
+     * Creates a SrcSinkObject with special annotations to be used as start of stream and end of stream markers
+     * AND publishes the object too
+     * 
+     * Annotations: 'start time' if start of stream, 'end time' if end of stream
+     * 
+     * @param isStart true if start of stream, false if end of stream
+     * @return SrcSinkObject instance
+     */
+    private void publishStreamMarkerObject(boolean isStart){
+    	String annotationName = isStart ? "start time" : "end time";
+    	
+    	Builder baseObjectBuilder = AbstractObject.newBuilder();
+    	baseObjectBuilder.setSource(InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE);
+        AbstractObject baseObject = baseObjectBuilder.build();
+    	
+    	SrcSinkObject.Builder streamMarkerObjectBuilder = SrcSinkObject.newBuilder();
+    	Map<CharSequence, CharSequence> properties = new HashMap<>();
+    	properties.put(annotationName, String.valueOf(System.currentTimeMillis()*1000)); //millis to micros
+    	baseObject.setProperties(properties);
+    	streamMarkerObjectBuilder.setBaseObject(baseObject);
+    	streamMarkerObjectBuilder.setUuid(new UUID(properties.toString().getBytes())); //uuid is based on the annotations and values in the properties map
+    	streamMarkerObjectBuilder.setType(SrcSinkType.SOURCE_SYSTEM_PROPERTY);
+        SrcSinkObject streamMarkerObject = streamMarkerObjectBuilder.build();  
+        
+        List<GenericContainer> dataToPublish = new ArrayList<GenericContainer>();
+    	dataToPublish.add(TCCDMDatum.newBuilder().setDatum(streamMarkerObject).build());
+    	publishRecords(dataToPublish);
     }
         
     @Override
@@ -466,6 +500,8 @@ public class CDM extends Kafka {
             		logger.log(Level.WARNING, "Missing execve event with id '"+eventId+"'. Failed to add " + entry.getValue().size() + " load edges");
             	}
             }            
+            
+            publishStreamMarkerObject(false);
             
             return super.shutdown();
         } catch (Exception exception) {
