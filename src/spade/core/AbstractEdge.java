@@ -207,6 +207,6 @@ public abstract class AbstractEdge implements Serializable {
         annotations.append(this.sourceVertex != null ? this.sourceVertex.toString() : "");
         annotations.append(this.toString());
         annotations.append(this.destinationVertex != null ? this.destinationVertex.toString() : "");
-        return DigestUtils.md5(annotations.toString());
+        return DigestUtils.md5Hex(annotations.toString()).getBytes();
     }
 }

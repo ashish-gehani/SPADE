@@ -116,7 +116,7 @@ public class CDM extends Kafka {
     	properties.put(annotationName, String.valueOf(System.currentTimeMillis()*1000)); //millis to micros
     	baseObject.setProperties(properties);
     	streamMarkerObjectBuilder.setBaseObject(baseObject);
-    	streamMarkerObjectBuilder.setUuid(new UUID(DigestUtils.md5(properties.toString()))); //uuid is based on the annotations and values in the properties map
+    	streamMarkerObjectBuilder.setUuid(new UUID(DigestUtils.md5Hex(properties.toString()).getBytes())); //uuid is based on the annotations and values in the properties map
     	streamMarkerObjectBuilder.setType(SrcSinkType.SOURCE_SYSTEM_PROPERTY);
         SrcSinkObject streamMarkerObject = streamMarkerObjectBuilder.build();  
         
