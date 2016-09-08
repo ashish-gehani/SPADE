@@ -42,6 +42,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
@@ -788,6 +789,21 @@ public class Audit extends AbstractReporter {
 						new ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties>(artifactsCacheSize, 
 								new BerkeleyDB<ArtifactProperties>(artifactsCacheDatabasePath, artifactsDatabaseName), 
 								artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements);
+								
+				artifactIdentifierToArtifactProperties.setKeyHashFunction(new Hasher<ArtifactIdentifier>() {
+				
+					@Override
+					public String getHash(ArtifactIdentifier t) {
+						if(t != null){
+							Map<String, String> annotations = t.getAnnotationsMap();
+							String subtype = t.getSubtype();
+							String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
+							return DigestUtils.sha256Hex(stringToHash);
+						}else{
+							return DigestUtils.sha256Hex("(null)");
+						}
+					}
+				});
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to initialize necessary data structures", e);
 				return false;
@@ -3121,7 +3137,7 @@ public class Audit extends AbstractReporter {
 	}
 
 	/**
-	 * Checks if the UIDs of the process vertex exist in the map {@link #pidToProcessUIDs pidToProcessUIDs}
+	 * Checks if the hash of the process vertex exists in the map {@link #pidToProcessUIDs pidToProcessUIDs}
 	 * 
 	 * If it didn't exist then it returns false but it does add it
 	 * 
@@ -3134,19 +3150,15 @@ public class Audit extends AbstractReporter {
 	private boolean processVertexHasBeenPutBefore(Process process){
 		String pid = process.getAnnotation("pid");
 		
-		String uidString = process.getAnnotation("uid") + "," + process.getAnnotation("euid");
-		
-		if(!SIMPLIFY){
-			uidString += "," + process.getAnnotation("suid") + process.getAnnotation("fsuid");
-		}
+		String hashString = DigestUtils.sha256Hex(process.toString());
 		
 		if(pidToProcessUIDs.get(pid) == null){
 			pidToProcessUIDs.put(pid, new HashSet<String>());
 		}
-		if(pidToProcessUIDs.get(pid).contains(uidString)){
+		if(pidToProcessUIDs.get(pid).contains(hashString)){
 			return true;
 		}else{
-			pidToProcessUIDs.get(pid).add(uidString); //add it
+			pidToProcessUIDs.get(pid).add(hashString); //add it
 			return false;
 		}
 	}
