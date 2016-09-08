@@ -31,6 +31,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
 import com.bbn.tc.schema.avro.AbstractObject;
@@ -115,7 +116,7 @@ public class CDM extends Kafka {
     	properties.put(annotationName, String.valueOf(System.currentTimeMillis()*1000)); //millis to micros
     	baseObject.setProperties(properties);
     	streamMarkerObjectBuilder.setBaseObject(baseObject);
-    	streamMarkerObjectBuilder.setUuid(new UUID(properties.toString().getBytes())); //uuid is based on the annotations and values in the properties map
+    	streamMarkerObjectBuilder.setUuid(new UUID(DigestUtils.md5(properties.toString()))); //uuid is based on the annotations and values in the properties map
     	streamMarkerObjectBuilder.setType(SrcSinkType.SOURCE_SYSTEM_PROPERTY);
         SrcSinkObject streamMarkerObject = streamMarkerObjectBuilder.build();  
         

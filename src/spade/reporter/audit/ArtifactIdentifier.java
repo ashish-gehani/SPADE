@@ -80,5 +80,34 @@ public abstract class ArtifactIdentifier {
 	 * @return file, network, memory, pipe, unknown
 	 */
 	public abstract String getSubtype();
+	
+	@Override
+	public int hashCode(){
+		int hashcode = 0;
+		int i = 23;
+		hashcode += getAnnotationsMap() == null ? i : getAnnotationsMap().hashCode()*i;
+		i = 27;
+		hashcode += getSubtype() == null ? i : getSubtype().hashCode()*i;
+		return hashcode;
+	}
 		
+	@Override
+	public boolean equals(Object object){
+		if(object != null){
+			if(object.getClass().equals(this.getClass())){
+				ArtifactIdentifier that = (ArtifactIdentifier)object;
+				Map<String, String> thatAnnotations = that.getAnnotationsMap();
+				Map<String, String> thisAnnotations = this.getAnnotationsMap();
+				String thatSubtype = that.getSubtype();
+				String thisSubtype = this.getSubtype();
+				if((thatAnnotations == null && thisAnnotations == null)
+						|| (thatAnnotations.equals(thisAnnotations)) //what if one is null. NPE!
+						&& ((thatSubtype == null && thisSubtype == null) 
+								|| thatSubtype.equals(thisSubtype))){
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 }
