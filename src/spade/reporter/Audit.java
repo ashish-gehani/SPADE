@@ -69,6 +69,7 @@ import spade.utility.CommonFunctions;
 import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
+import spade.utility.Hasher;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
