@@ -36,21 +36,28 @@ public class ArtifactProperties implements Serializable{
 	
 	private boolean epochPending = true;
 	
+	private double creationTime = ARTIFACT_PROPERTY_UNINITIALIZED;
 	private long creationEventId = ARTIFACT_PROPERTY_UNINITIALIZED;
 	
-	public void markNewEpoch(long creationEventId){
+	public void markNewEpoch(double creationTime, long creationEventId){
+		this.creationTime = creationTime;
 		this.creationEventId = creationEventId;
 		this.epochPending = true;
 		this.version = ARTIFACT_PROPERTY_UNINITIALIZED;
 	}	
 	
-	public void markNewEpoch(String creationEventIdString){
+	public void markNewEpoch(String creationTimeString, String creationEventIdString){
 		long creationEventId = CommonFunctions.parseLong(creationEventIdString, ARTIFACT_PROPERTY_UNINITIALIZED);
-		markNewEpoch(creationEventId);
+		double creationTime = CommonFunctions.parseDouble(creationTimeString, (double)ARTIFACT_PROPERTY_UNINITIALIZED);
+		markNewEpoch(creationTime, creationEventId);
 	}
 	
 	public long getCreationEventId(){
 		return creationEventId;
+	}
+	
+	public double getCreationTime(){
+		return creationTime;
 	}
 
 	//autoincrements if pending true or uninitialized

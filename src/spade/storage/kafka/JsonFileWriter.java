@@ -37,11 +37,17 @@ public class JsonFileWriter implements DataWriter {
 	private JsonEncoder jsonEncoder;
 	private DatumWriter<Object> datumWriter;
 	
-	public JsonFileWriter(String schemaFile, String outputFile) throws Exception{
+	public JsonFileWriter(String schemaFile, String outputFilePath) throws Exception{
+		
+		File outputFile = new File(outputFilePath);
+		if(outputFile == null || outputFile.getParentFile() == null || !outputFile.getParentFile().exists()){
+			throw new Exception("Invalid file path: " + outputFilePath);
+		}
+		
 		Parser parser = new Schema.Parser();
 		Schema schema = parser.parse(new File(schemaFile));
 		datumWriter = new SpecificDatumWriter<Object>(schema);
-		OutputStream outputStream = new FileOutputStream(new File(outputFile));
+		OutputStream outputStream = new FileOutputStream(outputFile);
 		jsonEncoder = EncoderFactory.get().jsonEncoder(schema, outputStream);
 	}
 	

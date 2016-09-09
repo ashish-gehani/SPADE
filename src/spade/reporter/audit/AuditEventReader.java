@@ -128,6 +128,14 @@ public class AuditEventReader {
 	 * then if any event with id 'y' is read, where y < x, then 'y' is discarded
 	 */
 	private long lastEventId = -1;
+	
+	/**
+	 * Used to tell if we saw a DAEMON_START type event
+	 * When this is seen, we stop reading from the file and empty the buffer and once
+	 * buffer has been empty, the lastEventId is reset and we start reading from the file 
+	 * again. Done this because after DAEMON_START event IDs start from a smaller number.
+	 */
+	private boolean sawDaemonRising = false;
 
 	/**
 	 * Create instance of the class that reads the given list of files in the given order
@@ -294,7 +302,8 @@ public class AuditEventReader {
 			}
 		}
 
-		if(currentInputStreamReaderEntry == null){ //all streams processed
+		if(currentInputStreamReaderEntry == null
+				|| sawDaemonRising){ //all streams processed or emptying the buffer because of DAEMON_START
 			return getEventData();		
 		}else{ // not all streams processed
 			while(currentlyBufferedRecords < maxRecordBufferSize){ //read audit records until max amount read
@@ -306,8 +315,25 @@ public class AuditEventReader {
 						break;
 					}
 				}else{ //if input stream not completely read yet
+					if(line.contains("type=EOE")){
+						//Ignoring EOE records since we don't use them
+						//and because EOE of DAEMON_START would break the code
+						continue;
+					}
 					if(reportingEnabled){
 						recordCount++;
+					}
+					if(line.contains("type=DAEMON_START")){
+						//Going to stop reading until the buffer is empty
+						//Check if the buffer is already empty
+						//If already empty then continue reading from the stream else break
+						if(eventIds.size() > 0){
+							sawDaemonRising = true;
+							break; //stop reading from the stream and empty the buffer
+						}else{ //if buffer already empty
+							lastEventId = -1; //reset because event ids would start from a smaller number now
+							continue;
+						}
 					}
 					Matcher event_start_matcher = pattern_eventid.matcher(line);
 					if (event_start_matcher.find()){ //get the event id
@@ -315,7 +341,7 @@ public class AuditEventReader {
 						if(eventId == null){ //if event id null then don't process
 							logger.log(Level.SEVERE, "Event id null for line -> " + line);
 						}else{
-							if(eventId < lastEventId){
+							if(eventId <= lastEventId){
 								logger.log(Level.WARNING, "Out of order event beyond the window size -> " + line);
 							}else{
 								currentlyBufferedRecords++; //increment the record count
@@ -381,6 +407,14 @@ public class AuditEventReader {
 	/**
 	 * Returns the map of key values for the event with the smallest event id
 	 * 
+	 * Because of DAEMON_START logic, make sure this function is called knowing that
+	 * the buffer isn't empty. Because if it is then this function would return null
+	 * and that would indicate the user of this class that EOF has been reached but in
+	 * reality it hasn't been because we had stopped reading the input stream(s) to 
+	 * empty the buffer because of DAEMON_START and we intend to start reading the 
+	 * input stream again after that. Done to avoid false reordering of events based
+	 * on event ids.
+	 * 
 	 * @return map of key values for the event. Null if none found.
 	 * @throws Exception
 	 */
@@ -406,6 +440,15 @@ public class AuditEventReader {
 					eventData.putAll(parseEventLine(eventRecord));
 				}
 
+			}
+			
+			if(eventIds.size() == 0){ //Buffer emptied
+				if(sawDaemonRising){ //Check if we had stopped reading because of DAEMON_START
+					sawDaemonRising = false;
+					lastEventId = -1; //reset
+					//Doing this here because we don't want to return null before starting to read
+					//from the file again
+				}
 			}
 
 			return eventData;
@@ -504,7 +547,7 @@ public class AuditEventReader {
 				}
 			} else if(type.equals("PROCTITLE")){
 				//record type not being handled at the moment. 
-			} else {
+			} else{
 				//            	if(!seenTypesOfUnsupportedRecords.contains(type)){
 				//            		seenTypesOfUnsupportedRecords.add(type);
 				//            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});

@@ -84,7 +84,7 @@ public class CDM extends Kafka {
     // A set to keep track of principals that have been published to avoid duplication
     private Set<UUID> principalUUIDs = new HashSet<UUID>(); 
     
-    private Map<Long, Set<UUID>> eventIdToPendingLoadedFilesUUIDs = new HashMap<Long, Set<UUID>>();
+    private Map<String, Set<UUID>> timeEventIdToPendingLoadedFilesUUIDs = new HashMap<String, Set<UUID>>();
     
     @Override
     public boolean initialize(String arguments) {
@@ -273,7 +273,7 @@ public class CDM extends Kafka {
             		
             		// Add any pending load edges
             		
-            		Set<UUID> pendingLoadedFilesUUIDs = eventIdToPendingLoadedFilesUUIDs.get(eventId);
+            		Set<UUID> pendingLoadedFilesUUIDs = timeEventIdToPendingLoadedFilesUUIDs.get(time+":"+eventId);
             		
             		if(pendingLoadedFilesUUIDs != null){
             			for(UUID pendingLoadedFileUUID : pendingLoadedFilesUUIDs){
@@ -281,7 +281,7 @@ public class CDM extends Kafka {
                     				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
     	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
             			}
-            			eventIdToPendingLoadedFilesUUIDs.remove(eventId); //remove since all have been added
+            			timeEventIdToPendingLoadedFilesUUIDs.remove(time+":"+eventId); //remove since all have been added
             		}
             		
             	}else if(opmOperation.equals("unknown")){
@@ -357,10 +357,10 @@ public class CDM extends Kafka {
 	                    publishRecords(tccdmDatums);
 	                    return true; //no need to create an event for this so returning from here after adding the edge
                 	}else{
-                		if(eventIdToPendingLoadedFilesUUIDs.get(eventId) == null){
-                			eventIdToPendingLoadedFilesUUIDs.put(eventId, new HashSet<UUID>());
+                		if(timeEventIdToPendingLoadedFilesUUIDs.get(time+":"+eventId) == null){
+                			timeEventIdToPendingLoadedFilesUUIDs.put(time+":"+eventId, new HashSet<UUID>());
                 		}
-                		eventIdToPendingLoadedFilesUUIDs.get(eventId).add(getUuid(edge.getDestinationVertex()));
+                		timeEventIdToPendingLoadedFilesUUIDs.get(time+":"+eventId).add(getUuid(edge.getDestinationVertex()));
                 		return true;
                 	}
                 } else if (opmOperation.equals("open")){
@@ -495,10 +495,10 @@ public class CDM extends Kafka {
     public boolean shutdown() {
         try {
             
-            for(Map.Entry<Long, Set<UUID>> entry : eventIdToPendingLoadedFilesUUIDs.entrySet()){
-            	Long eventId = entry.getKey();
+            for(Map.Entry<String, Set<UUID>> entry : timeEventIdToPendingLoadedFilesUUIDs.entrySet()){
+            	String timeEventId = entry.getKey();
             	if(entry.getValue() != null && entry.getValue().size() > 0){
-            		logger.log(Level.WARNING, "Missing execve event with id '"+eventId+"'. Failed to add " + entry.getValue().size() + " load edges");
+            		logger.log(Level.WARNING, "Missing execve event with id with stamp '"+timeEventId+"'. Failed to add " + entry.getValue().size() + " load edges");
             	}
             }            
             
