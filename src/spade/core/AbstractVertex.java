@@ -156,6 +156,6 @@ public abstract class AbstractVertex implements Serializable {
      */
     public byte[] bigHashCode() {
         
-        return DigestUtils.md5Hex(this.toString()).getBytes();
+        return DigestUtils.md5(this.toString());
     }
 }

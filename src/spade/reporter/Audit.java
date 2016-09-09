@@ -1521,6 +1521,22 @@ public class Audit extends AbstractReporter {
 		String pid = eventData.get("pid");
 		String time = eventData.get("time");
 
+		// + Getting existing process vertex before recreating and replacing the vertex with the same pid
+		// + Try to get it. if doesn't exist then don't add it because it's user or group identifiers might have been different
+		// + Ignoring the last comment and creating a new one with the information that we have so that CDM storage
+		// can add load edges ( execve event is a must for drawing load edges in CDM storage )
+		Process oldProcess = getProcess(pid); 
+		if(oldProcess == null){
+			// tempEventData has all the annotations that we can safely know about the process that called execve
+			Map<String, String> tempEventData = new HashMap<String, String>();
+			tempEventData.putAll(eventData);
+			tempEventData.remove("comm");
+			tempEventData.remove("name");
+			tempEventData.remove("commandline");
+			tempEventData.remove("cwd");
+			oldProcess = putProcess(tempEventData);
+		}
+		
 		String commandline = null;
 		if(eventData.get("execve_argc") != null){
 			Long argc = CommonFunctions.parseLong(eventData.get("execve_argc"), 0L);
@@ -1535,10 +1551,6 @@ public class Audit extends AbstractReporter {
 
 		eventData.put("commandline", commandline);
 		eventData.put("start time", time);
-
-		//doing it before recreating and replacing the vertex with the same pid
-		//try to get it. if doesn't exist then don't add it because it's user or group identifiers might have been different
-		Process oldProcess = getProcess(pid); 
 
 		boolean RECREATE_AND_REPLACE = true; //true because a process vertex with the same pid created in execve
 		//this call would clear all the units for the pid because the process is doing execve, replacing itself.
@@ -3223,12 +3235,15 @@ public class Audit extends AbstractReporter {
 		Process process = new Process();
 		process.addAnnotation("pid", pid);
 		process.addAnnotation("ppid", ppid);
-		process.addAnnotation("name", name);
 		process.addAnnotation("uid", uid);
 		process.addAnnotation("euid", euid);
 		process.addAnnotation("gid", gid);
 		process.addAnnotation("egid", egid);
 
+		if(name != null){
+			process.addAnnotation("name", name);
+		}
+		
 		if(source == null){
 			process.addAnnotation(SOURCE, DEV_AUDIT);
 		}else{

@@ -89,6 +89,7 @@ public class AuditSanity extends AbstractFilter{
 		}else{
 			vertexMap.put(incomingVertex, 1);
 		}
+		putInNextFilter(incomingVertex);
 	}
 
 	@Override
@@ -106,6 +107,7 @@ public class AuditSanity extends AbstractFilter{
 		}else if(sourceExists != null && destinationExists == null){
 			logger.log(Level.WARNING, "Missing destination vertex: (" + source + ") -> [" + incomingEdge + "] -> (" + destination + ")");
 		}
+		putInNextFilter(incomingEdge);
 	}
 	
 }
