@@ -669,6 +669,14 @@ public class Audit extends AbstractReporter {
 	}
 
 	private void deleteCacheMaps(){
+		//Close the external store and then delete the folder
+		try{
+			if(artifactIdentifierToArtifactProperties != null){
+				artifactIdentifierToArtifactProperties.close();
+			}
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
+		}
 		try{
 			if(artifactsCacheDatabasePath != null && new File(artifactsCacheDatabasePath).exists()){
 				FileUtils.forceDelete(new File(artifactsCacheDatabasePath));

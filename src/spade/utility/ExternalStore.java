@@ -67,4 +67,9 @@ public interface ExternalStore<V extends Serializable>{
 	 * @throws Exception Any implementation dependent exception
 	 */
 	public void clear() throws Exception;
+	/**
+	 * A function to close the store
+	 * @throws Exception Any implementation dependent exception
+	 */
+	public void close() throws Exception;
 }

@@ -287,6 +287,19 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 		head = new Node<K, V>(null, null);
 		tail = new Node<K, V>(null, null);
 	}
+	
+	/**
+	 * A function to close the external store being used
+	 */
+	public void close(){
+		try{
+			if(cacheStore != null){
+				cacheStore.close();
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to close cache store", e);
+		}
+	}
 }
 
 /**

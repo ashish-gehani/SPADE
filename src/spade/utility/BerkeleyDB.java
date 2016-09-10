@@ -109,5 +109,11 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 	public void clear() throws Exception {
 		//no current implementation
 	}
+	
+	@Override
+	public void close() throws Exception{
+		database.close();
+		environment.close();
+	}
 
 }
