@@ -26,8 +26,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
+import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 
 import spade.core.Settings;
 import spade.storage.Kafka;
@@ -43,6 +45,7 @@ public class ServerWriter implements DataWriter{
 	private long reportEveryMs;
 	private long startTime, lastReportedTime;
 	private long lastReportedRecordCount, recordCount;
+	private volatile long failedRecordCount;
 
 	private KafkaProducer<String, GenericContainer> serverWriter;
 	private String kafkaTopic;
@@ -84,10 +87,21 @@ public class ServerWriter implements DataWriter{
 		if(overallTime > 0 && intervalTime > 0){
 			float overallRecordVolume = (float) recordCount / overallTime; // # records/sec
 			float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / intervalTime; // # records/sec
-			logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
-					new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
+			logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds. Total failed sends: {4}.", 
+					new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime, failedRecordCount});
 		}
 	}
+	
+	private Callback sendCallback = new Callback(){
+		@Override
+		public void onCompletion(RecordMetadata recordMetadata, Exception exception) {
+			if(exception != null){ //error
+				logger.log(Level.WARNING, "Failed to send record", exception);
+				failedRecordCount++;
+			}
+		}
+		
+	};
 
 	public void writeRecord(GenericContainer genericContainer) throws Exception{
 		/**
@@ -95,8 +109,8 @@ public class ServerWriter implements DataWriter{
 		 * the record type (any type from the union schema may be sent)
 		 */
 		ProducerRecord<String, GenericContainer> record = new ProducerRecord<>(kafkaTopic, genericContainer);
-		serverWriter.send(record); //asynchronous send
-
+		serverWriter.send(record, sendCallback); //asynchronous send
+		
 		if(reportingEnabled){
 			recordCount++;
 			long currentTime = System.currentTimeMillis();
