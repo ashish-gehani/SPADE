@@ -31,6 +31,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
@@ -86,9 +87,20 @@ public class CDM extends Kafka {
     
     private Map<String, Set<UUID>> timeEventIdToPendingLoadedFilesUUIDs = new HashMap<String, Set<UUID>>();
     
+    private boolean hexUUIDs = false;
+    
     @Override
     public boolean initialize(String arguments) {
     	boolean initResult = super.initialize(arguments);
+    	
+    	try{
+	    	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+	    	if("true".equals(argumentsMap.get("hexUUIDs"))){
+	    		hexUUIDs = true;
+	    	}
+    	}catch(Exception e){
+    		logger.log(Level.WARNING, "Failed to parse arguments into key-value pairs. Using default values.", e);
+    	}
     	
     	publishStreamMarkerObject(true);
     	    	
@@ -116,7 +128,7 @@ public class CDM extends Kafka {
     	properties.put(annotationName, String.valueOf(System.currentTimeMillis()*1000)); //millis to micros
     	baseObject.setProperties(properties);
     	streamMarkerObjectBuilder.setBaseObject(baseObject);
-    	streamMarkerObjectBuilder.setUuid(new UUID(DigestUtils.md5(properties.toString()))); //uuid is based on the annotations and values in the properties map
+    	streamMarkerObjectBuilder.setUuid(getUuid(properties)); //uuid is based on the annotations and values in the properties map
     	streamMarkerObjectBuilder.setType(SrcSinkType.SOURCE_SYSTEM_PROPERTY);
         SrcSinkObject streamMarkerObject = streamMarkerObjectBuilder.build();  
         
@@ -823,11 +835,27 @@ public class CDM extends Kafka {
     }
     
     private UUID getUuid(AbstractVertex vertex){
-        return new UUID(vertex.bigHashCode());
+    	byte[] vertexHash = vertex.bigHashCode();
+    	if(hexUUIDs){
+    		vertexHash = String.valueOf(Hex.encodeHex(vertexHash, true)).getBytes();
+    	}
+        return new UUID(vertexHash);
     }
     
     private UUID getUuid(AbstractEdge edge){
-        return new UUID(edge.bigHashCode());
+    	byte[] edgeHash = edge.bigHashCode();
+    	if(hexUUIDs){
+    		edgeHash = String.valueOf(Hex.encodeHex(edgeHash, true)).getBytes();
+    	}
+        return new UUID(edgeHash);
+    }
+    
+    private UUID getUuid(Map<CharSequence, CharSequence> map){
+    	byte[] mapHash = DigestUtils.md5(map.toString());
+    	if(hexUUIDs){
+    		mapHash = String.valueOf(Hex.encodeHex(mapHash, true)).getBytes();
+    	}
+    	return new UUID(mapHash);
     }
     
     private void putProcessSubjectUUID(String pid, UUID processSubjectUUID){
