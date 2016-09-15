@@ -78,6 +78,8 @@ import spade.utility.CommonFunctions;
  */
 public class CDM extends Kafka {
 	
+	private Map<String, Long> stats = new HashMap<String, Long>();
+	
 	private static final Logger logger = Logger.getLogger(CDM.class.getName());
     
     private Map<String, ProcessInformation> pidMappings = new HashMap<>();
@@ -125,6 +127,11 @@ public class CDM extends Kafka {
     	
     	SrcSinkObject.Builder streamMarkerObjectBuilder = SrcSinkObject.newBuilder();
     	Map<CharSequence, CharSequence> properties = new HashMap<>();
+    	if(!isStart){
+    		for(Map.Entry<String, Long> entry : stats.entrySet()){
+    			properties.put(entry.getKey(), String.valueOf(entry.getValue()));
+    		}
+    	}
     	properties.put(annotationName, String.valueOf(System.currentTimeMillis()*1000)); //millis to micros
     	baseObject.setProperties(properties);
     	streamMarkerObjectBuilder.setBaseObject(baseObject);
@@ -136,7 +143,14 @@ public class CDM extends Kafka {
     	dataToPublish.add(TCCDMDatum.newBuilder().setDatum(streamMarkerObject).build());
     	publishRecords(dataToPublish);
     }
-        
+    
+    public void incrementStatsCount(String key){
+    	if(stats.get(key) == null){
+    		stats.put(key, 0L);
+    	}
+    	stats.put(key, stats.get(key) + 1);
+    }
+    
     @Override
     protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
 		Properties properties = new Properties();
@@ -221,6 +235,67 @@ public class CDM extends Kafka {
     	}else{
     		return null;
     	}
+    }
+    
+    protected int publishRecords(List<GenericContainer> genericContainers){
+    	for(GenericContainer genericContainer : genericContainers){
+    		try{
+	    		if(genericContainer instanceof TCCDMDatum){
+	    			Object cdmObject = ((TCCDMDatum) genericContainer).getDatum();
+	    			if(cdmObject != null){
+	    				if(cdmObject.getClass().equals(Subject.class)){
+	    					Integer unitId = ((Subject)cdmObject).getUnitId();
+	    					if(unitId == null){
+	    						incrementStatsCount("Subject");
+	    					}else{
+	    						if(unitId == 0){
+	    							incrementStatsCount("Subject");
+	    						}else{
+	    							incrementStatsCount("Unit");
+	    						}
+	    					}
+	    				}else if(cdmObject.getClass().equals(Principal.class)){
+	    					incrementStatsCount("Principal");
+	    				}else if(cdmObject.getClass().equals(SimpleEdge.class)){
+	    					EdgeType edgeType = ((SimpleEdge)cdmObject).getType();
+	    					if(edgeType != null){
+	    						incrementStatsCount(edgeType.name());
+	    					}
+	    				}else if(cdmObject.getClass().equals(Event.class)){
+	    					EventType eventType = ((Event)cdmObject).getType();
+	    					if(eventType != null){
+	    						incrementStatsCount(eventType.name());
+	    					}
+	    				}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
+	    					if(((SrcSinkObject)cdmObject).getType() == SrcSinkType.SOURCE_UNKNOWN){
+	    						incrementStatsCount("SrcSinkObject");
+	    					}
+	    				}else if(cdmObject.getClass().equals(MemoryObject.class)){
+	    					incrementStatsCount("MemoryObject");
+	    				}else if(cdmObject.getClass().equals(NetFlowObject.class)){
+	    					incrementStatsCount("NetFlowObject");
+	    				}else if(cdmObject.getClass().equals(FileObject.class)){
+	    					AbstractObject baseObject = ((FileObject)cdmObject).getBaseObject();
+	    					if(baseObject != null){
+	    						Map<CharSequence, CharSequence> properties = baseObject.getProperties();
+	    						if(properties != null){
+	    							if("true".equals(properties.get("isPipe"))){
+	    								incrementStatsCount("PipeObject");
+	    							}else if("true".equals(properties.get("isUnixSocket"))){
+	    								incrementStatsCount("UnixSocketObject");
+	    							}else{
+	    								incrementStatsCount("FileObject");
+	    							}
+	    						}
+	    					}
+	    				}
+	    			}
+	    		}
+    		}catch (Exception e) {
+				logger.log(Level.WARNING, "Failed to collect stats", e);
+			}
+    	}
+    	return super.publishRecords(genericContainers);
     }
     
     /**
