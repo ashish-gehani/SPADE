@@ -87,6 +87,7 @@ public class CDM extends Kafka {
     // A set to keep track of principals that have been published to avoid duplication
     private Set<UUID> principalUUIDs = new HashSet<UUID>(); 
     
+    //Key is <time + ":" + event id>
     private Map<String, Set<UUID>> timeEventIdToPendingLoadedFilesUUIDs = new HashMap<String, Set<UUID>>();
     
     private boolean hexUUIDs = false;
@@ -615,13 +616,18 @@ public class CDM extends Kafka {
     	//output time example: 12345678678000
     }
 
+    private void addIfNotNull(String key, Map<String, String> from, Map<CharSequence, CharSequence> to){
+    	if(from.get(key) != null){
+    		to.put(key, from.get(key));
+    	}
+    }
+    
     private List<GenericContainer> mapProcess(AbstractVertex vertex) {
         List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
 
         /* Generate the Subject record */
         Subject.Builder subjectBuilder = Subject.newBuilder();
-        subjectBuilder.setUuid(getUuid(vertex));
-        subjectBuilder.setType(SubjectType.SUBJECT_PROCESS);
+        
         InstrumentationSource activitySource = getInstrumentationSource(vertex.getAnnotation("source"));
         if (activitySource != null) {
         	subjectBuilder.setSource(activitySource); 
@@ -633,37 +639,23 @@ public class CDM extends Kafka {
         
         putProcessSubjectUUID(vertex.getAnnotation("pid"), getUuid(vertex));
         
-        Long time = convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), null);
-        if(time != null){
-        	subjectBuilder.setStartTimestampMicros(time);
-        }
-        subjectBuilder.setPid(Integer.parseInt(vertex.getAnnotation("pid")));
-        subjectBuilder.setPpid(Integer.parseInt(vertex.getAnnotation("ppid")));
-        String unit = vertex.getAnnotation("unit");
-        
-        if (unit != null) {
-            subjectBuilder.setUnitId(Integer.parseInt(unit));
-        }
+        subjectBuilder.setUuid(getUuid(vertex));
+        subjectBuilder.setType(SubjectType.SUBJECT_PROCESS);
+        subjectBuilder.setStartTimestampMicros(convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), null));
+        subjectBuilder.setPid(CommonFunctions.parseInt(vertex.getAnnotation("pid"), 0)); //Default not null because int primitive argument
+        subjectBuilder.setPpid(CommonFunctions.parseInt(vertex.getAnnotation("ppid"), 0)); //Default not null because int primitive argument
+        subjectBuilder.setUnitId(CommonFunctions.parseInt(vertex.getAnnotation("unit"), null)); //Can be null
         subjectBuilder.setCmdLine(vertex.getAnnotation("commandline")); // optional, so null is ok
+
         Map<CharSequence, CharSequence> properties = new HashMap<>();
-        String iteration = vertex.getAnnotation("iteration");
-        if(iteration != null){
-        	properties.put("iteration", iteration);
-        }
-        String count = vertex.getAnnotation("count");
-        if(count != null){
-        	properties.put("count", count);
-        }
-        if(vertex.getAnnotation("name") != null){
-        	properties.put("name", vertex.getAnnotation("name"));
-        }
-        properties.put("uid", vertex.getAnnotation("uid")); // user ID, not unique ID
-        properties.put("gid", vertex.getAnnotation("gid"));
-        String cwd = vertex.getAnnotation("cwd");
-        if (cwd != null) {
-            properties.put("cwd", cwd);
-        }
+        addIfNotNull("iteration", vertex.getAnnotations(), properties);
+        addIfNotNull("count", vertex.getAnnotations(), properties);
+        addIfNotNull("name", vertex.getAnnotations(), properties);
+        addIfNotNull("uid", vertex.getAnnotations(), properties);
+        addIfNotNull("gid", vertex.getAnnotations(), properties);
+        addIfNotNull("cwd", vertex.getAnnotations(), properties);
         subjectBuilder.setProperties(properties);
+
         Subject subject = subjectBuilder.build();
         tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(subject).build()); //added subject
         
@@ -703,22 +695,35 @@ public class CDM extends Kafka {
     
     private Principal createPrincipal(AbstractVertex principalVertex){
         try{
-        	Principal.Builder principalBuilder = Principal.newBuilder();
-        	principalBuilder.setUuid(getUuid(principalVertex));
-            principalBuilder.setUserId(principalVertex.getAnnotation("uid"));
-            Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-            properties.put("egid", principalVertex.getAnnotation("egid"));
-            properties.put("euid", principalVertex.getAnnotation("euid"));
-            List<CharSequence> groupIds = new ArrayList<CharSequence>();
-            groupIds.add(principalVertex.getAnnotation("gid"));
-            principalBuilder.setGroupIds(groupIds);
-            principalBuilder.setProperties(properties);
-            principalBuilder.setType(PrincipalType.PRINCIPAL_LOCAL);
-            InstrumentationSource source = getInstrumentationSource(principalVertex.getAnnotation("source"));
+        	InstrumentationSource source = getInstrumentationSource(principalVertex.getAnnotation("source"));
             if(source == null){
+            	logger.log(Level.WARNING, "Missing source annotation for principal: " + principalVertex);
             	return null;
             }
-            principalBuilder.setSource(source);
+            
+            String userId = principalVertex.getAnnotation("uid");
+            if(userId == null){
+            	logger.log(Level.WARNING, "Missing user id for principal: " + principalVertex);
+            	return null;
+            }
+            
+        	Principal.Builder principalBuilder = Principal.newBuilder();
+        	principalBuilder.setUuid(getUuid(principalVertex));
+        	principalBuilder.setType(PrincipalType.PRINCIPAL_LOCAL);
+        	principalBuilder.setSource(source);
+        	principalBuilder.setUserId(userId);
+                        
+            Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+            addIfNotNull("euid", principalVertex.getAnnotations(), properties);
+            addIfNotNull("egid", principalVertex.getAnnotations(), properties);
+            principalBuilder.setProperties(properties);
+            
+            List<CharSequence> groupIds = new ArrayList<CharSequence>();
+            if(principalVertex.getAnnotation("gid") != null){
+            	groupIds.add(principalVertex.getAnnotation("gid"));
+            }
+            principalBuilder.setGroupIds(groupIds);
+            
             return principalBuilder.build();
         }catch(Exception e){
         	logger.log(Level.WARNING, "Failed to create Principal from vertex: {0}", principalVertex.toString());
@@ -745,31 +750,31 @@ public class CDM extends Kafka {
         InstrumentationSource activitySource = getInstrumentationSource(vertex.getAnnotation("source"));
         Builder baseObjectBuilder = AbstractObject.newBuilder();
         if(activitySource == null){
-        	logger.log(Level.WARNING,
-                    "Unexpected Entity source: {0}", activitySource);
+        	logger.log(Level.WARNING, "Unexpected Artifact source: {0}", activitySource);
+        	return tccdmDatums;
         }else{
         	baseObjectBuilder.setSource(activitySource);
         }
         AbstractObject baseObject = baseObjectBuilder.build();
-        String entityType = vertex.getAnnotation("subtype");
-        if (entityType.equals(ArtifactIdentifier.SUBTYPE_FILE)) {
+        String artifactType = vertex.getAnnotation("subtype");
+        if (artifactType.equals(ArtifactIdentifier.SUBTYPE_FILE)) {
             FileObject.Builder fileBuilder = FileObject.newBuilder();
             fileBuilder.setUuid(getUuid(vertex));
             fileBuilder.setBaseObject(baseObject);
             fileBuilder.setUrl("file://" + vertex.getAnnotation("path"));
-            fileBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
+            fileBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), 0)); // Zero default value
+            fileBuilder.setIsPipe(false);
+            
             Map<CharSequence, CharSequence> properties = new HashMap<>();
-            if(vertex.getAnnotation("epoch") != null){
-            	properties.put("epoch", vertex.getAnnotation("epoch"));
-            }
+            addIfNotNull("epoch", vertex.getAnnotations(), properties);
             if(properties.size() > 0){
             	baseObject.setProperties(properties);
             }
-            fileBuilder.setIsPipe(false);
+            
             FileObject fileObject = fileBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(fileObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
+        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
             if(vertex.getAnnotation("path") != null){
 
             	//TODO should do?
@@ -777,19 +782,16 @@ public class CDM extends Kafka {
                 unixSocketBuilder.setUuid(getUuid(vertex));
                 unixSocketBuilder.setBaseObject(baseObject);
                 unixSocketBuilder.setUrl("file://" + vertex.getAnnotation("path"));
-                unixSocketBuilder.setVersion(Integer.parseInt(vertex.getAnnotation("version")));
+                unixSocketBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), 0));
+                unixSocketBuilder.setIsPipe(false);
                 Map<CharSequence, CharSequence> properties = new HashMap<>();
-                if(vertex.getAnnotation("epoch") != null){
-                	properties.put("epoch", vertex.getAnnotation("epoch"));
-                }
+                addIfNotNull("epoch", vertex.getAnnotations(), properties);
                 properties.put("isUnixSocket", "true");
                 if(properties.size() > 0){
                 	baseObject.setProperties(properties);
-                }
-                unixSocketBuilder.setIsPipe(false);
+                }                
                 FileObject uniSocketObject = unixSocketBuilder.build();
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(uniSocketObject).build());
-            	                
             	//return always from here
             	return tccdmDatums;
             }
@@ -797,12 +799,8 @@ public class CDM extends Kafka {
             NetFlowObject.Builder netBuilder = NetFlowObject.newBuilder();
             netBuilder.setUuid(getUuid(vertex));
             Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-            if(vertex.getAnnotation("epoch") != null){
-            	properties.put("epoch", vertex.getAnnotation("epoch"));
-            }
-            if(vertex.getAnnotation("version") != null){
-            	properties.put("version", vertex.getAnnotation("version"));
-            }
+            addIfNotNull("epoch", vertex.getAnnotations(), properties);
+            addIfNotNull("version", vertex.getAnnotations(), properties);
             if(properties.size() > 0){
             	baseObject.setProperties(properties);
             }
@@ -826,49 +824,47 @@ public class CDM extends Kafka {
             NetFlowObject netFlowObject = netBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(netFlowObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_MEMORY)) { //no epoch for memory
+        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_MEMORY)) { //no epoch for memory
+        	
+        	long memoryAddres = 0L;
+            try{
+            	memoryAddres = Long.parseLong(vertex.getAnnotation("memory address"), 16);
+            }catch(Exception e){
+            	logger.log(Level.WARNING, "Failed to parse memory address: " + vertex.getAnnotation("memory address"), e);
+            	return tccdmDatums;
+            }
+                    	
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
-        	if(vertex.getAnnotation("size") != null){
-        		properties.put("size", vertex.getAnnotation("size"));
-        	}
-        	if(vertex.getAnnotation("version") != null){
-        		properties.put("version", vertex.getAnnotation("version"));
-        	}
-        	if(vertex.getAnnotation("pid") != null){
-        		properties.put("pid", vertex.getAnnotation("pid"));
-        	}
+        	addIfNotNull("size", vertex.getAnnotations(), properties);
+        	addIfNotNull("version", vertex.getAnnotations(), properties);
+        	addIfNotNull("pid", vertex.getAnnotations(), properties);
         	if(properties.size() > 0){
         		baseObject.setProperties(properties);
         	}
             MemoryObject.Builder memoryBuilder = MemoryObject.newBuilder();
             memoryBuilder.setUuid(getUuid(vertex));
             memoryBuilder.setBaseObject(baseObject);
-            // memoryBuilder.setPageNumber(0);                          // TODO remove when marked optional
-            memoryBuilder.setMemoryAddress(Long.parseLong(vertex.getAnnotation("memory address"), 16));
+            memoryBuilder.setMemoryAddress(memoryAddres);   
             MemoryObject memoryObject = memoryBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_PIPE)) {                            
+        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_PIPE)) {                            
         	FileObject.Builder pipeBuilder = FileObject.newBuilder();
         	pipeBuilder.setUuid(getUuid(vertex));
         	pipeBuilder.setBaseObject(baseObject);
             pipeBuilder.setUrl("file://" + vertex.getAnnotation("path")); 
-            pipeBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), null));
+            pipeBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), 0));
             pipeBuilder.setIsPipe(true);
             Map<CharSequence, CharSequence> properties = new HashMap<>();
-            if(vertex.getAnnotation("epoch") != null){
-            	properties.put("epoch", vertex.getAnnotation("epoch"));
-            }
-            if(vertex.getAnnotation("pid") != null){
-            	properties.put("pid", vertex.getAnnotation("pid"));
-            }
+            addIfNotNull("epoch", vertex.getAnnotations(), properties);
+            addIfNotNull("pid", vertex.getAnnotations(), properties);
             if(properties.size() > 0){
             	baseObject.setProperties(properties);
             }
             FileObject pipeObject = pipeBuilder.build();
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(pipeObject).build());
             return tccdmDatums;
-        } else if (entityType.equals(ArtifactIdentifier.SUBTYPE_UNKNOWN)) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
+        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_UNKNOWN)) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
         	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
         	Map<CharSequence, CharSequence> properties = new HashMap<>();
         	String path = vertex.getAnnotation("path");
@@ -884,16 +880,12 @@ public class CDM extends Kafka {
 	        	}
         	}
         	if(!added){
-        		logger.log(Level.INFO, "Missing or malformed path annotation in unknown artifact type.");
+        		logger.log(Level.WARNING, "Missing or malformed path annotation in unknown artifact type.");
         		return tccdmDatums;
         	}
-        	if(vertex.getAnnotation("version") != null){
-            	properties.put("version", vertex.getAnnotation("version"));
-            }
-            if(vertex.getAnnotation("epoch") != null){
-            	properties.put("epoch", vertex.getAnnotation("epoch"));
-            }
-            if(properties.size() > 0){
+        	addIfNotNull("version", vertex.getAnnotations(), properties);
+        	addIfNotNull("epoch", vertex.getAnnotations(), properties);
+        	if(properties.size() > 0){
             	baseObject.setProperties(properties);
             }
         	unknownBuilder.setBaseObject(baseObject);
@@ -904,7 +896,7 @@ public class CDM extends Kafka {
             return tccdmDatums;	
         } else {
             logger.log(Level.WARNING,
-                    "Unexpected Artifact/Entity type: {0}", entityType);
+                    "Unexpected Artifact type: {0}", artifactType);
             return tccdmDatums;
         }
     }
