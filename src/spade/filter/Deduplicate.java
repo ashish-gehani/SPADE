@@ -110,9 +110,4 @@ public class Deduplicate extends AbstractFilter{
 		}
 	}
 	
-	public static void main(String [] args){
-		Deduplicate d = new Deduplicate();
-		d.initialize(d.ARG_EXPECTEDNUMBEROFELEMENTS_KEY+"="+1000000000);
-	}
-	
 }
