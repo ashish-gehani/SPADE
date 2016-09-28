@@ -896,26 +896,29 @@ public class Kernel {
                 return;
             }
             // Initialize filter if arguments are provided
-            filter.initialize(arguments);
-            filter.arguments = arguments;
-            // The argument is the index at which the filter is to be inserted.
-            if (index >= filters.size()) {
-                outputStream.println("error: Invalid position");
-                return;
+            if(filter.initialize(arguments)){
+	            filter.arguments = arguments;
+	            // The argument is the index at which the filter is to be inserted.
+	            if (index >= filters.size()) {
+	                outputStream.println("error: Invalid position");
+	                return;
+	            }
+	            // Set the next filter of this newly added filter.
+	            filter.setNextFilter((AbstractFilter) filters.get(index));
+	            if (index > 0) {
+	                // If the newly added filter is not the first in the list, then
+	                // then configure the previous filter in the list to point to
+	                // this
+	                // newly added filter as its next.
+	                ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
+	            }
+	            // Add filter to the list.
+	            filters.add(index, filter);
+	            logger.log(Level.INFO, "Filter added: {0}", classname);
+	            outputStream.println("done");
+            }else{
+            	outputStream.println("failed");
             }
-            // Set the next filter of this newly added filter.
-            filter.setNextFilter((AbstractFilter) filters.get(index));
-            if (index > 0) {
-                // If the newly added filter is not the first in the list, then
-                // then configure the previous filter in the list to point to
-                // this
-                // newly added filter as its next.
-                ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
-            }
-            // Add filter to the list.
-            filters.add(index, filter);
-            logger.log(Level.INFO, "Filter added: {0}", classname);
-            outputStream.println("done");
         } else if (tokens[1].equalsIgnoreCase("transformer")) {
             if (tokens.length < 4) {
                 outputStream.println("Usage:");
