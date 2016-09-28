@@ -89,7 +89,7 @@ public class Deduplicate extends AbstractFilter{
 				return false;
 			}catch(OutOfMemoryError error){
 				logger.log(Level.SEVERE, "Must specify a smaller number of expected elements or increase SPADE memory", error);
-				return false;
+				throw error;
 			}
 		}
 	}
