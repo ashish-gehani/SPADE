@@ -297,9 +297,17 @@ public class CDM extends AbstractReporter{
 						JsonObject jsonObject = getJsonObject(fileReader.readLine());
 						processJsonObject(jsonObject);
 						
-						reportingEnabled = true;
-						reportEveryMs = 120 * 1000;
-						lastReportedTime = System.currentTimeMillis();
+						String reportingIntervalSecondsConfig = config.get("reportingIntervalSeconds");
+						if(reportingIntervalSecondsConfig != null){
+							Integer reportingIntervalSeconds = CommonFunctions.parseInt(reportingIntervalSecondsConfig.trim(), null);
+							if(reportingIntervalSeconds != null){
+								reportingEnabled = true;
+								reportEveryMs = reportingIntervalSeconds * 1000;
+								lastReportedTime = System.currentTimeMillis();
+							}else{
+								logger.log(Level.WARNING, "Invalid reporting interval. Reporting disabled.");
+							}
+						}
 						
 						jsonProcessorThread.start();
 						
