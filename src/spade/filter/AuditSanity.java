@@ -74,6 +74,11 @@ public class AuditSanity extends AbstractFilter{
 	
 	public boolean shutdown(){
 		try{
+			vertexMap.close();
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to close external map", e);
+		}
+		try{
 			FileUtils.forceDelete(new File(dbpath));
 			return true;
 		}catch(Exception e){
