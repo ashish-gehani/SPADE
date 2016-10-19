@@ -276,18 +276,20 @@ public class CDM extends Kafka {
 	    				}else if(cdmObject.getClass().equals(NetFlowObject.class)){
 	    					incrementStatsCount("NetFlowObject");
 	    				}else if(cdmObject.getClass().equals(FileObject.class)){
-	    					AbstractObject baseObject = ((FileObject)cdmObject).getBaseObject();
-	    					if(baseObject != null){
-	    						Map<CharSequence, CharSequence> properties = baseObject.getProperties();
-	    						if(properties != null){
-	    							if("true".equals(properties.get("isPipe"))){
-	    								incrementStatsCount("PipeObject");
-	    							}else if("true".equals(properties.get("isUnixSocket"))){
-	    								incrementStatsCount("UnixSocketObject");
-	    							}else{
-	    								incrementStatsCount("FileObject");
-	    							}
-	    						}
+	    					if(((FileObject)cdmObject).getIsPipe()){
+	    						incrementStatsCount("PipeObject");
+	    					}else{
+		    					AbstractObject baseObject = ((FileObject)cdmObject).getBaseObject();
+		    					if(baseObject != null){
+		    						Map<CharSequence, CharSequence> properties = baseObject.getProperties();
+		    						if(properties != null){
+		    							if("true".equals(properties.get("isUnixSocket"))){
+		    								incrementStatsCount("UnixSocketObject");
+		    							}else{
+		    								incrementStatsCount("FileObject");
+		    							}
+		    						}
+		    					}
 	    					}
 	    				}
 	    			}
@@ -306,14 +308,20 @@ public class CDM extends Kafka {
      * @param toUuid the uuid of the destination vertex
      * @param edgeType the type of the edge
      * @param time the time of the edge
+     * @param properties map of additional properties to add to the edge
      * @return a simple edge instance
      */
-    private SimpleEdge createSimpleEdge(UUID fromUuid, UUID toUuid, EdgeType edgeType, Long time){
+    private SimpleEdge createSimpleEdge(UUID fromUuid, UUID toUuid, EdgeType edgeType, Long time, Map<CharSequence, CharSequence> properties){
     	SimpleEdge.Builder simpleEdgeBuilder = SimpleEdge.newBuilder();
         simpleEdgeBuilder.setFromUuid(fromUuid);  // Event record's UID
         simpleEdgeBuilder.setToUuid(toUuid);  //source vertex is the child
         simpleEdgeBuilder.setType(edgeType);
         simpleEdgeBuilder.setTimestamp(time);
+        
+        if(properties != null && properties.size() > 0){
+        	simpleEdgeBuilder.setProperties(properties);
+        }        
+        
         SimpleEdge simpleEdge = simpleEdgeBuilder.build();
         return simpleEdge;
     }
@@ -364,9 +372,13 @@ public class CDM extends Kafka {
             		Set<UUID> pendingLoadedFilesUUIDs = timeEventIdToPendingLoadedFilesUUIDs.get(time+":"+eventId);
             		
             		if(pendingLoadedFilesUUIDs != null){
+            			Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+            			properties.put("event id", edge.getAnnotation("event id"));
+            			properties.put("time", edge.getAnnotation("time"));
+            			properties.put("source", edge.getAnnotation("time"));
             			for(UUID pendingLoadedFileUUID : pendingLoadedFilesUUIDs){
             				SimpleEdge loadEdge = createSimpleEdge(pendingLoadedFileUUID, getUuid(edge),
-                    				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
+                    				EdgeType.EDGE_FILE_AFFECTS_EVENT, time, properties);
     	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
             			}
             			timeEventIdToPendingLoadedFilesUUIDs.remove(time+":"+eventId); //remove since all have been added
@@ -439,8 +451,12 @@ public class CDM extends Kafka {
                 	eventType = EventType.EVENT_CLOSE;
                 }else if(opmOperation.equals("load")){
                 	if(getExecEventUUID(actingProcessPidString) != null){
+                		Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+            			properties.put("event id", edge.getAnnotation("event id"));
+            			properties.put("time", edge.getAnnotation("time"));
+            			properties.put("source", edge.getAnnotation("time"));
                 		SimpleEdge loadEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getExecEventUUID(actingProcessPidString),
-                				EdgeType.EDGE_FILE_AFFECTS_EVENT, time);
+                				EdgeType.EDGE_FILE_AFFECTS_EVENT, time, properties);
 	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
 	                    publishRecords(tccdmDatums);
 	                    return true; //no need to create an event for this so returning from here after adding the edge
@@ -487,9 +503,14 @@ public class CDM extends Kafka {
                 if(opmOperation.equals("mmap") || opmOperation.equals("mmap2")){
                 	eventType = EventType.EVENT_MMAP;
                 	protectionValue = edge.getAnnotation("protection");
-                } else if (opmOperation.equals("update")) {   
+                } else if (opmOperation.equals("update")) {
+                	Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+        			properties.put("event id", edge.getAnnotation("event id"));
+        			properties.put("time", edge.getAnnotation("time"));
+        			properties.put("source", edge.getAnnotation("time"));
                 	SimpleEdge updateEdge = createSimpleEdge(getUuid(edge.getSourceVertex()), getUuid(edge.getDestinationVertex()), 
-                			EdgeType.EDGE_OBJECT_PREV_VERSION, time);
+                			EdgeType.EDGE_OBJECT_PREV_VERSION, time, properties);
+                	
                     tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(updateEdge).build());
                     publishRecords(tccdmDatums);
                     return true; //no need to create an event for this so returning from here after adding the edge
@@ -543,11 +564,11 @@ public class CDM extends Kafka {
             SimpleEdge affectsEdge = null; 
             if(opmEdgeType.equals("Used")){ //artifact affects event
             	affectsEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getUuid(edge), 
-            			affectsEdgeType, time);
+            			affectsEdgeType, time, null);
             	uuidOfProcessVertex = getUuid(edge.getSourceVertex()); //getting the source because that is the process
             }else{ //event affects artifact
             	affectsEdge = createSimpleEdge(getUuid(edge), getUuid(edge.getSourceVertex()), 
-            			affectsEdgeType, time);
+            			affectsEdgeType, time, null);
             	uuidOfProcessVertex = getUuid(edge.getDestinationVertex()); //getting the destination because that is the process
             }
             tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
@@ -555,7 +576,7 @@ public class CDM extends Kafka {
             if (opmEdgeType.equals("WasDerivedFrom")) {
                 /* Generate another _*_AFFECTS_* edge in the reverse direction */
             	SimpleEdge affectsEventEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getUuid(edge), 
-            			getArtifactAffectsEventEdgeType(edge.getDestinationVertex()), time);
+            			getArtifactAffectsEventEdgeType(edge.getDestinationVertex()), time, null);
                 tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEventEdge).build());
                 
                 uuidOfProcessVertex = getProcessSubjectUUID(String.valueOf(actingProcessPid));
@@ -564,7 +585,7 @@ public class CDM extends Kafka {
             if(uuidOfProcessVertex != null){
 	            /* Generate the EVENT_ISGENERATEDBY_SUBJECT edge record */
             	SimpleEdge eventToProcessEdge = createSimpleEdge(getUuid(edge), uuidOfProcessVertex, 
-            			EdgeType.EDGE_EVENT_ISGENERATEDBY_SUBJECT, time);
+            			EdgeType.EDGE_EVENT_ISGENERATEDBY_SUBJECT, time, null);
 	            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(eventToProcessEdge).build());
             }else{
             	logger.log(Level.WARNING, "Failed to find process uuid in process cache map for pid {0}. event id = {1}", new Object[]{edge.getAnnotation("pid"), eventId});
@@ -676,7 +697,7 @@ public class CDM extends Kafka {
         if(principalUUIDs.contains(principalVertexUUID)){
 	        SimpleEdge simpleEdge = createSimpleEdge(getUuid(vertex), principalVertexUUID, 
 	        		EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL, 
-	        		convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L));
+	        		convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L), null);
 	        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
         }
         
