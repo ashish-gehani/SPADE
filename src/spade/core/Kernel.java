@@ -827,7 +827,7 @@ public class Kernel {
                 // SPADE thread to extract buffer elements).
                 reporter.arguments = arguments;
                 reporters.add(reporter);
-                logger.log(Level.INFO, "Reporter added: {0}", classname);
+                logger.log(Level.INFO, "Reporter added: {0}", classname + " " + arguments);
                 outputStream.println("done");
             } else {
                 outputStream.println("failed");
@@ -859,7 +859,7 @@ public class Kernel {
                 storage.vertexCount = 0;
                 storage.edgeCount = 0;
                 storages.add(storage);
-                logger.log(Level.INFO, "Storage added: {0}", classname);
+                logger.log(Level.INFO, "Storage added: {0}", classname + " " + arguments);
                 outputStream.println("done");
             } else {
                 outputStream.println("failed");
@@ -914,7 +914,7 @@ public class Kernel {
 	            }
 	            // Add filter to the list.
 	            filters.add(index, filter);
-	            logger.log(Level.INFO, "Filter added: {0}", classname);
+	            logger.log(Level.INFO, "Filter added: {0}", classname + " " + arguments);
 	            outputStream.println("done");
             }else{
             	outputStream.println("failed");
@@ -964,7 +964,7 @@ public class Kernel {
 					transformers.add(index, transformer);
 				}
 	            
-	            logger.log(Level.INFO, "Transformer added: {0}", classname);
+	            logger.log(Level.INFO, "Transformer added: {0}", classname + " " + arguments);
 	            outputStream.println("done");
             }else{
             	outputStream.println("failed");
