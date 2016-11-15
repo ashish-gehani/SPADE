@@ -200,8 +200,9 @@ public class Audit extends AbstractReporter {
 	private long reportEveryMs;
 	private long lastReportedTime;
 	
-	//A map to keep track of thread group ids for pids. Pid->Tgid
-	private final Map<String, String> pidToTgid = new HashMap<String, String>();
+	//A map to keep track of thread group ids for pids in case clone where memory is being shared. 
+	//Pid->Tgid. NOTE: only to be used for memory artifacts
+	private final Map<String, String> pidToTgidForMemoryArtifactsOnly = new HashMap<String, String>();
 
 	@Override
 	public boolean launch(String arguments) {
@@ -1344,7 +1345,7 @@ public class Audit extends AbstractReporter {
 		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
 		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
 		if(TGID){
-			pidToTgid.remove(pid); // Remove mapping to thread group id
+			pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
 		}
 	}
 
@@ -1387,7 +1388,7 @@ public class Audit extends AbstractReporter {
 
 		Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentifier, false);
 
-		String pidOrTgid = TGID ? (pidToTgid.get(pid) == null ? pid : pidToTgid.get(pid)) : pid;
+		String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
 		
 		ArtifactIdentifier memoryArtifactIdentifier = 
 				new MemoryIdentifier(pidOrTgid, address, length);
@@ -1424,7 +1425,7 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get("a1")).toString(16);
 		String protection = new BigInteger(eventData.get("a2")).toString(16);
 
-		String pidOrTgid = TGID ? (pidToTgid.get(pid) == null ? pid : pidToTgid.get(pid)) : pid;
+		String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
 		
 		ArtifactIdentifier memoryInfo = 
 				new MemoryIdentifier(pidOrTgid, address, length);
@@ -1481,7 +1482,7 @@ public class Audit extends AbstractReporter {
 				address = address.shiftLeft(32);
 				address = address.add(arg1);
 				pidToMemAddress.remove(pid);
-				String pidOrTgid = TGID ? (pidToTgid.get(pid) == null ? pid : pidToTgid.get(pid)) : pid;
+				String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
 				if(arg0.intValue() == -201){
 					memArtifact = putArtifact(eventData, 
 							new MemoryIdentifier(pidOrTgid, address.toString(16), ""), 
@@ -1545,19 +1546,22 @@ public class Audit extends AbstractReporter {
 			}else{
 				descriptors.copyDescriptors(oldPID, newPID);
 			}
+			// Only in case of clone
+			if(TGID){
+				// If memory space being shared then only use tgid for memory artifacts
+				if((flags & CLONE_VM) == CLONE_VM){
+					if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
+						pidToTgidForMemoryArtifactsOnly.put(newPID, oldPID);
+					}else{
+						pidToTgidForMemoryArtifactsOnly.put(newPID, pidToTgidForMemoryArtifactsOnly.get(oldPID));
+					}
+				}
+			}
 		}else if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){ //copy file descriptors just once here when fork
 			descriptors.copyDescriptors(oldPID, newPID);
 		}else{
 			log(Level.WARNING, "Unexpected syscall '"+syscall+"' in FORK CLONE handler", null, time, eventId, syscall);
 			return;
-		}
-		
-		if(TGID){
-			if(pidToTgid.get(oldPID) == null){
-				pidToTgid.put(newPID, oldPID);
-			}else{
-				pidToTgid.put(newPID, pidToTgid.get(oldPID));
-			}
 		}
 	}
 
@@ -1647,7 +1651,7 @@ public class Audit extends AbstractReporter {
 		descriptors.unlinkDescriptors(pid);
 		
 		if(TGID){
-			pidToTgid.remove(pid);
+			pidToTgidForMemoryArtifactsOnly.remove(pid);
 		}
 	}
 
