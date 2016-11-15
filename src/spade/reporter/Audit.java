@@ -94,7 +94,8 @@ public class Audit extends AbstractReporter {
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
 	//  AND  
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
-	private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100;
+	private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100,
+			CLONE_FILES = 0x00000400;
 
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/stat.h#L14
@@ -1510,8 +1511,8 @@ public class Audit extends AbstractReporter {
 		String oldPID = eventData.get("pid");
 		String newPID = eventData.get("exit");
 
+		Long flags = CommonFunctions.parseLong(eventData.get("a0"), 0L);
 		if(syscall == SYSCALL.CLONE){
-			Long flags = CommonFunctions.parseLong(eventData.get("a0"), 0L);
 			//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
 			if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
 				syscall = SYSCALL.VFORK;
@@ -1539,7 +1540,11 @@ public class Audit extends AbstractReporter {
 		putEdge(forkCloneEdge, getOperation(syscall), time, eventId, DEV_AUDIT);
 
 		if(syscall == SYSCALL.CLONE){
-			descriptors.linkDescriptors(oldPID, newPID);//share file descriptors when clone
+			if((flags & CLONE_FILES) == CLONE_FILES){
+				descriptors.linkDescriptors(oldPID, newPID);//share file descriptors when clone
+			}else{
+				descriptors.copyDescriptors(oldPID, newPID);
+			}
 		}else if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){ //copy file descriptors just once here when fork
 			descriptors.copyDescriptors(oldPID, newPID);
 		}else{
