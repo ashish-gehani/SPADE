@@ -1630,6 +1630,28 @@ public class Audit extends AbstractReporter {
 		handleOpen(eventData, SYSCALL.CREATE); //TODO change to creat. kept as create to keep current CDM data consistent
 
 	}
+	
+	/**
+	 * Get path from audit log. First see, if a path with CREATE nametype exists.
+	 * If yes then return that. If no then check if path with NORMAL nametype exists.
+	 * If yes then return that else return null.
+	 * 
+	 * @param eventData audit log event data as key values
+	 * @return path/null
+	 */
+	private String getPathWithCreateOrNormalNametype(Map<String, String> eventData){
+		String path = null;
+		Map<Integer, String> paths = getPathsWithNametype(eventData, "CREATE");
+		if(paths != null && !paths.isEmpty()){
+			path = paths.values().iterator().next();
+		}else{
+			paths = getPathsWithNametype(eventData, "NORMAL");
+			if(paths != null && !paths.isEmpty()){
+				path = paths.values().iterator().next();
+			}
+		}
+		return path;
+	}
 
 	private void handleOpenat(Map<String, String> eventData){
 		//openat() receives the following message(s):
@@ -1639,20 +1661,30 @@ public class Audit extends AbstractReporter {
 		// - PATH
 		// - EOE
 
-		Long dirFd = CommonFunctions.parseLong(eventData.get("a0"), -1L);
-
-		//according to manpage if following true then use cwd if path not absolute, which is already handled by open
-		if(dirFd != AT_FDCWD){ //checking if cwd needs to be replaced by dirFd's path
-			String pid = eventData.get("pid");
-			String dirFdString = String.valueOf(dirFd);
-			//if null of if not file then cannot process it
-			ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, dirFdString);
-			if(artifactIdentifier == null || !FileIdentifier.class.equals(artifactIdentifier.getClass())){
-				log(Level.INFO, "Artifact not of type file '" + artifactIdentifier + "'", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.OPENAT);
-				return;
-			}else{ //is file
-				String dirPath = ((FileIdentifier) artifactIdentifier).getPath();
-				eventData.put("cwd", dirPath); //replace cwd with dirPath to make eventData compatible with open
+		String path = getPathWithCreateOrNormalNametype(eventData);
+		
+		if(path == null){
+			log(Level.INFO, "Missing PATH record", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.OPENAT);
+			return;
+		}
+		
+		// If not absolute then only run the following logic according to the manpage
+		if(!path.startsWith(File.separator)){
+			Long dirFd = CommonFunctions.parseLong(eventData.get("a0"), -1L);
+	
+			//according to manpage if following true then use cwd if path not absolute, which is already handled by open
+			if(dirFd != AT_FDCWD){ //checking if cwd needs to be replaced by dirFd's path
+				String pid = eventData.get("pid");
+				String dirFdString = String.valueOf(dirFd);
+				//if null of if not file then cannot process it
+				ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, dirFdString);
+				if(artifactIdentifier == null || !FileIdentifier.class.equals(artifactIdentifier.getClass())){
+					log(Level.INFO, "Artifact not of type file '" + artifactIdentifier + "'", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.OPENAT);
+					return;
+				}else{ //is file
+					String dirPath = ((FileIdentifier) artifactIdentifier).getPath();
+					eventData.put("cwd", dirPath); //replace cwd with dirPath to make eventData compatible with open
+				}
 			}
 		}
 
@@ -2145,24 +2177,34 @@ public class Audit extends AbstractReporter {
 		//first argument is the fd of the directory to create file in. if the directory fd is AT_FDCWD then use cwd
 
 		String pid = eventData.get("pid");
-		String fd = eventData.get("a0");
-		Long fdLong = CommonFunctions.parseLong(fd, null);
+		String path = getPathWithCreateOrNormalNametype(eventData);
+		
+		if(path == null){
+			log(Level.INFO, "Missing PATH record", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.MKNODAT);
+			return;
+		}
+		
+		// If not absolute then only run the following logic according to the manpage
+		if(!path.startsWith(File.separator)){
+			String fd = eventData.get("a0");
+			Long fdLong = CommonFunctions.parseLong(fd, null);
 
-		ArtifactIdentifier artifactIdentifier = null;
+			ArtifactIdentifier artifactIdentifier = null;
 
-		if(fdLong != AT_FDCWD){
-			artifactIdentifier = descriptors.getDescriptor(pid, fd);
-			if(artifactIdentifier == null){
-				log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.MKNODAT);
-				return;
-			}else if(artifactIdentifier.getClass().equals(FileIdentifier.class)){
-				String directoryPath = ((FileIdentifier)artifactIdentifier).getPath();
-				//update cwd to directoryPath and call handleMknod. the file created path is always relative in this syscall
-				eventData.put("cwd", directoryPath);
-			}else{
-				log(Level.INFO, "FD '"+fd+"' for pid '"+pid+"' is of type '"+artifactIdentifier.getClass()+"' but only file allowed", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.MKNODAT);
-				return;
-			}    		
+			if(fdLong != AT_FDCWD){
+				artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				if(artifactIdentifier == null){
+					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.MKNODAT);
+					return;
+				}else if(artifactIdentifier.getClass().equals(FileIdentifier.class)){
+					String directoryPath = ((FileIdentifier)artifactIdentifier).getPath();
+					//update cwd to directoryPath and call handleMknod. the file created path is always relative in this syscall
+					eventData.put("cwd", directoryPath);
+				}else{
+					log(Level.INFO, "FD '"+fd+"' for pid '"+pid+"' is of type '"+artifactIdentifier.getClass()+"' but only file allowed", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.MKNODAT);
+					return;
+				}    		
+			}
 		}
 
 		//replace the second argument (which is mode in mknod) with the third (which is mode in mknodat)
