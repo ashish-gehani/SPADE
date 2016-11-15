@@ -34,7 +34,6 @@ import org.apache.avro.generic.GenericContainer;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.security.auth.PrincipalBuilder;
 
 import com.bbn.tc.schema.avro.AbstractObject;
 import com.bbn.tc.schema.avro.AbstractObject.Builder;

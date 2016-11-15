@@ -1286,7 +1286,7 @@ public class Audit extends AbstractReporter {
 			}
 
 			if(syscall == SYSCALL.UNLINK){
-				deletedPath = constructPath(deletedPath, cwd);
+				deletedPath = constructAbsolutePath(deletedPath, cwd, pid);
 			}else if(syscall == SYSCALL.UNLINKAT){
 				deletedPath = constructPathSpecial(deletedPath, eventData.get("a0"), cwd, pid, time, eventId, syscall); 		
 			}else{
@@ -1598,7 +1598,7 @@ public class Audit extends AbstractReporter {
 		Long totalPaths = CommonFunctions.parseLong(eventData.get("items"), 0L);
 		for(int pathNumber = 0; pathNumber < totalPaths; pathNumber++){
 			String path = eventData.get("path"+pathNumber);
-			path = constructPath(path, cwd);
+			path = constructAbsolutePath(path, cwd, pid);
 			if(path == null){
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, SYSCALL.EXECVE);
 				continue;
@@ -1730,7 +1730,7 @@ public class Audit extends AbstractReporter {
 		}
 
 		path = paths.values().iterator().next(); //get the first
-		path = constructPath(path, cwd);
+		path = constructAbsolutePath(path, cwd, pid);
 
 		if(path == null){
 			log(Level.INFO, "Missing CWD or PATH record", null, time, eventId, syscall);
@@ -1894,7 +1894,7 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 			String path = paths.values().iterator().next();
-			path = constructPath(path, eventData.get("cwd"));
+			path = constructAbsolutePath(path, eventData.get("cwd"), pid);
 			if(path == null){
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 				return;
@@ -2090,7 +2090,145 @@ public class Audit extends AbstractReporter {
 			}
 		}
 	}
-
+	
+	/**
+	 * Removes special path symbols '..' and '.'
+	 * 
+	 * @param path file system path
+	 * @return file system path or null if not a valid path
+	 */
+	private String removeSpecialPathSymbols(String path){
+		if(path == null){
+			return null;
+		}
+		String finalPath = "";
+		path = path.trim();
+		if(path.isEmpty()){
+			return null;
+		}else{
+			String[] parts = path.split(File.separator);
+			for(int a = parts.length-1; a>-1; a--){
+				if(parts[a].equals("..")){
+					a--;
+					continue;
+				}else if(parts[a].equals(".")){
+					continue;
+				}else if(parts[a].trim().isEmpty()){
+					/*
+					 * Cases: 
+					 * 1) Start of path (/path/to/something)
+					 * 2) End of path (path/to/something/)
+					 * 3) Double path separator (/path//to////something) 
+					 */
+					// Continue
+				}else{
+					finalPath = parts[a] + File.separator + finalPath;
+				}
+			}
+			// Adding the slash in the end if the given path had a slash in the end
+			if(!path.endsWith(File.separator) && finalPath.endsWith(File.separator)){
+				finalPath = finalPath.substring(0, finalPath.length() - 1);
+			}
+			// Adding the slash in the beginning if the given path had a slash in the beginning
+			if(path.startsWith(File.separator) && !finalPath.startsWith(File.separator)){
+				finalPath = File.separator + finalPath;
+			}
+			return finalPath;
+		}
+	}
+	
+	/**
+	 * Resolves symbolic links in case reading from an audit log
+	 * 
+	 * Add other cases later, so far can only think of /proc/self
+	 * 
+	 * @param path path to resolve
+	 * @param pid process id
+	 * @return resolved path or null if invalid arguments
+	 */
+	private String resolvePathStatically(String path, String pid){
+		if(path == null){
+			return null;
+		}
+		if(path.startsWith("/proc/self")){
+			if(pid == null){
+				return path;
+			}else{
+				StringBuilder string = new StringBuilder();
+				string.append(path);
+				string.delete(6, 10); // index of self in /proc/self is 6 and ends at 10
+				string.insert(6, pid); // replacing with pid
+				return string.toString();
+			}
+		}else{ // No symbolic link to replace
+			return path;
+		}
+	}
+	
+	/**
+	 * Constructs path depending on if live audit stream is running or audit logs are being
+	 * read. If audit logs, then concatenates the paths, then removes symbols such as '.' and 
+	 * '..' and then finally resolves symbolic links like /proc/self. If live audit then all
+	 * of that is done using the getCanonicalPath function java File class.
+	 * 
+	 * Null returned if unable to construct absolute path
+	 * 
+	 * @param path path relative to parentPath
+	 * @param parentPath parent path of the path
+	 * @return constructed path or null
+	 */
+	private String constructAbsolutePath(String path, String parentPath, String pid){
+		if(auditLogThread != null){ // If reading from audit log
+			path = concatenatePaths(path, parentPath);
+			if(path != null){
+				path = removeSpecialPathSymbols(path);
+				if(path != null){
+					path = resolvePathStatically(path, pid);
+					return path;
+				}
+			}
+		}else if(eventProcessorThread != null){ // If read from live audit
+			return resolvePathDynamically(path, parentPath);
+		}else{
+			logger.log(Level.INFO, "Unknown audit stream. Neither live audit nor log file");
+		}
+		return null;
+	}
+	
+	/**
+	 * Concatenates given paths using the following logic:
+	 * 
+	 * If path is absolute then return path
+	 * If path is not absolute then concatenates parentPath with path and returns that
+	 * 
+	 * @param path path relative to parentPath (can be absolute)
+	 * @param parentPath parent path for the given path
+	 * @return concatenated path or null
+	 */
+	private String concatenatePaths(String path, String parentPath){
+		if(path != null){
+			path = path.trim();
+			if(path.isEmpty()){
+				return null;
+			}else{
+				if(path.startsWith(File.separator)){ //is absolute
+					return path;
+				}else{
+	
+					if(parentPath != null){
+						parentPath = parentPath.trim();
+						if(parentPath.isEmpty() || !parentPath.startsWith(File.separator)){
+							return null;
+						}else{
+							return parentPath + File.separator + path;
+						}
+					}
+				}	   
+			}
+		}
+		return null;
+	}
+	
 	/**
 	 * Resolves paths received in audit log to build a canonical path.
 	 * 
@@ -2099,27 +2237,35 @@ public class Audit extends AbstractReporter {
 	 * 2) If path not absolute and parentPath absolute then return parentPath + slash + path
 	 * 3) In all other cases return null
 	 * 
-	 * Note: Returning canonical path to resolve cases where .. or . are used in a path
+	 * Note: Returning canonical path to resolve cases where .. or . are used in a path and
+	 * also resolves symbolic links
 	 * 
 	 * @param path path or name
 	 * @param parentPath path of the parent
 	 * @return canonical path or null if not enough information
 	 */    
-	private String constructPath(String path, String parentPath){
+	private String resolvePathDynamically(String path, String parentPath){
 		try{
 
 			if(path != null){
-
-				if(path.startsWith(File.separator)){ //is absolute
-					return new File(path).getCanonicalPath();
+				path = path.trim();
+				if(path.isEmpty()){
+					return null;
 				}else{
-
-					if(parentPath != null){
-						if(parentPath.startsWith(File.separator)){ //is absolute
-							return new File(parentPath + File.separator + path).getCanonicalPath();
+					if(path.startsWith(File.separator)){ //is absolute
+						return new File(path).getCanonicalPath();
+					}else{
+	
+						if(parentPath != null){
+							parentPath = parentPath.trim();
+							if(parentPath.isEmpty() || !parentPath.startsWith(File.separator)){
+								return null;
+							}else{
+								return new File(parentPath + File.separator + path).getCanonicalPath();
+							}
 						}
-					}
-				}	    		
+					}	
+				}
 			}
 
 		}catch(Exception e){
@@ -2149,8 +2295,8 @@ public class Audit extends AbstractReporter {
 		String newFilePath = eventData.get("path4") == null ? eventData.get("path3") : eventData.get("path4");
 
 		if(syscall == SYSCALL.RENAME){
-			oldFilePath = constructPath(oldFilePath, cwd);
-			newFilePath = constructPath(newFilePath, cwd);
+			oldFilePath = constructAbsolutePath(oldFilePath, cwd, pid);
+			newFilePath = constructAbsolutePath(newFilePath, cwd, pid);
 		}else if(syscall == SYSCALL.RENAMEAT){
 			oldFilePath = constructPathSpecial(oldFilePath, eventData.get("a0"), cwd, pid, time, eventId, syscall);        	
 			newFilePath = constructPathSpecial(newFilePath, eventData.get("a2"), cwd, pid, time, eventId, syscall);        	
@@ -2234,7 +2380,7 @@ public class Audit extends AbstractReporter {
 		}
 
 		path = paths.values().iterator().next();        
-		path = constructPath(path, eventData.get("cwd"));
+		path = constructAbsolutePath(path, eventData.get("cwd"), eventData.get("pid"));
 
 		if(path == null){
 			log(Level.INFO, "Missing PATH or CWD record", null, eventData.get("time"), eventData.get("eventid"), syscall);
@@ -2276,8 +2422,8 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get("time");
 
 		if(syscall == SYSCALL.LINK || syscall == SYSCALL.SYMLINK){
-			srcPath = constructPath(srcPath, cwd);
-			dstPath = constructPath(dstPath, cwd);
+			srcPath = constructAbsolutePath(srcPath, cwd, pid);
+			dstPath = constructAbsolutePath(dstPath, cwd, pid);
 		}else if(syscall == SYSCALL.LINKAT || syscall == SYSCALL.SYMLINKAT){
 			srcPath = constructPathSpecial(srcPath, eventData.get("a0"), cwd, pid, time, eventId, syscall);
 			dstPath = constructPathSpecial(dstPath, eventData.get("a2"), cwd, pid, time, eventId, syscall);
@@ -2380,7 +2526,7 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 			String path = paths.values().iterator().next();
-			path = constructPath(path, eventData.get("cwd"));
+			path = constructAbsolutePath(path, eventData.get("cwd"), pid);
 			if(path == null){
 				log(Level.INFO, "Missing PATH or CWD records", null, time, eventId, syscall);
 				return;
@@ -2732,7 +2878,7 @@ public class Audit extends AbstractReporter {
 			log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 			return null;
 		}else if(path.startsWith(File.separator)){ //is absolute
-			return constructPath(path, cwd); //just getting the path resolved if it has .. or .
+			return constructAbsolutePath(path, cwd, pid); //just getting the path resolved if it has .. or .
 		}else{ //is not absolute
 			if(fdString == null){
 				log(Level.INFO, "Missing FD", null, time, eventId, syscall);
@@ -2744,7 +2890,7 @@ public class Audit extends AbstractReporter {
 						log(Level.INFO, "Missing CWD record", null, time, eventId, syscall);
 						return null;
 					}else{
-						path = constructPath(path, cwd);
+						path = constructAbsolutePath(path, cwd, pid);
 						return path;
 					}
 				}else{
@@ -2756,7 +2902,7 @@ public class Audit extends AbstractReporter {
 						log(Level.INFO, "FD with number '"+fd+"' for pid '"+pid+"' must be of type file but is '"+artifactIdentifier.getClass()+"'", null, time, eventId, syscall);
 						return null;
 					}else{
-						path = constructPath(path, ((FileIdentifier)artifactIdentifier).getPath());
+						path = constructAbsolutePath(path, ((FileIdentifier)artifactIdentifier).getPath(), pid);
 						if(path == null){
 							log(Level.INFO, "Invalid path ("+((FileIdentifier)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
 							return null;
