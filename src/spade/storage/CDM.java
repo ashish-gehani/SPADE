@@ -34,6 +34,7 @@ import org.apache.avro.generic.GenericContainer;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.security.auth.PrincipalBuilder;
 
 import com.bbn.tc.schema.avro.AbstractObject;
 import com.bbn.tc.schema.avro.AbstractObject.Builder;
@@ -92,6 +93,8 @@ public class CDM extends Kafka {
     
     private boolean hexUUIDs = false;
     
+    private boolean agents = false;
+    
     @Override
     public boolean initialize(String arguments) {
     	boolean initResult = super.initialize(arguments);
@@ -100,6 +103,9 @@ public class CDM extends Kafka {
 	    	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
 	    	if("true".equals(argumentsMap.get("hexUUIDs"))){
 	    		hexUUIDs = true;
+	    	}
+	    	if("true".equals(argumentsMap.get("agents"))){
+	    		agents = true;
 	    	}
     	}catch(Exception e){
     		logger.log(Level.WARNING, "Failed to parse arguments into key-value pairs. Using default values.", e);
@@ -176,6 +182,8 @@ public class CDM extends Kafka {
                 tccdmDatums = mapProcess(vertex);
             } else if (vertexType.equals("Artifact")) {
                 tccdmDatums = mapArtifact(vertex);
+            } else if(vertexType.equals("Agent")){
+            	tccdmDatums = mapAgent(vertex);
             } else {
                 logger.log(Level.WARNING, "Unexpected vertex type: {0}", vertexType);
                 return false;
@@ -348,12 +356,31 @@ public class CDM extends Kafka {
                 return false;
             }
             String opmOperation = edge.getAnnotation("operation");
-            if(opmOperation == null){
+            if(opmOperation == null && !opmEdgeType.equals("WasControlledBy")){
             	logger.log(Level.WARNING,
                         "NULL {0} operation! event id = {1}", new Object[]{opmEdgeType, eventId});
                 return false;
             }
-            if (opmEdgeType.equals("WasTriggeredBy")) {
+            
+            if(opmEdgeType.equals("WasControlledBy")){
+            	if(opmOperation == null){
+	            	SimpleEdge simpleEdge = createSimpleEdge(getUuid(edge.getSourceVertex()), 
+	            			getUuid(edge.getDestinationVertex()), 
+	    	        		EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL, 
+	    	        		convertTimeToMicroseconds(eventId, edge.getAnnotation("time"), 0L), null);
+	    	        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
+	    	        publishRecords(tccdmDatums);
+	    	        return true;
+            	}else if(opmOperation.equals("setuid")){
+            		actingProcessPidString = edge.getSourceVertex().getAnnotation("pid");
+                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
+            		eventType = EventType.EVENT_CHANGE_PRINCIPAL;
+            	}else{
+            		logger.log(Level.WARNING,
+                            "Unexpected WasControlledBy operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
+                    return false;
+            	}
+            }else if (opmEdgeType.equals("WasTriggeredBy")) {
             	actingProcessPidString = edge.getDestinationVertex().getAnnotation("pid"); //parent process
             	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
             	if(opmOperation.equals("exit")){
@@ -562,11 +589,15 @@ public class CDM extends Kafka {
             /* Generate the _*_AFFECTS_* edge record */
             UUID uuidOfProcessVertex = null;
             SimpleEdge affectsEdge = null; 
-            if(opmEdgeType.equals("Used")){ //artifact affects event
+            if(opmEdgeType.equals("Used")){ // event affected
             	affectsEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getUuid(edge), 
             			affectsEdgeType, time, null);
             	uuidOfProcessVertex = getUuid(edge.getSourceVertex()); //getting the source because that is the process
-            }else{ //event affects artifact
+            }else if(opmEdgeType.equals("WasControlledBy")){ 
+            	affectsEdge = createSimpleEdge(getUuid(edge), getUuid(edge.getDestinationVertex()), 
+            			affectsEdgeType, time, null);
+            	uuidOfProcessVertex = getUuid(edge.getSourceVertex()); //getting the source because that is the process
+            }else{// event affects
             	affectsEdge = createSimpleEdge(getUuid(edge), getUuid(edge.getSourceVertex()), 
             			affectsEdgeType, time, null);
             	uuidOfProcessVertex = getUuid(edge.getDestinationVertex()); //getting the destination because that is the process
@@ -643,6 +674,17 @@ public class CDM extends Kafka {
     	}
     }
     
+    private List<GenericContainer> mapAgent(AbstractVertex vertex){
+    	List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
+    	
+    	Principal principal = createPrincipal(vertex);
+    	if(principal != null){
+    		tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build());
+    	}
+    	
+    	return tccdmDatums;
+    }
+    
     private List<GenericContainer> mapProcess(AbstractVertex vertex) {
         List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
 
@@ -680,27 +722,30 @@ public class CDM extends Kafka {
         Subject subject = subjectBuilder.build();
         tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(subject).build()); //added subject
         
-        AbstractVertex principalVertex = createPrincipalVertex(vertex);
-        UUID principalVertexUUID = getUuid(principalVertex);
+        if(!agents){
         
-        // Add principal vertex only if it hasn't been seen before. 
-        // Only added when seen for the first time
-        if(!principalUUIDs.contains(principalVertexUUID)){
-        	Principal principal = createPrincipal(principalVertex);
-        	if(principal != null){
-        		tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build());
-        		principalUUIDs.add(principalVertexUUID);
-        	}
+	        AbstractVertex principalVertex = createPrincipalVertex(vertex);
+	        UUID principalVertexUUID = getUuid(principalVertex);
+	        
+	        // Add principal vertex only if it hasn't been seen before. 
+	        // Only added when seen for the first time
+	        if(!principalUUIDs.contains(principalVertexUUID)){
+	        	Principal principal = createPrincipal(principalVertex);
+	        	if(principal != null){
+	        		tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build());
+	        		principalUUIDs.add(principalVertexUUID);
+	        	}
+	        }
+	        
+	        // Making sure that the principal vertex was published successfully
+	        if(principalUUIDs.contains(principalVertexUUID)){
+		        SimpleEdge simpleEdge = createSimpleEdge(getUuid(vertex), principalVertexUUID, 
+		        		EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL, 
+		        		convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L), null);
+		        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
+	        }
+        
         }
-        
-        // Making sure that the principal vertex was published successfully
-        if(principalUUIDs.contains(principalVertexUUID)){
-	        SimpleEdge simpleEdge = createSimpleEdge(getUuid(vertex), principalVertexUUID, 
-	        		EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL, 
-	        		convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L), null);
-	        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
-        }
-        
         return tccdmDatums;
     }
     
@@ -710,6 +755,18 @@ public class CDM extends Kafka {
     	vertex.addAnnotation("euid", processVertex.getAnnotation("euid"));
     	vertex.addAnnotation("gid", processVertex.getAnnotation("gid"));
     	vertex.addAnnotation("egid", processVertex.getAnnotation("egid"));
+    	if(processVertex.getAnnotation("suid") != null){
+    		vertex.addAnnotation("suid", processVertex.getAnnotation("suid"));
+    	}
+    	if(processVertex.getAnnotation("fsuid") != null){
+    		vertex.addAnnotation("fsuid", processVertex.getAnnotation("fsuid"));
+    	}
+    	if(processVertex.getAnnotation("sgid") != null){
+    		vertex.addAnnotation("sgid", processVertex.getAnnotation("sgid"));
+    	}
+    	if(processVertex.getAnnotation("fsgid") != null){
+    		vertex.addAnnotation("fsgid", processVertex.getAnnotation("fsgid"));
+    	}
     	vertex.addAnnotation("source", processVertex.getAnnotation("source"));
     	return vertex;
     }
@@ -737,11 +794,22 @@ public class CDM extends Kafka {
             Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
             addIfNotNull("euid", principalVertex.getAnnotations(), properties);
             addIfNotNull("egid", principalVertex.getAnnotations(), properties);
+            addIfNotNull("suid", principalVertex.getAnnotations(), properties);
+            addIfNotNull("fsuid", principalVertex.getAnnotations(), properties);
             principalBuilder.setProperties(properties);
             
             List<CharSequence> groupIds = new ArrayList<CharSequence>();
             if(principalVertex.getAnnotation("gid") != null){
             	groupIds.add(principalVertex.getAnnotation("gid"));
+            }
+            if(principalVertex.getAnnotation("egid") != null){
+            	groupIds.add(principalVertex.getAnnotation("egid"));
+            }
+            if(principalVertex.getAnnotation("sgid") != null){
+            	groupIds.add(principalVertex.getAnnotation("sgid"));
+            }
+            if(principalVertex.getAnnotation("fsgid") != null){
+            	groupIds.add(principalVertex.getAnnotation("fsgid"));
             }
             principalBuilder.setGroupIds(groupIds);
             
