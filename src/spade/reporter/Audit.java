@@ -170,6 +170,9 @@ public class Audit extends AbstractReporter {
 
 	// Flag to use to decide whether to generate OPM objects for the following syscalls or not: exit, close, unlink
 	private boolean CONTROL = true;
+	
+	// Flag to decide whether to use tgid for memory artifacts or pid
+	private boolean TGID = true; // Using tgid by default for memory artifacts
 
 	//  To toggle monitoring of mmap, mmap2 and mprotect syscalls
 	private boolean USE_MEMORY_SYSCALLS = true;
@@ -195,6 +198,9 @@ public class Audit extends AbstractReporter {
 	private boolean reportingEnabled = false;
 	private long reportEveryMs;
 	private long lastReportedTime;
+	
+	//A map to keep track of thread group ids for pids. Pid->Tgid
+	private final Map<String, String> pidToTgid = new HashMap<String, String>();
 
 	@Override
 	public boolean launch(String arguments) {
@@ -285,6 +291,9 @@ public class Audit extends AbstractReporter {
 		}
 		if("false".equals(args.get("control"))){
 			CONTROL = false;
+		}
+		if("false".equals(args.get("tgid"))){
+			TGID = false;
 		}
 		// End of experimental arguments
 
@@ -1333,6 +1342,9 @@ public class Audit extends AbstractReporter {
 		descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
 		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
 		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
+		if(TGID){
+			pidToTgid.remove(pid); // Remove mapping to thread group id
+		}
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -1374,7 +1386,10 @@ public class Audit extends AbstractReporter {
 
 		Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentifier, false);
 
-		ArtifactIdentifier memoryArtifactIdentifier = new MemoryIdentifier(pid, address, length);
+		String pidOrTgid = TGID ? (pidToTgid.get(pid) == null ? pid : pidToTgid.get(pid)) : pid;
+		
+		ArtifactIdentifier memoryArtifactIdentifier = 
+				new MemoryIdentifier(pidOrTgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, true);
 
 		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
@@ -1408,7 +1423,10 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get("a1")).toString(16);
 		String protection = new BigInteger(eventData.get("a2")).toString(16);
 
-		ArtifactIdentifier memoryInfo = new MemoryIdentifier(pid, address, length);
+		String pidOrTgid = TGID ? (pidToTgid.get(pid) == null ? pid : pidToTgid.get(pid)) : pid;
+		
+		ArtifactIdentifier memoryInfo = 
+				new MemoryIdentifier(pidOrTgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, true);
 
 		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
@@ -1462,12 +1480,16 @@ public class Audit extends AbstractReporter {
 				address = address.shiftLeft(32);
 				address = address.add(arg1);
 				pidToMemAddress.remove(pid);
+				String pidOrTgid = TGID ? (pidToTgid.get(pid) == null ? pid : pidToTgid.get(pid)) : pid;
 				if(arg0.intValue() == -201){
-					memArtifact = putArtifact(eventData, new MemoryIdentifier(pid, address.toString(16), ""), false, BEEP);
+					memArtifact = putArtifact(eventData, 
+							new MemoryIdentifier(pidOrTgid, address.toString(16), ""), 
+							false, BEEP);
 					edge = new Used(process, memArtifact);
 					operation = getOperation(SYSCALL.READ);
 				}else if(arg0.intValue() == -301){
-					memArtifact = putArtifact(eventData, new MemoryIdentifier(pid, address.toString(16), ""), true, BEEP);
+					memArtifact = putArtifact(eventData, 
+							new MemoryIdentifier(pidOrTgid, address.toString(16), ""), true, BEEP);
 					edge = new WasGeneratedBy(memArtifact, process);
 					operation = getOperation(SYSCALL.WRITE);
 				}
@@ -1523,6 +1545,14 @@ public class Audit extends AbstractReporter {
 		}else{
 			log(Level.WARNING, "Unexpected syscall '"+syscall+"' in FORK CLONE handler", null, time, eventId, syscall);
 			return;
+		}
+		
+		if(TGID){
+			if(pidToTgid.get(oldPID) == null){
+				pidToTgid.put(newPID, oldPID);
+			}else{
+				pidToTgid.put(newPID, pidToTgid.get(oldPID));
+			}
 		}
 	}
 
@@ -1610,6 +1640,10 @@ public class Audit extends AbstractReporter {
 		}
 
 		descriptors.unlinkDescriptors(pid);
+		
+		if(TGID){
+			pidToTgid.remove(pid);
+		}
 	}
 
 	private void handleCreat(Map<String, String> eventData){
@@ -3587,8 +3621,6 @@ public class Audit extends AbstractReporter {
 			String uid, String euid, String suid, String fsuid, 
 			String gid, String egid, String sgid, String fsgid,
 			String source, String startTime, String unit, String iteration, String count){
-
-		Map<String, String> userGroupAnnotations = new HashMap<String, String>();
 		
 		Process process = new Process();
 		process.addAnnotation("pid", pid);
@@ -3613,21 +3645,22 @@ public class Audit extends AbstractReporter {
 			process.addAnnotation("cwd", cwd);
 		}
 
-		userGroupAnnotations.put("uid", uid);
-		userGroupAnnotations.put("euid", euid);
-		userGroupAnnotations.put("gid", gid);
-		userGroupAnnotations.put("egid", egid);
+		Map<String, String> agentAnnotations = new HashMap<String, String>();
+		agentAnnotations.put("uid", uid);
+		agentAnnotations.put("euid", euid);
+		agentAnnotations.put("gid", gid);
+		agentAnnotations.put("egid", egid);
 		
 		if(!SIMPLIFY){
-			userGroupAnnotations.put("suid", suid);
-			userGroupAnnotations.put("fsuid", fsuid);
+			agentAnnotations.put("suid", suid);
+			agentAnnotations.put("fsuid", fsuid);
 
-			userGroupAnnotations.put("sgid", sgid);
-			userGroupAnnotations.put("fsgid", fsgid);
+			agentAnnotations.put("sgid", sgid);
+			agentAnnotations.put("fsgid", fsgid);
 		}
 		
 		if(!AGENTS){
-			process.addAnnotations(userGroupAnnotations);
+			process.addAnnotations(agentAnnotations);
 		}
 
 		if(startTime != null){
