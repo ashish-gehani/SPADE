@@ -161,8 +161,6 @@ public class Audit extends AbstractReporter {
 	private boolean SIMPLIFY = true;
 	private boolean PROCFS = false;
 
-	private boolean NET_SOCKET_VERSIONING = false;
-
 	private boolean UNIX_SOCKETS = false;
 
 	private boolean WAIT_FOR_LOG_END = false;
@@ -179,6 +177,19 @@ public class Audit extends AbstractReporter {
 	private boolean USE_MEMORY_SYSCALLS = true;
 
 	private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
+	
+	// Null  -> don't use
+	// True  -> override all other versioning flags and version everything
+	// False -> override all other versioning flags and don't version anything 
+	private Boolean VERSION_ARTIFACTS = null;
+	
+	private boolean VERSION_FILES = true,
+			VERSION_MEMORYS = true,
+			VERSION_NAMED_PIPES = true,
+			VERSION_UNNAMED_PIPES = true,
+			VERSION_UNKNOWNS = true,
+			VERSION_NETWORK_SOCKETS = false,
+			VERSION_UNIX_SOCKETS = true;
 
 	// Just a human-friendly renaming of null
 	private final static String NOT_SET = null;
@@ -279,9 +290,6 @@ public class Audit extends AbstractReporter {
 		if("true".equals(args.get("unixSockets"))){
 			UNIX_SOCKETS = true;
 		}
-		if("true".equals(args.get("netSocketVersioning"))){
-			NET_SOCKET_VERSIONING = true;
-		}
 		if("true".equals(args.get("waitForLog"))){
 			WAIT_FOR_LOG_END = true;
 		}
@@ -296,6 +304,32 @@ public class Audit extends AbstractReporter {
 		}
 		if("false".equals(args.get("tgid"))){
 			TGID = false;
+		}
+		if("true".equals(args.get("versionNetworkSockets"))){
+			VERSION_NETWORK_SOCKETS = true;
+		}
+		if("false".equals(args.get("versionFiles"))){
+			VERSION_FILES = false;
+		}
+		if("false".equals(args.get("versionMemorys"))){
+			VERSION_MEMORYS = false;
+		}
+		if("false".equals(args.get("versionNamedPipes"))){
+			VERSION_NAMED_PIPES = false;
+		}
+		if("false".equals(args.get("versionUnnamedPipes"))){
+			VERSION_UNNAMED_PIPES = false;
+		}
+		if("false".equals(args.get("versionUnknowns"))){
+			VERSION_UNKNOWNS = false;
+		}
+		if("false".equals(args.get("versionUnixSockets"))){
+			VERSION_UNIX_SOCKETS = false;
+		}
+		if("true".equals(args.get("versionArtifacts"))){
+			VERSION_ARTIFACTS = true;
+		}else if("false".equals(args.get("versionArtifacts"))){
+			VERSION_ARTIFACTS = false;
 		}
 		// End of experimental arguments
 
@@ -3010,6 +3044,30 @@ public class Audit extends AbstractReporter {
 		}
 
 		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
+		if(VERSION_ARTIFACTS == null){
+			if(FileIdentifier.class.equals(artifactIdentifierClass)){
+				updateVersion = VERSION_FILES;
+			}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
+				updateVersion = VERSION_MEMORYS;
+			}else if(NamedPipeIdentifier.class.equals(artifactIdentifierClass)){
+				updateVersion = VERSION_NAMED_PIPES;
+			}else if(UnnamedPipeIdentifier.class.equals(artifactIdentifierClass)){
+				updateVersion = VERSION_UNNAMED_PIPES;
+			}else if(UnknownIdentifier.class.equals(artifactIdentifierClass)){
+				updateVersion = VERSION_UNKNOWNS;
+			}else if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass)){
+				updateVersion = VERSION_NETWORK_SOCKETS;
+			}else if(UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
+				updateVersion = VERSION_UNIX_SOCKETS;
+			}else{
+				logger.log(Level.WARNING, "Unexpected artifact type: {0}", new Object[]{artifactIdentifierClass});
+			}
+		}else if(VERSION_ARTIFACTS){ //if true
+			updateVersion = true;
+		}else if(!VERSION_ARTIFACTS){ //if false
+			updateVersion = false;
+		}
+		
 		if(FileIdentifier.class.equals(artifactIdentifierClass)
 				|| NamedPipeIdentifier.class.equals(artifactIdentifierClass)
 				|| UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
@@ -3018,12 +3076,6 @@ public class Audit extends AbstractReporter {
 				if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
 					updateVersion = false;
 				}
-			}
-		}
-
-		if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass)){ //if network socket and if no version then don't update version
-			if(!NET_SOCKET_VERSIONING){
-				updateVersion = false;
 			}
 		}
 

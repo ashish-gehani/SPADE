@@ -401,7 +401,7 @@ public class CDM extends Kafka {
             			Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
             			properties.put("event id", edge.getAnnotation("event id"));
             			properties.put("time", edge.getAnnotation("time"));
-            			properties.put("source", edge.getAnnotation("time"));
+            			properties.put("source", edge.getAnnotation("source"));
             			for(UUID pendingLoadedFileUUID : pendingLoadedFilesUUIDs){
             				SimpleEdge loadEdge = createSimpleEdge(pendingLoadedFileUUID, getUuid(edge),
                     				EdgeType.EDGE_FILE_AFFECTS_EVENT, time, properties);
@@ -480,7 +480,7 @@ public class CDM extends Kafka {
                 		Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
             			properties.put("event id", edge.getAnnotation("event id"));
             			properties.put("time", edge.getAnnotation("time"));
-            			properties.put("source", edge.getAnnotation("time"));
+            			properties.put("source", edge.getAnnotation("source"));
                 		SimpleEdge loadEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getExecEventUUID(actingProcessPidString),
                 				EdgeType.EDGE_FILE_AFFECTS_EVENT, time, properties);
 	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
@@ -533,7 +533,7 @@ public class CDM extends Kafka {
                 	Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
         			properties.put("event id", edge.getAnnotation("event id"));
         			properties.put("time", edge.getAnnotation("time"));
-        			properties.put("source", edge.getAnnotation("time"));
+        			properties.put("source", edge.getAnnotation("source"));
                 	SimpleEdge updateEdge = createSimpleEdge(getUuid(edge.getSourceVertex()), getUuid(edge.getDestinationVertex()), 
                 			EdgeType.EDGE_OBJECT_PREV_VERSION, time, properties);
                 	
