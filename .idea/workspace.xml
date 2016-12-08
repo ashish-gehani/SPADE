@@ -4,9 +4,6 @@
     <list default="true" id="546141a1-38f1-4e52-9c5b-4d56e5c1e771" name="Default" comment="">
       <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/src/spade/storage/SQLTest.java" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/SPADE.iml" afterPath="$PROJECT_DIR$/SPADE.iml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/spade/core/Graph.java" afterPath="$PROJECT_DIR$/src/spade/core/Graph.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/spade/storage/SQL.java" afterPath="$PROJECT_DIR$/src/spade/storage/SQL.java" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -33,8 +30,8 @@
       <file leaf-file-name="SQLTest.java" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/spade/storage/SQLTest.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="98">
-              <caret line="160" column="66" lean-forward="false" selection-start-line="160" selection-start-column="66" selection-end-line="160" selection-end-column="66" />
+            <state relative-caret-position="443">
+              <caret line="183" column="1" lean-forward="true" selection-start-line="183" selection-start-column="1" selection-end-line="183" selection-end-column="1" />
               <folding>
                 <element signature="imports" expanded="true" />
               </folding>
@@ -707,7 +704,7 @@
       <workItem from="1480960492343" duration="6928000" />
       <workItem from="1480975702414" duration="4216000" />
       <workItem from="1481049370799" duration="12700000" />
-      <workItem from="1481138918875" duration="13390000" />
+      <workItem from="1481138918875" duration="13486000" />
     </task>
     <servers />
   </component>
@@ -744,7 +741,7 @@
     </history-entry>
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="38167000" />
+    <option name="totallyTimeSpent" value="38263000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="0" width="1600" height="900" extended-state="0" />
@@ -788,6 +785,10 @@
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Added test case environment for getAllPaths_new" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added test case environment for getAllPaths_new" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -937,8 +938,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/spade/storage/SQLTest.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="98">
-          <caret line="160" column="66" lean-forward="false" selection-start-line="160" selection-start-column="66" selection-end-line="160" selection-end-column="66" />
+        <state relative-caret-position="443">
+          <caret line="183" column="1" lean-forward="true" selection-start-line="183" selection-start-column="1" selection-end-line="183" selection-end-column="1" />
           <folding>
             <element signature="imports" expanded="true" />
           </folding>

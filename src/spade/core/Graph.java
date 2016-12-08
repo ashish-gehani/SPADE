@@ -235,6 +235,15 @@ public class Graph extends AbstractStorage implements Serializable {
         }
     }
 
+
+    /**
+     *
+     * Returns the status of graph as empty or non-empty
+     *
+     * @return True if the graph contains no vertex
+     */
+    public boolean isEmpty() { return (vertexSet().size() > 0); }
+
     /**
      * Returns the set containing the vertices.
      *
