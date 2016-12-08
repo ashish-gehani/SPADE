@@ -712,7 +712,7 @@ public class SQL extends AbstractStorage {
     {
         Graph resultGraph = new Graph();
         Set<Integer> visitedNodes = new HashSet<>();
-        Stack<AbstractVertex> currentPath = new Stack<AbstractVertex>();
+        Stack<AbstractVertex> currentPath = new Stack<>();
         Set<Graph> allPaths = new HashSet<>();
         try
         {

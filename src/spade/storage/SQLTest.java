@@ -170,7 +170,7 @@ class SQLTest {
         i = 1;
         for(AbstractEdge e: graph.edgeSet())
         {
-            if (i != 2 || i != 4)
+            if (i != 2 && i != 4)
                 expectedOutcomeCase2.putEdge(e);
             i++;
         }
