@@ -16,3 +16,5 @@ hs_err_pid*
 
 # tmp directory is created for staging purposes
 tmp
+
+.idea

@@ -25,13 +25,13 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.Iterator;
+
+import org.apache.jena.atlas.iterator.Iter;
+import org.neo4j.cypher.internal.compiler.v2_0.functions.Abs;
+import org.neo4j.register.Register;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
@@ -39,6 +39,8 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.core.Edge;
+
+import javax.swing.plaf.nimbus.State;
 
 /**
  * Basic SQL storage implementation.
@@ -56,6 +58,8 @@ public class SQL extends AbstractStorage {
     private static final String ID_STRING = Settings.getProperty("storage_identifier");
     private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+    public static boolean TEST_ENV = false;
+    public static Graph TEST_GRAPH ;
 
     // private Statement batch_statement;
     @Override
@@ -526,7 +530,217 @@ public class SQL extends AbstractStorage {
         iterator = dstVertexGraph.vertexSet().iterator();
         AbstractVertex dstVertex = iterator.next();
         
-        return getPaths(srcVertex.getAnnotation(ID_STRING), dstVertex.getAnnotation(ID_STRING), maxLength);
+            return getPaths(srcVertex.getAnnotation(ID_STRING), dstVertex.getAnnotation(ID_STRING), maxLength);
+    }
+
+
+    /*
+    * Helper function to find and return a vertex object by ID
+    * @param vertexId ID of the vertex to find
+    * @return AbstractVertex vertex found against the ID.
+    *
+    * */
+    private AbstractVertex getVertexFromId(int vertexId)
+    {
+        //TODO: Remove this function and use getVertices in its place
+        if (TEST_ENV) {
+            for (AbstractVertex v : TEST_GRAPH.vertexSet()) {
+                if (v.getAnnotation("storageID").equals(Integer.toString(vertexId))) {
+                    return v;
+                }
+            }
+            return null;
+        } else {
+            int vertexColumnCount;
+            int edgeColumnCount;
+            Map<Integer, String> vertexColumnLabels = new HashMap<>();
+            Map<Integer, String> edgeColumnLabels = new HashMap<>();
+            AbstractVertex vertex = new Vertex();
+
+            try {
+                dbConnection.commit();
+                String query = "SELECT * FROM vertex WHERE vertexId = " + vertexId;
+                Statement vertexStatement = dbConnection.createStatement();
+                ResultSet result = vertexStatement.executeQuery(query);
+                ResultSetMetaData metadata = result.getMetaData();
+                vertexColumnCount = metadata.getColumnCount();
+
+                for (int i = 1; i <= vertexColumnCount; i++) {
+                    vertexColumnLabels.put(i, metadata.getColumnName(i));
+                }
+
+                result.next();
+                vertex.removeAnnotation("type");
+                int id = result.getInt(1);
+                int hash = result.getInt(3);
+                vertex.addAnnotation(vertexColumnLabels.get(1), Integer.toString(id));
+                vertex.addAnnotation("type", result.getString(2));
+                vertex.addAnnotation(vertexColumnLabels.get(3), Integer.toString(hash));
+                for (int i = 4; i <= vertexColumnCount; i++) {
+                    String value = result.getString(i);
+                    if ((value != null) && !value.isEmpty()) {
+                        vertex.addAnnotation(vertexColumnLabels.get(i), result.getString(i));
+                    }
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+                return null;
+            }
+            return vertex;
+        }
+
+    }
+
+
+    /*
+    *
+    * Returns IDs of all neighboring vertices of the given vertex
+    * @param vertexId ID of the vertex whose neighbors are to find
+    * @return List<Integer       > List of IDs of neighboring vertices
+    *
+    * */
+    private List<Integer> getNeighborVertexIds(int vertexId)
+    {
+        List<Integer> neighborVertexIds = new ArrayList<>();
+        if(TEST_ENV)
+        {
+            for(AbstractEdge e: TEST_GRAPH.edgeSet())
+            {
+                if(e.getSourceVertex().getAnnotation("storageID").equals(Integer.toString(vertexId)))
+                {
+                    neighborVertexIds.add(Integer.parseInt(e.getDestinationVertex().getAnnotation("storageID")));
+                }
+            }
+        }
+        else
+        {
+            try {
+                dbConnection.commit();
+                // TODO: Handle exception case when getVertexFromId returns null
+                String query = "SELECT dstVertexHash FROM edge WHERE srcVertexHash = " + getVertexFromId(vertexId).hashCode();
+                Statement statement = dbConnection.createStatement();
+                ResultSet result = statement.executeQuery(query);
+                while (result.next()) {
+                    neighborVertexIds.add(result.getInt(1));
+                }
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return neighborVertexIds;
+    }
+
+
+    /**
+     * Finds paths between src and dst vertices
+     * @param sId ID of the current node during traversal
+     * @param dId ID of the destination node
+     * @param maxPathLength Maximum length of any path to find
+     * @param visitedNodes List of nodes visited during traversal
+     * @param currentPath Set of vertices explored currently
+     * @param allPaths Set of all paths between src and dst
+     * @return Set<Stack> List of all paths found from original src to dst
+     */
+    private void findPath(int sId, int dId, int maxPathLength, Set<Integer> visitedNodes, Stack<AbstractVertex> currentPath, Set<Graph> allPaths)
+    {
+        if (currentPath.size() > maxPathLength)
+            return;
+
+        visitedNodes.add(sId);
+        currentPath.push(getVertexFromId(sId));
+
+        if (sId == dId)
+        {
+            Graph pathGraph = new Graph();
+            Iterator<AbstractVertex> iter = currentPath.iterator();
+            AbstractVertex previous = iter.next();
+            pathGraph.putVertex(previous);
+            while(iter.hasNext())
+            {
+                AbstractVertex curr = iter.next();
+                pathGraph.putVertex(curr);
+                // find the relevant edges between previous and current vertex
+                if(TEST_ENV)
+                {
+                    for(AbstractEdge e: TEST_GRAPH.edgeSet())
+                    {
+                        if(e.getSourceVertex().equals(previous) && e.getDestinationVertex().equals(curr))
+                        {
+                            pathGraph.putEdge(e);
+                        }
+                    }
+                }
+                else
+                {
+                    Graph edges;
+                    edges = getEdges("hash", previous.getAnnotation("hash"), "hash", curr.getAnnotation("hash"));
+                    pathGraph = Graph.union(pathGraph, edges);
+                }
+                allPaths.add(pathGraph);
+                previous = curr;
+            }
+        }
+        else
+        {
+            for(int neighborId: getNeighborVertexIds(sId))
+            {
+                if(!visitedNodes.contains(neighborId))
+                {
+                    findPath(neighborId, dId, maxPathLength, visitedNodes, currentPath, allPaths);
+                }
+            }
+        }
+
+        currentPath.pop();
+        visitedNodes.remove(sId);
+
+    }
+
+    /*
+    *
+    *  Finds all possible paths between two vertices and returns them.
+    *
+    *  @param srcVertexId id of the source vertex
+    *  @param dstVertexId id of the destination vertex
+    *  @param maxLength maximum length of any path found
+    *  @return Graph containing all paths between src and dst
+    *
+    */
+    public Graph getAllPaths_new(int srcVertexId, int dstVertexId, int maxPathLength)
+    {
+        Graph resultGraph = new Graph();
+        Set<Integer> visitedNodes = new HashSet<>();
+        Stack<AbstractVertex> currentPath = new Stack<AbstractVertex>();
+        Set<Graph> allPaths = new HashSet<>();
+        try
+        {
+//            // Finds the source Vertex and adds it to the result graph
+//            Graph srcGraph = getVertices(ID_STRING + ":" + srcVertexId);
+//            AbstractVertex srcVertex = srcGraph.getVertex(srcVertexId);
+//            resultGraph.putVertex(srcVertex);
+//
+//            // Finds the destination vertex and adds it to the result graph
+//            Graph dstGraph = getVertices(ID_STRING + ":" + dstVertexId);
+//            AbstractVertex dstVertex = dstGraph.getVertex(dstVertexId);
+//            resultGraph.putVertex(dstVertex);
+
+            // Find path between src and dst vertices
+            findPath(srcVertexId, dstVertexId, maxPathLength, visitedNodes, currentPath, allPaths);
+            for (Graph path: allPaths)
+            {
+                resultGraph = Graph.union(resultGraph, path);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
+
+
+        return resultGraph;
     }
 
     private AbstractVertex getVertexFromHash(int hash, int columnCount, Map<Integer, String> columnLabels) {
