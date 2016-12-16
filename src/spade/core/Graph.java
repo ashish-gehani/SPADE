@@ -25,18 +25,14 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.jena.atlas.iterator.Iter;
+import org.apache.jena.riot.system.IteratorStreamRDFText;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.document.Document;
@@ -233,6 +229,59 @@ public class Graph extends AbstractStorage implements Serializable {
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
+    }
+
+    /**
+     * Checks if the two given graphs are equal.
+     * @return True if both graphs have the same vertices and edges
+     */
+    public boolean equals(Graph otherGraph)
+    {
+        if(this.vertexSet().size() != otherGraph.vertexSet().size())
+            return false;
+        if(this.edgeSet().size() != otherGraph.edgeSet().size())
+            return false;
+
+        /*
+        * Compare the sets of vertices and edges by their IDs.
+        * This should ordinarily work with hashes and overriding equals() and hashCode() methods.
+        * hashCode() is buggy. Meanwhile adding this method to compare two graphs.
+        */
+
+        // Compares the sets of vertices
+        Iterator<AbstractVertex> thisVertex = this.vertexSet().iterator();
+        Set<String> thisVertexIds = new HashSet<>();
+        while(thisVertex.hasNext())
+        {
+            thisVertexIds.add(thisVertex.next().getAnnotation("vertexId"));
+        }
+        Iterator<AbstractVertex> otherVertex = otherGraph.vertexSet().iterator();
+        Set<String> otherVertexIds = new HashSet<>();
+        while(otherVertex.hasNext())
+        {
+            otherVertexIds.add(otherVertex.next().getAnnotation("vertexId"));
+        }
+        if(!thisVertexIds.equals(otherVertexIds))
+            return false;
+
+        // Compare the sets of edges
+        Iterator<AbstractEdge> thisEdge = this.edgeSet().iterator();
+        Set<String> thisEdgeIds = new HashSet<>();
+        while(thisEdge.hasNext())
+        {
+            thisEdgeIds.add(thisEdge.next().getAnnotation("edgeId"));
+        }
+        Iterator<AbstractEdge> otherEdge = otherGraph.edgeSet().iterator();
+        Set<String> otherEdgeIds = new HashSet<>();
+        while(otherEdge.hasNext())
+        {
+            otherEdgeIds.add(otherEdge.next().getAnnotation("edgeId"));
+        }
+        if(!thisEdgeIds.equals(otherEdgeIds))
+            return false;
+
+        return true;
+
     }
 
 
