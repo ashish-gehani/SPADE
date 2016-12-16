@@ -55,7 +55,7 @@ public abstract class AbstractVertex implements Serializable {
         if (key == null || value == null) {
             return;
         }
-        annotations.put(key, value);
+        annotations.put(key.toLowerCase(), value);
     }
 
     /**
@@ -67,7 +67,7 @@ public abstract class AbstractVertex implements Serializable {
         for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet()) {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            addAnnotation(key, value);
+            addAnnotation(key.toLowerCase(), value);
         }
     }
 
@@ -79,7 +79,7 @@ public abstract class AbstractVertex implements Serializable {
      * existed.
      */
     public final String removeAnnotation(String key) {
-        return annotations.remove(key);
+        return annotations.remove(key.toLowerCase());
     }
 
     /**
@@ -89,7 +89,7 @@ public abstract class AbstractVertex implements Serializable {
      * @return The value of the annotation corresponding to the key.
      */
     public final String getAnnotation(String key) {
-        return annotations.get(key);
+        return annotations.get(key.toLowerCase());
     }
 
     /**

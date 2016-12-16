@@ -57,7 +57,7 @@ public abstract class AbstractEdge implements Serializable {
         if (key == null || value == null) {
             return;
         }
-        annotations.put(key, value);
+        annotations.put(key.toLowerCase(), value);
     }
 
     /**
@@ -69,7 +69,7 @@ public abstract class AbstractEdge implements Serializable {
         for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet()) {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            addAnnotation(key, value);
+            addAnnotation(key.toLowerCase(), value);
         }
     }
 
@@ -81,7 +81,7 @@ public abstract class AbstractEdge implements Serializable {
      * existed.
      */
     public final String removeAnnotation(String key) {
-        return annotations.remove(key);
+        return annotations.remove(key.toLowerCase());
     }
 
     /**
@@ -91,7 +91,7 @@ public abstract class AbstractEdge implements Serializable {
      * @return The value of the annotation corresponding to the key.
      */
     public final String getAnnotation(String key) {
-        return annotations.get(key);
+        return annotations.get(key.toLowerCase());
     }
 
     /**
@@ -160,13 +160,14 @@ public abstract class AbstractEdge implements Serializable {
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         final int seed1 = 5;
         final int seed2 = 97;
         int hashCode = seed1;
         hashCode = seed2 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.sourceVertex != null ? this.sourceVertex.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.destinationVertex != null ? this.destinationVertex.hashCode() : 0);
+        hashCode = seed2 * hashCode + (this.sourceVertex != null ? Integer.parseInt(this.sourceVertex.getAnnotation("hash")) : 0);
+        hashCode = seed2 * hashCode + (this.destinationVertex != null ? Integer.parseInt(this.destinationVertex.getAnnotation("hash")) : 0);
         return hashCode;
     }
 
