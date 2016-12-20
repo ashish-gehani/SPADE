@@ -160,7 +160,7 @@ class SQLTest {
 
 
     /**
-     * This function tests the functionality of getAllPaths_new function in spade.storage.SQL.java file
+     * This function tests the functionality of getAllPaths_new function in spade.storage.SQL.java
      */
     @Test
     void getAllPaths_new()
@@ -209,5 +209,14 @@ class SQLTest {
         Graph actualOutcomeCase2 = testSQLObject.getAllPaths_new(4, 5, 10);
         assertTrue(expectedOutcomeCase2.equals(actualOutcomeCase2));
 
+    }
+
+    /*
+    * This function tests the functionality of getLineage_new function in spade.storage.SQL.java
+    * */
+    @Test
+    void getLineage_new()
+    {
+        Graph outcome = testSQLObject.getLineage_new(4, 10, "a", 3);
     }
 }

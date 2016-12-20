@@ -97,7 +97,6 @@ public class SQL extends AbstractStorage {
                     + "dstVertexHash INT NOT NULL"
                     + ")";
             dbStatement.execute(createEdgeTable);
-            dbConnection.commit();
             dbStatement.close();
 
 
@@ -221,7 +220,6 @@ public class SQL extends AbstractStorage {
         try {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
-            dbConnection.commit();
             s.close();
             // s.closeOnCompletion();
         } catch (Exception e) {
@@ -285,7 +283,6 @@ public class SQL extends AbstractStorage {
         try {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
-            dbConnection.commit();
             s.close();
         } catch (Exception e) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, e);
@@ -542,6 +539,9 @@ public class SQL extends AbstractStorage {
             return getPaths(srcVertex.getAnnotation(ID_STRING), dstVertex.getAnnotation(ID_STRING), maxLength);
     }
 
+    /**********************************************************************************************************/
+    /******************************************Changes Made by @raza start***************************************/
+    /************************************************************************************************************/
 
     /*
     * Helper function to find and return a vertex object by ID
@@ -597,7 +597,6 @@ public class SQL extends AbstractStorage {
             }
             return vertex;
         }
-
     }
 
 
@@ -605,12 +604,13 @@ public class SQL extends AbstractStorage {
     *
     * Returns IDs of all neighboring vertices of the given vertex
     * @param vertexId ID of the vertex whose neighbors are to find
-    * @return List<Integer       > List of IDs of neighboring vertices
+    * @param direction Direction of the neighbor from the given vertex
+    * @return List<Integer> List of IDs of neighboring vertices
     *
     * */
-    private List<Integer> getNeighborvertexIds(int vertexId)
+    private Set<Integer> getNeighborVertexIds(int vertexId, String direction)
     {
-        List<Integer> neighborvertexIds = new ArrayList<>();
+        Set<Integer> neighborvertexIds = new HashSet<>();
         if(TEST_ENV)
         {
             for(AbstractEdge e: TEST_GRAPH.edgeSet())
@@ -626,8 +626,19 @@ public class SQL extends AbstractStorage {
             try {
                 dbConnection.commit();
                 // TODO: Handle exception case when getVertexFromId returns null
-                String query = "SELECT vertexId FROM vertex WHERE hash IN (SELECT dstVertexHash FROM edge WHERE " +
-                        "srcVertexHash = " + getVertexFromId(vertexId).getAnnotation("hash") + ")";
+                String srcVertex = null;
+                String dstVertex = null;
+                if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+                    srcVertex = "srcVertexHash";
+                    dstVertex = "dstVertexHash";
+                }
+                else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+                {
+                    srcVertex = "dstVertexHash";
+                    dstVertex = "srcVertexHash";
+                }
+                String query = "SELECT vertexId FROM vertex WHERE hash IN (SELECT " + dstVertex + " FROM edge WHERE ";
+                query +=   srcVertex + " = " + getVertexFromId(vertexId).getAnnotation("hash") + ")";
                 Statement statement = dbConnection.createStatement();
                 ResultSet result = statement.executeQuery(query);
                 while (result.next())
@@ -694,7 +705,7 @@ public class SQL extends AbstractStorage {
         }
         else
         {
-            for(int neighborId: getNeighborvertexIds(sId))
+            for(int neighborId: getNeighborVertexIds(sId, "a"))
             {
                 if(!visitedNodes.contains(neighborId))
                 {
@@ -739,6 +750,38 @@ public class SQL extends AbstractStorage {
             return null;
         }
 
+
+        return resultGraph;
+    }
+
+    public Graph getLineage_new(int srcVertexId, int maxDepth , String direction, int terminatingId)
+    {
+        Graph resultGraph = new Graph();
+        AbstractVertex srcVertex = getVertexFromId(srcVertexId);
+        if(maxDepth == 0)
+        {
+            resultGraph.putVertex(srcVertex);
+            return resultGraph;
+        }
+        Set<Integer> visitedNodes = new HashSet<>();
+        Queue<AbstractVertex> queue = new LinkedList<>();
+        queue.add(srcVertex);
+        for(int depth = 0 ; depth < maxDepth && !queue.isEmpty() ; depth++)
+        {
+            AbstractVertex node = queue.remove();
+            int nodeId = Integer.parseInt(node.getAnnotation("vertexId"));
+            resultGraph.putVertex(node);
+            visitedNodes.add(nodeId);
+            for (int nid : getNeighborVertexIds(nodeId, direction))
+            {
+                if(nid == terminatingId)
+                    continue;
+                AbstractVertex neighbor = getVertexFromId(nid);
+                resultGraph.putVertex(neighbor);
+                resultGraph = Graph.union(resultGraph, getEdges("vertexId", Integer.toString(nodeId), "vertexId", Integer.toString(nid)));
+                queue.add(neighbor);
+            }
+        }
 
         return resultGraph;
     }
