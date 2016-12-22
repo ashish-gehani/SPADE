@@ -3044,28 +3044,31 @@ public class Audit extends AbstractReporter {
 		}
 
 		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
-		if(VERSION_ARTIFACTS == null){
-			if(FileIdentifier.class.equals(artifactIdentifierClass)){
-				updateVersion = VERSION_FILES;
-			}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
-				updateVersion = VERSION_MEMORYS;
-			}else if(NamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-				updateVersion = VERSION_NAMED_PIPES;
-			}else if(UnnamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-				updateVersion = VERSION_UNNAMED_PIPES;
-			}else if(UnknownIdentifier.class.equals(artifactIdentifierClass)){
-				updateVersion = VERSION_UNKNOWNS;
-			}else if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass)){
-				updateVersion = VERSION_NETWORK_SOCKETS;
-			}else if(UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
-				updateVersion = VERSION_UNIX_SOCKETS;
-			}else{
-				logger.log(Level.WARNING, "Unexpected artifact type: {0}", new Object[]{artifactIdentifierClass});
+		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
+		if(updateVersion){
+			if(VERSION_ARTIFACTS == null){
+				if(FileIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_FILES;
+				}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_MEMORYS;
+				}else if(NamedPipeIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_NAMED_PIPES;
+				}else if(UnnamedPipeIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_UNNAMED_PIPES;
+				}else if(UnknownIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_UNKNOWNS;
+				}else if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_NETWORK_SOCKETS;
+				}else if(UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_UNIX_SOCKETS;
+				}else{
+					logger.log(Level.WARNING, "Unexpected artifact type: {0}", new Object[]{artifactIdentifierClass});
+				}
+			}else if(VERSION_ARTIFACTS){ //if true
+				updateVersion = true;
+			}else if(!VERSION_ARTIFACTS){ //if false
+				updateVersion = false;
 			}
-		}else if(VERSION_ARTIFACTS){ //if true
-			updateVersion = true;
-		}else if(!VERSION_ARTIFACTS){ //if false
-			updateVersion = false;
 		}
 		
 		if(FileIdentifier.class.equals(artifactIdentifierClass)
