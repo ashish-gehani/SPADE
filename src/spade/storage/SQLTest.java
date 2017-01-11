@@ -1,27 +1,17 @@
 package spade.storage;
 
-import org.apache.jena.atlas.iterator.Iter;
-import org.neo4j.cypher.internal.compiler.v2_0.functions.Abs;
-import spade.core.Kernel;
-import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.core.Vertex;
 import spade.core.Edge;
-import spade.storage.SQL;
 
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Created by raza on 12/6/16.
+ * This class is used to test the functions of spade.storage.SQL.java
+ * @author Raza Ahmad
  */
 class SQLTest {
     private static final SQL testSQLObject = new SQL();
@@ -140,7 +130,7 @@ class SQLTest {
         e6.addAnnotation("edgeId", "6");
         graph.putEdge(e6);
 
-        String connectionString = "default default sa null";
+        String connectionString = "org.postgresql.Driver jdbc:postgresql://localhost/spade_pg sa null";
         testSQLObject.initialize(connectionString);
 
 //        SQL.TEST_ENV = true;
@@ -154,16 +144,16 @@ class SQLTest {
     @org.junit.jupiter.api.AfterEach
     void tearDown()
     {
-        SQL.TEST_ENV = false;
-        SQL.TEST_GRAPH = null;
+//        SQL.TEST_ENV = false;
+//        SQL.TEST_GRAPH = null;
     }
 
 
     /**
-     * This function tests the functionality of getAllPaths_new function in spade.storage.SQL.java
+     * This function tests the functionality of getAllPaths function in spade.storage.SQL.java
      */
     @Test
-    void getAllPaths_new()
+    void getAllPaths()
     {
         //Test Case 1:
         // Creating graph for the expected outcome.
@@ -184,7 +174,7 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase1 = testSQLObject.getAllPaths_new(4, 3, 10);
+        Graph actualOutcomeCase1 = testSQLObject.getAllPaths(4, 3, 10);
         assertTrue(expectedOutcomeCase1.equals(actualOutcomeCase1));
 
         // Test Case 2:
@@ -206,17 +196,59 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase2 = testSQLObject.getAllPaths_new(4, 5, 10);
+        Graph actualOutcomeCase2 = testSQLObject.getAllPaths(4, 5, 10);
         assertTrue(expectedOutcomeCase2.equals(actualOutcomeCase2));
 
     }
 
     /*
-    * This function tests the functionality of getLineage_new function in spade.storage.SQL.java
+    * This function tests the functionality of getLineage function in spade.storage.SQL.java
     * */
     @Test
-    void getLineage_new()
+    void getLineage()
     {
-        Graph outcome = testSQLObject.getLineage_new(4, 10, "a", 3);
+        //Test Case 1:
+        // Creating graph for the expected outcome.
+        // The following sample subgraph contains 4 vertices and 4 edges.
+        Graph expectedOutcomeCase1 = new Graph();
+        int i = 1;
+        for(AbstractVertex v: graph.vertexSet())
+        {
+            if(i != 3)
+                expectedOutcomeCase1.putVertex(v);
+            i++;
+        }
+        i = 1;
+        for(AbstractEdge e: graph.edgeSet())
+        {
+            if(i != 2 && i != 4)
+                expectedOutcomeCase1.putEdge(e);
+            i++;
+        }
+
+        Graph actualOutcomeCase1 = testSQLObject.getLineage(4, 5, "a", 3);
+        assertTrue(expectedOutcomeCase1.equals(actualOutcomeCase1));
+
+        //Test Case 2:
+        // Creating graph for the expected outcome.
+        // The following sample subgraph contains 3 vertices and 3 edges.
+        Graph expectedOutcomeCase2 = new Graph();
+        i = 1;
+        for(AbstractVertex v: graph.vertexSet())
+        {
+            if(i != 1 && i != 5)
+                expectedOutcomeCase2.putVertex(v);
+            i++;
+        }
+        i = 1;
+        for(AbstractEdge e: graph.edgeSet())
+        {
+            if(i == 2 || i == 3 || i == 4)
+                expectedOutcomeCase2.putEdge(e);
+            i++;
+        }
+
+        Graph actualOutcomeCase2 = testSQLObject.getLineage(3, 3, "d", 1);
+        assertTrue(expectedOutcomeCase2.equals(actualOutcomeCase2));
     }
 }
