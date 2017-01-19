@@ -110,8 +110,25 @@ public class SQL extends AbstractStorage {
             dbConnection = DriverManager.getConnection(databaseURL, username, password);
             dbConnection.setAutoCommit(false);
 
+            databaseDriver = driver;
+            String key_syntax ;
+            switch(databaseDriver)
+            {
+                case("org.postgresql.Driver"):
+                    duplicateColumnErrorCode = 42701;
+                    key_syntax = " SERIAL PRIMARY KEY, ";
+                    break;
+                case "org.mysql.Driver":
+                    duplicateColumnErrorCode = 1060;
+                    key_syntax = " INT PRIMARY KEY AUTO_INCREMENT, ";
+                    break;
+                default:    // org.h2.Driver
+                    key_syntax = " INT PRIMARY KEY AUTO_INCREMENT, ";
+                    duplicateColumnErrorCode = 42121;
+            }
+
+
             Statement dbStatement = dbConnection.createStatement();
-            String key_syntax = driver.equalsIgnoreCase("org.postgresql.Driver")? " SERIAL PRIMARY KEY, " : " INT PRIMARY KEY AUTO_INCREMENT, ";
             // Create vertex table if it does not already exist
             String createVertexTable = "CREATE TABLE IF NOT EXISTS "
                     + VERTEX_TABLE
@@ -131,21 +148,6 @@ public class SQL extends AbstractStorage {
             dbStatement.execute(createEdgeTable);
             dbStatement.close();
 
-            databaseDriver = driver;
-            switch(databaseDriver)
-            {
-                case "org.h2.Driver":
-                    duplicateColumnErrorCode = 42121;
-                    break;
-                case "org.mysql.Driver":
-                    duplicateColumnErrorCode = 1060;
-                    break;
-                case "org.postgresql.Driver":
-                    duplicateColumnErrorCode = 42701;
-                    break;
-                default:
-                    duplicateColumnErrorCode = 42121;
-            }
 
             return true;
 
@@ -625,7 +627,6 @@ public class SQL extends AbstractStorage {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return null;
         }
-
 
         return resultGraph;
     }
