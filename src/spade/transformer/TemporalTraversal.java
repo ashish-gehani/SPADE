@@ -1,0 +1,138 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2015 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+
+package spade.transformer;
+
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import spade.client.QueryParameters;
+import spade.core.AbstractEdge;
+import spade.core.AbstractTransformer;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Settings;
+import spade.utility.CommonFunctions;
+
+public class TemporalTraversal extends AbstractTransformer{
+	
+	private static final Logger logger = Logger.getLogger(TemporalTraversal.class.getName());
+	
+	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+    
+    private String annotationName;
+    
+    //must specify the name of an annotation
+    public boolean initialize(String arguments){
+    	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+    	if("timestamp".equals(argumentsMap.get("order"))){
+    		annotationName = "time";
+    	}else{
+    		annotationName = "event id";
+    	}
+    	return true;
+    }
+
+	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
+		String direction = digQueryParams.getDirection();
+		if(direction == null){
+			logger.log(Level.SEVERE, "Direction cannot be null");
+			return graph;
+		}else if((!DIRECTION_ANCESTORS.startsWith(direction) && !DIRECTION_DESCENDANTS.startsWith(direction))){
+			logger.log(Level.SEVERE, "Direction cannot be '"+direction+"' for this transformer");
+			return graph;
+		}
+		
+		Graph resultGraph = new Graph();
+		AbstractVertex queriedVertex = createNewWithoutAnnotations(digQueryParams.getVertex());
+				
+		if(DIRECTION_ANCESTORS.startsWith(direction)){
+			Double maxValue = Double.MIN_VALUE;
+			for(AbstractEdge edge : graph.edgeSet()){
+				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+				if(newEdge.getSourceVertex().equals(queriedVertex) || newEdge.getDestinationVertex().equals(queriedVertex)){
+					try{
+						Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+						if(value > maxValue){
+							maxValue = value;
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
+					}
+				}
+			} 
+			
+			for(AbstractEdge edge : graph.edgeSet()){
+				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+				boolean add = true;
+				try{
+					Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+					if(value > maxValue){
+						add = false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
+				}
+				if(add){
+					resultGraph.putVertex(newEdge.getSourceVertex());
+					resultGraph.putVertex(newEdge.getDestinationVertex());
+					resultGraph.putEdge(newEdge);
+				}
+			}
+		}else if(DIRECTION_DESCENDANTS.startsWith(direction)){
+			Double minValue = Double.MAX_VALUE;
+			for(AbstractEdge edge : graph.edgeSet()){
+				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+				if(newEdge.getSourceVertex().equals(queriedVertex) || newEdge.getDestinationVertex().equals(queriedVertex)){
+					try{
+						Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+						if(value < minValue){
+							minValue = value;
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
+					}
+				}
+			} 
+			
+			for(AbstractEdge edge : graph.edgeSet()){
+				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+				boolean add = true;
+				try{
+					Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+					if(value < minValue){
+						add = false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
+				}
+				if(add){
+					resultGraph.putVertex(newEdge.getSourceVertex());
+					resultGraph.putVertex(newEdge.getDestinationVertex());
+					resultGraph.putEdge(newEdge);
+				}
+			}
+		}
+		
+		return resultGraph;
+	}
+}
