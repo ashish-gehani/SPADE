@@ -160,8 +160,7 @@ public abstract class AbstractEdge implements Serializable {
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         final int seed1 = 5;
         final int seed2 = 97;
         int hashCode = seed1;
