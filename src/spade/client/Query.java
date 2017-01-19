@@ -56,7 +56,7 @@ public class Query {
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
     private static HashMap<String, String> graphExpressions;
-    private static String QUERY_STORAGE = "SQL";
+    private static String QUERY_STORAGE = "Neo4j";
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
