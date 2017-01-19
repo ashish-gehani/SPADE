@@ -1,4 +1,4 @@
-/*
+ /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
  Copyright (C) 2015 SRI International
@@ -55,7 +55,7 @@ public abstract class AbstractVertex implements Serializable {
         if (key == null || value == null) {
             return;
         }
-        annotations.put(key.toLowerCase(), value);
+        annotations.put(key, value);
     }
 
     /**
@@ -67,7 +67,7 @@ public abstract class AbstractVertex implements Serializable {
         for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet()) {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            addAnnotation(key.toLowerCase(), value);
+            addAnnotation(key, value);
         }
     }
 
@@ -79,7 +79,7 @@ public abstract class AbstractVertex implements Serializable {
      * existed.
      */
     public final String removeAnnotation(String key) {
-        return annotations.remove(key.toLowerCase());
+        return annotations.remove(key);
     }
 
     /**
@@ -89,7 +89,7 @@ public abstract class AbstractVertex implements Serializable {
      * @return The value of the annotation corresponding to the key.
      */
     public final String getAnnotation(String key) {
-        return annotations.get(key.toLowerCase());
+        return annotations.get(key);
     }
 
     /**

@@ -26,7 +26,7 @@ import java.util.Properties;
 
 /**
  *
- * @author Dawood Tariq
+ * @author Dawood Tariq and Raza Ahmad
  */
 public class Settings {
 
@@ -35,8 +35,7 @@ public class Settings {
 
     static {
         try {
-            prop.load(new FileInputStream(settingsFile));
-        } catch (IOException ex) {
+            // load general settings
             setProperty("spade_root", "./");
             setProperty("local_control_port", "19999");
             setProperty("local_query_port", "19998");
@@ -50,6 +49,13 @@ public class Settings {
             setProperty("storage_identifier", "storageID");
             setProperty("default_query_storage", "Neo4j");
             setProperty("neo4j_webserver", "true");
+
+            // override certain settings if the settings file is present
+            prop.load(new FileInputStream(settingsFile));
+        }
+        catch (IOException ex)
+        {
+            // do nothing here
         }
     }
 
