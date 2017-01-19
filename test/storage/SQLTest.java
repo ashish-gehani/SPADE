@@ -1,4 +1,6 @@
-package spade.storage;
+package storage;
+
+import spade.storage.SQL;
 
 import spade.core.AbstractVertex;
 import spade.core.AbstractEdge;
@@ -7,6 +9,9 @@ import spade.core.Vertex;
 import spade.core.Edge;
 
 import org.junit.jupiter.api.Test;
+
+import java.sql.SQLException;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -23,8 +28,7 @@ class SQLTest {
      * It creates the environment required to perform the test.
      */
     @org.junit.jupiter.api.BeforeEach
-    void setUp()
-    {
+    void setUp() throws SQLException {
         // Creating test data to work with.
         // Sample data is taken from the example mentioned in:
         // https://github.com/ashish-gehani/SPADE/wiki/Example%20illustrating%20provenance%20querying
@@ -35,7 +39,7 @@ class SQLTest {
         v1.addAnnotation("name", "root process");
         v1.addAnnotation("pid", "10");
         v1.addAnnotation("hash", Integer.toString(v1.hashCode()));
-        v1.addAnnotation("vertexId", "1");
+        v1.addAnnotation("vertexid", "1");
         graph.putVertex(v1);
 
         AbstractVertex v2 = new Vertex();
@@ -44,7 +48,7 @@ class SQLTest {
         v2.addAnnotation("name", "child process");
         v2.addAnnotation("pid", "32");
         v2.addAnnotation("hash", Integer.toString(v2.hashCode()));
-        v2.addAnnotation("vertexId", "2");
+        v2.addAnnotation("vertexid", "2");
         graph.putVertex(v2);
 
         AbstractEdge e1 = new Edge(v2, v1);
@@ -52,9 +56,9 @@ class SQLTest {
         e1.addAnnotation("type", "WasTriggeredBy");
         e1.addAnnotation("time", "5:56 PM");
         e1.addAnnotation("hash", Integer.toString(e1.hashCode()));
-        e1.addAnnotation("srcVertexHash", v2.getAnnotation("hash"));
-        e1.addAnnotation("dstVertexHash", v1.getAnnotation("hash"));
-        e1.addAnnotation("edgeId", "1");
+        e1.addAnnotation("sourcevertexhash", v2.getAnnotation("hash"));
+        e1.addAnnotation("destinationvertexhash", v1.getAnnotation("hash"));
+        e1.addAnnotation("edgeid", "1");
         graph.putEdge(e1);
 
         AbstractVertex v3 = new Vertex();
@@ -62,7 +66,7 @@ class SQLTest {
         v3.addAnnotation("type", "Artifact");
         v3.addAnnotation("filename", "output.tmp");
         v3.addAnnotation("hash", Integer.toString(v3.hashCode()));
-        v3.addAnnotation("vertexId", "3");
+        v3.addAnnotation("vertexid", "3");
         graph.putVertex(v3);
 
         AbstractVertex v4 = new Vertex();
@@ -70,7 +74,7 @@ class SQLTest {
         v4.addAnnotation("type", "Artifact");
         v4.addAnnotation("filename", "output.o");
         v4.addAnnotation("hash", Integer.toString(v4.hashCode()));
-        v4.addAnnotation("vertexId", "4");
+        v4.addAnnotation("vertexid", "4");
         graph.putVertex(v4);
 
         AbstractEdge e2 = new Edge(v2, v3);
@@ -78,9 +82,9 @@ class SQLTest {
         e2.addAnnotation("type", "Used");
         e2.addAnnotation("iotime", "12 ms");
         e2.addAnnotation("hash", Integer.toString(e2.hashCode()));
-        e2.addAnnotation("srcVertexHash", v2.getAnnotation("hash"));
-        e2.addAnnotation("dstVertexHash", v3.getAnnotation("hash"));
-        e2.addAnnotation("edgeId", "2");
+        e2.addAnnotation("sourcevertexhash", v2.getAnnotation("hash"));
+        e2.addAnnotation("destinationvertexhash", v3.getAnnotation("hash"));
+        e2.addAnnotation("edgeid", "2");
         graph.putEdge(e2);
 
         AbstractEdge e3 = new Edge(v4, v2);
@@ -88,18 +92,18 @@ class SQLTest {
         e3.addAnnotation("type", "WasGeneratedBy");
         e3.addAnnotation("iotime", "11 ms");
         e3.addAnnotation("hash", Integer.toString(e3.hashCode()));
-        e3.addAnnotation("srcVertexHash", v4.getAnnotation("hash"));
-        e3.addAnnotation("dstVertexHash", v2.getAnnotation("hash"));
-        e3.addAnnotation("edgeId", "3");
+        e3.addAnnotation("sourcevertexhash", v4.getAnnotation("hash"));
+        e3.addAnnotation("destinationvertexhash", v2.getAnnotation("hash"));
+        e3.addAnnotation("edgeid", "3");
         graph.putEdge(e3);
 
         AbstractEdge e4 = new Edge(v4, v3);
         e4.removeAnnotation("type");
         e4.addAnnotation("type", "WasDerivedFrom");
         e4.addAnnotation("hash", Integer.toString(e4.hashCode()));
-        e4.addAnnotation("srcVertexHash", v4.getAnnotation("hash"));
-        e4.addAnnotation("dstVertexHash", v3.getAnnotation("hash"));
-        e4.addAnnotation("edgeId", "4");
+        e4.addAnnotation("sourcevertexhash", v4.getAnnotation("hash"));
+        e4.addAnnotation("destinationvertexhash", v3.getAnnotation("hash"));
+        e4.addAnnotation("edgeid", "4");
         graph.putEdge(e4);
 
         AbstractVertex v5 = new Vertex();
@@ -109,32 +113,30 @@ class SQLTest {
         v5.addAnnotation("gid", "10");
         v5.addAnnotation("name", "john");
         v5.addAnnotation("hash", Integer.toString(v5.hashCode()));
-        v5.addAnnotation("vertexId", "5");
+        v5.addAnnotation("vertexid", "5");
         graph.putVertex(v5);
 
         AbstractEdge e5 = new Edge(v1, v5);
         e5.removeAnnotation("type");
         e5.addAnnotation("type", "WasControlledBy");
         e5.addAnnotation("hash", Integer.toString(e5.hashCode()));
-        e5.addAnnotation("srcVertexHash", v1.getAnnotation("hash"));
-        e5.addAnnotation("dstVertexHash", v5.getAnnotation("hash"));
-        e5.addAnnotation("edgeId", "5");
+        e5.addAnnotation("sourcevertexhash", v1.getAnnotation("hash"));
+        e5.addAnnotation("destinationvertexhash", v5.getAnnotation("hash"));
+        e5.addAnnotation("edgeid", "5");
         graph.putEdge(e5);
 
         AbstractEdge e6 = new Edge(v2, v5);
         e6.removeAnnotation("type");
         e6.addAnnotation("type", "WasControlledBy");
         e6.addAnnotation("hash", Integer.toString(e6.hashCode()));
-        e6.addAnnotation("srcVertexHash", v2.getAnnotation("hash"));
-        e6.addAnnotation("dstVertexHash", v5.getAnnotation("hash"));
-        e6.addAnnotation("edgeId", "6");
+        e6.addAnnotation("sourcevertexhash", v2.getAnnotation("hash"));
+        e6.addAnnotation("destinationvertexHhash", v5.getAnnotation("hash"));
+        e6.addAnnotation("edgeid", "6");
         graph.putEdge(e6);
 
         String connectionString = "org.postgresql.Driver jdbc:postgresql://localhost/spade_pg sa null";
-        testSQLObject.initialize(connectionString);
-
-//        SQL.TEST_ENV = true;
-//        SQL.TEST_GRAPH = Graph.union(new Graph(), graph);
+        if(!testSQLObject.initialize(connectionString))
+            throw new SQLException();
     }
 
     /**
@@ -142,18 +144,14 @@ class SQLTest {
      * It clears up the environment setup for the test case execution.
      */
     @org.junit.jupiter.api.AfterEach
-    void tearDown()
-    {
-//        SQL.TEST_ENV = false;
-//        SQL.TEST_GRAPH = null;
-    }
+    void tearDown() {}
 
 
     /**
-     * This function tests the functionality of getAllPaths function in spade.storage.SQL.java
+     * This function tests the functionality of findPaths function in spade.storage.SQL.java
      */
     @Test
-    void getAllPaths()
+    void findPaths()
     {
         //Test Case 1:
         // Creating graph for the expected outcome.
@@ -174,7 +172,7 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase1 = testSQLObject.getAllPaths(4, 3, 10);
+        Graph actualOutcomeCase1 = testSQLObject.findPaths(4, 3, 10);
         assertTrue(expectedOutcomeCase1.equals(actualOutcomeCase1));
 
         // Test Case 2:
@@ -196,7 +194,7 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase2 = testSQLObject.getAllPaths(4, 5, 10);
+        Graph actualOutcomeCase2 = testSQLObject.findPaths(4, 5, 10);
         assertTrue(expectedOutcomeCase2.equals(actualOutcomeCase2));
 
     }
