@@ -548,9 +548,7 @@ int UBSI_buffer_flush()
 						HASH_DEL(event_buf, eb);
 						free(eb->event);
 						free(eb);
-				} else {
-						fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!event id %d is not exist!, hash_count %d\n", next_event_id, HASH_COUNT(event_buf));
-				}
+				} 
 		}
 }
 
@@ -599,7 +597,6 @@ int UBSI_buffer(const char *buf)
 										strncpy(eb->event, event, event_byte+1);
 										HASH_ADD_INT(event_buf, id, eb);
 										if(next_event_id > id) {
-												fprintf(stderr, "****** log order violation: event %d is handled before event %ld is arrived.\n", next_event_id, id); 
 												next_event_id = id;
 										}
 								} else {
