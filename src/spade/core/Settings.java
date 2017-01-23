@@ -23,6 +23,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -55,6 +57,7 @@ public class Settings {
         }
         catch (IOException ex)
         {
+            Logger.getLogger(Settings.class.getName()).log(Level.INFO, "Default settings maintained", ex);
             // do nothing here
         }
     }

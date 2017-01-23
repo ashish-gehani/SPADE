@@ -224,6 +224,7 @@ public class SQL extends AbstractStorage {
 
             return true;
         } catch (SQLException ex) {
+            Logger.getLogger(SQL.class.getName()).log(Level.WARNING, "Duplicate column found in table", ex);
             if (ex.getErrorCode() == duplicateColumnErrorCode) {
                 if (table.equalsIgnoreCase(VERTEX_TABLE)) {
                     vertexAnnotations.add(column);
