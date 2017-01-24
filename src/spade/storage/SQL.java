@@ -25,13 +25,19 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+
+import java.util.Set;
+import java.util.Stack;
+import java.util.Queue;
+import java.util.LinkedList;
+import java.util.Map;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.Iterator;
+
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.Iterator;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
@@ -40,10 +46,11 @@ import spade.core.Settings;
 import spade.core.Vertex;
 import spade.core.Edge;
 
+
 /**
  * Basic SQL storage implementation.
  *
- * @author Dawood Tariq and Hasanat Kazmi
+ * @author Dawood Tariq, Hasanat Kazmi and Raza Ahmad
  */
 public class SQL extends AbstractStorage {
 
@@ -53,11 +60,38 @@ public class SQL extends AbstractStorage {
     private final String VERTEX_TABLE = "VERTEX";
     private final String EDGE_TABLE = "EDGE";
     private final boolean ENABLE_SANITAZATION = true;
-    private static final String ID_STRING = Settings.getProperty("storage_identifier");
+    private static final String VERTEX_ID = "vertexid";
+    private static final String EDGE_ID = "edgeid";
     private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+    private static String databaseDriver;
+    private static int duplicateColumnErrorCode;
+    public static boolean TEST_ENV = false;
+    public static Graph TEST_GRAPH ;
 
-    // private Statement batch_statement;
+    /**
+     *  initializes the SQL database and creates the necessary tables
+     * if not already present. The necessary tables include VERTEX and EDGE tables
+     * to store provenance metadata.
+     *
+     * @param arguments A string of 4 space-separated tokens used for making a successful
+     *                  connection to the database, of the following format:
+     *                  'driver_name database_URL username password'
+     *
+     *                  Example argument strings are as follows:
+     *                  *H2*
+     *                  org.h2.Driver jdbc:h2:/tmp/spade.sql sa null
+     *                  *PostgreSQL*
+     *                  org.postgresql.Driver jdbc:postgres://localhost/5432/spade_pg.sql root 12345
+     *
+     *                  Points to note:
+     *                  1. The database driver jar should be present in lib/ in the project's root.
+     *                  2. For external databases like MySQL or PostgreSQL, a stand-alone database
+     *                  version needs to be installed and executed in parallel, and independent of the
+     *                  SPADE kernel.
+     *
+     * @return  returns true if the connection to database has been successful.
+     */
     @Override
     public boolean initialize(String arguments) {
         vertexAnnotations = new HashSet<>();
@@ -67,6 +101,7 @@ public class SQL extends AbstractStorage {
         try {
             String[] tokens = arguments.split("\\s+");
             String driver = tokens[0].equalsIgnoreCase("default") ? "org.h2.Driver" : tokens[0];
+            // for postgres, it is jdbc:postgres://localhost/5432/database_name
             String databaseURL = tokens[1].equalsIgnoreCase("default") ? "jdbc:h2:/tmp/spade.sql" : tokens[1];
             String username = tokens[2].equalsIgnoreCase("null") ? "" : tokens[2];
             String password = tokens[3].equalsIgnoreCase("null") ? "" : tokens[3];
@@ -75,33 +110,59 @@ public class SQL extends AbstractStorage {
             dbConnection = DriverManager.getConnection(databaseURL, username, password);
             dbConnection.setAutoCommit(false);
 
+            databaseDriver = driver;
+            String key_syntax ;
+            switch(databaseDriver)
+            {
+                case("org.postgresql.Driver"):
+                    duplicateColumnErrorCode = 42701;
+                    key_syntax = " SERIAL PRIMARY KEY, ";
+                    break;
+                case "org.mysql.Driver":
+                    duplicateColumnErrorCode = 1060;
+                    key_syntax = " INT PRIMARY KEY AUTO_INCREMENT, ";
+                    break;
+                default:    // org.h2.Driver
+                    key_syntax = " INT PRIMARY KEY AUTO_INCREMENT, ";
+                    duplicateColumnErrorCode = 42121;
+            }
+
+
             Statement dbStatement = dbConnection.createStatement();
             // Create vertex table if it does not already exist
             String createVertexTable = "CREATE TABLE IF NOT EXISTS "
                     + VERTEX_TABLE
-                    + " (" + ID_STRING + " INT PRIMARY KEY AUTO_INCREMENT, "
+                    + "(" + VERTEX_ID + key_syntax
                     + "type VARCHAR(32) NOT NULL, "
                     + "hash INT NOT NULL"
                     + ")";
             dbStatement.execute(createVertexTable);
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
                     + EDGE_TABLE
-                    + " (" + ID_STRING + " INT PRIMARY KEY AUTO_INCREMENT, "
+                    + " (" + EDGE_ID + key_syntax
                     + "type VARCHAR(32) NOT NULL ,"
                     + "hash INT NOT NULL, "
-                    + "srcVertexHash INT NOT NULL, "
-                    + "dstVertexHash INT NOT NULL"
+                    + "sourceVertexHash INT NOT NULL, "
+                    + "destinationVertexHash INT NOT NULL"
                     + ")";
             dbStatement.execute(createEdgeTable);
             dbStatement.close();
 
+
             return true;
+
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | SQLException ex) {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
     }
 
+    /**
+     *  closes the connection to the open SQL database
+     * after committing all pending transactions.
+     *
+     * @return  returns true if the database connection is successfully closed.
+     */
     @Override
     public boolean shutdown() {
         try {
@@ -113,7 +174,14 @@ public class SQL extends AbstractStorage {
             return false;
         }
     }
-
+    /**
+     *  cleans the given column name string for all characters
+     * other than digits and alphabets.
+     *
+     * @param column The name of column to sanitize.
+     *
+     * @return  returns the sanitized column name string.
+     */
     private String sanitizeColumn(String column) {
         if (ENABLE_SANITAZATION) {
             column = column.replaceAll("[^a-zA-Z0-9]+", "");
@@ -121,6 +189,15 @@ public class SQL extends AbstractStorage {
         return column;
     }
 
+    /**
+     *  adds a new column in the database table,
+     * if it is not already present.
+     *
+     * @param table The table in database to add column to.
+     * @param column The name of column to add in the table.
+     *
+     * @return  returns true if column creation in the database has been successful.
+     */
     private boolean addColumn(String table, String column) {
         // If this column has already been added before for this table, then return
         if ((table.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column)) {
@@ -131,11 +208,12 @@ public class SQL extends AbstractStorage {
 
         try {
             Statement columnStatement = dbConnection.createStatement();
-            String statement = "ALTER TABLE `" + table 
-                        + "` ADD COLUMN `" 
-                        + column 
+            String statement = "ALTER TABLE `" + table
+                        + "` ADD COLUMN `"
+                        + column
                         + "` VARCHAR(256);";
             columnStatement.execute(statement);
+            dbConnection.commit();
             columnStatement.close();
 
             if (table.equalsIgnoreCase(VERTEX_TABLE)) {
@@ -146,15 +224,13 @@ public class SQL extends AbstractStorage {
 
             return true;
         } catch (SQLException ex) {
-            // column duplicate already present error codes 
-            // MySQL = 1060 
-            // H2 = 42121
-            if (ex.getErrorCode() == 1060 || ex.getErrorCode() == 42121) { 
+            Logger.getLogger(SQL.class.getName()).log(Level.WARNING, "Duplicate column found in table", ex);
+            if (ex.getErrorCode() == duplicateColumnErrorCode) {
                 if (table.equalsIgnoreCase(VERTEX_TABLE)) {
                     vertexAnnotations.add(column);
                 } else if (table.equalsIgnoreCase(EDGE_TABLE)) {
                     edgeAnnotations.add(column);
-                }     
+                }
                 return true;
             }
         } catch (Exception ex) {
@@ -163,6 +239,14 @@ public class SQL extends AbstractStorage {
         }
         return false;
     }
+
+    /**
+     *  inserts a vertex into the underlying SQL database.
+     *
+     * @param incomingVertex The temporary vertex object destined to insert in the database.
+     *
+     * @return  returns true if vertex insertion in database is successful.
+     */
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex) {
@@ -221,13 +305,20 @@ public class SQL extends AbstractStorage {
         return true;
     }
 
+    /**
+     *  inserts an edge into the underlying SQL database.
+     *
+     * @param incomingEdge The temporary edge object destined to insert in the database.
+     *
+     * @return  returns true if edge insertion in database is successful.
+     */
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        int srcVertexHash = incomingEdge.getSourceVertex().hashCode();
-        int dstVertexHash = incomingEdge.getDestinationVertex().hashCode();
+        int sourceVertexHash = incomingEdge.getSourceVertex().hashCode();
+        int destinationVertexHash = incomingEdge.getDestinationVertex().hashCode();
 
         // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (type, hash, srcVertexHash, dstVertexHash, ");
+        StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (type, hash, sourceVertexHash, destinationVertexHash, ");
         for (String annotationKey : incomingEdge.getAnnotations().keySet()) {
             if (annotationKey.equalsIgnoreCase("type")) {
                 continue;
@@ -254,9 +345,9 @@ public class SQL extends AbstractStorage {
         insertStringBuilder.append("', ");
         insertStringBuilder.append(incomingEdge.hashCode());
         insertStringBuilder.append(", ");
-        insertStringBuilder.append(srcVertexHash);
+        insertStringBuilder.append(sourceVertexHash);
         insertStringBuilder.append(", ");
-        insertStringBuilder.append(dstVertexHash);
+        insertStringBuilder.append(destinationVertexHash);
         insertStringBuilder.append(", ");
 
         // Add the annotation values
@@ -283,6 +374,13 @@ public class SQL extends AbstractStorage {
         return true;
     }
 
+    /**
+     *  returns vertices satisfying given expression for the vertex.
+     *
+     * @param expression The expression containing attribute name and value for vertices.
+     *
+     * @return  returns a graph object containing relevant vertices.
+     */
     @Override
     public Graph getVertices(String expression) {
         try {
@@ -323,24 +421,35 @@ public class SQL extends AbstractStorage {
         }
     }
 
-    public Graph getEdges(String srcVertexAnnotationKey, String srcVertexAnnotationValue, String dstVertexAnnotationKey, String dstVertexAnnotationValue) {
+    /**
+     *  returns edges satisfying given expressions for
+     * the source vertex and the destination vertex.
+     *
+     * @param sourceVertexAnnotationKey The attribute name for source vertices.
+     * @param sourceVertexAnnotationValue The attribute value for source vertices.
+     * @param destinationVertexAnnotationKey The attribute name for destination vertices.
+     * @param destinationVertexAnnotationValue The attribute value for destination vertices.
+     *
+     * @return  returns a graph object containing relevant edges.
+     */
+    public Graph getEdges(String sourceVertexAnnotationKey, String sourceVertexAnnotationValue, String destinationVertexAnnotationKey, String destinationVertexAnnotationValue) {
         try {
 
             dbConnection.commit();
             Graph resultGraph = new Graph();
 
-            Graph srcVertexGraph = getVertices(srcVertexAnnotationKey + ":" + srcVertexAnnotationValue);
-            Graph dstVertexGraph = getVertices(dstVertexAnnotationKey + ":" + dstVertexAnnotationValue);
+            Graph sourceVertexGraph = getVertices(sourceVertexAnnotationKey + ":" + sourceVertexAnnotationValue);
+            Graph destinationVertexGraph = getVertices(destinationVertexAnnotationKey + ":" + destinationVertexAnnotationValue);
 
-            Iterator<AbstractVertex> iterator = srcVertexGraph.vertexSet().iterator();
-            AbstractVertex srcVertex = iterator.next();
-            iterator = dstVertexGraph.vertexSet().iterator();
-            AbstractVertex dstVertex = iterator.next();
+            Iterator<AbstractVertex> iterator = sourceVertexGraph.vertexSet().iterator();
+            AbstractVertex sourceVertex = iterator.next();
+            iterator = destinationVertexGraph.vertexSet().iterator();
+            AbstractVertex destinationVertex = iterator.next();
 
-            resultGraph.putVertex(srcVertex);
-            resultGraph.putVertex(dstVertex);
+            resultGraph.putVertex(sourceVertex);
+            resultGraph.putVertex(destinationVertex);
 
-            String query = "SELECT * FROM EDGE WHERE srcVertexHash = " + srcVertex.getAnnotation("hash") + " AND dstVertexHash = " + dstVertex.getAnnotation("hash");
+            String query = "SELECT * FROM EDGE WHERE sourceVertexHash = " + sourceVertex.getAnnotation("hash") + " AND destinationVertexHash = " + destinationVertex.getAnnotation("hash");
             Statement vertexStatement = dbConnection.createStatement();
             ResultSet result = vertexStatement.executeQuery(query);
             ResultSetMetaData metadata = result.getMetaData();
@@ -352,17 +461,20 @@ public class SQL extends AbstractStorage {
             }
 
             while (result.next()) {
-                AbstractEdge edge = new Edge(srcVertex, dstVertex);
+                AbstractEdge edge = new Edge(sourceVertex, destinationVertex);
                 edge.removeAnnotation("type");
-                for (int i=0; i< columnLabels.size(); i++) {
+                for (int i=1; i <= columnCount; i++) {
                     String colName = columnLabels.get(i);
                     if (colName != null) {
-                        if (colName.equals(ID_STRING) || colName.equals("hash") || colName.equals("srcVertexHash") || colName.equals("dstVertexHash")) {
+                        if (colName.equals(VERTEX_ID) || colName.equals("hash") || colName.equals("sourceVertexHash") || colName.equals("destinationVertexHash")) {
                             edge.addAnnotation(colName, Integer.toString(result.getInt(i)));
                         } else {
                             edge.addAnnotation(colName, result.getString(i));
                         }
                     }
+                    String h = edge.getAnnotation("hash");
+                    int x = edge.hashCode();
+
                 }
                 resultGraph.putEdge(edge);
             }
@@ -374,162 +486,213 @@ public class SQL extends AbstractStorage {
             return null;
         }
     }
-
+    /**
+     * Finds edges satisfying given ids for
+     * the source vertex and the destination vertex. It calls
+     * the generic getEdges implementation and returns its results.
+     *
+     * @param sourceVertexId The id of source vertex.
+     * @param destinationVertexId The id of destination vertex.
+     *
+     * @return  returns a graph object containing relevant edges.
+     */
     @Override
-    public Graph getEdges(int srcVertexId, int dstVertexId) {
-        return getEdges(ID_STRING, ""+srcVertexId, ID_STRING, ""+dstVertexId);
+    public Graph getEdges(int sourceVertexId, int destinationVertexId) {
+        return getEdges(VERTEX_ID, ""+sourceVertexId, VERTEX_ID, ""+destinationVertexId);
     }
 
-
-    private Set<String> getNeighbourVertexIdes(String vertexHash, String direction) {
+    /**
+     * Finds IDs of all neighboring vertices of the given vertex
+     *
+     * @param vertexId ID of the vertex whose neighbors are to find
+     * @param direction Direction of the neighbor from the given vertex
+     *
+     * @return Returns list of IDs of neighboring vertices
+     */
+    private Set<Integer> getNeighborVertexIds(int vertexId, String direction)
+    {
+        Set<Integer> neighborvertexIds = new HashSet<>();
         try {
             dbConnection.commit();
-
-            String normalizedSrcVertexHash;
-            String normalizedDstVertexHash;
-
-            if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                normalizedSrcVertexHash = "dstVertexHash";
-                normalizedDstVertexHash = "srcVertexHash";
-            } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                normalizedSrcVertexHash = "srcVertexHash";
-                normalizedDstVertexHash = "dstVertexHash";
-            } else {
-                return null;
+            String sourceVertex = null;
+            String destinationVertex = null;
+            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
+                sourceVertex = "sourceVertexHash";
+                destinationVertex = "destinationVertexHash";
+            }
+            else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+            {
+                sourceVertex = "destinationVertexHash";
+                destinationVertex = "sourceVertexHash";
+            }
+            String query = "SELECT vertexId FROM vertex WHERE hash IN (SELECT " + destinationVertex + " FROM edge WHERE ";
+            query +=   sourceVertex + " = " + getVertices(VERTEX_ID + ":" + vertexId).vertexSet().iterator().next().getAnnotation("hash") + ")";
+            Statement statement = dbConnection.createStatement();
+            ResultSet result = statement.executeQuery(query);
+            while (result.next())
+            {
+                neighborvertexIds.add(result.getInt(1));
             }
 
-            String query = "SELECT "+ normalizedDstVertexHash +" FROM EDGE WHERE "+ normalizedSrcVertexHash +" = " + vertexHash;
-            Statement vertexStatement = dbConnection.createStatement();
-            ResultSet result = vertexStatement.executeQuery(query);
-            Set<String> toReturn = new HashSet<>();
-
-            while (result.next()) {
-                toReturn.add( Integer.toString(result.getInt(normalizedDstVertexHash)) );
-            }
-
-            return toReturn;
-
-        } catch (Exception ex) {
+        } catch (SQLException ex)
+        {
             Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return null;
         }
+
+        return neighborvertexIds;
     }
 
-    @Override
-    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
-        // TODO: implement terminatingExpression
-        
-        Set<String> srcVertexHashes = new HashSet<>();
-        Set<String> visitedNodesHashes = new HashSet<>();
 
-        Graph vertexGraph = getVertices(ID_STRING + ":" + vertexId);
-        Iterator<AbstractVertex> iterator = vertexGraph.vertexSet().iterator();
-        AbstractVertex vertex = iterator.next();
-        srcVertexHashes.add(vertex.getAnnotation("hash"));
+    /**
+     * Finds paths between the given source and destination vertex.
+     *
+     * @param sourceVertexId ID of the current node during traversal
+     * @param destinationVertexId ID of the destination node
+     * @param maxPathLength Maximum length of any path to find
+     * @param visitedNodes List of nodes visited during traversal
+     * @param currentPath Set of vertices explored currently
+     * @param allPaths Set of all paths between source and destination
+     *
+     * @return nothing
+     */
+    private void findPath(int sourceVertexId, int destinationVertexId, int maxPathLength, Set<Integer> visitedNodes, Stack<AbstractVertex> currentPath, Set<Graph> allPaths)
+    {
+        if (currentPath.size() > maxPathLength)
+            return;
 
+        visitedNodes.add(sourceVertexId);
+        currentPath.push(getVertices(VERTEX_ID + ":" + sourceVertexId).vertexSet().iterator().next());
 
-        Graph toReturn = new Graph();
-
-        for (int iter=0; iter < depth; iter++) {
-            for (String srcVertexHash: srcVertexHashes) {
-                if (visitedNodesHashes.contains(srcVertexHash)) {
-                    continue;
+        if (sourceVertexId == destinationVertexId)
+        {
+            Graph pathGraph = new Graph();
+            Iterator<AbstractVertex> iter = currentPath.iterator();
+            AbstractVertex previous = iter.next();
+            pathGraph.putVertex(previous);
+            while(iter.hasNext())
+            {
+                AbstractVertex curr = iter.next();
+                pathGraph.putVertex(curr);
+                // find the relevant edges between previous and current vertex
+                Graph edges;
+                edges = getEdges(VERTEX_ID, previous.getAnnotation(VERTEX_ID), VERTEX_ID, curr.getAnnotation(VERTEX_ID));
+                pathGraph = Graph.union(pathGraph, edges);
+                previous = curr;
+            }
+            allPaths.add(pathGraph);
+        }
+        else
+        {
+            for(int neighborId: getNeighborVertexIds(sourceVertexId, DIRECTION_ANCESTORS))
+            {
+                if(!visitedNodes.contains(neighborId))
+                {
+                    findPath(neighborId, destinationVertexId, maxPathLength, visitedNodes, currentPath, allPaths);
                 }
-                Set<String> dstVertexHashes = getNeighbourVertexIdes(srcVertexHash, direction);
-                for (String dstVertexHash : dstVertexHashes) {
-                    Graph neighbour;
-                    if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                        neighbour = getEdges("hash", srcVertexHash, "hash", dstVertexHash);
-                    } else if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                        neighbour = getEdges("hash", dstVertexHash, "hash", srcVertexHash);
-                    } else {
-                        return null;
-                    }
-                    
-                    toReturn = Graph.union(toReturn, neighbour);
-                }
-                srcVertexHashes = dstVertexHashes;
-                visitedNodesHashes.addAll(srcVertexHashes);
             }
         }
 
-        toReturn.commitIndex();
-        return toReturn;
+        currentPath.pop();
+        visitedNodes.remove(sourceVertexId);
+
     }
 
-    private Set<Graph> getPathsStep(int srcVertexId, int dstVertexId, int maxLength, Graph currentPath, Set<String> visitedNodesHashes) {
 
-        if (visitedNodesHashes.contains(srcVertexId) || maxLength == -1) {
+    /**
+     * Finds all possible paths between source and destination vertices.
+     *
+     * @param sourceVertexId ID of the source vertex
+     * @param destinationvertexId ID of the destination vertex
+     * @param maxPathLength Maximum length of any path to find
+     *
+     * @return Returns graph containing all paths between the given source and destination vertex
+     */
+    public Graph findPaths(int sourceVertexId, int destinationvertexId, int maxPathLength)
+    {
+        Graph resultGraph = new Graph();
+        Set<Integer> visitedNodes = new HashSet<>();
+        Stack<AbstractVertex> currentPath = new Stack<>();
+        Set<Graph> allPaths = new HashSet<>();
+        try
+        {
+            // Find path between source and destination vertices
+            findPath(sourceVertexId, destinationvertexId, maxPathLength, visitedNodes, currentPath, allPaths);
+            for (Graph path: allPaths)
+            {
+                resultGraph = Graph.union(resultGraph, path);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
             return null;
         }
 
-        visitedNodesHashes.add(srcVertexId+"");
+        return resultGraph;
+    }
 
-        if ((srcVertexId+"").equals(dstVertexId+"")) {
-            Set<Graph> currentPathSet = new HashSet<>();
-            currentPathSet.add(currentPath);
-            return currentPathSet;
+    /**
+     * Finds paths between the source and destination vertices.
+     *
+     * @param sourceVertexId ID of the source vertex
+     * @param maxDepth Maximum depth from source vertex to traverse
+     * @param direction Direction of traversal from source vertex
+     * @param terminatingVertexId ID of the terminating vertex for the algorithm
+     *
+     * @return Returns graph containing all paths between all source and destination vertices.
+     */
+    public Graph getLineage(int sourceVertexId, int maxDepth , String direction, int terminatingVertexId)
+    {
+        Graph resultGraph = new Graph();
+        AbstractVertex sourceVertex = getVertices(VERTEX_ID + ":" + sourceVertexId).vertexSet().iterator().next();
+        if(maxDepth == 0)
+        {
+            resultGraph.putVertex(sourceVertex);
+            return resultGraph;
         }
-
-        Graph srcVertexGraph = getVertices(ID_STRING + ":" + srcVertexId);
-        Iterator<AbstractVertex> iterator = srcVertexGraph.vertexSet().iterator();
-        AbstractVertex srcVertex = iterator.next();
-       
-        Graph localsubgraph = getLineage(srcVertexId, 1, "d", null);
-
-        Set<Graph> toReturn = new HashSet<>();
-        for (AbstractVertex dstVertex : localsubgraph.vertexSet()) {
-            Graph pathCopy = Graph.union(currentPath, new Graph());
-
-            for (AbstractVertex vertexToPut : localsubgraph.vertexSet() ) {
-                if (vertexToPut.getAnnotation(ID_STRING).equals(dstVertex.getAnnotation(ID_STRING))) {
-                    pathCopy.putVertex(vertexToPut);
-                    break;
+        Queue<AbstractVertex> queue = new LinkedList<>();
+        queue.add(sourceVertex);
+        for(int depth = 0 ; depth < maxDepth && !queue.isEmpty() ; depth++)
+        {
+            AbstractVertex node = queue.remove();
+            int nodeId = Integer.parseInt(node.getAnnotation(VERTEX_ID));
+            resultGraph.putVertex(node);
+            try {
+                for (int nId : getNeighborVertexIds(nodeId, direction)) {
+                    if (nId == terminatingVertexId)
+                        continue;
+                    AbstractVertex neighbor = getVertices(VERTEX_ID + ":" + nId).vertexSet().iterator().next();
+                    boolean notVisited = resultGraph.putVertex(neighbor);
+                    Graph edges = getEdges(VERTEX_ID,
+                            DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()) ? Integer.toString(nodeId) : Integer.toString(nId),
+                            VERTEX_ID,
+                            DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()) ? Integer.toString(nodeId) : Integer.toString(nId));
+                    resultGraph = Graph.union(resultGraph, edges);
+                    if (notVisited)
+                        queue.add(neighbor);
                 }
             }
-
-            for (AbstractEdge edgeToPut : localsubgraph.edgeSet() ) {
-                if (edgeToPut.getSourceVertex().equals(srcVertex) && edgeToPut.getDestinationVertex().equals(dstVertex)) {
-                    pathCopy.putEdge(edgeToPut);
-                    break;
-                }
-            }
-
-            Set<Graph> candidatePaths = getPathsStep(Integer.parseInt( dstVertex.getAnnotation(ID_STRING) ), dstVertexId, maxLength-1, pathCopy, visitedNodesHashes);
-            if (candidatePaths!=null) {
-                toReturn.addAll(candidatePaths);
+            catch (Exception ex)
+            {
+                Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+                return null;
             }
         }
-
-        return toReturn;
+        return resultGraph;
     }
 
-    @Override
-    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) { 
-        Set<String> visitedNodesHashes = new HashSet<>();
-        Set<Graph> allPaths = getPathsStep(srcVertexId, dstVertexId, maxLength, new Graph(), visitedNodesHashes);
-        Graph toReturn = new Graph();
-        for (Graph path: allPaths) {
-            toReturn = Graph.union(toReturn, path);
-        }
-        return toReturn;
-    }
-
-    @Override
-    public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
-
-        Graph srcVertexGraph = getVertices(srcVertexExpression);
-        Iterator<AbstractVertex> iterator = srcVertexGraph.vertexSet().iterator();
-        AbstractVertex srcVertex = iterator.next();
-
-        Graph dstVertexGraph = getVertices(dstVertexExpression);
-        iterator = dstVertexGraph.vertexSet().iterator();
-        AbstractVertex dstVertex = iterator.next();
-        
-        return getPaths(srcVertex.getAnnotation(ID_STRING), dstVertex.getAnnotation(ID_STRING), maxLength);
-    }
-
-    private AbstractVertex getVertexFromHash(int hash, int columnCount, Map<Integer, String> columnLabels) {
+    /**
+     * Performs a lookup for a vertex in the table using its hash.
+     *
+     * @param hash Hash of the vertex
+     * @param columnCount Number of columns set for that vertex in the table
+     * @param columnLabels Labels of columns set for that vertex in the table
+     *
+     * @return Returns the relevant vertex matching the given hash
+     */
+    private AbstractVertex getVertexFromHash(int hash, int columnCount, Map<Integer, String> columnLabels)
+    {
         try {
             dbConnection.commit();
             String query = "SELECT * FROM VERTEX WHERE hash = " + hash;

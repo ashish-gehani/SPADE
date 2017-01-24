@@ -16,3 +16,8 @@ hs_err_pid*
 
 # tmp directory is created for staging purposes
 tmp
+
+# IntelliJ IDEA internal files
+*.iml
+.idea/
+out/
