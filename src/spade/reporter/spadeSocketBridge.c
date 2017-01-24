@@ -34,6 +34,7 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #define FALSE           0
 #define TRUE		1
 
+int UBSIAnalysis = FALSE;
 int UBSI_buffer(const char *buf);
 void UBSI_sig_handler(int signo);
 
@@ -52,18 +53,15 @@ int main(int argc, char *argv[]) {
     int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
     char buffer[BUFFER_LENGTH];
     struct sockaddr_un serverAddress;
-				int UBSIAnalysis = 0;
 
 				if(argc > 1 && strncmp(argv[1], "--units",7) == 0) {
 						fprintf(stderr, "UBSI\n");
-						UBSIAnalysis = 1;
+						UBSIAnalysis = TRUE;
 				}
 
-				if(UBSIAnalysis) {
-						signal(SIGINT, UBSI_sig_handler);
-						signal(SIGKILL, UBSI_sig_handler);
-						signal(SIGTERM, UBSI_sig_handler);
-				}
+				signal(SIGINT, UBSI_sig_handler);
+				signal(SIGKILL, UBSI_sig_handler);
+				signal(SIGTERM, UBSI_sig_handler);
 
     do {
         audispdSocketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -93,8 +91,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
-										 if(UBSIAnalysis)	UBSI_buffer(buffer);
-										 else printf("%s", buffer);
+										 UBSI_buffer(buffer);
         }
     } while (FALSE);
 
@@ -540,8 +537,8 @@ int UBSI_buffer_flush()
 				next_event_id++;
 				if(eb != NULL) {
 						if(strstr(eb->event, "type=SYSCALL") != NULL) {
-								syscall_handler(eb->event);
-								//printf("%s", eb->event);
+								if(UBSIAnalysis) syscall_handler(eb->event);
+								else printf("%s", eb->event);
 						} else {
 								printf("%s", eb->event);
 						}
@@ -624,8 +621,8 @@ int UBSI_buffer(const char *buf)
 				next_event_id++;
 				if(eb != NULL) {
 						if(strstr(eb->event, "type=SYSCALL") != NULL) {
-								syscall_handler(eb->event);
-								//printf("%s", eb->event);
+								if(UBSIAnalysis) syscall_handler(eb->event);
+								else printf("%s", eb->event);
 						} else {
 								printf("%s", eb->event);
 						}
