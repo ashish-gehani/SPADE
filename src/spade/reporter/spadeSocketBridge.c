@@ -28,14 +28,22 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <sys/un.h>
 #include <errno.h>
 #include <signal.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
 
 #define SERVER_PATH     "/var/run/audispd_events"
 #define BUFFER_LENGTH   10000
 #define FALSE           0
 #define TRUE		1
 
+int UBSIAnalysis = FALSE;
 int UBSI_buffer(const char *buf);
 void UBSI_sig_handler(int signo);
+int waitForEnd = FALSE;
+int socketRead = FALSE;
+char socketPath[256];
 
 /*
   Java does not support reading from Unix domain sockets.
@@ -47,56 +55,112 @@ void UBSI_sig_handler(int signo);
   output to obtain a stream of audit records.
 */
 
+void print_usage(char** argv) {
+		printf("Usage: %s [OPTIONS]\n", argv[0]);
+		printf("  -u, --unit																unit analysis\n");
+		printf("  -s, --socket                socket name\n");
+		printf("  -w, --wait-for-end          continue processing till the end of the log is reached\n");
+		printf("  -h, --help                print this help and exit\n");
+		printf("\n");
+
+}
+
+int command_line_option(int argc, char **argv)
+{
+		int c;
+
+		struct option   long_opt[] =
+		{
+				{"help",          no_argument,       NULL, 'h'},
+				{"unit",          no_argument,       NULL, 'u'},
+				{"socket",        required_argument, NULL, 's'},
+				{"wait-for-end",  no_argument,							NULL, 'w'},
+				{NULL,            0,                 NULL, 0  }
+		};
+
+		while((c = getopt_long(argc, argv, "hus:w", long_opt, NULL)) != -1)
+		{
+				switch(c)
+				{
+						case 's':
+								strncpy(socketPath, optarg, 256);
+								socketRead = TRUE;
+								break;
+						
+						case 'w':
+								waitForEnd = TRUE;
+								break;
+		
+						case 'u':
+								UBSIAnalysis = TRUE;
+								break;
+
+						case 'h':
+								print_usage(argv);
+								exit(0);
+
+						default:
+								fprintf(stderr, "Try `%s --help' for more information.\n", argv[0]);
+								exit(-2);
+				};
+		};
+
+}
+
 int main(int argc, char *argv[]) {
     char *programName = argv[0];
     int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
     char buffer[BUFFER_LENGTH];
     struct sockaddr_un serverAddress;
-				int UBSIAnalysis = 0;
+		
+				command_line_option(argc, argv);
 
-				if(argc > 1 && strncmp(argv[1], "--units",7) == 0) {
-						fprintf(stderr, "UBSI\n");
-						UBSIAnalysis = 1;
-				}
-
-				if(UBSIAnalysis) {
-						signal(SIGINT, UBSI_sig_handler);
-						signal(SIGKILL, UBSI_sig_handler);
-						signal(SIGTERM, UBSI_sig_handler);
-				}
+				signal(SIGINT, UBSI_sig_handler);
+				signal(SIGKILL, UBSI_sig_handler);
+				signal(SIGTERM, UBSI_sig_handler);
 
     do {
-        audispdSocketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (audispdSocketDescriptor < 0) {
-            fprintf(stderr, "%s: Unable to construct a socket. Error: %s\n", programName, strerror(errno));
-            break;
-        }
+						if(socketRead) {
+								audispdSocketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0);
+								if (audispdSocketDescriptor < 0) {
+										fprintf(stderr, "%s: Unable to construct a socket. Error: %s\n", programName, strerror(errno));
+										break;
+								}
 
-        memset(&serverAddress, 0, sizeof (serverAddress));
-        serverAddress.sun_family = AF_UNIX;
-        strcpy(serverAddress.sun_path, SERVER_PATH);
+								memset(&serverAddress, 0, sizeof (serverAddress));
+								serverAddress.sun_family = AF_UNIX;
+								strcpy(serverAddress.sun_path, socketPath);
 
-        charactersRead = connect(audispdSocketDescriptor, (struct sockaddr *) &serverAddress, SUN_LEN(&serverAddress));
-        if (charactersRead < 0) {
-            fprintf(stderr, "%s: Unable to connect to the socket. Error: %s\n", programName, strerror(errno));
-            break;
-        }
+								charactersRead = connect(audispdSocketDescriptor, (struct sockaddr *) &serverAddress, SUN_LEN(&serverAddress));
+								if (charactersRead < 0) {
+										fprintf(stderr, "%s: Unable to connect to the socket: %s. Error: %s\n", programName, socketPath, strerror(errno));
+										break;
+								}
+						}
 
-        while (TRUE) {
-            memset(&buffer, 0, BUFFER_LENGTH);
-            charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
-            if (charactersRead < 0) {
-                fprintf(stderr, "%s: Error while reading from the socket. Error: %s\n", programName, strerror(errno));
-                break;
-            } else if (charactersRead == 0) {
-		fprintf(stderr, "%s: Server closed the connection. Errror: %s\n", programName, strerror(errno));
-                break;
-            }
-
-										 if(UBSIAnalysis)	UBSI_buffer(buffer);
-										 else printf("%s", buffer);
-        }
-    } while (FALSE);
+						while (TRUE) {
+								memset(&buffer, 0, BUFFER_LENGTH);
+								if(socketRead) {
+										charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
+										if (charactersRead < 0) {
+												fprintf(stderr, "%s: Error while reading from the socket. Error: %s\n", programName, strerror(errno));
+												break;
+										} else if (charactersRead == 0) {
+												fprintf(stderr, "%s: Server closed the connection. Errror: %s\n", programName, strerror(errno));
+												break;
+										}
+								} else {
+										//charactersRead = fread(& buffer[0], BUFFER_LENGTH, 1, stdin);
+										if(fgets(& buffer[0], BUFFER_LENGTH, stdin) == NULL) {
+												fprintf(stderr, "Reaches the end of file (stdin).\n");
+												UBSI_buffer_flush();
+												break;
+										}
+								}
+								//printf("buf: %s\n", buffer);
+								UBSI_buffer(buffer);
+						}
+				} while (FALSE);
 
     if (audispdSocketDescriptor != -1) close(audispdSocketDescriptor);
     return 0;
@@ -431,7 +495,7 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 
 		struct unit_table_t *ut;
 		
-		if(!is_important_syscall(sysno, succ))  return;
+		//if(!is_important_syscall(sysno, succ))  return;
 
 		HASH_FIND_INT(unit_table, &tid, ut);
 		
@@ -540,8 +604,8 @@ int UBSI_buffer_flush()
 				next_event_id++;
 				if(eb != NULL) {
 						if(strstr(eb->event, "type=SYSCALL") != NULL) {
-								syscall_handler(eb->event);
-								//printf("%s", eb->event);
+								if(UBSIAnalysis) syscall_handler(eb->event);
+								else printf("%s", eb->event);
 						} else {
 								printf("%s", eb->event);
 						}
@@ -624,8 +688,8 @@ int UBSI_buffer(const char *buf)
 				next_event_id++;
 				if(eb != NULL) {
 						if(strstr(eb->event, "type=SYSCALL") != NULL) {
-								syscall_handler(eb->event);
-								//printf("%s", eb->event);
+								if(UBSIAnalysis) syscall_handler(eb->event);
+								else printf("%s", eb->event);
 						} else {
 								printf("%s", eb->event);
 						}
@@ -633,14 +697,18 @@ int UBSI_buffer(const char *buf)
 						free(eb->event);
 						free(eb);
 				} else {
-						fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!event id %d is not exist!, hash_count %d\n", next_event_id, HASH_COUNT(event_buf));
+						//fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!event id %d is not exist!, hash_count %d\n", next_event_id, HASH_COUNT(event_buf));
 				}
 		}
 }
 
 void UBSI_sig_handler(int signo)
 {
-		UBSI_buffer_flush();
-		exit(0);
+		if(waitForEnd == FALSE) {
+				UBSI_buffer_flush();
+				exit(0);
+		} else {
+				// ignore the signal and the process continues until the end of the input stream/file.
+		}
 }
 
