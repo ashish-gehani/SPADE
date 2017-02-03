@@ -151,16 +151,13 @@ int main(int argc, char *argv[]) {
 										}
 								} else {
 										//charactersRead = fread(& buffer[0], BUFFER_LENGTH, 1, stdin);
-										charactersRead = fgets(& buffer[0], BUFFER_LENGTH, stdin);
-										if(charactersRead < 0) {
-												fprintf(stderr, "%s: Error while reading from the stdin. Error: %s\n", programName, strerror(errno));
-												break;
-										} else if (charactersRead == 0) {
-												//if(*buffer != 0) UBSI_buffer(buffer);
+										if(fgets(& buffer[0], BUFFER_LENGTH, stdin) == NULL) {
 												fprintf(stderr, "Reaches the end of file (stdin).\n");
+												UBSI_buffer_flush();
 												break;
 										}
 								}
+								//printf("buf: %s\n", buffer);
 								UBSI_buffer(buffer);
 						}
 				} while (FALSE);
@@ -707,7 +704,11 @@ int UBSI_buffer(const char *buf)
 
 void UBSI_sig_handler(int signo)
 {
-		UBSI_buffer_flush();
-		exit(0);
+		if(waitForEnd == FALSE) {
+				UBSI_buffer_flush();
+				exit(0);
+		} else {
+				// ignore the signal and the process continues until the end of the input stream/file.
+		}
 }
 
