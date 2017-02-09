@@ -135,6 +135,11 @@ public class Audit extends AbstractReporter {
 	private final DescriptorManager descriptors = new DescriptorManager();
 
 	// Map for artifact infos to versions and bytes read/written on sockets 
+	// Use cases:
+	// 1) Track version
+	// 2) Track epoch
+	// 3) Track latest subtype by creation time and creation event id
+	// 4) Avoid duplication of artifacts
 	private ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties> artifactIdentifierToArtifactProperties;
 
 	private Thread eventProcessorThread = null;
@@ -178,7 +183,7 @@ public class Audit extends AbstractReporter {
 
 	private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
 	
-	// Null  -> don't use
+	// Null  -> don't use i.e. the default behavior
 	// True  -> override all other versioning flags and version everything
 	// False -> override all other versioning flags and don't version anything 
 	private Boolean VERSION_ARTIFACTS = null;
@@ -190,6 +195,11 @@ public class Audit extends AbstractReporter {
 			VERSION_UNKNOWNS = true,
 			VERSION_NETWORK_SOCKETS = false,
 			VERSION_UNIX_SOCKETS = true;
+	
+	private boolean KEEP_VERSIONS = true,
+			KEEP_EPOCHS = true,
+			SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES = true,
+			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 
 	// Just a human-friendly renaming of null
 	private final static String NOT_SET = null;
@@ -331,12 +341,26 @@ public class Audit extends AbstractReporter {
 		}else if("false".equals(args.get("versionArtifacts"))){
 			VERSION_ARTIFACTS = false;
 		}
+		if("false".equals(args.get("keepVersions"))){
+			KEEP_VERSIONS = false;
+		}
+		if("false".equals(args.get("keepEpochs"))){
+			KEEP_EPOCHS = false;
+		}
+		if("false".equals(args.get("separateFileUnixNamedPipeSubtypes"))){
+			SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES = false;
+		}
+		if(!KEEP_VERSIONS && !KEEP_EPOCHS && !SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES){
+			KEEP_ARTIFACT_PROPERTIES_MAP = false;
+		}
 		// End of experimental arguments
 
 		//        initialize cache data structures
 
-		if(!initCacheMaps()){
-			return false;
+		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+			if(!initCacheMaps()){
+				return false;
+			}
 		}
 
 		// Get system boot time from /proc/stat. This is later used to determine
@@ -469,8 +493,10 @@ public class Audit extends AbstractReporter {
 							logger.log(Level.WARNING, "Failed to close audit input log reader", e);
 						}
 					}
-					//after processing all the files delete the cache maps or when shutdown has been called
-					deleteCacheMaps();
+					if(KEEP_ARTIFACT_PROPERTIES_MAP){
+						//after processing all the files delete the cache maps or when shutdown has been called
+						deleteCacheMaps();
+					}
 				}
 			});
 			auditLogThread.start();
@@ -541,7 +567,9 @@ public class Audit extends AbstractReporter {
 							}catch(Exception e){
 								logger.log(Level.SEVERE, "Failed to clear audit rules", e);
 							}         
-							deleteCacheMaps();
+							if(KEEP_ARTIFACT_PROPERTIES_MAP){
+								deleteCacheMaps();
+							}
 						}
 					}
 				};
@@ -1410,7 +1438,7 @@ public class Audit extends AbstractReporter {
 
 		if(fileArtifactIdentifier == null){
 			descriptors.addUnknownDescriptor(pid, fd);
-			getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(eventData.get("time"), eventData.get("eventid"));
+			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 			fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
 		}
 
@@ -1827,7 +1855,7 @@ public class Audit extends AbstractReporter {
 			}
 
 			//set new epoch
-			getArtifactProperties(artifactIdentifier).markNewEpoch(time, eventId);
+			markNewEpochForArtifact(artifactIdentifier, time, eventId);
 
 			syscall = SYSCALL.CREATE;
 
@@ -1914,7 +1942,7 @@ public class Audit extends AbstractReporter {
 
 		if(descriptors.getDescriptor(pid, fd) == null){
 			descriptors.addUnknownDescriptor(pid, fd);
-			getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(time, eventId);
+			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 		}
 
 		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
@@ -1940,7 +1968,7 @@ public class Audit extends AbstractReporter {
 
 		if(descriptors.getDescriptor(pid, fd) == null){
 			descriptors.addUnknownDescriptor(pid, fd);
-			getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(time, eventId);
+			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 		}
 
 		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
@@ -1982,7 +2010,7 @@ public class Audit extends AbstractReporter {
 
 			if(descriptors.getDescriptor(pid, fd) == null){
 				descriptors.addUnknownDescriptor(pid, fd);
-				getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(time, eventId);
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 			}
 
 			artifactIdentifier = descriptors.getDescriptor(pid, fd);
@@ -2011,7 +2039,7 @@ public class Audit extends AbstractReporter {
 		if(!fd.equals(newFD)){ //if both fds same then it succeeds in case of dup2 and it does nothing so do nothing here too
 			if(descriptors.getDescriptor(pid, fd) == null){
 				descriptors.addUnknownDescriptor(pid, fd);
-				getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(time, eventId);
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 			}
 			descriptors.duplicateDescriptor(pid, fd, newFD);
 		}
@@ -2444,6 +2472,8 @@ public class Audit extends AbstractReporter {
 		// - EOE
 
 		String modeString = eventData.get("a1");
+		String time = eventData.get("time");
+		String eventId = eventData.get("eventid");
 
 		Long mode = CommonFunctions.parseLong(modeString, 0L);
 
@@ -2452,7 +2482,7 @@ public class Audit extends AbstractReporter {
 		Map<Integer, String> paths = getPathsWithNametype(eventData, "CREATE");
 
 		if(paths.size() == 0){
-			log(Level.INFO, "PATH record missing", null, eventData.get("time"), eventData.get("eventid"), syscall);
+			log(Level.INFO, "PATH record missing", null, time, eventId, syscall);
 			return;
 		}
 
@@ -2460,7 +2490,7 @@ public class Audit extends AbstractReporter {
 		path = constructAbsolutePath(path, eventData.get("cwd"), eventData.get("pid"));
 
 		if(path == null){
-			log(Level.INFO, "Missing PATH or CWD record", null, eventData.get("time"), eventData.get("eventid"), syscall);
+			log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 			return;
 		}
 
@@ -2473,12 +2503,12 @@ public class Audit extends AbstractReporter {
 		}else if((mode & S_IFSOCK) == S_IFSOCK){ //is unix socket
 			artifactIdentifier = new UnixSocketIdentifier(path);
 		}else{
-			log(Level.INFO, "Unsupported mode for mknod '"+mode+"'", null, eventData.get("time"), eventData.get("eventid"), syscall);
+			log(Level.INFO, "Unsupported mode for mknod '"+mode+"'", null, time, eventId, syscall);
 			return;
 		}	
 
 		if(artifactIdentifier != null){
-			getArtifactProperties(artifactIdentifier).markNewEpoch(eventData.get("time"), eventData.get("eventid"));
+			markNewEpochForArtifact(artifactIdentifier, time, eventId);
 		}
 	}
 
@@ -2566,7 +2596,7 @@ public class Audit extends AbstractReporter {
 		}
 
 		//destination is new so mark epoch
-		getArtifactProperties(dstArtifactIdentifier).markNewEpoch(time, eventId);
+		markNewEpochForArtifact(dstArtifactIdentifier, time, eventId);
 
 		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, false);
 		Used used = new Used(process, srcVertex);
@@ -2616,7 +2646,7 @@ public class Audit extends AbstractReporter {
 
 			if(descriptors.getDescriptor(pid, fd) == null){
 				descriptors.addUnknownDescriptor(pid, fd);
-				getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(eventData.get("time"), eventData.get("eventid"));
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 			}
 
 			artifactIdentifier = descriptors.getDescriptor(pid, fd);
@@ -2663,8 +2693,8 @@ public class Audit extends AbstractReporter {
 		descriptors.addDescriptor(pid, fd0, readPipeIdentifier, true);
 		descriptors.addDescriptor(pid, fd1, writePipeIdentifier, false);
 
-		getArtifactProperties(readPipeIdentifier).markNewEpoch(time, eventId);
-		getArtifactProperties(writePipeIdentifier).markNewEpoch(time, eventId);
+		markNewEpochForArtifact(readPipeIdentifier, time, eventId);
+		markNewEpochForArtifact(writePipeIdentifier, time, eventId);
 	}    
 
 
@@ -2734,7 +2764,7 @@ public class Audit extends AbstractReporter {
 			// update file descriptor table
 			String fd = eventData.get("a0");
 			descriptors.addDescriptor(pid, fd, parsedArtifactIdentifier, false);
-			getArtifactProperties(parsedArtifactIdentifier).markNewEpoch(eventData.get("time"), eventData.get("eventid"));
+			markNewEpochForArtifact(parsedArtifactIdentifier, time, eventId);
 
 			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, false);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
@@ -2800,7 +2830,8 @@ public class Audit extends AbstractReporter {
 		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
 		if (artifactIdentifier != null) { //well shouldn't be null since all cases handled above but for future code changes
 			Process process = putProcess(eventData, time, eventId);
-			getArtifactProperties(artifactIdentifier).markNewEpoch(time, eventId);
+			
+			markNewEpochForArtifact(artifactIdentifier, time, eventId);
 			Artifact socket = putArtifact(eventData, artifactIdentifier, false);
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, DEV_AUDIT);
@@ -2823,7 +2854,7 @@ public class Audit extends AbstractReporter {
 
 		if(descriptors.getDescriptor(pid, fd) == null){
 			descriptors.addUnknownDescriptor(pid, fd); 
-			getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(time, eventId);
+			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 		}else{
 			if(UnixSocketIdentifier.class.equals(descriptors.getDescriptor(pid, fd).getClass()) && !UNIX_SOCKETS){
 				return;
@@ -2855,7 +2886,7 @@ public class Audit extends AbstractReporter {
 
 		if(descriptors.getDescriptor(pid, fd) == null){
 			descriptors.addUnknownDescriptor(pid, fd); 
-			getArtifactProperties(descriptors.getDescriptor(pid, fd)).markNewEpoch(time, eventId);
+			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
 		}else{
 			if(UnixSocketIdentifier.class.equals(descriptors.getDescriptor(pid, fd).getClass()) && !UNIX_SOCKETS){
 				return;
@@ -3019,6 +3050,12 @@ public class Audit extends AbstractReporter {
 	 * 6) Put vertex to buffer if not added before. We know if it is added before or not based on updateVersion and if version wasn't initialized before this call
 	 * 7) Draw version update edge if file identifier and version has been updated
 	 * 
+	 * NEW: 
+	 * 8) If KEEP_VERSIONS is false then version annotation not added and WDF edge between old and new version not drawn
+	 * 9) If KEEP_EPOCHS is false then epoch annotation not added
+	 * 10) If SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES is false then file, named pipe, and unix socket subtype changed to file
+	 * 11) If KEEP_ARTIFACT_PROPERTIES_MAP is false then version and epoch annotations NOT added
+	 * 
 	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
 	 * @param artifactIdentifier artifact to create
 	 * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
@@ -3031,10 +3068,22 @@ public class Audit extends AbstractReporter {
 			return null;
 		}
 
-		ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
-
+		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
+		
 		Artifact artifact = new Artifact();
-		artifact.addAnnotation("subtype", artifactIdentifier.getSubtype().toString().toLowerCase());
+		if(SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES){
+			artifact.addAnnotation("subtype", artifactIdentifier.getSubtype().toString().toLowerCase());
+		}else{
+			String subtype = artifactIdentifier.getSubtype();
+			// So far identities with path are file, namedpipe, unix sockets. 
+			// Merging the above-mentioned 3 into the file subtype
+			if(FileIdentifier.class.equals(artifactIdentifierClass)
+					|| NamedPipeIdentifier.class.equals(artifactIdentifierClass)
+					|| UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
+				subtype = ArtifactIdentifier.SUBTYPE_FILE;
+			}
+			artifact.addAnnotation("subtype", subtype.toLowerCase());
+		}
 		artifact.addAnnotations(artifactIdentifier.getAnnotationsMap());
 
 		if(useThisSource != null){
@@ -3043,7 +3092,6 @@ public class Audit extends AbstractReporter {
 			artifact.addAnnotation(SOURCE, DEV_AUDIT);
 		}
 
-		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
 		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
 		if(updateVersion){
 			if(VERSION_ARTIFACTS == null){
@@ -3082,27 +3130,43 @@ public class Audit extends AbstractReporter {
 			}
 		}
 
-		//version is always uninitialized if the epoch has been seen so using that to infer about epoch
-		boolean vertexNotSeenBefore = updateVersion || artifactProperties.isVersionUninitialized(); //do this before getVersion because it updates it based on updateVersion flag
-
-		artifact.addAnnotation("version", String.valueOf(artifactProperties.getVersion(updateVersion)));
-
-		if(!MemoryIdentifier.class.equals(artifactIdentifierClass)){ //epoch for everything except memory
-			artifact.addAnnotation("epoch", String.valueOf(artifactProperties.getEpoch()));
-		}   	
-
-		if(vertexNotSeenBefore){//not seen because of either it has been updated or it is the first time it is seen
-			putVertex(artifact);
-		}
-
-		//always at the end after the vertex has been added
-		if(updateVersion && FileIdentifier.class.equals(artifactIdentifier.getClass())){ //put the version update edge if version updated for a file
-			if(eventData != null){
-				putVersionUpdateEdge(artifact, eventData.get("time"), eventData.get("eventid"), eventData.get("pid"));
-			}else{
-				logger.log(Level.WARNING, "Failed to create version update for artifact '" +artifact + "' because time, eventid and pid missing");
+		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+			ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
+			
+			//version is always uninitialized if the epoch has been seen so using that to infer about epoch
+			boolean vertexNotSeenBefore = updateVersion || artifactProperties.isVersionUninitialized(); //do this before getVersion because it updates it based on updateVersion flag
+	
+			String versionAnnotation = String.valueOf(artifactProperties.getVersion(updateVersion));
+			
+			if(KEEP_VERSIONS){
+				artifact.addAnnotation("version", versionAnnotation);
 			}
-		}
+	
+			String epochAnnotation = String.valueOf(artifactProperties.getEpoch());
+			
+			if(KEEP_EPOCHS){
+				if(!MemoryIdentifier.class.equals(artifactIdentifierClass)){ //epoch for everything except memory
+					artifact.addAnnotation("epoch", epochAnnotation);
+				}
+			}
+	
+			if(vertexNotSeenBefore){//not seen because of either it has been updated or it is the first time it is seen
+				putVertex(artifact);
+			}
+			
+			//always at the end after the vertex has been added
+			if(KEEP_VERSIONS){
+				if(updateVersion && FileIdentifier.class.equals(artifactIdentifier.getClass())){ //put the version update edge if version updated for a file
+					if(eventData != null){
+						putVersionUpdateEdge(artifact, eventData.get("time"), eventData.get("eventid"), eventData.get("pid"));
+					}else{
+						logger.log(Level.WARNING, "Failed to create version update for artifact '" +artifact + "' because time, eventid and pid missing");
+					}
+				}
+			}
+		}else{
+			putVertex(artifact);
+		}		
 
 		return artifact;
 	}
@@ -3123,6 +3187,25 @@ public class Audit extends AbstractReporter {
 		}
 		artifactIdentifierToArtifactProperties.put(artifactIdentifier, artifactProperties);
 		return artifactProperties;
+	}
+	
+	/**
+	 * Get the corresponding artifact properties for the artifact identifier and marks a new epoch
+	 * on that. If {@link #KEEP_ARTIFACT_PROPERTIES_MAP KEEP_ARTIFACT_PROPERTIES_MAP} and 
+	 * {@link #KEEP_EPOCHS KEEP_EPOCHS} are both true on then epoch marked otherwise returns without
+	 * doing anything.
+	 * 
+	 * @param artifactIdentifier artifact identifier to get the properties of
+	 * @param creationTime creation time of the artifact
+	 * @param creationEventId creation event id of the artifact
+	 */
+	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier, 
+			String creationTime, String creationEventId){
+		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+			if(KEEP_EPOCHS){
+				getArtifactProperties(artifactIdentifier).markNewEpoch(creationTime, creationEventId);
+			}
+		}
 	}
 
 	/**
@@ -3423,10 +3506,20 @@ public class Audit extends AbstractReporter {
 	 * getArtifactProperties} because that function adds and returns the properties for the artifact identifier even if doesn't exist.
 	 * Using that function would say something existed which didn't exist before.
 	 * 
+	 * NEW:
+	 * 
+	 * If either KEEP_ARTIFACT_PROPERTIES_MAP or SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES is false then always returns
+	 * FileIdentity. 
+	 * 
 	 * @param path path to check against
 	 * @return the artifact identifier with the matched path or a file artifact identifier if path didn't match any artifact identifier
 	 */
 	private ArtifactIdentifier getValidArtifactIdentifierForPath(String path){
+		
+		if(!KEEP_ARTIFACT_PROPERTIES_MAP || !SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES){
+			return new FileIdentifier(path);
+		}
+		
 		FileIdentifier fileIdentifier = new FileIdentifier(path);
 		NamedPipeIdentifier namedPipeIdentifier = new NamedPipeIdentifier(path);
 		UnixSocketIdentifier unixSocketIdentifier = new UnixSocketIdentifier(path);
