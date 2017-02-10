@@ -902,6 +902,12 @@ public class Audit extends AbstractReporter {
 						}
 					}
 				});
+				
+				Long externalMemoryMapReportingIntervalSeconds = CommonFunctions.parseLong(configMap.get("externalMemoryMapReportingIntervalSeconds"), -1L);
+				
+				if(externalMemoryMapReportingIntervalSeconds > 0){
+					artifactIdentifierToArtifactProperties.printStats(externalMemoryMapReportingIntervalSeconds * 1000); //convert to millis
+				}
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to initialize necessary data structures", e);
 				return false;
