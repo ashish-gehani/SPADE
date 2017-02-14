@@ -2537,16 +2537,19 @@ public class Audit extends AbstractReporter {
 		if(syscall == SYSCALL.LINK || syscall == SYSCALL.SYMLINK){
 			srcPath = constructAbsolutePath(srcPath, cwd, pid);
 			dstPath = constructAbsolutePath(dstPath, cwd, pid);
-		}else if(syscall == SYSCALL.LINKAT || syscall == SYSCALL.SYMLINKAT){
+		}else if(syscall == SYSCALL.LINKAT){
 			srcPath = constructPathSpecial(srcPath, eventData.get("a0"), cwd, pid, time, eventId, syscall);
 			dstPath = constructPathSpecial(dstPath, eventData.get("a2"), cwd, pid, time, eventId, syscall);
+		}else if(syscall == SYSCALL.SYMLINKAT){
+			srcPath = constructAbsolutePath(srcPath, cwd, pid);
+			dstPath = constructPathSpecial(dstPath, eventData.get("a1"), cwd, pid, time, eventId, syscall);
 		}else{
 			log(Level.WARNING, "Unexpected syscall '"+syscall+"' in LINK SYMLINK handler", null, eventData.get("time"), eventId, syscall);
 			return;
 		}
 
 		if(srcPath == null || dstPath == null){
-			log(Level.INFO, "Failed to create path(s)", null, eventData.get("time"), eventId, syscall);
+			log(Level.INFO, "Failed to create path(s)", null, time, eventId, syscall);
 			return;
 		}
 
