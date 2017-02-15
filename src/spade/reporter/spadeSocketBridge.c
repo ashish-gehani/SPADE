@@ -371,7 +371,7 @@ void delete_proc_hash(mem_proc_t *mem_proc)
 void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 {
 
-		if(a1 == unit->cur_unit.loopid && unit->cur_unit.timestamp == time) {
+		if(a1 == unit->cur_unit.loopid) {
 						unit->cur_unit.count++; 
 		} else {
 				unit->cur_unit.loopid = a1;
@@ -388,6 +388,7 @@ void loop_exit(unit_table_t *unit)
 
 		sprintf(tmp,  "type=UBSI_EXIT pid=%d\n", unit->cur_unit.tid);
 		emit_log(unit, tmp, false);
+		unit->valid = false;
 }
 
 void unit_entry(unit_table_t *unit, long a1, char* buf)
@@ -398,7 +399,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 
 		time = get_timestamp(buf);
 //		int unitid = ++(unit->cur_unit.unitid);
-		if(unit->cur_unit.loopid != a1) // this is an entry of a new loop.
+		if(unit->valid == false) // this is an entry of a new loop.
 		{
 				loop_entry(unit, a1, buf, time);
 		} else {
@@ -435,7 +436,7 @@ void unit_end(unit_table_t *unit, long a1)
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
 		unit->mem_unit = NULL;
-		unit->valid = false;
+	//	unit->valid = false;
 		unit->r_addr = 0;
 		unit->w_addr = 0;
 		//unit->unitid++;
@@ -627,8 +628,8 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 				case UEXIT: 
 						if(isNewUnit == false)
 						{
-								loop_exit(ut);
 								unit_end(ut, a1);
+								loop_exit(ut);
 						}
 						break;
 				case MREAD1:
@@ -686,8 +687,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				} else {
 						proc_end(ut);
 				}
-		} else {
-				ut->valid = true;
 		}
 }
 
