@@ -879,4 +879,3 @@ void UBSI_sig_handler(int signo)
 				// ignore the signal and the process continues until the end of the input stream/file.
 		}
 }
-
