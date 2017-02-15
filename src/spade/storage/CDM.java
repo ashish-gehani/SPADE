@@ -295,7 +295,11 @@ public class CDM extends Kafka {
 		    							}else{
 		    								incrementStatsCount("FileObject");
 		    							}
+		    						}else{
+		    							incrementStatsCount("FileObject");
 		    						}
+		    					}else{
+		    						incrementStatsCount("FileObject");
 		    					}
 	    					}
 	    				}
