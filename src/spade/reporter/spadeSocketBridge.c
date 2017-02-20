@@ -47,6 +47,7 @@ int socketRead = FALSE;
 int fileRead = FALSE;
 char socketPath[256];
 char filePath[256];
+int loopCount[100];
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -282,6 +283,7 @@ typedef struct unit_table_t {
 		link_unit_t *link_unit;
 		mem_proc_t *mem_proc;
 		mem_unit_t *mem_unit; // mem_write_record in the unit
+		char proc[1024];
 		UT_hash_handle hh;
 } unit_table_t;
 
@@ -320,16 +322,32 @@ double get_timestamp(char *buf)
 		return time;
 }
 
-int emit_log(unit_table_t *ut, char* buf, bool print_unit)
+int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 {
 		int rc;
-		if(print_unit) {
-				buf[strlen(buf)-1] = '\0';
-				rc = printf("%s unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d)\n"
-							,buf, ut->cur_unit.tid, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
-		} else {
+		char buffer[BUFFER_LENGTH];
+
+		if(!print_unit && !print_proc) {
 				rc = printf("%s", buf);
+				return rc;
 		}
+
+		buf[strlen(buf)-1] = '\0';
+		
+		rc = sprintf(buffer, "%s", buf);
+		if(print_unit) {
+				rc += sprintf(buffer + rc, " unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d) "
+							,ut->cur_unit.tid, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
+		} 
+
+		if(print_proc) {
+				rc += sprintf(buffer + rc, "%s", ut->proc);
+		}
+
+		if(!print_proc) sprintf(buffer + rc, "\n");
+
+		rc = printf("%s", buffer);
+
 		return rc;
 }
 
@@ -370,24 +388,30 @@ void delete_proc_hash(mem_proc_t *mem_proc)
 
 void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 {
+		char *ptr;
 
-		if(a1 == unit->cur_unit.loopid) {
-						unit->cur_unit.count++; 
+		unit->cur_unit.loopid = a1;
+		unit->cur_unit.iteration = 0;
+		unit->cur_unit.timestamp = time;
+		unit->cur_unit.count = loopCount[a1]++; 
+		
+		ptr = strstr(buf, " ppid=");
+		if(ptr == NULL) {
+				fprintf(stderr, "loop_entry error! cannot find proc info: %s", buf);
 		} else {
-				unit->cur_unit.loopid = a1;
-				unit->cur_unit.iteration = 0;
-				unit->cur_unit.timestamp = time;
-				unit->cur_unit.count = 0; 
+				ptr++;
+				strncpy(unit->proc, ptr, strlen(ptr));
+				unit->proc[strlen(ptr)] = '\0';
 		}
-//		unit->cur_unit.unitid++;
+		//unit->proc = get this info;
 }
 
 void loop_exit(unit_table_t *unit)
 {
 		char tmp[10240];
 
-		sprintf(tmp,  "type=UBSI_EXIT pid=%d\n", unit->cur_unit.tid);
-		emit_log(unit, tmp, false);
+		sprintf(tmp,  "type=UBSI_EXIT pid=%d ", unit->cur_unit.tid);
+		emit_log(unit, tmp, false, true);
 		unit->valid = false;
 }
 
@@ -409,7 +433,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		unit->cur_unit.timestamp = time;
 		
 		sprintf(tmp, "type=UBSI_ENTRY ");
-		emit_log(unit, tmp, true);
+		emit_log(unit, tmp, true, true);
 		//TODO: emit unit_entry event with 5 tuples: {pid, unitid, iteration, start_time, count}
 }
 
@@ -428,8 +452,8 @@ void unit_end(unit_table_t *unit, long a1)
 								sprintf(buf+strlen(buf), "(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
 								,ut->id.tid, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
 						}
-						sprintf(buf+strlen(buf), "\" \n");
-						emit_log(unit, buf, true);
+						sprintf(buf+strlen(buf), "\" ");
+						emit_log(unit, buf, true, true);
 				}
 		}
 
@@ -529,8 +553,6 @@ void mem_write(unit_table_t *ut, long int addr)
 				//pmt->last_written_unit.unitid = ut->unitid;
 		}
 }
-
-
 
 void mem_read(unit_table_t *ut, long int addr, char *buf)
 {
@@ -667,7 +689,7 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				ut = add_unit(tid, tid, 0, 0);
 		}
 
-		emit_log(ut, buf, false);
+		emit_log(ut, buf, false, false);
 
 		if(succ == true && (sysno == 56 || sysno == 57 || sysno == 58)) // clone or fork
 		{
