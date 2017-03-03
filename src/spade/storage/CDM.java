@@ -1036,9 +1036,9 @@ public class CDM extends Kafka {
 	 * Creates a TCCDMDatum object with the given source and the value
 	 * @param value the CDM object instance
 	 * @param source the source value for that value
-	 * @return TCCDMDatum instance
+	 * @return GenericContainer instance
 	 */
-	private TCCDMDatum buildTcCDMDatum(Object value, InstrumentationSource source){
+	private GenericContainer buildTcCDMDatum(Object value, InstrumentationSource source){
 		TCCDMDatum.Builder tccdmDatumBuilder = TCCDMDatum.newBuilder();
 		tccdmDatumBuilder.setDatum(value);
 		tccdmDatumBuilder.setSource(source);
