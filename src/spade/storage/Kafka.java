@@ -245,21 +245,23 @@ public class Kafka extends AbstractStorage{
 	//function to call to save data to the storage
 	protected int publishRecords(List<GenericContainer> genericContainers) {
 		int recordCount = 0;
-        for (GenericContainer genericContainer : genericContainers) {
-//            logger.log(Level.INFO, "Attempting to publish record {0}", genericContainer.toString());
-            for(DataWriter dataWriter : dataWriters){
-            	try {
-        			dataWriter.writeRecord(genericContainer);
-        			recordCount += 1;
-//                    logger.log(Level.INFO, "Sent record: ({0})", recordCount);
-                } catch (Exception exception) {
-                	logger.log(Level.INFO, "Failed to publish record {0}", genericContainer.toString());
-                    logger.log(Level.WARNING, "{0}", exception);
-                } 
-        	}                
-        }
-        return (recordCount / dataWriters.size());
-    }
+		if(genericContainers != null){
+			for (GenericContainer genericContainer : genericContainers) {
+				//            logger.log(Level.INFO, "Attempting to publish record {0}", genericContainer.toString());
+				for(DataWriter dataWriter : dataWriters){
+					try {
+						dataWriter.writeRecord(genericContainer);
+						recordCount += 1;
+						//                    logger.log(Level.INFO, "Sent record: ({0})", recordCount);
+					} catch (Exception exception) {
+						logger.log(Level.INFO, "Failed to publish record {0}", genericContainer.toString());
+						logger.log(Level.WARNING, "{0}", exception);
+					} 
+				}                
+			}
+		}
+		return (recordCount / dataWriters.size());
+	}
 	
 	public boolean shutdown(){
 		boolean success = true;
