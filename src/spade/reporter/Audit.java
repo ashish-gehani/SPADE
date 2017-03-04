@@ -31,7 +31,6 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -99,7 +98,9 @@ public class Audit extends AbstractReporter {
 
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/stat.h#L14
-	private final int S_IFIFO = 0010000, S_IFREG = 0100000, S_IFSOCK = 0140000;
+	private static final int S_IFIFO = 0010000, S_IFREG = 0100000, S_IFSOCK = 0140000,
+			S_IFLNK = 0120000, S_IFBLK = 0060000, S_IFDIR = 0040000,
+			S_IFCHR = 0020000, S_IFMT = 00170000;
 
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/fcntl.h#L56
@@ -108,6 +109,10 @@ public class Audit extends AbstractReporter {
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/fcntl.h#L19
 	private final int O_RDONLY = 00000000, O_WRONLY = 00000001, O_RDWR = 00000002, O_CREAT = 00000100, O_TRUNC = 00001000;
+	
+	//  Following constant values are taken from:
+	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/mman-common.h#L21
+	private final int MAP_ANONYMOUS = 0x20;
 
 	private final long BUFFER_DRAIN_DELAY = 500;
 
@@ -198,7 +203,6 @@ public class Audit extends AbstractReporter {
 	
 	private boolean KEEP_VERSIONS = true,
 			KEEP_EPOCHS = true,
-			SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES = true,
 			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 
 	// Just a human-friendly renaming of null
@@ -264,7 +268,7 @@ public class Audit extends AbstractReporter {
 		AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeSocketBridge";
 		String auditOutputLog = SPADE_ROOT + "log/LinuxAudit.log";
 
-		Map<String, String> args = parseKeyValPairs(arguments);
+		Map<String, String> args = CommonFunctions.parseKeyValPairs(arguments);
 		if (args.containsKey("outputLog") && !args.get("outputLog").isEmpty()) {
 			auditOutputLog = args.get("outputLog");
 			if(!new File(auditOutputLog).getParentFile().exists()){
@@ -341,16 +345,13 @@ public class Audit extends AbstractReporter {
 		}else if("false".equals(args.get("versionArtifacts"))){
 			VERSION_ARTIFACTS = false;
 		}
-		if("false".equals(args.get("keepVersions"))){
+		if("false".equals(args.get("versions"))){
 			KEEP_VERSIONS = false;
 		}
-		if("false".equals(args.get("keepEpochs"))){
+		if("false".equals(args.get("epochs"))){
 			KEEP_EPOCHS = false;
 		}
-		if("false".equals(args.get("separateFileUnixNamedPipeSubtypes"))){
-			SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES = false;
-		}
-		if(!KEEP_VERSIONS && !KEEP_EPOCHS && !SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES){
+		if(!KEEP_VERSIONS && !KEEP_EPOCHS){
 			KEEP_ARTIFACT_PROPERTIES_MAP = false;
 		}
 		// End of experimental arguments
@@ -1029,20 +1030,6 @@ public class Audit extends AbstractReporter {
 		return fds;
 	}
 
-	/*
-	 * Takes a string with keyvalue pairs and returns a Map Input e.g.
-	 * "key1=val1 key2=val2" etc. Input string validation is callee's
-	 * responsiblity
-	 */
-	private static Map<String, String> parseKeyValPairs(String messageData) {
-		Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-		Map<String, String> keyValPairs = new HashMap<>();
-		while (key_value_matcher.find()) {
-			keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
-		}
-		return keyValPairs;
-	}
-
 	//TODO What to do when WAIT_FOR_LOG_END is set to true and auditLogThread won't stop on exit?
 	@Override
 	public boolean shutdown() {
@@ -1168,7 +1155,7 @@ public class Audit extends AbstractReporter {
 			case RECVMSG: 
 			case SENDTO: 
 			case RECVFROM: 
-				handleIOEvent(syscall, eventData);
+				handleIOEvent(syscall, eventData, eventData.get("a0"));
 				break;
 			case MMAP:
 			case MMAP2:
@@ -1268,74 +1255,205 @@ public class Audit extends AbstractReporter {
 	 * 
 	 * @param syscall system call
 	 * @param eventData audit event data gotten in the log
+	 * @param fd the file descriptor number
 	 */
-	private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData){
+	private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData, String fd){
 		String pid = eventData.get("pid");
-		String fd = eventData.get("a0");
-		Class<? extends ArtifactIdentifier> artifactIdentifierClass = null;
+		
+		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);		
 
-		if(descriptors.getDescriptor(pid, fd) != null){
-			artifactIdentifierClass = descriptors.getDescriptor(pid, fd).getClass();
-		}
-
-		if(artifactIdentifierClass == null || UnknownIdentifier.class.equals(artifactIdentifierClass)){ //either a new unknown i.e. null or a previously seen unknown
-			if((syscall == SYSCALL.READ || syscall == SYSCALL.READV || syscall == SYSCALL.PREAD64 || syscall == SYSCALL.WRITE || syscall == SYSCALL.WRITEV || syscall == SYSCALL.PWRITE64)){
+		// In case of UDP sockets there won't be a connect/accept and instead in reads/writes/sends/recvs a saddr value is sent
+		if(eventData.get("saddr") != null){
+			logger.log(Level.SEVERE, "Hassaan. Found saddr {0}. event id = {1}, time = {2}", 
+					new Object[]{eventData.get("saddr"), eventData.get("eventid"), eventData.get("time")});
+			handleNetworkIOEvent(syscall, eventData);
+		}else if(isUnknownType(artifactIdentifier)){ //either a new unknown i.e. null or a previously seen unknown
+			// preference given to file if the type of the artifact not known
+			if(isFileReadSyscall(syscall) || isFileWriteSyscall(syscall)){
 				if(USE_READ_WRITE){
 					handleFileIOEvent(syscall, eventData);
 				}
-			}else if((syscall == SYSCALL.SENDMSG || syscall == SYSCALL.SENDTO || syscall == SYSCALL.RECVFROM || syscall == SYSCALL.RECVMSG)){
+			}else if(isSockReadSyscall(syscall) || isSockWriteSyscall(syscall)){
 				if(USE_SOCK_SEND_RCV){
 					handleNetworkIOEvent(syscall, eventData);
 				}
 			}else {
 				logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventData.get("eventid")+"' and syscall '"+syscall+"'");
 			}
-		}else if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass) || UnixSocketIdentifier.class.equals(artifactIdentifierClass)){ 
+		}else if(isSockType(artifactIdentifier)){ 
 			handleNetworkIOEvent(syscall, eventData);
-		}else if(FileIdentifier.class.equals(artifactIdentifierClass) || MemoryIdentifier.class.equals(artifactIdentifierClass) 
-				|| UnnamedPipeIdentifier.class.equals(artifactIdentifierClass) || NamedPipeIdentifier.class.equals(artifactIdentifierClass)){
+		}else if(isFileType(artifactIdentifier)){
 			handleFileIOEvent(syscall, eventData);
 		}
 	}
+	
+	/**
+	 * Returns true if the identifier is either a NetworkSocketIdentifier or a UnixSocketIdentifier otherwise false
+	 * 
+	 * @param artifactIdentifier identifier to check
+	 * @return true/false
+	 */
+	private boolean isSockType(ArtifactIdentifier artifactIdentifier){
+		if(artifactIdentifier == null){
+			return false;
+		}else{
+			Class<? extends ArtifactIdentifier> clazz = artifactIdentifier.getClass();
+			if(clazz.equals(NetworkSocketIdentifier.class) || clazz.equals(UnixSocketIdentifier.class)){
+				return true;
+			}else{
+				return false;
+			}
+		}
+	}
+	
+	/**
+	 * Returns true if the identifier is one of FileIdentifier, MemoryIdentifier, UnnamedPipeIdentifier, NamedPipeIdentifier 
+	 * otherwise false
+	 * 
+	 * @param artifactIdentifier identifier to check
+	 * @return true/false
+	 */
+	private boolean isFileType(ArtifactIdentifier artifactIdentifier){
+		if(artifactIdentifier == null){
+			return false;
+		}else{
+			Class<? extends ArtifactIdentifier> clazz = artifactIdentifier.getClass();
+			if(clazz.equals(FileIdentifier.class) || clazz.equals(MemoryIdentifier.class) ||
+					clazz.equals(UnnamedPipeIdentifier.class) || clazz.equals(NamedPipeIdentifier.class)){
+				return true;
+			}else{
+				return false;
+			}
+		}
+	}
+	
+	/**
+	 * Returns true if the identifier is either NULL or an UnknownIdentifier otherwise false
+	 * 
+	 * @param artifactIdentifier identifier to check
+	 * @return true/false
+	 */
+	private boolean isUnknownType(ArtifactIdentifier artifactIdentifier){
+		if(artifactIdentifier == null){
+			return true;
+		}else{
+			Class<? extends ArtifactIdentifier> clazz = artifactIdentifier.getClass();
+			if(clazz.equals(UnknownIdentifier.class)){
+				return true;
+			}else{
+				return false;
+			}
+		}
+	}
+	
+	/**
+	 * Returns true if the system call is one of read, readv, pread64 otherwise false
+	 * 
+	 * @param syscall system call
+	 * @return true/false
+	 */
+	private boolean isFileReadSyscall(SYSCALL syscall){
+		if(syscall != null){
+			switch (syscall) {
+				case READ:
+				case READV:
+				case PREAD64:
+					return true;
+				default:
+					return false;
+			}
+		}else{
+			return false;
+		}
+	}
+	
+	/**
+	 * Returns true if the system call is one of write, writev, write64 otherwise false
+	 * 
+	 * @param syscall system call
+	 * @return true/false
+	 */
+	private boolean isFileWriteSyscall(SYSCALL syscall){
+		if(syscall != null){
+			switch (syscall) {
+				case WRITE:
+				case WRITEV:
+				case PWRITE64:
+					return true;
+				default:
+					return false;
+			}
+		}else{
+			return false;
+		}
+	}
 
+	/**
+	 * Returns true if one of read, readv, pread64, recv, recvmsg, recvfrom otherwise false
+	 * 
+	 * @param syscall system call
+	 * @return true/false
+	 */
+	private boolean isSockReadSyscall(SYSCALL syscall){
+		boolean returnValue = isFileReadSyscall(syscall);
+		if(syscall != null){
+			switch (syscall) {
+				case RECV:
+				case RECVMSG:
+				case RECVFROM:
+					returnValue = returnValue || true;
+				default:
+					returnValue = returnValue || false;
+			}
+		}else{
+			returnValue = false;
+		}
+		return returnValue;
+	}
+	
+	/**
+	 * Returns true if one of write, writev, pwrite64, send, sendmsg, sendto otherwise false
+	 * 
+	 * @param syscall system call
+	 * @return true/false
+	 */
+	private boolean isSockWriteSyscall(SYSCALL syscall){
+		boolean returnValue = isFileWriteSyscall(syscall);
+		if(syscall != null){
+			switch (syscall) {
+				case SEND:
+				case SENDMSG:
+				case SENDTO:
+					returnValue = returnValue || true;
+				default:
+					returnValue = returnValue || false;
+			}
+		}else{
+			returnValue = false;
+		}
+		return returnValue;
+	}
+	
 	private void handleNetworkIOEvent(SYSCALL syscall, Map<String, String> eventData){
 		if(USE_SOCK_SEND_RCV){
-			switch (syscall) {
-			case WRITE: 
-			case WRITEV: 
-			case PWRITE64:
-			case SENDTO:
-			case SENDMSG:
+			if(isSockWriteSyscall(syscall)){
 				handleSend(eventData, syscall);
-				break;
-			case READ:
-			case READV:
-			case PREAD64:
-			case RECVFROM:
-			case RECVMSG:
+			}else if(isSockReadSyscall(syscall)){
 				handleRecv(eventData, syscall);
-				break;
-			default:
-				break;
+			}else{
+				log(Level.WARNING, "Unexpected syscall", null, eventData.get("time"), eventData.get("eventid"), syscall);
 			}
 		}
 	}
 
 	private void handleFileIOEvent(SYSCALL syscall, Map<String, String> eventData){
 		if(USE_READ_WRITE){
-			switch(syscall){
-			case READ:
-			case READV:
-			case PREAD64:
+			if(isFileReadSyscall(syscall)){
 				handleRead(eventData, syscall);
-				break;
-			case WRITE:
-			case WRITEV:
-			case PWRITE64:
+			}else if(isFileWriteSyscall(syscall)){
 				handleWrite(eventData, syscall);
-				break;
-			default:
-				break;
+			}else{
+				log(Level.WARNING, "Unexpected syscall", null, eventData.get("time"), eventData.get("eventid"), syscall);
 			}
 		}
 	}
@@ -1353,32 +1471,32 @@ public class Audit extends AbstractReporter {
 			String eventId = eventData.get("eventid");
 			String pid = eventData.get("pid");
 			String cwd = eventData.get("cwd");
-			String deletedPath = null;
+			
+			String path = null;
+			PathRecord pathRecord = getFirstPathWithNametype(eventData, "DELETE");
 
-			Map<Integer, String> deletedPaths = getPathsWithNametype(eventData, "DELETE");
-
-			if(deletedPaths.size() == 0){
-				log(Level.INFO, "PATH record with nametype DELETE missing", null, eventData.get("time"), eventId, syscall);
+			if(pathRecord == null){
+				log(Level.INFO, "PATH record with nametype DELETE missing", null, time, eventId, syscall);
 				return;
 			}else{
-				deletedPath = deletedPaths.values().iterator().next();
+				path = pathRecord.getPath();
 			}
 
 			if(syscall == SYSCALL.UNLINK){
-				deletedPath = constructAbsolutePath(deletedPath, cwd, pid);
+				path = constructAbsolutePath(path, cwd, pid);
 			}else if(syscall == SYSCALL.UNLINKAT){
-				deletedPath = constructPathSpecial(deletedPath, eventData.get("a0"), cwd, pid, time, eventId, syscall); 		
+				path = constructPathSpecial(path, eventData.get("a0"), cwd, pid, time, eventId, syscall); 		
 			}else{
-				log(Level.INFO, "Unexpected syscall '"+syscall+"' in UNLINK handler", null, eventData.get("time"), eventId, syscall);
+				log(Level.INFO, "Unexpected syscall '"+syscall+"' in UNLINK handler", null, time, eventId, syscall);
 				return;
 			}
 
-			if(deletedPath == null){
-				log(Level.INFO, "Failed to build absolute path from log data", null, eventData.get("time"), eventId, syscall);
+			if(path == null){
+				log(Level.INFO, "Failed to build absolute path from log data", null, time, eventId, syscall);
 				return;
 			}
 
-			ArtifactIdentifier artifactIdentifier = getValidArtifactIdentifierForPath(deletedPath);
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
 
 			Artifact artifact = putArtifact(eventData, artifactIdentifier, false);    	
 			Process process = putProcess(eventData, time, eventId);    	
@@ -1386,7 +1504,7 @@ public class Audit extends AbstractReporter {
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, DEV_AUDIT);
 		}
 	}
-
+	
 	private void handleExit(Map<String, String> eventData, SYSCALL syscall){
 		// exit(), and exit_group() receives the following message(s):
 		// - SYSCALL
@@ -1433,47 +1551,57 @@ public class Audit extends AbstractReporter {
 		String address = new BigInteger(eventData.get("exit")).toString(16); //convert to hexadecimal
 		String length = new BigInteger(eventData.get("a1")).toString(16); //convert to hexadecimal
 		String protection = new BigInteger(eventData.get("a2")).toString(16); //convert to hexadecimal
-		String fd = eventData.get("fd");
-
-		if(fd == null){
-			log(Level.INFO, "FD record missing", null, time, eventId, syscall);
-			return;
-		}
-
-		ArtifactIdentifier fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
-
-		if(fileArtifactIdentifier == null){
-			descriptors.addUnknownDescriptor(pid, fd);
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
-			fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
-		}
-
-		//if not unknown and not file
-		if((!UnknownIdentifier.class.equals(fileArtifactIdentifier.getClass()) && !FileIdentifier.class.equals(fileArtifactIdentifier.getClass()))){
-			log(Level.INFO, "Artifact with FD '"+fd+"' is '"+fileArtifactIdentifier.getClass()+"'. Must be either a file or an unknown. ", null, time, eventId, syscall);
-			return;
-		}
-
-		Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentifier, false);
-
-		String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
 		
+		int flags = CommonFunctions.parseInt(eventData.get("a3"), 0);
+		
+		// Put Process, Memory artifact and WasGeneratedBy edge always but return if flag
+		// is MAP_ANONYMOUS
+		
+		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
+		
+		String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ?
+				pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
 		ArtifactIdentifier memoryArtifactIdentifier = 
 				new MemoryIdentifier(pidOrTgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, true);
-
-		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
-
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
-		putEdge(wgbEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.WRITE), time, eventId, DEV_AUDIT);
-
-		Used usedEdge = new Used(process, fileArtifact);
-		putEdge(usedEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.READ), time, eventId, DEV_AUDIT);
-
-		WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, fileArtifact);
-		wdfEdge.addAnnotation("protection", protection);
-		wdfEdge.addAnnotation("pid", pid);
-		putEdge(wdfEdge, getOperation(syscall), time, eventId, DEV_AUDIT);
+		putEdge(wgbEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.WRITE), time, eventId, DEV_AUDIT);		
+		
+		if((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS){
+			return;
+		}else{
+		
+			String fd = eventData.get("fd");
+	
+			if(fd == null){
+				log(Level.INFO, "FD record missing", null, time, eventId, syscall);
+				return;
+			}
+	
+			ArtifactIdentifier fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
+	
+			if(fileArtifactIdentifier == null){
+				descriptors.addUnknownDescriptor(pid, fd);
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+				fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
+			}
+	
+			//if not unknown and not file
+			if((!UnknownIdentifier.class.equals(fileArtifactIdentifier.getClass()) && !FileIdentifier.class.equals(fileArtifactIdentifier.getClass()))){
+				log(Level.INFO, "Artifact with FD '"+fd+"' is '"+fileArtifactIdentifier.getClass()+"'. Must be either a file or an unknown. ", null, time, eventId, syscall);
+				return;
+			}
+	
+			Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentifier, false);
+	
+			Used usedEdge = new Used(process, fileArtifact);
+			putEdge(usedEdge, getOperation(syscall)+"_"+getOperation(SYSCALL.READ), time, eventId, DEV_AUDIT);
+	
+			WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, fileArtifact);
+			wdfEdge.addAnnotation("protection", protection);
+			wdfEdge.addAnnotation("pid", pid);
+			putEdge(wdfEdge, getOperation(syscall), time, eventId, DEV_AUDIT);
+		}
 
 	}
 
@@ -1702,16 +1830,15 @@ public class Audit extends AbstractReporter {
 
 		//add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
 		String cwd = eventData.get("cwd");
-		Long totalPaths = CommonFunctions.parseLong(eventData.get("items"), 0L);
-		for(int pathNumber = 0; pathNumber < totalPaths; pathNumber++){
-			String path = eventData.get("path"+pathNumber);
-			path = constructAbsolutePath(path, cwd, pid);
+		List<PathRecord> loadPathRecords = getPathsWithNametype(eventData, "NORMAL");
+		for(PathRecord loadPathRecord : loadPathRecords){
+			String path = constructAbsolutePath(loadPathRecord.getPath(), cwd, pid);
 			if(path == null){
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, SYSCALL.EXECVE);
 				continue;
 			}        	
-			ArtifactIdentifier fileIdentifier = new FileIdentifier(path);
-			Artifact usedArtifact = putArtifact(eventData, fileIdentifier, false);
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getMode());
+			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, false);
 			Used usedEdge = new Used(newProcess, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, DEV_AUDIT);
 		}
@@ -1750,18 +1877,14 @@ public class Audit extends AbstractReporter {
 	 * @param eventData audit log event data as key values
 	 * @return path/null
 	 */
-	private String getPathWithCreateOrNormalNametype(Map<String, String> eventData){
-		String path = null;
-		Map<Integer, String> paths = getPathsWithNametype(eventData, "CREATE");
-		if(paths != null && !paths.isEmpty()){
-			path = paths.values().iterator().next();
+	private PathRecord getPathWithCreateOrNormalNametype(Map<String, String> eventData){
+		PathRecord pathRecord = getFirstPathWithNametype(eventData, "CREATE");
+		if(pathRecord != null){
+			return pathRecord;
 		}else{
-			paths = getPathsWithNametype(eventData, "NORMAL");
-			if(paths != null && !paths.isEmpty()){
-				path = paths.values().iterator().next();
-			}
+			pathRecord = getFirstPathWithNametype(eventData, "NORMAL");
+			return pathRecord;
 		}
-		return path;
 	}
 
 	private void handleOpenat(Map<String, String> eventData){
@@ -1772,13 +1895,14 @@ public class Audit extends AbstractReporter {
 		// - PATH
 		// - EOE
 
-		String path = getPathWithCreateOrNormalNametype(eventData);
+		PathRecord pathRecord = getPathWithCreateOrNormalNametype(eventData);
 		
-		if(path == null){
+		if(pathRecord == null){
 			log(Level.INFO, "Missing PATH record", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.OPENAT);
 			return;
 		}
 		
+		String path = pathRecord.getPath();
 		// If not absolute then only run the following logic according to the manpage
 		if(!path.startsWith(File.separator)){
 			Long dirFd = CommonFunctions.parseLong(eventData.get("a0"), -1L);
@@ -1819,7 +1943,8 @@ public class Audit extends AbstractReporter {
 		//three syscalls can come here: OPEN (for files and pipes), OPENAT (for files and pipes), CREAT (only for files)
 
 		Long flags = CommonFunctions.parseLong(eventData.get("a1"), 0L);
-
+		Long modeArg = CommonFunctions.parseLong(eventData.get("a2"), 0L);
+		
 		String eventId = eventData.get("eventid");
 		String pid = eventData.get("pid");
 		String cwd = eventData.get("cwd");
@@ -1827,20 +1952,20 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get("time");
 
 		boolean isCreate = syscall == SYSCALL.CREATE || syscall == SYSCALL.CREAT; //TODO later on change only to CREAT only
-		String path = null;
-		Map<Integer, String> paths = getPathsWithNametype(eventData, "CREATE"); 
-		if(paths.size() == 0){
+		
+		PathRecord pathRecord = getFirstPathWithNametype(eventData, "CREATE");
+		if(pathRecord == null){
 			isCreate = false;
-			paths = getPathsWithNametype(eventData, "NORMAL");
-			if(paths.size() == 0){ //missing audit record
+			pathRecord = getFirstPathWithNametype(eventData, "NORMAL");
+			if(pathRecord == null){
 				log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 				return;
 			}
-		}else{ //found path with CREATE nametype. will always be one
-			isCreate = true;        	
+		}else{
+			isCreate = true;
 		}
 
-		path = paths.values().iterator().next(); //get the first
+		String path = pathRecord.getPath();
 		path = constructAbsolutePath(path, cwd, pid);
 
 		if(path == null){
@@ -1850,7 +1975,7 @@ public class Audit extends AbstractReporter {
 
 		Process process = putProcess(eventData, time, eventId);
 
-		ArtifactIdentifier artifactIdentifier = getValidArtifactIdentifierForPath(path);
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
 
 		AbstractEdge edge = null;
 
@@ -1867,7 +1992,8 @@ public class Audit extends AbstractReporter {
 
 		}
 
-		if((!FileIdentifier.class.equals(artifactIdentifier.getClass()) && !artifactIdentifier.getClass().equals(NamedPipeIdentifier.class))){ //not a file and not a named pipe
+		if((!FileIdentifier.class.equals(artifactIdentifier.getClass()) && 
+				!artifactIdentifier.getClass().equals(NamedPipeIdentifier.class))){ //not a file and not a named pipe
 			//make it a file identifier
 			artifactIdentifier = new FileIdentifier(path);
 		}
@@ -1893,6 +2019,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(edge != null){
+			edge.addAnnotation("mode", Long.toOctalString(modeArg));
 			//everything happened successfully. add it to descriptors
 			descriptors.addDescriptor(pid, fd, artifactIdentifier, openedForRead);
 
@@ -1999,18 +2126,18 @@ public class Audit extends AbstractReporter {
 		ArtifactIdentifier artifactIdentifier = null;
 
 		if (syscall == SYSCALL.TRUNCATE) {
-			Map<Integer, String> paths = getPathsWithNametype(eventData, "NORMAL");
-			if(paths.size() == 0){
+			PathRecord pathRecord = getFirstPathWithNametype(eventData, "NORMAL");
+			if(pathRecord == null){
 				log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 				return;
 			}
-			String path = paths.values().iterator().next();
+			String path = pathRecord.getPath();
 			path = constructAbsolutePath(path, eventData.get("cwd"), pid);
 			if(path == null){
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = new FileIdentifier(path);
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get("a0");
 
@@ -2022,13 +2149,18 @@ public class Audit extends AbstractReporter {
 			artifactIdentifier = descriptors.getDescriptor(pid, fd);
 		}
 
-		if(FileIdentifier.class.equals(artifactIdentifier.getClass()) || UnknownIdentifier.class.equals(artifactIdentifier.getClass())){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
-			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
-			putEdge(wgb, getOperation(syscall), time, eventId, DEV_AUDIT);
+		if(artifactIdentifier != null){
+			if(FileIdentifier.class.equals(artifactIdentifier.getClass()) 
+					|| UnknownIdentifier.class.equals(artifactIdentifier.getClass())){
+				Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+				WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
+				putEdge(wgb, getOperation(syscall), time, eventId, DEV_AUDIT);
+			}else{
+				log(Level.INFO, "Unexpected artifact type '"+artifactIdentifier+"'. Can only be file or unknown", null, time, eventData.get("eventid"), syscall);
+			}
 		}else{
-			log(Level.INFO, "Unexpected artifact type '"+artifactIdentifier+"'. Can only be file or unknown", null, time, eventData.get("eventid"), syscall);
-		}  
+			log(Level.INFO, "Failed to find artifact identifier from the event data", null, time, eventId, syscall);
+		}
 	}
 
 	private void handleDup(Map<String, String> eventData, SYSCALL syscall) {
@@ -2277,10 +2409,8 @@ public class Audit extends AbstractReporter {
 	}
 	
 	/**
-	 * Constructs path depending on if live audit stream is running or audit logs are being
-	 * read. If audit logs, then concatenates the paths, then removes symbols such as '.' and 
-	 * '..' and then finally resolves symbolic links like /proc/self. If live audit then all
-	 * of that is done using the getCanonicalPath function java File class.
+	 * Constructs path by concatenating the two paths, then removes symbols such as '.' and 
+	 * '..' and then finally resolves symbolic links like /proc/self.
 	 * 
 	 * Null returned if unable to construct absolute path
 	 * 
@@ -2289,19 +2419,13 @@ public class Audit extends AbstractReporter {
 	 * @return constructed path or null
 	 */
 	private String constructAbsolutePath(String path, String parentPath, String pid){
-		if(auditLogThread != null){ // If reading from audit log
-			path = concatenatePaths(path, parentPath);
+		path = concatenatePaths(path, parentPath);
+		if(path != null){
+			path = removeSpecialPathSymbols(path);
 			if(path != null){
-				path = removeSpecialPathSymbols(path);
-				if(path != null){
-					path = resolvePathStatically(path, pid);
-					return path;
-				}
+				path = resolvePathStatically(path, pid);
+				return path;
 			}
-		}else if(eventProcessorThread != null){ // If read from live audit
-			return resolvePathDynamically(path, parentPath);
-		}else{
-			logger.log(Level.INFO, "Unknown audit stream. Neither live audit nor log file");
 		}
 		return null;
 	}
@@ -2339,51 +2463,6 @@ public class Audit extends AbstractReporter {
 		}
 		return null;
 	}
-	
-	/**
-	 * Resolves paths received in audit log to build a canonical path.
-	 * 
-	 * Rules:
-	 * 1) If path absolute then return path i.e. starts with a slash in path
-	 * 2) If path not absolute and parentPath absolute then return parentPath + slash + path
-	 * 3) In all other cases return null
-	 * 
-	 * Note: Returning canonical path to resolve cases where .. or . are used in a path and
-	 * also resolves symbolic links
-	 * 
-	 * @param path path or name
-	 * @param parentPath path of the parent
-	 * @return canonical path or null if not enough information
-	 */    
-	private String resolvePathDynamically(String path, String parentPath){
-		try{
-
-			if(path != null){
-				path = path.trim();
-				if(path.isEmpty()){
-					return null;
-				}else{
-					if(path.startsWith(File.separator)){ //is absolute
-						return new File(path).getCanonicalPath();
-					}else{
-	
-						if(parentPath != null){
-							parentPath = parentPath.trim();
-							if(parentPath.isEmpty() || !parentPath.startsWith(File.separator)){
-								return null;
-							}else{
-								return new File(parentPath + File.separator + path).getCanonicalPath();
-							}
-						}
-					}	
-				}
-			}
-
-		}catch(Exception e){
-			logger.log(Level.INFO, "Failed to create resolved path. path:"+path+", parentPath:"+parentPath, e);
-		}
-		return null;
-	}
 
 	private void handleRename(Map<String, String> eventData, SYSCALL syscall) {
 		// rename(), renameat(), and renameat2() receive the following message(s):
@@ -2402,8 +2481,11 @@ public class Audit extends AbstractReporter {
 		String pid = eventData.get("pid");
 		String cwd = eventData.get("cwd"); 
 		String oldFilePath = eventData.get("path2");
+		int oldFilePathMode = Integer.parseInt(eventData.get("mode2"), 8);
 		//if file renamed to already existed then path4 else path3. Both are same so just getting whichever exists
 		String newFilePath = eventData.get("path4") == null ? eventData.get("path3") : eventData.get("path4");
+		int newFilePathMode = eventData.get("mode4") == null ? Integer.parseInt(eventData.get("mode3"), 8) : 
+																Integer.parseInt(eventData.get("mode4"), 8);
 
 		if(syscall == SYSCALL.RENAME){
 			oldFilePath = constructAbsolutePath(oldFilePath, cwd, pid);
@@ -2412,16 +2494,16 @@ public class Audit extends AbstractReporter {
 			oldFilePath = constructPathSpecial(oldFilePath, eventData.get("a0"), cwd, pid, time, eventId, syscall);        	
 			newFilePath = constructPathSpecial(newFilePath, eventData.get("a2"), cwd, pid, time, eventId, syscall);        	
 		}else{
-			log(Level.WARNING, "Unexpected syscall '"+syscall+"' in RENAME handler", null, eventData.get("time"), eventId, syscall);
+			log(Level.WARNING, "Unexpected syscall '"+syscall+"' in RENAME handler", null, time, eventId, syscall);
 			return;
 		}
 
 		if(oldFilePath == null || newFilePath == null){
-			log(Level.INFO, "Failed to create path(s)", null, eventData.get("time"), eventId, syscall);
+			log(Level.INFO, "Failed to create path(s)", null, time, eventId, syscall);
 			return;
 		}
 
-		handleSpecialSyscalls(eventData, syscall, oldFilePath, newFilePath);
+		handleSpecialSyscalls(eventData, syscall, oldFilePath, newFilePath, oldFilePathMode, newFilePathMode);
 	}
 
 	private void handleMknodat(Map<String, String> eventData){
@@ -2433,13 +2515,17 @@ public class Audit extends AbstractReporter {
 
 		//first argument is the fd of the directory to create file in. if the directory fd is AT_FDCWD then use cwd
 
+		String time = eventData.get("time");
+		String eventId = eventData.get("eventid");
 		String pid = eventData.get("pid");
-		String path = getPathWithCreateOrNormalNametype(eventData);
+		PathRecord pathRecord = getPathWithCreateOrNormalNametype(eventData);
 		
-		if(path == null){
-			log(Level.INFO, "Missing PATH record", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.MKNODAT);
+		if(pathRecord == null){
+			log(Level.INFO, "Missing PATH record", null, time, eventId, SYSCALL.MKNODAT);
 			return;
 		}
+		
+		String path = pathRecord.getPath();
 		
 		// If not absolute then only run the following logic according to the manpage
 		if(!path.startsWith(File.separator)){
@@ -2451,7 +2537,7 @@ public class Audit extends AbstractReporter {
 			if(fdLong != AT_FDCWD){
 				artifactIdentifier = descriptors.getDescriptor(pid, fd);
 				if(artifactIdentifier == null){
-					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, eventData.get("time"), eventData.get("eventid"), SYSCALL.MKNODAT);
+					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.MKNODAT);
 					return;
 				}else if(artifactIdentifier.getClass().equals(FileIdentifier.class)){
 					String directoryPath = ((FileIdentifier)artifactIdentifier).getPath();
@@ -2468,7 +2554,7 @@ public class Audit extends AbstractReporter {
 		eventData.put("a1", eventData.get("a2"));
 		handleMknod(eventData, SYSCALL.MKNODAT);
 	}
-
+	
 	private void handleMknod(Map<String, String> eventData, SYSCALL syscall){
 		//mknod() receives the following message(s):
 		// - SYSCALL
@@ -2481,18 +2567,14 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get("time");
 		String eventId = eventData.get("eventid");
 
-		Long mode = CommonFunctions.parseLong(modeString, 0L);
+		PathRecord pathRecord = getFirstPathWithNametype(eventData, "CREATE");
 
-		String path = null;
-
-		Map<Integer, String> paths = getPathsWithNametype(eventData, "CREATE");
-
-		if(paths.size() == 0){
+		if(pathRecord == null){
 			log(Level.INFO, "PATH record missing", null, time, eventId, syscall);
 			return;
 		}
 
-		path = paths.values().iterator().next();        
+		String path = pathRecord.getPath();        
 		path = constructAbsolutePath(path, eventData.get("cwd"), eventData.get("pid"));
 
 		if(path == null){
@@ -2500,16 +2582,10 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		ArtifactIdentifier artifactIdentifier = null;
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
 
-		if((mode & S_IFIFO) == S_IFIFO){ //is pipe
-			artifactIdentifier = new NamedPipeIdentifier(path);
-		}else if((mode & S_IFREG) == S_IFREG){ //is regular file
-			artifactIdentifier = new FileIdentifier(path);
-		}else if((mode & S_IFSOCK) == S_IFSOCK){ //is unix socket
-			artifactIdentifier = new UnixSocketIdentifier(path);
-		}else{
-			log(Level.INFO, "Unsupported mode for mknod '"+mode+"'", null, time, eventId, syscall);
+		if(artifactIdentifier == null){
+			log(Level.INFO, "Unsupported mode for mknod '"+modeString+"'", null, time, eventId, syscall);
 			return;
 		}	
 
@@ -2531,7 +2607,9 @@ public class Audit extends AbstractReporter {
 		String pid = eventData.get("pid");
 		String cwd = eventData.get("cwd");
 		String srcPath = eventData.get("path0");
+		int srcPathMode = Integer.parseInt(eventData.get("mode0"), 8);
 		String dstPath = eventData.get("path2");
+		int dstPathMode = Integer.parseInt(eventData.get("mode2"), 8);
 		String time = eventData.get("time");
 
 		if(syscall == SYSCALL.LINK || syscall == SYSCALL.SYMLINK){
@@ -2553,7 +2631,7 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		handleSpecialSyscalls(eventData, syscall, srcPath, dstPath);
+		handleSpecialSyscalls(eventData, syscall, srcPath, dstPath, srcPathMode, dstPathMode);
 	}
 
 	/**
@@ -2571,7 +2649,9 @@ public class Audit extends AbstractReporter {
 	 * @param srcPath path of the file being linked
 	 * @param dstPath path of the link
 	 */
-	private void handleSpecialSyscalls(Map<String, String> eventData, SYSCALL syscall, String srcPath, String dstPath){
+	private void handleSpecialSyscalls(Map<String, String> eventData, SYSCALL syscall, 
+			String srcPath, String dstPath,
+			int srcPathMode, int dstPathMode){
 
 		if(eventData == null || syscall == null || srcPath == null || dstPath == null){
 			logger.log(Level.INFO, "Missing arguments. srcPath:{0}, dstPath:{1}, syscall:{2}, eventData:{3}", new Object[]{srcPath, dstPath, syscall, eventData});
@@ -2590,17 +2670,12 @@ public class Audit extends AbstractReporter {
 
 		Process process = putProcess(eventData, time, eventId);
 
-		ArtifactIdentifier srcArtifactIdentifier = getValidArtifactIdentifierForPath(srcPath);
-		ArtifactIdentifier dstArtifactIdentifier = null;
-
-		if(FileIdentifier.class.equals(srcArtifactIdentifier.getClass())){
-			dstArtifactIdentifier = new FileIdentifier(dstPath);
-		}else if(NamedPipeIdentifier.class.equals(srcArtifactIdentifier.getClass())){
-			dstArtifactIdentifier = new NamedPipeIdentifier(dstPath);
-		}else if(UnixSocketIdentifier.class.equals(srcArtifactIdentifier.getClass())){
-			dstArtifactIdentifier = new UnixSocketIdentifier(dstPath);
-		}else{
-			log(Level.INFO, "Unexpected artifact type '"+srcArtifactIdentifier+"' for syscall", null, time, eventId, syscall);
+		ArtifactIdentifier srcArtifactIdentifier = getArtifactIdentifierFromPathMode(srcPath, srcPathMode);
+		ArtifactIdentifier dstArtifactIdentifier = getArtifactIdentifierFromPathMode(dstPath, dstPathMode);
+		
+		if(srcArtifactIdentifier == null || dstArtifactIdentifier == null){
+			logger.log(Level.WARNING, "Missing path objects. Failed to "
+					+ "process syscall {0} for event id {1}", new Object[]{syscall, eventId});
 			return;
 		}
 
@@ -2619,6 +2694,30 @@ public class Audit extends AbstractReporter {
 		wdf.addAnnotation("pid", pid);
 		putEdge(wdf, operationPrefix, time, eventId, DEV_AUDIT);
 	}
+	
+	/**
+	 * Returns the corresponding artifact identifier type based on the pathModeString value
+	 * 
+	 * Returns null if an unexpected mode value found
+	 * 
+	 * @param path file system path
+	 * @param pathMode mode value for the path in the audit log
+	 * @return ArtifactIdentifier subclass or null
+	 */
+	private ArtifactIdentifier getArtifactIdentifierFromPathMode(String path, int pathMode){
+		if((pathMode & S_IFMT) == S_IFREG || (pathMode & S_IFMT) == S_IFDIR 
+				|| (pathMode & S_IFMT) == S_IFCHR || (pathMode & S_IFMT) == S_IFBLK
+				|| (pathMode & S_IFMT) == S_IFLNK){
+			return new FileIdentifier(path);
+		}else if((pathMode & S_IFMT) == S_IFIFO){
+			return new NamedPipeIdentifier(path);
+		}else if((pathMode & S_IFMT) == S_IFSOCK){
+			return new UnixSocketIdentifier(path);
+		}else{
+			logger.log(Level.WARNING, "Unknown file type in mode: {0}", new Object[]{pathMode});
+			return null;
+		}
+	}
 
 	private void handleChmod(Map<String, String> eventData, SYSCALL syscall) {
 		// chmod(), fchmod(), and fchmodat() receive the following message(s):
@@ -2636,18 +2735,18 @@ public class Audit extends AbstractReporter {
 		// if syscall is fchmodat, loop up the directory fd and build a path using the path in the audit log
 		ArtifactIdentifier artifactIdentifier = null;
 		if (syscall == SYSCALL.CHMOD) {
-			Map<Integer, String> paths = getPathsWithNametype(eventData, "NORMAL");
-			if(paths.size() == 0){
+			PathRecord pathRecord = getFirstPathWithNametype(eventData, "NORMAL");
+			if(pathRecord == null){
 				log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 				return;
 			}
-			String path = paths.values().iterator().next();
+			String path = pathRecord.getPath();
 			path = constructAbsolutePath(path, eventData.get("cwd"), pid);
 			if(path == null){
 				log(Level.INFO, "Missing PATH or CWD records", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getValidArtifactIdentifierForPath(path);
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
 			modeArgument = eventData.get("a1");
 		} else if (syscall == SYSCALL.FCHMOD) {
 
@@ -2661,24 +2760,29 @@ public class Audit extends AbstractReporter {
 			artifactIdentifier = descriptors.getDescriptor(pid, fd);
 			modeArgument = eventData.get("a1");
 		}else if(syscall == SYSCALL.FCHMODAT){
-			Map<Integer, String> paths = getPathsWithNametype(eventData, "NORMAL");
-			if(paths.size() == 0){
+			PathRecord pathRecord = getFirstPathWithNametype(eventData, "NORMAL");
+			if(pathRecord == null){
 				log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 				return;
 			}
-			String path = paths.values().iterator().next();
+			String path = pathRecord.getPath();
 			path = constructPathSpecial(path, eventData.get("a0"), eventData.get("cwd"), pid, time, eventId, syscall);
 			if(path == null){
 				log(Level.INFO, "Failed to create path", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getValidArtifactIdentifierForPath(path);
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
 			modeArgument = eventData.get("a2");
 		}else{
 			log(Level.INFO, "Unexpected syscall '"+syscall+"' in CHMOD handler", null, time, eventId, syscall);
 			return;
 		}
 
+		if(artifactIdentifier == null){
+			logger.log(Level.WARNING, "Failed to process syscall="+syscall +" because of missing artifact identifier");
+			return;
+		}
+		
 		String mode = new BigInteger(modeArgument).toString(8);
 		Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
 		WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
@@ -2738,8 +2842,10 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - SADDR
 		// - EOE
+		String time = eventData.get("time");
+		String eventId = eventData.get("eventid");
 		String saddr = eventData.get("saddr");
-		ArtifactIdentifier artifactIdentifier = parseSaddr(saddr, eventData.get("time"), eventData.get("eventid"), syscall);
+		ArtifactIdentifier artifactIdentifier = parseSaddr(saddr, time, eventId, syscall);
 		if (artifactIdentifier != null) {
 			if(UnixSocketIdentifier.class.equals(artifactIdentifier.getClass()) && !UNIX_SOCKETS){
 				return;
@@ -2751,7 +2857,7 @@ public class Audit extends AbstractReporter {
 			String socketFd = eventData.get("a0");
 			descriptors.addDescriptor(pid, socketFd, artifactIdentifier, false);
 		}else{
-			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, eventData.get("time"), eventData.get("eventid"), syscall);
+			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, syscall);
 		}
 	}
 
@@ -2849,6 +2955,66 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
+	// Only to be called from handleSend or handleRecv
+	private ArtifactIdentifier getSockDescriptorArtifactIdentifier(String pid, String fd, 
+			String saddr, String time, String eventId, SYSCALL syscall){
+		boolean markNewEpoch = false;
+		// Get the existing descriptor
+		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+		// If saddr in eventdata then process it (UDP socket) with a possible case that it hasn't been seen before
+		if(saddr != null){
+			// If the existing one is null then create the new one from saddr, add to descriptor map, set markNewEpoch flag
+			if(artifactIdentifier == null){
+				artifactIdentifier = parseSaddr(saddr, time, eventId, syscall);
+				if(artifactIdentifier != null){
+					descriptors.addDescriptor(pid, fd, artifactIdentifier, null);
+					markNewEpoch = true;
+				}else{
+					// returning the unknown one at the end since artifactIdentifier would be null
+				}		
+			}else{
+				// If the existing one not null then create one from saddr and check if they are the same. 
+				// If same then continue without doing anything
+				// If different then put the new one in descriptor map, set epoch flag
+				ArtifactIdentifier parsedArtifactIdentifier = parseSaddr(saddr, time, eventId, syscall);
+				
+				if(parsedArtifactIdentifier != null){
+					if(parsedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class) && 
+							artifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
+						//expecting
+						ArtifactIdentifier merged = NetworkSocketIdentifier.merge(
+								(NetworkSocketIdentifier)artifactIdentifier, 
+								(NetworkSocketIdentifier)parsedArtifactIdentifier);
+						if(merged != null){
+							parsedArtifactIdentifier = merged;
+						}
+					}
+				}
+				
+				if(!artifactIdentifier.equals(parsedArtifactIdentifier)){// Not seen before so mark epoch and add
+					if(parsedArtifactIdentifier != null){
+						descriptors.addDescriptor(pid, fd, parsedArtifactIdentifier, null); //replace
+						artifactIdentifier = parsedArtifactIdentifier;
+						markNewEpoch = true;
+					}
+				}
+			}
+		}
+		
+		// If the identifier is null then create an unknown one, set epoch flag
+		if(artifactIdentifier == null){
+			descriptors.addUnknownDescriptor(pid, fd);
+			artifactIdentifier = descriptors.getDescriptor(pid, fd);
+			markNewEpoch = true;
+		}
+		
+		if(markNewEpoch){
+			markNewEpochForArtifact(artifactIdentifier, time, eventId);
+		}
+
+		return artifactIdentifier;
+	}
+
 	private void handleSend(Map<String, String> eventData, SYSCALL syscall) {
 		// sendto()/sendmsg() receive the following message(s):
 		// - SYSCALL
@@ -2861,17 +3027,17 @@ public class Audit extends AbstractReporter {
 		String fd = eventData.get("a0");
 		String bytesSent = eventData.get("exit");
 
-		if(descriptors.getDescriptor(pid, fd) == null){
-			descriptors.addUnknownDescriptor(pid, fd); 
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+		ArtifactIdentifier artifactIdentifier = 
+				getSockDescriptorArtifactIdentifier(pid, fd, eventData.get("saddr"), time, eventId, syscall);
+		if(artifactIdentifier == null){
+			log(Level.WARNING, "Failed to get/build ArtifactIdentifier", null, time, eventId, syscall);
+			return;
 		}else{
-			if(UnixSocketIdentifier.class.equals(descriptors.getDescriptor(pid, fd).getClass()) && !UNIX_SOCKETS){
+			if(UnixSocketIdentifier.class.equals(artifactIdentifier.getClass()) && !UNIX_SOCKETS){
 				return;
 			}
 		}
-
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
-
+		
 		if(artifactIdentifier != null){
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
@@ -2887,27 +3053,28 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get("time");
 		String eventId = eventData.get("eventid");
 		String pid = eventData.get("pid");
-
 		Process process = putProcess(eventData, time, eventId);
 
 		String fd = eventData.get("a0");
 		String bytesReceived = eventData.get("exit");
-
-		if(descriptors.getDescriptor(pid, fd) == null){
-			descriptors.addUnknownDescriptor(pid, fd); 
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+		
+		ArtifactIdentifier artifactIdentifier = getSockDescriptorArtifactIdentifier(pid, fd, 
+				eventData.get("saddr"), time, eventId, syscall);
+		if(artifactIdentifier == null){
+			log(Level.WARNING, "Failed to get/build ArtifactIdentifier", null, time, eventId, syscall);
+			return;
 		}else{
-			if(UnixSocketIdentifier.class.equals(descriptors.getDescriptor(pid, fd).getClass()) && !UNIX_SOCKETS){
+			if(UnixSocketIdentifier.class.equals(artifactIdentifier.getClass()) && !UNIX_SOCKETS){
 				return;
 			}
 		}
 
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);     
-
-		Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
-		Used used = new Used(process, vertex);
-		used.addAnnotation("size", bytesReceived);
-		putEdge(used, getOperation(syscall), time, eventId, DEV_AUDIT);
+		if(artifactIdentifier != null){
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
+			Used used = new Used(process, vertex);
+			used.addAnnotation("size", bytesReceived);
+			putEdge(used, getOperation(syscall), time, eventId, DEV_AUDIT);
+		}
 	}
 
 	/**
@@ -3062,8 +3229,7 @@ public class Audit extends AbstractReporter {
 	 * NEW: 
 	 * 8) If KEEP_VERSIONS is false then version annotation not added and WDF edge between old and new version not drawn
 	 * 9) If KEEP_EPOCHS is false then epoch annotation not added
-	 * 10) If SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES is false then file, named pipe, and unix socket subtype changed to file
-	 * 11) If KEEP_ARTIFACT_PROPERTIES_MAP is false then version and epoch annotations NOT added
+	 * 10) If KEEP_ARTIFACT_PROPERTIES_MAP is false then version and epoch annotations NOT added
 	 * 
 	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
 	 * @param artifactIdentifier artifact to create
@@ -3080,19 +3246,7 @@ public class Audit extends AbstractReporter {
 		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
 		
 		Artifact artifact = new Artifact();
-		if(SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES){
-			artifact.addAnnotation("subtype", artifactIdentifier.getSubtype().toString().toLowerCase());
-		}else{
-			String subtype = artifactIdentifier.getSubtype();
-			// So far identities with path are file, namedpipe, unix sockets. 
-			// Merging the above-mentioned 3 into the file subtype
-			if(FileIdentifier.class.equals(artifactIdentifierClass)
-					|| NamedPipeIdentifier.class.equals(artifactIdentifierClass)
-					|| UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
-				subtype = ArtifactIdentifier.SUBTYPE_FILE;
-			}
-			artifact.addAnnotation("subtype", subtype.toLowerCase());
-		}
+		artifact.addAnnotation("subtype", artifactIdentifier.getSubtype().toString().toLowerCase());
 		artifact.addAnnotations(artifactIdentifier.getAnnotationsMap());
 
 		if(useThisSource != null){
@@ -3234,7 +3388,7 @@ public class Audit extends AbstractReporter {
 		}
 		return result;
 	}
-
+	
 	/**
 	 * Returns either NetworkSocketIdentifier or UnixSocketIdentifier depending on the type in saddr.
 	 * 
@@ -3244,11 +3398,11 @@ public class Audit extends AbstractReporter {
 	 * If none of the above then null returned
 	 * 
 	 * Syscall parameter is using to identify (in case of network sockets) whether the address and port are 
-	 * source or destination ones.
+	 * source or destination ones. See code.
 	 * 
 	 * @param saddr a hex string of format 0100... or 0200... or 0A...
 	 * @param time time of the audit event
-	 * @param eventId id of the event from where the saddr value is recevied
+	 * @param eventId id of the event from where the saddr value is received
 	 * @param syscall syscall in which this saddr was received
 	 * @return the appropriate subclass of ArtifactIdentifier or null
 	 */
@@ -3309,17 +3463,16 @@ public class Audit extends AbstractReporter {
 				}
 
 				if(address != null && port != null){
-					if(syscall == SYSCALL.BIND){ //put address as destination
+					if(syscall.equals(SYSCALL.BIND)){//put address as destination
 						return new NetworkSocketIdentifier("", "", address, port, "");
-					}else if(syscall == SYSCALL.CONNECT){ //put address as destination
+					}else if(syscall.equals(SYSCALL.CONNECT) || isSockWriteSyscall(syscall)){//put address as destination
 						return new NetworkSocketIdentifier("", "", address, port, "");
-					}else if(syscall == SYSCALL.ACCEPT || syscall == SYSCALL.ACCEPT4){ //put address as source
+					}else if(syscall.equals(SYSCALL.ACCEPT) || syscall.equals(SYSCALL.ACCEPT4) || isSockReadSyscall(syscall)){//put address as source
 						return new NetworkSocketIdentifier(address, port, "", "", "");
 					}else{
 						log(Level.INFO, "Unsupported syscall to parse saddr '"+saddr+"'", null, time, eventId, syscall);
 					}
 				}
-
 			}
 		}
 
@@ -3501,103 +3654,6 @@ public class Audit extends AbstractReporter {
 		}
 		return returnSyscall.toString().toLowerCase();
 	}
-
-	/**
-	 * Checks the internal data structure for artifacts to see if a path-based artifact identifier with the same path exists.
-	 * If multiple type of artifact identities with the same path exist then it returns the one which was created last i.e. with
-	 * the biggest event id.
-	 * 
-	 * If unable to find an artifact identifier with the given path then it returns a file artifact identifier with that path. 
-	 * Rule: Everything is a file until proven otherwise.
-	 * 
-	 * Note: The internal data structure {@link #artifactIdentifierToArtifactProperties artifactIdentifierToArtifactProperties} 
-	 * has to be accessed directly in this function instead of using the function {@link #getArtifactProperties(ArtifactIdentifier) 
-	 * getArtifactProperties} because that function adds and returns the properties for the artifact identifier even if doesn't exist.
-	 * Using that function would say something existed which didn't exist before.
-	 * 
-	 * NEW:
-	 * 
-	 * If either KEEP_ARTIFACT_PROPERTIES_MAP or SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES is false then always returns
-	 * FileIdentity. 
-	 * 
-	 * @param path path to check against
-	 * @return the artifact identifier with the matched path or a file artifact identifier if path didn't match any artifact identifier
-	 */
-	private ArtifactIdentifier getValidArtifactIdentifierForPath(String path){
-		
-		if(!KEEP_ARTIFACT_PROPERTIES_MAP || !SEPARATE_FILE_UNIX_NAMEDPIPE_SUBTYPES){
-			return new FileIdentifier(path);
-		}
-		
-		FileIdentifier fileIdentifier = new FileIdentifier(path);
-		NamedPipeIdentifier namedPipeIdentifier = new NamedPipeIdentifier(path);
-		UnixSocketIdentifier unixSocketIdentifier = new UnixSocketIdentifier(path);
-		//NOTE: get them directly without using the utility function. done to get null properties if not initialized yet.
-		//dont use the getArtifactProperties function here
-		ArtifactProperties fileProperties = artifactIdentifierToArtifactProperties.get(fileIdentifier); 
-		ArtifactProperties namedPipeProperties = artifactIdentifierToArtifactProperties.get(namedPipeIdentifier);
-		ArtifactProperties unixSocketProperties = artifactIdentifierToArtifactProperties.get(unixSocketIdentifier);
-
-		fileProperties = fileProperties == null ? new ArtifactProperties() : fileProperties;
-		namedPipeProperties = namedPipeProperties == null ? new ArtifactProperties() : namedPipeProperties;
-		unixSocketProperties = unixSocketProperties == null ? new ArtifactProperties() : unixSocketProperties;
-		
-		Comparator<SimpleEntry<ArtifactIdentifier, ArtifactProperties>> artifactPropertiesComparator = 
-				new Comparator<SimpleEntry<ArtifactIdentifier, ArtifactProperties>>() {
-			//descending order
-			@Override
-			public int compare(SimpleEntry<ArtifactIdentifier, ArtifactProperties> o1, 
-					SimpleEntry<ArtifactIdentifier, ArtifactProperties> o2) {
-				if(o1 == null && o2 == null){
-					return 0;
-				}else{
-					if(o1 == null && o2 != null){
-						return 1;
-					}else if(o1 != null && o2 == null){
-						return -1;
-					}else{ //both non-null
-						ArtifactProperties a1 = o1.getValue();
-						ArtifactProperties a2 = o2.getValue();
-						if(a1 == null && a2 == null){
-							return 0;
-						}else{
-							if(a1 == null && a2 != null){
-								return 1;
-							}else if(a1 != null && a2 == null){
-								return -1;
-							}else{
-								if(a1.getCreationTime() > a2.getCreationTime()){
-									return -1;
-								}else if(a1.getCreationTime() < a2.getCreationTime()){
-									return 1;
-								}else{ //both equal
-									if(a1.getCreationEventId() > a2.getCreationEventId()){
-										return -1;
-									}else if(a1.getCreationEventId() < a2.getCreationEventId()){
-										return 1;
-									}else{
-										return 0;
-									}
-								}
-							}								
-						}
-					}
-				}
-			}
-		};
-		
-		List<SimpleEntry<ArtifactIdentifier, ArtifactProperties>> toSort = 
-				new ArrayList<SimpleEntry<ArtifactIdentifier, ArtifactProperties>>();
-		//file always first added because if all equal then file stays first and default return value is file
-		toSort.add(new SimpleEntry<ArtifactIdentifier, ArtifactProperties>(fileIdentifier, fileProperties));
-		toSort.add(new SimpleEntry<ArtifactIdentifier, ArtifactProperties>(namedPipeIdentifier, namedPipeProperties));
-		toSort.add(new SimpleEntry<ArtifactIdentifier, ArtifactProperties>(unixSocketIdentifier, unixSocketProperties));
-		
-		Collections.sort(toSort, artifactPropertiesComparator);
-		
-		//return the first one because that is with the latest timestamp and or event id
-		return toSort.get(0).getKey();
-	}
 	
 	/**
 	 * Every path record in Audit log has a key 'nametype' which can be used to identify what the artifact
@@ -3609,24 +3665,47 @@ public class Audit extends AbstractReporter {
 	 * 3) NORMAL -> path was just used for read or write
 	 * 4) DELETE -> path was deleted
 	 * 5) UNKNOWN -> can't tell what was done with the path. So far seen that it only happens when a syscall fails.
+	 * 
+	 * Returns empty if none found
 	 *  
 	 * @param eventData eventData that contains the paths information in the format: path[Index], nametype[Index]. example, path0, nametype0 
 	 * @param nametypeValue one of the above-mentioned values. Case sensitive compare operation on nametypeValue
-	 * @return returns a Map where key is the index and the value is the path name.
+	 * @return returns a list PathRecord objects sorted by their index in ascending order
 	 */
-	private Map<Integer, String> getPathsWithNametype(Map<String, String> eventData, String nametypeValue){
-		Map<Integer, String> indexToPathMap = new HashMap<Integer, String>();
+	private List<PathRecord> getPathsWithNametype(Map<String, String> eventData, String nametypeValue){
+		List<PathRecord> pathRecords = new ArrayList<PathRecord>();
 		if(eventData != null && nametypeValue != null){
 			Long items = CommonFunctions.parseLong(eventData.get("items"), 0L);
 			for(int itemcount = 0; itemcount < items; itemcount++){
 				if(nametypeValue.equals(eventData.get("nametype"+itemcount))){
-					indexToPathMap.put(itemcount, eventData.get("path"+itemcount));
+					PathRecord pathRecord = new PathRecord(itemcount, eventData.get("path"+itemcount), 
+							eventData.get("nametype"+itemcount), Integer.parseInt(eventData.get("mode"+itemcount), 8));
+					pathRecords.add(pathRecord);
 				}
 			}
-		}    	
-		return indexToPathMap;
+		}
+		Collections.sort(pathRecords);
+		return pathRecords;
 	}
 
+	/**
+	 * Returns the first PathRecord object where nametypeValue matches i.e. one with the lowest index
+	 * 
+	 * Returns null if none found
+	 * 
+	 * @param eventData eventData that contains the paths information in the format: path[Index], nametype[Index]. example, path0, nametype0 
+	 * @param nametypeValue one of the above-mentioned values. Case sensitive compare operation on nametypeValue
+	 * @return returns the PathRecord object with the lowest index
+	 */
+	private PathRecord getFirstPathWithNametype(Map<String, String> eventData, String nametypeValue){
+		List<PathRecord> pathRecords = getPathsWithNametype(eventData, nametypeValue);
+		if(pathRecords == null || pathRecords.size() == 0){
+			return null;
+		}else{
+			return pathRecords.get(0);
+		}
+	}
+	
 	//////////////////////////////////////// Process and Unit management code below
 
 	/**
@@ -4126,6 +4205,108 @@ public class Audit extends AbstractReporter {
 				BEEP, startTime, unitId, iteration, count);
 	}
 
+}
+
+/**
+ * A class to represent all of Path record data as received from Audit logs
+ * 
+ * Implements Comparable interface on the index field. And is immutable.
+ * 
+ */
+class PathRecord implements Comparable<PathRecord>{
+
+	/**
+	 * Value of the name field in the audit log
+	 */
+	private String path;
+	/**
+	 * Value of the item field in the audit log
+	 */
+	private int index;
+	/**
+	 * Value of the nametype field in the audit log
+	 */
+	private String nametype;
+	/**
+	 * Value of the mode field in the audit log
+	 */
+	private int mode;
+	
+	public PathRecord(int index, String path, String nametype, int mode){
+		this.index = index;
+		this.path = path;
+		this.nametype = nametype;
+		this.mode = mode;
+	}
+	
+	public String getPath(){
+		return path;
+	}
+	
+	public String getNametype(){
+		return nametype;
+	}
+	
+	public int getIndex(){
+		return index;
+	}
+	
+	public int getMode(){
+		return mode;
+	}
+
+	/**
+	 * Compares based on index. If the passed object is null then 1 returned always
+	 */
+	@Override
+	public int compareTo(PathRecord o) {
+		if(o != null){
+			return this.index - o.index;
+		}
+		return 1;
+	}
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + index;
+		result = prime * result + mode;
+		result = prime * result + ((nametype == null) ? 0 : nametype.hashCode());
+		result = prime * result + ((path == null) ? 0 : path.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PathRecord other = (PathRecord) obj;
+		if (index != other.index)
+			return false;
+		if (mode != other.mode)
+			return false;
+		if (nametype == null) {
+			if (other.nametype != null)
+				return false;
+		} else if (!nametype.equals(other.nametype))
+			return false;
+		if (path == null) {
+			if (other.path != null)
+				return false;
+		} else if (!path.equals(other.path))
+			return false;
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "PathRecord [path=" + path + ", index=" + index + ", nametype=" + nametype + ", mode=" + mode + "]";
+	}
 }
 
 /**

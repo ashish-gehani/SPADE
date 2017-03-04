@@ -121,5 +121,36 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 		return true;
 	}
 	
+	/**
+	 * Merges the two given network socket identifiers. The value in the second one overwrites the value 
+	 * in the first one if both objects have it.
+	 * 
+	 * If either of them null then null returned.
+	 * 
+	 * @param first the object with the lower preference when merging
+	 * @param second the object with the higher preference when merging
+	 * @return The merged NetworkSocketIdentifier
+	 */
+	public static NetworkSocketIdentifier merge(NetworkSocketIdentifier first, NetworkSocketIdentifier second){
+		if(first == null || second == null){
+			return null;
+		}else{
+			NetworkSocketIdentifier merged = new NetworkSocketIdentifier("", "", "", "", "");
+			
+			merged.sourceHost = second.sourceHost == null || second.sourceHost.trim().isEmpty() ? 
+					first.sourceHost : second.sourceHost;
+			merged.sourcePort = second.sourcePort == null || second.sourcePort.trim().isEmpty() ? 
+					first.sourcePort : second.sourcePort;
+			merged.destinationHost = second.destinationHost == null || second.destinationHost.trim().isEmpty() ? 
+					first.destinationHost : second.destinationHost;
+			merged.destinationPort = second.destinationPort == null || second.destinationPort.trim().isEmpty() ? 
+					first.destinationPort : second.destinationPort;
+			merged.protocol = second.protocol == null || second.protocol.trim().isEmpty() ? 
+					first.protocol : second.protocol;
+			
+			return merged;
+		}
+	}
+	
 	
 }

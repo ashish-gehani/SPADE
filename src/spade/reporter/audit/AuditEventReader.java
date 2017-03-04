@@ -76,9 +76,10 @@ public class AuditEventReader {
 
 	// Group 1: item number
 	// Group 2: name
-	// Group 3: nametype
+	// Group 3: mode
+	// Group 4: nametype
 	//name is either a quoted string or an unquoted string in which case it is in hex format
-	private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+) .*nametype=([a-zA-Z]*)");
+	private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+|\\(null\\)) .*mode=([0-9]+) .*nametype=([a-zA-Z]*)");
 
 	// Group 1: eventid
 	private static final Pattern pattern_eventid = Pattern.compile("msg=audit\\([0-9\\.]+\\:([0-9]+)\\):");
@@ -501,10 +502,13 @@ public class AuditEventReader {
 				if (path_matcher.find()) {
 					String item = path_matcher.group(1);
 					String name = path_matcher.group(2);
-					String nametype = path_matcher.group(3);
+					String mode = path_matcher.group(3);
+					String nametype = path_matcher.group(4);
 					name = name.trim();
 					if(name.startsWith("\"") && name.endsWith("\"")){ //is a string path
 						name = name.substring(1, name.length()-1);
+					}else if(name.equals("(null)")){
+						// keep the name as is
 					}else{ //is in hex format
 						try{
 							name = parseHexStringToUTF8(name);
@@ -514,6 +518,7 @@ public class AuditEventReader {
 					}
 					auditRecordKeyValues.put("path" + item, name);
 					auditRecordKeyValues.put("nametype" + item, nametype);
+					auditRecordKeyValues.put("mode" + item, mode);
 				}
 			} else if (type.equals("EXECVE")) {
 				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
