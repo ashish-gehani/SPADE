@@ -125,7 +125,7 @@ public class Audit extends AbstractReporter {
 	private Boolean ARCH_32BIT = true;
 	//    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
 	private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-	private String AUDIT_EXEC_PATH;
+	private String AUDIT_BRIDGE_COMMAND;
 	// Process map based on <pid, stack of vertices> pairs
 	private final Map<String, LinkedList<Process>> processUnitStack = new HashMap<String, LinkedList<Process>>();
 	// Process version map. Versioning based on units. pid -> unitid -> iterationcount
@@ -265,7 +265,7 @@ public class Audit extends AbstractReporter {
 			return false; //if unable to find out the architecture then report failure
 		}
 
-		AUDIT_EXEC_PATH = SPADE_ROOT + "lib/spadeSocketBridge";
+		AUDIT_BRIDGE_COMMAND = SPADE_ROOT + "lib/spadeSocketBridge -s /var/run/audispd_events";
 		String auditOutputLog = SPADE_ROOT + "log/LinuxAudit.log";
 
 		Map<String, String> args = CommonFunctions.parseKeyValPairs(arguments);
@@ -515,7 +515,7 @@ public class Audit extends AbstractReporter {
 					public void run() {
 						AuditEventReader auditEventReader = null;
 						try {
-							auditProcess = Runtime.getRuntime().exec(AUDIT_EXEC_PATH);
+							auditProcess = Runtime.getRuntime().exec(AUDIT_BRIDGE_COMMAND);
 							List<SimpleEntry<String, InputStream>> keysAndStreams = new ArrayList<SimpleEntry<String, InputStream>>();
 							keysAndStreams.add(new SimpleEntry<String, InputStream>("live audit", auditProcess.getInputStream()));
 							auditEventReader = new AuditEventReader(auditReaderWindowSize, keysAndStreams);
