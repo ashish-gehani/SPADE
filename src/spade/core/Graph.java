@@ -123,14 +123,6 @@ public class Graph extends AbstractStorage implements Serializable {
             logger.log(Level.SEVERE, null, exception);
         }
     }
-    
-    public AbstractVertex getVertex(int id) {
-        return vertexIdentifiers.get(id);
-    }
-
-    public AbstractEdge getEdge(int id) {
-        return edgeIdentifiers.get(id);
-    }
 
     public int getId(AbstractVertex vertex) {
         return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : -1;
@@ -152,21 +144,22 @@ public class Graph extends AbstractStorage implements Serializable {
     }
 
     /**
-     * Add a vertex to the graph object. The vertex is sent to the transformers
-     * before it is finally committed.
+     * This function inserts the given vertex into the underlying storage(s) and
+     * updates the cache(s) accordingly.
      *
-     * @param inputVertex The vertex to be added
-     * @return
+     * @param incomingVertex vertex to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the vertex is already present in the storage.
      */
     @Override
-    public boolean putVertex(AbstractVertex inputVertex) {
-        if (reverseVertexIdentifiers.containsKey(inputVertex)) {
+    public boolean putVertex(AbstractVertex incomingVertex) {
+        if (reverseVertexIdentifiers.containsKey(incomingVertex)) {
             return false;
         }
         // Add vertex to Lucene index
         try {
             Document doc = new Document();
-            for (Map.Entry<String, String> currentEntry : inputVertex.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
                 if (key.equals(ID_STRING)) {
@@ -178,32 +171,32 @@ public class Graph extends AbstractStorage implements Serializable {
             vertexIndexWriter.addDocument(doc);
             // vertexIndexWriter.commit();
 
-            vertexIdentifiers.put(serial_number, inputVertex);
-            reverseVertexIdentifiers.put(inputVertex, serial_number);
-            vertexSet.add(inputVertex);
+            vertexIdentifiers.put(serial_number, incomingVertex);
+            reverseVertexIdentifiers.put(incomingVertex, serial_number);
+            vertexSet.add(incomingVertex);
             serial_number++;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
         return true;
     }
-
     /**
-     * Add an edge to the graph object. The edge is sent to the transformers
-     * before it is finally committed.
+     * This function inserts the given edge into the underlying storage(s) and
+     * updates the cache(s) accordingly.
      *
-     * @param inputEdge The edge to be added
-     * @return
+     * @param incomingEdge edge to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the edge is already present in the storage.
      */
     @Override
-    public boolean putEdge(AbstractEdge inputEdge) {
-        if (reverseEdgeIdentifiers.containsKey(inputEdge)) {
+    public boolean putEdge(AbstractEdge incomingEdge) {
+        if (reverseEdgeIdentifiers.containsKey(incomingEdge)) {
             return false;
         }
         // Add edge to Lucene index
         try {
             Document doc = new Document();
-            for (Map.Entry<String, String> currentEntry : inputEdge.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
                 if (key.equals(ID_STRING)) {
@@ -212,14 +205,14 @@ public class Graph extends AbstractStorage implements Serializable {
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getSourceVertex())), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getDestinationVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getSourceVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getDestinationVertex())), Field.Store.YES, Field.Index.ANALYZED));
             edgeIndexWriter.addDocument(doc);
             // edgeIndexWriter.commit();
 
-            edgeIdentifiers.put(serial_number, inputEdge);
-            reverseEdgeIdentifiers.put(inputEdge, serial_number);
-            edgeSet.add(inputEdge);
+            edgeIdentifiers.put(serial_number, incomingEdge);
+            reverseEdgeIdentifiers.put(incomingEdge, serial_number);
+            edgeSet.add(incomingEdge);
             serial_number++;
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -647,229 +640,55 @@ public class Graph extends AbstractStorage implements Serializable {
         }
     }
 
+    /**
+     * This function queries the underlying storage and retrieves the edge
+     * matching the given criteria.
+     *
+     * @param sourceVertexHash      hash of the source vertex.
+     * @param destinationVertexHash hash of the destination vertex.
+     * @return returns edge object matching the given vertices OR NULL.
+     */
     @Override
-    public Graph getVertices(String expression) {
-        try {
-            IndexReader reader = IndexReader.open(vertexIndex);
-            IndexSearcher searcher = new IndexSearcher(reader);
-            ScoreDoc[] hits = searcher.search(queryParser.parse(expression), MAX_QUERY_HITS).scoreDocs;
-
-            Graph resultGraph = new Graph();
-            for (int i = 0; i < hits.length; ++i) {
-                int docId = hits[i].doc;
-                Document foundDoc = searcher.doc(docId);
-                int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-                resultGraph.putVertex(vertexIdentifiers.get(vertex_identifier));
-            }
-
-            searcher.close();
-            reader.close();
-            resultGraph.commitIndex();
-            return resultGraph;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return null;
-        }
+    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash) {
+        return null;
     }
 
+    /**
+     * This function queries the underlying storage and retrieves the vertex
+     * matching the given criteria.
+     *
+     * @param vertexHash hash of the vertex to find.
+     * @return returns vertex object matching the given hash OR NULL.
+     */
     @Override
-    public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
-        Graph a = getLineage(srcVertexExpression, maxLength, DIRECTION_ANCESTORS, null);
-        Graph d = getLineage(dstVertexExpression, maxLength, DIRECTION_DESCENDANTS, null);
-        return Graph.intersection(a, d);
+    public AbstractVertex getVertex(String vertexHash) {
+        return null;
     }
 
+    /**
+     * This function finds the children of a given vertex.
+     * A child is defined as a vertex which is the source of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param parentHash hash of the given vertex
+     * @return returns graph object containing children of the given vertex OR NULL.
+     */
     @Override
-    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
-        return getPaths(ID_STRING + ":" + srcVertexId, ID_STRING + ":" + dstVertexId, maxLength);
+    public Graph getChildren(String parentHash) {
+        return null;
     }
 
+    /**
+     * This function finds the parents of a given vertex.
+     * A parent is defined as a vertex which is the destination of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param childHash hash of the given vertex
+     * @return returns graph object containing parents of the given vertex OR NULL.
+     */
     @Override
-    public Graph getLineage(String vertexExpression, int depth, String direction, String terminatingExpression) {
-        try {
-            if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
-                Graph ancestor = getLineage(vertexExpression, depth, DIRECTION_ANCESTORS, terminatingExpression);
-                Graph descendant = getLineage(vertexExpression, depth, DIRECTION_DESCENDANTS, terminatingExpression);
-                Graph result = Graph.union(ancestor, descendant);
-                return result;
-            } else if (!DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()) && !DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                return null;
-            }
-
-            Graph resultGraph = new Graph();
-
-            IndexReader vertexReader = IndexReader.open(vertexIndex);
-            IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-            Set<Integer> terminatingSet = new HashSet<>();
-            if ((terminatingExpression != null) && (!terminatingExpression.trim().equalsIgnoreCase("null"))) {
-                ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(terminatingExpression), MAX_QUERY_HITS).scoreDocs;
-                for (int i = 0; i < hits.length; ++i) {
-                    int docId = hits[i].doc;
-                    Document foundDoc = vertexSearcher.doc(docId);
-                    int id = Integer.parseInt(foundDoc.get(ID_STRING));
-                    terminatingSet.add(id);
-                }
-            }
-            Set<Integer> processedVertices = new HashSet<>();
-            ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(vertexExpression), MAX_QUERY_HITS).scoreDocs;
-            for (int i = 0; i < hits.length; ++i) {
-                int docId = hits[i].doc;
-                Document foundDoc = vertexSearcher.doc(docId);
-                int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-                resultGraph.putVertex(vertexIdentifiers.get(vertex_identifier));
-                processedVertices.add(vertex_identifier);
-            }
-            vertexSearcher.close();
-            vertexReader.close();
-
-            Set<Integer> doneVertices = new HashSet<>();
-            doneVertices.addAll(processedVertices);
-
-            IndexReader edgeReader = IndexReader.open(edgeIndex);
-            IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
-            for (int i = 0; i <= depth; i++) {
-                Set<Integer> tempProcessedVertices = new HashSet<>();
-                for (int currentVertexId : processedVertices) {
-                    String queryString = null;
-                    if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                        queryString = SRC_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                        queryString = DST_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    }
-
-                    hits = edgeSearcher.search(queryParser.parse(queryString), MAX_QUERY_HITS).scoreDocs;
-                    for (int j = 0; j < hits.length; ++j) {
-                        int docId = hits[j].doc;
-                        Document foundDoc = edgeSearcher.doc(docId);
-                        int edgeId = Integer.parseInt(foundDoc.get(ID_STRING));
-                        AbstractEdge tempEdge = edgeIdentifiers.get(edgeId);
-                        int otherVertexId = 0;
-                        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getDestinationVertex());
-                        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getSourceVertex());
-                        }
-                        if (!terminatingSet.contains(otherVertexId)) {
-                            resultGraph.putVertex(vertexIdentifiers.get(otherVertexId));
-                            resultGraph.putEdge(tempEdge);
-                            if (doneVertices.add(otherVertexId)) {
-                                tempProcessedVertices.add(otherVertexId);
-                            }
-                        }
-                    }
-                }
-                if (tempProcessedVertices.isEmpty()) {
-                    break;
-                }
-                processedVertices = tempProcessedVertices;
-            }
-
-            edgeSearcher.close();
-            edgeReader.close();
-            resultGraph.commitIndex();
-            return resultGraph;
-        } catch (IOException | ParseException | NumberFormatException exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return null;
-        }
+    public Graph getParents(String childHash) {
+        return null;
     }
 
-    @Override
-    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
-        return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
-    }
-
-    @Override
-    public Graph getPaths(Graph srcGraph, Graph dstGraph, int maxLength) {
-        Graph a = getLineage(srcGraph, maxLength, DIRECTION_ANCESTORS, null);
-        Graph d = getLineage(dstGraph, maxLength, DIRECTION_DESCENDANTS, null);
-        return Graph.intersection(a, d);
-    }
-
-    @Override
-    public Graph getLineage(Graph srcGraph, int depth, String direction, String terminatingExpression) {
-        try {
-            if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
-                Graph ancestor = getLineage(srcGraph, depth, DIRECTION_ANCESTORS, terminatingExpression);
-                Graph descendant = getLineage(srcGraph, depth, DIRECTION_DESCENDANTS, terminatingExpression);
-                Graph result = Graph.union(ancestor, descendant);
-                return result;
-            } else if (!DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()) && !DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                return null;
-            }
-
-            Graph resultGraph = new Graph();
-
-            IndexReader vertexReader = IndexReader.open(vertexIndex);
-            IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-            Set<Integer> terminatingSet = new HashSet<>();
-            if ((terminatingExpression != null) && (!terminatingExpression.trim().equalsIgnoreCase("null"))) {
-                ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(terminatingExpression), MAX_QUERY_HITS).scoreDocs;
-                for (int i = 0; i < hits.length; ++i) {
-                    int docId = hits[i].doc;
-                    Document foundDoc = vertexSearcher.doc(docId);
-                    int id = Integer.parseInt(foundDoc.get(ID_STRING));
-                    terminatingSet.add(id);
-                }
-            }
-            vertexSearcher.close();
-            vertexReader.close();
-
-            Set<Integer> processedVertices = new HashSet<>();
-            for (AbstractVertex vertex : srcGraph.vertexSet()) {
-                resultGraph.putVertex(vertex);
-                processedVertices.add(reverseVertexIdentifiers.get(vertex));
-            }
-
-            Set<Integer> doneVertices = new HashSet<>();
-            doneVertices.addAll(processedVertices);
-
-            IndexReader edgeReader = IndexReader.open(edgeIndex);
-            IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
-            for (int i = 0; i <= depth; i++) {
-                Set<Integer> tempProcessedVertices = new HashSet<>();
-                for (int currentVertexId : processedVertices) {
-                    String queryString = null;
-                    if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                        queryString = SRC_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                        queryString = DST_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    }
-
-                    ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(queryString), MAX_QUERY_HITS).scoreDocs;
-                    for (int j = 0; j < hits.length; ++j) {
-                        int docId = hits[j].doc;
-                        Document foundDoc = edgeSearcher.doc(docId);
-                        int edgeId = Integer.parseInt(foundDoc.get(ID_STRING));
-                        AbstractEdge tempEdge = edgeIdentifiers.get(edgeId);
-                        int otherVertexId = 0;
-                        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getDestinationVertex());
-                        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getSourceVertex());
-                        }
-                        if (!terminatingSet.contains(otherVertexId)) {
-                            resultGraph.putVertex(vertexIdentifiers.get(otherVertexId));
-                            resultGraph.putEdge(tempEdge);
-                            if (doneVertices.add(otherVertexId)) {
-                                tempProcessedVertices.add(otherVertexId);
-                            }
-                        }
-                    }
-                }
-                if (tempProcessedVertices.isEmpty()) {
-                    break;
-                }
-                processedVertices = tempProcessedVertices;
-            }
-
-            edgeSearcher.close();
-            edgeReader.close();
-            resultGraph.commitIndex();
-            return resultGraph;
-        } catch (IOException | ParseException | NumberFormatException exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return null;
-        }
-    }
 }

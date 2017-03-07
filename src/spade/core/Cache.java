@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2015 SRI International
+ Copyright (C) 2017 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -17,17 +17,34 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
+
 package spade.core;
 
 /**
- * A general-purpose, semantic-agnostic implementation of the Vertex class.
+ * This class encapsulates the caching policy and implementation
+ * for graph vertices and edges.
  *
- * @author Dawood Tariq
+ * @author Raza Ahmad
  */
-public class Vertex extends AbstractVertex {
+public class Cache<T> {
 
     /**
-     * An empty constructor - an empty map is initialized for the annotations.
+     * This function checks for the presence of given object in the underlying cache(s).
+     * @param object object to check the presence of
+     * @return returns true if the object is found in cache
      */
-    public Vertex() {}
+    public static<T> boolean isPresent(T object)
+    {
+        return false;
+    }
+
+    /**
+     * This function adds an item to the underlying cache(s).
+     * @param object object to add to the cache(s).
+     * @return returns true if the object has been successfully added to the cache
+     */
+    public static<T> boolean addItem(T object)
+    {
+        return false;
+    }
 }

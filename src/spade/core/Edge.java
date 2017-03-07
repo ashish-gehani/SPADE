@@ -35,6 +35,5 @@ public class Edge extends AbstractEdge {
     public Edge(AbstractVertex sourceVertex, AbstractVertex destinationVertex) {
         setSourceVertex(sourceVertex);
         setDestinationVertex(destinationVertex);
-        addAnnotation("type", "Edge");
     }
 }

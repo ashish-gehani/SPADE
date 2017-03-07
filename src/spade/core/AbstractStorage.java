@@ -19,12 +19,26 @@
  */
 package spade.core;
 
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Queue;
+import java.util.Stack;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Iterator;
+
 /**
- * This is the base class for storages.
+ * This is the base class from which concrete storage types inherit.
  *
- * @author Dawood Tariq
+ * @author Dawood Tariq and Raza Ahmad
  */
-public abstract class AbstractStorage {
+public abstract class AbstractStorage
+{
+    public static final String PRIMARY_KEY = "hash";
+    protected static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    protected static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+    protected static Map<Long, String> m = new HashMap<>();
 
     /**
      * The arguments with which this storage was initialized.
@@ -57,25 +71,8 @@ public abstract class AbstractStorage {
     public abstract boolean shutdown();
 
     /**
-     * This method is triggered when the storage receives a vertex.
-     *
-     * @param incomingVertex The vertex received by this storage.
-     * @return True if the vertex was processed successfully.
-     */
-    public abstract boolean putVertex(AbstractVertex incomingVertex);
-
-    /**
-     * This method is triggered when the storage receives an edge.
-     *
-     * @param incomingEdge The edge received by this storage.
-     * @return True if the edge was processed successfully.
-     */
-    public abstract boolean putEdge(AbstractEdge incomingEdge);
-    
-    /**
      * This method returns current edge count.
      *
-     * @param none.
      * @return edge count
      */
     public long getEdgeCount(){
@@ -85,7 +82,6 @@ public abstract class AbstractStorage {
     /**
      * This method returns current vertex count.
      *
-     * @param none.
      * @return vertex count
      */
     public long getVertexCount(){
@@ -102,108 +98,185 @@ public abstract class AbstractStorage {
     }
 
     /**
-     * Query method that returns a set of vertices based on a given expression.
+     * This function queries the underlying storage and retrieves the edge
+     * matching the given criteria.
      *
-     * @param expression The query expression.
-     * @return The result of this query in a graph object.
+     * @param sourceVertexHash hash of the source vertex.
+     * @param destinationVertexHash hash of the destination vertex.
+     * @return returns edge object matching the given vertices OR NULL.
      */
-    public Graph getVertices(String expression) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
+    public abstract AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash);
 
     /**
-     * Query method that returns a set of edges given expressions for the edge,
-     * the source vertex and the destination vertex.
+     * This function queries the underlying storage and retrieves the vertex
+     * matching the given criteria.
      *
-     * @param sourceExpression The query expression for source vertices.
-     * @param destinationExpression The query expression for destination
-     * vertices.
-     * @param edgeExpression The query expression for edges.
-     * @return The result of this query in a graph object.
+     * @param vertexHash hash of the vertex to find.
+     * @return returns vertex object matching the given hash OR NULL.
      */
-    public Graph getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
+    public abstract AbstractVertex getVertex(String vertexHash);
+
 
     /**
-     * Query method that returns a set of edges given the source and destination
-     * vertex identifiers.
+     * This function finds the children of a given vertex.
+     * A child is defined as a vertex which is the source of a
+     * direct edge between itself and the given vertex.
      *
-     * @param srcVertexId The source vertex id.
-     * @param dstVertexId The destination vertex id.
-     * @return The result of this query in a graph object.
+     * @param parentHash hash of the given vertex
+     * @return returns graph object containing children of the given vertex OR NULL.
      */
-    public Graph getEdges(int srcVertexId, int dstVertexId) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
+    public abstract Graph getChildren(String parentHash);
 
     /**
-     * Query method that returns a graph object containing all paths from the
-     * given source vertex to the given destination vertex, constrained by the
-     * maxLength argument as the maximum length of the paths.
+     * This function finds the parents of a given vertex.
+     * A parent is defined as a vertex which is the destination of a
+     * direct edge between itself and the given vertex.
      *
-     * @param srcVertexId The source vertex id.
-     * @param dstVertexId The destination vertex id.
-     * @param maxLength The maximum path length.
-     * @return The result of this query in a graph object.
+     * @param childHash hash of the given vertex
+     * @return returns graph object containing parents of the given vertex OR NULL.
      */
-    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
+    public abstract Graph getParents(String childHash);
 
-    public Graph getPaths(int srcVertexId, int dstVertexId) {
-        return getPaths(srcVertexId, dstVertexId, Integer.MAX_VALUE);
-    }
-
-    public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
-
-    public Graph getPaths(String srcVertexExpression, String dstVertexExpression) {
-        return getPaths(srcVertexExpression, dstVertexExpression, Integer.MAX_VALUE);
-    }
-
-    public Graph getPaths(Graph srcGraph, Graph dstGraph, int maxLength) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
-
-    public Graph getPaths(Graph srcGraph, Graph dstGraph) {
-        return getPaths(srcGraph, dstGraph, Integer.MAX_VALUE);
-    }
 
     /**
-     * Query method that returns a graph object containing the lineage of a
-     * given vertex. The controlling parameters for the lineage are depth and
-     * direction along with an optional expression for terminating on vertices.
-     *
-     * @param vertexId The source vertex of the lineage.
-     * @param depth The maximum depth of the lineage.
-     * @param direction The direction in which to get the lineage.
-     * @param terminatingExpression The query expression on which to terminate
-     * lineage or null.
-     * @return The result of this query in a graph object.
+     * This function inserts the given edge into the underlying storage(s) and
+     * updates the cache(s) accordingly.
+     * @param incomingEdge edge to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the edge is already present in the storage.
      */
-    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
-        throw new UnsupportedOperationException("Unsupported operation.");
+    public abstract boolean putEdge(AbstractEdge incomingEdge);
+
+    /**
+     * This function inserts the given vertex into the underlying storage(s) and
+     * updates the cache(s) accordingly.
+     * @param incomingVertex vertex to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the vertex is already present in the storage.
+     */
+    public abstract boolean putVertex(AbstractVertex incomingVertex);
+
+    /**
+     * This function finds the lineage of the graph starting from a source vertex.
+     *
+     * @param hash hash of the source vertex
+     * @param direction direction of traversal from the source vertex
+     * @param maxDepth Maximum depth from source vertex to traverse
+     *
+     * @return returns the graph comprising of the subgraph starting from the source vertex
+     * up till the specified depth OR NULL.
+     */
+    public Graph getLineage(String hash, String direction, int maxDepth)
+    {
+        Graph result = new Graph();
+        AbstractVertex previousVertex = null;
+        AbstractVertex currentVertex = null;
+        int depth = 0;
+        Queue<AbstractVertex> queue = new LinkedList<>();
+        queue.add(getVertex(hash));
+        //TODO: keep a visited array
+        while(!queue.isEmpty() && depth < maxDepth)
+        {
+            currentVertex = queue.remove();
+            String currentHash = currentVertex.getAnnotation("hash");
+            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                queue.addAll(getParents(currentHash).vertexSet());
+            else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+                queue.addAll(getChildren(currentHash).vertexSet());
+
+            result.putVertex(currentVertex);
+            //TODO: make provision for returning multiple edges between same pair of vertices
+            if(previousVertex != null)
+                result.putEdge(getEdge(previousVertex.getAnnotation("hash"), currentHash));
+
+            previousVertex = currentVertex;
+            depth++;
+        }
+
+        return result;
     }
 
-    public Graph getLineage(int vertexId, String direction) {
-        return getLineage(vertexId, Integer.MAX_VALUE, direction, null);
+
+    /**
+     * This function finds all possible paths between source and destination vertices.
+     *
+     * @param sourceVertexHash hash of the source vertex
+     * @param destinationVertexHash hash of the destination vertex
+     * @param maxPathLength maximum length of any path to find
+     *
+     * @return returns graph containing all paths between the given source and destination vertex OR NULL.
+     */
+    public Graph getPaths(String sourceVertexHash, String destinationVertexHash, int maxPathLength)
+    {
+        Set<Graph> allPaths = new HashSet<>();
+        Stack<AbstractVertex>currentPath = new Stack<>();
+        AbstractVertex previousVertex = null;
+        AbstractVertex currentVertex = null;
+        int pathLength = 0;
+        Queue<AbstractVertex> queue = new LinkedList<>();
+        queue.add(getVertex(sourceVertexHash));
+        Graph children = null;
+        while(!queue.isEmpty())
+        {
+            pathLength++;
+            if(pathLength > maxPathLength)
+            children = null;
+            currentVertex = queue.remove();
+            String currentHash = currentVertex.getAnnotation("hash");
+            currentPath.push(currentVertex);
+            if(currentHash.equals(destinationVertexHash))
+            {
+                allPaths.add(convertStackToGraph(currentPath));
+            }
+            else
+            {
+                children = getChildren(currentHash);
+            }
+
+            if(children != null)
+            {
+                queue.addAll(children.vertexSet());
+                continue;
+            }
+
+            currentPath.pop();
+        }
+
+        // merge graphs for each path
+        Graph resultGraph = new Graph();
+        for (Graph path: allPaths)
+        {
+            resultGraph = Graph.union(resultGraph, path);
+        }
+
+
+        return resultGraph;
     }
 
-    public Graph getLineage(String vertexExpression, int depth, String direction, String terminatingExpression) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
 
-    public Graph getLineage(String vertexExpression, String direction) {
-        return getLineage(vertexExpression, Integer.MAX_VALUE, direction, null);
-    }
+    /**
+     * This helper function converts a stack of vertices into
+     * a corresponding graph of vertices. It also finds and adds
+     * the edges between those vertices.
+     * @param stack stack of vertices to convert into a graph
+     * @return returns a graph consisting only of vertices present in the stack
+     */
+    protected Graph convertStackToGraph(Stack<AbstractVertex> stack)
+    {
+        Graph graph = new Graph();
+        Iterator<AbstractVertex> iter = stack.iterator();
+        AbstractVertex previous = iter.next();
+        graph.putVertex(previous);
+        while(iter.hasNext())
+        {
+            AbstractVertex curr = iter.next();
+            graph.putVertex(curr);
+            //TODO: make provision for returning multiple edges between same pair of vertices
+            graph.putEdge(getEdge(previous.getAnnotation("hash"), curr.getAnnotation("hash")));
+            previous = curr;
+        }
 
-    public Graph getLineage(Graph srcGraph, int depth, String direction, String terminatingExpression) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
 
-    public Graph getLineage(Graph srcGraph, String direction) {
-        return getLineage(srcGraph, Integer.MAX_VALUE, direction, null);
+        return graph;
     }
 }

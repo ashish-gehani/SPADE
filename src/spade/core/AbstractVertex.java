@@ -19,6 +19,9 @@
  */
 package spade.core;
 
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -122,15 +125,31 @@ public abstract class AbstractVertex implements Serializable {
         return hashCode;
     }
 
+    /*
+    * Serializes the object as key-value pairs in the form: key_1:value_1|key_2:value_2|......|key_n:value_n
+    */
     @Override
-    public String toString() {
+    public String toString()
+    {
         StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
+        for (Map.Entry<String, String> currentEntry : annotations.entrySet())
+        {
             result.append(currentEntry.getKey());
             result.append(":");
             result.append(currentEntry.getValue());
             result.append("|");
         }
         return result.substring(0, result.length() - 1);
+    }
+
+    /**
+     * Computes MD5 hash of annotations in the edge.
+     * Returns 128-bits of the digest.
+     *
+     @return A 128-bit hash value.
+     */
+    public String bigHashCode()
+    {
+        return DigestUtils.md5Hex(this.toString());
     }
 }
