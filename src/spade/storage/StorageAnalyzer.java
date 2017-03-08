@@ -1,0 +1,147 @@
+package spade.storage;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Vertex;
+import spade.core.Edge;
+
+import java.io.FileWriter;
+import java.io.BufferedWriter;
+import java.io.PrintWriter;
+import java.io.IOException;
+
+import java.util.List;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Random;
+
+/**
+ * This class is used to measure and analyze storages
+ * for insertion and retrieval purposes.
+ * @author Raza Ahmad
+ */
+public class StorageAnalyzer
+{
+    private static final Neo4j Neo4jInstance = new Neo4j();
+    private static List<AbstractVertex> vertexList = new LinkedList<>();
+    private static Map<String, String> vertexHashes = new HashMap<>();
+    private static Map<String, String> edgeHashes = new HashMap<>();
+    private static long serialID = 1;
+    private static final long totalRecords = 1000000000;    // 1B
+
+    private static String getSerialId()
+    {
+        return Long.toString(serialID++);
+    }
+
+    private static void computeRetrievalStats(long start_time, String file_name, long checkpoint)
+    {
+        long elapsed_time = System.nanoTime() - start_time;
+
+        long getVertex_start_time = System.nanoTime();
+        for(Map.Entry<String, String> entry: vertexHashes.entrySet())
+        {
+            entry.getKey();
+            Neo4jInstance.getVertex(entry.getValue());
+        }
+        long getVertex_elapsed_time = System.nanoTime() - getVertex_start_time;
+
+        long getEdge_start_time = System.nanoTime();
+        for(Map.Entry<String, String> entry: edgeHashes.entrySet())
+        {
+            Neo4jInstance.getEdge(entry.getKey(), entry.getValue());
+        }
+        long getEdge_elapsed_time = System.nanoTime() - getEdge_start_time;
+
+        long getChildren_start_time = System.nanoTime();
+        for(Map.Entry<String, String> entry: vertexHashes.entrySet())
+        {
+            Neo4jInstance.getChildren(entry.getValue());
+        }
+        long getChildren_elapsed_time = System.nanoTime() - getChildren_start_time;
+
+        long getParents_start_time = System.nanoTime();
+        for(Map.Entry<String, String> entry: vertexHashes.entrySet())
+        {
+            Neo4jInstance.getParents(entry.getValue());
+        }
+        long getParents_elapsed_time = System.nanoTime() - getParents_start_time;
+
+        try(FileWriter fw = new FileWriter(file_name, true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw))
+        {
+            out.println("Number of Records: " + checkpoint);
+            out.println("Timings are in seconds(s).");
+            out.println("Cached Vertices: " + vertexHashes.size());
+            out.println("Cached Edges: " + edgeHashes.size());
+            out.println("Vertex/Edge Net Insertion Time: " + elapsed_time/1000000000.0);
+            out.println("getVertex Net Time: " + getVertex_elapsed_time/1000000000.0);
+            out.println("getEdge Net Time: " + getEdge_elapsed_time/1000000000.0);
+            out.println("getChildren Net Time: " + getChildren_elapsed_time/1000000000.0);
+            out.println("getParents Net Time: " + getParents_elapsed_time/1000000000.0);
+            out.println("*******************************************");
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args)
+    {
+        Random random = new Random();
+        boolean cacheVertex = false;
+        String dbPath = "/tmp/spade_test.graph_db";
+        Neo4jInstance.initialize(dbPath);
+        int[] checkpoints = {10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+        int checkpointIdx = 0;
+        int vertexCacheFrequency = 1000;
+        String stats_file_name = "Neo4j_stats_without_index.txt";
+
+        long start_time = System.nanoTime();
+        while(serialID <= totalRecords)
+        {
+            if(serialID % vertexCacheFrequency == 0)
+                cacheVertex = true;
+            AbstractVertex vertex = new Vertex();
+            vertex.addAnnotation("count", getSerialId());
+            Neo4jInstance.putVertex(vertex);
+            // cache a vertex with 25% probability for edge creation
+            if(random.nextInt(100) > 75)
+                vertexList.add(vertex);
+
+            // 25% probability of an edge creation
+            if(random.nextInt(100) > 75 && vertexList.size() >= 2)
+            {
+                AbstractVertex srcVertex = vertexList.get(random.nextInt(vertexList.size()));
+                AbstractVertex dstVertex = vertexList.get(random.nextInt(vertexList.size()));
+                if(!srcVertex.bigHashCode().equals(dstVertex.bigHashCode()))
+                {
+                    AbstractEdge edge = new Edge(srcVertex, dstVertex);
+                    edge.addAnnotation("count", getSerialId());
+                    Neo4jInstance.putEdge(edge);
+                    // cache a vertex hash for retrieval purposes after every thousand
+                    if(cacheVertex)
+                    {
+                        vertexHashes.put(srcVertex.getAnnotation("count"), srcVertex.bigHashCode());
+                        vertexHashes.put(dstVertex.getAnnotation("count"), dstVertex.bigHashCode());
+                        edgeHashes.put(srcVertex.bigHashCode(), dstVertex.bigHashCode());
+                        cacheVertex = false;
+                    }
+                }
+            }
+            if(checkpointIdx < checkpoints.length && (serialID % checkpoints[checkpointIdx] == 0 ||
+                                                        serialID > totalRecords))
+            {
+                Neo4jInstance.globalTxCheckin(true);
+                computeRetrievalStats(start_time, stats_file_name, checkpoints[checkpointIdx]);
+                checkpointIdx++;
+                vertexCacheFrequency *= 10;
+                start_time = System.nanoTime();
+            }
+
+        }
+    }
+}

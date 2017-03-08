@@ -72,7 +72,7 @@ public class Neo4j extends AbstractStorage
 
     // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-committed data.
-    private final int GLOBAL_TX_SIZE = 10000;
+    private final int GLOBAL_TX_SIZE = 100000;
     // Performance tuning note: This is time in sec that storage is flushed. Increase this to increase throughput / ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-committed data.
     private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
@@ -118,7 +118,8 @@ public class Neo4j extends AbstractStorage
     }
 
     @Override
-    public boolean shutdown() {
+    public boolean shutdown()
+    {
         // Flush all transactions before shutting down the database
         // make sure buffers are done, and stop and join all threads
         globalTxFinalize();
@@ -127,23 +128,31 @@ public class Neo4j extends AbstractStorage
         return true;
     }
 
-    void globalTxCheckin() {
+    void globalTxCheckin()
+    {
         globalTxCheckin(false);
     }
 
-    void globalTxCheckin(boolean forcedFlush) {
-        if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush == true)) {
+    void globalTxCheckin(boolean forcedFlush)
+    {
+        if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush == true))
+        {
             globalTxFinalize();
             globalTx = graphDb.beginTx();
         }
         globalTxCount++;
     }
 
-    void globalTxFinalize() {
-        if (globalTx != null) {
-            try {
+    void globalTxFinalize()
+    {
+        if (globalTx != null)
+        {
+            try
+            {
                 globalTx.success();
-            } finally {
+            }
+            finally
+            {
                 globalTx.close();
             }
         }
@@ -229,7 +238,7 @@ public class Neo4j extends AbstractStorage
             Iterable<Relationship> srcNodeRelationships = srcNode.getRelationships(Direction.OUTGOING);
             for(Relationship srcNodeRelationship : srcNodeRelationships)
             {
-                if(srcNodeRelationship.getEndNode() == dstNode)
+                if(srcNodeRelationship.getEndNode().equals(dstNode))
                 {
                     edge = convertRelationshipToEdge(srcNodeRelationship);
                     break;
@@ -361,8 +370,10 @@ public class Neo4j extends AbstractStorage
     private AbstractVertex convertNodeToVertex(Node node)
     {
         AbstractVertex resultVertex = new Vertex();
-        for (String key : node.getPropertyKeys()) {
-            resultVertex.addAnnotation(key, (String) node.getProperty(key));
+        for (String key : node.getPropertyKeys())
+        {
+            if(!key.equalsIgnoreCase(PRIMARY_KEY))
+                resultVertex.addAnnotation(key, (String) node.getProperty(key));
         }
 
 
@@ -373,8 +384,10 @@ public class Neo4j extends AbstractStorage
     {
         AbstractEdge resultEdge = new Edge(convertNodeToVertex(relationship.getStartNode()),
                 convertNodeToVertex(relationship.getEndNode()));
-        for (String key : relationship.getPropertyKeys()) {
-            resultEdge.addAnnotation(key, (String) relationship.getProperty(key));
+        for (String key : relationship.getPropertyKeys())
+        {
+            if(!key.equalsIgnoreCase(PRIMARY_KEY))
+                resultEdge.addAnnotation(key, (String) relationship.getProperty(key));
         }
 
 

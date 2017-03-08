@@ -186,7 +186,14 @@ public abstract class AbstractEdge implements Serializable {
             result.append(currentEntry.getValue());
             result.append("|");
         }
-        return result.substring(0, result.length() - 1);
+        result.append("sourceVertexHash");
+        result.append(":");
+        result.append(this.getSourceVertex().bigHashCode());
+        result.append("|");
+        result.append("destinationVertexHash");
+        result.append(":");
+        result.append(this.getDestinationVertex().bigHashCode());
+        return result.toString();
     }
 
     /**
