@@ -47,7 +47,19 @@ int socketRead = FALSE;
 int fileRead = FALSE;
 char socketPath[256];
 char filePath[256];
-int loopCount[100];
+
+typedef struct iteration_count_t{
+	int tid;
+	int unitid;
+	int iteration;
+	int count;
+}iteration_count_t;
+
+#define iteration_count_buffer_size 1000
+int current_time_iterations_index = 0;
+iteration_count_t current_time_iterations[iteration_count_buffer_size];
+
+double last_time = -1;
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -297,6 +309,35 @@ typedef struct event_buf_t {
 unit_table_t *unit_table;
 event_buf_t *event_buf;
 
+iteration_count_t* get_iteration_count(int tid, int unitid, int iteration){
+	if(current_time_iterations_index != 0){
+			int a = 0;
+			for(; a<current_time_iterations_index; a++){
+					if(current_time_iterations[a].tid == tid 
+							&& current_time_iterations[a].unitid == unitid
+								&& current_time_iterations[a].iteration == iteration){
+							return &(current_time_iterations[a]);
+					}
+			}
+	}
+	return NULL;
+}
+
+void add_iteration_count(int tid, int unitid, int iteration){
+	if(current_time_iterations_index >= iteration_count_buffer_size){
+		fprintf(stderr, "Not enough space for another iteration. Increase 'iteration_count_buffer_size'\n");
+	}else{
+		current_time_iterations[current_time_iterations_index].tid = tid;
+		current_time_iterations[current_time_iterations_index].unitid = unitid;
+		current_time_iterations[current_time_iterations_index].iteration = iteration;
+		current_time_iterations[current_time_iterations_index++].count = 0;
+	}
+}
+
+void reset_current_time_iteration_counts(){
+	current_time_iterations_index = 0;	
+}
+
 bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 {
 		if(u1.tid == u2.tid && 
@@ -393,7 +434,7 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		unit->cur_unit.loopid = a1;
 		unit->cur_unit.iteration = 0;
 		unit->cur_unit.timestamp = time;
-		unit->cur_unit.count = loopCount[a1]++; 
+		//unit->cur_unit.count = loopCount[a1]++; 
 		
 		ptr = strstr(buf, " ppid=");
 		if(ptr == NULL) {
@@ -423,6 +464,14 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 
 		time = get_timestamp(buf);
 //		int unitid = ++(unit->cur_unit.unitid);
+
+		if(last_time == -1){
+			last_time = time;	
+		}else if(last_time != time){
+			last_time = time;
+			reset_current_time_iteration_counts();
+		}
+
 		if(unit->valid == false) // this is an entry of a new loop.
 		{
 				loop_entry(unit, a1, buf, time);
@@ -431,6 +480,16 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		}
 		unit->valid = true;
 		unit->cur_unit.timestamp = time;
+		
+		iteration_count_t* iteration_count = get_iteration_count(tid, 
+												unit->cur_unit.loopid,
+												unit->cur_unit.iteration);
+		if(iteration_count == NULL){
+			add_iteration_count(tid, unit->cur_unit.loopid, unit->cur_unit.iteration);
+			iteration_count = get_iteration_count(tid, unit->cur_unit.loopid, unit->cur_unit.iteration);	
+		}
+		
+		unit->cur_unit.count = iteration_count->count++;
 		
 		sprintf(tmp, "type=UBSI_ENTRY ");
 		emit_log(unit, tmp, true, true);
