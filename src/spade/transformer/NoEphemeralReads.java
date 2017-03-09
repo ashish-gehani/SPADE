@@ -34,6 +34,7 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
 
@@ -74,14 +75,15 @@ public class NoEphemeralReads extends AbstractTransformer {
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")
-					|| getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
-				String operation = getAnnotationSafe(newEdge, "operation");
-				if(operation.equals("write") || operation.equals("writev") || operation.equals("pwrite64") || operation.equals("rename_write") || operation.equals("link_write") || operation.equals("symlink_write")){
+			if(OPMConstants.isPathBasedArtifact(newEdge.getSourceVertex())
+					|| OPMConstants.isPathBasedArtifact(newEdge.getDestinationVertex())){
+				String operation = getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION);
+				if(OPMConstants.isOutgoingDataOperation(operation)){
 					if(fileWrittenBy.get(newEdge.getSourceVertex()) == null){
 						fileWrittenBy.put(newEdge.getSourceVertex(), new HashSet<String>());
 					}
-					fileWrittenBy.get(newEdge.getSourceVertex()).add(getAnnotationSafe(newEdge.getDestinationVertex(), "pid"));
+					fileWrittenBy.get(newEdge.getSourceVertex()).add(
+							getAnnotationSafe(newEdge.getDestinationVertex(), OPMConstants.PROCESS_PID));
 				}
 			}
 		}
@@ -90,15 +92,15 @@ public class NoEphemeralReads extends AbstractTransformer {
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if((getAnnotationSafe(newEdge, "operation").equals("read") || getAnnotationSafe(newEdge, "operation").equals("readv") || 
-					getAnnotationSafe(newEdge, "operation").equals("pread64"))
-					&& getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
+			if(OPMConstants.isPathBasedArtifact(newEdge.getDestinationVertex()) &&
+					OPMConstants.isIncomingDataOperation(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION))){
 				AbstractVertex vertex = newEdge.getDestinationVertex();
-				String path = getAnnotationSafe(vertex, "path");
+				String path = getAnnotationSafe(vertex, OPMConstants.ARTIFACT_PATH);
 				if(!pathEqualsVertex(path, queriedVertex)){ //if file passed as an argument then always log it otherwise check further
 					if(isPathInIgnoreFilesPattern(path)){ //if file is not in ignore list then always log it otherwise check further
 						if((fileWrittenBy.get(vertex) == null) || (fileWrittenBy.get(vertex).size() == 1 
-								&& fileWrittenBy.get(vertex).toArray()[0].equals(getAnnotationSafe(newEdge.getSourceVertex(), "pid")))){
+								&& fileWrittenBy.get(vertex).toArray()[0].equals(
+										getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID)))){
 							continue;
 						}
 					}
@@ -118,8 +120,8 @@ public class NoEphemeralReads extends AbstractTransformer {
 		if(path == null || vertex == null){
 			return false;
 		}
-		if(getAnnotationSafe(vertex, "subtype").equals("file")){
-			String vpath = getAnnotationSafe(vertex, "path");
+		if(OPMConstants.isPathBasedArtifact(vertex)){
+			String vpath = getAnnotationSafe(vertex, OPMConstants.ARTIFACT_PATH);
 			if(path.equals(vpath)){
 				return true;
 			}

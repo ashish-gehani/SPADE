@@ -29,6 +29,7 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.FileUtility;
 
 public class Blacklist extends AbstractTransformer{
@@ -61,8 +62,8 @@ public class Blacklist extends AbstractTransformer{
 		}
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			String srcFilepath = getAnnotationSafe(edge.getSourceVertex(), "path");
-			String dstFilepath = getAnnotationSafe(edge.getDestinationVertex(), "path");
+			String srcFilepath = getAnnotationSafe(edge.getSourceVertex(), OPMConstants.ARTIFACT_PATH);
+			String dstFilepath = getAnnotationSafe(edge.getDestinationVertex(), OPMConstants.ARTIFACT_PATH);
 			if(!(fileEqualsVertex(srcFilepath, queriedVertex) || fileEqualsVertex(dstFilepath, queriedVertex))){
 				if(isFileToBeRemoved(srcFilepath) 
 					|| isFileToBeRemoved(dstFilepath)){
@@ -90,8 +91,8 @@ public class Blacklist extends AbstractTransformer{
 		if(path == null || vertex == null){
 			return false;
 		}
-		if(getAnnotationSafe(vertex, "subtype").equals("file")){
-			String vpath = getAnnotationSafe(vertex, "path");
+		if(OPMConstants.isPathBasedArtifact(vertex)){
+			String vpath = getAnnotationSafe(vertex, OPMConstants.ARTIFACT_PATH);
 			if(path.equals(vpath)){
 				return true;
 			}

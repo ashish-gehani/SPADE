@@ -29,6 +29,7 @@ import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 
 public class Prov2OPM extends AbstractTransformer{
 
@@ -39,15 +40,15 @@ public class Prov2OPM extends AbstractTransformer{
 	private static final Map<String, String> prov2OPMVertexMappings = new HashMap<String, String>();
 	
 	static{
-		prov2OPMVertexMappings.put("Agent","Agent");
-		prov2OPMVertexMappings.put("Activity","Process");
-		prov2OPMVertexMappings.put("Entity","Artifact");
+		prov2OPMVertexMappings.put("Agent",OPMConstants.AGENT);
+		prov2OPMVertexMappings.put("Activity",OPMConstants.PROCESS);
+		prov2OPMVertexMappings.put("Entity",OPMConstants.ARTIFACT);
 		
-		prov2OPMEdgeMappings.put("Used","Used");
-		prov2OPMEdgeMappings.put("WasAssociatedWith","WasControlledBy");
-		prov2OPMEdgeMappings.put("WasDerivedFrom","WasDerivedFrom");
-		prov2OPMEdgeMappings.put("WasGeneratedBy","WasGeneratedBy");
-		prov2OPMEdgeMappings.put("WasInformedBy","WasTriggeredBy");
+		prov2OPMEdgeMappings.put("Used",OPMConstants.USED);
+		prov2OPMEdgeMappings.put("WasAssociatedWith",OPMConstants.WAS_CONTROLLED_BY);
+		prov2OPMEdgeMappings.put("WasDerivedFrom",OPMConstants.WAS_DERIVED_FROM);
+		prov2OPMEdgeMappings.put("WasGeneratedBy",OPMConstants.WAS_GENERATED_BY);
+		prov2OPMEdgeMappings.put("WasInformedBy",OPMConstants.WAS_TRIGGERED_BY);
 	}
 
 	public Graph putGraph(Graph graph, QueryParameters digQueryParams){

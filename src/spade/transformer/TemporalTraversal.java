@@ -30,6 +30,7 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 
 public class TemporalTraversal extends AbstractTransformer{
@@ -45,9 +46,9 @@ public class TemporalTraversal extends AbstractTransformer{
     public boolean initialize(String arguments){
     	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
     	if("timestamp".equals(argumentsMap.get("order"))){
-    		annotationName = "time";
+    		annotationName = OPMConstants.EDGE_TIME;
     	}else{
-    		annotationName = "event id";
+    		annotationName = OPMConstants.EDGE_EVENT_ID;
     	}
     	return true;
     }

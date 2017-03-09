@@ -23,6 +23,7 @@ import java.util.Map;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
+import spade.reporter.audit.OPMConstants;
 import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
@@ -55,7 +56,7 @@ public class OPM2Prov extends AbstractFilter {
             newEdge = new spade.edge.prov.WasInformedBy((Activity) sourceVertex, (Activity) destinationVertex);
         }
         for (Map.Entry<String, String> entry : incomingEdge.getAnnotations().entrySet()) {
-        	if(entry.getKey().equals("type"))
+        	if(entry.getKey().equals(OPMConstants.TYPE))
         		continue;
             newEdge.addAnnotation(entry.getKey(), entry.getValue());
         }
@@ -72,7 +73,7 @@ public class OPM2Prov extends AbstractFilter {
             newVertex = new spade.vertex.prov.Activity();
         }
         for (Map.Entry<String, String> entry : vertex.getAnnotations().entrySet()) {
-        	if(entry.getKey().equals("type"))
+        	if(entry.getKey().equals(OPMConstants.TYPE))
         		continue;
             newVertex.addAnnotation(entry.getKey(), entry.getValue());
         }

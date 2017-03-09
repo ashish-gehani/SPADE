@@ -29,6 +29,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 
 public class SimpleForks extends AbstractTransformer {
@@ -39,26 +40,27 @@ public class SimpleForks extends AbstractTransformer {
 		Set<String> pendingExecveEdgeEventIds = new HashSet<String>(); //added to handle multiple execves by a process
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(getAnnotationSafe(newEdge, "operation").equals("clone")
-					|| getAnnotationSafe(newEdge, "operation").equals("fork")
-					|| getAnnotationSafe(newEdge, "operation").equals("vfork")){
-				forkcloneEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), "pid"), newEdge);
-			}else if(getAnnotationSafe(newEdge, "operation").equals("execve")){
+			if(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_CLONE)
+					|| getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_FORK)){
+				forkcloneEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID), newEdge);
+			}else if(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_EXECVE)){
 				//if execve, check if there is already an edge in the map for the pid. if no then just add it
-				String pid = getAnnotationSafe(newEdge.getSourceVertex(), "pid");
+				String pid = getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID);
 				if(execveEdges.get(pid) == null){
 					execveEdges.put(pid, newEdge);
 				}else{
 					//if there is an edge already then compare the event ids of the older (already added) one and new one. if the new event id is smaller then replace older one with the newer one and add the older one to pending list
 					//else add the newer one to the pending list.
 					//the execve edge with the smallest event id by a process should be merged with fork/clone (if any) of that process
-					Long newEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(newEdge, "event id"), null);
-					Long previousEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(execveEdges.get(pid), "event id"), null);
+					Long newEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(newEdge, OPMConstants.EDGE_EVENT_ID), null);
+					Long previousEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(
+							execveEdges.get(pid), OPMConstants.EDGE_EVENT_ID), null);
 					if(previousEdgeEventId > newEdgeEventId){
-						pendingExecveEdgeEventIds.add(getAnnotationSafe(execveEdges.get(pid), "event id")); //add event id of the previously added edge to pending list
+						pendingExecveEdgeEventIds.add(getAnnotationSafe(execveEdges.get(pid), 
+								OPMConstants.EDGE_EVENT_ID)); //add event id of the previously added edge to pending list
 						execveEdges.put(pid, newEdge); //replace the previously added with the new one
 					}else{
-						pendingExecveEdgeEventIds.add(getAnnotationSafe(newEdge, "event id"));
+						pendingExecveEdgeEventIds.add(getAnnotationSafe(newEdge, OPMConstants.EDGE_EVENT_ID));
 					}
 				}
 			}
@@ -76,7 +78,9 @@ public class SimpleForks extends AbstractTransformer {
 			if(hasForkClone && hasExecve){
 				edge = forkcloneEdges.get(pid);
 				edge.setSourceVertex(execveEdges.get(pid).getSourceVertex());
-				edge.addAnnotation("operation", edge.getAnnotation("operation")+"-execve");
+				edge.addAnnotation(OPMConstants.EDGE_OPERATION, 
+						OPMConstants.buildOperation(
+								edge.getAnnotation(OPMConstants.EDGE_OPERATION), OPMConstants.OPERATION_EXECVE));
 			}else if(hasForkClone && !hasExecve){
 				edge = forkcloneEdges.get(pid);
 			}else if(!hasForkClone && hasExecve){
@@ -93,21 +97,21 @@ public class SimpleForks extends AbstractTransformer {
 		}
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge, "operation").equals("clone")){
+			if(getAnnotationSafe(edge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_CLONE)){
 				continue;
 			}
-			if(getAnnotationSafe(edge, "operation").equals("execve")){
-				String eventId = getAnnotationSafe(edge, "event id");
+			if(getAnnotationSafe(edge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_EXECVE)){
+				String eventId = getAnnotationSafe(edge, OPMConstants.EDGE_EVENT_ID);
 				if(!pendingExecveEdgeEventIds.contains(eventId)){ //it is not a pending one. so continue otherwise add the edge.
 					continue;
 				}
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			String srcPid = getAnnotationSafe(newEdge.getSourceVertex(), "pid");
+			String srcPid = getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID);
 			if(srcPid != null && pidToVertex.get(srcPid) != null){
 				newEdge.setSourceVertex(pidToVertex.get(srcPid));
 			}
-			String dstPid = getAnnotationSafe(newEdge.getDestinationVertex(), "pid");
+			String dstPid = getAnnotationSafe(newEdge.getDestinationVertex(), OPMConstants.PROCESS_PID);
 			if(dstPid != null && pidToVertex.get(dstPid) != null){
 				newEdge.setDestinationVertex(pidToVertex.get(dstPid));
 			}

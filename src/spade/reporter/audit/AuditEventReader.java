@@ -54,6 +54,44 @@ public class AuditEventReader {
 
 	private Logger logger = Logger.getLogger(this.getClass().getName());
 
+	public static final String ARG0 = "a0",
+			ARG1 = "a1",
+			ARG2 = "a2",
+			ARG3 = "a3",
+			COMM = "comm",
+			CWD = "cwd",
+			EGID = "egid",
+			EUID = "euid",
+			EVENT_ID = "eventid",
+			EXECVE_ARGC = "execve_argc",
+			EXECVE_PREFIX = "execve_",
+			EXIT = "exit",
+			FD = "fd",
+			FD0 = "fd0",
+			FD1 = "fd1",
+			FSGID = "fsgid",
+			FSUID = "fsuid",
+			GID = "gid",
+			ITEMS = "items",
+			MODE_PREFIX = "mode",
+			NAMETYPE_CREATE = "CREATE",
+			NAMETYPE_DELETE = "DELETE",
+			NAMETYPE_NORMAL = "NORMAL",
+			NAMETYPE_PARENT = "PARENT",
+			NAMETYPE_PREFIX = "nametype",
+			NAMETYPE_UNKNOWN = "UNKNOWN",
+			PATH_PREFIX = "path",
+			PID = "pid",
+			SADDR = "saddr",
+			SGID = "sgid",
+			SUCCESS = "success",
+			SUCCESS_NO = "no",
+			SUCCESS_YES = "yes",
+			SUID = "suid",
+			SYSCALL = "syscall",
+			TIME = "time",
+			UID = "uid";
+	
 	//Reporting variables
 	private boolean reportingEnabled = false;
 	private long reportEveryMs;
@@ -474,12 +512,12 @@ public class AuditEventReader {
 			String eventId = event_start_matcher.group(4);
 			String messageData = line.substring(event_start_matcher.end());
 
-			auditRecordKeyValues.put("eventid", eventId);
-			auditRecordKeyValues.put("node", node);
+			auditRecordKeyValues.put(EVENT_ID, eventId);
+			//auditRecordKeyValues.put("node", node);
 
 			if (type.equals("SYSCALL")) {
 				Map<String, String> eventData = parseKeyValPairs(messageData);
-				eventData.put("time", time);
+				eventData.put(TIME, time);
 				auditRecordKeyValues.putAll(eventData);
 			} else if (type.equals("CWD")) {
 				Matcher cwd_matcher = pattern_cwd.matcher(messageData);
@@ -495,7 +533,7 @@ public class AuditEventReader {
 							//failed to parse
 						}
 					}                    
-					auditRecordKeyValues.put("cwd", cwd);
+					auditRecordKeyValues.put(CWD, cwd);
 				}
 			} else if (type.equals("PATH")) {
 				Matcher path_matcher = pattern_path.matcher(messageData);
@@ -516,14 +554,14 @@ public class AuditEventReader {
 							//failed to parse
 						}
 					}
-					auditRecordKeyValues.put("path" + item, name);
-					auditRecordKeyValues.put("nametype" + item, nametype);
-					auditRecordKeyValues.put("mode" + item, mode);
+					auditRecordKeyValues.put(PATH_PREFIX + item, name);
+					auditRecordKeyValues.put(NAMETYPE_PREFIX + item, nametype);
+					auditRecordKeyValues.put(MODE_PREFIX + item, mode);
 				}
 			} else if (type.equals("EXECVE")) {
 				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
 				while (key_value_matcher.find()) {
-					auditRecordKeyValues.put("execve_" + key_value_matcher.group(1), key_value_matcher.group(2));
+					auditRecordKeyValues.put(EXECVE_PREFIX + key_value_matcher.group(1), key_value_matcher.group(2));
 				}
 			} else if (type.equals("FD_PAIR")) {
 				Matcher key_value_matcher = pattern_key_value.matcher(messageData);

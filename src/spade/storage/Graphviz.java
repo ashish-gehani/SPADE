@@ -27,6 +27,7 @@ import org.apache.commons.codec.binary.Hex;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
+import spade.reporter.audit.OPMConstants;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -103,8 +104,8 @@ public class Graphviz extends AbstractStorage {
                 shape = "ellipse";
                 color = "khaki1";
                 try {
-                    String subtype = incomingVertex.getAnnotation("subtype");
-                    if (subtype.equalsIgnoreCase("network")) {
+                    String subtype = incomingVertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
+                    if (subtype.equalsIgnoreCase(OPMConstants.SUBTYPE_NETWORK_SOCKET)) {
                         shape = "diamond";
                         color = "palegreen1";
                     }

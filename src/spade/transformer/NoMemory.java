@@ -23,6 +23,7 @@ import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 
 //remove memory artifacts along with edges
 public class NoMemory extends AbstractTransformer{
@@ -30,8 +31,8 @@ public class NoMemory extends AbstractTransformer{
 	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge.getSourceVertex(), "subtype").equals("memory") 
-					|| getAnnotationSafe(edge.getDestinationVertex(), "subtype").equals("memory")){
+			if(getAnnotationSafe(edge.getSourceVertex(), OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_MEMORY_ADDRESS) 
+					|| getAnnotationSafe(edge.getDestinationVertex(), OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_MEMORY_ADDRESS)){
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);

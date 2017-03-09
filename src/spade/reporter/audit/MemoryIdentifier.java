@@ -50,14 +50,14 @@ public class MemoryIdentifier extends ArtifactIdentifier{
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put("memory address", memoryAddress);
-		annotations.put("size", size);
-		annotations.put("pid", pid);
+		annotations.put(OPMConstants.ARTIFACT_MEMORY_ADDRESS, memoryAddress);
+		annotations.put(OPMConstants.ARTIFACT_SIZE, size);
+		annotations.put(OPMConstants.ARTIFACT_PID, pid);
 		return annotations;
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_MEMORY;
+		return OPMConstants.SUBTYPE_MEMORY_ADDRESS;
 	}
 
 	@Override

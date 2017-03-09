@@ -60,16 +60,16 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put("source address", sourceHost);
-		annotations.put("source port", sourcePort);
-		annotations.put("destination address", destinationHost);
-		annotations.put("destination port", destinationPort);
+		annotations.put(OPMConstants.ARTIFACT_SOURCE_ADDRESS, sourceHost);
+		annotations.put(OPMConstants.ARTIFACT_SOURCE_PORT, sourcePort);
+		annotations.put(OPMConstants.ARTIFACT_DESTINATION_ADDRESS, destinationHost);
+		annotations.put(OPMConstants.ARTIFACT_DESTINATION_PORT, destinationPort);
 //		annotations.put("protocol", protocol);
 		return annotations;
 	}
 
 	public String getSubtype(){
-		return SUBTYPE_SOCKET;
+		return OPMConstants.SUBTYPE_NETWORK_SOCKET;
 	}
 
 	@Override
