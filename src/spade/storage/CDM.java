@@ -19,7 +19,6 @@
  */
 package spade.storage;
 
-import java.io.File;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,7 +34,6 @@ import java.util.logging.Logger;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FileUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
 import com.bbn.tc.schema.avro.AbstractObject;
@@ -59,7 +57,6 @@ import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.vertex.prov.Agent;
@@ -119,72 +116,121 @@ public class CDM extends Kafka {
 	/**
 	 * A map from the Set of edges needed for each event to complete.
 	 */
-	private Map<Set<TypeOperation>, EventType> rulesToEventType = null;
-
-
+	private Map<Set<TypeOperation>, EventType> rulesToEventType = 
+			new HashMap<Set<TypeOperation>, EventType>();
+	
 	/**
-	 * Reads the lines passed as list and parses them to build a map using which 
-	 * edge type and edge operation combinations are used to map them to CDM EventType
-	 * enum
-	 *  
-	 * Format of line: <edge type>:<edge operation> & <edge type>:<edge operation>, CDM EventType enum  
-	 *  
-	 * Returns null if any error in processing the lines
-	 *  
-	 * @param lines list of lines as in the config file
-	 * @return null/Map from type operation rule to event type
+	 * Rules from OPM edges types and operations to event types in CDM
 	 */
-	public Map<Set<TypeOperation>, EventType> getEventRules(List<String> lines){
-		if(lines != null){
-			Map<Set<TypeOperation>, EventType> rules = new HashMap<Set<TypeOperation>, EventType>();
-			for(String line : lines){
-				if(line == null){
-					logger.log(Level.SEVERE, "Null line");
-				}else{
-					line = line.trim();
-					if(!line.startsWith("#")){
-						String [] ruleEventType = line.split(",");
-						if(ruleEventType.length == 2){
-							String rule = ruleEventType[0];
-							String eventTypeString = ruleEventType[1].trim();
-							EventType eventType = null;
-							try{
-								eventType = EventType.valueOf(eventTypeString);
-							}catch(Exception e){
-								logger.log(Level.SEVERE, line, e);
-								return null;
-							}
-							String ruleTokens[] = rule.split("&");
-							Set<TypeOperation> typeOperations = new HashSet<TypeOperation>();
-							for(String ruleToken : ruleTokens){
-								String[] typeOperation = ruleToken.split(":");
-								if(typeOperation.length == 2){
-									String type = typeOperation[0].trim();
-									String operation = typeOperation[1].trim();
-									typeOperations.add(new TypeOperation(type, operation));
-								}else{
-									logger.log(Level.SEVERE, "Malformed line "+line);
-									return null;
-								}
-							}
-							if(!typeOperations.isEmpty()){
-								rules.put(typeOperations, eventType);
-							}else{
-								logger.log(Level.SEVERE, "Empty rule not allowed");
-								return null;
-							}
-						}else{
-							logger.log(Level.SEVERE, "Malformed line "+line);
-							return null;
-						}
-					}
-				}
-			}
-			return rules;
-		}else{
-			logger.log(Level.SEVERE, "NULL list of lines for rules");
+	private void populateEventRules(){
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXIT)), 
+						EventType.EVENT_EXIT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_FORK)), 
+						EventType.EVENT_FORK);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_CLONE)), 
+						EventType.EVENT_CLONE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)), 
+						EventType.EVENT_EXECUTE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT)), 
+						EventType.EVENT_UNIT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CLOSE)), 
+						EventType.EVENT_CLOSE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_UNLINK)), 
+						EventType.EVENT_UNLINK);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_OPEN)), 
+						EventType.EVENT_OPEN);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CREATE)), 
+						EventType.EVENT_CREATE_OBJECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_WRITE)), 
+						EventType.EVENT_WRITE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_SEND)), 
+						EventType.EVENT_SENDMSG);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_MPROTECT)), 
+						EventType.EVENT_MPROTECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CONNECT)), 
+						EventType.EVENT_CONNECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_TRUNCATE)), 
+						EventType.EVENT_TRUNCATE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CHMOD)), 
+						EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_CREATE)), 
+						EventType.EVENT_CREATE_OBJECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_CLOSE)), 
+						EventType.EVENT_CLOSE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_LOAD)), 
+						EventType.EVENT_LOADLIBRARY);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_OPEN)), 
+						EventType.EVENT_OPEN);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_READ)), 
+						EventType.EVENT_READ);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_RECV)), 
+						EventType.EVENT_RECVMSG);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_ACCEPT)), 
+						EventType.EVENT_ACCEPT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+						OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE))), 
+						EventType.EVENT_MMAP);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_MMAP),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_MMAP);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_RENAME),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_RENAME, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_RENAME, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_RENAME);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_LINK),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_LINK);
+		// A special value for Operation in class TypeOperation and means that it can be anything
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, TypeOperation.ANY_OPERATION)), 
+						EventType.EVENT_UPDATE);
+		
+	}
+	
+	private Set<TypeOperation> getSet(TypeOperation... typeOperations){
+		Set<TypeOperation> set = new HashSet<TypeOperation>();
+		for(TypeOperation typeOperation : typeOperations){
+			set.add(typeOperation);
 		}
-		return null;
+		return set;
 	}
 
 	private void publishEvent(EventType eventType, AbstractEdge edge, AbstractVertex actingProcess, 
@@ -680,29 +726,7 @@ public class CDM extends Kafka {
 			hexUUIDs = false;
 		}
 
-		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
-		try{
-			File configFile = new File(configFilePath);
-			List<String> ruleLines = new ArrayList<String>();
-			List<String> configLines = FileUtils.readLines(configFile);
-			boolean rulesSectionStarted = false;
-			for(String configLine : configLines){
-				if(configLine.contains("### EVENT rules")){
-					rulesSectionStarted = true;
-				}
-				if(rulesSectionStarted && !configLine.startsWith("#")){
-					ruleLines.add(configLine);
-				}
-			}
-
-			rulesToEventType = getEventRules(ruleLines);
-			if(rulesToEventType == null || rulesToEventType.size() == 0){
-				return false;
-			}    		
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read config file", e);
-			return false;
-		}
+		populateEventRules();
 
 		publishStreamMarkerObject(true);
 
@@ -869,7 +893,7 @@ public class CDM extends Kafka {
 			AbstractVertex actingVertex = null;
 			AbstractEdge edgeForEvent = null;
 			EventType eventType = getEventType(edges);
-
+			
 			if(edges.size() == 1){
 				edgeForEvent = edges.get(0);
 				if(edgeForEvent != null){
@@ -1199,6 +1223,7 @@ public class CDM extends Kafka {
  *
  */
 class TypeOperation{
+	public static final String ANY_OPERATION = "*";
 	private String type, operation;
 	public TypeOperation(String type, String operation){
 		this.type = type;
@@ -1214,7 +1239,9 @@ class TypeOperation{
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		//		result = prime * result + ((operation == null) ? 0 : operation.hashCode());
+		if(operation != null && !operation.equals(ANY_OPERATION)){
+			result = prime * result + ((operation == null) ? 0 : operation.hashCode());
+		}
 		result = prime * result + ((type == null) ? 0 : type.hashCode());
 		return result;
 	}
@@ -1232,7 +1259,7 @@ class TypeOperation{
 				return false;
 		} else if (!type.equals(other.type))
 			return false;
-		if("*".equals(operation) || "*".equals(other.operation)){
+		if(ANY_OPERATION.equals(operation) || ANY_OPERATION.equals(other.operation)){
 			return true;
 		}
 		if (operation == null) {
