@@ -2477,14 +2477,28 @@ public class Audit extends AbstractReporter {
 		String pid = eventData.get(AuditEventReader.PID);
 		String cwd = eventData.get(AuditEventReader.CWD);
 		String oldFilePath = eventData.get(AuditEventReader.PATH_PREFIX+"2");
-		int oldFilePathMode = Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX+"2"), 8);
+		String oldFilePathModeStr = eventData.get(AuditEventReader.MODE_PREFIX+"2");
 		//if file renamed to already existed then path4 else path3. Both are same so just getting whichever exists
 		String newFilePath = eventData.get(AuditEventReader.PATH_PREFIX+"4") == null ? 
 				eventData.get(AuditEventReader.PATH_PREFIX+"3") : 
 				eventData.get(AuditEventReader.PATH_PREFIX+"4");
-		int newFilePathMode = eventData.get(AuditEventReader.MODE_PREFIX+"4") == null ? 
-				Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX+"3"), 8) : 
-				Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX+"4"), 8);
+		String newFilePathModeStr = eventData.get(AuditEventReader.MODE_PREFIX+"4") == null ? 
+				eventData.get(AuditEventReader.MODE_PREFIX+"3") : 
+				eventData.get(AuditEventReader.MODE_PREFIX+"4");
+				
+		int oldFilePathMode = 0, newFilePathMode = 0;
+		
+		try{
+			oldFilePathMode = Integer.parseInt(oldFilePathModeStr, 8);
+		}catch(Exception e){
+			log(Level.INFO, "Missing mode for path: " + oldFilePath + ". Using type 'file'", null, time, eventId, syscall);
+		}
+		
+		try{
+			newFilePathMode = Integer.parseInt(newFilePathModeStr, 8);
+		}catch(Exception e){
+			log(Level.INFO, "Missing mode for path: " + newFilePath + ". Using type 'file'", null, time, eventId, syscall);
+		}
 
 		if(syscall == SYSCALL.RENAME){
 			oldFilePath = constructAbsolutePath(oldFilePath, cwd, pid);
@@ -2608,11 +2622,25 @@ public class Audit extends AbstractReporter {
 		String pid = eventData.get(AuditEventReader.PID);
 		String cwd = eventData.get(AuditEventReader.CWD);
 		String srcPath = eventData.get(AuditEventReader.PATH_PREFIX+"0");
-		int srcPathMode = Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX + "0"), 8);
+		String srcPathModeStr = eventData.get(AuditEventReader.MODE_PREFIX + "0");
 		String dstPath = eventData.get(AuditEventReader.PATH_PREFIX + "2");
-		int dstPathMode = Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX + "2"), 8);
+		String dstPathModeStr = eventData.get(AuditEventReader.MODE_PREFIX + "2");
 		String time = eventData.get(AuditEventReader.TIME);
 
+		int srcPathMode = 0, dstPathMode = 0;
+		
+		try{
+			srcPathMode = Integer.parseInt(srcPathModeStr, 8);
+		}catch(Exception e){
+			log(Level.INFO, "Missing mode for path: " + srcPath + ". Using type 'file'", null, time, eventId, syscall);
+		}
+		
+		try{
+			dstPathMode = Integer.parseInt(dstPathModeStr, 8);
+		}catch(Exception e){
+			log(Level.INFO, "Missing mode for path: " + dstPath + ". Using type 'file'", null, time, eventId, syscall);
+		}
+		
 		if(syscall == SYSCALL.LINK || syscall == SYSCALL.SYMLINK){
 			srcPath = constructAbsolutePath(srcPath, cwd, pid);
 			dstPath = constructAbsolutePath(dstPath, cwd, pid);
@@ -2714,8 +2742,8 @@ public class Audit extends AbstractReporter {
 		}else if((pathMode & S_IFMT) == S_IFSOCK){
 			return new UnixSocketIdentifier(path);
 		}else{
-			logger.log(Level.WARNING, "Unknown file type in mode: {0}", new Object[]{pathMode});
-			return null;
+			logger.log(Level.INFO, "Unknown file type in mode: {0}. Using 'file' type", new Object[]{pathMode});
+			return new FileIdentifier(path);
 		}
 	}
 
@@ -3563,10 +3591,16 @@ public class Audit extends AbstractReporter {
 			Long items = CommonFunctions.parseLong(eventData.get(AuditEventReader.ITEMS), 0L);
 			for(int itemcount = 0; itemcount < items; itemcount++){
 				if(nametypeValue.equals(eventData.get(AuditEventReader.NAMETYPE_PREFIX+itemcount))){
+					int mode = 0;
+					try{
+						mode = Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX+itemcount), 8);
+					}catch(Exception e){
+						// nothing
+					}
 					PathRecord pathRecord = new PathRecord(itemcount, 
 							eventData.get(AuditEventReader.PATH_PREFIX+itemcount), 
 							eventData.get(AuditEventReader.NAMETYPE_PREFIX+itemcount), 
-							Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX+itemcount), 8));
+							mode);
 					pathRecords.add(pathRecord);
 				}
 			}
