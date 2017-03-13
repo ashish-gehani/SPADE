@@ -20,6 +20,7 @@
 package spade.core;
 
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Properties;
@@ -33,7 +34,7 @@ import java.util.logging.Logger;
 public class Settings {
 
     private static final String settingsFile = "cfg/settings.config";
-    private final static Properties prop = new Properties();
+    private final static Properties spadeProperties = new Properties();
 
     static {
         try {
@@ -53,7 +54,7 @@ public class Settings {
             setProperty("neo4j_webserver", "true");
 
             // override certain settings if the settings file is present
-            prop.load(new FileInputStream(settingsFile));
+            spadeProperties.load(new FileInputStream(settingsFile));
         }
         catch (IOException ex)
         {
@@ -63,15 +64,15 @@ public class Settings {
     }
 
     public static String getProperty(String property) {
-        return prop.getProperty(property);
+        return spadeProperties.getProperty(property);
     }
 
     public static void setProperty(String property, String value) {
-        prop.setProperty(property.toLowerCase(), value);
+        spadeProperties.setProperty(property.toLowerCase(), value);
     }
 
     public static void saveSettings() throws IOException {
-        prop.store(new FileOutputStream(settingsFile), null);
+        spadeProperties.store(new FileOutputStream(settingsFile), null);
     }
     
     public static String getDefaultConfigFilePath(Class<?> forClass){

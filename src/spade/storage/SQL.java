@@ -19,12 +19,7 @@
  */
 package spade.storage;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 
 import java.util.Set;
 import java.util.Map;
@@ -50,7 +45,7 @@ public class SQL extends AbstractStorage {
     private final boolean ENABLE_SANITAZATION = true;
     private static final String VERTEX_TABLE = "vertex";
     private static final String EDGE_TABLE = "edge";
-    private static int DUPLICATE_COLUMN_ERROR_CODE;
+    private static String DUPLICATE_COLUMN_ERROR_CODE;
     /**
      *  initializes the SQL database and creates the necessary tables
      * if not already present. The necessary tables include VERTEX and EDGE tables
@@ -97,13 +92,13 @@ public class SQL extends AbstractStorage {
             switch(databaseDriver)
             {
                 case("org.postgresql.Driver"):
-                    DUPLICATE_COLUMN_ERROR_CODE = 42701;
+                    DUPLICATE_COLUMN_ERROR_CODE = "42701";
                     break;
                 case "org.mysql.Driver":
-                    DUPLICATE_COLUMN_ERROR_CODE = 1060;
+                    DUPLICATE_COLUMN_ERROR_CODE = "1060";
                     break;
                 default:    // org.h2.Driver
-                    DUPLICATE_COLUMN_ERROR_CODE = 42121;
+                    DUPLICATE_COLUMN_ERROR_CODE = "42121";
             }
 
 
@@ -113,24 +108,40 @@ public class SQL extends AbstractStorage {
                     + VERTEX_TABLE
                     + "(" + PRIMARY_KEY
                     + " "
-                    + "UUID PRIMARY KEY, "
-                    + "type VARCHAR(32) NOT NULL "
+                    + "UUID PRIMARY KEY " //TODO: add comma and remove comment
+//                    + "type VARCHAR(32) NOT NULL "
                     + ")";
             dbStatement.execute(createVertexTable);
+            String query = "SELECT * FROM " + VERTEX_TABLE + " WHERE false;";
+            dbStatement.execute(query);
+            ResultSet result = dbStatement.executeQuery(query);
+            ResultSetMetaData metadata = result.getMetaData();
+            int columnCount = metadata.getColumnCount();
+            for(int i = 1; i <= columnCount; i++)
+            {
+                vertexAnnotations.add(metadata.getColumnLabel(i));
+            }
 
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
                     + EDGE_TABLE
                     + " (" + PRIMARY_KEY
                     + " "
-                    + "VARCHAR(32) PRIMARY KEY, "
-                    + "type VARCHAR(32) NOT NULL ,"
-                    + "sourceVertexHash VARCHAR(32) NOT NULL, "
-                    + "destinationVertexHash VARCHAR(32) NOT NULL "
+                    + "UUID PRIMARY KEY, "
+//                    + "type VARCHAR(32) NOT NULL ," //TODO: remove comment
+                    + "sourceVertexHash UUID NOT NULL, "
+                    + "destinationVertexHash UUID NOT NULL "
                     + ")";
             dbStatement.execute(createEdgeTable);
-
+            query = "SELECT * FROM " + EDGE_TABLE + " WHERE false;";
+            dbStatement.execute(query);
+            result = dbStatement.executeQuery(query);
+            metadata = result.getMetaData();
+            columnCount = metadata.getColumnCount();
+            for(int i = 1; i <= columnCount; i++)
+            {
+                edgeAnnotations.add(metadata.getColumnLabel(i));
+            }
             dbStatement.close();
-
 
             return true;
 
@@ -205,10 +216,11 @@ public class SQL extends AbstractStorage {
         try
         {
             Statement columnStatement = dbConnection.createStatement();
-            String statement = "ALTER TABLE `" + table_name
-                        + "` ADD COLUMN `"
+            String statement = "ALTER TABLE "
+                        + table_name
+                        + " ADD COLUMN "
                         + column_name
-                        + "` VARCHAR(256);";
+                        + " VARCHAR(256);";
             columnStatement.execute(statement);
             dbConnection.commit();
             columnStatement.close();
@@ -227,7 +239,7 @@ public class SQL extends AbstractStorage {
         catch (SQLException ex)
         {
             Logger.getLogger(SQL.class.getName()).log(Level.WARNING, "Duplicate column found in table", ex);
-            if (ex.getErrorCode() == DUPLICATE_COLUMN_ERROR_CODE)
+            if (ex.getSQLState().equals(DUPLICATE_COLUMN_ERROR_CODE))
             {
                 if (table_name.equalsIgnoreCase(VERTEX_TABLE))
                 {
@@ -460,11 +472,11 @@ public class SQL extends AbstractStorage {
      * not successful if the edge is already present in the storage.
      */
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge)
+   public boolean putEdge(AbstractEdge incomingEdge)
     {
         //TODO: insert vertex if not present before
-        //TODO: implement type functionality here
-        if(Cache.isPresent(incomingEdge.getAnnotation(PRIMARY_KEY)))
+        String edgeHash = incomingEdge.bigHashCode();
+        if(Cache.isPresent(edgeHash))
             return true;
 
         String sourceVertexHash = incomingEdge.getSourceVertex().bigHashCode();
@@ -493,15 +505,15 @@ public class SQL extends AbstractStorage {
 
         // Eliminate the last 2 characters from the string (", ") and begin adding values
         String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
-        insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
+        insertStringBuilder = new StringBuilder(insertString + ") VALUES ('");
 
         // Add the hash code, and source and destination vertex Ids
-        insertStringBuilder.append(incomingEdge.bigHashCode());
-        insertStringBuilder.append(", ");
+        insertStringBuilder.append(edgeHash);
+        insertStringBuilder.append("', '");
         insertStringBuilder.append(sourceVertexHash);
-        insertStringBuilder.append(", ");
+        insertStringBuilder.append("', '");
         insertStringBuilder.append(destinationVertexHash);
-        insertStringBuilder.append(", ");
+        insertStringBuilder.append("', ");
 
         // Add the annotation values
         for (String annotationKey : incomingEdge.getAnnotations().keySet())
@@ -537,7 +549,8 @@ public class SQL extends AbstractStorage {
     public boolean putVertex(AbstractVertex incomingVertex)
     {
         //TODO: type should come automatically as the first key-value pair
-        if(Cache.isPresent(incomingVertex.getAnnotation(PRIMARY_KEY)))
+        String vertexHash = incomingVertex.bigHashCode();
+        if(Cache.isPresent(vertexHash))
             return true;
 
         // Use StringBuilder to build the SQL insert statement
@@ -546,6 +559,7 @@ public class SQL extends AbstractStorage {
         insertStringBuilder.append(VERTEX_TABLE);
         insertStringBuilder.append(" (");
         insertStringBuilder.append(PRIMARY_KEY);
+        insertStringBuilder.append(", ");
         for (String annotationKey : incomingVertex.getAnnotations().keySet())
         {
             // Sanitize column name to remove special characters
@@ -565,8 +579,8 @@ public class SQL extends AbstractStorage {
 
         // Add the hash code primary key
         insertStringBuilder.append("'");
-        insertStringBuilder.append(incomingVertex.bigHashCode());
-        insertStringBuilder.append(", ");
+        insertStringBuilder.append(vertexHash);
+        insertStringBuilder.append("', ");
 
         // Add the annotation values
         for (String annotationKey : incomingVertex.getAnnotations().keySet())

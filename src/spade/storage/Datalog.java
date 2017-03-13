@@ -115,4 +115,81 @@ public class Datalog extends AbstractStorage {
         return result;
     }
 
+    /**
+     * This function queries the underlying storage and retrieves the edge
+     * matching the given criteria.
+     *
+     * @param sourceVertexHash      hash of the source vertex.
+     * @param destinationVertexHash hash of the destination vertex.
+     * @return returns edge object matching the given vertices OR NULL.
+     */
+    @Override
+    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash) {
+        return null;
+    }
+
+    /**
+     * This function queries the underlying storage and retrieves the vertex
+     * matching the given criteria.
+     *
+     * @param vertexHash hash of the vertex to find.
+     * @return returns vertex object matching the given hash OR NULL.
+     */
+    @Override
+    public AbstractVertex getVertex(String vertexHash) {
+        return null;
+    }
+
+    /**
+     * This function finds the children of a given vertex.
+     * A child is defined as a vertex which is the source of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param parentHash hash of the given vertex
+     * @return returns graph object containing children of the given vertex OR NULL.
+     */
+    @Override
+    public Graph getChildren(String parentHash) {
+        return null;
+    }
+
+    /**
+     * This function finds the parents of a given vertex.
+     * A parent is defined as a vertex which is the destination of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param childHash hash of the given vertex
+     * @return returns graph object containing parents of the given vertex OR NULL.
+     */
+    @Override
+    public Graph getParents(String childHash) {
+        return null;
+    }
+
+    /**
+     * This function inserts the given edge into the underlying storage(s) and
+     * updates the cache(s) accordingly.
+     *
+     * @param incomingEdge edge to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the edge is already present in the storage.
+     */
+    @Override
+    public boolean putEdge(AbstractEdge incomingEdge) {
+        return false;
+    }
+
+    /**
+     * This function inserts the given vertex into the underlying storage(s) and
+     * updates the cache(s) accordingly.
+     *
+     * @param incomingVertex vertex to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the vertex is already present in the storage.
+     */
+    @Override
+    public boolean putVertex(AbstractVertex incomingVertex) {
+        return false;
+    }
+
 }

@@ -23,7 +23,7 @@ import java.util.Random;
  */
 public class StorageAnalyzer
 {
-    private static final Neo4j Neo4jInstance = new Neo4j();
+    private static final BerkeleyDB BerkeleyDBInstance = new BerkeleyDB();
     private static List<AbstractVertex> vertexList = new LinkedList<>();
     private static Map<String, String> vertexHashes = new HashMap<>();
     private static Map<String, String> edgeHashes = new HashMap<>();
@@ -43,28 +43,28 @@ public class StorageAnalyzer
         for(Map.Entry<String, String> entry: vertexHashes.entrySet())
         {
             entry.getKey();
-            Neo4jInstance.getVertex(entry.getValue());
+            BerkeleyDBInstance.getVertex(entry.getValue());
         }
         long getVertex_elapsed_time = System.nanoTime() - getVertex_start_time;
 
         long getEdge_start_time = System.nanoTime();
         for(Map.Entry<String, String> entry: edgeHashes.entrySet())
         {
-            Neo4jInstance.getEdge(entry.getKey(), entry.getValue());
+            BerkeleyDBInstance.getEdge(entry.getKey(), entry.getValue());
         }
         long getEdge_elapsed_time = System.nanoTime() - getEdge_start_time;
 
         long getChildren_start_time = System.nanoTime();
         for(Map.Entry<String, String> entry: vertexHashes.entrySet())
         {
-            Neo4jInstance.getChildren(entry.getValue());
+            BerkeleyDBInstance.getChildren(entry.getValue());
         }
         long getChildren_elapsed_time = System.nanoTime() - getChildren_start_time;
 
         long getParents_start_time = System.nanoTime();
         for(Map.Entry<String, String> entry: vertexHashes.entrySet())
         {
-            Neo4jInstance.getParents(entry.getValue());
+            BerkeleyDBInstance.getParents(entry.getValue());
         }
         long getParents_elapsed_time = System.nanoTime() - getParents_start_time;
 
@@ -94,11 +94,13 @@ public class StorageAnalyzer
         Random random = new Random();
         boolean cacheVertex = false;
         String dbPath = "/tmp/spade_test.graph_db";
-        Neo4jInstance.initialize(dbPath);
+//        String dbPath = "org.postgresql.Driver jdbc:postgresql://localhost/spade_test sa null";
+        BerkeleyDBInstance.initialize(dbPath);
         int[] checkpoints = {10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+//        int[] checkpoints = {100, 1000};
         int checkpointIdx = 0;
         int vertexCacheFrequency = 1000;
-        String stats_file_name = "Neo4j_stats_without_index.txt";
+        String stats_file_name = "Neo4j_stats_with_index.txt";
 
         long start_time = System.nanoTime();
         while(serialID <= totalRecords)
@@ -107,7 +109,7 @@ public class StorageAnalyzer
                 cacheVertex = true;
             AbstractVertex vertex = new Vertex();
             vertex.addAnnotation("count", getSerialId());
-            Neo4jInstance.putVertex(vertex);
+            BerkeleyDBInstance.putVertex(vertex);
             // cache a vertex with 25% probability for edge creation
             if(random.nextInt(100) > 75)
                 vertexList.add(vertex);
@@ -121,7 +123,7 @@ public class StorageAnalyzer
                 {
                     AbstractEdge edge = new Edge(srcVertex, dstVertex);
                     edge.addAnnotation("count", getSerialId());
-                    Neo4jInstance.putEdge(edge);
+                    BerkeleyDBInstance.putEdge(edge);
                     // cache a vertex hash for retrieval purposes after every thousand
                     if(cacheVertex)
                     {
@@ -135,7 +137,7 @@ public class StorageAnalyzer
             if(checkpointIdx < checkpoints.length && (serialID % checkpoints[checkpointIdx] == 0 ||
                                                         serialID > totalRecords))
             {
-                Neo4jInstance.globalTxCheckin(true);
+//                BerkeleyDBInstance.globalTxCheckin(true);
                 computeRetrievalStats(start_time, stats_file_name, checkpoints[checkpointIdx]);
                 checkpointIdx++;
                 vertexCacheFrequency *= 10;

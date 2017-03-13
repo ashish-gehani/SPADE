@@ -40,6 +40,7 @@ import org.neo4j.graphdb.TransactionTerminatedException;
 import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 
+import org.neo4j.graphdb.schema.IndexDefinition;
 import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
@@ -91,15 +92,23 @@ public class Neo4j extends AbstractStorage
                 return false;
             }
             GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
-            try {
+            try
+            {
                 graphDbBuilder.loadPropertiesFromFile(NEO4J_CONFIG_FILE);
                 logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
-            } catch (Exception exception) {
+            }
+            catch (Exception exception)
+            {
                 //TODO: load something default here
                 logger.log(Level.INFO, "Default Neo4j configurations loaded.");
             }
 
             graphDb = graphDbBuilder.newGraphDatabase();
+//            IndexDefinition indexDefinition = graphDb.schema()
+//                                                .indexFor(NodeTypes.VERTEX)
+//                                                .on(PRIMARY_KEY)
+//                                                .create();
+
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
