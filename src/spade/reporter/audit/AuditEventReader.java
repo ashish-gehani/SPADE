@@ -21,22 +21,18 @@ package spade.reporter.audit;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
-import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -47,7 +43,10 @@ import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
 
 /**
- * Audit log reader which reads the log and sorts it in a sliding window of 'x' audit records
+ * This class reads and parses the audit logs one event at a time.
+ * 
+ * Assumes that the all of the records for an event are received 
+ * contiguously and are not spread out.
  * 
  */
 public class AuditEventReader {
@@ -82,6 +81,22 @@ public class AuditEventReader {
 			NAMETYPE_UNKNOWN = "UNKNOWN",
 			PATH_PREFIX = "path",
 			PID = "pid",
+			RECORD_TYPE_CWD = "CWD",
+			RECORD_TYPE_EOE = "EOE",
+			RECORD_TYPE_EXECVE = "EXECVE",
+			RECORD_TYPE_FD_PAIR = "FD_PAIR",
+			RECORD_TYPE_MMAP = "MMAP",
+			RECORD_TYPE_NETFILTER_PKT = "NETFILTER_PKT",
+			RECORD_TYPE_PATH = "PATH",
+			RECORD_TYPE_PROCTITLE = "PROCTITLE",
+			RECORD_TYPE_SOCKADDR = "SOCKADDR",
+			RECORD_TYPE_SOCKETCALL = "SOCKETCALL",
+			RECORD_TYPE_SYSCALL = "SYSCALL",
+			RECORD_TYPE_UBSI_ENTRY = "UBSI_ENTRY",
+			RECORD_TYPE_UBSI_EXIT = "UBSI_EXIT",
+			RECORD_TYPE_UBSI_DEP = "UBSI_DEP",
+			RECORD_TYPE_UNKNOWN_PREFIX = "UNKNOWN[",
+			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
 			SGID = "sgid",
 			SUCCESS = "success",
@@ -90,7 +105,13 @@ public class AuditEventReader {
 			SUID = "suid",
 			SYSCALL = "syscall",
 			TIME = "time",
-			UID = "uid";
+			UID = "uid",
+			UNIT_PID = "unit_pid",
+			UNIT_UNITID = "unit_unitid",
+			UNIT_ITERATION = "unit_iteration",
+			UNIT_TIME = "unit_time",
+			UNIT_COUNT = "unit_count",
+			UNIT_DEPS_COUNT = "unit_deps_count";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -98,157 +119,86 @@ public class AuditEventReader {
 	private long startTime, lastReportedTime;
 	private long lastReportedRecordCount, recordCount;
 
+	// Group 1: pid
+	// Group 2: unitid
+	// Group 3: iteration
+	// Group 4: time
+	// Group 5: count
+	private final Pattern pattern_unit = Pattern.compile("\\(pid=(\\d+) unitid=(\\d+) iteration=(\\d+) time=(\\d+\\.\\d+) count=(\\d+)\\)");
+	
 	// Group 1: key
 	// Group 2: value
-	private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
+	private final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
 
 	// Group 1: node
 	// Group 2: type
 	// Group 3: time
 	// Group 4: recordid
-	private static final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
+	private final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
 
 	// Group 1: cwd
 	//cwd is either a quoted string or an unquoted string in which case it is in hex format
-	private static final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
+	private final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
 
 	// Group 1: item number
 	// Group 2: name
 	// Group 3: mode
 	// Group 4: nametype
 	//name is either a quoted string or an unquoted string in which case it is in hex format
-	private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+|\\(null\\)) .*mode=([0-9]+) .*nametype=([a-zA-Z]*)");
-
-	// Group 1: eventid
-	private static final Pattern pattern_eventid = Pattern.compile("msg=audit\\([0-9\\.]+\\:([0-9]+)\\):");
+//	private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+|\\(null\\)) .*(?:mode=([0-9]+) ).*nametype=([a-zA-Z]*)");
 
 	/**
-	 * Reference to the current input stream entry alone with key
-	 * which is being read. Null means that either it has not been 
-	 * initialized yet (constructor ensures that this doesn't happen) 
-	 * or all streams have been read completely.
+	 * Buffers all the records for the current event being read
 	 */
-	private SimpleEntry<String, BufferedReader> currentInputStreamReaderEntry;	
-
-	/**
-	 * List of key value pairs of <stream identifier, input streams> to read from in the order in the list.
-	 * In case of files the stream identifier is the path of the file
-	 */
-	private LinkedList<SimpleEntry<String, InputStream>> inputStreamEntries = new LinkedList<SimpleEntry<String, InputStream>>();
-
-	/**
-	 * Sorted event ids in the current window
-	 */
-	private TreeSet<Long> eventIds = new TreeSet<Long>();
-
-	/**
-	 * List of audit records for event ids received in the current window
-	 */
-	private Map<Long, Set<String>> eventIdToEventRecords = new HashMap<Long, Set<String>>();
-
-	/**
-	 * Number of audit records read so far out of the window size
-	 */
-	private long currentlyBufferedRecords = 0;
-
-	/**
-	 * Window size to buffer and sort at a time
-	 */
-	private long maxRecordBufferSize = 0;
-
-	/**
-	 * Write output log to this file (for debugging or later use of the log)
-	 */
-	private PrintWriter outputLogWriter;
-
-	/**
-	 * Id of the last event that was output. Used to discard out of order event
-	 * records across window size. So, if event with id 'x' has been sent out
-	 * then if any event with id 'y' is read, where y < x, then 'y' is discarded
-	 */
-	private long lastEventId = -1;
+	private final Set<String> currentEventRecords = new HashSet<String>();
 	
 	/**
-	 * Used to tell if we saw a DAEMON_START type event
-	 * When this is seen, we stop reading from the file and empty the buffer and once
-	 * buffer has been empty, the lastEventId is reset and we start reading from the file 
-	 * again. Done this because after DAEMON_START event IDs start from a smaller number.
+	 * Keeps track of the current event id being buffered
 	 */
-	private boolean sawDaemonRising = false;
+	private Long currentEventId = -1L;
 
 	/**
-	 * Create instance of the class that reads the given list of files in the given order
-	 * 
-	 * @param maxRecordBufferSize window size (cannot be less than 1, bigger the better)
-	 * @param logFiles files to read (cannot be empty or null and all files must exist)
-	 * @throws Exception IllegalArgumentException or IOException
+	 * Id of the stream that is read by this class
 	 */
-	public AuditEventReader(long maxRecordBufferSize, String... logFiles) throws Exception{
-
-		if(maxRecordBufferSize < 1){
-			throw new IllegalArgumentException("Buffer size for audit records must be greater than 0");
-		}
-		if(logFiles == null){
-			throw new IllegalArgumentException("Null audit log files specified");
-		}else if(logFiles.length == 0){
-			throw new IllegalArgumentException("No audit log files specified");
-		}
-
-		for(String logFile : logFiles){
-			if(logFile != null){
-				File file = new File(logFile);
-				if(file.exists()){
-					this.inputStreamEntries.addLast(new SimpleEntry<String, InputStream>(logFile, new FileInputStream(file)));
-				}else{
-					throw new IllegalArgumentException("Log file " + file.getAbsolutePath() + " doesn't exist");
-				}	
-			}else{
-				throw new IllegalArgumentException("All file paths must be non-null");
-			}
-		}
-
-		// Shouldn't happen but just in case
-		if(this.inputStreamEntries.size() == 0){
-			throw new IllegalArgumentException("No valid log files specified");
-		}
-
-		// Making sure that the current inputstream reader is non-null when readEventData is called afterwards
-		initializeCurrentStreamReader();
-		this.maxRecordBufferSize = maxRecordBufferSize;
-
-		setGlobalsFromConfig();
-	}
+	private String streamId;
+	
+	/**
+	 *	The stream to read from by this class
+	 */
+	private BufferedReader stream;
+	
+	private long rotateAfterRecordCount = 0;
+	private String outputLogFile = null;
+	private PrintWriter outputLogWriter = null;
+	private int currentOutputLogFileCount = 0;
+	private long recordsWrittenToOutputLog = 0;
 
 	/**
-	 * Create instance of the class that reads the given list of streams in the given order
+	 * Used to find out if there is pending UBSI event before reading more 
+	 */
+	private boolean pendingUBSIEvent = false;
+	
+	/**
+	 * Flag to keep track of end of file/stream
+	 */
+	private boolean EOF = false;
+	
+	/**
+	 * Create instance of the class that reads from the given stream
 	 * 
-	 * @param maxRecordBufferSize window size (cannot be less than 1, bigger the better)
-	 * @param inputStreamEntries streams to read (cannot be empty or null and all streams must be non null along with their keys)
+	 * @param streamId An identifier to read the audit logs from
+	 * @param streamToReadFrom The stream to read from
 	 * @throws Exception IllegalArgumentException or IOException
 	 */
-	public AuditEventReader(long maxRecordBufferSize, List<SimpleEntry<String, InputStream>> inputStreamEntries) throws Exception{
-		if(maxRecordBufferSize < 1){
-			throw new IllegalArgumentException("Buffer size for audit records must be greater than 0");
+	public AuditEventReader(String streamId, InputStream streamToReadFrom) throws Exception{
+		if(streamId == null){
+			throw new IllegalArgumentException("Stream ID cannot be NULL");
 		}
-		if(inputStreamEntries == null){
-			throw new IllegalArgumentException("Null input streams specified");
-		}else if(inputStreamEntries.size() == 0){
-			throw new IllegalArgumentException("No input streams specified");
+		if(streamToReadFrom == null){
+			throw new IllegalArgumentException("The stream to read from cannot be NULL");
 		}
-		for(SimpleEntry<String, InputStream> inputStreamEntry : inputStreamEntries){
-			String key = inputStreamEntry.getKey();
-			InputStream inputStream = inputStreamEntry.getValue();
-			if(key != null && inputStream != null){
-				this.inputStreamEntries.addLast(new SimpleEntry<String, InputStream>(key, inputStream));
-			}else{
-				throw new IllegalArgumentException("Input stream entry -> [" + key + ", " + inputStream + "]. Both must be non-null");
-			}
-		}
-		if(this.inputStreamEntries.size() == 0){
-			throw new IllegalArgumentException("No valid input streams");
-		}
-		initializeCurrentStreamReader();
-		this.maxRecordBufferSize = maxRecordBufferSize;
+
+		stream = new BufferedReader(new InputStreamReader(streamToReadFrom));
 
 		setGlobalsFromConfig();
 	}
@@ -278,37 +228,38 @@ public class AuditEventReader {
 	}
 
 	/**
-	 * Convenience function to get the next stream and to initialize(open) it.
+	 * Function to set the output log file to which the log is written
 	 * 
-	 * It closes the current stream if not null. 
+	 * If rotateAfterRecordCount is less than 1 then no rotation is done and
+	 * everything is written to a single file.
 	 * 
+	 * @param outputLogFile output log file to write to
+	 * @param rotateAfterRecordCount number of records to create a new log after
 	 * @throws Exception IOException
 	 */
-	private void initializeCurrentStreamReader() throws Exception{
-		if(currentInputStreamReaderEntry != null){
-			currentInputStreamReaderEntry.getValue().close();
-			currentInputStreamReaderEntry = null; //set to null
-		}
-		if(inputStreamEntries.size() > 0){
-			SimpleEntry<String, InputStream> nextEntry = inputStreamEntries.removeFirst();
-			currentInputStreamReaderEntry = new SimpleEntry<String, BufferedReader>(
-					nextEntry.getKey(), new BufferedReader(new InputStreamReader(nextEntry.getValue())));
+	public void setOutputLog(String outputLogFile, long rotateAfterRecordCount) throws Exception{
+		this.outputLogFile = outputLogFile;
+		this.rotateAfterRecordCount = rotateAfterRecordCount < 1 ? 0 : rotateAfterRecordCount;
+		outputLogWriter = new PrintWriter(outputLogFile);
+	}
+	
+	private void writeToOutputLog(String record){
+		if(outputLogWriter != null){
+			try{
+				outputLogWriter.println(record);
+				recordsWrittenToOutputLog++;
+				if(rotateAfterRecordCount > 0 && recordsWrittenToOutputLog >= rotateAfterRecordCount){
+					recordsWrittenToOutputLog = 0;
+					currentOutputLogFileCount++;
+					outputLogWriter.close();
+					outputLogWriter = new PrintWriter(outputLogFile + "." + currentOutputLogFileCount);
+				}
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to write out to output log", e);
+			}
 		}
 	}
-
-	/**
-	 * Function to set the output log stream to which the sorted log is written
-	 * 
-	 * If null value of the argument then nothing done
-	 * 
-	 * @param outputStream output log stream to write to (can be null)
-	 * @throws Exception IOException
-	 */
-	public void setOutputLog(OutputStream outputStream) throws Exception{
-		if(outputStream != null){
-			outputLogWriter = new PrintWriter(outputStream);
-		}
-	}
+	
 
 	private void printStats(){
 		long currentTime = System.currentTimeMillis();
@@ -321,11 +272,51 @@ public class AuditEventReader {
 					new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
 		}
 	}
-
+	
 	/**
-	 * Returns a map of key values for the event that is read from the stream(s)
+	 * Returns the event id from the audit record.
 	 * 
-	 * Null return value means EOF for all streams
+	 * Expected format of line -> "type='TYPE' msg=audit('time':'eventid'):"
+	 * 
+	 * @param line audit record
+	 * @return event id. NULL if not found
+	 */
+	private Long getEventId(String line){
+		try{
+			int firstIndexOfColon = line.indexOf(':');
+			int firstIndexOfClosingBracket = line.indexOf(')');
+			return Long.parseLong(line.substring(firstIndexOfColon+1, firstIndexOfClosingBracket));
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to get event id from line: " + line, e);
+			return null;
+		}
+	}
+	
+	/**
+	 * Returns the time from the audit record.
+	 * 
+	 * Expected format of line -> "type='TYPE' msg=audit('time':'eventid'):"
+	 * 
+	 * @param line audit record
+	 * @return time. NULL if not found
+	 */
+	private String getEventTime(String line){
+		try{
+			int firstIndexOfOpeningBracket = line.indexOf('(');
+			int firstIndexOfColon = line.indexOf(':');
+			return line.substring(firstIndexOfOpeningBracket+1, firstIndexOfColon);
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to get time from line: " + line, e);
+			return null;
+		}
+	}
+	
+	/**
+	 * Returns a map of key values for the event that is read from the stream
+	 * 
+	 * Null return value means EOF
+	 * 
+	 * Reads on the assumption that all records for an event are contiguously placed
 	 * 
 	 * @return map of key values of the read audit event
 	 * @throws Exception IOException
@@ -341,76 +332,132 @@ public class AuditEventReader {
 			}
 		}
 
-		if(currentInputStreamReaderEntry == null
-				|| sawDaemonRising){ //all streams processed or emptying the buffer because of DAEMON_START
-			return getEventData();		
-		}else{ // not all streams processed
-			while(currentlyBufferedRecords < maxRecordBufferSize){ //read audit records until max amount read
-				String line = currentInputStreamReaderEntry.getValue().readLine();
-				if(line == null){ //if input stream read completely
-					logger.log(Level.INFO, "Reading succeeded of '" + currentInputStreamReaderEntry.getKey() + "'");
-					initializeCurrentStreamReader(); //initialize the next stream
-					if(currentInputStreamReaderEntry == null){ //if there was no next stream to be initialized
-						break;
-					}
-				}else{ //if input stream not completely read yet
-					if(line.contains("type=EOE")){
-						//Ignoring EOE records since we don't use them
-						//and because EOE of DAEMON_START would break the code
-						continue;
-					}
+		/*
+		 * Logic:
+		 * 
+		 * Input -> all records have event ids exception UBSI_EXIT and UBSI_DEP
+		 * All UBSI events have only one record per event
+		 * 
+		 * Before reading further from the stream check if there is a pending UBSI
+		 * event. If there is then don't read from the stream yet and return the 
+		 * pending event. If no pending UBSI event then read from the stream. If non-
+		 * UBSI records being read then read until the event id changes and then return
+		 * the event that is read so far. If UBSI event encountered while there is a
+		 * non-UBSI event buffered then first return that event (after setting pending-
+		 * UBSIEvent to true and buffering that for the next readEventData call.
+		 * 
+		 * If EOF reached then keep returning NULL on all future calls.
+		 * 
+		 */
+		
+		if(EOF){
+			return null;
+		}else{
+			Map<String, String> eventData = null;
+			
+			if(pendingUBSIEvent){
+				eventData = getEventMap(currentEventRecords);
+				currentEventId = -1L;
+				pendingUBSIEvent = false;
+				currentEventRecords.clear();
+			}else{
+				String line = null;
+				
+				while((line = stream.readLine()) != null){
+					writeToOutputLog(line);
 					if(reportingEnabled){
 						recordCount++;
 					}
-					if(line.contains("type=DAEMON_START")){
-						//Going to stop reading until the buffer is empty
-						//Check if the buffer is already empty
-						//If already empty then continue reading from the stream else break
-						if(eventIds.size() > 0){
-							sawDaemonRising = true;
-							break; //stop reading from the stream and empty the buffer
-						}else{ //if buffer already empty
-							lastEventId = -1; //reset because event ids would start from a smaller number now
-							continue;
+					if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_PROCTITLE) || 
+							line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UNKNOWN_PREFIX) || 
+							line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_EOE)){
+						continue; // ignore these records
+					}else{
+						String UBSIRecord = null;
+						if(line.contains(RECORD_TYPE_KEY+"=" + RECORD_TYPE_UBSI_EXIT) ||
+								line.contains(RECORD_TYPE_KEY+"=" + RECORD_TYPE_UBSI_DEP) || 
+								line.contains(RECORD_TYPE_KEY+"=" + RECORD_TYPE_UBSI_ENTRY)){
+							UBSIRecord = line;
 						}
-					}
-					Matcher event_start_matcher = pattern_eventid.matcher(line);
-					if (event_start_matcher.find()){ //get the event id
-						Long eventId = CommonFunctions.parseLong(event_start_matcher.group(1), null);
-						if(eventId == null){ //if event id null then don't process
-							logger.log(Level.SEVERE, "Event id null for line -> " + line);
-						}else{
-							if(eventId <= lastEventId){
-								logger.log(Level.WARNING, "Out of order event beyond the window size -> " + line);
+						
+						if(UBSIRecord == null){
+							
+							Long eventId = getEventId(line);
+							if(eventId == null){
+								continue; // Shouldn't be null
 							}else{
-								currentlyBufferedRecords++; //increment the record count
-								if(eventIdToEventRecords.get(eventId) == null){
-									eventIdToEventRecords.put(eventId, new HashSet<String>());
-									eventIds.add(eventId); //add event id
+								if(currentEventId.equals(-1L)){
+									currentEventId = eventId;
+									currentEventRecords.add(line); //add the next event record
+									continue;
+								}else{
+									if(!currentEventId.equals(eventId)){// event id changed hence publish the things in buffer
+										currentEventId = eventId;
+										Set<String> records = new HashSet<String>(currentEventRecords);
+										currentEventRecords.clear();
+										currentEventRecords.add(line); //add the next event record
+										eventData = getEventMap(records);
+										break;
+									}else{ //if they are equal
+										currentEventRecords.add(line);
+										continue;
+									}
 								}
-								eventIdToEventRecords.get(eventId).add(line); //add audit record
 							}
+							
+						}else if(UBSIRecord != null && currentEventRecords.isEmpty()){
+							// No pending event and only UBSI event then return that
+							Set<String> records = new HashSet<String>();
+							records.add(UBSIRecord);
+							currentEventId = -1L;
+							pendingUBSIEvent = false;
+							eventData = getEventMap(records);
+							break;
+						}else if(UBSIRecord != null && !currentEventRecords.isEmpty()){
+							// Has a pending event. add the UBSI record to pending and return the existing event
+							Set<String> records = new HashSet<String>(currentEventRecords);
+							currentEventRecords.clear();
+							currentEventRecords.add(UBSIRecord);
+							currentEventId = -1L;
+							pendingUBSIEvent = true;
+							eventData = getEventMap(records);
+							break;
 						}
 					}
 				}
+				// EOF
+				if(line == null){
+					EOF = true;
+					if(currentEventRecords.isEmpty()){
+						return null;
+					}else{
+						Set<String> records = new HashSet<String>(currentEventRecords);
+						currentEventRecords.clear();
+						currentEventId = -1L;
+						pendingUBSIEvent = false;
+						return getEventMap(records);
+					}
+				}
 			}
-			//just return the one event
-			return getEventData();				
+			return eventData;
 		}
 	}
-
+	
 	/**
-	 * Sets the current input stream to null and now will start emptying the buffers
-	 * instead of going to the next stream, if any.
+	 * Passes all the records through the function {@link #parseEventLine(String) parseEventLine}
+	 * and returns a map which contains keys and values for all the records
 	 * 
+	 * @param records records of a single event
+	 * @return map of key values
 	 */
-	public void stopReading(){
-		currentInputStreamReaderEntry = null;
+	private Map<String, String> getEventMap(Set<String> records){
+		Map<String, String> eventMap = new HashMap<String, String>();
+		for(String record : records){
+			eventMap.putAll(parseEventLine(record));
+		}
+		return eventMap;
 	}
 
-	/**
-	 * Closes any open input streams and the output stream (if opened)
-	 */
 	public void close(){
 		if(reportingEnabled){
 			printStats();
@@ -422,78 +469,47 @@ public class AuditEventReader {
 				logger.log(Level.SEVERE, "Failed to close output log writer", e);
 			}
 		}
-		if(inputStreamEntries != null && inputStreamEntries.size() > 0){
-			for(SimpleEntry<String, InputStream> inputStreamEntry : inputStreamEntries){
-				String key = inputStreamEntry.getKey();
-				InputStream inputStream = inputStreamEntry.getValue();
-				try{
-					inputStream.close();
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to close input stream for '"+key+"'", e);
-				}
-			}
-		}
-		if(currentInputStreamReaderEntry != null){
-			String key = currentInputStreamReaderEntry.getKey();
+		if(stream != null){
 			try{
-				currentInputStreamReaderEntry.getValue().close();
+				stream.close();
 			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to close input stream for key '"+key+"'", e);
+				logger.log(Level.SEVERE, "Failed to close the stream '"+streamId+"'", e);
 			}
 		}
 	}
 
 	/**
-	 * Returns the map of key values for the event with the smallest event id
+	 * Parses the line to get unit information out of it.
 	 * 
-	 * Because of DAEMON_START logic, make sure this function is called knowing that
-	 * the buffer isn't empty. Because if it is then this function would return null
-	 * and that would indicate the user of this class that EOF has been reached but in
-	 * reality it hasn't been because we had stopped reading the input stream(s) to 
-	 * empty the buffer because of DAEMON_START and we intend to start reading the 
-	 * input stream again after that. Done to avoid false reordering of events based
-	 * on event ids.
+	 * Expected format for unit information ...'(pid=1 unitid=2 iteration=3 time=4 count=5)'...
 	 * 
-	 * @return map of key values for the event. Null if none found.
-	 * @throws Exception
+	 * Returns a map which contains the keys in the above-given format but the keys are
+	 * defined as constants in this class.
+	 * 
+	 * @param line audit record with unit information
+	 * @return map of key values for a unit
 	 */
-	private Map<String,String> getEventData() throws Exception{
-		Long eventId = eventIds.pollFirst();
-		if(eventId == null){ //empty
-			return null;
-		}else{
-			lastEventId = eventId;
-			Set<String> eventRecords = eventIdToEventRecords.remove(eventId);
-			currentlyBufferedRecords -= eventRecords.size();
-
-			Map<String, String> eventData = new HashMap<String, String>();
-
-			if(eventRecords != null){
-
-				for(String eventRecord : eventRecords){
-
-					if(outputLogWriter != null){
-						outputLogWriter.println(eventRecord);
-					}
-
-					eventData.putAll(parseEventLine(eventRecord));
-				}
-
-			}
+	private List<Map<String, String>> parseUnitsKeyValues(String line){
+		List<Map<String, String>> unitsKeyValues = new ArrayList<Map<String, String>>();
+		Matcher matcher2 = pattern_unit.matcher(line);
+		while(matcher2.find()){
+			String pid = matcher2.group(1);
+			String unitid = matcher2.group(2);
+			String iteration = matcher2.group(3);
+			String time = matcher2.group(4);
+			String count = matcher2.group(5);
 			
-			if(eventIds.size() == 0){ //Buffer emptied
-				if(sawDaemonRising){ //Check if we had stopped reading because of DAEMON_START
-					sawDaemonRising = false;
-					lastEventId = -1; //reset
-					//Doing this here because we don't want to return null before starting to read
-					//from the file again
-				}
-			}
-
-			return eventData;
-		}	
+			Map<String, String> unitKeyValues = new HashMap<String, String>();
+			unitKeyValues.put(UNIT_PID, pid);
+			unitKeyValues.put(UNIT_UNITID, unitid);
+			unitKeyValues.put(UNIT_ITERATION, iteration);
+			unitKeyValues.put(UNIT_TIME, time);
+			unitKeyValues.put(UNIT_COUNT, count);
+			unitsKeyValues.add(unitKeyValues);
+		}
+		return unitsKeyValues;
 	}
-
+	
 	/**
 	 * Creates a map with key values as needed by the Audit reporter from audit records of an event
 	 * 
@@ -504,106 +520,169 @@ public class AuditEventReader {
 
 		Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
 
-		Matcher event_start_matcher = pattern_message_start.matcher(line);
-		if (event_start_matcher.find()) {
-			String node = event_start_matcher.group(1);
-			String type = event_start_matcher.group(2);
-			String time = event_start_matcher.group(3);
-			String eventId = event_start_matcher.group(4);
-			String messageData = line.substring(event_start_matcher.end());
-
-			auditRecordKeyValues.put(EVENT_ID, eventId);
-			//auditRecordKeyValues.put("node", node);
-
-			if (type.equals("SYSCALL")) {
-				Map<String, String> eventData = parseKeyValPairs(messageData);
-				eventData.put(TIME, time);
-				auditRecordKeyValues.putAll(eventData);
-			} else if (type.equals("CWD")) {
-				Matcher cwd_matcher = pattern_cwd.matcher(messageData);
-				if (cwd_matcher.find()) {
-					String cwd = cwd_matcher.group(1);
-					cwd = cwd.trim();
-					if(cwd.startsWith("\"") && cwd.endsWith("\"")){ //is a string path
-						cwd = cwd.substring(1, cwd.length()-1);
-					}else{ //is in hex format
-						try{
-							cwd = parseHexStringToUTF8(cwd);
-						}catch(Exception e){
-							//failed to parse
-						}
-					}                    
-					auditRecordKeyValues.put(CWD, cwd);
+		boolean isUBSIEvent = false;
+		
+		// There will be time and eventid in this one
+		if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_ENTRY)){
+			
+			List<Map<String, String>> unitsKeyValues = parseUnitsKeyValues(line);
+			if(unitsKeyValues.size() != 1){ // there should be only one unit's information
+				logger.log(Level.WARNING, "Malformed record '"+line+"'");
+			}else{
+				// Add all the units key values
+				auditRecordKeyValues.putAll(unitsKeyValues.get(0));
+			}
+			
+			Long UBSIEntryEventId = getEventId(line);
+			String UBSIEntryTime = getEventTime(line);
+			
+			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_ENTRY);
+			auditRecordKeyValues.put(TIME, UBSIEntryTime);
+			auditRecordKeyValues.put(EVENT_ID, String.valueOf(UBSIEntryEventId));
+			
+			isUBSIEvent = true;
+			
+		}else if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_EXIT)){
+			// no time and event id
+			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_EXIT);
+						
+			isUBSIEvent = true;
+			
+		}else if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_DEP)){
+			// no time and event id
+			List<Map<String, String>> unitsKeyValues = parseUnitsKeyValues(line);
+			if(unitsKeyValues.size() == 0){ // there should be only one or more unit's information
+				logger.log(Level.WARNING, "Malformed record '"+line+"'");
+			}else{
+				// Add all the units key values
+				
+				// Last one is the acting unit
+				Map<String, String> actingUnitKeyValues = unitsKeyValues.remove(unitsKeyValues.size() - 1);
+				auditRecordKeyValues.putAll(actingUnitKeyValues);
+				
+				for(int a = 0; a<unitsKeyValues.size(); a++){
+					Map<String, String> unitKeyValues = unitsKeyValues.get(a);
+					for(Map.Entry<String, String> entry : unitKeyValues.entrySet()){
+						auditRecordKeyValues.put(entry.getKey() + a, entry.getValue());
+					}
 				}
-			} else if (type.equals("PATH")) {
-				Matcher path_matcher = pattern_path.matcher(messageData);
-				if (path_matcher.find()) {
-					String item = path_matcher.group(1);
-					String name = path_matcher.group(2);
-					String mode = path_matcher.group(3);
-					String nametype = path_matcher.group(4);
+				
+				auditRecordKeyValues.put(UNIT_DEPS_COUNT, String.valueOf(unitsKeyValues.size()));
+								
+			}
+			
+			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_DEP);
+			isUBSIEvent = true;
+			
+		}
+		
+		if(isUBSIEvent){
+			
+			String msgData = line.substring(line.indexOf(" ppid="));
+			auditRecordKeyValues.putAll(CommonFunctions.parseKeyValPairs(msgData));
+			
+		}else{
+		
+			Matcher event_start_matcher = pattern_message_start.matcher(line);
+			if (event_start_matcher.find()) {
+				String type = event_start_matcher.group(2);
+				String time = event_start_matcher.group(3);
+				String eventId = event_start_matcher.group(4);
+				String messageData = line.substring(event_start_matcher.end());
+	
+				auditRecordKeyValues.put(EVENT_ID, eventId);
+				auditRecordKeyValues.put(RECORD_TYPE_KEY, type);
+	
+				if (type.equals(RECORD_TYPE_SYSCALL)) {
+					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
+					eventData.put(TIME, time);
+					auditRecordKeyValues.putAll(eventData);
+				} else if (type.equals(RECORD_TYPE_CWD)) {
+					Matcher cwd_matcher = pattern_cwd.matcher(messageData);
+					if (cwd_matcher.find()) {
+						String cwd = cwd_matcher.group(1);
+						cwd = cwd.trim();
+						if(cwd.startsWith("\"") && cwd.endsWith("\"")){ //is a string path
+							cwd = cwd.substring(1, cwd.length()-1);
+						}else{ //is in hex format
+							try{
+								cwd = parseHexStringToUTF8(cwd);
+							}catch(Exception e){
+								//failed to parse
+							}
+						}                    
+						auditRecordKeyValues.put(CWD, cwd);
+					}
+				} else if (type.equals(RECORD_TYPE_PATH)) {
+					Map<String, String> pathKeyValues = CommonFunctions.parseKeyValPairs(messageData);
+					String itemNumber = pathKeyValues.get("item");
+					String name = pathKeyValues.get("name");
+					String mode = pathKeyValues.get("mode");
+					mode = mode == null ? "0" : mode;
+					String nametype = pathKeyValues.get("nametype");
+					
 					name = name.trim();
-					if(name.startsWith("\"") && name.endsWith("\"")){ //is a string path
-						name = name.substring(1, name.length()-1);
-					}else if(name.equals("(null)")){
-						// keep the name as is
-					}else{ //is in hex format
+					if(messageData.contains(" name=") && 
+							!messageData.contains(" name=\"") &&
+							!messageData.contains(" name=(null)")){ 
+						//is a hex path if the value of the key name doesn't start with double quotes
 						try{
 							name = parseHexStringToUTF8(name);
 						}catch(Exception e){
 							//failed to parse
 						}
 					}
-					auditRecordKeyValues.put(PATH_PREFIX + item, name);
-					auditRecordKeyValues.put(NAMETYPE_PREFIX + item, nametype);
-					auditRecordKeyValues.put(MODE_PREFIX + item, mode);
+					
+					auditRecordKeyValues.put(PATH_PREFIX + itemNumber, name);
+					auditRecordKeyValues.put(NAMETYPE_PREFIX + itemNumber, nametype);
+					auditRecordKeyValues.put(MODE_PREFIX + itemNumber, mode);
+				} else if (type.equals(RECORD_TYPE_EXECVE)) {
+					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+					while (key_value_matcher.find()) {
+						auditRecordKeyValues.put(EXECVE_PREFIX + key_value_matcher.group(1), key_value_matcher.group(2));
+					}
+				} else if (type.equals(RECORD_TYPE_FD_PAIR)) {
+					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+					while (key_value_matcher.find()) {
+						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+					}
+				} else if (type.equals(RECORD_TYPE_SOCKETCALL)) {
+					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+					while (key_value_matcher.find()) {
+						auditRecordKeyValues.put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
+					}
+				} else if (type.equals(RECORD_TYPE_SOCKADDR)) {
+					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+					while (key_value_matcher.find()) {
+						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+					}
+				} else if(type.equals(RECORD_TYPE_NETFILTER_PKT)){
+					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+					while (key_value_matcher.find()) {
+						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+					}
+				} else if (type.equals(RECORD_TYPE_MMAP)){
+					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+					while (key_value_matcher.find()) {
+						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+					}
+				} else if(type.equals(RECORD_TYPE_PROCTITLE)){
+					//record type not being handled at the moment. 
+				} else{
+					//            	if(!seenTypesOfUnsupportedRecords.contains(type)){
+					//            		seenTypesOfUnsupportedRecords.add(type);
+					//            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
+					//            	}                
 				}
-			} else if (type.equals("EXECVE")) {
-				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-				while (key_value_matcher.find()) {
-					auditRecordKeyValues.put(EXECVE_PREFIX + key_value_matcher.group(1), key_value_matcher.group(2));
-				}
-			} else if (type.equals("FD_PAIR")) {
-				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-				while (key_value_matcher.find()) {
-					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-				}
-			} else if (type.equals("SOCKETCALL")) {
-				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-				while (key_value_matcher.find()) {
-					auditRecordKeyValues.put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
-				}
-			} else if (type.equals("SOCKADDR")) {
-				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-				while (key_value_matcher.find()) {
-					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-				}
-			} else if(type.equals("NETFILTER_PKT")){
-				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-				while (key_value_matcher.find()) {
-					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-				}
-			} else if (type.equals("MMAP")){
-				Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-				while (key_value_matcher.find()) {
-					auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-				}
-			} else if(type.equals("PROCTITLE")){
-				//record type not being handled at the moment. 
-			} else{
-				//            	if(!seenTypesOfUnsupportedRecords.contains(type)){
-				//            		seenTypesOfUnsupportedRecords.add(type);
-				//            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
-				//            	}                
+	
+			} else {
+	
 			}
-
-		} else {
-
 		}
 
 		return auditRecordKeyValues;
 	}
-
+	
 	/**
 	 * Converts hex string as UTF-8
 	 * 
@@ -636,19 +715,5 @@ public class AuditEventReader {
 		CharBuffer cb = cs.decode(bytes);
 		return cb.toString();
 	}
-
-	/**
-	 * Takes a string with keyvalue pairs and returns a Map Input e.g.
-	 * "key1=val1 key2=val2" etc. Input string validation is callee's
-	 * responsibility
-	 */
-	private static Map<String, String> parseKeyValPairs(String messageData) {
-		Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-		Map<String, String> keyValPairs = new HashMap<>();
-		while (key_value_matcher.find()) {
-			keyValPairs.put(key_value_matcher.group(1), key_value_matcher.group(2));
-		}
-		return keyValPairs;
-	}
-
+	
 }

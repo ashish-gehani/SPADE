@@ -21,13 +21,11 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigInteger;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -88,6 +86,8 @@ public class Audit extends AbstractReporter {
 
 	static final Logger logger = Logger.getLogger(Audit.class.getName());
 
+	/********************** LINUX CONSTANTS - START *************************/
+	
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
 	//  AND  
@@ -112,73 +112,58 @@ public class Audit extends AbstractReporter {
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/mman-common.h#L21
 	private final int MAP_ANONYMOUS = 0x20;
+	/********************** LINUX CONSTANTS - END *************************/
 
-	private final long BUFFER_DRAIN_DELAY = 500;
-
-	private volatile boolean shutdown = false;
-	private long boottime = 0;
-	private final long THREAD_CLEANUP_TIMEOUT = 1000;
-	private boolean USE_READ_WRITE = false;
-	// To toggle monitoring of system calls: sendmsg, recvmsg, sendto, and recvfrom
-	private boolean USE_SOCK_SEND_RCV = false;
-	private Boolean ARCH_32BIT = true;
-	//    private final String simpleDatePattern = "EEE MMM d H:mm:ss yyyy";
-	private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-	private String AUDIT_BRIDGE_COMMAND;
+	/********************** PROCESS STATE - START *************************/
 	// Process map based on <pid, stack of vertices> pairs
 	private final Map<String, LinkedList<Process>> processUnitStack = new HashMap<String, LinkedList<Process>>();
-	// Process version map. Versioning based on units. pid -> unitid -> iterationcount
-	private final Map<String, Map<String, Long>> iterationNumber = new HashMap<String, Map<String, Long>>();
-	
 	// A set to keep track of agents seen before for deduplication
 	private final Set<String> agentHashes = new HashSet<String>();
-	
 	// A map to keep track of pid to agent edges drawn already
 	private Map<String, Set<String>> pidToAgentEdgeHashes = new HashMap<String, Set<String>>();
-
+	// File descriptor manager
 	private final DescriptorManager descriptors = new DescriptorManager();
-
+	//pid to set of process hashes seen so far. Used to check if a process vertex has been added to internal buffer before or not
+	private Map<String, Set<String>> pidToProcessHashes = new HashMap<String, Set<String>>();
+	//A map to keep track of thread group ids for pids in case of clone where memory is being shared. 
+	//Pid->Tgid. NOTE: only to be used for memory artifacts
+	private final Map<String, String> pidToTgidForMemoryArtifactsOnly = new HashMap<String, String>();
+	/********************** PROCESS STATE - END *************************/
+	
+	/********************** ARITFACT STATE - START *************************/
 	// Map for artifact infos to versions and bytes read/written on sockets 
 	// Use cases:
 	// 1) Track version
 	// 2) Track epoch
-	// 3) Track latest subtype by creation time and creation event id
-	// 4) Avoid duplication of artifacts
+	// 3) Avoid duplication of artifacts
 	private ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties> artifactIdentifierToArtifactProperties;
+	//cache maps paths. global so that we delete on exit
+	private String artifactsCacheDatabasePath;
+	/********************** ARTIFACT STATE - END *************************/
 
-	private Thread eventProcessorThread = null;
-
-	private Thread auditLogThread = null;
-
+	/********************** BEHAVIOR FLAGS - START *************************/
+	//Reporting variables
+	private boolean reportingEnabled = false;
+	private long reportEveryMs;
+	private long lastReportedTime;
+	
+	private Boolean ARCH_32BIT = true;
+	
+	private boolean USE_READ_WRITE = false;
+	private boolean USE_SOCK_SEND_RCV = false;
 	private boolean CREATE_BEEP_UNITS = false;
-
-	private Map<String, BigInteger> pidToMemAddress = new HashMap<String, BigInteger>(); 
-
 	private boolean SIMPLIFY = true;
 	private boolean PROCFS = false;
-
 	private boolean UNIX_SOCKETS = false;
-
-	private boolean WAIT_FOR_LOG_END = false;
-	
+	private boolean WAIT_FOR_LOG_END = true;
 	private boolean AGENTS = false;
-
-	// Flag to use to decide whether to generate OPM objects for the following syscalls or not: exit, close, unlink
 	private boolean CONTROL = true;
-	
-	// Flag to decide whether to use tgid for memory artifacts or pid
-	private boolean TGID = true; // Using tgid by default for memory artifacts
-
-	//  To toggle monitoring of mmap, mmap2 and mprotect syscalls
 	private boolean USE_MEMORY_SYSCALLS = true;
-
 	private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
-	
 	// Null  -> don't use i.e. the default behavior
 	// True  -> override all other versioning flags and version everything
 	// False -> override all other versioning flags and don't version anything 
 	private Boolean VERSION_ARTIFACTS = null;
-	
 	private boolean VERSION_FILES = true,
 			VERSION_MEMORYS = true,
 			VERSION_NAMED_PIPES = true,
@@ -186,506 +171,922 @@ public class Audit extends AbstractReporter {
 			VERSION_UNKNOWNS = true,
 			VERSION_NETWORK_SOCKETS = false,
 			VERSION_UNIX_SOCKETS = true;
-	
 	private boolean KEEP_VERSIONS = true,
 			KEEP_EPOCHS = true,
 			KEEP_ARTIFACT_PROPERTIES_MAP = true;
+	/********************** BEHAVIOR FLAGS - END *************************/
 
-	// Just a human-friendly renaming of null
-	private final static String NOT_SET = null;
-	// Timestamp that is used to identify when the time has changed in unit begin. Assumes that the timestamps are received in sorted order
-	private String lastTimestamp = NOT_SET;
-	// A map to keep track of counts of unit vertex with the same pid, unitid and iteration number.
-	private Map<UnitVertexIdentifier, Integer> unitIterationRepetitionCounts = new HashMap<UnitVertexIdentifier, Integer>();
-
-	//cache maps paths. global so that we delete on exit
-	private String artifactsCacheDatabasePath;
-
-	//pid to set of process hashes seen so far. Used to check if a process vertex has been added to internal buffer before or not
-	private Map<String, Set<String>> pidToProcessHashes = new HashMap<String, Set<String>>();
-
-	private java.lang.Process auditProcess = null;
-
-	//Reporting variables
-	private boolean reportingEnabled = false;
-	private long reportEveryMs;
-	private long lastReportedTime;
+	private String spadeAuditBridgeProcessPid = null;
+	// true if live audit, false if log file. null not set.
+	private Boolean isLiveAudit = null;
+	// a flag to delay shutdown call if buffers are being emptied and events are still being read
+	private volatile boolean eventReaderThreadRunning = false;
 	
-	//A map to keep track of thread group ids for pids in case clone where memory is being shared. 
-	//Pid->Tgid. NOTE: only to be used for memory artifacts
-	private final Map<String, String> pidToTgidForMemoryArtifactsOnly = new HashMap<String, String>();
-
-	@Override
-	public boolean launch(String arguments) {
-
-		String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+	/**
+	 * Returns a map which contains all the keys and values defined 
+	 * in the default config file. 
+	 * 
+	 * Returns empty map if failed to read the config file.
+	 * 
+	 * @return HashMap<String, String>
+	 */
+	private Map<String, String> readDefaultConfigMap(){
+		Map<String, String> configMap = new HashMap<String, String>();
 		try{
-			if(new File(defaultConfigFilePath).exists()){
-				Map<String, String> properties = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
-				if(properties != null && properties.size() > 0){
-					Long reportingInterval = CommonFunctions.parseLong(properties.get("reportingIntervalSeconds"), null);
-					if(reportingInterval != null){
-						if(reportingInterval < 1){ //at least 1 ms
-							logger.log(Level.INFO, "Statistics reporting turned off");
-						}else{
-							reportingEnabled = true;
-							reportEveryMs = reportingInterval * 1000;
-							lastReportedTime = System.currentTimeMillis();
-						}
-					}
-				}
+			Map<String, String> temp = FileUtility.readConfigFileAsKeyValueMap(
+					Settings.getDefaultConfigFilePath(this.getClass()), "=");
+			if(temp != null){
+				configMap.putAll(temp);
 			}
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read config file '"+defaultConfigFilePath+"'");
+			logger.log(Level.WARNING, "Failed to read config", e);
 		}
-
-		arguments = arguments == null ? "" : arguments;
-
+		return configMap;
+	}
+	
+	/**
+	 * Used only in case of live audit.
+	 * Returns null if failed to get the arch value.
+	 * Returns true if the arch is 32 bit and return false
+	 * if the arch is 64 bit.
+	 * 
+	 * @return true/false/null
+	 */
+	private Boolean is32BitArch(){
 		try {
 			InputStream archStream = Runtime.getRuntime().exec("uname -i").getInputStream();
 			BufferedReader archReader = new BufferedReader(new InputStreamReader(archStream));
 			String archLine = archReader.readLine().trim();
-			ARCH_32BIT = archLine.equals("i686");
+			return archLine.equals("i686");
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Error reading the system architecture", e);
-			return false; //if unable to find out the architecture then report failure
+			return null; //if unable to find out the architecture then report failure
 		}
-
-		AUDIT_BRIDGE_COMMAND = SPADE_ROOT + "lib/spadeSocketBridge -s /var/run/audispd_events";
-		String auditOutputLog = SPADE_ROOT + "log/LinuxAudit.log";
-
-		Map<String, String> args = CommonFunctions.parseKeyValPairs(arguments);
-		if (args.containsKey("outputLog") && !args.get("outputLog").isEmpty()) {
-			auditOutputLog = args.get("outputLog");
-			if(!new File(auditOutputLog).getParentFile().exists()){
-				auditOutputLog = null;
+	}
+	
+	/**
+	 * Initializes the reporting globals based on the argument
+	 * 
+	 * The argument is read from the config file
+	 * 
+	 * Returns true if the value in the config file was defined properly or not 
+	 * defined. If the value in the config value is ill-defined then returns false.
+	 * 
+	 * @param reportingIntervalSeconds Interval time in seconds to report stats after
+	 */
+	private boolean initReporting(String reportingIntervalSeconds){
+		Long reportingInterval = CommonFunctions.parseLong(reportingIntervalSeconds, null);
+		if(reportingInterval != null){
+			if(reportingInterval < 1){ //at least 1 ms
+				logger.log(Level.INFO, "Statistics reporting turned off");
+			}else{
+				reportingEnabled = true;
+				reportEveryMs = reportingInterval * 1000;
+				lastReportedTime = System.currentTimeMillis();
 			}
-		} else {
-			auditOutputLog = null;
+		}else if(reportingInterval == null && 
+				(reportingIntervalSeconds != null && !reportingIntervalSeconds.isEmpty())){
+			logger.log(Level.SEVERE, "Invalid value for reporting interval in the config file");
+			return false;
+		}
+		return true;
+	}
+	
+	/**
+	 * A convenience function to check if the given filepath exists or not.
+	 * 
+	 * Suppresses the exception.
+	 * 
+	 * @param filePath path of the file/dir to check for existence
+	 * @return true (if exists) / false (if doesn't exist)
+	 */
+	private boolean fileExists(String filePath){
+		try{
+			return new File(filePath).exists();
+		}catch(Exception e){
+			return false;
+		}
+	}
+	
+	/**
+	 * A convenience function to see if the given filepath can be created.
+	 * 
+	 * Not a permissions check. Just checks if the parent directory of the given
+	 * path exists or not.
+	 * 
+	 * @param filepath path of the file/dir to check
+	 * @return true (if parent dir exists)/ false(if parent dir doesn't exist)
+	 */
+	private boolean fileCanBeCreated(String filepath){
+		try{
+			return new File(filepath).getParentFile().exists();
+		}catch(Exception e){
+			return false;
+		}
+	}
+	
+	/**
+	 * Returns true if the argument is null, true, false, 1, 0, yes or no.
+	 * Else returns false.
+	 * 
+	 * @param str value to check
+	 * @return true/false
+	 */
+	private boolean isValidBoolean(String str){
+		return str == null 
+				|| "true".equalsIgnoreCase(str.trim()) || "false".equalsIgnoreCase(str.trim())
+				|| "1".equals(str.trim()) || "0".equals(str.trim())
+				|| "yes".equalsIgnoreCase(str.trim()) || "no".equals(str.trim());
+	}
+	
+	/**
+	 * If the argument is null or doesn't match any of the value boolean options:
+	 * true, false, 1, 0, yes or no then default value is returned. Else the parsed
+	 * value is returned.
+	 * 
+	 * @param str string to convert to boolean
+	 * @param defaultValue default value
+	 * @return true/false
+	 */
+	private boolean parseBoolean(String str, boolean defaultValue){
+		if(str == null){
+			return defaultValue;
+		}else{
+			str = str.trim();
+			if(str.equals("1") || str.equalsIgnoreCase("yes") || str.equalsIgnoreCase("true")){
+				return true;
+			}else if(str.equals("0") || str.equalsIgnoreCase("no") || str.equalsIgnoreCase("false")){
+				return false;
+			}else{
+				return defaultValue;
+			}
+		}
+	}
+	
+	/**
+	 * Initializes global boolean flags for this reporter
+	 * 
+	 * @param args a map made from arguments key-values
+	 * @return true if all flags had valid values / false if any of the flags had a non-boolean value
+	 */
+	private boolean initFlagsFromArguments(Map<String, String> args){
+		String argValue = args.get("fileIO");
+		if(isValidBoolean(argValue)){
+			USE_READ_WRITE = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'fileIO': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("netIO");
+		if(isValidBoolean(argValue)){
+			USE_SOCK_SEND_RCV = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'netIO': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("units");
+		if(isValidBoolean(argValue)){
+			CREATE_BEEP_UNITS = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'units': " + argValue);
+			return false;
 		}
 
-		final String auditOutputLogPath = auditOutputLog;
-
-		// Check if file IO and net IO is also asked by the user to be turned on
-		if ("true".equals(args.get("fileIO"))) {
-			USE_READ_WRITE = true;
-		}
-		if ("true".equals(args.get("netIO"))) {
-			USE_SOCK_SEND_RCV = true;
-		}
-		if("true".equals(args.get("units"))){
-			CREATE_BEEP_UNITS = true;
-		}
-		if("true".equals(args.get("agents"))){
-			AGENTS = true;
+		argValue = args.get("agents");
+		if(isValidBoolean(argValue)){
+			AGENTS = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'agents': " + argValue);
+			return false;
 		}
 
 		// Arguments below are only for experimental use
-		if("false".equals(args.get("simplify"))){
-			SIMPLIFY = false;
+		argValue = args.get("simplify");
+		if(isValidBoolean(argValue)){
+			SIMPLIFY = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'simplify': " + argValue);
+			return false;
 		}
-		if("true".equals(args.get("procFS"))){
-			PROCFS = true;
+		
+		argValue = args.get("procFS");
+		if(isValidBoolean(argValue)){
+			PROCFS = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'procFS': " + argValue);
+			return false;
 		}
-		if("true".equals(args.get("unixSockets"))){
-			UNIX_SOCKETS = true;
-		}
-		if("true".equals(args.get("waitForLog"))){
-			WAIT_FOR_LOG_END = true;
-		}
-		if("false".equals(args.get("memorySyscalls"))){
-			USE_MEMORY_SYSCALLS = false;
-		}
-		if("0".equals(args.get("auditctlSuccessFlag"))){
-			AUDITCTL_SYSCALL_SUCCESS_FLAG = "0";
-		}
-		if("false".equals(args.get("control"))){
-			CONTROL = false;
-		}
-		if("false".equals(args.get("tgid"))){
-			TGID = false;
-		}
-		if("true".equals(args.get("versionNetworkSockets"))){
-			VERSION_NETWORK_SOCKETS = true;
-		}
-		if("false".equals(args.get("versionFiles"))){
-			VERSION_FILES = false;
-		}
-		if("false".equals(args.get("versionMemorys"))){
-			VERSION_MEMORYS = false;
-		}
-		if("false".equals(args.get("versionNamedPipes"))){
-			VERSION_NAMED_PIPES = false;
-		}
-		if("false".equals(args.get("versionUnnamedPipes"))){
-			VERSION_UNNAMED_PIPES = false;
-		}
-		if("false".equals(args.get("versionUnknowns"))){
-			VERSION_UNKNOWNS = false;
-		}
-		if("false".equals(args.get("versionUnixSockets"))){
-			VERSION_UNIX_SOCKETS = false;
-		}
-		if("true".equals(args.get("versionArtifacts"))){
-			VERSION_ARTIFACTS = true;
-		}else if("false".equals(args.get("versionArtifacts"))){
-			VERSION_ARTIFACTS = false;
-		}
-		if("false".equals(args.get("versions"))){
-			KEEP_VERSIONS = false;
-		}
-		if("false".equals(args.get("epochs"))){
-			KEEP_EPOCHS = false;
-		}
-		if(!KEEP_VERSIONS && !KEEP_EPOCHS){
-			KEEP_ARTIFACT_PROPERTIES_MAP = false;
-		}
-		// End of experimental arguments
 
-		//        initialize cache data structures
+		argValue = args.get("unixSockets");
+		if(isValidBoolean(argValue)){
+			UNIX_SOCKETS = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'unixSockets': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("waitForLog");
+		if(isValidBoolean(argValue)){
+			WAIT_FOR_LOG_END = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'waitForLog': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("memorySyscalls");
+		if(isValidBoolean(argValue)){
+			USE_MEMORY_SYSCALLS = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'memorySyscalls': " + argValue);
+			return false;
+		}
 
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			if(!initCacheMaps()){
+		argValue = args.get("control");
+		if(isValidBoolean(argValue)){
+			CONTROL = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'control': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionNetworkSockets");
+		if(isValidBoolean(argValue)){
+			VERSION_NETWORK_SOCKETS = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionNetworkSockets': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionFiles");
+		if(isValidBoolean(argValue)){
+			VERSION_FILES = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionFiles': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionMemorys");
+		if(isValidBoolean(argValue)){
+			VERSION_MEMORYS = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionMemorys': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionNamedPipes");
+		if(isValidBoolean(argValue)){
+			VERSION_NAMED_PIPES = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionNamedPipes': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionUnnamedPipes");
+		if(isValidBoolean(argValue)){
+			VERSION_UNNAMED_PIPES = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedPipes': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionUnknowns");
+		if(isValidBoolean(argValue)){
+			VERSION_UNKNOWNS = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnknowns': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionUnixSockets");
+		if(isValidBoolean(argValue)){
+			VERSION_UNIX_SOCKETS = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnixSockets': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionArtifacts");
+		if(argValue == null){
+			// continue. NULL is the default value
+		}else{
+			if(isValidBoolean(argValue)){
+				VERSION_ARTIFACTS = parseBoolean(argValue, true);
+			}else{
+				logger.log(Level.SEVERE, "Invalid flag value for 'versionArtifacts': " + argValue);
 				return false;
 			}
 		}
+		
+		argValue = args.get("versions");
+		if(isValidBoolean(argValue)){
+			KEEP_VERSIONS = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versions': " + argValue);
+			return false;
+		}
 
+		argValue = args.get("epochs");
+		if(isValidBoolean(argValue)){
+			KEEP_EPOCHS = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'epochs': " + argValue);
+			return false;
+		}
+		
+		if(!KEEP_VERSIONS && !KEEP_EPOCHS){
+			KEEP_ARTIFACT_PROPERTIES_MAP = false;
+		}	
+		
+		if("0".equals(args.get("auditctlSuccessFlag"))){
+			AUDITCTL_SYSCALL_SUCCESS_FLAG = "0";
+		}
+		
+		return true;
+	}
+	
+	/**
+	 * Get the system boottime from /proc/stat
+	 * 
+	 * Returns null if failed to get it.
+	 * @return Boot time as Long (can be null)
+	 */
+	private Long getBootTime(){
 		// Get system boot time from /proc/stat. This is later used to determine
 		// the start time for processes.
+		BufferedReader boottimeReader = null;
 		try {
-			BufferedReader boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
+			boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
 			String line;
 			while ((line = boottimeReader.readLine()) != null) {
 				StringTokenizer st = new StringTokenizer(line);
 				if (st.nextToken().equals("btime")) {
-					boottime = Long.parseLong(st.nextToken()) * 1000;
-					break;
+					return Long.parseLong(st.nextToken()) * 1000;
 				}
 			}
-			boottimeReader.close();
 		} catch (IOException | NumberFormatException e) {
 			logger.log(Level.WARNING, "Error reading boot time information from /proc/", e);
-		}
-
-		Long auditReaderWindowSizeValue = null;
-		try{
-			Map<String, String> auditConfigProperties = FileUtility.readConfigFileAsKeyValueMap(Settings.getDefaultConfigFilePath(this.getClass()), "=");
-			if(auditConfigProperties.get("windowSize") == null){
-				logger.log(Level.SEVERE, "Undefined window size in audit config");
-				return false;
-			}else{
-				auditReaderWindowSizeValue = CommonFunctions.parseLong(auditConfigProperties.get("windowSize"), null);
-				if(auditReaderWindowSizeValue == null){
-					logger.log(Level.SEVERE, "Invalid window size defined in audit config");
-					return false;
-				}else{
-					if(auditReaderWindowSizeValue < 1){
-						logger.log(Level.SEVERE, "Window size must be greater than 1 (defined in audit config)");
-						return false;
-					}
+		}finally{
+			if(boottimeReader != null){
+				try{
+					boottimeReader.close();
+				}catch(Exception e){
+					// ignore
 				}
 			}
+		}
+		return null;
+	}
+	
+	/**
+	 * Tries to setup the temp directory at the given path.
+	 * 
+	 * Returns true if it already exists or gets created successfully. 
+	 * Else returns false
+	 * 
+	 * @param tempDirectoryPath path of the temp directory to create
+	 * @return true/false
+	 */
+	private boolean setupTempDirectory(String tempDirectoryPath){
+		if(fileExists(tempDirectoryPath)){
+			return true;
+		}else{
+			try{
+				new File(tempDirectoryPath).mkdir();
+				return true;
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to create temp directory. Defined in config.", e);
+				return false;
+			}
+		}
+	}
+	
+	/**
+	 * Creates a temp file in the given tempDir from the list of audit log files
+	 * 
+	 * Returns the path of the temp file is that is created successfully
+	 * Else returns null
+	 * 
+	 * @param spadeAuditBridgeBinaryName name of the spade audit bridge binary
+	 * @param inputLogFiles list of audit log files (in the defined order)
+	 * @param tempDirPath path of the temp dir
+	 * @return path of the temp file which contains the paths of audit logs OR null
+	 */
+	private String createLogListFileForSpadeAuditBridge(String spadeAuditBridgeBinaryName, 
+			List<String> inputLogFiles, String tempDirPath){
+		try{
+			String spadeAuditBridgeInputFilePath = tempDirPath + File.separatorChar + 
+					spadeAuditBridgeBinaryName + "." + System.nanoTime();
+			File spadeAuditBridgeInputFile = new File(spadeAuditBridgeInputFilePath);
+			if(!spadeAuditBridgeInputFile.createNewFile()){
+				logger.log(Level.SEVERE, "Failed to create input file list file for " + spadeAuditBridgeBinaryName);
+				return null;
+			}else{
+				FileUtils.writeLines(spadeAuditBridgeInputFile, inputLogFiles);
+				return spadeAuditBridgeInputFile.getAbsolutePath();
+			}
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read audit config file", e);
+			logger.log(Level.SEVERE, "Failed to create input file for " + spadeAuditBridgeBinaryName, e);
+		}
+		return null;
+	}
+	
+	/**
+	 * Returns a list of audit log files if the rotate flag is true.
+	 * Else returns a list with only the given audit log file as it's element.
+	 * 
+	 * The audit log files are added in the convention defined in the function code.
+	 * 
+	 * @param inputAuditLogFilePath path of the audit log file
+	 * @param rotate a flag to tell whether to read the rotated logs or not
+	 * @return list if input log files
+	 */
+	private List<String> getListOfInputAuditLogs(String inputAuditLogFilePath, boolean rotate){
+		// Build a list of audit log files to be read
+		LinkedList<String> inputAuditLogFiles = new LinkedList<String>();
+		inputAuditLogFiles.addFirst(inputAuditLogFilePath); //add the file in the argument
+		if(rotate){ //if rotate is true then add the rest too based on the decided convention
+			//convention: name format of files to be processed -> name.1, name.2 and so on where 
+			//name is the name of the file passed in as argument
+			//can only process 99 logs
+			for(int logCount = 1; logCount<=99; logCount++){
+				if(fileExists(inputAuditLogFilePath + "." + logCount)){
+					inputAuditLogFiles.addFirst(inputAuditLogFilePath + "." + logCount); 
+					//adding first so that they are added in the reverse order
+				}
+			}
+		}
+		return inputAuditLogFiles;
+	}
+	
+	private void doCleanup(boolean isLiveAudit, String rulesType, String logListFile){
+		if(isLiveAudit){
+			if(!"none".equals(rulesType)){
+				removeAuditctlRules();
+			}
+		}else{
+			deleteFile(logListFile);
+		}
+		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+			deleteCacheMaps();
+		}
+	}
+	
+	@Override
+	public boolean launch(String arguments) {
+
+		String spadeAuditBridgeBinaryName = null;
+		String spadeAuditBridgeBinaryPath = null;
+		String outputLogFilePath = null;
+		long recordsToRotateOutputLogAfter = 0;
+		String spadeAuditBridgeCommand = null;
+		String rulesType = null;
+		String logListFile = null;
+		
+		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> configMap = readDefaultConfigMap();
+		
+		// Init reporting globals
+		if(!initReporting(configMap.get("reportingIntervalSeconds"))){
 			return false;
 		}
 
-		// the value being assigned cannot be null
-		final long auditReaderWindowSize = auditReaderWindowSizeValue;
+		// Get path of spadeAuditBridge binary from the config file
+		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");		
+		if(!fileExists(spadeAuditBridgeBinaryPath)){
+			logger.log(Level.SEVERE, "Must specify a valid 'spadeAuditBridge' key in config");
+			return false;
+		}
+		
+		String spadeAuditBridgeBinaryPathArray[] = spadeAuditBridgeBinaryPath.split(File.separator);
+		spadeAuditBridgeBinaryName = spadeAuditBridgeBinaryPathArray[spadeAuditBridgeBinaryPathArray.length - 1];
+		
+		// Init boolean flags from the arguments
+		if(!initFlagsFromArguments(argsMap)){
+			return false;
+		}
+		
+		// Check if the outputLog argument is valid or not
+		outputLogFilePath = argsMap.get("outputLog");
+		if(outputLogFilePath != null){
+			if(!fileCanBeCreated(outputLogFilePath)){
+				logger.log(Level.SEVERE, "Invalid path for 'outputLog' : " + outputLogFilePath);
+				return false;
+			}else{
+				
+				String recordsToRotateOutputLogAfterArgument = argsMap.get("outputLogRotate");
+				if(recordsToRotateOutputLogAfterArgument != null){
+					Long parsedOutputLogRotate = CommonFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
+					if(parsedOutputLogRotate == null){
+						logger.log(Level.SEVERE, "Invalid value for 'outputLogRotate': "+ recordsToRotateOutputLogAfterArgument);
+						return false;
+					}else{
+						recordsToRotateOutputLogAfter = parsedOutputLogRotate;
+					}
+				}
+				
+			}
+		}
 
-		String inputAuditLogFileArgument = args.get("inputLog");
-		if(inputAuditLogFileArgument != null){ //if a path is passed but it is not a valid file then throw an error
-
-			if(!new File(inputAuditLogFileArgument).exists()){
-				logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist.");
+		String inputAuditLogFileArgument = argsMap.get("inputLog");
+		if(inputAuditLogFileArgument != null){
+			// is log playback
+			isLiveAudit = false;
+			
+			if(!fileExists(inputAuditLogFileArgument)){
+				logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
+									+ inputAuditLogFileArgument);
 				return false;
 			}
 
+			// In case of audit log files get arch from the arguments
 			ARCH_32BIT = null;
-
-			if("32".equals(args.get("arch"))){
+			if("32".equals(argsMap.get("arch"))){
 				ARCH_32BIT = true;
-			}else if("64".equals(args.get("arch"))){
+			}else if("64".equals(argsMap.get("arch"))){
 				ARCH_32BIT = false;
-			}
-
-			if(ARCH_32BIT == null){
+			}else{
 				logger.log(Level.SEVERE, "Must specify whether the system on which log was collected was 32 bit or 64 bit");
 				return false;
 			}
 
+			// Whether to read from rotated logs or not
 			boolean rotate = false;
-			if("true".equals(args.get("rotate"))){
-				rotate = true;
-			}
-
-			final LinkedList<String> inputAuditLogFiles = new LinkedList<String>();
-			inputAuditLogFiles.addFirst(inputAuditLogFileArgument); //add the file in the argument
-			if(rotate){ //if rotate is true then add the rest too based on the decided convention
-				//convention: name format of files to be processed -> name.1, name.2 and so on where name is the name of the file passed in as argument
-				//can only process 99 logs
-				for(int logCount = 1; logCount<=99; logCount++){
-					if(new File(inputAuditLogFileArgument + "." + logCount).exists()){
-						inputAuditLogFiles.addFirst(inputAuditLogFileArgument + "." + logCount); //adding first so that they are added in the reverse order
-					}
-				}
-			}
-
-			logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
-
-			auditLogThread = new Thread(new Runnable(){
-				public void run(){
-
-					AuditEventReader auditEventReader = null;
-					try{
-						auditEventReader = new AuditEventReader(auditReaderWindowSize, inputAuditLogFiles.toArray(new String[]{}));
-						if(auditOutputLogPath != null){
-							auditEventReader.setOutputLog(new FileOutputStream(auditOutputLogPath));
-						}
-						Map<String, String> eventData = new HashMap<String ,String>();
-						while((!shutdown || WAIT_FOR_LOG_END) && (eventData = auditEventReader.readEventData()) != null){
-							finishEvent(eventData);
-						}
-
-						// Possible cases to be here: 1) shutdown called i.e. log not read completely, 2) log read completely
-						// Let the buffer drain while checking for shutdown
-						while(getBuffer().size() > 0){
-							if(shutdown){
-								break;
-							}
-							try{
-								Thread.sleep(BUFFER_DRAIN_DELAY);
-							}catch(Exception e){
-								//logger.log(Level.SEVERE, null, e);
-							}
-						}
-
-						if(eventData == null){ // Means that EOF was reached
-							if(getBuffer().size() == 0){ // Buffer emptied
-								logger.log(Level.INFO, "Audit log processing succeeded: " + inputAuditLogFiles);
-							}else{ // Buffer size isn't 0 then it means that shutdown was called
-								logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFiles);
-							}
-						}else{ // Means that shutdown was called before EOF reached 
-							logger.log(Level.INFO, "Audit log processing succeeded partially: " + inputAuditLogFiles);
-						}
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Audit log processing failed: " + inputAuditLogFiles, e);
-					}finally{
-						try{
-							if(auditEventReader != null){
-								auditEventReader.close();
-							}
-						}catch(Exception e){
-							logger.log(Level.WARNING, "Failed to close audit input log reader", e);
-						}
-					}
-					if(KEEP_ARTIFACT_PROPERTIES_MAP){
-						//after processing all the files delete the cache maps or when shutdown has been called
-						deleteCacheMaps();
-					}
-				}
-			});
-			auditLogThread.start();
-
-		}else{
-
-			buildProcFSTree();
-
-			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
-			final String rulesType = args.get("rules");
-			
-			try {
-				
-				Runnable eventProcessor = new Runnable() {
-					public void run() {
-						AuditEventReader auditEventReader = null;
-						try {
-							auditProcess = Runtime.getRuntime().exec(AUDIT_BRIDGE_COMMAND);
-							List<SimpleEntry<String, InputStream>> keysAndStreams = new ArrayList<SimpleEntry<String, InputStream>>();
-							keysAndStreams.add(new SimpleEntry<String, InputStream>("live audit", auditProcess.getInputStream()));
-							auditEventReader = new AuditEventReader(auditReaderWindowSize, keysAndStreams);
-							if(auditOutputLogPath != null){
-								auditEventReader.setOutputLog(new FileOutputStream(auditOutputLogPath));
-							}
-							while (!shutdown) {
-								try{
-									Map<String, String> eventData = auditEventReader.readEventData();
-									if ((eventData != null)) {
-										finishEvent(eventData);
-									}
-								}catch(Exception e){
-									if(shutdown){ 
-										// log nothing because exception happened of shutdown function call destroying the process
-									}else{
-										logger.log(Level.SEVERE, "Failed to read from spadeSocketBridge", e);
-									}
-								}
-							}
-
-							// * Here because shutdown has been called
-
-							// Stop reading from the input stream anymore and just clear the buffers
-							auditEventReader.stopReading();
-
-							// Try to empty the buffers
-							try{
-								Map<String, String> eventData = null;
-								while((eventData = auditEventReader.readEventData()) != null){
-									finishEvent(eventData);
-								}
-							}catch(Exception e){
-								logger.log(Level.SEVERE, "Failed to empty buffers", e);
-							}
-						} catch (Exception e) {
-							logger.log(Level.SEVERE, "Error launching main runnable thread", e);
-						}finally{
-							if(auditEventReader != null){
-								try{
-									auditEventReader.close();
-								}catch(Exception e){
-									logger.log(Level.SEVERE, "Failed to close audit event reader", e);
-								}
-							}
-							try{
-								if(!"none".equals(rulesType)){
-									removeAuditctlRules();
-								}
-							}catch(Exception e){
-								logger.log(Level.SEVERE, "Failed to clear audit rules", e);
-							}         
-							if(KEEP_ARTIFACT_PROPERTIES_MAP){
-								deleteCacheMaps();
-							}
-						}
-					}
-				};
-				eventProcessorThread = new Thread(eventProcessor, "Audit-Thread");
-				eventProcessorThread.start();
-
-				if("none".equals(rulesType)){
-					// do nothing
-				}else{
-					
-					removeAuditctlRules();
-					
-					//Find arch to use in rules
-					String archField = "";
-					if (ARCH_32BIT){
-						archField = "-F arch=b32 ";
-					}else{
-						archField = "-F arch=b64 ";
-					}
-
-					//Find uid to use in rules
-					String uid = getOwnUid();
-					String uidField = "";
-					if(uid == null){
-						shutdown = true;
-						return false;
-					}else{
-						uidField = "-F uid!=" + uid + " ";
-					}
-
-					//Find pids to ignore
-					String ignoreProcesses = "auditd kauditd audispd spadeSocketBridge";
-					List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
-
-					List<String> auditRules = new ArrayList<String>();
-
-					if("all".equals(rulesType)){
-						String specialSyscallsRule = "auditctl -a exit,always ";
-						String allSyscallsAuditRule = "auditctl -a exit,always ";
-
-						allSyscallsAuditRule += archField;
-						specialSyscallsRule += archField;
-
-						allSyscallsAuditRule += "-S all ";
-						specialSyscallsRule += "-S exit -S exit_group -S kill ";
-
-						allSyscallsAuditRule += uidField;
-						specialSyscallsRule += uidField;
-
-						allSyscallsAuditRule += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
-						
-						int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(allSyscallsAuditRule, pidsToIgnore);
-
-						List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
-						auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
-
-						String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
-						auditRules.add(specialSyscallsRule + fieldsForAuditRule);
-						auditRules.add(allSyscallsAuditRule + fieldsForAuditRule);
-
-					}else if(rulesType == null){
-
-						String auditRuleWithoutSuccess = "auditctl -a exit,always ";
-						String auditRuleWithSuccess = "auditctl -a exit,always ";
-
-						auditRuleWithSuccess += archField;
-						auditRuleWithoutSuccess += archField;
-
-						auditRuleWithSuccess += uidField;
-						auditRuleWithoutSuccess += uidField;
-
-						auditRuleWithoutSuccess += "-S kill -S exit -S exit_group ";
-
-						if (USE_READ_WRITE) {
-							auditRuleWithSuccess += "-S read -S readv -S write -S writev ";
-						}
-						if (USE_SOCK_SEND_RCV) {
-							auditRuleWithSuccess += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
-						}
-						if (USE_MEMORY_SYSCALLS) {
-							auditRuleWithSuccess += "-S mmap -S mprotect ";
-							if(ARCH_32BIT){
-								auditRuleWithSuccess += "-S mmap2 ";
-							}
-						}
-						auditRuleWithSuccess += "-S unlink -S unlinkat ";
-						auditRuleWithSuccess += "-S link -S linkat -S symlink -S symlinkat ";
-						auditRuleWithSuccess += "-S clone -S fork -S vfork -S execve ";
-						auditRuleWithSuccess += "-S open -S close -S creat -S openat -S mknodat -S mknod ";
-						auditRuleWithSuccess += "-S dup -S dup2 -S dup3 ";
-						auditRuleWithSuccess += "-S bind -S accept -S accept4 -S connect ";
-						auditRuleWithSuccess += "-S rename -S renameat ";
-						auditRuleWithSuccess += "-S setuid -S setreuid -S setresuid ";
-						auditRuleWithSuccess += "-S chmod -S fchmod -S fchmodat ";
-						auditRuleWithSuccess += "-S pipe -S pipe2 ";
-						auditRuleWithSuccess += "-S truncate -S ftruncate ";
-						auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
-
-						int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(auditRuleWithSuccess, pidsToIgnore);
-
-						List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
-						auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
-
-						String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
-						auditRules.add(auditRuleWithoutSuccess + fieldsForAuditRule);
-						auditRules.add(auditRuleWithSuccess + fieldsForAuditRule);
-
-					}
-
-					for(String auditRule : auditRules){
-						if(!executeAuditctlRule(auditRule)){
-							removeAuditctlRules();
-							shutdown = true;
-							return false;
-						}
-					}
-				}
-
-			} catch (Exception e) {
-				logger.log(Level.SEVERE, "Error configuring audit rules", e);
-				shutdown = true;
+			String rotateArgument = argsMap.get("rotate");
+			if(isValidBoolean(rotateArgument)){
+				rotate = parseBoolean(rotateArgument, false);
+			}else{
+				logger.log(Level.SEVERE, "Invalid value for 'rotate' flag: "+ rotateArgument);
 				return false;
 			}
 
-		}
+			List<String> inputAuditLogFiles = getListOfInputAuditLogs(inputAuditLogFileArgument, rotate);
 
+			logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
+
+			// Only needed in case of audit log files and not in case of live audit
+			String tempDirPath = configMap.get("tempDir");
+			if(!setupTempDirectory(tempDirPath)){
+				return false;
+			}
+			// Create the input file for spadeAuditBridge to read the audit logs from 
+			logListFile = createLogListFileForSpadeAuditBridge(spadeAuditBridgeBinaryName, inputAuditLogFiles, tempDirPath);
+			if(logListFile == null){
+				return false;
+			}
+			
+			// Build the command to use
+			spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
+							((CREATE_BEEP_UNITS) ? " -u" : "") + 
+							((WAIT_FOR_LOG_END) ? " -w" : "") + 
+							" -f " + logListFile;
+
+		}else{ // live audit
+
+			isLiveAudit = true;
+			
+			ARCH_32BIT = is32BitArch();
+			if(ARCH_32BIT == null){
+				return false;
+			}
+			
+			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
+			rulesType = argsMap.get("rules");
+			if(rulesType != null && !rulesType.equals("none") && !rulesType.equals("all")){
+				logger.log(Level.SEVERE, "Invalid value for 'rules' argument: " + rulesType);
+				return false;
+			}
+			
+			spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
+					((CREATE_BEEP_UNITS) ? " -u" : "") + 
+					// Don't use WAIT_FOR_LOG_END here because the interrupt would be ignored by spadeAuditBridge then
+					" -s " + "/var/run/audispd_events";
+			
+		}
+		
+		// Initialize cache data structures
+		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+			if(!initCacheMaps(configMap)){
+				return false;
+			}
+		}
+		
+		try{
+			
+			if(isLiveAudit){
+				if(!setAuditControlRules(rulesType, spadeAuditBridgeBinaryName)){
+					return false;
+				}
+			}
+			
+			// Letting NPE to be thrown in case some object's initialization fails
+			java.lang.Process spadeAuditBridgeProcess = runSpadeAuditBridge(spadeAuditBridgeCommand);
+
+			spadeAuditBridgeProcessPid = getPidOfProcessByName(spadeAuditBridgeBinaryName);
+			if(spadeAuditBridgeProcessPid == null){
+				throw new Exception("Failed to run binary: " + spadeAuditBridgeBinaryName);
+			}
+
+			Thread errorReaderThread = getErrorStreamReaderForProcess(spadeAuditBridgeBinaryName, 
+					spadeAuditBridgeProcess.getErrorStream());
+			AuditEventReader auditEventReader = getAuditEventReader(spadeAuditBridgeCommand,
+					spadeAuditBridgeProcess.getInputStream(), outputLogFilePath,
+					recordsToRotateOutputLogAfter);
+			
+			if(auditEventReader == null){
+				throw new Exception("Null audit event reader");
+			}
+			
+			Thread auditEventReaderThread = getAuditEventReaderThread(spadeAuditBridgeBinaryName, 
+					auditEventReader, 
+					isLiveAudit, rulesType, logListFile);
+			errorReaderThread.start();
+			auditEventReaderThread.start();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to start Audit", e);
+			doCleanup(isLiveAudit, rulesType, logListFile);
+			return false;
+		}
+		
 		return true;
 	}
+	
+	private boolean deleteFile(String filepath){
+		try{
+			
+			FileUtils.forceDelete(new File(filepath));
+			return true;
+			
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to delete file " + filepath, e);
+			return false;
+		}
+	}
+	
+	private AuditEventReader getAuditEventReader(String spadeAuditBridgeCommand, 
+			InputStream stdoutStream,
+			String outputLogFilePath,
+			Long recordsToRotateOutputLogAfter){
+		
+		try{
+			// Create the audit event reader using the STDOUT of the spadeAuditBridge process
+			AuditEventReader auditEventReader = new AuditEventReader(spadeAuditBridgeCommand, 
+					stdoutStream);
+			if(outputLogFilePath != null){
+				auditEventReader.setOutputLog(outputLogFilePath, recordsToRotateOutputLogAfter);
+			}
+			return auditEventReader;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to create audit event reader", e);
+			return null;
+		}
+	}
+	
+	private boolean sendSignalToPid(String pid, String signal){
+		try{
+			Runtime.getRuntime().exec("kill -" + signal + " " + pid);
+			return true;
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to send signal '"+signal+"' to pid '"+pid+"'", e);
+			return false;
+		}
+	}
+	
+	private Thread getErrorStreamReaderForProcess(final String processName, final InputStream errorStream){
+		try{
+			
+			Thread errorStreamReaderThread = new Thread(new Runnable(){
+				public void run(){
+					BufferedReader errorStreamReader = null;
+					try{
+						errorStreamReader = new BufferedReader(new InputStreamReader(errorStream));
+						String line = null;
+						while((line = errorStreamReader.readLine()) != null){
+							logger.log(Level.INFO, processName + " output: " + line);
+						}
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Failed to read error stream for process: " + processName);
+					}finally{
+						if(errorStreamReader != null){
+							try{
+								errorStreamReader.close();
+							}catch(Exception e){
+								//ignore
+							}
+						}
+					}
+					logger.log(Level.INFO, "Exiting error reader thread for process: " + processName);
+				}
+			});
+			
+			return errorStreamReaderThread;
+			
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to create error reader thread for " + processName, e);
+			return null;
+		}
+	}
+	
+	private String getPidOfProcessByName(String processName){
+		String pid = null;
+		BufferedReader pidReader = null;
+		try{
+			java.lang.Process pidProcess = Runtime.getRuntime().exec("pidof " + processName);
+			pidReader = new BufferedReader(new InputStreamReader(pidProcess.getInputStream()));
+			pid = pidReader.readLine().trim();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to get pid of " + processName, e);
+			return null;
+		}finally{
+			if(pidReader != null){
+				try{
+					pidReader.close();
+				}catch(Exception e){
+					//ignore
+				}
+			}
+		}
+		return pid;
+	}
+	
+	private Thread getAuditEventReaderThread(final String processName, final AuditEventReader auditEventReader, 
+			final boolean isLiveAudit, final String rulesType, final String logListFile){
+		Runnable runnable = new Runnable() {
+			
+			@Override
+			public void run() {
+				
+				eventReaderThreadRunning = true;
+				
+				if(isLiveAudit){
+					buildProcFSTree();
+				}
+				
+				try{
+					Map<String, String> eventData = null;
+					while((eventData = auditEventReader.readEventData()) != null){
+						finishEvent(eventData);
+					}
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Stopped reading event stream. ", e);
+				}finally{
+					try{
+						if(auditEventReader != null){
+							auditEventReader.close();
+						}
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Failed to close audit event reader", e);
+					}
+				}
+				
+				// Sent a signal to the process in shutdown to stop reading.
+				// That's why here.
+				doCleanup(isLiveAudit, rulesType, logListFile);
+				logger.log(Level.INFO, "Exiting event reader thread for process: " + processName);
+				eventReaderThreadRunning = false;
+			}
+		};
+		return new Thread(runnable);
+	}
 
+	private java.lang.Process runSpadeAuditBridge(String command){
+		try{
+			java.lang.Process spadeAuditBridgeProcess = Runtime.getRuntime().exec(command);
+			logger.log(Level.INFO, "Succesfully executed the command: '" + command + "'");
+			return spadeAuditBridgeProcess;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to execute command: '" + command + "'", e);
+			return null;
+		}
+	}
+	
+	private boolean setAuditControlRules(String rulesType, String spadeAuditBridgeBinaryName){
+		try {
+
+			if("none".equals(rulesType)){
+				// do nothing
+				return true;
+			}else{
+				
+				// Remove any existing audit rules
+				removeAuditctlRules();
+				
+				// Set arch to use in the rules
+				String archField = "";
+				if (ARCH_32BIT){
+					archField = "-F arch=b32 ";
+				}else{
+					archField = "-F arch=b64 ";
+				}
+
+				// Find uid to use in rules
+				String uid = getOwnUid();
+				String uidField = "";
+				if(uid == null){
+					return false;
+				}else{
+					uidField = "-F uid!=" + uid + " ";
+				}
+
+				//Find pids to ignore
+				String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
+				List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
+
+				List<String> auditRules = new ArrayList<String>();
+
+				if("all".equals(rulesType)){
+					String specialSyscallsRule = "auditctl -a exit,always ";
+					String allSyscallsAuditRule = "auditctl -a exit,always ";
+
+					allSyscallsAuditRule += archField;
+					specialSyscallsRule += archField;
+
+					allSyscallsAuditRule += "-S all ";
+					specialSyscallsRule += "-S exit -S exit_group -S kill ";
+
+					allSyscallsAuditRule += uidField;
+					specialSyscallsRule += uidField;
+
+					allSyscallsAuditRule += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
+					
+					int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(allSyscallsAuditRule, pidsToIgnore);
+
+					List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
+					auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
+
+					String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
+					auditRules.add(specialSyscallsRule + fieldsForAuditRule);
+					auditRules.add(allSyscallsAuditRule + fieldsForAuditRule);
+
+				}else if(rulesType == null){
+
+					String auditRuleWithoutSuccess = "auditctl -a exit,always ";
+					String auditRuleWithSuccess = "auditctl -a exit,always ";
+
+					auditRuleWithSuccess += archField;
+					auditRuleWithoutSuccess += archField;
+
+					auditRuleWithSuccess += uidField;
+					auditRuleWithoutSuccess += uidField;
+
+					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group ";
+
+					if (USE_READ_WRITE) {
+						auditRuleWithSuccess += "-S read -S readv -S write -S writev ";
+					}
+					if (USE_SOCK_SEND_RCV) {
+						auditRuleWithSuccess += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
+					}
+					if (USE_MEMORY_SYSCALLS) {
+						auditRuleWithSuccess += "-S mmap -S mprotect ";
+						if(ARCH_32BIT){
+							auditRuleWithSuccess += "-S mmap2 ";
+						}
+					}
+					auditRuleWithSuccess += "-S unlink -S unlinkat ";
+					auditRuleWithSuccess += "-S link -S linkat -S symlink -S symlinkat ";
+					auditRuleWithSuccess += "-S clone -S fork -S vfork -S execve ";
+					auditRuleWithSuccess += "-S open -S close -S creat -S openat -S mknodat -S mknod ";
+					auditRuleWithSuccess += "-S dup -S dup2 -S dup3 ";
+					auditRuleWithSuccess += "-S bind -S accept -S accept4 -S connect ";
+					auditRuleWithSuccess += "-S rename -S renameat ";
+					auditRuleWithSuccess += "-S setuid -S setreuid -S setresuid ";
+					auditRuleWithSuccess += "-S chmod -S fchmod -S fchmodat ";
+					auditRuleWithSuccess += "-S pipe -S pipe2 ";
+					auditRuleWithSuccess += "-S truncate -S ftruncate ";
+					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
+
+					int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(auditRuleWithSuccess, pidsToIgnore);
+
+					List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
+					auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
+
+					String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
+					auditRules.add(auditRuleWithoutSuccess + fieldsForAuditRule);
+					auditRules.add(auditRuleWithSuccess + fieldsForAuditRule);
+
+				}else{
+					logger.log(Level.SEVERE, "Invalid rules arguments: " + rulesType);
+					return false;
+				}
+
+				for(String auditRule : auditRules){
+					if(!executeAuditctlRule(auditRule)){
+						removeAuditctlRules();
+						return false;
+					}
+				}
+			}
+
+			return true;
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, "Error configuring audit rules", e);
+			return false;
+		}
+
+	}
+	
 	/**
 	 * Returns auditctl rules where a list=exit, action=never, field is either 'pid' or 'ppid' for each pid in the list
 	 * 
@@ -804,48 +1205,54 @@ public class Audit extends AbstractReporter {
 
 	private void buildProcFSTree(){
 		if(PROCFS){
-			// Build the process tree using the directories under /proc/.
-			// Directories which have a numeric name represent processes.
-			String path = "/proc";
-			java.io.File directory = new java.io.File(path);
-			java.io.File[] listOfFiles = directory.listFiles();
-			for (int i = 0; i < listOfFiles.length; i++) {
-				if (listOfFiles[i].isDirectory()) {
-
-					String currentPID = listOfFiles[i].getName();
-					try {
-						// Parse the current directory name to make sure it is
-						// numeric. If not, ignore and continue.
-						Integer.parseInt(currentPID);
-						Process processVertex = createProcessFromProcFS(currentPID); //create
-						addProcess(currentPID, processVertex);//add to memory
-						if(!processVertexHasBeenPutBefore(processVertex)){
-							putVertex(processVertex);//add to internal buffer
+			
+			Long boottime = getBootTime();
+			if(boottime == null){
+				logger.log(Level.SEVERE, "Failed to build process information from /proc");
+			}else{
+			
+				// Build the process tree using the directories under /proc/.
+				// Directories which have a numeric name represent processes.
+				String path = "/proc";
+				java.io.File directory = new java.io.File(path);
+				java.io.File[] listOfFiles = directory.listFiles();
+				for (int i = 0; i < listOfFiles.length; i++) {
+					if (listOfFiles[i].isDirectory()) {
+	
+						String currentPID = listOfFiles[i].getName();
+						try {
+							// Parse the current directory name to make sure it is
+							// numeric. If not, ignore and continue.
+							Integer.parseInt(currentPID);
+							Process processVertex = createProcessFromProcFS(currentPID, boottime); //create
+							addProcess(currentPID, processVertex);//add to memory
+							if(!processVertexHasBeenPutBefore(processVertex)){
+								putVertex(processVertex);//add to internal buffer
+							}
+							Process parentVertex = getProcess(processVertex.getAnnotation(OPMConstants.PROCESS_PPID));
+							if (parentVertex != null) {
+								WasTriggeredBy childToParent = new WasTriggeredBy(processVertex, parentVertex);
+								putEdge(childToParent, getOperation(SYSCALL.UNKNOWN), "0", null, OPMConstants.SOURCE_PROCFS);
+							}
+	
+							// Get existing file descriptors for this process
+							Map<String, ArtifactIdentifier> fds = getFileDescriptors(currentPID);
+							if (fds != null) {
+								descriptors.addDescriptors(currentPID, fds);
+							}
+						} catch (Exception e) {
+							// Continue
 						}
-						Process parentVertex = getProcess(processVertex.getAnnotation(OPMConstants.PROCESS_PPID));
-						if (parentVertex != null) {
-							WasTriggeredBy childToParent = new WasTriggeredBy(processVertex, parentVertex);
-							putEdge(childToParent, getOperation(SYSCALL.UNKNOWN), "0", null, OPMConstants.SOURCE_PROCFS);
-						}
-
-						// Get existing file descriptors for this process
-						Map<String, ArtifactIdentifier> fds = getFileDescriptors(currentPID);
-						if (fds != null) {
-							descriptors.addDescriptors(currentPID, fds);
-						}
-					} catch (Exception e) {
-						// Continue
 					}
 				}
 			}
 		}
 	}
 
-	private boolean initCacheMaps(){
+	private boolean initCacheMaps(Map<String, String> configMap){
 		try{
-			Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(Settings.getDefaultConfigFilePath(this.getClass()), "=");
 			long currentTime = System.currentTimeMillis(); 
-			artifactsCacheDatabasePath = configMap.get("cacheDatabasePath") + File.separatorChar + "artifacts_" + currentTime;
+			artifactsCacheDatabasePath = configMap.get("tempDir") + File.separatorChar + "artifacts_" + currentTime;
 			try{
 				FileUtils.forceMkdir(new File(artifactsCacheDatabasePath));
 				FileUtils.forceDeleteOnExit(new File(artifactsCacheDatabasePath));
@@ -890,10 +1297,12 @@ public class Audit extends AbstractReporter {
 					}
 				});
 				
-				Long externalMemoryMapReportingIntervalSeconds = CommonFunctions.parseLong(configMap.get("externalMemoryMapReportingIntervalSeconds"), -1L);
+				Long externalMemoryMapReportingIntervalSeconds = 
+						CommonFunctions.parseLong(configMap.get("externalMemoryMapReportingIntervalSeconds"), -1L);
 				
 				if(externalMemoryMapReportingIntervalSeconds > 0){
-					artifactIdentifierToArtifactProperties.printStats(externalMemoryMapReportingIntervalSeconds * 1000); //convert to millis
+					artifactIdentifierToArtifactProperties.printStats(externalMemoryMapReportingIntervalSeconds * 1000); 
+					//convert to millis
 				}
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to initialize necessary data structures", e);
@@ -954,7 +1363,7 @@ public class Audit extends AbstractReporter {
 
 	private Map<String, ArtifactIdentifier> getFileDescriptors(String pid){
 
-		if(auditLogThread != null  // the audit log is being read from a file.
+		if(isLiveAudit == false  // the audit log is being read from a file.
 				|| !PROCFS){ // the flag to read from procfs is false
 			return null;
 		}
@@ -1016,28 +1425,20 @@ public class Audit extends AbstractReporter {
 		return fds;
 	}
 
-	//TODO What to do when WAIT_FOR_LOG_END is set to true and auditLogThread won't stop on exit?
 	@Override
 	public boolean shutdown() {
-		shutdown = true;
-		try {
-			if(eventProcessorThread != null){
-				eventProcessorThread.join(THREAD_CLEANUP_TIMEOUT);
-			}
-			if(auditLogThread != null){
-				auditLogThread.join(THREAD_CLEANUP_TIMEOUT);
-			}
-		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Error shutting down", e);
+		
+		// Send an interrupt to the spadeAuditBridgeProcess
+		
+		sendSignalToPid(spadeAuditBridgeProcessPid, "2");
+		
+		// Return. The event reader thread and the error reader thread will exit on their own.
+		// The event reader thread will do the state cleanup
+		
+		while(eventReaderThreadRunning){
+			// Wait while the event reader thread is still running i.e. buffer being emptied
 		}
-		try{
-			if(auditProcess != null){
-				// Destroy the process so that input stream of the process is closed
-				auditProcess.destroy();
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Error trying to kill process spadeSocketBridge", e);
-		}
+		
 		return true;
 	}
 
@@ -1073,9 +1474,131 @@ public class Audit extends AbstractReporter {
     		handleSyscallEvent(eventId);
     	}*/
 
-		handleSyscallEvent(eventData);
+		try{
+			String unitRecordType = eventData.get(AuditEventReader.RECORD_TYPE_KEY);
+			if(AuditEventReader.RECORD_TYPE_UBSI_ENTRY.equals(unitRecordType)){
+				handleUnitEntry(eventData);
+			}else if(AuditEventReader.RECORD_TYPE_UBSI_EXIT.equals(unitRecordType)){
+				handleUnitExit(eventData);
+			}else if(AuditEventReader.RECORD_TYPE_UBSI_DEP.equals(unitRecordType)){
+				handleUnitDependencies(eventData);
+			}else{
+				handleSyscallEvent(eventData);
+			}
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to process eventData: " + eventData, e);
+		}
+	}
+	
+	/*
+	 * Cases:
+	 * 
+	 * 1) Containing process could be null
+	 * 2) The reported unit could not have been sent (if yes then need to send the edge too)
+	 * 3) Any of the dependent unit could not have been sent (if yes then need to send the edge too)
+	 * 
+	 */
+	private void handleUnitDependencies(Map<String, String> eventData){
+		// Also called when a unit exits
+		handleUnitExit(eventData); // Do this first
+		String time = "0"; // no time and event id
+		String eventId = "0"; // no time and event id
+		String pid = eventData.get(AuditEventReader.PID);
+		Integer unitDependencyCount = CommonFunctions.parseInt(eventData.get(AuditEventReader.UNIT_DEPS_COUNT), 0);
+		// Assumption that this dependent unit has been sent before along with the unit on which they are dependent on
+		Process containingProcess = getContainingProcessVertex(pid);
+		
+		if(containingProcess == null){
+			// Haven't seen this pid before
+			// Create the process from the information in eventData
+			containingProcess = putProcess(eventData, time, eventId);
+		}
+		
+//		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
+		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
+		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
+		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
+		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
+		
+		Process actingUnit = putUnitAndEdge(containingProcess, pid, time, eventId, 
+				unitId, unitIteration, unitTime, unitCount, true);
+		
+		for(int a = 0; a<unitDependencyCount; a++){
+//			String dependentUnitPid = eventData.get(AuditEventReader.UNIT_PID+a);
+			String dependentUnitId = eventData.get(AuditEventReader.UNIT_UNITID+a);
+			String dependentUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+a);
+			String dependentUnitTime = eventData.get(AuditEventReader.UNIT_TIME+a);
+			String dependentUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+a);
+			
+			// Does so if not already done
+			Process dependentUnit = putUnitAndEdge(containingProcess, pid, time, eventId, 
+					dependentUnitId, dependentUnitIteration, dependentUnitTime, dependentUnitCount, true);
+			
+			// List contains the dependent units and the reported unit is the unit on which they are dependent
+			WasTriggeredBy dependencyEdge = new WasTriggeredBy(dependentUnit, actingUnit);
+			// TODO use operation directly?
+			putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_AUDIT);
+		}
+	}
+	
+	// assumption: no nested loops
+	private void handleUnitExit(Map<String, String> eventData){
+		String pid = eventData.get(AuditEventReader.PID);
+		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){
+			Process containingProcess = processUnitStack.get(pid).removeFirst();
+			processUnitStack.get(pid).clear();
+			processUnitStack.get(pid).addFirst(containingProcess);
+		}
+	}
+	
+	private void popCurrentIterationIfAny(String pid){
+		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){
+			processUnitStack.get(pid).removeLast();
+		}
+	}
+	
+	private void handleUnitEntry(Map<String, String> eventData){
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+//		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
+		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
+		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
+		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
+		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
+		
+		Process containingProcess = getContainingProcessVertex(pid);
+		
+		if(containingProcess == null){
+			// Haven't seen this pid before
+			// Create the process from the information in eventData
+			containingProcess = putProcess(eventData, time, eventId);
+		}
+		
+		// pop the current iteration if any before adding the new one
+		// no nested loops at the moment
+		popCurrentIterationIfAny(pid);
+		
+		putUnitAndEdge(containingProcess, pid, time, eventId, 
+				unitId, unitIteration, unitTime, unitCount, false);
 	}
 
+	// Adds only if not seen before
+	private Process putUnitAndEdge(Process containingProcess, String pid, String eventTime, String eventId, 
+			String unitId, String iteration, String startTime, String count, boolean dependencyEvent){
+		// Add this new unit on the stack
+		Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId, iteration, count); 
+		if(!processVertexHasBeenPutBefore(newUnit)){
+			if(!dependencyEvent){
+				processUnitStack.get(pid).addLast(newUnit);
+			}
+			putVertex(newUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
+			WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(newUnit, containingProcess);
+			putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), eventTime, eventId, OPMConstants.SOURCE_BEEP);
+		}
+		return newUnit;
+	}
+	
 	/**
 	 * Gets the key value map from the internal data structure and gets the system call from the map.
 	 * Gets the appropriate system call based on current architecture
@@ -1203,7 +1726,7 @@ public class Audit extends AbstractReporter {
 				handleConnect(eventData);
 				break;
 			case KILL:
-				handleKill(eventData);
+				//handleKill(eventData);
 				break;
 			case RENAME:
 			case RENAMEAT:
@@ -1514,14 +2037,10 @@ public class Audit extends AbstractReporter {
 		// If cleared before putVertex then it would populate the processUnitStack after it has been cleared.
 
 		processUnitStack.remove(pid); // Remove all process and beep unit vertices of the process
-		pidToMemAddress.remove(pid);  // Remove all the beep unit memory addresses
-		iterationNumber.remove(pid); // Remove the iteration numbers for the units of this process
 		descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
 		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
 		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
-		if(TGID){
-			pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
-		}
+		pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -1548,8 +2067,8 @@ public class Audit extends AbstractReporter {
 		
 		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
 		
-		String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ?
-				pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
+		String pidOrTgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null ?
+				pid : pidToTgidForMemoryArtifactsOnly.get(pid);
 		ArtifactIdentifier memoryArtifactIdentifier = 
 				new MemoryIdentifier(pidOrTgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, true);
@@ -1612,7 +2131,7 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16);
 		String protection = new BigInteger(eventData.get(AuditEventReader.ARG2)).toString(16);
 
-		String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
+		String pidOrTgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid);
 		
 		ArtifactIdentifier memoryInfo = 
 				new MemoryIdentifier(pidOrTgid, address, length);
@@ -1623,72 +2142,6 @@ public class Audit extends AbstractReporter {
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
 		edge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(edge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
-	}
-
-	private void handleKill(Map<String, String> eventData){
-		if(!CREATE_BEEP_UNITS){
-			return;
-		}
-		SYSCALL syscall = SYSCALL.KILL;
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
-		String time = eventData.get(AuditEventReader.TIME);
-		BigInteger arg0 = null;
-		BigInteger arg1 = null;
-		String unitId = null;
-		try{
-			arg0 = new BigInteger(eventData.get(AuditEventReader.ARG0));
-			arg1 = new BigInteger(eventData.get(AuditEventReader.ARG1));
-			unitId = arg1.toString();
-		}catch(Exception e){
-			log(Level.WARNING, "Failed to parse argument number 0 or 1", e, time, eventId, syscall);
-			return;
-		}
-		if(arg0.intValue() == -100){ //unit start
-			putProcess(eventData, time, eventId); //check if it exists. if not then add and return.
-			Process addedUnit = pushUnitIterationOnStack(pid, unitId, time, eventId); //create unit and add it to data structure
-			//add edge between the new unit and the main unit to keep the graph connected
-			WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(addedUnit, getContainingProcessVertex(pid));
-			putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), time, eventId, OPMConstants.SOURCE_BEEP);
-		}else if(arg0.intValue() == -101){ //unit end
-			//remove all iterations of the given unit
-			popUnitIterationsFromStack(pid, unitId);
-		}else if(arg0.intValue() == -200 || arg0.intValue() == -300){ //-200 highbits of read, -300 highbits of write
-			pidToMemAddress.put(pid, arg1);
-		}else if(arg0.intValue() == -201 || arg0.intValue() == -301){ //-201 lowbits of read, -301 lowbits of write 
-			BigInteger address = pidToMemAddress.get(pid);
-			if(address != null){
-				String operation = null;
-				Artifact memArtifact = null;
-				AbstractEdge edge = null;
-				Process process = getProcess(pid);
-				if(process == null || process.getAnnotation(OPMConstants.PROCESS_UNIT).equals("0")){ 
-					//process cannot be null or cannot be the containing process which is doing the memory read or write in BEEP
-					log(Level.INFO, "Unit vertex not found for beep memory read/write. "
-							+ "Possibly missing unit creation 'kill' syscall", null, time, eventId, syscall);
-					return;
-				}
-				address = address.shiftLeft(32);
-				address = address.add(arg1);
-				pidToMemAddress.remove(pid);
-				String pidOrTgid = TGID ? (pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid)) : pid;
-				if(arg0.intValue() == -201){
-					memArtifact = putArtifact(eventData, 
-							new MemoryIdentifier(pidOrTgid, address.toString(16), ""), 
-							false, OPMConstants.SOURCE_BEEP);
-					edge = new Used(process, memArtifact);
-					operation = getOperation(SYSCALL.READ);
-				}else if(arg0.intValue() == -301){
-					memArtifact = putArtifact(eventData, 
-							new MemoryIdentifier(pidOrTgid, address.toString(16), ""), true, OPMConstants.SOURCE_BEEP);
-					edge = new WasGeneratedBy(memArtifact, process);
-					operation = getOperation(SYSCALL.WRITE);
-				}
-				if(edge != null && memArtifact != null && process != null && operation != null){
-					putEdge(edge, operation, time, eventId, OPMConstants.SOURCE_BEEP);
-				}
-			}
-		}
 	}
 
 	private void handleForkClone(Map<String, String> eventData, SYSCALL syscall) {
@@ -1736,14 +2189,12 @@ public class Audit extends AbstractReporter {
 				descriptors.copyDescriptors(oldPID, newPID);
 			}
 			// Only in case of clone
-			if(TGID){
-				// If memory space being shared then only use tgid for memory artifacts
-				if((flags & CLONE_VM) == CLONE_VM){
-					if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
-						pidToTgidForMemoryArtifactsOnly.put(newPID, oldPID);
-					}else{
-						pidToTgidForMemoryArtifactsOnly.put(newPID, pidToTgidForMemoryArtifactsOnly.get(oldPID));
-					}
+			// If memory space being shared then only use tgid for memory artifacts
+			if((flags & CLONE_VM) == CLONE_VM){
+				if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
+					pidToTgidForMemoryArtifactsOnly.put(newPID, oldPID);
+				}else{
+					pidToTgidForMemoryArtifactsOnly.put(newPID, pidToTgidForMemoryArtifactsOnly.get(oldPID));
 				}
 			}
 		}else if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){ //copy file descriptors just once here when fork
@@ -1836,9 +2287,7 @@ public class Audit extends AbstractReporter {
 
 		descriptors.unlinkDescriptors(pid);
 		
-		if(TGID){
-			pidToTgidForMemoryArtifactsOnly.remove(pid);
-		}
+		pidToTgidForMemoryArtifactsOnly.remove(pid);
 	}
 
 	private void handleCreat(Map<String, String> eventData){
@@ -3864,7 +4313,7 @@ public class Audit extends AbstractReporter {
 	 * @param pid pid of the process to look for in the /proc FS
 	 * @return a Process object populated using /proc FS
 	 */
-	private Process createProcessFromProcFS(String pid) {
+	private Process createProcessFromProcFS(String pid, long boottime) {
 		// Check if this pid exists in the /proc/ filesystem
 		if ((new java.io.File("/proc/" + pid).exists())) {
 			// The process vertex is created using the proc filesystem.
@@ -3940,24 +4389,6 @@ public class Audit extends AbstractReporter {
 	}
 
 	/**
-	 * Returns the next iteration number for the pid and unitId combination.
-	 * 
-	 * @param pid pid of the process to which the unit would belong
-	 * @param unitId id of the loop of which the iteration is
-	 * @return the iteration number. Always greater than or equal to 0 and starts from 0
-	 */        
-	private Long getNextIterationNumber(String pid, String unitId){
-		if(iterationNumber.get(pid) == null){
-			iterationNumber.put(pid, new HashMap<String, Long>());
-		}
-		if(iterationNumber.get(pid).get(unitId) == null){
-			iterationNumber.get(pid).put(unitId, -1L);
-		}
-		iterationNumber.get(pid).put(unitId, iterationNumber.get(pid).get(unitId) + 1);
-		return iterationNumber.get(pid).get(unitId);
-	}
-
-	/**
 	 * Returns the main process i.e. at the zeroth index in the process stack for the pid, if any.
 	 * 
 	 * @param pid pid of the process
@@ -3982,7 +4413,6 @@ public class Audit extends AbstractReporter {
 		if(pid == null || process == null){
 			logger.log(Level.WARNING, "Failed to add process vertex in addProcess function because pid or process passed is null. Pid {0}, Process {1}", new Object[]{pid, String.valueOf(process)});
 		}else{
-			iterationNumber.remove(pid); //start iteration count from start
 			processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
 			processUnitStack.get(pid).addFirst(process);
 		}
@@ -4003,114 +4433,6 @@ public class Audit extends AbstractReporter {
 			return process;
 		}
 		return null;
-	}
-
-	/**
-	 * Creates a unit iteration vertex, pushes it onto the vertex stack and calls putVertex on the created vertex.
-	 * Before adding this new unit iteration the previous one is removed from the stack.
-	 * The new unit iteration vertex is a copy of the annotation process with a new iteration number.
-	 * Furthermore, a count annotation is used to distinguish between the ith iteration of unitId x and the jth iteration 
-	 * of unitId x where i=j and a unit end was seen between the ith and the jth iteration, all in one timestamp of audit 
-	 * log.
-	 * 
-	 * Finally, the created unit iteration is added to the memory stack and putVertex is called on it.
-	 * 
-	 * @param pid the pid of the process which created this unit iteration
-	 * @param unitId the id of the unit as gotten from the audit log
-	 * @param startTime the time at which this unit was created
-	 * @return the created unit iteration vertex. null if there was no containing process for the pid
-	 */
-	private Process pushUnitIterationOnStack(String pid, String unitId, String startTime, String eventId){
-		if("0".equals(unitId)){
-			return null; //unit 0 is containing process and cannot have iterations
-		}
-		Process containingProcess = getContainingProcessVertex(pid);
-		if(containingProcess == null){
-			return null;
-		}
-		//get next iteration number and remove the previous iteration (if any) for the pid and unitId combination
-		Long nextIterationNumber = getNextIterationNumber(pid, unitId);
-		if(nextIterationNumber > 0){ //if greater than zero then remove otherwise this is the first one
-			removePreviousIteration(pid, unitId, nextIterationNumber);
-		}
-
-		if(lastTimestamp == NOT_SET || !startTime.equals(lastTimestamp)){
-			lastTimestamp = startTime;
-			unitIterationRepetitionCounts.clear();
-		}
-
-		UnitVertexIdentifier unitVertexIdentifier = new UnitVertexIdentifier(pid, unitId, String.valueOf(nextIterationNumber));
-		if(unitIterationRepetitionCounts.get(unitVertexIdentifier) == null){
-			unitIterationRepetitionCounts.put(unitVertexIdentifier, -1);
-		}
-		unitIterationRepetitionCounts.put(unitVertexIdentifier, unitIterationRepetitionCounts.get(unitVertexIdentifier)+1);
-
-		String count = String.valueOf(unitIterationRepetitionCounts.get(unitVertexIdentifier));
-
-		Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId, String.valueOf(nextIterationNumber), count); //first element is always the main process vertex
-
-		processUnitStack.get(pid).addLast(newUnit);
-
-		if(!processVertexHasBeenPutBefore(newUnit)){
-			putVertex(newUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
-		}
-		return newUnit;
-	}
-
-	/**
-	 * This function removes all the units of the given unitId and their iteration units from the process stack.
-	 * Also resets the iteration count for the given unitId
-	 * 
-	 *   @param pid pid of the process
-	 *   @param unitId id of the unit for which the iterations have to be removed
-	 */
-	private void popUnitIterationsFromStack(String pid, String unitId){
-		if("0".equals(unitId) || unitId == null){
-			return; //unit 0 is containing process and should be removed using the addProcess method
-		}
-		if(processUnitStack.get(pid) != null){
-			int size = processUnitStack.get(pid).size() - 1;
-			for(int a = size; a>=0; a--){ //going in reverse because we would be removing elements
-				Process unit = processUnitStack.get(pid).get(a);
-				if(unitId.equals(unit.getAnnotation(OPMConstants.PROCESS_UNIT))){
-					processUnitStack.get(pid).remove(a);
-				}
-			}
-			if(iterationNumber.get(pid) != null){
-				iterationNumber.get(pid).remove(unitId);//start iteration count from start
-			}
-		}
-	}
-
-	/**
-	 * Only removes the previous unit iteration i.e. the currentIteration-1 iteration.
-	 * Used to remove the last iteration when a new iteration occurs for the pid and unitId
-	 * combination because each unit iteration's lifetime is only till the new one
-	 * 
-	 * @param pid pid of the process to which the unit belongs
-	 * @param unitId unitId of the unit whose iteration is going to be removed
-	 * @param currentIteration number of the iteration whose previous one needs to be removed
-	 */
-	private void removePreviousIteration(String pid, String unitId, Long currentIteration){
-		if("0".equals(unitId) || unitId == null || currentIteration == null){
-			return; //unit 0 is containing process and should be removed using the addProcess method
-		}
-		if(processUnitStack.get(pid) != null){
-			int size = processUnitStack.get(pid).size() - 1;
-			for(int a = size; a>=0; a--){ //going in reverse because we would be removing elements
-				Process unit = processUnitStack.get(pid).get(a);
-				if(unitId.equals(unit.getAnnotation(OPMConstants.PROCESS_UNIT))){
-					Long iteration = CommonFunctions.parseLong(unit.getAnnotation(OPMConstants.PROCESS_ITERATION), 
-							currentIteration+1); 
-					//default value is currentIteration+1, so that we by mistake don't remove an iteration which didn't have a proper iteration value
-					if(iteration < currentIteration){
-						processUnitStack.get(pid).remove(a);
-						//just removing one
-						break;
-					}
-				}
-			}
-		}
 	}
 
 	/**
@@ -4236,52 +4558,5 @@ class PathRecord implements Comparable<PathRecord>{
 	@Override
 	public String toString() {
 		return "PathRecord [path=" + path + ", index=" + index + ", nametype=" + nametype + ", mode=" + mode + "]";
-	}
-}
-
-/**
- * Used to uniquely identifies a unit iteration for a single timestamp. See {@link #pushUnitIterationOnStack(String, String, String) pushUnitIterationOnStack}.
- */
-class UnitVertexIdentifier{
-	private String pid, unitId, iteration;
-	public UnitVertexIdentifier(String pid, String unitId, String iteration){
-		this.pid = pid;
-		this.unitId = unitId;
-		this.iteration = iteration;
-	}
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((iteration == null) ? 0 : iteration.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
-		result = prime * result + ((unitId == null) ? 0 : unitId.hashCode());
-		return result;
-	}
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		UnitVertexIdentifier other = (UnitVertexIdentifier) obj;
-		if (iteration == null) {
-			if (other.iteration != null)
-				return false;
-		} else if (!iteration.equals(other.iteration))
-			return false;
-		if (pid == null) {
-			if (other.pid != null)
-				return false;
-		} else if (!pid.equals(other.pid))
-			return false;
-		if (unitId == null) {
-			if (other.unitId != null)
-				return false;
-		} else if (!unitId.equals(other.unitId))
-			return false;
-		return true;
 	}
 }

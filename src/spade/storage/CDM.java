@@ -52,6 +52,7 @@ import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
 import com.bbn.tc.schema.avro.TCCDMDatum;
 import com.bbn.tc.schema.avro.UUID;
+import com.bbn.tc.schema.avro.UnitDependency;
 import com.bbn.tc.schema.avro.UnnamedPipeObject;
 import com.bbn.tc.schema.serialization.AvroConfig;
 
@@ -71,6 +72,14 @@ import spade.vertex.prov.Agent;
  *
  * We also assume that when an OPM/PROV edge is received, we can map it to an event and edges to other
  * entity records that have already been serialized and published to Kafka.
+ * 
+ * How are events handled:
+ * 
+ * It is assumed that all edges for the same event are received back to back. All edges for the same event id and time
+ * are buffered until all the edges for the current event are received. Once received those edges are processed together
+ * to create the CDM event. In some special cases like setuid, update, and etc the group of edges received for a single 
+ * event need to be processed individually and that is treated like a special case. All the special cases should be in
+ * the function: {@link #processEdgesWrapper(List) processEdgesWrapper}
  *
  * @author Armando Caro
  * @author Hassaan Irshad
@@ -832,6 +841,30 @@ public class CDM extends Kafka {
 								currentEventEdges
 						});
 			}
+		}else if(edgesContainTypeOperation(edges, 
+				new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT_DEPENDENCY))){
+			// very special case. ah!
+			// We can get operation=unit edges along with operation=unit dependency edges
+			// Processing unit dependency edges individually here because they have no event type
+			// Then sending all operation=unit edges (if any) ahead to be processed individually
+			List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
+			for(int a = edgesCopy.size() - 1; a> -1; a--){
+				AbstractEdge edge = edgesCopy.get(a);
+				if(edge.getAnnotation(OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UNIT_DEPENDENCY)
+						&& edge.getAnnotation(OPMConstants.TYPE).equals(OPMConstants.WAS_TRIGGERED_BY)){
+					AbstractVertex acting = edge.getDestinationVertex();
+					AbstractVertex dependent = edge.getSourceVertex();
+					UnitDependency unitDependency = new UnitDependency(getUuid(acting), getUuid(dependent));
+					publishRecords(Arrays.asList(buildTcCDMDatum(unitDependency, InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)));
+					edgesCopy.remove(a);
+				}
+			}
+			if(edgesCopy.isEmpty()){
+				return;
+			}else{
+				processIndividually = true;
+				edges = edgesCopy;
+			}
 		}
 		
 		if(processIndividually){
@@ -1239,9 +1272,7 @@ class TypeOperation{
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		if(operation != null && !operation.equals(ANY_OPERATION)){
-			result = prime * result + ((operation == null) ? 0 : operation.hashCode());
-		}
+		// Not using operation because it can have the special value -> '*'
 		result = prime * result + ((type == null) ? 0 : type.hashCode());
 		return result;
 	}

@@ -133,6 +133,7 @@ public class OPMConstants {
 			OPERATION_SETUID = "setuid",
 			OPERATION_TRUNCATE = "truncate",
 			OPERATION_UNIT = "unit",
+			OPERATION_UNIT_DEPENDENCY = "unit dependency",
 			OPERATION_UNKNOWN = "unknown",
 			OPERATION_UNLINK = "unlink",
 			OPERATION_UPDATE = "update",
