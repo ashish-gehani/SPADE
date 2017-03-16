@@ -139,6 +139,8 @@ void socket_read(char *programName)
 						break;
 				}
 
+				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
+
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
 						charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
@@ -160,6 +162,7 @@ void stdin_read()
 {
 		char buffer[BUFFER_LENGTH];
 
+		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		do{
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
@@ -195,6 +198,7 @@ void file_read()
 						fprintf(stderr, "file open error: %s", tmp);
 						continue;
 				}
+				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 				while (!feof(log_fp)) {
 						memset(&buffer, 0, BUFFER_LENGTH);
 						if(fgets(& buffer[0], BUFFER_LENGTH, log_fp) == NULL) {

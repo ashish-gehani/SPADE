@@ -107,7 +107,8 @@ public class Audit extends AbstractReporter {
 
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/fcntl.h#L19
-	private final int O_RDONLY = 00000000, O_WRONLY = 00000001, O_RDWR = 00000002, O_CREAT = 00000100, O_TRUNC = 00001000;
+	private final int O_RDONLY = 00000000, O_WRONLY = 00000001, O_RDWR = 00000002, 
+			O_CREAT = 00000100, O_TRUNC = 00001000, O_APPEND = 00002000;
 	
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/mman-common.h#L21
@@ -182,6 +183,7 @@ public class Audit extends AbstractReporter {
 	// a flag to delay shutdown call if buffers are being emptied and events are still being read
 	private volatile boolean eventReaderThreadRunning = false;
 	
+	private final long PID_MSG_WAIT_TIMEOUT = 1 * 1000; 
 	/**
 	 * Returns a map which contains all the keys and values defined 
 	 * in the default config file. 
@@ -783,13 +785,10 @@ public class Audit extends AbstractReporter {
 			// Letting NPE to be thrown in case some object's initialization fails
 			java.lang.Process spadeAuditBridgeProcess = runSpadeAuditBridge(spadeAuditBridgeCommand);
 
-			spadeAuditBridgeProcessPid = getPidOfProcessByName(spadeAuditBridgeBinaryName);
-			if(spadeAuditBridgeProcessPid == null){
-				throw new Exception("Failed to run binary: " + spadeAuditBridgeBinaryName);
-			}
-
 			Thread errorReaderThread = getErrorStreamReaderForProcess(spadeAuditBridgeBinaryName, 
 					spadeAuditBridgeProcess.getErrorStream());
+			errorReaderThread.start();
+			
 			AuditEventReader auditEventReader = getAuditEventReader(spadeAuditBridgeCommand,
 					spadeAuditBridgeProcess.getInputStream(), outputLogFilePath,
 					recordsToRotateOutputLogAfter);
@@ -801,8 +800,19 @@ public class Audit extends AbstractReporter {
 			Thread auditEventReaderThread = getAuditEventReaderThread(spadeAuditBridgeBinaryName, 
 					auditEventReader, 
 					isLiveAudit, rulesType, logListFile);
-			errorReaderThread.start();
 			auditEventReaderThread.start();
+			
+			try{
+				Thread.sleep(PID_MSG_WAIT_TIMEOUT);
+			}catch(Exception e){
+				// ignore
+			}
+			
+			if(spadeAuditBridgeProcessPid == null){
+				// still didn't get the pid that means the process didn't start successfully
+				throw new Exception("Process didn't start successfully");
+			}
+			
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to start Audit", e);
 			doCleanup(isLiveAudit, rulesType, logListFile);
@@ -863,7 +873,11 @@ public class Audit extends AbstractReporter {
 						errorStreamReader = new BufferedReader(new InputStreamReader(errorStream));
 						String line = null;
 						while((line = errorStreamReader.readLine()) != null){
-							logger.log(Level.INFO, processName + " output: " + line);
+							if(line.startsWith("#CONTROL_MSG#")){
+								spadeAuditBridgeProcessPid = line.split("=")[1];
+							}else{
+								logger.log(Level.INFO, processName + " output: " + line);
+							}
 						}
 					}catch(Exception e){
 						logger.log(Level.WARNING, "Failed to read error stream for process: " + processName);
@@ -886,28 +900,6 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Failed to create error reader thread for " + processName, e);
 			return null;
 		}
-	}
-	
-	private String getPidOfProcessByName(String processName){
-		String pid = null;
-		BufferedReader pidReader = null;
-		try{
-			java.lang.Process pidProcess = Runtime.getRuntime().exec("pidof " + processName);
-			pidReader = new BufferedReader(new InputStreamReader(pidProcess.getInputStream()));
-			pid = pidReader.readLine().trim();
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to get pid of " + processName, e);
-			return null;
-		}finally{
-			if(pidReader != null){
-				try{
-					pidReader.close();
-				}catch(Exception e){
-					//ignore
-				}
-			}
-		}
-		return pid;
 	}
 	
 	private Thread getAuditEventReaderThread(final String processName, final AuditEventReader auditEventReader, 
@@ -1148,6 +1140,7 @@ public class Audit extends AbstractReporter {
 		try{
 			if(artifactIdentifierToArtifactProperties != null){
 				artifactIdentifierToArtifactProperties.close();
+				artifactIdentifierToArtifactProperties = null;
 			}
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
@@ -1155,6 +1148,7 @@ public class Audit extends AbstractReporter {
 		try{
 			if(artifactsCacheDatabasePath != null && new File(artifactsCacheDatabasePath).exists()){
 				FileUtils.forceDelete(new File(artifactsCacheDatabasePath));
+				artifactsCacheDatabasePath = null;
 			}
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to delete cache maps at path: '"+artifactsCacheDatabasePath+"'");
@@ -2443,7 +2437,14 @@ public class Audit extends AbstractReporter {
 
 		boolean openedForRead = false;
 
-		if ((flags & O_RDONLY) == O_RDONLY) {
+		if((flags & O_WRONLY) == O_WRONLY || 
+				(flags & O_RDWR) == O_RDWR ||
+				 (flags & O_APPEND) == O_APPEND || 
+				 (flags & O_TRUNC) == O_TRUNC){
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+			edge = new WasGeneratedBy(vertex, process);
+			openedForRead = false;
+		} else if ((flags & O_RDONLY) == O_RDONLY) {
 			if(isCreate){
 				Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
 				edge = new WasGeneratedBy(vertex, process);
@@ -2452,11 +2453,7 @@ public class Audit extends AbstractReporter {
 				edge = new Used(process, vertex);
 			}
 			openedForRead = true;
-		} else if((flags & O_WRONLY) == O_WRONLY || (flags & O_RDWR) == O_RDWR){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
-			edge = new WasGeneratedBy(vertex, process);
-			openedForRead = false;
-		} else{
+		} else {
 			log(Level.INFO, "Unhandled value of FLAGS argument '"+flags+"'", null, time, eventId, syscall);
 			return;
 		}
@@ -3334,6 +3331,7 @@ public class Audit extends AbstractReporter {
 			//In case of unix socket accept, the saddr is almost always reliably invalid
 			String socketFd = eventData.get(AuditEventReader.ARG0);
 			descriptors.addDescriptor(pid, socketFd, artifactIdentifier, false);
+			markNewEpochForArtifact(artifactIdentifier, time, eventId);
 		}else{
 			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, syscall);
 		}
@@ -3357,7 +3355,7 @@ public class Audit extends AbstractReporter {
 			// update file descriptor table
 			String fd = eventData.get(AuditEventReader.ARG0);
 			descriptors.addDescriptor(pid, fd, parsedArtifactIdentifier, false);
-			markNewEpochForArtifact(parsedArtifactIdentifier, time, eventId);
+			//markNewEpochForArtifact(parsedArtifactIdentifier, time, eventId);
 
 			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, false);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
@@ -3424,7 +3422,7 @@ public class Audit extends AbstractReporter {
 		if (artifactIdentifier != null) { //well shouldn't be null since all cases handled above but for future code changes
 			Process process = putProcess(eventData, time, eventId);
 			
-			markNewEpochForArtifact(artifactIdentifier, time, eventId);
+			//markNewEpochForArtifact(artifactIdentifier, time, eventId);
 			Artifact socket = putArtifact(eventData, artifactIdentifier, false);
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
