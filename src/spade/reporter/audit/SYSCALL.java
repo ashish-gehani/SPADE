@@ -26,7 +26,7 @@ public enum SYSCALL {
 	LOAD, // Used for linked libraries when an execve happens (not an actual system call)
 	SETUID, SETREUID, SETRESUID,
 	MMAP, MMAP2, MPROTECT,
-	BIND, ACCEPT, ACCEPT4, CONNECT, 
+	BIND, ACCEPT, ACCEPT4, CONNECT, SOCKET, 
 	SENDTO, SENDMSG, RECVFROM, RECVMSG, 
 	SEND, // Used for grouping SENDTO and SENDMSG system call (not an actual system call) 
 	RECV, // Used for grouping RECVFROM and RECVMSG system call (not an actual system call)
@@ -104,6 +104,7 @@ public enum SYSCALL {
 			case 105:	return SETUID;
 			case 113:	return SETREUID;
 			case 117:	return SETRESUID;
+			case 41:	return SOCKET;
 			case 88:	return SYMLINK;
 			case 266:	return SYMLINKAT;
 			case 76:	return TRUNCATE;	

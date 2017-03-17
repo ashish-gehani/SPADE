@@ -498,10 +498,12 @@ public class CDM extends Kafka {
 
 				}else if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
 
-					String srcAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_SOURCE_ADDRESS);
-					String srcPort = vertex.getAnnotation(OPMConstants.ARTIFACT_SOURCE_PORT);
-					String destAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_DESTINATION_ADDRESS);
-					String destPort = vertex.getAnnotation(OPMConstants.ARTIFACT_DESTINATION_PORT);
+					String srcAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS);
+					String srcPort = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
+					String destAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
+					String destPort = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
+					String protocolName = vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL); //can be null
+					Integer protocol = OPMConstants.getProtocolNumber(protocolName);
 
 					srcAddress = srcAddress == null ? "" : srcAddress;
 					destAddress = destAddress == null ? "" : destAddress;
@@ -515,7 +517,7 @@ public class CDM extends Kafka {
 
 					tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
 							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
-							destAddress, CommonFunctions.parseInt(destPort, 0), null, null);
+							destAddress, CommonFunctions.parseInt(destPort, 0), protocol, null);
 
 				}else if(OPMConstants.SUBTYPE_UNIX_SOCKET.equals(artifactType)){
 					

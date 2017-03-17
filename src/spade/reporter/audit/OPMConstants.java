@@ -73,17 +73,20 @@ public class OPMConstants {
 			PROCESS_UNIT = "unit",
 			
 			// Artifact specific annotations
-			ARTIFACT_DESTINATION_ADDRESS = "destination address",
-			ARTIFACT_DESTINATION_PORT = "destination port",
+			ARTIFACT_REMOTE_ADDRESS = "remote address",
+			ARTIFACT_REMOTE_PORT = "remote port",
 			ARTIFACT_EPOCH = "epoch",
 			ARTIFACT_FD = "fd",
 			ARTIFACT_MEMORY_ADDRESS = "memory address",
 			ARTIFACT_PATH = "path",	
 			ARTIFACT_PID = PROCESS_PID,
+			ARTIFACT_PROTOCOL = "protocol",
+			ARTIFACT_PROTOCOL_NAME_UDP = "udp",
+			ARTIFACT_PROTOCOL_NAME_TCP = "tcp",
 			ARTIFACT_READ_FD = "read fd",
 			ARTIFACT_SIZE = "size",
-			ARTIFACT_SOURCE_ADDRESS = "source address",
-			ARTIFACT_SOURCE_PORT = "source port",
+			ARTIFACT_LOCAL_ADDRESS = "local address",
+			ARTIFACT_LOCAL_PORT = "local port",
 			ARTIFACT_SUBTYPE = "subtype",
 			ARTIFACT_VERSION = "version",
 			ARTIFACT_WRITE_FD = "write fd",
@@ -138,6 +141,10 @@ public class OPMConstants {
 			OPERATION_UNLINK = "unlink",
 			OPERATION_UPDATE = "update",
 			OPERATION_WRITE = "write";
+	
+	private static final int 
+			ARTIFACT_PROTOCOL_NUMBER_UDP = 17,
+			ARTIFACT_PROTOCOL_NUMBER_TCP = 6;
 	
 	private static final Logger logger = Logger.getLogger(OPMConstants.class.getName());
 	
@@ -360,4 +367,23 @@ public class OPMConstants {
 						|| isMmapRenameLinkWrite(operation));
 	}
 	
+	public static String getProtocolName(int protocolNumber){
+		if(ARTIFACT_PROTOCOL_NUMBER_TCP == protocolNumber){
+			return ARTIFACT_PROTOCOL_NAME_TCP;
+		}else if(ARTIFACT_PROTOCOL_NUMBER_UDP == protocolNumber){
+			return ARTIFACT_PROTOCOL_NAME_UDP;
+		}else{
+			return null;
+		}
+	}
+	
+	public static Integer getProtocolNumber(String protocolName){
+		if(ARTIFACT_PROTOCOL_NAME_TCP.equals(protocolName)){
+			return ARTIFACT_PROTOCOL_NUMBER_TCP;
+		}else if(ARTIFACT_PROTOCOL_NAME_UDP.equals(protocolName)){
+			return ARTIFACT_PROTOCOL_NUMBER_UDP;
+		}else{
+			return null;
+		}
+	}
 }
