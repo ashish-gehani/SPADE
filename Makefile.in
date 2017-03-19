@@ -220,7 +220,7 @@ graph-utility:
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build android-build android-lib
-	@rm -rf src/spade/reporter/*.h lib/libLinuxFUSE.* lib/libMacFUSE.*
+	@rm -rf src/spade/reporter/lib*FUSE.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeSocketBridge
 	@rm -rf cfg/ssl
