@@ -273,11 +273,14 @@ public class CDM extends Kafka {
 						new Object[]{uuid, threadId, subjectUUID, predicateObjectUUID, source});
 			}else{
 
+				// + Adding all annotations to the properties map that have not been added already 
+				// directly to the event
 				Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 				for(String key : edge.getAnnotations().keySet()){
 					if(!key.equals(OPMConstants.EDGE_EVENT_ID) && !key.equals(OPMConstants.EDGE_TIME) 
 							&& !key.equals(OPMConstants.SOURCE) && !key.equals(OPMConstants.EDGE_PID) && 
-							!key.equals(OPMConstants.EDGE_OPERATION) && !key.equals(OPMConstants.EDGE_SIZE)){
+							!key.equals(OPMConstants.EDGE_OPERATION) && !key.equals(OPMConstants.EDGE_SIZE)
+							&& !key.equals(OPMConstants.TYPE)){
 						properties.put(key, edge.getAnnotation(key));
 					}
 				}
