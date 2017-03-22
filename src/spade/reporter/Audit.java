@@ -45,6 +45,7 @@ import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
+import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
@@ -1780,7 +1781,11 @@ public class Audit extends AbstractReporter {
 		// In case of UDP sockets there won't be a connect/accept and instead in 
 		// reads/writes/sends/recvs a saddr value is sent.
 		if(saddr != null){
-			handleNetworkIOEvent(syscall, eventData);
+			if(isNetlinkSaddr(saddr)){
+				// do nothing
+			}else{
+				handleNetworkIOEvent(syscall, eventData);
+			}
 		}else if(isUnknownType(artifactIdentifier)){ //either a new unknown i.e. null or a previously seen unknown
 			// preference given to file if the type of the artifact not known
 			if(isFileReadSyscall(syscall) || isFileWriteSyscall(syscall)){
@@ -3329,17 +3334,7 @@ public class Audit extends AbstractReporter {
     	}
 
     }*/
-	
-	/**
-	 * Returns true if the prefix is unix socket one
-	 * 
-	 * @param saddr audit record field 'saddr' value
-	 * @return true/false
-	 */
-	private boolean isUnixSocketSaddr(String saddr){
-		return saddr != null && saddr.startsWith(UNIX_SOCKET_SADDR_PREFIX);
-	}
-	
+		
 	private void handleSocket(Map<String, String> eventData, SYSCALL syscall){
 		// socket() receives the following message(s):
 		// - SYSCALL
@@ -3377,10 +3372,6 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		if(isUnixSocketSaddr(saddr) && !UNIX_SOCKETS){
-			return;
-		}
-		
 		ArtifactIdentifier artifactIdentifier = parseSaddr(saddr, pid, sockFd, time, eventId, syscall);
 		if (artifactIdentifier != null) {
 			//NOTE: not using the file descriptor. using the socketFD here!
@@ -3411,10 +3402,6 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		if(isUnixSocketSaddr(saddr) && !UNIX_SOCKETS){
-			return;
-		}
-		
 		ArtifactIdentifier parsedArtifactIdentifier = parseSaddr(saddr, pid, sockFd, time, eventId, SYSCALL.CONNECT);
 		if (parsedArtifactIdentifier != null) {
 			Process process = putProcess(eventData, time, eventId);
@@ -3426,7 +3413,7 @@ public class Audit extends AbstractReporter {
 				markNewEpochForArtifact(parsedArtifactIdentifier, time, eventId);
 			}
 
-			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, false);
+			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 			putEdge(wgb, getOperation(SYSCALL.CONNECT), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}else{
@@ -3451,10 +3438,6 @@ public class Audit extends AbstractReporter {
 		String saddr = eventData.get(AuditEventReader.SADDR);
 
 		if(isNetlinkSaddr(saddr)){
-			return;
-		}
-		
-		if(isUnixSocketSaddr(saddr) && !UNIX_SOCKETS){
 			return;
 		}
 		
@@ -3600,14 +3583,14 @@ public class Audit extends AbstractReporter {
 		String fd = eventData.get(AuditEventReader.ARG0);
 		String bytesSent = eventData.get(AuditEventReader.EXIT);
 		String saddr = eventData.get(AuditEventReader.SADDR);
-		
+				
 		ArtifactIdentifier artifactIdentifier = 
 				getSockDescriptorArtifactIdentifier(pid, fd, saddr, time, eventId, syscall);
 		if(artifactIdentifier == null){
 			log(Level.WARNING, "Failed to get/build ArtifactIdentifier", null, time, eventId, syscall);
 			return;
 		}
-		
+				
 		if(artifactIdentifier != null){
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
@@ -3635,7 +3618,7 @@ public class Audit extends AbstractReporter {
 			log(Level.WARNING, "Failed to get/build ArtifactIdentifier", null, time, eventId, syscall);
 			return;
 		}
-
+		
 		if(artifactIdentifier != null){
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
 			Used used = new Used(process, vertex);
@@ -3684,6 +3667,11 @@ public class Audit extends AbstractReporter {
 	 */
 	private void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
 		if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+			if(!UNIX_SOCKETS && 
+					(isUnixSocketArtifact(edge.getSourceVertex()) ||
+							isUnixSocketArtifact(edge.getDestinationVertex()))){
+				return;
+			}
 			if(time != null){
 				edge.addAnnotation(OPMConstants.EDGE_TIME, time);
 			}
@@ -3695,13 +3683,18 @@ public class Audit extends AbstractReporter {
 			}
 			if(operation != null){
 				edge.addAnnotation(OPMConstants.EDGE_OPERATION, operation);
-			}			
+			}
 			putEdge(edge);
 		}else{
 			log(Level.WARNING, "Failed to put edge. edge = "+edge+", sourceVertex = "+(edge != null ? edge.getSourceVertex() : null)+", "
 					+ "destination vertex = "+(edge != null ? edge.getDestinationVertex() : null)+", operation = "+operation+", "
 					+ "time = "+time+", eventId = "+eventId+", source = " + source, null, time, eventId, SYSCALL.valueOf(operation.toUpperCase()));
 		}
+	}
+	
+	private boolean isUnixSocketArtifact(AbstractVertex vertex){
+		return vertex != null && 
+				OPMConstants.SUBTYPE_UNIX_SOCKET.equals(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE));
 	}
 
 	/**
@@ -3806,7 +3799,7 @@ public class Audit extends AbstractReporter {
 	 */
 	private Artifact putArtifact(Map<String, String> eventData, ArtifactIdentifier artifactIdentifier, 
 			boolean updateVersion, String useThisSource){
-		if(artifactIdentifier == null || (artifactIdentifier.getClass().equals(UnixSocketIdentifier.class) && !UNIX_SOCKETS)){
+		if(artifactIdentifier == null){
 			return null;
 		}
 
@@ -3881,25 +3874,40 @@ public class Audit extends AbstractReporter {
 			}
 	
 			if(vertexNotSeenBefore){//not seen because of either it has been updated or it is the first time it is seen
-				putVertex(artifact);
+				if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
+					// don't add
+				}else{
+					putVertex(artifact);
+				}
 			}
 			
 			//always at the end after the vertex has been added
 			if(KEEP_VERSIONS){
-				if(updateVersion && FileIdentifier.class.equals(artifactIdentifier.getClass())){ //put the version update edge if version updated for a file
-					if(eventData != null){
-						putVersionUpdateEdge(artifact, 
-								eventData.get(AuditEventReader.TIME), 
-								eventData.get(AuditEventReader.EVENT_ID), 
-								eventData.get(AuditEventReader.PID));
+				if(updateVersion 
+						&& (FileIdentifier.class.equals(artifactIdentifier.getClass()) ||
+								UnixSocketIdentifier.class.equals(artifactIdentifier.getClass()))){ 
+					//put the version update edge if version updated for a file or a unix socket
+					if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
+						// don't add
 					}else{
-						logger.log(Level.WARNING, "Failed to create version update for artifact '" +artifact 
-								+ "' because time, eventid and pid missing");
-					}
+						if(eventData != null){
+							putVersionUpdateEdge(artifact, 
+									eventData.get(AuditEventReader.TIME), 
+									eventData.get(AuditEventReader.EVENT_ID), 
+									eventData.get(AuditEventReader.PID));
+						}else{
+							logger.log(Level.WARNING, "Failed to create version update for artifact '" +artifact 
+									+ "' because time, eventid and pid missing");
+						}
+					}					
 				}
 			}
 		}else{
-			putVertex(artifact);
+			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
+				// don't add
+			}else{
+				putVertex(artifact);
+			}
 		}		
 
 		return artifact;
@@ -4062,7 +4070,8 @@ public class Audit extends AbstractReporter {
 
 	/**
 	 * Creates a version update edge i.e. from the new version of an artifact to the old version of the same artifact.
-	 * At the moment only being done for file artifacts. See {@link #putArtifact(Map, ArtifactIdentifier, boolean, String) putArtifact}.
+	 * At the moment only being done for file and unix socket artifacts. 
+	 * See {@link #putArtifact(Map, ArtifactIdentifier, boolean, String) putArtifact}.
 	 * 
 	 * If the previous version number of the artifact is less than 0 then the edge won't be drawn because that means that there was
 	 * no previous version. 
