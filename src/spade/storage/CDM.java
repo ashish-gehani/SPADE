@@ -541,7 +541,7 @@ public class CDM extends Kafka {
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
-						addIfNotNull(OPMConstants.EDGE_PID, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
 
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
@@ -1069,9 +1069,10 @@ public class CDM extends Kafka {
 			if(time == null){
 				return defaultValue;
 			}
-			Double timeNanoseconds = Double.parseDouble(time);
-			timeNanoseconds = timeNanoseconds * 1000 * 1000 * 1000; //converting seconds to nanoseconds
-			return timeNanoseconds.longValue();
+			Double timeNanosecondsDouble = Double.parseDouble(time) * 1000; // Going to convert to long so multiply before
+			Long timeNanosecondsLong = timeNanosecondsDouble.longValue();
+			timeNanosecondsLong = timeNanosecondsLong * 1000 * 1000; //converting milliseconds to nanoseconds
+			return timeNanosecondsLong;
 		}catch(Exception e){
 			logger.log(Level.INFO,
 					"Time type is not Double: {0}. event id = {1}", new Object[]{time, eventId});
