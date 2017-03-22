@@ -247,7 +247,7 @@ public class CDM extends Kafka {
 
 		if(eventType == null || edge == null || actingProcess == null || actedUpon1 == null){
 			logger.log(Level.WARNING, "Missing arguments: eventType={0}, "
-					+ "edge={1}, actingProcess{2}, actedUpon1={3}", new Object[]{
+					+ "edge={1}, actingProcess={2}, actedUpon1={3}", new Object[]{
 							eventType, edge, actingProcess, actedUpon1
 			});
 		}else{
@@ -756,17 +756,21 @@ public class CDM extends Kafka {
 	 */
 	@Override
 	public boolean putVertex(AbstractVertex incomingVertex) {
-		if(incomingVertex != null){
-			String type = incomingVertex.type();
-
-			if(isProcessVertex(incomingVertex)){
-				return publishSubjectAndPrincipal(incomingVertex);
-			}else if(OPMConstants.ARTIFACT.equals(type)){
-				return publishArtifact(incomingVertex);
-			}else{
-				logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
+		try{
+			if(incomingVertex != null){
+				String type = incomingVertex.type();
+	
+				if(isProcessVertex(incomingVertex)){
+					return publishSubjectAndPrincipal(incomingVertex);
+				}else if(OPMConstants.ARTIFACT.equals(type)){
+					return publishArtifact(incomingVertex);
+				}else{
+					logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
+				}
+	
 			}
-
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
 		}
 		return false;
 	}
@@ -787,32 +791,37 @@ public class CDM extends Kafka {
 
 		// ASSUMPTION that all edges for the same event are contiguously sent (Audit follows this)
 
-		if(edge != null){
-			SimpleEntry<String, String> newEdgeTimeEventId = getTimeEventId(edge);
-
-			if(newEdgeTimeEventId != null){
-
-				if(lastTimeEventId == null){
-					lastTimeEventId = newEdgeTimeEventId;
-				}
-
-				// handles the first edge case also
-				if(lastTimeEventId.equals(newEdgeTimeEventId)){
-					currentEventEdges.add(edge);
+		try{
+			if(edge != null){
+				SimpleEntry<String, String> newEdgeTimeEventId = getTimeEventId(edge);
+	
+				if(newEdgeTimeEventId != null){
+	
+					if(lastTimeEventId == null){
+						lastTimeEventId = newEdgeTimeEventId;
+					}
+	
+					// handles the first edge case also
+					if(lastTimeEventId.equals(newEdgeTimeEventId)){
+						currentEventEdges.add(edge);
+					}else{
+						// new time,eventid so flush the current edges and move to the next
+						processEdgesWrapper(currentEventEdges);
+						lastTimeEventId = newEdgeTimeEventId;
+						currentEventEdges.clear();
+						currentEventEdges.add(edge);
+					}
+	
+					return true;
 				}else{
-					// new time,eventid so flush the current edges and move to the next
-					processEdgesWrapper(currentEventEdges);
-					lastTimeEventId = newEdgeTimeEventId;
-					currentEventEdges.clear();
-					currentEventEdges.add(edge);
+					return false;
 				}
-
-				return true;
+	
 			}else{
 				return false;
 			}
-
-		}else{
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
 			return false;
 		}
 	}
@@ -824,7 +833,9 @@ public class CDM extends Kafka {
 		// If execve or setuid then multiple edges in the same time,eventid 
 		// but need to process them separately
 		if((edgesContainTypeOperation(edges, 
-				new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)))
+				new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_LOAD))
+				|| edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)))
 				|| (edgesContainTypeOperation(edges, 
 						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))){
 			processIndividually = true;
