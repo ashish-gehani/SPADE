@@ -1042,7 +1042,7 @@ public class Audit extends AbstractReporter {
 					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group ";
 
 					if (USE_READ_WRITE) {
-						auditRuleWithSuccess += "-S read -S readv -S write -S writev ";
+						auditRuleWithSuccess += "-S read -S readv -S pread -S preadv -S write -S writev -S pwrite -S pwritev ";
 					}
 					if (USE_SOCK_SEND_RCV) {
 						auditRuleWithSuccess += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
@@ -1668,10 +1668,12 @@ public class Audit extends AbstractReporter {
 				break;
 			case READ: 
 			case READV:
-			case PREAD64:
+			case PREAD:
+			case PREADV:
 			case WRITE: 
 			case WRITEV:
-			case PWRITE64:
+			case PWRITE:
+			case PWRITEV:
 			case SENDMSG: 
 			case RECVMSG: 
 			case SENDTO: 
@@ -1886,7 +1888,8 @@ public class Audit extends AbstractReporter {
 			switch (syscall) {
 				case READ:
 				case READV:
-				case PREAD64:
+				case PREAD:
+				case PREADV:
 					return true;
 				default:
 					return false;
@@ -1907,7 +1910,8 @@ public class Audit extends AbstractReporter {
 			switch (syscall) {
 				case WRITE:
 				case WRITEV:
-				case PWRITE64:
+				case PWRITE:
+				case PWRITEV:
 					return true;
 				default:
 					return false;
@@ -2548,6 +2552,12 @@ public class Audit extends AbstractReporter {
 		String pid = eventData.get(AuditEventReader.PID);
 		String fd = eventData.get(AuditEventReader.ARG0);
 		String bytesRead = eventData.get(AuditEventReader.EXIT);
+		String offset = null;
+		
+		if(syscall == SYSCALL.PREAD || syscall == SYSCALL.PREADV){
+			offset = eventData.get(AuditEventReader.ARG3);
+		}
+		
 		Process process = putProcess(eventData, time, eventId);
 
 		if(descriptors.getDescriptor(pid, fd) == null){
@@ -2559,6 +2569,9 @@ public class Audit extends AbstractReporter {
 		Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
 		Used used = new Used(process, vertex);
 		used.addAnnotation(OPMConstants.EDGE_SIZE, bytesRead);
+		if(offset != null){
+			used.addAnnotation(OPMConstants.EDGE_OFFSET, offset);
+		}
 		putEdge(used, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 
 	}
@@ -2570,12 +2583,16 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
-
 		String fd = eventData.get(AuditEventReader.ARG0);
-		
 		String bytesWritten = eventData.get(AuditEventReader.EXIT);
+		String offset = null;
+		
+		if(syscall == SYSCALL.PWRITE || syscall == SYSCALL.PWRITEV){
+			offset = eventData.get(AuditEventReader.ARG3);
+		}
 
+		Process process = putProcess(eventData, time, eventId);
+		
 		if(descriptors.getDescriptor(pid, fd) == null){
 			descriptors.addUnknownDescriptor(pid, fd);
 			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
@@ -2587,6 +2604,9 @@ public class Audit extends AbstractReporter {
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesWritten);
+			if(offset != null){
+				wgb.addAnnotation(OPMConstants.EDGE_OFFSET, offset);
+			}
 			putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}
 	}

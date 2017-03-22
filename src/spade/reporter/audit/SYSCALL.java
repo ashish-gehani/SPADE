@@ -35,7 +35,7 @@ public enum SYSCALL {
 	OPEN, OPENAT, MKNOD, MKNODAT, CREAT, CLOSE, 
 	CREATE, // Used for grouping CREAT and OPEN system call where OPEN creates the file (not an actual system call) 
 	UPDATE, // Used for version update edges between artifacts
-	READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
+	READ, READV, PREAD, PREADV, WRITE, WRITEV, PWRITE, PWRITEV, 
 	SYMLINK, SYMLINKAT, LINK, LINKAT, 
 	UNLINK, UNLINKAT,		
 	RENAME, RENAMEAT,
@@ -91,8 +91,10 @@ public enum SYSCALL {
 			case 257:	return OPENAT;
 			case 22:	return PIPE;
 			case 293:	return PIPE2;
-			case 17:	return PREAD64;
-			case 18:	return PWRITE64;
+			case 17:	return PREAD;
+			case 295:	return PREADV;
+			case 18:	return PWRITE;
+			case 296:	return PWRITEV;
 			case 0:		return READ;
 			case 19:	return READV;
 			case 45:	return RECVFROM;
@@ -149,8 +151,10 @@ public enum SYSCALL {
 			case 129: return KILL;
 			case 145: return READV;
 			case 146: return WRITEV;			
-			case 180: return PREAD64;
-			case 181: return PWRITE64;
+			case 180: return PREAD;
+			case 333: return PREADV;
+			case 181: return PWRITE;
+			case 334: return PWRITEV;
 			case 190: return VFORK;
 			case 192: return MMAP2;
 			case 203: return SETREUID;

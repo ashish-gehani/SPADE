@@ -263,6 +263,7 @@ public class CDM extends Kafka {
 			String predicateObject2Path = actedUpon2 != null ? actedUpon2.getAnnotation(OPMConstants.ARTIFACT_PATH) : null;
 			Long timestampNanos = convertTimeToNanoseconds(sequence, edge.getAnnotation(OPMConstants.EDGE_TIME), 0L);
 			Long size = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_SIZE), null);
+			Long location = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_OFFSET), null);
 
 			// validation of mandatory values
 			if(uuid == null || threadId == null || subjectUUID == null 
@@ -280,7 +281,7 @@ public class CDM extends Kafka {
 					if(!key.equals(OPMConstants.EDGE_EVENT_ID) && !key.equals(OPMConstants.EDGE_TIME) 
 							&& !key.equals(OPMConstants.SOURCE) && !key.equals(OPMConstants.EDGE_PID) && 
 							!key.equals(OPMConstants.EDGE_OPERATION) && !key.equals(OPMConstants.EDGE_SIZE)
-							&& !key.equals(OPMConstants.TYPE)){
+							&& !key.equals(OPMConstants.TYPE) && !key.equals(OPMConstants.EDGE_OFFSET)){
 						properties.put(key, edge.getAnnotation(key));
 					}
 				}
@@ -288,7 +289,7 @@ public class CDM extends Kafka {
 				Event event = new Event(uuid, 
 						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, predicateObjectPath, 
 						predicateObject2UUID, predicateObject2Path, timestampNanos, null, null, 
-						null, size, null, properties);
+						location, size, null, properties);
 
 				publishRecords(Arrays.asList(buildTcCDMDatum(event, source)));
 

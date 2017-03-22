@@ -103,6 +103,7 @@ public class OPMConstants {
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",
 			EDGE_MODE = "mode",
+			EDGE_OFFSET = "offset",
 			EDGE_OPERATION = "operation",
 			EDGE_PID = PROCESS_PID,
 			EDGE_PROTECTION = "protection",
@@ -172,7 +173,7 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_MPROTECT, SYSCALL.MPROTECT);
 		addSyscallsToOperations(OPERATION_OPEN, SYSCALL.OPEN, SYSCALL.OPENAT);
 		addSyscallsToOperations(OPERATION_PIPE, SYSCALL.PIPE, SYSCALL.PIPE2);
-		addSyscallsToOperations(OPERATION_READ, SYSCALL.READ, SYSCALL.READV, SYSCALL.PREAD64);
+		addSyscallsToOperations(OPERATION_READ, SYSCALL.READ, SYSCALL.READV, SYSCALL.PREAD, SYSCALL.PREADV);
 		addSyscallsToOperations(OPERATION_RECV, SYSCALL.RECV, SYSCALL.RECVFROM, SYSCALL.RECVMSG);
 		addSyscallsToOperations(OPERATION_RENAME, SYSCALL.RENAME, SYSCALL.RENAMEAT);
 		addSyscallsToOperations(OPERATION_SEND, SYSCALL.SEND, SYSCALL.SENDMSG, SYSCALL.SENDTO);
@@ -182,7 +183,7 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_UNKNOWN, SYSCALL.UNKNOWN);
 		addSyscallsToOperations(OPERATION_UNLINK, SYSCALL.UNLINK, SYSCALL.UNLINKAT);
 		addSyscallsToOperations(OPERATION_UPDATE, SYSCALL.UPDATE);
-		addSyscallsToOperations(OPERATION_WRITE, SYSCALL.WRITE, SYSCALL.WRITEV, SYSCALL.PWRITE64);
+		addSyscallsToOperations(OPERATION_WRITE, SYSCALL.WRITE, SYSCALL.WRITEV, SYSCALL.PWRITE, SYSCALL.PWRITEV);
 	}
 	
 	/**
@@ -250,7 +251,14 @@ public class OPMConstants {
 	 */
 	public static String getOperation(SYSCALL primary, SYSCALL secondary, boolean simplify){
 		String primaryOperation = simplify ? syscallToOperation.get(primary) : primary.toString().toLowerCase();
-		String secondaryOperation = simplify ? syscallToOperation.get(secondary) : secondary.toString().toLowerCase();
+		String secondaryOperation = null;
+		if(simplify){
+			secondaryOperation = syscallToOperation.get(secondary);
+		}else{
+			if(secondary != null){
+				secondaryOperation = secondary.toString().toLowerCase();
+			}
+		}
 		
 		if(primaryOperation == null || (secondaryOperation == null && secondary != null)){
 			logger.log(Level.WARNING, "Unmapped syscall to operation");
