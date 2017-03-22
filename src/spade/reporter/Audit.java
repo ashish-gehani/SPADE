@@ -153,6 +153,7 @@ public class Audit extends AbstractReporter {
 	
 	private Boolean ARCH_32BIT = true;
 	
+	// These are the default values
 	private boolean USE_READ_WRITE = false;
 	private boolean USE_SOCK_SEND_RCV = false;
 	private boolean CREATE_BEEP_UNITS = false;
@@ -178,12 +179,13 @@ public class Audit extends AbstractReporter {
 	private boolean KEEP_VERSIONS = true,
 			KEEP_EPOCHS = true,
 			KEEP_ARTIFACT_PROPERTIES_MAP = true;
+	private boolean ANONYMOUS_MMAP = true;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
 	// true if live audit, false if log file. null not set.
 	private Boolean isLiveAudit = null;
-	// a flag to delay shutdown call if buffers are being emptied and events are still being read
+	// a flag to block on shutdown call if buffers are being emptied and events are still being read
 	private volatile boolean eventReaderThreadRunning = false;
 	
 	private final long PID_MSG_WAIT_TIMEOUT = 1 * 1000;
@@ -341,7 +343,7 @@ public class Audit extends AbstractReporter {
 	private boolean initFlagsFromArguments(Map<String, String> args){
 		String argValue = args.get("fileIO");
 		if(isValidBoolean(argValue)){
-			USE_READ_WRITE = parseBoolean(argValue, false);
+			USE_READ_WRITE = parseBoolean(argValue, USE_READ_WRITE);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'fileIO': " + argValue);
 			return false;
@@ -349,7 +351,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("netIO");
 		if(isValidBoolean(argValue)){
-			USE_SOCK_SEND_RCV = parseBoolean(argValue, false);
+			USE_SOCK_SEND_RCV = parseBoolean(argValue, USE_SOCK_SEND_RCV);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'netIO': " + argValue);
 			return false;
@@ -357,7 +359,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("units");
 		if(isValidBoolean(argValue)){
-			CREATE_BEEP_UNITS = parseBoolean(argValue, false);
+			CREATE_BEEP_UNITS = parseBoolean(argValue, CREATE_BEEP_UNITS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'units': " + argValue);
 			return false;
@@ -365,7 +367,7 @@ public class Audit extends AbstractReporter {
 
 		argValue = args.get("agents");
 		if(isValidBoolean(argValue)){
-			AGENTS = parseBoolean(argValue, false);
+			AGENTS = parseBoolean(argValue, AGENTS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'agents': " + argValue);
 			return false;
@@ -374,7 +376,7 @@ public class Audit extends AbstractReporter {
 		// Arguments below are only for experimental use
 		argValue = args.get("simplify");
 		if(isValidBoolean(argValue)){
-			SIMPLIFY = parseBoolean(argValue, true);
+			SIMPLIFY = parseBoolean(argValue, SIMPLIFY);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'simplify': " + argValue);
 			return false;
@@ -382,7 +384,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("procFS");
 		if(isValidBoolean(argValue)){
-			PROCFS = parseBoolean(argValue, false);
+			PROCFS = parseBoolean(argValue, PROCFS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'procFS': " + argValue);
 			return false;
@@ -390,7 +392,7 @@ public class Audit extends AbstractReporter {
 
 		argValue = args.get("unixSockets");
 		if(isValidBoolean(argValue)){
-			UNIX_SOCKETS = parseBoolean(argValue, false);
+			UNIX_SOCKETS = parseBoolean(argValue, UNIX_SOCKETS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'unixSockets': " + argValue);
 			return false;
@@ -398,7 +400,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("waitForLog");
 		if(isValidBoolean(argValue)){
-			WAIT_FOR_LOG_END = parseBoolean(argValue, true);
+			WAIT_FOR_LOG_END = parseBoolean(argValue, WAIT_FOR_LOG_END);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'waitForLog': " + argValue);
 			return false;
@@ -406,7 +408,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("memorySyscalls");
 		if(isValidBoolean(argValue)){
-			USE_MEMORY_SYSCALLS = parseBoolean(argValue, true);
+			USE_MEMORY_SYSCALLS = parseBoolean(argValue, USE_MEMORY_SYSCALLS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'memorySyscalls': " + argValue);
 			return false;
@@ -414,7 +416,7 @@ public class Audit extends AbstractReporter {
 
 		argValue = args.get("control");
 		if(isValidBoolean(argValue)){
-			CONTROL = parseBoolean(argValue, true);
+			CONTROL = parseBoolean(argValue, CONTROL);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'control': " + argValue);
 			return false;
@@ -422,7 +424,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versionNetworkSockets");
 		if(isValidBoolean(argValue)){
-			VERSION_NETWORK_SOCKETS = parseBoolean(argValue, false);
+			VERSION_NETWORK_SOCKETS = parseBoolean(argValue, VERSION_NETWORK_SOCKETS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionNetworkSockets': " + argValue);
 			return false;
@@ -430,7 +432,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versionFiles");
 		if(isValidBoolean(argValue)){
-			VERSION_FILES = parseBoolean(argValue, true);
+			VERSION_FILES = parseBoolean(argValue, VERSION_FILES);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionFiles': " + argValue);
 			return false;
@@ -438,7 +440,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versionMemorys");
 		if(isValidBoolean(argValue)){
-			VERSION_MEMORYS = parseBoolean(argValue, true);
+			VERSION_MEMORYS = parseBoolean(argValue, VERSION_MEMORYS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionMemorys': " + argValue);
 			return false;
@@ -446,7 +448,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versionNamedPipes");
 		if(isValidBoolean(argValue)){
-			VERSION_NAMED_PIPES = parseBoolean(argValue, true);
+			VERSION_NAMED_PIPES = parseBoolean(argValue, VERSION_NAMED_PIPES);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionNamedPipes': " + argValue);
 			return false;
@@ -454,7 +456,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versionUnnamedPipes");
 		if(isValidBoolean(argValue)){
-			VERSION_UNNAMED_PIPES = parseBoolean(argValue, true);
+			VERSION_UNNAMED_PIPES = parseBoolean(argValue, VERSION_UNNAMED_PIPES);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedPipes': " + argValue);
 			return false;
@@ -462,7 +464,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versionUnknowns");
 		if(isValidBoolean(argValue)){
-			VERSION_UNKNOWNS = parseBoolean(argValue, true);
+			VERSION_UNKNOWNS = parseBoolean(argValue, VERSION_UNKNOWNS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnknowns': " + argValue);
 			return false;
@@ -470,7 +472,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versionUnixSockets");
 		if(isValidBoolean(argValue)){
-			VERSION_UNIX_SOCKETS = parseBoolean(argValue, true);
+			VERSION_UNIX_SOCKETS = parseBoolean(argValue, VERSION_UNIX_SOCKETS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnixSockets': " + argValue);
 			return false;
@@ -490,7 +492,7 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("versions");
 		if(isValidBoolean(argValue)){
-			KEEP_VERSIONS = parseBoolean(argValue, true);
+			KEEP_VERSIONS = parseBoolean(argValue, KEEP_VERSIONS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versions': " + argValue);
 			return false;
@@ -498,7 +500,7 @@ public class Audit extends AbstractReporter {
 
 		argValue = args.get("epochs");
 		if(isValidBoolean(argValue)){
-			KEEP_EPOCHS = parseBoolean(argValue, true);
+			KEEP_EPOCHS = parseBoolean(argValue, KEEP_EPOCHS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'epochs': " + argValue);
 			return false;
@@ -510,6 +512,14 @@ public class Audit extends AbstractReporter {
 		
 		if("0".equals(args.get("auditctlSuccessFlag"))){
 			AUDITCTL_SYSCALL_SUCCESS_FLAG = "0";
+		}
+		
+		argValue = args.get("anonymousMmap");
+		if(isValidBoolean(argValue)){
+			ANONYMOUS_MMAP = parseBoolean(argValue, ANONYMOUS_MMAP);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'anonymousMmap': " + argValue);
+			return false;
 		}
 		
 		return true;
@@ -2074,6 +2084,10 @@ public class Audit extends AbstractReporter {
 		
 		// Put Process, Memory artifact and WasGeneratedBy edge always but return if flag
 		// is MAP_ANONYMOUS
+		
+		if(((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS) && !ANONYMOUS_MMAP){
+			return;
+		}
 		
 		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
 		
