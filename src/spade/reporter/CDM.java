@@ -35,7 +35,6 @@ import org.apache.jena.atlas.json.JsonArray;
 import org.apache.jena.atlas.json.JsonObject;
 import org.apache.jena.atlas.json.JsonValue;
 
-import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
@@ -45,7 +44,6 @@ import spade.utility.CommonFunctions;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.utility.Hasher;
-import spade.vertex.cdm.Event;
 import spade.vertex.cdm.Principal;
 import spade.vertex.cdm.Subject;
 
@@ -58,10 +56,14 @@ import spade.vertex.cdm.Subject;
  */
 public class CDM extends AbstractReporter{
 	
+	private static final String AVRO_PACKAGE = "com.bbn.tc.schema.avro";
+	private static final String AVRO_PACKAGE_UUID = AVRO_PACKAGE+".UUID";
+	private static final String BASEOBJECT = "baseObject";
+	private static final String PROPERTIES_MAP = "properties.map";
+	private static final String BASEOBJECT_PROPERTIES_MAP = BASEOBJECT + "." + PROPERTIES_MAP;
+	
 	// Special annotation keys for CDM
-	public static final String CDM_KEY_OBJECT_TYPE = "cdm.object.type"; //refers to classname of the object
-	public static final String CDM_KEY_TYPE = "cdm.type"; //refers to types defined in CDM
-	// Added the ones above because we have a special key by the name 'type' already in all data model objects 
+	private static final String CDM_TYPE_KEY = "cdm.type"; //refers to types defined in CDM
 	
 	// Keys used in config
 	private static final String CONFIG_KEY_CACHE_DATABASE_PARENT_PATH = "cacheDatabasePath",
@@ -71,17 +73,25 @@ public class CDM extends AbstractReporter{
 								CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS = "verticesBloomFilterExpectedNumberOfElements";
 	
 	// Special keys in CDM avro schema
-	private static final String CDM_KEY_UUID = "uuid",
-								CDM_KEY_FROMUUID = "fromUuid",
-								CDM_KEY_TOUUID = "toUuid",
-								CDM_KEY_EDGE_OBJECT_TYPE = "com.bbn.tc.schema.avro.SimpleEdge",
-								CDM_KEY_EVENT_OBJECT_TYPE = "com.bbn.tc.schema.avro.Event",
-								CDM_KEY_SUBJECT_OBJECT_TYPE = "com.bbn.tc.schema.avro.Subject",
-								CDM_KEY_PRINCIPAL_OBJECT_TYPE = "com.bbn.tc.schema.avro.Principal",
-								CDM_KEY_FILE_OBJECT_TYPE = "com.bbn.tc.schema.avro.FileObject",
-								CDM_KEY_NETFLOW_OBJECT_TYPE = "com.bbn.tc.schema.avro.NetFlowObject",
-								CDM_KEY_SRCSINK_OBJECT_TYPE = "com.bbn.tc.schema.avro.SrcSinkObject",
-								CDM_KEY_MEMORY_OBJECT_TYPE = "com.bbn.tc.schema.avro.MemoryObject";
+	private static final String UUID_KEY = "uuid",
+								EVENT_KEY_SUBJECT_UUID = "subject",
+								KEY_TYPE = "type",
+								EVENT_KEY_PREDICATE_OBJECT1_UUID = "predicateObject."+AVRO_PACKAGE_UUID,
+								EVENT_KEY_PREDICATE_OBJECT2_UUID = "predicateObject2."+AVRO_PACKAGE_UUID,
+								
+								UNIT_DEPENDENCY_KEY_UNIT_UUID = "unit",
+								UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID = "dependentUnit",
+								SUBJECT_KEY_LOCAL_PRINCIPAL = "localPrincipal",
+								
+								OBJECT_TYPE_EVENT = AVRO_PACKAGE+".Event",
+								OBJECT_TYPE_UNIT_DEPENDENCY = AVRO_PACKAGE+".UnitDependency",
+								OBJECT_TYPE_SUBJECT = AVRO_PACKAGE+".Subject",
+								OBJECT_TYPE_PRINCIPAL = AVRO_PACKAGE+".Principal",
+								OBJECT_TYPE_FILE_OBJECT = AVRO_PACKAGE+".FileObject",
+								OBJECT_TYPE_NETFLOW_OBJECT = AVRO_PACKAGE+".NetFlowObject",
+								OBJECT_TYPE_SRCSINK_OBJECT = AVRO_PACKAGE+".SrcSinkObject",
+								OBJECT_TYPE_MEMORY_OBJECT = AVRO_PACKAGE+".MemoryObject",
+								OBJECT_TYPE_UNNAMEDPIPE_OBJECT = AVRO_PACKAGE+".UnnamedPipeObject";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -101,7 +111,7 @@ public class CDM extends AbstractReporter{
 	
 	// Using an external map because can grow arbitrarily
 	private ExternalMemoryMap<String, AbstractVertex> uuidToVertexMap;
-	
+		
 	// The main thread that processes the file
 	private Thread jsonProcessorThread = new Thread(new Runnable() {
 		@Override
@@ -290,7 +300,7 @@ public class CDM extends AbstractReporter{
 						logger.log(Level.SEVERE, "Failed to create external map", e);
 						return false;
 					}
-					
+										
 					try{
 						fileReader = new BufferedReader(new FileReader(file));
 						// Read the first line to make sure that it is a json file and process that object 
@@ -350,6 +360,64 @@ public class CDM extends AbstractReporter{
 				string = string.substring(0, string.length()-1);
 			}
 			return string;
+		}
+	}
+	
+	private Map<String, String> rewriteKeys(Map<String, String> map){
+		Map<String, String> rewritten = new HashMap<String, String>();
+		for(Map.Entry<String, String> entry : map.entrySet()){
+			String rewrittenKey = getRewrittenKey(entry.getKey());
+			if(rewrittenKey != null && !rewrittenKey.equals(KEY_TYPE)){
+				rewritten.put(rewrittenKey, entry.getValue());
+			}
+		}
+		return rewritten;
+	}
+	
+	private String getRewrittenKey(String key){
+		switch (key) {
+			// Object extra annotations in the properties map
+			case BASEOBJECT_PROPERTIES_MAP+".path": return "path";
+			case BASEOBJECT_PROPERTIES_MAP+".version": return "version";
+			case BASEOBJECT_PROPERTIES_MAP+".pid": return "pid";
+			// Object baseObject values
+			case BASEOBJECT+".epoch.int": return "epoch";
+			case "fileDescriptor.int": return "fileDescriptor";
+			case "ipProtocol.int": return "ipProtocol";
+			// Event annotations
+			case EVENT_KEY_PREDICATE_OBJECT1_UUID: return "predicateObject";
+			case EVENT_KEY_PREDICATE_OBJECT2_UUID: return "predicateObject2";
+			case "predicateObjectPath.string": return "predicateObjectPath";
+			case "predicateObject2Path.string": return "predicateObject2Path";
+			case "size.long": return "size";
+			// Subject, Principal, Event extra annotations in the properties map
+			case PROPERTIES_MAP+".mode": return "mode";
+			case PROPERTIES_MAP+".protection": return "protection";
+			case PROPERTIES_MAP+".pid": return "pid";
+			// Subject annotations
+			case PROPERTIES_MAP+".name": return "name";
+			case PROPERTIES_MAP+".cwd": return "cwd";
+			case PROPERTIES_MAP+".ppid": return "ppid";
+			case "cid": return "pid";
+			case "parentSubject."+AVRO_PACKAGE_UUID: return "parentSubject";
+			case "unitId.int": return "unitId";
+			case "iteration.int": return "iteration";
+			case "count.int": return "count";
+			case "cmdLine.string": return "cdmLine";
+			// Principal annotations
+			case PROPERTIES_MAP+".euid": return "euid";
+			case PROPERTIES_MAP+".suid": return "suid";
+			case PROPERTIES_MAP+".fsuid": return "fsuid";
+			case "groupIds[0]": return "gid";
+			case "groupIds[1]": return "egid";
+			case "groupIds[2]": return "sgid";
+			case "groupIds[3]": return "fsgid";
+			case "groupIds[size]": return null;
+			
+			// Special case for edge
+			case "properties.map.type": return null;
+			
+			default: return key;
 		}
 	}
 	
@@ -449,54 +517,120 @@ public class CDM extends AbstractReporter{
 					typeKey = stripStartEndQuotes(typeKey);
 					JsonObject typeValueObject = typeValue.getAsObject();
 					Map<String, String> flattened = flattenJson(typeValueObject);
-					if(typeKey.equals(CDM_KEY_EDGE_OBJECT_TYPE)){
-						String sourceUuid = flattened.get(CDM_KEY_FROMUUID);
-						String destinationUuid = flattened.get(CDM_KEY_TOUUID);
+					if(typeKey.equals(OBJECT_TYPE_UNIT_DEPENDENCY)){
+						
+						String sourceUuid = flattened.get(UNIT_DEPENDENCY_KEY_UNIT_UUID);
+						String destinationUuid = flattened.get(UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID);
+						
 						AbstractVertex source = uuidToVertexMap.get(sourceUuid);
 						AbstractVertex destination = uuidToVertexMap.get(destinationUuid);
-						if(source == null || destination == null){
-							logger.log(Level.WARNING, "Failed to put edge with null source or destination: " + jsonObject);
+						
+						SimpleEdge dependencyEdge = new SimpleEdge(source, destination);
+						dependencyEdge.addAnnotation(CDM_TYPE_KEY, typeKey.substring(typeKey.lastIndexOf('.') + 1));
+						dependencyEdge.addAnnotation(
+								UNIT_DEPENDENCY_KEY_UNIT_UUID.substring(0, UNIT_DEPENDENCY_KEY_UNIT_UUID.indexOf('.')), 
+								sourceUuid);
+						dependencyEdge.addAnnotation(
+								UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID.substring(0, UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID.indexOf('.')), 
+								destinationUuid);
+						putEdge(dependencyEdge);
+						
+					}else if(typeKey.equals(OBJECT_TYPE_EVENT)){
+						String eventType = flattened.get(KEY_TYPE);
+						String sourceUuid = flattened.get(EVENT_KEY_SUBJECT_UUID);
+						String destination1Uuid = flattened.get(EVENT_KEY_PREDICATE_OBJECT1_UUID);
+						String destination2Uuid = flattened.get(EVENT_KEY_PREDICATE_OBJECT2_UUID);
+						AbstractVertex source = uuidToVertexMap.get(sourceUuid);
+						AbstractVertex destination1 = uuidToVertexMap.get(destination1Uuid);
+						AbstractVertex destination2 = null;
+						if(destination2Uuid != null){
+							destination2 = uuidToVertexMap.get(destination2Uuid);
+						}
+						if(source == null || destination1 == null){
+							logger.log(Level.WARNING, "Failed to put edge with null source or destination: " + flattened);
 						}else{
-							AbstractEdge edge = new SimpleEdge(source, destination);
-							flattened.remove(CDM_KEY_FROMUUID);
-							flattened.remove(CDM_KEY_TOUUID);
-							flattened.put(CDM_KEY_OBJECT_TYPE, typeKey);
-							if(flattened.get("type") != null){
-								flattened.put(CDM_KEY_TYPE, flattened.remove("type"));
+
+							Map<String, String> edgeAnnotations = new HashMap<String, String>();
+							edgeAnnotations.put(CDM_TYPE_KEY, eventType); // Event type as cdm.key
+							
+							// Rewrite keys in the map here
+							flattened = rewriteKeys(flattened);
+							// Remove keys with null values
+							flattened = removeKeysWithNullValues(flattened);
+							// Add to edge annotations
+							edgeAnnotations.putAll(flattened);
+							
+							SimpleEdge toDst1 = new SimpleEdge(source, destination1);
+							// Add edge annotations
+							toDst1.addAnnotations(edgeAnnotations);
+							putEdge(toDst1);
+							
+							if(destination2 != null){
+								SimpleEdge toDst2 = new SimpleEdge(source, destination2);
+								toDst2.addAnnotations(edgeAnnotations);
+								putEdge(toDst2);
 							}
-							edge.addAnnotations(flattened);
-							putEdge(edge);
 						}
 					}else{
+						String localPrincipalUUID = null;
+						String cdmTypeKeyValue = null;
 						AbstractVertex vertex = null;
-						if(typeKey.equals(CDM_KEY_EVENT_OBJECT_TYPE)){
-							vertex = new Event();
-						}else if(typeKey.equals(CDM_KEY_FILE_OBJECT_TYPE)
-								|| typeKey.equals(CDM_KEY_MEMORY_OBJECT_TYPE)
-								|| typeKey.equals(CDM_KEY_NETFLOW_OBJECT_TYPE)
-								|| typeKey.equals(CDM_KEY_SRCSINK_OBJECT_TYPE)){
+						if(typeKey.equals(OBJECT_TYPE_SRCSINK_OBJECT) &&
+								(flattened.get(BASEOBJECT_PROPERTIES_MAP+".start time") != null 
+								|| flattened.get(BASEOBJECT_PROPERTIES_MAP+".end time") != null)){
+							return; // stream marker objects
+						}else if(typeKey.equals(OBJECT_TYPE_FILE_OBJECT)){
 							vertex = new spade.vertex.cdm.Object();
-						}else if(typeKey.equals(CDM_KEY_PRINCIPAL_OBJECT_TYPE)){
+							cdmTypeKeyValue = flattened.get(KEY_TYPE);
+						}else if(typeKey.equals(OBJECT_TYPE_MEMORY_OBJECT)
+								|| typeKey.equals(OBJECT_TYPE_NETFLOW_OBJECT)
+								|| typeKey.equals(OBJECT_TYPE_SRCSINK_OBJECT)
+								|| typeKey.equals(OBJECT_TYPE_UNNAMEDPIPE_OBJECT)){
+							vertex = new spade.vertex.cdm.Object();
+							cdmTypeKeyValue = typeKey.substring(typeKey.lastIndexOf('.') + 1);
+						}else if(typeKey.equals(OBJECT_TYPE_PRINCIPAL)){
 							vertex = new Principal();
-						}else if(typeKey.equals(CDM_KEY_SUBJECT_OBJECT_TYPE)){
+							cdmTypeKeyValue = flattened.get(KEY_TYPE);
+						}else if(typeKey.equals(OBJECT_TYPE_SUBJECT)){
 							vertex = new Subject();
+							cdmTypeKeyValue = flattened.get(KEY_TYPE);
+							
+							localPrincipalUUID = flattened.get(SUBJECT_KEY_LOCAL_PRINCIPAL);
+							
 						}else{
 							logger.log(Level.WARNING, "Unexpected type: " + typeKey);
 						}
 						if(vertex != null){
-							String uuid = flattened.remove(CDM_KEY_UUID);
-							flattened.put(CDM_KEY_OBJECT_TYPE, typeKey);
-							if(flattened.get("type") != null){
-								flattened.put(CDM_KEY_TYPE, flattened.remove("type"));
-							}
+							String uuid = flattened.get(UUID_KEY);
+							vertex.addAnnotation(CDM_TYPE_KEY, cdmTypeKeyValue);
+							flattened = rewriteKeys(flattened);
+							flattened = removeKeysWithNullValues(flattened);
 							vertex.addAnnotations(flattened);
 							putVertex(vertex);
 							uuidToVertexMap.put(uuid, vertex);
+							
+							if(localPrincipalUUID != null){
+								AbstractVertex principalVertex = uuidToVertexMap.get(localPrincipalUUID);
+								if(principalVertex != null){
+									SimpleEdge localPrincipalEdge = new SimpleEdge(vertex, principalVertex);
+									putEdge(localPrincipalEdge);
+								}
+							}
 						}
 					}
 				}
 			}
 		}
+	}
+	
+	private Map<String, String> removeKeysWithNullValues(Map<String, String> map){
+		Map<String, String> removedNullsMap = new HashMap<String, String>();
+		for(Map.Entry<String, String> entry : map.entrySet()){
+			if(!"null".equals(entry.getValue().trim())){
+				removedNullsMap.put(entry.getKey(), entry.getValue());
+			}
+		}
+		return removedNullsMap;
 	}
 	
 	@Override
@@ -515,6 +649,5 @@ public class CDM extends AbstractReporter{
 			return false;
 		}
 	}
-	
 
 }

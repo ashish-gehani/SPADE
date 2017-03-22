@@ -23,7 +23,9 @@ import java.io.FileWriter;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.apache.commons.codec.binary.Hex;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
@@ -40,13 +42,14 @@ public class Graphviz extends AbstractStorage {
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
     private String filePath;
-
+    
     @Override
     public boolean initialize(String arguments) {
         try {
             if (arguments == null) {
                 return false;
             }
+            
             filePath = arguments;
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
@@ -94,27 +97,31 @@ public class Graphviz extends AbstractStorage {
             String shape = "box";
             String color = "white";
             String type = incomingVertex.getAnnotation("type");
-            if (type.equalsIgnoreCase("Agent") || type.equalsIgnoreCase("Principal")) {
+            if (type.equalsIgnoreCase("Agent") 
+            		|| type.equalsIgnoreCase("Principal")) {
                 shape = "octagon";
                 color = "rosybrown1";
-            } else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity") || type.equalsIgnoreCase("Subject")) {
+            } else if (type.equalsIgnoreCase("Process") 
+            		|| type.equalsIgnoreCase("Activity") 
+            		|| type.equalsIgnoreCase("Subject")) {
                 shape = "box";
                 color = "lightsteelblue1";
-            } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity") || type.equalsIgnoreCase("Object")) {
+            } else if (type.equalsIgnoreCase("Artifact") 
+            		|| type.equalsIgnoreCase("Entity") 
+            		|| type.equalsIgnoreCase("Object")) {
                 shape = "ellipse";
                 color = "khaki1";
                 try {
                     String subtype = incomingVertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
-                    if (subtype.equalsIgnoreCase(OPMConstants.SUBTYPE_NETWORK_SOCKET)) {
+                    String cdmType = incomingVertex.getAnnotation("cdm.type");
+                    if (OPMConstants.SUBTYPE_NETWORK_SOCKET.equalsIgnoreCase(subtype)
+                    		|| "NetFlowObject".equalsIgnoreCase(cdmType)) {
                         shape = "diamond";
                         color = "palegreen1";
                     }
                 } catch (Exception exception) {
                     // Ignore
                 }
-            } else if(type.equalsIgnoreCase("Event")){
-            	shape = "doublecircle";
-            	color = "red";
             }
 
             String key = Hex.encodeHexString(incomingVertex.bigHashCode());
@@ -148,14 +155,58 @@ public class Graphviz extends AbstractStorage {
                 color = "green";
             } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
                 color = "red";
-            } else if (type.equalsIgnoreCase("WasTriggeredBy") || type.equalsIgnoreCase("WasInformedBy")) {
+            } else if (type.equalsIgnoreCase("WasTriggeredBy") 
+            		|| type.equalsIgnoreCase("WasInformedBy")) {
                 color = "blue";
-            } else if (type.equalsIgnoreCase("WasControlledBy") || type.equalsIgnoreCase("WasAssociatedWith")) {
+            } else if (type.equalsIgnoreCase("WasControlledBy") 
+            		|| type.equalsIgnoreCase("WasAssociatedWith")) {
                 color = "purple";
             } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
                 color = "orange";
             } else if(type.equalsIgnoreCase("SimpleEdge")){
-            	color = "black";
+            	String cdmTypeString = incomingEdge.getAnnotation("cdm.type");
+            	if(cdmTypeString != null){//exception handling
+	            	switch (cdmTypeString) {
+	            	case "UnitDependency": 
+	            	case "EVENT_EXIT":
+	            	case "EVENT_FORK":
+	            	case "EVENT_CLONE":
+	            	case "EVENT_EXECUTE":
+	            	case "EVENT_CHANGE_PRINCIPAL":
+	            	case "EVENT_UNIT":
+	            		color = "blue";
+	            		break;
+	            	case "EVENT_CLOSE":
+	            	case "EVENT_OPEN":
+	            	case "EVENT_CREATE_OBJECT":
+	            	case "EVENT_MMAP":
+	            	case "EVENT_RENAME":
+	            	case "EVENT_LINK":
+	            	case "EVENT_UPDATE":
+	            		color = "violet";
+	            		break;
+	            	case "EVENT_UNLINK":
+	            	case "EVENT_WRITE":
+	            	case "EVENT_SENDMSG":
+	            	case "EVENT_MPROTECT":
+	            	case "EVENT_CONNECT":
+	            	case "EVENT_TRUNCATE":
+	            	case "EVENT_MODIFY_FILE_ATTRIBUTES":
+	            		color = "red";
+	            		break;
+	            	case "EVENT_LOADLIBRARY":
+	            	case "EVENT_READ":
+	            	case "EVENT_RECVMSG":
+	            	case "EVENT_ACCEPT":
+	            		color = "green";
+	            		break;
+	            	default:
+	            		color = "black";
+	            		break;
+					}
+            	}else{
+            		color = "black";
+            	}
             }
 
             String style = "solid";
@@ -179,7 +230,7 @@ public class Graphviz extends AbstractStorage {
             return false;
         }
     }
-
+    
     @Override
     public boolean shutdown() {
         try {
