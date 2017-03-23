@@ -992,6 +992,14 @@ public class CDM extends Kafka {
 				if(edges.size() == 2 || edges.size() == 3){
 					// update (2), mmap(3), rename(3), link(3)
 					if(twoArtifactsEdge != null && edgeWithProcess != null){
+
+						// Add the protection to the WDF edge from the WGB edge (only for mmap)
+						if(twoArtifactsEdge.getAnnotation(OPMConstants.EDGE_OPERATION).
+								equals(OPMConstants.OPERATION_MMAP)){
+							twoArtifactsEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, 
+									edgeWithProcess.getAnnotation(OPMConstants.EDGE_PROTECTION));
+						}
+
 						edgeForEvent = twoArtifactsEdge;
 						actedUpon1 = twoArtifactsEdge.getDestinationVertex();
 						actedUpon2 = twoArtifactsEdge.getSourceVertex();

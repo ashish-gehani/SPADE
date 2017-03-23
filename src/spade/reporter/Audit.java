@@ -2101,6 +2101,7 @@ public class Audit extends AbstractReporter {
 				new MemoryIdentifier(pidOrTgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, true);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
+		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(wgbEdge, getOperation(syscall, SYSCALL.WRITE), time, eventId, OPMConstants.SOURCE_AUDIT);		
 		
 		if((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS){
@@ -2136,7 +2137,6 @@ public class Audit extends AbstractReporter {
 			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
 	
 			WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, fileArtifact);
-			wdfEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 			wdfEdge.addAnnotation(OPMConstants.EDGE_PID, pid);
 			putEdge(wdfEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}
