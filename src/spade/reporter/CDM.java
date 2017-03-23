@@ -390,6 +390,7 @@ public class CDM extends AbstractReporter{
 			case "predicateObjectPath.string": return "predicateObjectPath";
 			case "predicateObject2Path.string": return "predicateObject2Path";
 			case "size.long": return "size";
+			case "location.long": return "location";
 			// Subject, Principal, Event extra annotations in the properties map
 			case PROPERTIES_MAP+".mode": return "mode";
 			case PROPERTIES_MAP+".protection": return "protection";
