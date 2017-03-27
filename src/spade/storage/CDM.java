@@ -542,7 +542,7 @@ public class CDM extends Kafka {
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
-						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
 
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 

@@ -2095,10 +2095,10 @@ public class Audit extends AbstractReporter {
 		
 		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
 		
-		String pidOrTgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null ?
+		String tgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null ?
 				pid : pidToTgidForMemoryArtifactsOnly.get(pid);
 		ArtifactIdentifier memoryArtifactIdentifier = 
-				new MemoryIdentifier(pidOrTgid, address, length);
+				new MemoryIdentifier(tgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, true);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
@@ -2159,10 +2159,12 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16);
 		String protection = new BigInteger(eventData.get(AuditEventReader.ARG2)).toString(16);
 
-		String pidOrTgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null ? pid : pidToTgidForMemoryArtifactsOnly.get(pid);
+		String tgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null 
+				? pid 
+				: pidToTgidForMemoryArtifactsOnly.get(pid);
 		
 		ArtifactIdentifier memoryInfo = 
-				new MemoryIdentifier(pidOrTgid, address, length);
+				new MemoryIdentifier(tgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, true);
 
 		Process process = putProcess(eventData, time, eventId); //create if doesn't exist

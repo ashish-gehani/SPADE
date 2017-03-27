@@ -380,6 +380,7 @@ public class CDM extends AbstractReporter{
 			case BASEOBJECT_PROPERTIES_MAP+".path": return "path";
 			case BASEOBJECT_PROPERTIES_MAP+".version": return "version";
 			case BASEOBJECT_PROPERTIES_MAP+".pid": return "pid";
+			case BASEOBJECT_PROPERTIES_MAP+".tgid": return "tgid";
 			// Object baseObject values
 			case BASEOBJECT+".epoch.int": return "epoch";
 			case "fileDescriptor.int": return "fileDescriptor";
@@ -528,12 +529,8 @@ public class CDM extends AbstractReporter{
 						
 						SimpleEdge dependencyEdge = new SimpleEdge(source, destination);
 						dependencyEdge.addAnnotation(CDM_TYPE_KEY, typeKey.substring(typeKey.lastIndexOf('.') + 1));
-						dependencyEdge.addAnnotation(
-								UNIT_DEPENDENCY_KEY_UNIT_UUID.substring(0, UNIT_DEPENDENCY_KEY_UNIT_UUID.indexOf('.')), 
-								sourceUuid);
-						dependencyEdge.addAnnotation(
-								UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID.substring(0, UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID.indexOf('.')), 
-								destinationUuid);
+						dependencyEdge.addAnnotation(UNIT_DEPENDENCY_KEY_UNIT_UUID, sourceUuid);
+						dependencyEdge.addAnnotation(UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID, destinationUuid);
 						putEdge(dependencyEdge);
 						
 					}else if(typeKey.equals(OBJECT_TYPE_EVENT)){
