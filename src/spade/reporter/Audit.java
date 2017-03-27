@@ -3619,6 +3619,10 @@ public class Audit extends AbstractReporter {
 		String fd = eventData.get(AuditEventReader.ARG0);
 		String bytesSent = eventData.get(AuditEventReader.EXIT);
 		String saddr = eventData.get(AuditEventReader.SADDR);
+		
+		if(isNetlinkSaddr(saddr)){
+			return;
+		}
 				
 		ArtifactIdentifier artifactIdentifier = 
 				getSockDescriptorArtifactIdentifier(pid, fd, saddr, time, eventId, syscall);
@@ -3647,6 +3651,10 @@ public class Audit extends AbstractReporter {
 		String fd = eventData.get(AuditEventReader.ARG0);
 		String bytesReceived = eventData.get(AuditEventReader.EXIT);
 		String saddr = eventData.get(AuditEventReader.SADDR);
+		
+		if(isNetlinkSaddr(saddr)){
+			return;
+		}
 		
 		ArtifactIdentifier artifactIdentifier = getSockDescriptorArtifactIdentifier(pid, fd, 
 				saddr, time, eventId, syscall);
