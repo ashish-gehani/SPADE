@@ -169,14 +169,15 @@ void socket_read(char *programName)
 		if (audispdSocketDescriptor != -1) close(audispdSocketDescriptor);
 }
 
-void stdin_read()
+void read_log(FILE *fp)
 {
 		char buffer[BUFFER_LENGTH];
+		//FILE *fp = stdin;
 
 		do{
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
-						if(fgets(& buffer[0], BUFFER_LENGTH, stdin) == NULL) {
+						if(fgets(& buffer[0], BUFFER_LENGTH, fp) == NULL) {
 								fprintf(stderr, "Reaches the end of file (stdin).\n");
 								UBSI_buffer_flush();
 								break;
@@ -186,7 +187,7 @@ void stdin_read()
 		} while (FALSE);
 }
 
-void file_read()
+void read_file_path()
 {
 		FILE *fp = fopen(filePath, "r");
 		FILE *log_fp;
@@ -208,15 +209,8 @@ void file_read()
 						fprintf(stderr, "file open error: %s", tmp);
 						continue;
 				}
-				while (!feof(log_fp)) {
-						memset(&buffer, 0, BUFFER_LENGTH);
-						if(fgets(& buffer[0], BUFFER_LENGTH, log_fp) == NULL) {
-								fprintf(stderr, "Reaches the end of file (%s).\n", tmp);
-								//UBSI_buffer_flush();
-								break;
-						}
-						UBSI_buffer(buffer);
-				}
+
+				read_log(log_fp);
 				fclose(log_fp);
 		}
 
@@ -239,8 +233,8 @@ int main(int argc, char *argv[]) {
 		signal(SIGTERM, UBSI_sig_handler);
 
 		if(socketRead) socket_read(programName);
-		else if(fileRead) file_read();
-		else stdin_read();
+		else if(fileRead) read_file_path();
+		else read_log(stdin);
 
 		return 0;
 }
@@ -261,7 +255,6 @@ typedef int bool;
 
 typedef struct thread_unit_t {
 		int tid;
-		int unitid; // unique identifier. different from loopid
 		int loopid; // loopid. in the output, we call this unitid.
 		int iteration;
 		double timestamp; // loop start time. Not iteration start.
@@ -281,7 +274,6 @@ typedef struct mem_proc_t {
 
 typedef struct mem_unit_t {
 		long int addr;
-		//int isWritten;
 		UT_hash_handle hh;
 } mem_unit_t;
 
@@ -341,7 +333,6 @@ void reset_current_time_iteration_counts(){
 bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 {
 		if(u1.tid == u2.tid && 
-				 u1.unitid == u2.unitid &&
 					u1.loopid == u2.loopid &&
 					u1.iteration == u2.iteration &&
 					u1.timestamp == u2.timestamp &&
@@ -365,8 +356,7 @@ double get_timestamp(char *buf)
 
 int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 {
-		int rc;
-		char buffer[BUFFER_LENGTH];
+		int rc = 0;
 
 		if(!print_unit && !print_proc) {
 				rc = printf("%s", buf);
@@ -375,28 +365,23 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 
 		buf[strlen(buf)-1] = '\0';
 		
-		rc = sprintf(buffer, "%s", buf);
+		rc = printf("%s", buf);
 		if(print_unit) {
-				rc += sprintf(buffer + rc, " unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d) "
+				rc += printf(" unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d) "
 							,ut->cur_unit.tid, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
 		if(print_proc) {
-				rc += sprintf(buffer + rc, "%s", ut->proc);
+				rc += printf("%s", ut->proc);
 		}
 
-		if(!print_proc) sprintf(buffer + rc, "\n");
-
-		rc = printf("%s", buffer);
+		if(!print_proc) rc += printf("\n");
 
 		return rc;
 }
 
 void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 {
-		//	HASH_CLEAR(hh, hash_unit);
-		//	HASH_CLEAR(hh, hash_mem);
-
 		link_unit_t *tmp_unit, *cur_unit;
 		mem_unit_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, hash_unit, cur_unit, tmp_unit) {
@@ -404,21 +389,17 @@ void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 						HASH_DEL(hash_unit, cur_unit); 
 				if(cur_unit) free(cur_unit);  
 		}
-		//if(hash_unit) free(hash_unit);
 
 		HASH_ITER(hh, hash_mem, cur_mem, tmp_mem) {
 				if(hash_mem != cur_mem) 
 						HASH_DEL(hash_mem, cur_mem); 
 				if(cur_mem) free(cur_mem);  
 		}
-		//if(hash_mem) free(hash_mem);
 
 }
 
 void delete_proc_hash(mem_proc_t *mem_proc)
 {
-		//HASH_CLEAR(hh, mem_proc);
-
 		mem_proc_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, mem_proc, cur_mem, tmp_mem) {
 				if(mem_proc != cur_mem) 
@@ -434,7 +415,6 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		unit->cur_unit.loopid = a1;
 		unit->cur_unit.iteration = 0;
 		unit->cur_unit.timestamp = time;
-		//unit->cur_unit.count = loopCount[a1]++; 
 		
 		ptr = strstr(buf, " ppid=");
 		if(ptr == NULL) {
@@ -444,7 +424,6 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 				strncpy(unit->proc, ptr, strlen(ptr));
 				unit->proc[strlen(ptr)] = '\0';
 		}
-		//unit->proc = get this info;
 }
 
 void loop_exit(unit_table_t *unit)
@@ -463,7 +442,6 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		double time;
 
 		time = get_timestamp(buf);
-//		int unitid = ++(unit->cur_unit.unitid);
 
 		if(last_time == -1){
 			last_time = time;	
@@ -493,36 +471,38 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		
 		sprintf(tmp, "type=UBSI_ENTRY ");
 		emit_log(unit, tmp, true, true);
-		//TODO: emit unit_entry event with 5 tuples: {pid, unitid, iteration, start_time, count}
 }
 
 void unit_end(unit_table_t *unit, long a1)
 {
 		struct link_unit_t *ut;
-		char buf[10240];
+		char *buf;
+		int buf_size;
+		int link_count = HASH_COUNT(unit->link_unit);
 
-		if(unit->valid == true || HASH_COUNT(unit->link_unit) > 1) {
-				bzero(buf, 10240);
+		if(unit->valid == true || link_count > 1) {
+				buf_size = link_count * 200;
+				buf = (char*) malloc(buf_size);
+				bzero(buf, buf_size);
 				// emit linked unit lists;
 				if(unit->link_unit != NULL) {
 						sprintf(buf, "type=UBSI_DEP list=\"");
 						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
-								//sprintf(buf+strlen(buf), "%d-%d,", ut->id.tid, ut->id.unitid);
+								// < 200 bytes,
 								sprintf(buf+strlen(buf), "(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
 								,ut->id.tid, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
 						}
 						sprintf(buf+strlen(buf), "\" ");
 						emit_log(unit, buf, true, true);
+						free(buf);
 				}
 		}
 
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
 		unit->mem_unit = NULL;
-	//	unit->valid = false;
 		unit->r_addr = 0;
 		unit->w_addr = 0;
-		//unit->unitid++;
 }
 
 void proc_end(unit_table_t *unit)
@@ -551,26 +531,6 @@ void flush_all_unit()
 		HASH_ITER(hh, unit_table, cur_unit, tmp_unit) {
 				unit_end(cur_unit, -1);
 		}
-}
-
-
-bool is_important_syscall(int S, bool succ)
-{
-		if(S == 60 || S == 231 || S == 42)  return true;
-
-		if(!succ) 
-		{	
-				return false;
-		}
-
-		switch(S) {
-				case 0: case 19: case 1: case 20: case 44: case 45: case 46: case 47: case 86: case 88: 
-				case 56: case 57: case 58: case 59: case 2: case 85: case 257: case 259: case 133: case 32: 
-				case 33: case 292: case 49: case 43: case 288: case 42: case 82: case 105: case 113: case 90:
-				case 22: case 293: case 76: case 77: case 40: case 87: case 263: case 62: case 9: case 10:
-						return true;
-		}
-		return false;
 }
 
 void mem_write(unit_table_t *ut, long int addr)
@@ -603,13 +563,9 @@ void mem_write(unit_table_t *ut, long int addr)
 				pmt = (mem_proc_t*) malloc(sizeof(mem_proc_t));
 				pmt->addr = addr;
 				pmt->last_written_unit = ut->cur_unit;
-				//pmt->last_written_unit.tid = ut->cur_unit.tid;
-				//pmt->last_written_unit.unitid = ut->cur_unit.unitid;
 				HASH_ADD(hh, pt->mem_proc, addr, sizeof(long int),  pmt);
 		} else {
 				pmt->last_written_unit = ut->cur_unit;
-				//pmt->last_written_unit.tid = ut->tid;
-				//pmt->last_written_unit.unitid = ut->unitid;
 		}
 }
 
@@ -631,12 +587,9 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 
 		thread_unit_t lid;
 		if(pmt->last_written_unit.timestamp != 0 && !is_same_unit(pmt->last_written_unit, ut->cur_unit))
-		//if((pmt->last_written_unit.tid != ut->tid) || (pmt->last_written_unit.unitid != ut->unitid))
 		{
 				link_unit_t *lt;
 				lid = pmt->last_written_unit;
-				//lid.tid = pmt->last_written_unit.tid;
-				//lid.unitid = pmt->last_writte_unit.unitid;
 				HASH_FIND(hh, ut->link_unit, &lid, sizeof(thread_unit_t), lt);
 				if(lt == NULL) {
 						// emit the dependence. parse time and eid.
@@ -647,7 +600,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 		}
 }
 
-unit_table_t* add_unit(int tid, int pid, int unitid, bool valid)
+unit_table_t* add_unit(int tid, int pid, bool valid)
 {
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
@@ -655,9 +608,7 @@ unit_table_t* add_unit(int tid, int pid, int unitid, bool valid)
 		ut->pid = pid;
 		ut->valid = valid;
 
-		// TODO: NEED TO FILL THIS OUT
 		ut->cur_unit.tid = tid;
-		ut->cur_unit.unitid = unitid;
 		ut->cur_unit.loopid = 0;
 		ut->cur_unit.iteration = 0;
 		ut->cur_unit.timestamp = 0;
@@ -683,7 +634,7 @@ void set_pid(int tid, int pid)
 
 		HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
-				ut = add_unit(tid, ppid, 0, 0); 
+				ut = add_unit(tid, ppid, 0); 
 		} else {
 				ut->pid = ppid;
 		}
@@ -698,7 +649,7 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 
 		if(ut == NULL) {
 				isNewUnit = 1;
-				ut = add_unit(tid, tid, 0, 0);
+				ut = add_unit(tid, tid, 0);
 		}
 
 		switch(a0) {
@@ -740,12 +691,11 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 
 		struct unit_table_t *ut;
 
-		//if(!is_important_syscall(sysno, succ))  return;
 
 		HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
-				ut = add_unit(tid, tid, 0, 0);
+				ut = add_unit(tid, tid, 0);
 		}
 
 		emit_log(ut, buf, false, false);
@@ -763,7 +713,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				}
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
 				if(sysno == 231) { // exit_group call
-						// TODO: need to finish all thread in the process group
 						proc_group_end(ut);
 				} else {
 						proc_end(ut);
@@ -822,8 +771,6 @@ void syscall_handler(char *buf)
 						ptr = strstr(ptr, " a1=");
 						a1 = strtol(ptr+4, NULL, 16);
 						UBSI_event(pid, a0, a1, buf);
-						//UBSI_event(pid, a0, a1, buf);
-						//printf("pid %d, a0 %x, a1 %x: %s\n", pid, a0, a1, buf);
 				} else {
 						non_UBSI_event(pid, sysno, succ, buf);
 				}
@@ -872,7 +819,6 @@ int UBSI_buffer(const char *buf)
 
 		struct event_buf_t *eb;
 
-		//		printf("\n\nsize %ld\n%s\n\n", strlen(buf), buf); 
 		for(cursor=0; cursor < strlen(buf); cursor++) {
 				if(buf[cursor] == '\n') {
 						if(event_start == 0 && remain_byte > 0) {
@@ -924,7 +870,6 @@ int UBSI_buffer(const char *buf)
 				remain_byte = cursor - event_start+1;
 				strncpy(remain, buf+event_start, remain_byte);
 				remain[remain_byte] = '\0';
-				//		printf("remain: %s\n", remain);
 		} else {
 				remain_byte = 0;
 		}
@@ -944,8 +889,6 @@ int UBSI_buffer(const char *buf)
 						HASH_DEL(event_buf, eb);
 						free(eb->event);
 						free(eb);
-				} else {
-						//fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!event id %d is not exist!, hash_count %d\n", next_event_id, HASH_COUNT(event_buf));
 				}
 		}
 }
