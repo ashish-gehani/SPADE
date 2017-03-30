@@ -3900,17 +3900,29 @@ public class Audit extends AbstractReporter {
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
 			
-			//version is always uninitialized if the epoch has been seen so using that to infer about epoch
-			boolean vertexNotSeenBefore = updateVersion || artifactProperties.isVersionUninitialized(); //do this before getVersion because it updates it based on updateVersion flag
-	
-			String versionAnnotation = String.valueOf(artifactProperties.getVersion(updateVersion));
+			boolean vertexNotSeenBefore = false;
 			
+			// The functions getVersion and getEpoch return incremented values so before doing that
+			// check if the unmodified state of version and epoch suggests that we need to call
+			// putVertex function on this vertex or not
+			if(KEEP_VERSIONS){
+				// If the version is going to be updated or the version is uninitialized (epoch marked)
+				// then it means that we need to call putVertex on this vertex
+				vertexNotSeenBefore = updateVersion || artifactProperties.isVersionUninitialized(); 
+			}else{
+				// If versions are off then only output a vertex whenever the version is uninitialized because
+				// that means the epoch has been set
+				vertexNotSeenBefore = artifactProperties.isVersionUninitialized(); 
+			}
+			
+			// Even if we are not adding the version annotation, still keep the logic which keeps track of 
+			// version because it helps us in identifying if we have to call putVertex or not (deduplication)
+			String versionAnnotation = String.valueOf(artifactProperties.getVersion(updateVersion));
 			if(KEEP_VERSIONS){
 				artifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, versionAnnotation);
 			}
 	
 			String epochAnnotation = String.valueOf(artifactProperties.getEpoch());
-			
 			if(KEEP_EPOCHS){
 				if(!MemoryIdentifier.class.equals(artifactIdentifierClass)){ //epoch for everything except memory
 					artifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, epochAnnotation);
@@ -3947,6 +3959,8 @@ public class Audit extends AbstractReporter {
 				}
 			}
 		}else{
+			// If not keeping the artifacts properties map then no way of telling if we should 
+			// call putVertex or not again (possible duplication). So, calling putVertex each time
 			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
 				// don't add
 			}else{
