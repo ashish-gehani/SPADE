@@ -56,19 +56,6 @@ char dirPath[256];
 char dirTimeBuf[256];
 time_t dirTime = 0;
 
-typedef struct iteration_count_t{
-	int tid;
-	int unitid;
-	int iteration;
-	int count;
-}iteration_count_t;
-
-#define iteration_count_buffer_size 1000
-int current_time_iterations_index = 0;
-iteration_count_t current_time_iterations[iteration_count_buffer_size];
-
-double last_time = -1;
-
 /*
 			Java does not support reading from Unix domain sockets.
 
@@ -469,34 +456,70 @@ typedef struct event_buf_t {
 		UT_hash_handle hh;
 } event_buf_t;
 
+// Equality check is done using only tid, unitid, and iteration
+typedef struct iteration_count_t{
+	int tid;
+	int unitid;
+	int iteration;
+	int count;
+}iteration_count_t;
+
+// Maximum iterations that can be buffered during a single timestamp
+#define iteration_count_buffer_size 1000
+// Total number of iterations so far in the iteration_count buffer
+int current_time_iterations_index = 0;
+// A buffer to keep iteration_count objects for iterations
+iteration_count_t current_time_iterations[iteration_count_buffer_size];
+// To keep track of whenever the timestamp changes on audit records
+double last_time = -1;
+
 unit_table_t *unit_table;
 event_buf_t *event_buf;
 
-iteration_count_t* get_iteration_count(int tid, int unitid, int iteration){
+/*
+ * Checks if an iteration exists with the arguments provided
+ * 
+ * If exists, then increments the count for it and returns that count.
+ * If doesn't exist then adds this iteration_count and returns the count
+ * value which would be zero.
+ */
+int get_iteration_count(int tid, int unitid, int iteration){
+	int count = -1;
+	// Check if the iteration exists
 	if(current_time_iterations_index != 0){
 			int a = 0;
 			for(; a<current_time_iterations_index; a++){
 					if(current_time_iterations[a].tid == tid 
 							&& current_time_iterations[a].unitid == unitid
 								&& current_time_iterations[a].iteration == iteration){
-							return &(current_time_iterations[a]);
+							current_time_iterations[a].count++;
+							// if found then increment the count and set that count to the return value
+							count = current_time_iterations[a].count;
+							break;
 					}
 			}
 	}
-	return NULL;
-}
-
-void add_iteration_count(int tid, int unitid, int iteration){
-	if(current_time_iterations_index >= iteration_count_buffer_size){
-		fprintf(stderr, "Not enough space for another iteration. Increase 'iteration_count_buffer_size'\n");
-	}else{
-		current_time_iterations[current_time_iterations_index].tid = tid;
-		current_time_iterations[current_time_iterations_index].unitid = unitid;
-		current_time_iterations[current_time_iterations_index].iteration = iteration;
-		current_time_iterations[current_time_iterations_index++].count = 0;
+	// If not found then try to add it
+	if(count == -1){
+		// If buffer already full then print an error. -1 would be returned
+		if(current_time_iterations_index >= iteration_count_buffer_size){
+			fprintf(stderr, "Not enough space for another iteration. Increase 'iteration_count_buffer_size' and rerun\n");
+		}else{
+			// Add to the end of the buffer and set the count to the return value
+			// without incrementing (counts start from 0)
+			current_time_iterations[current_time_iterations_index].tid = tid;
+			current_time_iterations[current_time_iterations_index].unitid = unitid;
+			current_time_iterations[current_time_iterations_index].iteration = iteration;
+			current_time_iterations[current_time_iterations_index].count = 0;
+			count = current_time_iterations[current_time_iterations_index].count;
+			current_time_iterations_index++;
+		}
 	}
+	return count;
 }
 
+// Just resets the index instead of resetting each individual struct in the buffer
+// Starts overriding the structs from the previous timestamp
 void reset_current_time_iteration_counts(){
 	current_time_iterations_index = 0;	
 }
@@ -523,6 +546,19 @@ double get_timestamp(char *buf)
 		sscanf(ptr+1, "%lf", &time);
 
 		return time;
+}
+
+long get_eventid(char* buf){
+		char *ptr;
+		long eventId;
+
+		// Expected string format -> "type=<TYPE> msg=audit(<TIME>:<EVENTID>): ...."
+		ptr = strstr(buf, ":");
+		if(ptr == NULL) return 0;
+
+		sscanf(ptr+1, "%ld", &eventId);
+
+		return eventId;
 }
 
 int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
@@ -601,7 +637,7 @@ void loop_exit(unit_table_t *unit)
 {
 		char tmp[10240];
 
-		sprintf(tmp,  "type=UBSI_EXIT pid=%d ", unit->cur_unit.tid);
+		sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 		emit_log(unit, tmp, false, true);
 		unit->valid = false;
 }
@@ -611,6 +647,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		char tmp[10240];
 		int tid = unit->tid;
 		double time;
+		long eventid;
 
 		time = get_timestamp(buf);
 
@@ -630,17 +667,14 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		unit->valid = true;
 		unit->cur_unit.timestamp = time;
 		
-		iteration_count_t* iteration_count = get_iteration_count(tid, 
+		int iteration_count_value = get_iteration_count(tid, 
 												unit->cur_unit.loopid,
 												unit->cur_unit.iteration);
-		if(iteration_count == NULL){
-			add_iteration_count(tid, unit->cur_unit.loopid, unit->cur_unit.iteration);
-			iteration_count = get_iteration_count(tid, unit->cur_unit.loopid, unit->cur_unit.iteration);	
-		}
+		// Can return -1 which means that the buffer is full. Error printed in 
+		// get_iteration_count function
+		unit->cur_unit.count = iteration_count_value;
 		
-		unit->cur_unit.count = iteration_count->count++;
-		
-		sprintf(tmp, "type=UBSI_ENTRY ");
+		sprintf(tmp, "type=UBSI_ENTRY msg=(%.3f:%ld): ", time, eventid);
 		emit_log(unit, tmp, true, true);
 }
 
@@ -1008,7 +1042,7 @@ int UBSI_buffer(const char *buf)
 								UBSI_buffer_flush();
 						}
 
-						if(strstr(event, "type=EOE") == NULL && strstr(event, "type=UNKNOWN") == NULL && strstr(event, "type=PROCTILE") == NULL) {
+						if(strstr(event, "type=EOE") == NULL && strstr(event, "type=UNKNOWN[") == NULL && strstr(event, "type=PROCTILE") == NULL) {
 								ptr = strstr(event, ":");
 								if(ptr == NULL) {
 										id = 0;
