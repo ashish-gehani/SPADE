@@ -325,7 +325,6 @@ FILE *open_inode(ino_t inode)
 				}
 				if(sbuf.st_ino == inode) {
 						fp = fopen(file, "r");
-						printf("file open: %s\n", file);
 						closedir(d);
 						return fp;
 				}
