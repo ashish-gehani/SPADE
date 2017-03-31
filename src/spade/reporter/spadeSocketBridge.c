@@ -32,6 +32,10 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <errno.h>
 
 #define SERVER_PATH     "/var/run/audispd_events"
 #define BUFFER_LENGTH   10000
@@ -45,8 +49,12 @@ int UBSI_buffer_flush();
 int waitForEnd = FALSE;
 int socketRead = FALSE;
 int fileRead = FALSE;
+int dirRead = FALSE;
 char socketPath[256];
 char filePath[256];
+char dirPath[256];
+char dirTimeBuf[256];
+time_t dirTime = 0;
 
 typedef struct iteration_count_t{
 	int tid;
@@ -73,10 +81,14 @@ double last_time = -1;
 
 void print_usage(char** argv) {
 		printf("Usage: %s [OPTIONS]\n", argv[0]);
-		printf("  -u, --unit																unit analysis\n");
+		printf("  -u, --unit                unit analysis\n");
 		printf("  -s, --socket              socket name\n");
 		printf("  -w, --wait-for-end        continue processing till the end of the log is reached\n");
 		printf("  -f, --files               a filename that has a list of log files to process\n");  
+		printf("  -d, --dir                 a directory name that contains log files\n");
+		printf("  -t, --time                timestamp. Only handle log files modified after the timestamp. \n");
+		printf("                            This option is only valid with -d option. (format: YYYY-MM-DD:HH:MM:SS,\n");
+		printf("                              e.g., 2017-1-21:07:09:20)\n");
 		printf("  -h, --help                print this help and exit\n");
 		printf("\n");
 
@@ -92,11 +104,13 @@ int command_line_option(int argc, char **argv)
 				{"unit",          no_argument,       NULL, 'u'},
 				{"socket",        required_argument, NULL, 's'},
 				{"files",  required_argument,							NULL, 'f'},
+				{"dir",  required_argument,							NULL, 'd'},
+				{"time",  required_argument,							NULL, 't'},
 				{"wait-for-end",  no_argument,							NULL, 'w'},
 				{NULL,            0,                 NULL, 0  }
 		};
 
-		while((c = getopt_long(argc, argv, "hus:f:w", long_opt, NULL)) != -1)
+		while((c = getopt_long(argc, argv, "hus:f:d:t:w", long_opt, NULL)) != -1)
 		{
 				switch(c)
 				{
@@ -107,6 +121,22 @@ int command_line_option(int argc, char **argv)
 						case 'f':
 								strncpy(filePath, optarg, 256);
 								fileRead = TRUE;
+								break;
+
+						case 'd':
+								strncpy(dirPath, optarg, 256);
+								dirRead = TRUE;
+								break;
+	
+						case 't':
+								strncpy(dirTimeBuf, optarg, 256);
+								struct tm temp_tm;
+								if(strptime(dirTimeBuf, "%Y-%m-%d:%H:%M:%S", &temp_tm) == 0) {
+										fprintf(stderr, "time error: %s, dirTime = %ld\n", dirTimeBuf, dirTime);
+										break;
+								}
+							 dirTime = mktime(&temp_tm);
+								printf("dirTime = %ld\n", dirTime);
 								break;
 
 						case 'w':
@@ -216,8 +246,145 @@ void read_file_path()
 
 		UBSI_buffer_flush();
 		fclose(fp);
-		// read a file: filePath that contains a list of paths to log files, one-per-line
+}
 
+ino_t find_next_file(time_t time, ino_t cur_inode)
+{
+		DIR *d;
+		struct dirent *dir;
+		char file[1024];
+		struct stat sbuf;
+		char time_buf[256];
+		struct tm tm;
+		
+		char eFile[1024];
+		time_t eTime = 0; // the earliest file mod time but later than dirTime
+		int eInode = 0;
+
+		d = opendir(dirPath);
+
+		if(d == NULL) {
+				fprintf(stderr, "dir open error: %s\n", dirPath);
+				return -1;
+		}
+
+		//strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&time));
+		//printf("DirTime %s(%ld)\n", time_buf, time);
+
+		while((dir = readdir(d)) != NULL)
+		{
+				sprintf(file, "%s/%s", dirPath, dir->d_name);
+				if(stat(file, &sbuf) == -1) {
+						//fprintf(stderr, "stat error 1: %s\n", file);
+						//fprintf(stderr, "errno %d\n", errno);
+						continue;
+				}
+				if(!S_ISREG(sbuf.st_mode)) continue; // if the file is not a regular file (e.g., dir)
+				
+				if(sbuf.st_mtime > time)
+				{
+						if(cur_inode == sbuf.st_ino) continue; // this is current file.
+						if(eTime == 0 || sbuf.st_mtime < eTime) {
+								eTime = sbuf.st_mtime;
+								eInode = sbuf.st_ino;
+						}
+				}
+//				strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&sbuf.st_mtime));
+//				printf("file: %s, last modified time %s(%ld)\n", file, time_buf, sbuf.st_mtime);
+		}
+		
+		if(eInode > 0) {
+//				strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&eTime));
+//				printf("Read next file: (inode %d, last modified time %s(%ld)\n", eInode, time_buf, eTime);
+		} 
+		closedir(d);
+		return eInode;
+}
+
+FILE *open_inode(ino_t inode)
+{
+		DIR *d;
+		struct dirent *dir;
+		char file[1024];
+		struct stat sbuf;
+		FILE *fp;
+
+		d = opendir(dirPath);
+
+		if(d == NULL) {
+				fprintf(stderr, "dir open error: %s\n", dirPath);
+				return NULL;
+		}
+
+		while((dir = readdir(d)) != NULL)
+		{
+				sprintf(file, "%s/%s", dirPath, dir->d_name);
+				if(stat(file, &sbuf) == -1) {
+						fprintf(stderr, "stat error 2: %s\n", file);
+						continue;
+				}
+				if(sbuf.st_ino == inode) {
+						fp = fopen(file, "r");
+						printf("file open: %s\n", file);
+						closedir(d);
+						return fp;
+				}
+		}
+
+		closedir(d);
+		return NULL;
+}
+
+ino_t read_log_online(ino_t inode)
+{
+		char buffer[BUFFER_LENGTH];
+		struct stat sbuf;
+		time_t time;
+
+		FILE *fp = open_inode(inode);
+		
+		if(fp == NULL) {
+				fprintf(stderr, "file open error 1: inode %ld\n", inode);
+				return -1;
+		}
+		
+		do{
+				while (TRUE) {
+						memset(&buffer, 0, BUFFER_LENGTH);
+						while(fgets(& buffer[0], BUFFER_LENGTH, fp) == NULL) {
+
+								if(fstat(fileno(fp), &sbuf) == -1) {
+										fprintf(stderr, "stat fails: inode %ld\n", inode);
+										continue;
+								}
+								time = sbuf.st_mtime;
+								ino_t next_inode = find_next_file(time, sbuf.st_ino);
+								if(next_inode  > 0) {
+										while(fgets(& buffer[0], BUFFER_LENGTH, fp) != NULL) { // check the log again.
+												UBSI_buffer(buffer);
+										}
+										// At this point, the next log is available and the current log does not have any new event. 
+										//Safe to close the current one and process the next log
+										fclose(fp); 
+										return next_inode;
+								}
+						}
+						UBSI_buffer(buffer);
+				}
+		} while (FALSE);
+}
+
+void dir_read()
+{
+		ino_t inode = 0;
+		
+		while((inode = find_next_file(dirTime, 0)) <= 0) sleep(1);
+		//printf("Next file: inode %ld\n", inode);
+
+		while((inode = read_log_online(inode)) > 0)
+		{
+				//printf("Next file: inode %ld\n", inode);
+		}
 }
 
 int main(int argc, char *argv[]) {
@@ -225,6 +392,10 @@ int main(int argc, char *argv[]) {
 		int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
 		char buffer[BUFFER_LENGTH];
 		struct sockaddr_un serverAddress;
+
+		
+		putenv("TZ=EST5EDT"); // set timezone
+		tzset();
 
 		command_line_option(argc, argv);
 
@@ -234,6 +405,7 @@ int main(int argc, char *argv[]) {
 
 		if(socketRead) socket_read(programName);
 		else if(fileRead) read_file_path();
+		else if(dirRead) dir_read();
 		else read_log(stdin);
 
 		return 0;
