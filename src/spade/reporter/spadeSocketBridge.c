@@ -188,7 +188,7 @@ void socket_read(char *programName)
 		if (audispdSocketDescriptor != -1) close(audispdSocketDescriptor);
 }
 
-void read_log(FILE *fp)
+void read_log(FILE *fp, char* filepath)
 {
 		char buffer[BUFFER_LENGTH];
 		//FILE *fp = stdin;
@@ -198,7 +198,7 @@ void read_log(FILE *fp)
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
 						if(fgets(& buffer[0], BUFFER_LENGTH, fp) == NULL) {
-								fprintf(stderr, "Reaches the end of file (stdin).\n");
+								fprintf(stderr, "Reaches the end of file (%s).\n", filepath);
 								UBSI_buffer_flush();
 								break;
 						}
@@ -230,7 +230,7 @@ void read_file_path()
 						continue;
 				}
 
-				read_log(log_fp);
+				read_log(log_fp, tmp);
 				fclose(log_fp);
 		}
 
@@ -395,7 +395,7 @@ int main(int argc, char *argv[]) {
 		if(socketRead) socket_read(programName);
 		else if(fileRead) read_file_path();
 		else if(dirRead) dir_read();
-		else read_log(stdin);
+		else read_log(stdin, "stdin");
 
 		return 0;
 }
