@@ -19,7 +19,6 @@
  */
 package spade.storage;
 
-import java.io.File;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,7 +34,6 @@ import java.util.logging.Logger;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FileUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
 import com.bbn.tc.schema.avro.AbstractObject;
@@ -54,13 +52,13 @@ import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
 import com.bbn.tc.schema.avro.TCCDMDatum;
 import com.bbn.tc.schema.avro.UUID;
+import com.bbn.tc.schema.avro.UnitDependency;
 import com.bbn.tc.schema.avro.UnnamedPipeObject;
 import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Settings;
-import spade.reporter.audit.ArtifactIdentifier;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.vertex.prov.Agent;
 
@@ -74,58 +72,20 @@ import spade.vertex.prov.Agent;
  *
  * We also assume that when an OPM/PROV edge is received, we can map it to an event and edges to other
  * entity records that have already been serialized and published to Kafka.
+ * 
+ * How are events handled:
+ * 
+ * It is assumed that all edges for the same event are received back to back. All edges for the same event id and time
+ * are buffered until all the edges for the current event are received. Once received those edges are processed together
+ * to create the CDM event. In some special cases like setuid, update, and etc the group of edges received for a single 
+ * event need to be processed individually and that is treated like a special case. All the special cases should be in
+ * the function: {@link #processEdgesWrapper(List) processEdgesWrapper}
  *
  * @author Armando Caro
  * @author Hassaan Irshad
  * @author Ashish Gehani
  */
 public class CDM extends Kafka {
-
-	private final String ARTIFACT = "Artifact",
-			BEEP = "beep",
-			COMMANDLINE = "commandline",
-			COUNT = "count",
-			CWD = "cwd",
-			DESTINATION_ADDRESS = "destination address",
-			DESTINATION_PORT = "destination port",
-			EGID = "egid",
-			END_TIME = "end time",
-			EPOCH = "epoch",
-			EVENT_ID = "event id",
-			EUID = "euid",
-			EXECVE = "execve",
-			FSGID = "fsgid",
-			FSUID = "fsuid",
-			GID = "gid",
-			ITERATION = "iteration",
-			MEMORY_ADDRESS = "memory address",
-			NAME = "name",
-			OPERATION = "operation",
-			PATH = "path",
-			PID = "pid",
-			PPID = "ppid",
-			PROC = "/proc",
-			PROCESS = "Process",
-			SETUID = "setuid",
-			SGID = "sgid",
-			SIZE = "size",
-			SOURCE = "source",
-			SOURCE_ADDRESS = "source address",
-			SOURCE_DEV_AUDIT = "/dev/audit",
-			SOURCE_PORT = "source port",
-			START_TIME = "start time",
-			SUBTYPE = "subtype",
-			SUID = "suid",
-			TIME = "time",
-			TYPE = "type",
-			UID = "uid",
-			UNIT = "unit",
-			UPDATE = "update",
-			USED = "Used",
-			VERSION = "version",
-			WAS_DERIVED_FROM = "WasDerivedFrom",
-			WAS_GENERATED_BY = "WasGeneratedBy",
-			WAS_TRIGGERED_BY = "WasTriggeredBy";
 
 	private final Logger logger = Logger.getLogger(CDM.class.getName());
 
@@ -136,11 +96,13 @@ public class CDM extends Kafka {
 	/**
 	 * Array of integers for an Agent as in Audit OPM model
 	 */
-	private final String[] agentAnnotations = {UID, EUID, SUID, FSUID, GID, EGID, SGID, FSGID};
+	private final String[] agentAnnotations = {OPMConstants.AGENT_UID, OPMConstants.AGENT_EUID, 
+			OPMConstants.AGENT_SUID, OPMConstants.AGENT_FSUID, OPMConstants.AGENT_GID, 
+			OPMConstants.AGENT_EGID, OPMConstants.AGENT_SGID, OPMConstants.AGENT_FSGID};
 	/**
 	 * Flag whose value is set from arguments to decide whether to output hashcode and hex or raw bytes
 	 */
-	private boolean hexUUIDs = false;
+	private boolean hexUUIDs = true;
 	/**
 	 * A map used to keep track of:
 	 * 1) To keep track of parent subject UUIDs, equivalent to ppid
@@ -163,72 +125,121 @@ public class CDM extends Kafka {
 	/**
 	 * A map from the Set of edges needed for each event to complete.
 	 */
-	private Map<Set<TypeOperation>, EventType> rulesToEventType = null;
-
-
+	private Map<Set<TypeOperation>, EventType> rulesToEventType = 
+			new HashMap<Set<TypeOperation>, EventType>();
+	
 	/**
-	 * Reads the lines passed as list and parses them to build a map using which 
-	 * edge type and edge operation combinations are used to map them to CDM EventType
-	 * enum
-	 *  
-	 * Format of line: <edge type>:<edge operation> & <edge type>:<edge operation>, CDM EventType enum  
-	 *  
-	 * Returns null if any error in processing the lines
-	 *  
-	 * @param lines list of lines as in the config file
-	 * @return null/Map from type operation rule to event type
+	 * Rules from OPM edges types and operations to event types in CDM
 	 */
-	public Map<Set<TypeOperation>, EventType> getEventRules(List<String> lines){
-		if(lines != null){
-			Map<Set<TypeOperation>, EventType> rules = new HashMap<Set<TypeOperation>, EventType>();
-			for(String line : lines){
-				if(line == null){
-					logger.log(Level.SEVERE, "Null line");
-				}else{
-					line = line.trim();
-					if(!line.startsWith("#")){
-						String [] ruleEventType = line.split(",");
-						if(ruleEventType.length == 2){
-							String rule = ruleEventType[0];
-							String eventTypeString = ruleEventType[1].trim();
-							EventType eventType = null;
-							try{
-								eventType = EventType.valueOf(eventTypeString);
-							}catch(Exception e){
-								logger.log(Level.SEVERE, line, e);
-								return null;
-							}
-							String ruleTokens[] = rule.split("&");
-							Set<TypeOperation> typeOperations = new HashSet<TypeOperation>();
-							for(String ruleToken : ruleTokens){
-								String[] typeOperation = ruleToken.split(":");
-								if(typeOperation.length == 2){
-									String type = typeOperation[0].trim();
-									String operation = typeOperation[1].trim();
-									typeOperations.add(new TypeOperation(type, operation));
-								}else{
-									logger.log(Level.SEVERE, "Malformed line "+line);
-									return null;
-								}
-							}
-							if(!typeOperations.isEmpty()){
-								rules.put(typeOperations, eventType);
-							}else{
-								logger.log(Level.SEVERE, "Empty rule not allowed");
-								return null;
-							}
-						}else{
-							logger.log(Level.SEVERE, "Malformed line "+line);
-							return null;
-						}
-					}
-				}
-			}
-			return rules;
-		}else{
-			logger.log(Level.SEVERE, "NULL list of lines for rules");
+	private void populateEventRules(){
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXIT)), 
+						EventType.EVENT_EXIT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_FORK)), 
+						EventType.EVENT_FORK);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_CLONE)), 
+						EventType.EVENT_CLONE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)), 
+						EventType.EVENT_EXECUTE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT)), 
+						EventType.EVENT_UNIT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CLOSE)), 
+						EventType.EVENT_CLOSE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_UNLINK)), 
+						EventType.EVENT_UNLINK);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_OPEN)), 
+						EventType.EVENT_OPEN);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CREATE)), 
+						EventType.EVENT_CREATE_OBJECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_WRITE)), 
+						EventType.EVENT_WRITE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_SEND)), 
+						EventType.EVENT_SENDMSG);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_MPROTECT)), 
+						EventType.EVENT_MPROTECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CONNECT)), 
+						EventType.EVENT_CONNECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_TRUNCATE)), 
+						EventType.EVENT_TRUNCATE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CHMOD)), 
+						EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_CREATE)), 
+						EventType.EVENT_CREATE_OBJECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_CLOSE)), 
+						EventType.EVENT_CLOSE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_LOAD)), 
+						EventType.EVENT_LOADLIBRARY);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_OPEN)), 
+						EventType.EVENT_OPEN);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_READ)), 
+						EventType.EVENT_READ);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_RECV)), 
+						EventType.EVENT_RECVMSG);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_ACCEPT)), 
+						EventType.EVENT_ACCEPT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+						OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE))), 
+						EventType.EVENT_MMAP);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_MMAP),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_MMAP);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_RENAME),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_RENAME, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_RENAME, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_RENAME);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_LINK),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_LINK);
+		// A special value for Operation in class TypeOperation and means that it can be anything
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, TypeOperation.ANY_OPERATION)), 
+						EventType.EVENT_UPDATE);
+		
+	}
+	
+	private Set<TypeOperation> getSet(TypeOperation... typeOperations){
+		Set<TypeOperation> set = new HashSet<TypeOperation>();
+		for(TypeOperation typeOperation : typeOperations){
+			set.add(typeOperation);
 		}
-		return null;
+		return set;
 	}
 
 	private void publishEvent(EventType eventType, AbstractEdge edge, AbstractVertex actingProcess, 
@@ -236,22 +247,23 @@ public class CDM extends Kafka {
 
 		if(eventType == null || edge == null || actingProcess == null || actedUpon1 == null){
 			logger.log(Level.WARNING, "Missing arguments: eventType={0}, "
-					+ "edge={1}, actingProcess{2}, actedUpon1={3}", new Object[]{
+					+ "edge={1}, actingProcess={2}, actedUpon1={3}", new Object[]{
 							eventType, edge, actingProcess, actedUpon1
 			});
 		}else{
-			InstrumentationSource source = getInstrumentationSource(edge.getAnnotation(SOURCE));
+			InstrumentationSource source = getInstrumentationSource(edge.getAnnotation(OPMConstants.SOURCE));
 
 			UUID uuid = getUuid(edge);
-			Long sequence = CommonFunctions.parseLong(edge.getAnnotation(EVENT_ID), 0L);
-			Integer threadId = CommonFunctions.parseInt(actingProcess.getAnnotation(PID), null);
+			Long sequence = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_EVENT_ID), 0L);
+			Integer threadId = CommonFunctions.parseInt(actingProcess.getAnnotation(OPMConstants.PROCESS_PID), null);
 			UUID subjectUUID = getUuid(actingProcess);
 			UUID predicateObjectUUID = getUuid(actedUpon1);
-			String predicateObjectPath = actedUpon1 != null ? actedUpon1.getAnnotation(PATH) : null;
+			String predicateObjectPath = actedUpon1 != null ? actedUpon1.getAnnotation(OPMConstants.ARTIFACT_PATH) : null;
 			UUID predicateObject2UUID = getUuid(actedUpon2);
-			String predicateObject2Path = actedUpon2 != null ? actedUpon2.getAnnotation(PATH) : null;
-			Long timestampNanos = convertTimeToNanoseconds(sequence, edge.getAnnotation(TIME), 0L);
-			Long size = CommonFunctions.parseLong(edge.getAnnotation(SIZE), null);
+			String predicateObject2Path = actedUpon2 != null ? actedUpon2.getAnnotation(OPMConstants.ARTIFACT_PATH) : null;
+			Long timestampNanos = convertTimeToNanoseconds(sequence, edge.getAnnotation(OPMConstants.EDGE_TIME), 0L);
+			Long size = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_SIZE), null);
+			Long location = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_OFFSET), null);
 
 			// validation of mandatory values
 			if(uuid == null || threadId == null || subjectUUID == null 
@@ -262,11 +274,14 @@ public class CDM extends Kafka {
 						new Object[]{uuid, threadId, subjectUUID, predicateObjectUUID, source});
 			}else{
 
+				// + Adding all annotations to the properties map that have not been added already 
+				// directly to the event
 				Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 				for(String key : edge.getAnnotations().keySet()){
-					if(!key.equals(EVENT_ID) && !key.equals(TIME) 
-							&& !key.equals(SOURCE) && !key.equals(PID) && 
-							!key.equals(OPERATION) && !key.equals(SIZE)){
+					if(!key.equals(OPMConstants.EDGE_EVENT_ID) && !key.equals(OPMConstants.EDGE_TIME) 
+							&& !key.equals(OPMConstants.SOURCE) && !key.equals(OPMConstants.EDGE_PID) && 
+							!key.equals(OPMConstants.EDGE_OPERATION) && !key.equals(OPMConstants.EDGE_SIZE)
+							&& !key.equals(OPMConstants.TYPE) && !key.equals(OPMConstants.EDGE_OFFSET)){
 						properties.put(key, edge.getAnnotation(key));
 					}
 				}
@@ -274,7 +289,7 @@ public class CDM extends Kafka {
 				Event event = new Event(uuid, 
 						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, predicateObjectPath, 
 						predicateObject2UUID, predicateObject2Path, timestampNanos, null, null, 
-						null, size, null, properties);
+						location, size, null, properties);
 
 				publishRecords(Arrays.asList(buildTcCDMDatum(event, source)));
 
@@ -286,9 +301,9 @@ public class CDM extends Kafka {
 
 		if(isProcessVertex(process)){
 
-			String pid = process.getAnnotation(PID);
+			String pid = process.getAnnotation(OPMConstants.PROCESS_PID);
 
-			InstrumentationSource subjectSource = getInstrumentationSource(process.getAnnotation(SOURCE));
+			InstrumentationSource subjectSource = getInstrumentationSource(process.getAnnotation(OPMConstants.SOURCE));
 
 			if(subjectSource != null){
 				
@@ -338,11 +353,11 @@ public class CDM extends Kafka {
 			UUID subjectUUID = getUuid(process);
 
 			SubjectType subjectType = SubjectType.SUBJECT_PROCESS; // default
-			if(process.getAnnotation(ITERATION) != null){
+			if(process.getAnnotation(OPMConstants.PROCESS_ITERATION) != null){
 				subjectType = SubjectType.SUBJECT_UNIT; // if a unit
 			}
 
-			String pidString = process.getAnnotation(PID);
+			String pidString = process.getAnnotation(OPMConstants.PROCESS_PID);
 			Integer pid = CommonFunctions.parseInt(pidString, null);
 			if(pid == null){
 				logger.log(Level.WARNING, "Invalid pid {0} for Process {1}", new Object[]{
@@ -351,9 +366,9 @@ public class CDM extends Kafka {
 			}else{
 
 				// Mandatory but if missing then default value is 0
-				Long startTime = convertTimeToNanoseconds(null, process.getAnnotation(START_TIME), 0L);
+				Long startTime = convertTimeToNanoseconds(null, process.getAnnotation(OPMConstants.PROCESS_START_TIME), 0L);
 
-				String unitIdAnnotation = process.getAnnotation(UNIT);
+				String unitIdAnnotation = process.getAnnotation(OPMConstants.PROCESS_UNIT);
 				Integer unitId = CommonFunctions.parseInt(unitIdAnnotation, null);
 
 				// meaning that the unit annotation was non-numeric.
@@ -363,7 +378,7 @@ public class CDM extends Kafka {
 							new Object[]{unitIdAnnotation, process});
 				}else{
 
-					String iterationAnnotation = process.getAnnotation(ITERATION);
+					String iterationAnnotation = process.getAnnotation(OPMConstants.PROCESS_ITERATION);
 					Integer iteration = CommonFunctions.parseInt(iterationAnnotation, null);
 
 					if(iteration == null && iterationAnnotation != null){
@@ -371,7 +386,7 @@ public class CDM extends Kafka {
 								new Object[]{iterationAnnotation, process});
 					}else{
 
-						String countAnnotation = process.getAnnotation(COUNT);
+						String countAnnotation = process.getAnnotation(OPMConstants.PROCESS_COUNT);
 						Integer count = CommonFunctions.parseInt(countAnnotation, null);
 
 						if(count == null && countAnnotation != null){
@@ -379,13 +394,13 @@ public class CDM extends Kafka {
 									new Object[]{countAnnotation, process});
 						}else{
 
-							String cmdLine = process.getAnnotation(COMMANDLINE);
-							String ppid = process.getAnnotation(PPID);
+							String cmdLine = process.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE);
+							String ppid = process.getAnnotation(OPMConstants.PROCESS_PPID);
 							
 							Map<CharSequence, CharSequence> properties = new HashMap<>();
-							addIfNotNull(NAME, process.getAnnotations(), properties);
-							addIfNotNull(CWD, process.getAnnotations(), properties);
-							properties.put(PPID, ppid);
+							addIfNotNull(OPMConstants.PROCESS_NAME, process.getAnnotations(), properties);
+							addIfNotNull(OPMConstants.PROCESS_CWD, process.getAnnotations(), properties);
+							properties.put(OPMConstants.PROCESS_PPID, ppid);
 
 							Subject subject = new Subject(subjectUUID, subjectType, pid, 
 									pidSubjectUUID.get(ppid), principalUUID, startTime, 
@@ -415,25 +430,25 @@ public class CDM extends Kafka {
 			AbstractVertex agentVertex = getAgentFromProcess(process);
 
 			UUID uuid = getUuid(agentVertex);
-			String userId = agentVertex.getAnnotation(UID);
+			String userId = agentVertex.getAnnotation(OPMConstants.AGENT_UID);
 			if(userId != null){
 				Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-				addIfNotNull(EUID, agentVertex.getAnnotations(), properties);
-				addIfNotNull(SUID, agentVertex.getAnnotations(), properties);
-				addIfNotNull(FSUID, agentVertex.getAnnotations(), properties);
+				addIfNotNull(OPMConstants.AGENT_EUID, agentVertex.getAnnotations(), properties);
+				addIfNotNull(OPMConstants.AGENT_SUID, agentVertex.getAnnotations(), properties);
+				addIfNotNull(OPMConstants.AGENT_FSUID, agentVertex.getAnnotations(), properties);
 
 				List<CharSequence> groupIds = new ArrayList<CharSequence>();
-				if(agentVertex.getAnnotation(GID) != null){
-					groupIds.add(agentVertex.getAnnotation(GID));
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_GID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_GID));
 				}
-				if(agentVertex.getAnnotation(EGID) != null){
-					groupIds.add(agentVertex.getAnnotation(EGID));
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_EGID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_EGID));
 				}
-				if(agentVertex.getAnnotation(SGID) != null){
-					groupIds.add(agentVertex.getAnnotation(SGID));
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_SGID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_SGID));
 				}
-				if(agentVertex.getAnnotation(FSGID) != null){
-					groupIds.add(agentVertex.getAnnotation(FSGID));
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_FSGID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_FSGID));
 				}
 				Principal principal = new Principal(uuid, PrincipalType.PRINCIPAL_LOCAL, 
 						userId, null, groupIds, properties);
@@ -451,7 +466,7 @@ public class CDM extends Kafka {
 	// Argument must be of type process and must be ensured by the caller
 	private AbstractVertex getAgentFromProcess(AbstractVertex process){
 		AbstractVertex agentVertex = new Agent();
-		agentVertex.addAnnotation(SOURCE, SOURCE_DEV_AUDIT); //Always /dev/audit unless changed in Audit.java
+		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT); //Always /dev/audit unless changed in Audit.java
 		for(String agentAnnotation : agentAnnotations){
 			String agentAnnotationValue = process.getAnnotation(agentAnnotation);
 			if(agentAnnotation != null){ // some are optional so check for null
@@ -462,12 +477,12 @@ public class CDM extends Kafka {
 	}
 
 	private boolean publishArtifact(AbstractVertex vertex) {
-		InstrumentationSource source = getInstrumentationSource(vertex.getAnnotation(SOURCE));
+		InstrumentationSource source = getInstrumentationSource(vertex.getAnnotation(OPMConstants.SOURCE));
 		if(source == null){
 			return false;
 		}else{
 			// Make sure all artifacts without epoch are being treated fine. 
-			String epochAnnotation = vertex.getAnnotation(EPOCH);
+			String epochAnnotation = vertex.getAnnotation(OPMConstants.ARTIFACT_EPOCH);
 			Integer epoch = CommonFunctions.parseInt(epochAnnotation, null);
 			// Non-numeric value for epoch
 			if(epoch == null && epochAnnotation != null){
@@ -477,59 +492,57 @@ public class CDM extends Kafka {
 
 				Object tccdmObject = null;
 
-				String artifactType = vertex.getAnnotation(SUBTYPE);
-				if(ArtifactIdentifier.SUBTYPE_FILE.equals(artifactType)){
+				String artifactType = vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
+				if(OPMConstants.SUBTYPE_FILE.equals(artifactType)){
 
 					tccdmObject = createFileObject(getUuid(vertex), 
-							vertex.getAnnotation(PATH), vertex.getAnnotation(VERSION), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
 							epoch, FileObjectType.FILE_OBJECT_FILE);
 
-				}else if(ArtifactIdentifier.SUBTYPE_SOCKET.equals(artifactType)){
+				}else if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
 
-					String pathAnnotation = vertex.getAnnotation(PATH);
+					String srcAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS);
+					String srcPort = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
+					String destAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
+					String destPort = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
+					String protocolName = vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL); //can be null
+					Integer protocol = OPMConstants.getProtocolNumber(protocolName);
 
-					if(pathAnnotation == null){ // is network socket
+					srcAddress = srcAddress == null ? "" : srcAddress;
+					destAddress = destAddress == null ? "" : destAddress;
+					srcPort = srcPort == null ? "0" : srcPort;
+					destPort = srcPort == null ? "0" : destPort;
 
-						String srcAddress = vertex.getAnnotation(SOURCE_ADDRESS);
-						String srcPort = vertex.getAnnotation(SOURCE_PORT);
-						String destAddress = vertex.getAnnotation(DESTINATION_ADDRESS);
-						String destPort = vertex.getAnnotation(DESTINATION_PORT);
+					Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
-						srcAddress = srcAddress == null ? "" : srcAddress;
-						destAddress = destAddress == null ? "" : destAddress;
-						srcPort = srcPort == null ? "0" : srcPort;
-						destPort = srcPort == null ? "0" : destPort;
+					AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
-						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-						addIfNotNull(VERSION, vertex.getAnnotations(), properties);
+					tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
+							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
+							destAddress, CommonFunctions.parseInt(destPort, 0), protocol, null);
 
-						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
-
-						tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
-								srcAddress, CommonFunctions.parseInt(srcPort, 0), 
-								destAddress, CommonFunctions.parseInt(destPort, 0), null, null);
-
-
-					}else{ // is unix socket
-
-						tccdmObject = createFileObject(getUuid(vertex), 
-								vertex.getAnnotation(PATH), vertex.getAnnotation(VERSION), 
-								epoch, FileObjectType.FILE_OBJECT_UNIX_SOCKET);
-
-					}
-
-				}else if(ArtifactIdentifier.SUBTYPE_MEMORY.equals(artifactType)){
+				}else if(OPMConstants.SUBTYPE_UNIX_SOCKET.equals(artifactType)){
+					
+					tccdmObject = createFileObject(getUuid(vertex), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
+							epoch, FileObjectType.FILE_OBJECT_UNIX_SOCKET);
+					
+				}else if(OPMConstants.SUBTYPE_MEMORY_ADDRESS.equals(artifactType)){
 
 					try{
-						Long memoryAddress = Long.parseLong(vertex.getAnnotation(MEMORY_ADDRESS), 16);
+						Long memoryAddress = Long.parseLong(vertex.getAnnotation(OPMConstants.ARTIFACT_MEMORY_ADDRESS), 16);
 						Long size = null;
-						if(vertex.getAnnotation(SIZE) != null && !vertex.getAnnotation(SIZE).trim().isEmpty()){
-							size = Long.parseLong(vertex.getAnnotation(SIZE), 16);
+						if(vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE) != null && 
+								!vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE).trim().isEmpty()){
+							size = Long.parseLong(vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE), 16);
 						}
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-						addIfNotNull(VERSION, vertex.getAnnotations(), properties);
-						addIfNotNull(PID, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
 
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
@@ -537,82 +550,54 @@ public class CDM extends Kafka {
 
 					}catch(NumberFormatException nfe){
 						logger.log(Level.WARNING, "Failed to parse memory address or size: "
-								+ "" + vertex.getAnnotation(MEMORY_ADDRESS) + ", " + vertex.getAnnotation(SIZE), nfe);
+								+ "" + vertex.getAnnotation(OPMConstants.ARTIFACT_MEMORY_ADDRESS) + ", " + 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE), nfe);
 						return false;
 					}catch(Exception e){
 						logger.log(Level.SEVERE, null, e);
 						return false;
 					}
 
-				}else if(ArtifactIdentifier.SUBTYPE_PIPE.equals(artifactType)){
+				}else if(OPMConstants.SUBTYPE_NAMED_PIPE.equals(artifactType)){
 
-					String pid = vertex.getAnnotation(PID);
+					tccdmObject = createFileObject(getUuid(vertex), vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, FileObjectType.FILE_OBJECT_NAMED_PIPE);
 
-					if(pid == null){ // named pipe
+				}else if(OPMConstants.SUBTYPE_UNNAMED_PIPE.equals(artifactType)){
 
-						tccdmObject = createFileObject(getUuid(vertex), vertex.getAnnotation(PATH), 
-								vertex.getAnnotation(VERSION), epoch, FileObjectType.FILE_OBJECT_NAMED_PIPE);
+					Integer sourceFileDescriptor = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_READ_FD), null);
+					Integer sinkFileDescriptor = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_WRITE_FD), null);
 
-					}else{ // unnamed pipe
-
-						try{
-
-							String path = vertex.getAnnotation(PATH); // pattern -> pipe[<read_fd>-<write_fd>]
-
-							Integer sourceFileDescriptor = CommonFunctions.parseInt(path.substring(path.indexOf('[') + 1, path.indexOf('-')), null);
-							Integer sinkFileDescriptor = CommonFunctions.parseInt(path.substring(path.indexOf('-') + 1, path.indexOf(']')), null);
-
-							if(sourceFileDescriptor == null || sinkFileDescriptor == null){
-								throw new Exception("Missing read FD or write FD in an unnamed pipe artifact");
-							}else{
-								Map<CharSequence, CharSequence> properties = new HashMap<>();
-								addIfNotNull(PID, vertex.getAnnotations(), properties);
-								addIfNotNull(VERSION, vertex.getAnnotations(), properties);
-
-								AbstractObject baseObject = new AbstractObject(null, epoch, properties);
-
-								tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, sourceFileDescriptor, sinkFileDescriptor);
-							}
-
-						}catch(Exception e){
-							logger.log(Level.WARNING, "Error parsing path for '"+vertex+"' for an unnamed pipe artifact", e);
-							return false;
-						}
-
-					}
-
-				}else if(ArtifactIdentifier.SUBTYPE_UNKNOWN.equals(artifactType)){
-
-					String path = vertex.getAnnotation(PATH);
-					if(path == null){
-						logger.log(Level.WARNING, "Missing 'path' annotation in {0}", new Object[]{vertex});
+					if(sourceFileDescriptor == null || sinkFileDescriptor == null){
+						logger.log(Level.WARNING, "Error parsing src/sink fds in artifact {0}", new Object[]{vertex});
 						return false;
 					}else{
-						String tokens[] = path.split("/");
-						if(tokens.length < 5){
-							logger.log(Level.WARNING, "Malformed 'path' annotation for {0}", new Object[]{vertex});
-							return false;
-						}else{
-							String pid = tokens[2];
-							String fdString = tokens[4];
-							Integer fd = CommonFunctions.parseInt(fdString, null);
+						Map<CharSequence, CharSequence> properties = new HashMap<>();
+						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
-							if(fd == null && fdString != null){
-								logger.log(Level.WARNING, "FD {0} must be of type INT", new Object[]{fd});
-								return false;
-							}else{
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
-								Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-								properties.put(PID, pid);
-								addIfNotNull(VERSION, vertex.getAnnotations(), properties);	                    		
+						tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, sourceFileDescriptor, sinkFileDescriptor);
+					}
+					
+				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
 
-								AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+					Integer pid = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_PID), null);
+					Integer fd = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_FD), null);
+					if(fd == null || pid == null){
+						logger.log(Level.WARNING, "Error parsing pid/fd in artifact {0}", new Object[]{vertex});
+						return false;
+					}else{
 
-								tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
-										SrcSinkType.SOURCE_SINK_UNKNOWN, fd);
-							}
+						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
 
-						}
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+
+						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
+								SrcSinkType.SOURCE_SINK_UNKNOWN, fd);
 					}
 
 				}else{
@@ -645,10 +630,10 @@ public class CDM extends Kafka {
 
 		Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 		if(path != null){
-			properties.put(PATH, path);
+			properties.put(OPMConstants.ARTIFACT_PATH, path);
 		}
 		if(version != null){
-			properties.put(VERSION, version);
+			properties.put(OPMConstants.ARTIFACT_VERSION, version);
 		}
 
 		AbstractObject baseObject = new AbstractObject(null, epoch, properties);
@@ -667,7 +652,7 @@ public class CDM extends Kafka {
 	 * @return SrcSinkObject instance
 	 */
 	private void publishStreamMarkerObject(boolean isStart){
-		String annotationName = isStart ? START_TIME : END_TIME;
+		String annotationName = isStart ? "start time" : "end time";
 
 		Map<CharSequence, CharSequence> properties = new HashMap<>();
 		if(!isStart){
@@ -752,33 +737,11 @@ public class CDM extends Kafka {
 		}// else continue
 
 		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
-		if("true".equals(argumentsMap.get("hexUUIDs"))){
-			hexUUIDs = true;
+		if("false".equals(argumentsMap.get("hexUUIDs"))){
+			hexUUIDs = false;
 		}
 
-		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
-		try{
-			File configFile = new File(configFilePath);
-			List<String> ruleLines = new ArrayList<String>();
-			List<String> configLines = FileUtils.readLines(configFile);
-			boolean rulesSectionStarted = false;
-			for(String configLine : configLines){
-				if(configLine.contains("### EVENT rules")){
-					rulesSectionStarted = true;
-				}
-				if(rulesSectionStarted && !configLine.startsWith("#")){
-					ruleLines.add(configLine);
-				}
-			}
-
-			rulesToEventType = getEventRules(ruleLines);
-			if(rulesToEventType == null || rulesToEventType.size() == 0){
-				return false;
-			}    		
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read config file", e);
-			return false;
-		}
+		populateEventRules();
 
 		publishStreamMarkerObject(true);
 
@@ -794,17 +757,21 @@ public class CDM extends Kafka {
 	 */
 	@Override
 	public boolean putVertex(AbstractVertex incomingVertex) {
-		if(incomingVertex != null){
-			String type = incomingVertex.type();
-
-			if(isProcessVertex(incomingVertex)){
-				return publishSubjectAndPrincipal(incomingVertex);
-			}else if(ARTIFACT.equals(type)){
-				return publishArtifact(incomingVertex);
-			}else{
-				logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
+		try{
+			if(incomingVertex != null){
+				String type = incomingVertex.type();
+	
+				if(isProcessVertex(incomingVertex)){
+					return publishSubjectAndPrincipal(incomingVertex);
+				}else if(OPMConstants.ARTIFACT.equals(type)){
+					return publishArtifact(incomingVertex);
+				}else{
+					logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
+				}
+	
 			}
-
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
 		}
 		return false;
 	}
@@ -825,32 +792,37 @@ public class CDM extends Kafka {
 
 		// ASSUMPTION that all edges for the same event are contiguously sent (Audit follows this)
 
-		if(edge != null){
-			SimpleEntry<String, String> newEdgeTimeEventId = getTimeEventId(edge);
-
-			if(newEdgeTimeEventId != null){
-
-				if(lastTimeEventId == null){
-					lastTimeEventId = newEdgeTimeEventId;
-				}
-
-				// handles the first edge case also
-				if(lastTimeEventId.equals(newEdgeTimeEventId)){
-					currentEventEdges.add(edge);
+		try{
+			if(edge != null){
+				SimpleEntry<String, String> newEdgeTimeEventId = getTimeEventId(edge);
+	
+				if(newEdgeTimeEventId != null){
+	
+					if(lastTimeEventId == null){
+						lastTimeEventId = newEdgeTimeEventId;
+					}
+	
+					// handles the first edge case also
+					if(lastTimeEventId.equals(newEdgeTimeEventId)){
+						currentEventEdges.add(edge);
+					}else{
+						// new time,eventid so flush the current edges and move to the next
+						processEdgesWrapper(currentEventEdges);
+						lastTimeEventId = newEdgeTimeEventId;
+						currentEventEdges.clear();
+						currentEventEdges.add(edge);
+					}
+	
+					return true;
 				}else{
-					// new time,eventid so flush the current edges and move to the next
-					processEdgesWrapper(currentEventEdges);
-					lastTimeEventId = newEdgeTimeEventId;
-					currentEventEdges.clear();
-					currentEventEdges.add(edge);
+					return false;
 				}
-
-				return true;
+	
 			}else{
 				return false;
 			}
-
-		}else{
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
 			return false;
 		}
 	}
@@ -862,17 +834,19 @@ public class CDM extends Kafka {
 		// If execve or setuid then multiple edges in the same time,eventid 
 		// but need to process them separately
 		if((edgesContainTypeOperation(edges, 
-				new TypeOperation(WAS_TRIGGERED_BY, EXECVE)))
+				new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_LOAD))
+				|| edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)))
 				|| (edgesContainTypeOperation(edges, 
-						new TypeOperation(WAS_TRIGGERED_BY, SETUID)))){
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))){
 			processIndividually = true;
 		}else if(edgesContainTypeOperation(edges,
-				new TypeOperation(WAS_DERIVED_FROM, UPDATE))){
+				new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE))){
 			// need to process the WasGeneratedBy edge first
 			// and then process WasGeneratedBy and WasDerivedFrom together
 			AbstractEdge generatedByEdge = null;
 			for(AbstractEdge edge : edges){
-				if(WAS_GENERATED_BY.equals(edge.getAnnotation(TYPE))){
+				if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
 					generatedByEdge = edge;
 				}
 			}
@@ -883,6 +857,30 @@ public class CDM extends Kafka {
 						new Object[]{
 								currentEventEdges
 						});
+			}
+		}else if(edgesContainTypeOperation(edges, 
+				new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT_DEPENDENCY))){
+			// very special case. ah!
+			// We can get operation=unit edges along with operation=unit dependency edges
+			// Processing unit dependency edges individually here because they have no event type
+			// Then sending all operation=unit edges (if any) ahead to be processed individually
+			List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
+			for(int a = edgesCopy.size() - 1; a> -1; a--){
+				AbstractEdge edge = edgesCopy.get(a);
+				if(edge.getAnnotation(OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UNIT_DEPENDENCY)
+						&& edge.getAnnotation(OPMConstants.TYPE).equals(OPMConstants.WAS_TRIGGERED_BY)){
+					AbstractVertex acting = edge.getDestinationVertex();
+					AbstractVertex dependent = edge.getSourceVertex();
+					UnitDependency unitDependency = new UnitDependency(getUuid(acting), getUuid(dependent));
+					publishRecords(Arrays.asList(buildTcCDMDatum(unitDependency, InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)));
+					edgesCopy.remove(a);
+				}
+			}
+			if(edgesCopy.isEmpty()){
+				return;
+			}else{
+				processIndividually = true;
+				edges = edgesCopy;
 			}
 		}
 		
@@ -923,8 +921,8 @@ public class CDM extends Kafka {
 	private boolean edgesContainTypeOperation(List<AbstractEdge> edges, TypeOperation typeOperation){
 		if(edges != null){
 			for(AbstractEdge edge : edges){
-				if(typeOperation.getType().equals(edge.getAnnotation(TYPE))
-						&& typeOperation.getOperation().equals(edge.getAnnotation(OPERATION))){
+				if(typeOperation.getType().equals(edge.getAnnotation(OPMConstants.TYPE))
+						&& typeOperation.getOperation().equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
 					return true;
 				}
 			}
@@ -945,14 +943,14 @@ public class CDM extends Kafka {
 			AbstractVertex actingVertex = null;
 			AbstractEdge edgeForEvent = null;
 			EventType eventType = getEventType(edges);
-
+			
 			if(edges.size() == 1){
 				edgeForEvent = edges.get(0);
 				if(edgeForEvent != null){
 					String edgeType = edgeForEvent.type();
-					String edgeOperation = edgeForEvent.getAnnotation(OPERATION);
+					String edgeOperation = edgeForEvent.getAnnotation(OPMConstants.EDGE_OPERATION);
 
-					if(WAS_TRIGGERED_BY.equals(edgeType)){
+					if(OPMConstants.WAS_TRIGGERED_BY.equals(edgeType)){
 
 						actingVertex = edgeForEvent.getDestinationVertex();
 						actedUpon1 = edgeForEvent.getSourceVertex();
@@ -962,18 +960,19 @@ public class CDM extends Kafka {
 						// if process A creates a process C, then in putVertex the process
 						// C would get the pid for A' instead of A as it's parentProcessUUID
 						// Not doing this for UNIT vertices
-						if(SETUID.equals(edgeOperation) && actedUpon1.getAnnotation(ITERATION) == null){
+						if(OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
+								&& actedUpon1.getAnnotation(OPMConstants.PROCESS_ITERATION) == null){
 							// The acted upon vertex is the new containing process for the pid. 
 							// Excluding units from coming in here
-							pidSubjectUUID.put(actedUpon1.getAnnotation(PID), getUuid(actedUpon1));
+							pidSubjectUUID.put(actedUpon1.getAnnotation(OPMConstants.PROCESS_PID), getUuid(actedUpon1));
 						}
 						
-					}else if(WAS_GENERATED_BY.equals(edgeType)){// mmap_write here too in case of MAP_ANONYMOUS
+					}else if(OPMConstants.WAS_GENERATED_BY.equals(edgeType)){// 'mmap (write)' here too in case of MAP_ANONYMOUS
 
 						actingVertex = edgeForEvent.getDestinationVertex();
 						actedUpon1 = edgeForEvent.getSourceVertex();
 
-					}else if(USED.equals(edgeType)){
+					}else if(OPMConstants.USED.equals(edgeType)){
 
 						actingVertex = edgeForEvent.getSourceVertex();
 						actedUpon1 = edgeForEvent.getDestinationVertex();
@@ -987,12 +986,20 @@ public class CDM extends Kafka {
 				}
 			}else{
 
-				AbstractEdge twoArtifactsEdge = getFirstMatchedEdge(edges, TYPE, WAS_DERIVED_FROM);
-				AbstractEdge edgeWithProcess = getFirstMatchedEdge(edges, TYPE, WAS_GENERATED_BY);
+				AbstractEdge twoArtifactsEdge = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
+				AbstractEdge edgeWithProcess = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_GENERATED_BY);
 
 				if(edges.size() == 2 || edges.size() == 3){
 					// update (2), mmap(3), rename(3), link(3)
 					if(twoArtifactsEdge != null && edgeWithProcess != null){
+
+						// Add the protection to the WDF edge from the WGB edge (only for mmap)
+						if(twoArtifactsEdge.getAnnotation(OPMConstants.EDGE_OPERATION).
+								equals(OPMConstants.OPERATION_MMAP)){
+							twoArtifactsEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, 
+									edgeWithProcess.getAnnotation(OPMConstants.EDGE_PROTECTION));
+						}
+
 						edgeForEvent = twoArtifactsEdge;
 						actedUpon1 = twoArtifactsEdge.getDestinationVertex();
 						actedUpon2 = twoArtifactsEdge.getSourceVertex();
@@ -1011,7 +1018,7 @@ public class CDM extends Kafka {
 
 				// POST publishing things
 				if(eventType.equals(EventType.EVENT_EXIT)){
-					pidSubjectUUID.remove(actingVertex.getAnnotation(PID));
+					pidSubjectUUID.remove(actingVertex.getAnnotation(OPMConstants.PROCESS_PID));
 				}
 
 			}else{
@@ -1053,11 +1060,11 @@ public class CDM extends Kafka {
 	 * @return InstrumentationSource instance or null
 	 */
 	private InstrumentationSource getInstrumentationSource(String source){
-		if(SOURCE_DEV_AUDIT.equals(source)){
+		if(OPMConstants.SOURCE_AUDIT.equals(source)){
 			return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
-		}else if(PROC.equals(source)){	
+		}else if(OPMConstants.SOURCE_PROCFS.equals(source)){	
 			return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
-		}else if(BEEP.equals(source)){
+		}else if(OPMConstants.SOURCE_BEEP.equals(source)){
 			return InstrumentationSource.SOURCE_LINUX_BEEP_TRACE;
 		}else{
 			logger.log(Level.WARNING,
@@ -1082,9 +1089,10 @@ public class CDM extends Kafka {
 			if(time == null){
 				return defaultValue;
 			}
-			Double timeNanoseconds = Double.parseDouble(time);
-			timeNanoseconds = timeNanoseconds * 1000 * 1000 * 1000; //converting seconds to nanoseconds
-			return timeNanoseconds.longValue();
+			Double timeNanosecondsDouble = Double.parseDouble(time) * 1000; // Going to convert to long so multiply before
+			Long timeNanosecondsLong = timeNanosecondsDouble.longValue();
+			timeNanosecondsLong = timeNanosecondsLong * 1000 * 1000; //converting milliseconds to nanoseconds
+			return timeNanosecondsLong;
 		}catch(Exception e){
 			logger.log(Level.INFO,
 					"Time type is not Double: {0}. event id = {1}", new Object[]{time, eventId});
@@ -1116,7 +1124,7 @@ public class CDM extends Kafka {
 	 * @return true if type is Process else false
 	 */
 	private boolean isProcessVertex(AbstractVertex process){
-		return process != null && process.type().equals(PROCESS);
+		return process != null && process.type().equals(OPMConstants.PROCESS);
 	}
 
 	/**
@@ -1130,7 +1138,8 @@ public class CDM extends Kafka {
 	 */
 	private SimpleEntry<String, String> getTimeEventId(AbstractEdge edge){
 		if(edge != null){
-			return new SimpleEntry<String, String>(edge.getAnnotation(TIME), edge.getAnnotation(EVENT_ID));
+			return new SimpleEntry<String, String>(edge.getAnnotation(OPMConstants.EDGE_TIME), 
+					edge.getAnnotation(OPMConstants.EDGE_EVENT_ID));
 		}
 		return null;
 	}
@@ -1188,7 +1197,8 @@ public class CDM extends Kafka {
 		Set<TypeOperation> typesAndOperations = new HashSet<TypeOperation>();
 		if(edges != null){
 			for(AbstractEdge edge : edges){
-				typesAndOperations.add(new TypeOperation(edge.getAnnotation(TYPE), edge.getAnnotation(OPERATION)));
+				typesAndOperations.add(new TypeOperation(edge.getAnnotation(OPMConstants.TYPE), 
+						edge.getAnnotation(OPMConstants.EDGE_OPERATION)));
 			}
 		}
 		return typesAndOperations;
@@ -1272,6 +1282,7 @@ public class CDM extends Kafka {
  *
  */
 class TypeOperation{
+	public static final String ANY_OPERATION = "*";
 	private String type, operation;
 	public TypeOperation(String type, String operation){
 		this.type = type;
@@ -1287,7 +1298,7 @@ class TypeOperation{
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		//		result = prime * result + ((operation == null) ? 0 : operation.hashCode());
+		// Not using operation because it can have the special value -> '*'
 		result = prime * result + ((type == null) ? 0 : type.hashCode());
 		return result;
 	}
@@ -1305,7 +1316,7 @@ class TypeOperation{
 				return false;
 		} else if (!type.equals(other.type))
 			return false;
-		if("*".equals(operation) || "*".equals(other.operation)){
+		if(ANY_OPERATION.equals(operation) || ANY_OPERATION.equals(other.operation)){
 			return true;
 		}
 		if (operation == null) {

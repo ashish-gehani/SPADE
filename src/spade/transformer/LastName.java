@@ -23,25 +23,18 @@ import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 
 public class LastName extends AbstractTransformer{
 
 	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge, "operation").equals("rename") 
-					|| getAnnotationSafe(edge, "operation").equals("rename_read")
-					|| getAnnotationSafe(edge, "operation").equals("link") 
-					|| getAnnotationSafe(edge, "operation").equals("link_read")
-					|| getAnnotationSafe(edge, "operation").equals("symlink") 
-					|| getAnnotationSafe(edge, "operation").equals("symlink_read")){
+			String operation = getAnnotationSafe(edge, OPMConstants.EDGE_OPERATION);
+			if(OPMConstants.isMmapRenameLinkRead(operation) || OPMConstants.isMmapRenameLink(operation)){
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-//			if(getAnnotationSafe(newEdge, "operation").equals("link_newpath") 
-//					|| getAnnotationSafe(newEdge, "operation").equals("rename_newpath")){
-//				newEdge.addAnnotation("operation", "write");
-//			}
 			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
 				resultGraph.putVertex(newEdge.getSourceVertex());
 				resultGraph.putVertex(newEdge.getDestinationVertex());

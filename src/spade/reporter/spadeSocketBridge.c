@@ -169,6 +169,8 @@ void socket_read(char *programName)
 						break;
 				}
 
+				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
+
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
 						charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
@@ -191,6 +193,7 @@ void read_log(FILE *fp)
 		char buffer[BUFFER_LENGTH];
 		//FILE *fp = stdin;
 
+		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		do{
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);

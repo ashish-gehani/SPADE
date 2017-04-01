@@ -40,7 +40,7 @@ public abstract class IdentifierWithPath extends ArtifactIdentifier{
 	@Override
 	public Map<String, String> getAnnotationsMap(){
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put("path", path);
+		annotations.put(OPMConstants.ARTIFACT_PATH, path);
 		return annotations;
 	}
 	

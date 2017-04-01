@@ -25,32 +25,33 @@ import java.util.Map;
 
 public class NetworkSocketIdentifier extends ArtifactIdentifier {
 
-	private String sourceHost, sourcePort,
-					destinationHost, destinationPort,
+	private String localHost, localPort,
+					remoteHost, remotePort,
 					protocol;
 
-	public NetworkSocketIdentifier(String sourceHost, String sourcePort, String destinationHost, String destinationPort, String protocol){
-		this.sourceHost = sourceHost;
-		this.sourcePort = sourcePort;
-		this.destinationHost = destinationHost;
-		this.destinationPort = destinationPort;
+	public NetworkSocketIdentifier(String localHost, String localPort, 
+			String remoteHost, String remotePort, String protocol){
+		this.localHost = localHost;
+		this.localPort = localPort;
+		this.remoteHost = remoteHost;
+		this.remotePort = remotePort;
 		this.protocol = protocol;
 	}
 
-	public String getSourceHost() {
-		return sourceHost;
+	public String getLocalHost() {
+		return localHost;
 	}
 
-	public String getSourcePort() {
-		return sourcePort;
+	public String getLocalPort() {
+		return localPort;
 	}
 
-	public String getDestinationHost() {
-		return destinationHost;
+	public String getRemoteHost() {
+		return remoteHost;
 	}
 
-	public String getDestinationPort() {
-		return destinationPort;
+	public String getRemotePort() {
+		return remotePort;
 	}
 
 	public String getProtocol() {
@@ -60,27 +61,27 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put("source address", sourceHost);
-		annotations.put("source port", sourcePort);
-		annotations.put("destination address", destinationHost);
-		annotations.put("destination port", destinationPort);
-//		annotations.put("protocol", protocol);
+		annotations.put(OPMConstants.ARTIFACT_LOCAL_ADDRESS, localHost == null ? "" : localHost);
+		annotations.put(OPMConstants.ARTIFACT_LOCAL_PORT, localPort == null ? "" : localPort);
+		annotations.put(OPMConstants.ARTIFACT_REMOTE_ADDRESS, remoteHost == null ? "" : remoteHost);
+		annotations.put(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort == null ? "" : remotePort);
+		annotations.put(OPMConstants.ARTIFACT_PROTOCOL, protocol == null ? "" : protocol);
 		return annotations;
 	}
 
 	public String getSubtype(){
-		return SUBTYPE_SOCKET;
+		return OPMConstants.SUBTYPE_NETWORK_SOCKET;
 	}
 
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((destinationHost == null) ? 0 : destinationHost.hashCode());
-		result = prime * result + ((destinationPort == null) ? 0 : destinationPort.hashCode());
+		result = prime * result + ((remoteHost == null) ? 0 : remoteHost.hashCode());
+		result = prime * result + ((remotePort == null) ? 0 : remotePort.hashCode());
 		result = prime * result + ((protocol == null) ? 0 : protocol.hashCode());
-		result = prime * result + ((sourceHost == null) ? 0 : sourceHost.hashCode());
-		result = prime * result + ((sourcePort == null) ? 0 : sourcePort.hashCode());
+		result = prime * result + ((localHost == null) ? 0 : localHost.hashCode());
+		result = prime * result + ((localPort == null) ? 0 : localPort.hashCode());
 		return result;
 	}
 
@@ -93,64 +94,31 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 		if (getClass() != obj.getClass())
 			return false;
 		NetworkSocketIdentifier other = (NetworkSocketIdentifier) obj;
-		if (destinationHost == null) {
-			if (other.destinationHost != null)
+		if (remoteHost == null) {
+			if (other.remoteHost != null)
 				return false;
-		} else if (!destinationHost.equals(other.destinationHost))
+		} else if (!remoteHost.equals(other.remoteHost))
 			return false;
-		if (destinationPort == null) {
-			if (other.destinationPort != null)
+		if (remotePort == null) {
+			if (other.remotePort != null)
 				return false;
-		} else if (!destinationPort.equals(other.destinationPort))
+		} else if (!remotePort.equals(other.remotePort))
 			return false;
 		if (protocol == null) {
 			if (other.protocol != null)
 				return false;
 		} else if (!protocol.equals(other.protocol))
 			return false;
-		if (sourceHost == null) {
-			if (other.sourceHost != null)
+		if (localHost == null) {
+			if (other.localHost != null)
 				return false;
-		} else if (!sourceHost.equals(other.sourceHost))
+		} else if (!localHost.equals(other.localHost))
 			return false;
-		if (sourcePort == null) {
-			if (other.sourcePort != null)
+		if (localPort == null) {
+			if (other.localPort != null)
 				return false;
-		} else if (!sourcePort.equals(other.sourcePort))
+		} else if (!localPort.equals(other.localPort))
 			return false;
 		return true;
 	}
-	
-	/**
-	 * Merges the two given network socket identifiers. The value in the second one overwrites the value 
-	 * in the first one if both objects have it.
-	 * 
-	 * If either of them null then null returned.
-	 * 
-	 * @param first the object with the lower preference when merging
-	 * @param second the object with the higher preference when merging
-	 * @return The merged NetworkSocketIdentifier
-	 */
-	public static NetworkSocketIdentifier merge(NetworkSocketIdentifier first, NetworkSocketIdentifier second){
-		if(first == null || second == null){
-			return null;
-		}else{
-			NetworkSocketIdentifier merged = new NetworkSocketIdentifier("", "", "", "", "");
-			
-			merged.sourceHost = second.sourceHost == null || second.sourceHost.trim().isEmpty() ? 
-					first.sourceHost : second.sourceHost;
-			merged.sourcePort = second.sourcePort == null || second.sourcePort.trim().isEmpty() ? 
-					first.sourcePort : second.sourcePort;
-			merged.destinationHost = second.destinationHost == null || second.destinationHost.trim().isEmpty() ? 
-					first.destinationHost : second.destinationHost;
-			merged.destinationPort = second.destinationPort == null || second.destinationPort.trim().isEmpty() ? 
-					first.destinationPort : second.destinationPort;
-			merged.protocol = second.protocol == null || second.protocol.trim().isEmpty() ? 
-					first.protocol : second.protocol;
-			
-			return merged;
-		}
-	}
-	
-	
 }

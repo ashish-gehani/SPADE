@@ -27,12 +27,12 @@ public class MemoryIdentifier extends ArtifactIdentifier{
 	
 	private String memoryAddress;
 	private String size;
-	private String pid;
+	private String tgid;
 	
-	public MemoryIdentifier(String pid, String memoryAddress, String size){
+	public MemoryIdentifier(String tgid, String memoryAddress, String size){
 		this.memoryAddress = memoryAddress;
 		this.size = size;
-		this.pid = pid;
+		this.tgid = tgid;
 	}
 	
 	public String getMemoryAddress(){
@@ -43,21 +43,21 @@ public class MemoryIdentifier extends ArtifactIdentifier{
 		return size;
 	}
 	
-	public String getPid(){
-		return pid;
+	public String getTgid(){
+		return tgid;
 	}
 
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put("memory address", memoryAddress);
-		annotations.put("size", size);
-		annotations.put("pid", pid);
+		annotations.put(OPMConstants.ARTIFACT_MEMORY_ADDRESS, memoryAddress);
+		annotations.put(OPMConstants.ARTIFACT_SIZE, size);
+		annotations.put(OPMConstants.ARTIFACT_TGID, tgid);
 		return annotations;
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_MEMORY;
+		return OPMConstants.SUBTYPE_MEMORY_ADDRESS;
 	}
 
 	@Override
@@ -65,7 +65,7 @@ public class MemoryIdentifier extends ArtifactIdentifier{
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((tgid == null) ? 0 : tgid.hashCode());
 		result = prime * result + ((size == null) ? 0 : size.hashCode());
 		return result;
 	}
@@ -84,10 +84,10 @@ public class MemoryIdentifier extends ArtifactIdentifier{
 				return false;
 		} else if (!memoryAddress.equals(other.memoryAddress))
 			return false;
-		if (pid == null) {
-			if (other.pid != null)
+		if (tgid == null) {
+			if (other.tgid != null)
 				return false;
-		} else if (!pid.equals(other.pid))
+		} else if (!tgid.equals(other.tgid))
 			return false;
 		if (size == null) {
 			if (other.size != null)

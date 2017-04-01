@@ -23,16 +23,17 @@ import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 
 public class NoVersions extends AbstractTransformer {
 
 	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge, "operation").equals("update")){
+			if(getAnnotationSafe(edge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UPDATE)){
 				continue;
 			}
-			AbstractEdge newEdge = createNewWithoutAnnotations(edge, "version");
+			AbstractEdge newEdge = createNewWithoutAnnotations(edge, OPMConstants.ARTIFACT_VERSION);
 			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
 				resultGraph.putVertex(newEdge.getSourceVertex());
 				resultGraph.putVertex(newEdge.getDestinationVertex());

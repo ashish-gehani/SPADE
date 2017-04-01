@@ -47,16 +47,15 @@ public class UnnamedPipeIdentifier extends ArtifactIdentifier{
 	}
 
 	public String getSubtype(){
-		return SUBTYPE_PIPE;
+		return OPMConstants.SUBTYPE_UNNAMED_PIPE;
 	}
 	
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-//		annotations.put("fd0", fd0); //TODO
-//		annotations.put("fd1", fd1);
-		annotations.put("path", "pipe["+fd0+"-"+fd1+"]");
-		annotations.put("pid", pid);
+		annotations.put(OPMConstants.ARTIFACT_READ_FD, fd0);
+		annotations.put(OPMConstants.ARTIFACT_WRITE_FD, fd1);
+		annotations.put(OPMConstants.ARTIFACT_PID, pid);
 		return annotations;
 	}
 

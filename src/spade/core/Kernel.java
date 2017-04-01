@@ -291,6 +291,7 @@ public class Kernel {
             }
             final Handler logFileHandler = newFileHandler(logFilename);
             logFileHandler.setFormatter(new SimpleFormatter());
+            logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
             Logger.getLogger("").addHandler(logFileHandler);
             
         } catch (IOException | SecurityException exception) {

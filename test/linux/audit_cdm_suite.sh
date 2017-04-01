@@ -62,10 +62,10 @@ _spadeStart  () {
 
 _waitForFinish () {
 
-    # Poll for "run Audit log processing succeeded" diagnostic
+    # Poll for "run Exiting event reader thread for process" diagnostic
 
     while true; do
-	if [ `grep -c 'run Audit log processing succeeded' $_slog` -ne 0 ]; then
+	if [ `grep -c 'run Exiting event reader thread for process' $_slog` -ne 0 ]; then
 	    rm $_slog
 	    break
 	else

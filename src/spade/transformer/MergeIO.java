@@ -23,13 +23,14 @@ import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 
 public class MergeIO extends AbstractTransformer{
 
 	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
-			AbstractEdge newEdge = createNewWithoutAnnotations(edge, "time", "size");
+			AbstractEdge newEdge = createNewWithoutAnnotations(edge, OPMConstants.EDGE_TIME, OPMConstants.EDGE_SIZE);
 			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
 				resultGraph.putVertex(newEdge.getSourceVertex());
 				resultGraph.putVertex(newEdge.getDestinationVertex());
