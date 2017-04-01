@@ -653,6 +653,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		long eventid;
 
 		time = get_timestamp(buf);
+		eventid = get_eventid(buf);
 
 		if(last_time == -1){
 			last_time = time;	
