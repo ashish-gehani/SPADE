@@ -1,0 +1,31 @@
+accept.c: sendto {EVENT_SENDMSG}, connect {EVENT_CONNECT}, recv {EVENT_RECVMSG}, 
+chmod.c: open {EVENT_OPEN}, chmod {EVENT_MODIFY_FILE_ATTRIBUTES}, unlink {EVENT_UNLINK}
+clone.c: clone {EVENT_CLONE,EVENT_FORK}
+dup2.c: open {EVENT_OPEN}, unlink {EVENT_UNLINK}
+dup3.c: open {EVENT_OPEN}, unlink {EVENT_UNLINK}
+dup.c: write {EVENT_WRITE}
+execve.c: execve {EVENT_EXECUTE}
+fchmod.c: open {EVENT_OPEN}, fchmod {EVENT_MODIFY_FILE_ATTRIBUTES}
+file-fd2.c: write {EVENT_WRITE}
+fork-1.c: fork {EVENT_FORK}
+fork-2.c: fork {EVENT_FORK}
+ftruncate.c: open {EVENT_OPEN}, close {EVENT_CLOSE}, ftruncate {EVENT_TRUNCATE}, unlink {EVENT_UNLINK}
+linkat.c: linkat {EVENT_LINK}, unlink {EVENT_UNLINK}
+link.c: open {EVENT_OPEN}, close {EVENT_CLOSE}, link {EVENT_LINK}, unlink {EVENT_UNLINK}
+mknod.c: mknod, fork {EVENT_FORK}, open {EVENT_OPEN}, close {EVENT_CLOSE}, unlink {EVENT_UNLINK}
+mmap.c: open {EVENT_OPEN}, mmap {EVENT_MMAP}
+mprotect.c: mmap {EVENT_MMAP}, mprotect {EVENT_MPROTECT}
+open_read_close.c: open {EVENT_OPEN}, read {EVENT_READ}, close {EVENT_CLOSE}
+pipe-1.c: write {EVENT_WRITE}, read {EVENT_READ}, close {EVENT_CLOSE}
+pipe-2.c: fork {EVENT_FORK}, read {EVENT_READ}, write {EVENT_WRITE}, close {EVENT_CLOSE}
+pread64.c: open {EVENT_OPEN}, pread64 {EVENT_READ}, close {EVENT_CLOSE}, unlink {EVENT_UNLINK}
+readv_writev.c: open {EVENT_OPEN}, writev {EVENT_WRITE}, readv {EVENT_READ}, close {EVENT_CLOSE}, unlink {EVENT_UNLINK}
+recvmsg.c: fork {EVENT_FORK}, sendmsg {EVENT_SENDMSG}, recvmsg {EVENT_RECVMSG}
+renameat.c: open {EVENT_OPEN}, renameat {EVENT_RENAME}, unlink {EVENT_UNLINK}
+simple-client.c: connect {EVENT_CONNECT}, recv {EVENT_RECVMSG}, close {EVENT_CLOSE}
+symlink.c: symlink {EVENT_LINK}, unlink {EVENT_UNLINK}
+symlinkat.c: symlinkat {EVENT_LINK}, unlinkat {EVENT_UNLINK}
+truncate.c: open {EVENT_OPEN}, write {EVENT_WRITE}, close {EVENT_CLOSE}, truncate {EVENT_TRUNCATE}, unlink {EVENT_UNLINK}
+udp-server.c: recvfrom {EVENT_RECVMSG}, sendto {EVENT_SEND}
+vfork.c: vfork {EVENT_FORK}
+writev.c: open {EVENT_OPEN}, writev {EVENT_WRITE}, unlink {EVENT_UNLINK}

@@ -1,0 +1,1381 @@
+execve("./unit2.bin", ["./unit2.bin"], [/* 24 vars */]) = 0
+brk(0)                                  = 0x2450000
+access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7faf86090000
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+open("/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+fstat(3, {st_mode=S_IFREG|0644, st_size=59531, ...}) = 0
+mmap(NULL, 59531, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7faf86081000
+close(3)                                = 0
+access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+open("/lib/x86_64-linux-gnu/libpthread.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0po\0\0\0\0\0\0"..., 832) = 832
+fstat(3, {st_mode=S_IFREG|0755, st_size=141574, ...}) = 0
+mmap(NULL, 2217264, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7faf85c52000
+mprotect(0x7faf85c6b000, 2093056, PROT_NONE) = 0
+mmap(0x7faf85e6a000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x18000) = 0x7faf85e6a000
+mmap(0x7faf85e6c000, 13616, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7faf85e6c000
+close(3)                                = 0
+access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+open("/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0P \2\0\0\0\0\0"..., 832) = 832
+fstat(3, {st_mode=S_IFREG|0755, st_size=1853216, ...}) = 0
+mmap(NULL, 3961536, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7faf8588a000
+mprotect(0x7faf85a48000, 2093056, PROT_NONE) = 0
+mmap(0x7faf85c47000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1bd000) = 0x7faf85c47000
+mmap(0x7faf85c4d000, 17088, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7faf85c4d000
+close(3)                                = 0
+mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7faf86080000
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7faf8607e000
+arch_prctl(ARCH_SET_FS, 0x7faf8607e740) = 0
+mprotect(0x7faf85c47000, 16384, PROT_READ) = 0
+mprotect(0x7faf85e6a000, 4096, PROT_READ) = 0
+mprotect(0x601000, 4096, PROT_READ)     = 0
+mprotect(0x7faf86092000, 4096, PROT_READ) = 0
+munmap(0x7faf86081000, 59531)           = 0
+set_tid_address(0x7faf8607ea10)         = 14267
+set_robust_list(0x7faf8607ea20, 24)     = 0
+futex(0x7ffcaf0d7750, FUTEX_WAIT_BITSET_PRIVATE|FUTEX_CLOCK_REALTIME, 1, NULL, 7faf8607e740) = -1 EAGAIN (Resource temporarily unavailable)
+rt_sigaction(SIGRTMIN, {0x7faf85c589f0, [], SA_RESTORER|SA_SIGINFO, 0x7faf85c62330}, NULL, 8) = 0
+rt_sigaction(SIGRT_1, {0x7faf85c58a80, [], SA_RESTORER|SA_RESTART|SA_SIGINFO, 0x7faf85c62330}, NULL, 8) = 0
+rt_sigprocmask(SIG_UNBLOCK, [RTMIN RT_1], NULL, 8) = 0
+getrlimit(RLIMIT_STACK, {rlim_cur=8192*1024, rlim_max=RLIM64_INFINITY}) = 0
+fstat(1, {st_mode=S_IFREG|0664, st_size=3011, ...}) = 0
+mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7faf8608f000
+mmap(NULL, 8392704, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0) = 0x7faf85089000
+brk(0)                                  = 0x2450000
+brk(0x2471000)                          = 0x2471000
+mprotect(0x7faf85089000, 4096, PROT_NONE) = 0
+clone(child_stack=0x7faf85888fb0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tidptr=0x7faf858899d0, tls=0x7faf85889700, child_tidptr=0x7faf858899d0) = 14268
+Process 14268 attached
+[pid 14267] mmap(NULL, 8392704, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0 <unfinished ...>
+[pid 14268] set_robust_list(0x7faf858899e0, 24 <unfinished ...>
+[pid 14267] <... mmap resumed> )        = 0x7faf84888000
+[pid 14268] <... set_robust_list resumed> ) = 0
+[pid 14267] mprotect(0x7faf84888000, 4096, PROT_NONE <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14267] <... mprotect resumed> )    = 0
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14267] clone( <unfinished ...>
+[pid 14268] futex(0x602304, FUTEX_WAIT_PRIVATE, 1, NULLProcess 14269 attached
+ <unfinished ...>
+[pid 14267] <... clone resumed> child_stack=0x7faf85087fb0, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, parent_tidptr=0x7faf850889d0, tls=0x7faf85088700, child_tidptr=0x7faf850889d0) = 14269
+[pid 14269] set_robust_list(0x7faf850889e0, 24 <unfinished ...>
+[pid 14267] futex(0x7faf850889d0, FUTEX_WAIT, 14269, NULL <unfinished ...>
+[pid 14269] <... set_robust_list resumed> ) = 0
+[pid 14269] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294967196, SIGHUP)    = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data00.txt", O_RDONLY) = 3
+[pid 14269] mmap(NULL, 134217728, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE, -1, 0) = 0x7faf7c888000
+[pid 14269] munmap(0x7faf7c888000, 58163200) = 0
+[pid 14269] munmap(0x7faf84000000, 8945664) = 0
+[pid 14269] mprotect(0x7faf80000000, 135168, PROT_READ|PROT_WRITE) = 0
+[pid 14269] read(3, "hello 0\n", 16)    = 8
+[pid 14269] kill(4294966996, 32687)     = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147481408) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602304, FUTEX_WAKE_OP_PRIVATE, 1, 1, 0x602300, {FUTEX_OP_SET, 0, FUTEX_OP_CMP_GT, 1}) = 1
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data01.txt", O_RDONLY <unfinished ...>
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] kill(4294967095, -2147481408 <unfinished ...>
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] <... read resumed> "hello 1\n", 16) = 8
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output00.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] kill(4294966995, -2147481376) = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3)                    = 0
+[pid 14268] write(4, "hello 0\n", 8 <unfinished ...>
+[pid 14269] kill(4294967196, SIGHUP)    = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data02.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 2\n", 16) = 8
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147481344) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data03.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147481376 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 3\n", 16) = 8
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output01.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147481312 <unfinished ...>
+[pid 14268] write(4, "hello 1\n", 8 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data04.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147481344 <unfinished ...>
+[pid 14269] <... read resumed> "hello 4\n", 16) = 8
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147481280 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output02.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 2\n", 8 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data05.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 5\n", 16) = 8
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147481312 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147481248 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output03.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 3\n", 8 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data06.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 6\n", 16) = 8
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147481216) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data07.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147481280 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 7\n", 16) = 8
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output04.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147481184 <unfinished ...>
+[pid 14268] write(4, "hello 4\n", 8 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data08.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147481248 <unfinished ...>
+[pid 14269] <... read resumed> "hello 8\n", 16) = 8
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147481152 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output05.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3)                    = 0
+[pid 14268] write(4, "hello 5\n", 8 <unfinished ...>
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data09.txt", O_RDONLY <unfinished ...>
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] <... read resumed> "hello 9\n", 16) = 8
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147481216 <unfinished ...>
+[pid 14269] kill(4294966995, -2147481120 <unfinished ...>
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output06.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] write(3, "hello 6\n", 8 <unfinished ...>
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data10.txt", O_RDONLY <unfinished ...>
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] <... read resumed> "hello 10\n", 16) = 9
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] kill(4294966995, -2147481088) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data11.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147481184 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 11\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output07.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147481056 <unfinished ...>
+[pid 14268] write(4, "hello 7\n", 8 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data12.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147481152 <unfinished ...>
+[pid 14269] <... read resumed> "hello 12\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147481024 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output08.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 8\n", 8 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data13.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 13\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147481120 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480992 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output09.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 9\n", 8 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 8
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data14.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 14\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480960) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data15.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147481088 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 15\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output10.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480928 <unfinished ...>
+[pid 14268] write(4, "hello 10\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data16.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147481056 <unfinished ...>
+[pid 14269] <... read resumed> "hello 16\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480896 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output11.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 11\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data17.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 17\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147481024 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480864 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output12.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 12\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data18.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 18\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480832) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data19.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480992 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 19\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output13.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480800 <unfinished ...>
+[pid 14268] write(4, "hello 13\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data20.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480960 <unfinished ...>
+[pid 14269] <... read resumed> "hello 20\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480768 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output14.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 14\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data21.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 21\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480928 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480736 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output15.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 15\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data22.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 22\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480704) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data23.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480896 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 23\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output16.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480672 <unfinished ...>
+[pid 14268] write(4, "hello 16\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data24.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480864 <unfinished ...>
+[pid 14269] <... read resumed> "hello 24\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480640 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output17.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 17\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data25.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 25\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480832 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480608 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output18.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 18\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data26.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 26\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480576) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data27.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480800 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 27\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output19.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480544 <unfinished ...>
+[pid 14268] write(4, "hello 19\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data28.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480768 <unfinished ...>
+[pid 14269] <... read resumed> "hello 28\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480512 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output20.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 20\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data29.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 29\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480736 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480480 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output21.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 21\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data30.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 30\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480448) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data31.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480704 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 31\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output22.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480416 <unfinished ...>
+[pid 14268] write(4, "hello 22\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data32.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480672 <unfinished ...>
+[pid 14269] <... read resumed> "hello 32\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480384 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output23.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 23\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data33.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 33\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480640 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480352 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output24.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 24\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data34.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 34\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480320) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data35.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480608 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 35\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output25.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480288 <unfinished ...>
+[pid 14268] write(4, "hello 25\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data36.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480576 <unfinished ...>
+[pid 14269] <... read resumed> "hello 36\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480256 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output26.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 26\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data37.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 37\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480544 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480224 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output27.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 27\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data38.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 38\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480192) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data39.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480512 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 39\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output28.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480160 <unfinished ...>
+[pid 14268] write(4, "hello 28\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data40.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480480 <unfinished ...>
+[pid 14269] <... read resumed> "hello 40\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480128 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output29.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 29\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data41.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 41\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480448 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480096 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output30.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 30\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data42.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 42\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147480064) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data43.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480416 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 43\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output31.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147480032 <unfinished ...>
+[pid 14268] write(4, "hello 31\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data44.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480384 <unfinished ...>
+[pid 14269] <... read resumed> "hello 44\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147480000 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output32.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 32\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data45.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 45\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480352 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147479968 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output33.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 33\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data46.txt", O_RDONLY <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] read(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... read resumed> "hello 46\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAIT_PRIVATE, 2, NULL <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147479936) = -1 ESRCH (No such process)
+[pid 14269] futex(0x602120, FUTEX_WAKE_PRIVATE, 1) = 1
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] futex(0x602120, FUTEX_WAKE_PRIVATE, 1 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... futex resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data47.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967095, -2147480320 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... read resumed> "hello 47\n", 16) = 9
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output34.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] kill(4294966995, -2147479904 <unfinished ...>
+[pid 14268] write(4, "hello 34\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data48.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967095, -2147480288 <unfinished ...>
+[pid 14269] <... read resumed> "hello 48\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] kill(4294966995, -2147479872 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output35.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] write(4, "hello 35\n", 9 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] kill(4294967196, SIGHUP <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] open("/home/gabriela/unit_tests/tests/input/data49.txt", O_RDONLY <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... read resumed> "hello 49\n", 16) = 9
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966996, 32687 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480256 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] kill(4294966995, -2147479840 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output36.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] kill(4294967195, SIGHUP <unfinished ...>
+[pid 14268] write(3, "hello 36\n", 9 <unfinished ...>
+[pid 14269] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] open("/etc/ld.so.cache", O_RDONLY|O_CLOEXEC <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... open resumed> )        = 4
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] fstat(4,  <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... fstat resumed> {st_mode=S_IFREG|0644, st_size=59531, ...}) = 0
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] mmap(NULL, 59531, PROT_READ, MAP_PRIVATE, 4, 0 <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... mmap resumed> )        = 0x7faf8606f000
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] close(4 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480224 <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] access("/etc/ld.so.nohwcap", F_OK <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... access resumed> )      = -1 ENOENT (No such file or directory)
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14269] open("/lib/x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY|O_CLOEXEC <unfinished ...>
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output37.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] <... open resumed> )        = 3
+[pid 14268] <... open resumed> )        = 4
+[pid 14269] read(3,  <unfinished ...>
+[pid 14268] write(4, "hello 37\n", 9 <unfinished ...>
+[pid 14269] <... read resumed> "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\260*\0\0\0\0\0\0"..., 832) = 832
+[pid 14268] <... write resumed> )       = 9
+[pid 14269] fstat(3,  <unfinished ...>
+[pid 14268] close(4 <unfinished ...>
+[pid 14269] <... fstat resumed> {st_mode=S_IFREG|0644, st_size=90160, ...}) = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14269] mmap(NULL, 2186016, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0 <unfinished ...>
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] <... mmap resumed> )        = 0x7faf84672000
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] mprotect(0x7faf84688000, 2093056, PROT_NONE <unfinished ...>
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] <... mprotect resumed> )    = 0
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] mmap(0x7faf84887000, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x15000 <unfinished ...>
+[pid 14268] kill(4294967095, -2147480192 <unfinished ...>
+[pid 14269] <... mmap resumed> )        = 0x7faf84887000
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] close(3 <unfinished ...>
+[pid 14268] getcwd( <unfinished ...>
+[pid 14269] <... close resumed> )       = 0
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output38.txt", O_RDWR|O_CREAT, 0666 <unfinished ...>
+[pid 14269] munmap(0x7faf8606f000, 59531 <unfinished ...>
+[pid 14268] <... open resumed> )        = 3
+[pid 14269] <... munmap resumed> )      = 0
+[pid 14268] write(3, "hello 38\n", 9)   = 9
+[pid 14269] futex(0x7faf84887890, FUTEX_WAKE_PRIVATE, 2147483647 <unfinished ...>
+[pid 14268] close(3 <unfinished ...>
+[pid 14269] <... futex resumed> )       = 0
+[pid 14268] <... close resumed> )       = 0
+[pid 14268] kill(4294967196, SIGINT <unfinished ...>
+[pid 14269] madvise(0x7faf84888000, 8368128, MADV_DONTNEED <unfinished ...>
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14269] <... madvise resumed> )     = 0
+[pid 14268] kill(4294967096, 32687 <unfinished ...>
+[pid 14269] _exit(0)                    = ?
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147480160 <unfinished ...>
+[pid 14269] +++ exited with 0 +++
+[pid 14268] <... kill resumed> )        = -1 ESRCH (No such process)
+[pid 14267] <... futex resumed> )       = 0
+[pid 14268] getcwd( <unfinished ...>
+[pid 14267] futex(0x7faf858899d0, FUTEX_WAIT, 14268, NULL <unfinished ...>
+[pid 14268] <... getcwd resumed> "/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output39.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 39\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147480128) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output40.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 40\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147480096) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output41.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 41\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147480064) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output42.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 42\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147480032) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output43.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 43\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147480000) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output44.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 44\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147479968) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output45.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 45\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147479936) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output46.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 46\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147479904) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output47.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 47\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147479872) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output48.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 48\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967196, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] kill(4294967096, 32687)     = -1 ESRCH (No such process)
+[pid 14268] kill(4294967095, -2147479840) = -1 ESRCH (No such process)
+[pid 14268] getcwd("/home/gabriela/unit_tests/tests", 1024) = 32
+[pid 14268] open("/home/gabriela/unit_tests/tests/output/output49.txt", O_RDWR|O_CREAT, 0666) = 3
+[pid 14268] write(3, "hello 49\n", 9)   = 9
+[pid 14268] close(3)                    = 0
+[pid 14268] kill(4294967195, SIGINT)    = -1 ESRCH (No such process)
+[pid 14268] madvise(0x7faf85089000, 8368128, MADV_DONTNEED) = 0
+[pid 14268] _exit(0)                    = ?
+[pid 14268] +++ exited with 0 +++
+<... futex resumed> )                   = 0
+write(1, "14267", 514267)                    = 5
+exit_group(0)                           = ?
++++ exited with 0 +++
