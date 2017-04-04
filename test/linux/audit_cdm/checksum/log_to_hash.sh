@@ -86,7 +86,7 @@ for log in input/*.log; do
     _bname=`basename $log .log`		# base name of log
     _cdm=$_bname.cdm			# CDM storage file
     _json=$_bname.json			# json version of AVRO file
-    _cdmhash=checksum/$_bname.hash	# Comparison hash of CDM storage
+    _cdmhash=hash/$_bname.hash	# Comparison hash of CDM storage
 
     # Write directives to the SPADE configuration file
 
