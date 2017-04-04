@@ -605,7 +605,7 @@ public class CDM extends Kafka {
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
 						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
-								SrcSinkType.SOURCE_SINK_UNKNOWN, fd);
+								SrcSinkType.SRCSINK_UNKNOWN, fd);
 					}
 
 				}else{
@@ -675,7 +675,7 @@ public class CDM extends Kafka {
 				String.valueOf(convertTimeToNanoseconds(null, String.valueOf(System.currentTimeMillis()), 0L)));
 		AbstractObject baseObject = new AbstractObject(null, null, properties);  
 		SrcSinkObject streamMarker = new SrcSinkObject(getUuid(properties), baseObject, 
-				SrcSinkType.SOURCE_SYSTEM_PROPERTY, null);
+				SrcSinkType.SRCSINK_SYSTEM_PROPERTY, null);
 		
 		publishRecords(Arrays.asList(buildTcCDMDatum(streamMarker, InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE)));
 	}
@@ -703,7 +703,7 @@ public class CDM extends Kafka {
 									incrementStatsCount(eventType.name());
 								}
 							}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
-								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SOURCE_SINK_UNKNOWN)){
+								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
 									incrementStatsCount(SrcSinkObject.class.getSimpleName());
 								}
 							}else if(cdmObject.getClass().equals(FileObject.class)){
