@@ -32,6 +32,10 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <errno.h>
 
 #define SERVER_PATH     "/var/run/audispd_events"
 #define BUFFER_LENGTH   10000
@@ -45,8 +49,12 @@ int UBSI_buffer_flush();
 int waitForEnd = FALSE;
 int socketRead = FALSE;
 int fileRead = FALSE;
+int dirRead = FALSE;
 char socketPath[256];
 char filePath[256];
+char dirPath[256];
+char dirTimeBuf[256];
+time_t dirTime = 0;
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -60,10 +68,14 @@ char filePath[256];
 
 void print_usage(char** argv) {
 		printf("Usage: %s [OPTIONS]\n", argv[0]);
-		printf("  -u, --unit																unit analysis\n");
+		printf("  -u, --unit                unit analysis\n");
 		printf("  -s, --socket              socket name\n");
 		printf("  -w, --wait-for-end        continue processing till the end of the log is reached\n");
 		printf("  -f, --files               a filename that has a list of log files to process\n");  
+		printf("  -d, --dir                 a directory name that contains log files\n");
+		printf("  -t, --time                timestamp. Only handle log files modified after the timestamp. \n");
+		printf("                            This option is only valid with -d option. (format: YYYY-MM-DD:HH:MM:SS,\n");
+		printf("                              e.g., 2017-1-21:07:09:20)\n");
 		printf("  -h, --help                print this help and exit\n");
 		printf("\n");
 
@@ -79,11 +91,13 @@ int command_line_option(int argc, char **argv)
 				{"unit",          no_argument,       NULL, 'u'},
 				{"socket",        required_argument, NULL, 's'},
 				{"files",  required_argument,							NULL, 'f'},
+				{"dir",  required_argument,							NULL, 'd'},
+				{"time",  required_argument,							NULL, 't'},
 				{"wait-for-end",  no_argument,							NULL, 'w'},
 				{NULL,            0,                 NULL, 0  }
 		};
 
-		while((c = getopt_long(argc, argv, "hus:f:w", long_opt, NULL)) != -1)
+		while((c = getopt_long(argc, argv, "hus:f:d:t:w", long_opt, NULL)) != -1)
 		{
 				switch(c)
 				{
@@ -94,6 +108,22 @@ int command_line_option(int argc, char **argv)
 						case 'f':
 								strncpy(filePath, optarg, 256);
 								fileRead = TRUE;
+								break;
+
+						case 'd':
+								strncpy(dirPath, optarg, 256);
+								dirRead = TRUE;
+								break;
+	
+						case 't':
+								strncpy(dirTimeBuf, optarg, 256);
+								struct tm temp_tm;
+								if(strptime(dirTimeBuf, "%Y-%m-%d:%H:%M:%S", &temp_tm) == 0) {
+										fprintf(stderr, "time error: %s, dirTime = %ld\n", dirTimeBuf, dirTime);
+										break;
+								}
+							 dirTime = mktime(&temp_tm);
+								printf("dirTime = %ld\n", dirTime);
 								break;
 
 						case 'w':
@@ -158,16 +188,17 @@ void socket_read(char *programName)
 		if (audispdSocketDescriptor != -1) close(audispdSocketDescriptor);
 }
 
-void stdin_read()
+void read_log(FILE *fp, char* filepath)
 {
 		char buffer[BUFFER_LENGTH];
+		//FILE *fp = stdin;
 
 		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		do{
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
-						if(fgets(& buffer[0], BUFFER_LENGTH, stdin) == NULL) {
-								fprintf(stderr, "Reaches the end of file (stdin).\n");
+						if(fgets(& buffer[0], BUFFER_LENGTH, fp) == NULL) {
+								fprintf(stderr, "Reached the end of file (%s).\n", filepath);
 								UBSI_buffer_flush();
 								break;
 						}
@@ -176,7 +207,7 @@ void stdin_read()
 		} while (FALSE);
 }
 
-void file_read()
+void read_file_path()
 {
 		FILE *fp = fopen(filePath, "r");
 		FILE *log_fp;
@@ -198,23 +229,151 @@ void file_read()
 						fprintf(stderr, "file open error: %s", tmp);
 						continue;
 				}
-				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
-				while (!feof(log_fp)) {
-						memset(&buffer, 0, BUFFER_LENGTH);
-						if(fgets(& buffer[0], BUFFER_LENGTH, log_fp) == NULL) {
-								fprintf(stderr, "Reaches the end of file (%s).\n", tmp);
-								//UBSI_buffer_flush();
-								break;
-						}
-						UBSI_buffer(buffer);
-				}
+
+				read_log(log_fp, tmp);
 				fclose(log_fp);
 		}
 
 		UBSI_buffer_flush();
 		fclose(fp);
-		// read a file: filePath that contains a list of paths to log files, one-per-line
+}
 
+ino_t find_next_file(time_t time, ino_t cur_inode)
+{
+		DIR *d;
+		struct dirent *dir;
+		char file[1024];
+		struct stat sbuf;
+		char time_buf[256];
+		struct tm tm;
+		
+		char eFile[1024];
+		time_t eTime = 0; // the earliest file mod time but later than dirTime
+		int eInode = 0;
+
+		d = opendir(dirPath);
+
+		if(d == NULL) {
+				fprintf(stderr, "dir open error: %s\n", dirPath);
+				return -1;
+		}
+
+		//strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&time));
+		//printf("DirTime %s(%ld)\n", time_buf, time);
+
+		while((dir = readdir(d)) != NULL)
+		{
+				sprintf(file, "%s/%s", dirPath, dir->d_name);
+				if(stat(file, &sbuf) == -1) {
+						//fprintf(stderr, "stat error 1: %s\n", file);
+						//fprintf(stderr, "errno %d\n", errno);
+						continue;
+				}
+				if(!S_ISREG(sbuf.st_mode)) continue; // if the file is not a regular file (e.g., dir)
+				
+				if(sbuf.st_mtime > time)
+				{
+						if(cur_inode == sbuf.st_ino) continue; // this is current file.
+						if(eTime == 0 || sbuf.st_mtime < eTime) {
+								eTime = sbuf.st_mtime;
+								eInode = sbuf.st_ino;
+						}
+				}
+//				strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&sbuf.st_mtime));
+//				printf("file: %s, last modified time %s(%ld)\n", file, time_buf, sbuf.st_mtime);
+		}
+		
+		if(eInode > 0) {
+//				strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&eTime));
+//				printf("Read next file: (inode %d, last modified time %s(%ld)\n", eInode, time_buf, eTime);
+		} 
+		closedir(d);
+		return eInode;
+}
+
+FILE *open_inode(ino_t inode)
+{
+		DIR *d;
+		struct dirent *dir;
+		char file[1024];
+		struct stat sbuf;
+		FILE *fp;
+
+		d = opendir(dirPath);
+
+		if(d == NULL) {
+				fprintf(stderr, "dir open error: %s\n", dirPath);
+				return NULL;
+		}
+
+		while((dir = readdir(d)) != NULL)
+		{
+				sprintf(file, "%s/%s", dirPath, dir->d_name);
+				if(stat(file, &sbuf) == -1) {
+						fprintf(stderr, "stat error 2: %s\n", file);
+						continue;
+				}
+				if(sbuf.st_ino == inode) {
+						fp = fopen(file, "r");
+						closedir(d);
+						return fp;
+				}
+		}
+
+		closedir(d);
+		return NULL;
+}
+
+ino_t read_log_online(ino_t inode)
+{
+		char buffer[BUFFER_LENGTH];
+		struct stat sbuf;
+		time_t time;
+
+		FILE *fp = open_inode(inode);
+		
+		if(fp == NULL) {
+				fprintf(stderr, "file open error 1: inode %ld\n", inode);
+				return -1;
+		}
+		
+		do{
+				while (TRUE) {
+						memset(&buffer, 0, BUFFER_LENGTH);
+						while(fgets(& buffer[0], BUFFER_LENGTH, fp) == NULL) {
+
+								if(fstat(fileno(fp), &sbuf) == -1) {
+										fprintf(stderr, "stat fails: inode %ld\n", inode);
+										continue;
+								}
+								time = sbuf.st_mtime;
+								ino_t next_inode = find_next_file(time, sbuf.st_ino);
+								if(next_inode  > 0) {
+										while(fgets(& buffer[0], BUFFER_LENGTH, fp) != NULL) { // check the log again.
+												UBSI_buffer(buffer);
+										}
+										// At this point, the next log is available and the current log does not have any new event. 
+										//Safe to close the current one and process the next log
+										fclose(fp); 
+										return next_inode;
+								}
+						}
+						UBSI_buffer(buffer);
+				}
+		} while (FALSE);
+}
+
+void dir_read()
+{
+		ino_t inode = 0;
+		
+		while((inode = find_next_file(dirTime, 0)) <= 0) sleep(1);
+		//printf("Next file: inode %ld\n", inode);
+
+		while((inode = read_log_online(inode)) > 0)
+		{
+				//printf("Next file: inode %ld\n", inode);
+		}
 }
 
 int main(int argc, char *argv[]) {
@@ -223,6 +382,10 @@ int main(int argc, char *argv[]) {
 		char buffer[BUFFER_LENGTH];
 		struct sockaddr_un serverAddress;
 
+		
+		putenv("TZ=EST5EDT"); // set timezone
+		tzset();
+
 		command_line_option(argc, argv);
 
 		signal(SIGINT, UBSI_sig_handler);
@@ -230,8 +393,9 @@ int main(int argc, char *argv[]) {
 		signal(SIGTERM, UBSI_sig_handler);
 
 		if(socketRead) socket_read(programName);
-		else if(fileRead) file_read();
-		else stdin_read();
+		else if(fileRead) read_file_path();
+		else if(dirRead) dir_read();
+		else read_log(stdin, "stdin");
 
 		return 0;
 }
@@ -252,7 +416,6 @@ typedef int bool;
 
 typedef struct thread_unit_t {
 		int tid;
-		int unitid; // unique identifier. different from loopid
 		int loopid; // loopid. in the output, we call this unitid.
 		int iteration;
 		double timestamp; // loop start time. Not iteration start.
@@ -272,7 +435,6 @@ typedef struct mem_proc_t {
 
 typedef struct mem_unit_t {
 		long int addr;
-		//int isWritten;
 		UT_hash_handle hh;
 } mem_unit_t;
 
@@ -368,7 +530,6 @@ void reset_current_time_iteration_counts(){
 bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 {
 		if(u1.tid == u2.tid && 
-				 u1.unitid == u2.unitid &&
 					u1.loopid == u2.loopid &&
 					u1.iteration == u2.iteration &&
 					u1.timestamp == u2.timestamp &&
@@ -405,8 +566,7 @@ long get_eventid(char* buf){
 
 int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 {
-		int rc;
-		char buffer[BUFFER_LENGTH];
+		int rc = 0;
 
 		if(!print_unit && !print_proc) {
 				rc = printf("%s", buf);
@@ -415,28 +575,23 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 
 		buf[strlen(buf)-1] = '\0';
 		
-		rc = sprintf(buffer, "%s", buf);
+		rc = printf("%s", buf);
 		if(print_unit) {
-				rc += sprintf(buffer + rc, " unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d) "
+				rc += printf(" unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d) "
 							,ut->cur_unit.tid, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
 		if(print_proc) {
-				rc += sprintf(buffer + rc, "%s", ut->proc);
+				rc += printf("%s", ut->proc);
 		}
 
-		if(!print_proc) sprintf(buffer + rc, "\n");
-
-		rc = printf("%s", buffer);
+		if(!print_proc) rc += printf("\n");
 
 		return rc;
 }
 
 void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 {
-		//	HASH_CLEAR(hh, hash_unit);
-		//	HASH_CLEAR(hh, hash_mem);
-
 		link_unit_t *tmp_unit, *cur_unit;
 		mem_unit_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, hash_unit, cur_unit, tmp_unit) {
@@ -444,21 +599,17 @@ void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 						HASH_DEL(hash_unit, cur_unit); 
 				if(cur_unit) free(cur_unit);  
 		}
-		//if(hash_unit) free(hash_unit);
 
 		HASH_ITER(hh, hash_mem, cur_mem, tmp_mem) {
 				if(hash_mem != cur_mem) 
 						HASH_DEL(hash_mem, cur_mem); 
 				if(cur_mem) free(cur_mem);  
 		}
-		//if(hash_mem) free(hash_mem);
 
 }
 
 void delete_proc_hash(mem_proc_t *mem_proc)
 {
-		//HASH_CLEAR(hh, mem_proc);
-
 		mem_proc_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, mem_proc, cur_mem, tmp_mem) {
 				if(mem_proc != cur_mem) 
@@ -474,7 +625,6 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		unit->cur_unit.loopid = a1;
 		unit->cur_unit.iteration = 0;
 		unit->cur_unit.timestamp = time;
-		//unit->cur_unit.count = loopCount[a1]++; 
 		
 		ptr = strstr(buf, " ppid=");
 		if(ptr == NULL) {
@@ -484,7 +634,6 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 				strncpy(unit->proc, ptr, strlen(ptr));
 				unit->proc[strlen(ptr)] = '\0';
 		}
-		//unit->proc = get this info;
 }
 
 void loop_exit(unit_table_t *unit)
@@ -505,7 +654,6 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 
 		time = get_timestamp(buf);
 		eventid = get_eventid(buf);
-//		int unitid = ++(unit->cur_unit.unitid);
 
 		if(last_time == -1){
 			last_time = time;	
@@ -532,36 +680,38 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		
 		sprintf(tmp, "type=UBSI_ENTRY msg=(%.3f:%ld): ", time, eventid);
 		emit_log(unit, tmp, true, true);
-		//TODO: emit unit_entry event with 5 tuples: {pid, unitid, iteration, start_time, count}
 }
 
 void unit_end(unit_table_t *unit, long a1)
 {
 		struct link_unit_t *ut;
-		char buf[10240];
+		char *buf;
+		int buf_size;
+		int link_count = HASH_COUNT(unit->link_unit);
 
-		if(unit->valid == true || HASH_COUNT(unit->link_unit) > 1) {
-				bzero(buf, 10240);
+		if(unit->valid == true || link_count > 1) {
+				buf_size = link_count * 200;
+				buf = (char*) malloc(buf_size);
+				bzero(buf, buf_size);
 				// emit linked unit lists;
 				if(unit->link_unit != NULL) {
 						sprintf(buf, "type=UBSI_DEP list=\"");
 						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
-								//sprintf(buf+strlen(buf), "%d-%d,", ut->id.tid, ut->id.unitid);
+								// < 200 bytes,
 								sprintf(buf+strlen(buf), "(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
 								,ut->id.tid, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
 						}
 						sprintf(buf+strlen(buf), "\" ");
 						emit_log(unit, buf, true, true);
+						free(buf);
 				}
 		}
 
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
 		unit->mem_unit = NULL;
-	//	unit->valid = false;
 		unit->r_addr = 0;
 		unit->w_addr = 0;
-		//unit->unitid++;
 }
 
 void proc_end(unit_table_t *unit)
@@ -590,26 +740,6 @@ void flush_all_unit()
 		HASH_ITER(hh, unit_table, cur_unit, tmp_unit) {
 				unit_end(cur_unit, -1);
 		}
-}
-
-
-bool is_important_syscall(int S, bool succ)
-{
-		if(S == 60 || S == 231 || S == 42)  return true;
-
-		if(!succ) 
-		{	
-				return false;
-		}
-
-		switch(S) {
-				case 0: case 19: case 1: case 20: case 44: case 45: case 46: case 47: case 86: case 88: 
-				case 56: case 57: case 58: case 59: case 2: case 85: case 257: case 259: case 133: case 32: 
-				case 33: case 292: case 49: case 43: case 288: case 42: case 82: case 105: case 113: case 90:
-				case 22: case 293: case 76: case 77: case 40: case 87: case 263: case 62: case 9: case 10:
-						return true;
-		}
-		return false;
 }
 
 void mem_write(unit_table_t *ut, long int addr)
@@ -642,13 +772,9 @@ void mem_write(unit_table_t *ut, long int addr)
 				pmt = (mem_proc_t*) malloc(sizeof(mem_proc_t));
 				pmt->addr = addr;
 				pmt->last_written_unit = ut->cur_unit;
-				//pmt->last_written_unit.tid = ut->cur_unit.tid;
-				//pmt->last_written_unit.unitid = ut->cur_unit.unitid;
 				HASH_ADD(hh, pt->mem_proc, addr, sizeof(long int),  pmt);
 		} else {
 				pmt->last_written_unit = ut->cur_unit;
-				//pmt->last_written_unit.tid = ut->tid;
-				//pmt->last_written_unit.unitid = ut->unitid;
 		}
 }
 
@@ -670,12 +796,9 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 
 		thread_unit_t lid;
 		if(pmt->last_written_unit.timestamp != 0 && !is_same_unit(pmt->last_written_unit, ut->cur_unit))
-		//if((pmt->last_written_unit.tid != ut->tid) || (pmt->last_written_unit.unitid != ut->unitid))
 		{
 				link_unit_t *lt;
 				lid = pmt->last_written_unit;
-				//lid.tid = pmt->last_written_unit.tid;
-				//lid.unitid = pmt->last_writte_unit.unitid;
 				HASH_FIND(hh, ut->link_unit, &lid, sizeof(thread_unit_t), lt);
 				if(lt == NULL) {
 						// emit the dependence. parse time and eid.
@@ -686,7 +809,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 		}
 }
 
-unit_table_t* add_unit(int tid, int pid, int unitid, bool valid)
+unit_table_t* add_unit(int tid, int pid, bool valid)
 {
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
@@ -694,9 +817,7 @@ unit_table_t* add_unit(int tid, int pid, int unitid, bool valid)
 		ut->pid = pid;
 		ut->valid = valid;
 
-		// TODO: NEED TO FILL THIS OUT
 		ut->cur_unit.tid = tid;
-		ut->cur_unit.unitid = unitid;
 		ut->cur_unit.loopid = 0;
 		ut->cur_unit.iteration = 0;
 		ut->cur_unit.timestamp = 0;
@@ -722,7 +843,7 @@ void set_pid(int tid, int pid)
 
 		HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
-				ut = add_unit(tid, ppid, 0, 0); 
+				ut = add_unit(tid, ppid, 0); 
 		} else {
 				ut->pid = ppid;
 		}
@@ -737,7 +858,7 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 
 		if(ut == NULL) {
 				isNewUnit = 1;
-				ut = add_unit(tid, tid, 0, 0);
+				ut = add_unit(tid, tid, 0);
 		}
 
 		switch(a0) {
@@ -779,12 +900,11 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 
 		struct unit_table_t *ut;
 
-		//if(!is_important_syscall(sysno, succ))  return;
 
 		HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
-				ut = add_unit(tid, tid, 0, 0);
+				ut = add_unit(tid, tid, 0);
 		}
 
 		emit_log(ut, buf, false, false);
@@ -802,7 +922,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				}
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
 				if(sysno == 231) { // exit_group call
-						// TODO: need to finish all thread in the process group
 						proc_group_end(ut);
 				} else {
 						proc_end(ut);
@@ -861,8 +980,6 @@ void syscall_handler(char *buf)
 						ptr = strstr(ptr, " a1=");
 						a1 = strtol(ptr+4, NULL, 16);
 						UBSI_event(pid, a0, a1, buf);
-						//UBSI_event(pid, a0, a1, buf);
-						//printf("pid %d, a0 %x, a1 %x: %s\n", pid, a0, a1, buf);
 				} else {
 						non_UBSI_event(pid, sysno, succ, buf);
 				}
@@ -911,7 +1028,6 @@ int UBSI_buffer(const char *buf)
 
 		struct event_buf_t *eb;
 
-		//		printf("\n\nsize %ld\n%s\n\n", strlen(buf), buf); 
 		for(cursor=0; cursor < strlen(buf); cursor++) {
 				if(buf[cursor] == '\n') {
 						if(event_start == 0 && remain_byte > 0) {
@@ -963,7 +1079,6 @@ int UBSI_buffer(const char *buf)
 				remain_byte = cursor - event_start+1;
 				strncpy(remain, buf+event_start, remain_byte);
 				remain[remain_byte] = '\0';
-				//		printf("remain: %s\n", remain);
 		} else {
 				remain_byte = 0;
 		}
@@ -983,8 +1098,6 @@ int UBSI_buffer(const char *buf)
 						HASH_DEL(event_buf, eb);
 						free(eb->event);
 						free(eb);
-				} else {
-						//fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!event id %d is not exist!, hash_count %d\n", next_event_id, HASH_COUNT(event_buf));
 				}
 		}
 }

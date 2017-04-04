@@ -21,6 +21,7 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +47,7 @@ import org.apache.commons.io.FileUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
+import spade.core.Buffer;
 import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
@@ -57,6 +59,7 @@ import spade.reporter.audit.ArtifactProperties;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.DescriptorManager;
 import spade.reporter.audit.FileIdentifier;
+import spade.reporter.audit.IdentifierWithPath;
 import spade.reporter.audit.MemoryIdentifier;
 import spade.reporter.audit.NamedPipeIdentifier;
 import spade.reporter.audit.NetworkSocketIdentifier;
@@ -178,6 +181,7 @@ public class Audit extends AbstractReporter {
 			VERSION_UNIX_SOCKETS = true;
 	private boolean KEEP_VERSIONS = true,
 			KEEP_EPOCHS = true,
+			KEEP_PATH_PERMISSIONS = true,
 			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 	private boolean ANONYMOUS_MMAP = true;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -506,7 +510,15 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		if(!KEEP_VERSIONS && !KEEP_EPOCHS){
+		argValue = args.get("permissions");
+		if(isValidBoolean(argValue)){
+			KEEP_PATH_PERMISSIONS = parseBoolean(argValue, KEEP_PATH_PERMISSIONS);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'permissions': " + argValue);
+			return false;
+		}
+		
+		if(!KEEP_VERSIONS && !KEEP_EPOCHS && !KEEP_PATH_PERMISSIONS){
 			KEEP_ARTIFACT_PROPERTIES_MAP = false;
 		}	
 		
@@ -1548,7 +1560,7 @@ public class Audit extends AbstractReporter {
 			// List contains the dependent units and the reported unit is the unit on which they are dependent
 			WasTriggeredBy dependencyEdge = new WasTriggeredBy(dependentUnit, actingUnit);
 			// TODO use operation directly?
-			putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_BEEP);
 		}
 	}
 	
@@ -2031,9 +2043,9 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 
-			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 
-			Artifact artifact = putArtifact(eventData, artifactIdentifier, false);    	
+			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);    	
 			Process process = putProcess(eventData, time, eventId);    	
 			WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
@@ -2099,7 +2111,7 @@ public class Audit extends AbstractReporter {
 				pid : pidToTgidForMemoryArtifactsOnly.get(pid);
 		ArtifactIdentifier memoryArtifactIdentifier = 
 				new MemoryIdentifier(tgid, address, length);
-		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, true);
+		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, null, true);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(wgbEdge, getOperation(syscall, SYSCALL.WRITE), time, eventId, OPMConstants.SOURCE_AUDIT);		
@@ -2119,7 +2131,7 @@ public class Audit extends AbstractReporter {
 	
 			if(fileArtifactIdentifier == null){
 				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 				fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
 			}
 	
@@ -2131,7 +2143,7 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 	
-			Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentifier, false);
+			Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentifier, null, false);
 	
 			Used usedEdge = new Used(process, fileArtifact);
 			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
@@ -2165,7 +2177,7 @@ public class Audit extends AbstractReporter {
 		
 		ArtifactIdentifier memoryInfo = 
 				new MemoryIdentifier(tgid, address, length);
-		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, true);
+		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, null, true);
 
 		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
 
@@ -2212,26 +2224,20 @@ public class Audit extends AbstractReporter {
 		WasTriggeredBy forkCloneEdge = new WasTriggeredBy(newProcess, oldProcess);
 		putEdge(forkCloneEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 
-		if(syscall == SYSCALL.CLONE){
-			if((flags & CLONE_FILES) == CLONE_FILES){
-				descriptors.linkDescriptors(oldPID, newPID);//share file descriptors when clone
-			}else{
-				descriptors.copyDescriptors(oldPID, newPID);
-			}
-			// Only in case of clone
-			// If memory space being shared then only use tgid for memory artifacts
-			if((flags & CLONE_VM) == CLONE_VM){
-				if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
-					pidToTgidForMemoryArtifactsOnly.put(newPID, oldPID);
-				}else{
-					pidToTgidForMemoryArtifactsOnly.put(newPID, pidToTgidForMemoryArtifactsOnly.get(oldPID));
-				}
-			}
-		}else if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){ //copy file descriptors just once here when fork
-			descriptors.copyDescriptors(oldPID, newPID);
+		if((flags & CLONE_FILES) == CLONE_FILES){
+			// Share the same file descriptor table
+			descriptors.linkDescriptors(oldPID, newPID);
 		}else{
-			log(Level.WARNING, "Unexpected syscall '"+syscall+"' in FORK CLONE handler", null, time, eventId, syscall);
-			return;
+			// Gets a copy of the parent's file descriptor table
+			descriptors.copyDescriptors(oldPID, newPID);
+		}
+		// If memory space being shared then only use tgid for memory artifacts
+		if((flags & CLONE_VM) == CLONE_VM){
+			if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
+				pidToTgidForMemoryArtifactsOnly.put(newPID, oldPID);
+			}else{
+				pidToTgidForMemoryArtifactsOnly.put(newPID, pidToTgidForMemoryArtifactsOnly.get(oldPID));
+			}
 		}
 	}
 
@@ -2309,8 +2315,8 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, SYSCALL.EXECVE);
 				continue;
 			}        	
-			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getMode());
-			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, false);
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType());
+			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
 			Used usedEdge = new Used(newProcess, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}
@@ -2448,7 +2454,7 @@ public class Audit extends AbstractReporter {
 
 		Process process = putProcess(eventData, time, eventId);
 
-		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 
 		AbstractEdge edge = null;
 
@@ -2459,7 +2465,7 @@ public class Audit extends AbstractReporter {
 			}
 
 			//set new epoch
-			markNewEpochForArtifact(artifactIdentifier, time, eventId);
+			markNewEpochForArtifact(artifactIdentifier);
 
 			syscall = SYSCALL.CREATE;
 
@@ -2477,15 +2483,15 @@ public class Audit extends AbstractReporter {
 				(flags & O_RDWR) == O_RDWR ||
 				 (flags & O_APPEND) == O_APPEND || 
 				 (flags & O_TRUNC) == O_TRUNC){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), true);
 			edge = new WasGeneratedBy(vertex, process);
 			openedForRead = false;
 		} else if ((flags & O_RDONLY) == O_RDONLY) {
 			if(isCreate){
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+				Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), true);
 				edge = new WasGeneratedBy(vertex, process);
 			}else{
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
+				Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);
 				edge = new Used(process, vertex);
 			}
 			openedForRead = true;
@@ -2516,7 +2522,7 @@ public class Audit extends AbstractReporter {
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
 			if(closedArtifactIdentifier != null){
 				Process process = putProcess(eventData, time, eventId);
-				Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, false);
+				Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, null, false);
 				AbstractEdge edge = null;
 				Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
 				if(wasOpenedForRead == null){
@@ -2534,7 +2540,7 @@ public class Audit extends AbstractReporter {
 						OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP.equals(
 								((NetworkSocketIdentifier)closedArtifactIdentifier).getProtocol()
 								)){
-					markNewEpochForArtifact(closedArtifactIdentifier, time, eventId);
+					markNewEpochForArtifact(closedArtifactIdentifier);
 				}
 			}else{
 				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.CLOSE);
@@ -2564,11 +2570,11 @@ public class Audit extends AbstractReporter {
 
 		if(descriptors.getDescriptor(pid, fd) == null){
 			descriptors.addUnknownDescriptor(pid, fd);
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 		}
 
 		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
-		Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
+		Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
 		Used used = new Used(process, vertex);
 		used.addAnnotation(OPMConstants.EDGE_SIZE, bytesRead);
 		if(offset != null){
@@ -2597,13 +2603,13 @@ public class Audit extends AbstractReporter {
 		
 		if(descriptors.getDescriptor(pid, fd) == null){
 			descriptors.addUnknownDescriptor(pid, fd);
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 		}
 
 		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
 
 		if(artifactIdentifier != null){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesWritten);
 			if(offset != null){
@@ -2623,6 +2629,7 @@ public class Audit extends AbstractReporter {
 		Process process = putProcess(eventData, time, eventId);
 
 		ArtifactIdentifier artifactIdentifier = null;
+		String permissions = null;
 
 		if (syscall == SYSCALL.TRUNCATE) {
 			PathRecord pathRecord = getFirstPathWithNametype(eventData, AuditEventReader.NAMETYPE_NORMAL);
@@ -2636,13 +2643,14 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			permissions = pathRecord.getPermissions();
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get(AuditEventReader.ARG0);
 
 			if(descriptors.getDescriptor(pid, fd) == null){
 				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 			}
 
 			artifactIdentifier = descriptors.getDescriptor(pid, fd);
@@ -2651,7 +2659,7 @@ public class Audit extends AbstractReporter {
 		if(artifactIdentifier != null){
 			if(FileIdentifier.class.equals(artifactIdentifier.getClass()) 
 					|| UnknownIdentifier.class.equals(artifactIdentifier.getClass())){
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+				Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
 				WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 				putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 			}else{
@@ -2667,8 +2675,6 @@ public class Audit extends AbstractReporter {
 		// dup(), dup2(), and dup3() receive the following message(s):
 		// - SYSCALL
 		// - EOE
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
 
 		String fd = eventData.get(AuditEventReader.ARG0);
@@ -2677,7 +2683,7 @@ public class Audit extends AbstractReporter {
 		if(!fd.equals(newFD)){ //if both fds same then it succeeds in case of dup2 and it does nothing so do nothing here too
 			if(descriptors.getDescriptor(pid, fd) == null){
 				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 			}
 			descriptors.duplicateDescriptor(pid, fd, newFD);
 		}
@@ -2990,21 +2996,7 @@ public class Audit extends AbstractReporter {
 		String newFilePathModeStr = eventData.get(AuditEventReader.MODE_PREFIX+"4") == null ? 
 				eventData.get(AuditEventReader.MODE_PREFIX+"3") : 
 				eventData.get(AuditEventReader.MODE_PREFIX+"4");
-				
-		int oldFilePathMode = 0, newFilePathMode = 0;
 		
-		try{
-			oldFilePathMode = Integer.parseInt(oldFilePathModeStr, 8);
-		}catch(Exception e){
-			log(Level.INFO, "Missing mode for path: " + oldFilePath + ". Using type 'file'", null, time, eventId, syscall);
-		}
-		
-		try{
-			newFilePathMode = Integer.parseInt(newFilePathModeStr, 8);
-		}catch(Exception e){
-			log(Level.INFO, "Missing mode for path: " + newFilePath + ". Using type 'file'", null, time, eventId, syscall);
-		}
-
 		if(syscall == SYSCALL.RENAME){
 			oldFilePath = constructAbsolutePath(oldFilePath, cwd, pid);
 			newFilePath = constructAbsolutePath(newFilePath, cwd, pid);
@@ -3021,7 +3013,7 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		handleSpecialSyscalls(eventData, syscall, oldFilePath, newFilePath, oldFilePathMode, newFilePathMode);
+		handleSpecialSyscalls(eventData, syscall, oldFilePath, newFilePath, oldFilePathModeStr, newFilePathModeStr);
 	}
 
 	private void handleMknodat(Map<String, String> eventData){
@@ -3102,7 +3094,7 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 
 		if(artifactIdentifier == null){
 			log(Level.INFO, "Unsupported mode for mknod '"+modeString+"'", null, time, eventId, syscall);
@@ -3110,7 +3102,7 @@ public class Audit extends AbstractReporter {
 		}	
 
 		if(artifactIdentifier != null){
-			markNewEpochForArtifact(artifactIdentifier, time, eventId);
+			markNewEpochForArtifact(artifactIdentifier);
 		}
 	}
 
@@ -3131,20 +3123,6 @@ public class Audit extends AbstractReporter {
 		String dstPath = eventData.get(AuditEventReader.PATH_PREFIX + "2");
 		String dstPathModeStr = eventData.get(AuditEventReader.MODE_PREFIX + "2");
 		String time = eventData.get(AuditEventReader.TIME);
-
-		int srcPathMode = 0, dstPathMode = 0;
-		
-		try{
-			srcPathMode = Integer.parseInt(srcPathModeStr, 8);
-		}catch(Exception e){
-			log(Level.INFO, "Missing mode for path: " + srcPath + ". Using type 'file'", null, time, eventId, syscall);
-		}
-		
-		try{
-			dstPathMode = Integer.parseInt(dstPathModeStr, 8);
-		}catch(Exception e){
-			log(Level.INFO, "Missing mode for path: " + dstPath + ". Using type 'file'", null, time, eventId, syscall);
-		}
 		
 		if(syscall == SYSCALL.LINK || syscall == SYSCALL.SYMLINK){
 			srcPath = constructAbsolutePath(srcPath, cwd, pid);
@@ -3165,7 +3143,7 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		handleSpecialSyscalls(eventData, syscall, srcPath, dstPath, srcPathMode, dstPathMode);
+		handleSpecialSyscalls(eventData, syscall, srcPath, dstPath, srcPathModeStr, dstPathModeStr);
 	}
 
 	/**
@@ -3185,7 +3163,7 @@ public class Audit extends AbstractReporter {
 	 */
 	private void handleSpecialSyscalls(Map<String, String> eventData, SYSCALL syscall, 
 			String srcPath, String dstPath,
-			int srcPathMode, int dstPathMode){
+			String srcPathMode, String dstPathMode){
 
 		if(eventData == null || syscall == null || srcPath == null || dstPath == null){
 			logger.log(Level.INFO, "Missing arguments. srcPath:{0}, dstPath:{1}, syscall:{2}, eventData:{3}", new Object[]{srcPath, dstPath, syscall, eventData});
@@ -3203,8 +3181,10 @@ public class Audit extends AbstractReporter {
 
 		Process process = putProcess(eventData, time, eventId);
 
-		ArtifactIdentifier srcArtifactIdentifier = getArtifactIdentifierFromPathMode(srcPath, srcPathMode);
-		ArtifactIdentifier dstArtifactIdentifier = getArtifactIdentifierFromPathMode(dstPath, dstPathMode);
+		ArtifactIdentifier srcArtifactIdentifier = getArtifactIdentifierFromPathMode(srcPath, 
+				PathRecord.parsePathType(srcPathMode));
+		ArtifactIdentifier dstArtifactIdentifier = getArtifactIdentifierFromPathMode(dstPath, 
+				PathRecord.parsePathType(dstPathMode));
 		
 		if(srcArtifactIdentifier == null || dstArtifactIdentifier == null){
 			logger.log(Level.WARNING, "Missing path objects. Failed to "
@@ -3213,13 +3193,13 @@ public class Audit extends AbstractReporter {
 		}
 
 		//destination is new so mark epoch
-		markNewEpochForArtifact(dstArtifactIdentifier, time, eventId);
+		markNewEpochForArtifact(dstArtifactIdentifier);
 
-		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, false);
+		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
 		Used used = new Used(process, srcVertex);
 		putEdge(used, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
 
-		Artifact dstVertex = putArtifact(eventData, dstArtifactIdentifier, true);
+		Artifact dstVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
 		WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
 		putEdge(wgb, getOperation(syscall, SYSCALL.WRITE), time, eventId, OPMConstants.SOURCE_AUDIT);
 
@@ -3234,20 +3214,20 @@ public class Audit extends AbstractReporter {
 	 * Returns null if an unexpected mode value found
 	 * 
 	 * @param path file system path
-	 * @param pathMode mode value for the path in the audit log
+	 * @param pathType mode value for the path in the audit log
 	 * @return ArtifactIdentifier subclass or null
 	 */
-	private ArtifactIdentifier getArtifactIdentifierFromPathMode(String path, int pathMode){
-		if((pathMode & S_IFMT) == S_IFREG || (pathMode & S_IFMT) == S_IFDIR 
-				|| (pathMode & S_IFMT) == S_IFCHR || (pathMode & S_IFMT) == S_IFBLK
-				|| (pathMode & S_IFMT) == S_IFLNK){
+	private ArtifactIdentifier getArtifactIdentifierFromPathMode(String path, int pathType){
+		if((pathType & S_IFMT) == S_IFREG || (pathType & S_IFMT) == S_IFDIR 
+				|| (pathType & S_IFMT) == S_IFCHR || (pathType & S_IFMT) == S_IFBLK
+				|| (pathType & S_IFMT) == S_IFLNK){
 			return new FileIdentifier(path);
-		}else if((pathMode & S_IFMT) == S_IFIFO){
+		}else if((pathType & S_IFMT) == S_IFIFO){
 			return new NamedPipeIdentifier(path);
-		}else if((pathMode & S_IFMT) == S_IFSOCK){
+		}else if((pathType & S_IFMT) == S_IFSOCK){
 			return new UnixSocketIdentifier(path);
 		}else{
-			logger.log(Level.INFO, "Unknown file type in mode: {0}. Using 'file' type", new Object[]{pathMode});
+			logger.log(Level.INFO, "Unknown file type in mode: {0} for path: {1}. Using 'file' type", new Object[]{pathType, path});
 			return new FileIdentifier(path);
 		}
 	}
@@ -3279,7 +3259,7 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing PATH or CWD records", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		} else if (syscall == SYSCALL.FCHMOD) {
 
@@ -3287,7 +3267,7 @@ public class Audit extends AbstractReporter {
 
 			if(descriptors.getDescriptor(pid, fd) == null){
 				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd), time, eventId);
+				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 			}
 
 			artifactIdentifier = descriptors.getDescriptor(pid, fd);
@@ -3305,7 +3285,7 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Failed to create path", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getMode());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 			modeArgument = eventData.get(AuditEventReader.ARG2);
 		}else{
 			log(Level.INFO, "Unexpected syscall '"+syscall+"' in CHMOD handler", null, time, eventId, syscall);
@@ -3318,7 +3298,8 @@ public class Audit extends AbstractReporter {
 		}
 		
 		String mode = new BigInteger(modeArgument).toString(8);
-		Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+		mode = PathRecord.parsePermissions(mode);
+		Artifact vertex = putArtifact(eventData, artifactIdentifier, mode, true);
 		WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 		wgb.addAnnotation(OPMConstants.EDGE_MODE, mode);
 		putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
@@ -3329,8 +3310,6 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - FD_PAIR
 		// - EOE
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
 
 		String fd0 = eventData.get(AuditEventReader.FD0);
@@ -3340,8 +3319,8 @@ public class Audit extends AbstractReporter {
 		descriptors.addDescriptor(pid, fd0, readPipeIdentifier, true);
 		descriptors.addDescriptor(pid, fd1, writePipeIdentifier, false);
 
-		markNewEpochForArtifact(readPipeIdentifier, time, eventId);
-		markNewEpochForArtifact(writePipeIdentifier, time, eventId);
+		markNewEpochForArtifact(readPipeIdentifier);
+		markNewEpochForArtifact(writePipeIdentifier);
 	}    
 
 
@@ -3416,7 +3395,7 @@ public class Audit extends AbstractReporter {
 			descriptors.addDescriptor(pid, sockFd, artifactIdentifier, false);
 			// Epoch to be incremented only in case of unix sockets and not network sockets
 			if(UnixSocketIdentifier.class.equals(artifactIdentifier.getClass())){
-				markNewEpochForArtifact(artifactIdentifier, time, eventId);
+				markNewEpochForArtifact(artifactIdentifier);
 			}
 		}else{
 			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, syscall);
@@ -3446,10 +3425,10 @@ public class Audit extends AbstractReporter {
 			
 			// Incrementing epoch only for network sockets
 			if(!UnixSocketIdentifier.class.equals(parsedArtifactIdentifier.getClass())){
-				markNewEpochForArtifact(parsedArtifactIdentifier, time, eventId);
+				markNewEpochForArtifact(parsedArtifactIdentifier);
 			}
 
-			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, true);
+			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 			putEdge(wgb, getOperation(SYSCALL.CONNECT), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}else{
@@ -3528,10 +3507,10 @@ public class Audit extends AbstractReporter {
 			
 			// Increment epoch only if not unix socket i.e. network socket
 			if(!UnixSocketIdentifier.class.equals(artifactIdentifier.getClass())){
-				markNewEpochForArtifact(artifactIdentifier, time, eventId);
+				markNewEpochForArtifact(artifactIdentifier);
 			}
 			
-			Artifact socket = putArtifact(eventData, artifactIdentifier, false);
+			Artifact socket = putArtifact(eventData, artifactIdentifier, null, false);
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}else{
@@ -3552,7 +3531,7 @@ public class Audit extends AbstractReporter {
 			if(newOne == null && existing == null){
 				descriptors.addUnknownDescriptor(pid, fd);
 				artifactIdentifier = descriptors.getDescriptor(pid, fd);
-				markNewEpochForArtifact(artifactIdentifier, time, eventId);
+				markNewEpochForArtifact(artifactIdentifier);
 			}else if(newOne == null && existing != null){
 				artifactIdentifier = existing; //dont need to add it again
 			}else if(newOne != null && existing == null){
@@ -3590,7 +3569,7 @@ public class Audit extends AbstractReporter {
 					// both Non-network. add the unknown
 					descriptors.addUnknownDescriptor(pid, fd);
 					artifactIdentifier = descriptors.getDescriptor(pid, fd);
-					markNewEpochForArtifact(artifactIdentifier, time, eventId);
+					markNewEpochForArtifact(artifactIdentifier);
 				}
 				
 			}
@@ -3600,7 +3579,7 @@ public class Audit extends AbstractReporter {
 			if(existing == null){
 				descriptors.addUnknownDescriptor(pid, fd);
 				existing = descriptors.getDescriptor(pid, fd);
-				markNewEpochForArtifact(existing, time, eventId);
+				markNewEpochForArtifact(existing);
 			}
 			artifactIdentifier = existing;
 		}
@@ -3632,7 +3611,7 @@ public class Audit extends AbstractReporter {
 		}
 				
 		if(artifactIdentifier != null){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, true);
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesSent);
 			putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
@@ -3664,7 +3643,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(artifactIdentifier != null){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, false);
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
 			Used used = new Used(process, vertex);
 			used.addAnnotation(OPMConstants.EDGE_SIZE, bytesReceived);
 			putEdge(used, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
@@ -3809,12 +3788,14 @@ public class Audit extends AbstractReporter {
 	 * 
 	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
 	 * @param artifactIdentifier artifact to create
+	 * @param permissions permissions as found in the 'mode' key in the PATH audit record (or null)
 	 * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
 	 * @return the created artifact
 	 */
-	private Artifact putArtifact(Map<String, String> eventData, ArtifactIdentifier artifactIdentifier,
+	private Artifact putArtifact(Map<String, String> eventData, 
+			ArtifactIdentifier artifactIdentifier, String permissions,
 			boolean updateVersion){
-		return putArtifact(eventData, artifactIdentifier, updateVersion, null);
+		return putArtifact(eventData, artifactIdentifier, permissions, updateVersion, null);
 	}
 
 	/**
@@ -3837,16 +3818,18 @@ public class Audit extends AbstractReporter {
 	 * 
 	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
 	 * @param artifactIdentifier artifact to create
+	 * @param permissions permissions as found in the 'mode' key in the PATH audit record (or null)
 	 * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
 	 * @param useThisSource the source value to use. if null then {@link #DEV_AUDIT DEV_AUDIT} is used.
 	 * @return the created artifact
 	 */
-	private Artifact putArtifact(Map<String, String> eventData, ArtifactIdentifier artifactIdentifier, 
+	private Artifact putArtifact(Map<String, String> eventData, 
+			ArtifactIdentifier artifactIdentifier, String permissions, 
 			boolean updateVersion, String useThisSource){
 		if(artifactIdentifier == null){
 			return null;
 		}
-
+		
 		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
 		
 		Artifact artifact = new Artifact();
@@ -3886,6 +3869,7 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		
+		// Special case: if /dev prefix path then don't version
 		if(FileIdentifier.class.equals(artifactIdentifierClass)
 				|| NamedPipeIdentifier.class.equals(artifactIdentifierClass)
 				|| UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
@@ -3896,65 +3880,162 @@ public class Audit extends AbstractReporter {
 				}
 			}
 		}
-
+		
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+			
+			/*
+			 * Going to keep all the state if map is being used and just going to choose not to 
+			 * add the relevant annotations
+			 */
+						
 			ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
 			
-			//version is always uninitialized if the epoch has been seen so using that to infer about epoch
-			boolean vertexNotSeenBefore = updateVersion || artifactProperties.isVersionUninitialized(); //do this before getVersion because it updates it based on updateVersion flag
-	
-			String versionAnnotation = String.valueOf(artifactProperties.getVersion(updateVersion));
+			boolean versionUninitialized = artifactProperties.isVersionUninitialized();
+			boolean epochUninitialized = artifactProperties.isEpochUninitialized();
+			boolean isEpochPending = artifactProperties.isEpochPending();
+			boolean permissionsUninitialized = artifactProperties.isPermissionsUninitialized();
+			boolean permissionsSeenBefore = true;
+			if(permissions != null){
+				permissionsSeenBefore = artifactProperties.permissionsSeenBefore(permissions);
+			}
+			
+			boolean versionAnnotationAdded = false;
+			boolean epochAnnotationAdded = false;
+			boolean permissionsAnnotationAdded = false;
+			
+			Long version = artifactProperties.getVersion(updateVersion);
+			Long epoch = artifactProperties.getEpoch();
+			String previousPermissions = artifactProperties.getCurrentPermissions();
+			if(permissionsUninitialized){
+				artifactProperties.initializePermissions();
+			}			
+			if(permissions == null){
+				permissions = artifactProperties.getCurrentPermissions();
+			}else{
+				artifactProperties.setCurrentPermissions(permissions);
+			}
 			
 			if(KEEP_VERSIONS){
-				artifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, versionAnnotation);
+				versionAnnotationAdded = true;
+				artifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, 
+						String.valueOf(version));
 			}
-	
-			String epochAnnotation = String.valueOf(artifactProperties.getEpoch());
 			
 			if(KEEP_EPOCHS){
-				if(!MemoryIdentifier.class.equals(artifactIdentifierClass)){ //epoch for everything except memory
-					artifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, epochAnnotation);
+				if(!artifactIdentifierClass.equals(MemoryIdentifier.class)){
+					epochAnnotationAdded = true;
+					artifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, 
+							String.valueOf(epoch));
 				}
 			}
-	
-			if(vertexNotSeenBefore){//not seen because of either it has been updated or it is the first time it is seen
+			
+			if(KEEP_PATH_PERMISSIONS){
+				// Permissions for only path based ones
+				if(artifactIdentifier instanceof IdentifierWithPath){
+					if(permissions != null){
+						permissionsAnnotationAdded = true;
+						artifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, permissions);
+					}
+				}
+			}
+			
+			boolean versionChanged = (versionUninitialized || (updateVersion && versionAnnotationAdded));
+			boolean epochChanged = (epochUninitialized || (isEpochPending && epochAnnotationAdded));
+			boolean permissionsChanged = (permissionsUninitialized || (permissionsAnnotationAdded && !permissionsSeenBefore));
+			
+			if(versionChanged
+					|| epochChanged
+					|| permissionsChanged){
 				if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
 					// don't add
 				}else{
 					putVertex(artifact);
+					putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
+							eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
+							versionAnnotationAdded, version - 1, 
+							permissionsAnnotationAdded, previousPermissions,
+							epochAnnotationAdded, isEpochPending);
+				}
+			}else{
+				if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
+					// Don't add
+				}else{
+					// In case the versions are off and permissions are not off and the artifact
+					// reverts to a previously used permission
+					if((!KEEP_VERSIONS && KEEP_PATH_PERMISSIONS 
+							&& permissions != null && previousPermissions != null
+							&& !permissions.equals(previousPermissions)
+							&& permissionsSeenBefore)){
+						putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
+								eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
+								versionAnnotationAdded, version - 1, 
+								permissionsAnnotationAdded, previousPermissions,
+								epochAnnotationAdded, isEpochPending);
+					}
 				}
 			}
-			
-			//always at the end after the vertex has been added
-			if(KEEP_VERSIONS){
-				if(updateVersion 
-						&& (FileIdentifier.class.equals(artifactIdentifier.getClass()) ||
-								UnixSocketIdentifier.class.equals(artifactIdentifier.getClass()))){ 
-					//put the version update edge if version updated for a file or a unix socket
-					if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
-						// don't add
-					}else{
-						if(eventData != null){
-							putVersionUpdateEdge(artifact, 
-									eventData.get(AuditEventReader.TIME), 
-									eventData.get(AuditEventReader.EVENT_ID), 
-									eventData.get(AuditEventReader.PID));
-						}else{
-							logger.log(Level.WARNING, "Failed to create version update for artifact '" +artifact 
-									+ "' because time, eventid and pid missing");
-						}
-					}					
-				}
-			}
+						
 		}else{
+			// If not keeping the artifacts properties map then no way of telling if we should 
+			// call putVertex or not again (possible duplication). So, calling putVertex each time
 			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
 				// don't add
 			}else{
 				putVertex(artifact);
 			}
-		}		
+		}
 
 		return artifact;
+	}
+	
+	/**
+	 * Creates a version or permissions update edge i.e. from the new version/permissions of an artifact 
+	 * to the old version/permissions of the same artifact.
+	 * At the moment only being done for file, namedpipes, and unix socket artifacts. (only for path based artifacts)
+	 * See {@link #putArtifact(Map, ArtifactIdentifier, boolean, String) putArtifact}.
+	 * 
+	 * If the previous version number of the artifact is less than 0 then the edge won't be drawn because that means that there was
+	 * no previous version. 
+	 * 
+	 * Doesn't put the two artifact vertices because they should already have been added from where this function is called
+	 * 
+	 * Rules:
+	 * 1) If epoch was pending and has been incremented then we don't draw this update edge
+	 * 2) 
+	 * 
+	 * 
+	 * @param newArtifact artifact which has the updated version
+	 * @param time timestamp when this happened
+	 * @param eventId event id of the new version of the artifact creation
+	 * @param pid pid of the process which did the update
+	 */
+	private void putVersionPermissionsUpdateEdge(Artifact newArtifact, 
+			String time, String eventId, String pid,
+			boolean versionAnnotationAdded, Long previousVersion,
+			boolean permissionsAnnotationAdded, String previousPermissions,
+			boolean epochAnnotationAdded, boolean wasEpochPending){
+		if(epochAnnotationAdded && wasEpochPending){
+			return;
+		}
+		if(OPMConstants.isPathBasedArtifact(newArtifact) 
+				&& (versionAnnotationAdded || permissionsAnnotationAdded)){
+			boolean updated = false;
+			Artifact oldArtifact = new Artifact();
+			oldArtifact.addAnnotations(newArtifact.getAnnotations());
+			if(versionAnnotationAdded && previousVersion > -1){
+				updated = updated || true;
+				oldArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, String.valueOf(previousVersion));
+			}
+			if(permissionsAnnotationAdded && previousPermissions != null){
+				updated = updated || true;
+				oldArtifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, String.valueOf(previousPermissions));
+			}
+			if(updated){
+				WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
+				versionUpdate.addAnnotation(OPMConstants.EDGE_PID, pid);
+				putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
+			}
+		}
 	}
 
 	/**
@@ -3982,14 +4063,11 @@ public class Audit extends AbstractReporter {
 	 * doing anything.
 	 * 
 	 * @param artifactIdentifier artifact identifier to get the properties of
-	 * @param creationTime creation time of the artifact
-	 * @param creationEventId creation event id of the artifact
 	 */
-	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier, 
-			String creationTime, String creationEventId){
+	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier){
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			if(KEEP_EPOCHS){
-				getArtifactProperties(artifactIdentifier).markNewEpoch(creationTime, creationEventId);
+				getArtifactProperties(artifactIdentifier).markNewEpoch();
 			}
 		}
 	}
@@ -4113,48 +4191,6 @@ public class Audit extends AbstractReporter {
 	}
 
 	/**
-	 * Creates a version update edge i.e. from the new version of an artifact to the old version of the same artifact.
-	 * At the moment only being done for file and unix socket artifacts. 
-	 * See {@link #putArtifact(Map, ArtifactIdentifier, boolean, String) putArtifact}.
-	 * 
-	 * If the previous version number of the artifact is less than 0 then the edge won't be drawn because that means that there was
-	 * no previous version. 
-	 * 
-	 * Doesn't put the two artifact vertices because they should already have been added from where this function is called
-	 * 
-	 * @param newArtifact artifact which has the updated version
-	 * @param time timestamp when this happened
-	 * @param eventId event id of the new version of the artifact creation
-	 * @param pid pid of the process which did the update
-	 */
-	private void putVersionUpdateEdge(Artifact newArtifact, String time, String eventId, String pid){
-		if(newArtifact == null || time == null || eventId == null || pid == null){
-			logger.log(Level.WARNING, "Invalid arguments. newArtifact="+newArtifact+", time="+time+
-					", eventId="+eventId+", pid="+pid);
-			return;
-		}
-		Artifact oldArtifact = new Artifact();
-		oldArtifact.addAnnotations(newArtifact.getAnnotations());
-		Long oldVersion = null;
-		try{
-			//this takes care of the case where not to put version update in case an epoch has happened because on epoch version is reset to 0. 
-			//so, there would be no previous version to update from.
-			oldVersion = CommonFunctions.parseLong(newArtifact.getAnnotation(OPMConstants.ARTIFACT_VERSION), -1L) - 1;
-			if(oldVersion < 0){ //i.e. no previous one, it is the first artifact for the path
-				return;
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to create version update edge between (" + newArtifact.toString() 
-					+ ") and ("+oldArtifact.toString()+")" , e);
-			return;
-		}
-		oldArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, String.valueOf(oldVersion));
-		WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
-		versionUpdate.addAnnotation(OPMConstants.EDGE_PID, pid);
-		putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
-	}
-
-	/**
 	 * Groups system call names by functionality and returns that name to simplify identification of the type of system call.
 	 * Grouping only done if {@link #SIMPLIFY SIMPLIFY} is true otherwise the system call name is returned simply.
 	 * 
@@ -4192,16 +4228,10 @@ public class Audit extends AbstractReporter {
 			Long items = CommonFunctions.parseLong(eventData.get(AuditEventReader.ITEMS), 0L);
 			for(int itemcount = 0; itemcount < items; itemcount++){
 				if(nametypeValue.equals(eventData.get(AuditEventReader.NAMETYPE_PREFIX+itemcount))){
-					int mode = 0;
-					try{
-						mode = Integer.parseInt(eventData.get(AuditEventReader.MODE_PREFIX+itemcount), 8);
-					}catch(Exception e){
-						// nothing
-					}
 					PathRecord pathRecord = new PathRecord(itemcount, 
 							eventData.get(AuditEventReader.PATH_PREFIX+itemcount), 
 							eventData.get(AuditEventReader.NAMETYPE_PREFIX+itemcount), 
-							mode);
+							eventData.get(AuditEventReader.MODE_PREFIX+itemcount));
 					pathRecords.add(pathRecord);
 				}
 			}
@@ -4609,6 +4639,58 @@ public class Audit extends AbstractReporter {
 				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count);
 	}
 
+	public static void main(String[] args) throws Exception{
+				
+		String configFilePath = "/home/ubwork/spade/3SPADE/cfg/spade.reporter.Audit.config";
+		Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+				
+		Audit a = new Audit();
+		a.USE_READ_WRITE = true;
+		a.USE_SOCK_SEND_RCV = true;
+		a.ARCH_32BIT = false;
+		a.isLiveAudit = false;
+		a.KEEP_VERSIONS = true;
+		a.KEEP_EPOCHS = true;
+		a.KEEP_PATH_PERMISSIONS = true;
+		a.UNIX_SOCKETS = true;
+		a.initCacheMaps(configMap);
+		
+		Buffer buffer = new Buffer();
+		a.setBuffer(buffer);
+		
+		String filepath = "/home/ubwork/chmod.audit.log";//"/home/ubwork/spade/new_data/infoleak/audit.log";
+		FileInputStream inputStream = new FileInputStream(new File(filepath));
+		AuditEventReader aur = new AuditEventReader(filepath, inputStream);
+		
+		Map<String, String> eventData = null;
+		while((eventData = aur.readEventData()) != null){
+			a.finishEvent(eventData);
+		}
+		
+		aur.close();
+		a.deleteCacheMaps();
+		
+//		String jsonfile = "/home/ubwork/chmod.audit.log.json";
+//		spade.storage.CDM storage = new spade.storage.CDM();
+//		storage.initialize("output="+jsonfile);
+		
+//		String dotfile = "/home/ubwork/spade/new_data/infoleak/audit.log.dot";//"/home/ubwork/chmod.audit.log.dot";
+//		Graphviz g = new Graphviz();
+//		g.initialize(dotfile);
+//		
+//		while(!buffer.isEmpty()){
+//			Object o = buffer.getBufferElement();
+//			if(o instanceof AbstractVertex){
+//				storage.putVertex((AbstractVertex)o);
+//			}else if(o instanceof AbstractEdge){
+//				storage.putEdge((AbstractEdge)o);
+//			}else{
+//				System.out.println(o);
+//			}
+//		}
+//		storage.shutdown();
+	}
+	
 }
 
 /**
@@ -4634,13 +4716,68 @@ class PathRecord implements Comparable<PathRecord>{
 	/**
 	 * Value of the mode field in the audit log
 	 */
-	private int mode;
+	private String mode;
+	/**
+	 * Extracted from the mode variable by parsing it with base-8
+	 */
+	private int pathType = 0;
+	/**
+	 * Extracted from the mode variable
+	 */
+	private String permissions = null;
 	
-	public PathRecord(int index, String path, String nametype, int mode){
+	public PathRecord(int index, String path, String nametype, String mode){
 		this.index = index;
 		this.path = path;
 		this.nametype = nametype;
 		this.mode = mode;
+		this.pathType = parsePathType(mode);
+		this.permissions = parsePermissions(mode);
+	}
+	
+	/**
+	 * Parses the string mode into an integer with base 8
+	 * 
+	 * @param mode base 8 representation of string
+	 * @return integer value of mode
+	 */
+	public static int parsePathType(String mode){
+		try{
+			return Integer.parseInt(mode, 8);
+		}catch(Exception e){
+			return 0;
+		}
+	}
+	
+	/**
+	 * Returns the last 4 characters in the mode string.
+	 * If the length of the mode string is less than 4 than pads the
+	 * remaining zeroes at the beginning of the return value.
+	 * If the mode argument is null then null returned.
+	 * @param mode mode string with last 4 characters as permissions
+	 * @return only the last 4 characters or null
+	 */
+	public static String parsePermissions(String mode){
+		if(mode != null){
+			if(mode.length() >= 4){
+				return mode.substring(mode.length() - 4);
+			}else{
+				int difference = 4 - mode.length();
+				for(int a = 0; a< difference; a++){
+					mode = "0" + mode;
+				}
+				return mode;
+			}
+		}
+		return null;
+	}
+	
+	public String getPermissions(){
+		return permissions;
+	}
+	
+	public int getPathType(){
+		return pathType;
 	}
 	
 	public String getPath(){
@@ -4655,10 +4792,6 @@ class PathRecord implements Comparable<PathRecord>{
 		return index;
 	}
 	
-	public int getMode(){
-		return mode;
-	}
-
 	/**
 	 * Compares based on index. If the passed object is null then 1 returned always
 	 */
@@ -4669,13 +4802,13 @@ class PathRecord implements Comparable<PathRecord>{
 		}
 		return 1;
 	}
-	
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + index;
-		result = prime * result + mode;
+		result = prime * result + ((mode == null) ? 0 : mode.hashCode());
 		result = prime * result + ((nametype == null) ? 0 : nametype.hashCode());
 		result = prime * result + ((path == null) ? 0 : path.hashCode());
 		return result;
@@ -4692,7 +4825,10 @@ class PathRecord implements Comparable<PathRecord>{
 		PathRecord other = (PathRecord) obj;
 		if (index != other.index)
 			return false;
-		if (mode != other.mode)
+		if (mode == null) {
+			if (other.mode != null)
+				return false;
+		} else if (!mode.equals(other.mode))
 			return false;
 		if (nametype == null) {
 			if (other.nametype != null)
