@@ -19,6 +19,7 @@
  */
 package spade.storage;
 
+import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +47,7 @@ import com.bbn.tc.schema.avro.MemoryObject;
 import com.bbn.tc.schema.avro.NetFlowObject;
 import com.bbn.tc.schema.avro.Principal;
 import com.bbn.tc.schema.avro.PrincipalType;
+import com.bbn.tc.schema.avro.SHORT;
 import com.bbn.tc.schema.avro.SrcSinkObject;
 import com.bbn.tc.schema.avro.SrcSinkType;
 import com.bbn.tc.schema.avro.Subject;
@@ -498,7 +500,9 @@ public class CDM extends Kafka {
 					tccdmObject = createFileObject(getUuid(vertex), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, FileObjectType.FILE_OBJECT_FILE);
+							epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_FILE);
 
 				}else if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
 
@@ -528,7 +532,9 @@ public class CDM extends Kafka {
 					tccdmObject = createFileObject(getUuid(vertex), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, FileObjectType.FILE_OBJECT_UNIX_SOCKET);
+							epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_UNIX_SOCKET);
 					
 				}else if(OPMConstants.SUBTYPE_MEMORY_ADDRESS.equals(artifactType)){
 
@@ -561,7 +567,9 @@ public class CDM extends Kafka {
 				}else if(OPMConstants.SUBTYPE_NAMED_PIPE.equals(artifactType)){
 
 					tccdmObject = createFileObject(getUuid(vertex), vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, FileObjectType.FILE_OBJECT_NAMED_PIPE);
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_NAMED_PIPE);
 
 				}else if(OPMConstants.SUBTYPE_UNNAMED_PIPE.equals(artifactType)){
 
@@ -622,11 +630,12 @@ public class CDM extends Kafka {
 	 * @param path path of the file
 	 * @param version version annotation
 	 * @param epoch epoch annotation
+	 * @param permissionsAnnotation permissions in octal string format (can be null)
 	 * @param type FileObjectType
 	 * @return FileObject instance
 	 */
-	private FileObject createFileObject(UUID uuid, String path, String version, 
-			Integer epoch, FileObjectType type){
+	private FileObject createFileObject(UUID uuid, String path, String version,
+			Integer epoch, String permissionsAnnotation, FileObjectType type){
 
 		Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 		if(path != null){
@@ -635,8 +644,10 @@ public class CDM extends Kafka {
 		if(version != null){
 			properties.put(OPMConstants.ARTIFACT_VERSION, version);
 		}
+		
+		SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
 
-		AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+		AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
 		FileObject fileObject = new FileObject(uuid, baseObject, type, null, null, null, null, null);
 
 		return fileObject;
@@ -1272,7 +1283,28 @@ public class CDM extends Kafka {
 		}
 		return new UUID(hash);
 	}
-
+	
+	/**
+	 * Converts the permissions string to short first (using base 8) and then
+	 * adds writes the short to a bytebuffer and then gets the byte array from the
+	 * buffer which is then added to the CDM SHORT type
+	 * 
+	 * @param permissions octal permissions string
+	 * @return CDM SHORT type or null
+	 */
+	private SHORT getPermissionsAsCDMSHORT(String permissions){
+		// IMPORTANT: If this function is changed then change the function in CDM reporter which reverses this
+		if(permissions == null || permissions.isEmpty()){
+			return null;
+		}else{
+			Short permissionsShort = Short.parseShort(permissions, 8);
+			ByteBuffer bb = ByteBuffer.allocate(2);
+			bb.putShort(permissionsShort);
+			SHORT cdmPermissions = new SHORT(bb.array());
+			return cdmPermissions;
+		}
+	}
+	
 }
 
 /**
