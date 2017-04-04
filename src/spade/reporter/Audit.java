@@ -21,11 +21,11 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,7 +47,6 @@ import org.apache.commons.io.FileUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
-import spade.core.Buffer;
 import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
@@ -1175,8 +1174,18 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.WARNING, null, e);
 		}
 		try{
-			if(artifactsCacheDatabasePath != null && new File(artifactsCacheDatabasePath).exists()){
-				FileUtils.forceDelete(new File(artifactsCacheDatabasePath));
+			File artifactsCacheDatabaseDirectoryFile = new File(artifactsCacheDatabasePath);
+			if(artifactsCacheDatabasePath != null && artifactsCacheDatabaseDirectoryFile.exists()){
+				try{
+					BigDecimal size = new BigDecimal(FileUtils.sizeOfDirectoryAsBigInteger(artifactsCacheDatabaseDirectoryFile));
+					size = size.divide(new BigDecimal("1024")); //KB
+					size = size.divide(new BigDecimal("1024")); //MB
+					size = size.divide(new BigDecimal("1024")); //GB
+					logger.log(Level.INFO, "Size of the artifacts properties map on disk: {0} GB", size.doubleValue());
+				}catch(Exception e){
+					logger.log(Level.INFO, "Failed to log the size of the artifacts properties map on disk", e);
+				}
+				FileUtils.forceDelete(artifactsCacheDatabaseDirectoryFile);
 				artifactsCacheDatabasePath = null;
 			}
 		}catch(Exception e){
@@ -4637,58 +4646,6 @@ public class Audit extends AbstractReporter {
 				process.getAnnotation(OPMConstants.AGENT_GID), process.getAnnotation(OPMConstants.AGENT_EGID), 
 				process.getAnnotation(OPMConstants.AGENT_SGID), process.getAnnotation(OPMConstants.AGENT_FSGID), 
 				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count);
-	}
-
-	public static void main(String[] args) throws Exception{
-				
-		String configFilePath = "/home/ubwork/spade/3SPADE/cfg/spade.reporter.Audit.config";
-		Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
-				
-		Audit a = new Audit();
-		a.USE_READ_WRITE = true;
-		a.USE_SOCK_SEND_RCV = true;
-		a.ARCH_32BIT = false;
-		a.isLiveAudit = false;
-		a.KEEP_VERSIONS = true;
-		a.KEEP_EPOCHS = true;
-		a.KEEP_PATH_PERMISSIONS = true;
-		a.UNIX_SOCKETS = true;
-		a.initCacheMaps(configMap);
-		
-		Buffer buffer = new Buffer();
-		a.setBuffer(buffer);
-		
-		String filepath = "/home/ubwork/chmod.audit.log";//"/home/ubwork/spade/new_data/infoleak/audit.log";
-		FileInputStream inputStream = new FileInputStream(new File(filepath));
-		AuditEventReader aur = new AuditEventReader(filepath, inputStream);
-		
-		Map<String, String> eventData = null;
-		while((eventData = aur.readEventData()) != null){
-			a.finishEvent(eventData);
-		}
-		
-		aur.close();
-		a.deleteCacheMaps();
-		
-//		String jsonfile = "/home/ubwork/chmod.audit.log.json";
-//		spade.storage.CDM storage = new spade.storage.CDM();
-//		storage.initialize("output="+jsonfile);
-		
-//		String dotfile = "/home/ubwork/spade/new_data/infoleak/audit.log.dot";//"/home/ubwork/chmod.audit.log.dot";
-//		Graphviz g = new Graphviz();
-//		g.initialize(dotfile);
-//		
-//		while(!buffer.isEmpty()){
-//			Object o = buffer.getBufferElement();
-//			if(o instanceof AbstractVertex){
-//				storage.putVertex((AbstractVertex)o);
-//			}else if(o instanceof AbstractEdge){
-//				storage.putEdge((AbstractEdge)o);
-//			}else{
-//				System.out.println(o);
-//			}
-//		}
-//		storage.shutdown();
 	}
 	
 }
