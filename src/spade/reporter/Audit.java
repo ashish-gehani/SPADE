@@ -2075,8 +2075,9 @@ public class Audit extends AbstractReporter {
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 
 		if(CONTROL){
+			// Can be a unit. Not synthetically drawing the edge on the containing process and instead
+			// on the process/unit which called it.
 			Process process = putProcess(eventData, time, eventId); //put Process vertex if it didn't exist before
-			process = getContainingProcessVertex(pid); //edge to be drawn from the containing to the containing one
 			WasTriggeredBy exitEdge = new WasTriggeredBy(process, process);
 			putEdge(exitEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}
