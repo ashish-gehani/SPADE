@@ -1956,8 +1956,10 @@ public class Audit extends AbstractReporter {
 				case RECVMSG:
 				case RECVFROM:
 					returnValue = returnValue || true;
+					break;
 				default:
 					returnValue = returnValue || false;
+					break;
 			}
 		}else{
 			returnValue = false;
@@ -1979,8 +1981,10 @@ public class Audit extends AbstractReporter {
 				case SENDMSG:
 				case SENDTO:
 					returnValue = returnValue || true;
+					break;
 				default:
 					returnValue = returnValue || false;
+					break;
 			}
 		}else{
 			returnValue = false;
