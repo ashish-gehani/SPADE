@@ -150,6 +150,9 @@ public class CDM extends Kafka {
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)), 
 						EventType.EVENT_CHANGE_PRINCIPAL);
 		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT)), 
 						EventType.EVENT_UNIT);
 		rulesToEventType.put(
@@ -849,7 +852,9 @@ public class CDM extends Kafka {
 				|| edgesContainTypeOperation(edges, 
 						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)))
 				|| (edgesContainTypeOperation(edges, 
-						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))){
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))
+				|| (edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)))){
 			processIndividually = true;
 		}else if(edgesContainTypeOperation(edges,
 				new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE))){
@@ -966,12 +971,13 @@ public class CDM extends Kafka {
 						actingVertex = edgeForEvent.getDestinationVertex();
 						actedUpon1 = edgeForEvent.getSourceVertex();
 
-						// Handling the case where a process A setuid's and becomes A'
+						// Handling the case where a process A setuids and becomes A'
 						// and then A' setuid's to become A. If this is not done then 
 						// if process A creates a process C, then in putVertex the process
 						// C would get the pid for A' instead of A as it's parentProcessUUID
 						// Not doing this for UNIT vertices
-						if(OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
+						if((OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
+								|| OPMConstants.OPERATION_SETGID.equals(edgeOperation))
 								&& actedUpon1.getAnnotation(OPMConstants.PROCESS_ITERATION) == null){
 							// The acted upon vertex is the new containing process for the pid. 
 							// Excluding units from coming in here

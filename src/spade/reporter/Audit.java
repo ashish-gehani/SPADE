@@ -1071,7 +1071,12 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S dup -S dup2 -S dup3 ";
 					auditRuleWithSuccess += "-S bind -S accept -S accept4 -S connect -S socket ";
 					auditRuleWithSuccess += "-S rename -S renameat ";
-					auditRuleWithSuccess += "-S setuid -S setreuid -S setresuid ";
+					auditRuleWithSuccess += "-S setuid -S setreuid ";
+					auditRuleWithSuccess += "-S setgid -S setregid ";
+					if(!SIMPLIFY){
+						auditRuleWithSuccess += "-S setresuid -S setfsuid ";
+						auditRuleWithSuccess += "-S setresgid -S setfsgid ";
+					}
 					auditRuleWithSuccess += "-S chmod -S fchmod -S fchmodat ";
 					auditRuleWithSuccess += "-S pipe -S pipe2 ";
 					auditRuleWithSuccess += "-S truncate -S ftruncate ";
@@ -1769,10 +1774,15 @@ public class Audit extends AbstractReporter {
 			case RENAMEAT:
 				handleRename(eventData, syscall);
 				break;
+			case SETUID:
 			case SETREUID:
 			case SETRESUID:
-			case SETUID:
-				handleSetuid(eventData, syscall);
+			case SETFSUID:
+			case SETGID:
+			case SETREGID:
+			case SETRESGID:
+			case SETFSGID:
+				handleSetuidAndSetgid(eventData, syscall);
 				break; 
 			case CHMOD:
 			case FCHMOD:
@@ -2091,6 +2101,7 @@ public class Audit extends AbstractReporter {
 		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
 		pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
 		pidToSockfdToProtocol.remove(pid); // Remove mapping of sockfd to protocol names
+		
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -2238,13 +2249,19 @@ public class Audit extends AbstractReporter {
 		WasTriggeredBy forkCloneEdge = new WasTriggeredBy(newProcess, oldProcess);
 		putEdge(forkCloneEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 
-		if((flags & CLONE_FILES) == CLONE_FILES){
-			// Share the same file descriptor table
-			descriptors.linkDescriptors(oldPID, newPID);
-		}else{
+		if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){
 			// Gets a copy of the parent's file descriptor table
 			descriptors.copyDescriptors(oldPID, newPID);
+		}else if(syscall == SYSCALL.CLONE){
+			if((flags & CLONE_FILES) == CLONE_FILES){
+				// Share the same file descriptor table
+				descriptors.linkDescriptors(oldPID, newPID);
+			}else{
+				// Gets a copy of the parent's file descriptor table
+				descriptors.copyDescriptors(oldPID, newPID);
+			}
 		}
+		
 		// If memory space being shared then only use tgid for memory artifacts
 		if((flags & CLONE_VM) == CLONE_VM){
 			if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
@@ -2702,154 +2719,128 @@ public class Audit extends AbstractReporter {
 			descriptors.duplicateDescriptor(pid, fd, newFD);
 		}
 	}
-
-	private void handleSetuid(Map<String, String> eventData, SYSCALL syscall) {
-		// setuid() receives the following message(s):
+	
+	private void handleSetuidAndSetgid(Map<String, String> eventData, SYSCALL syscall){
+		// setuid(), setreuid(), setresuid(), setfsuid(), 
+		// setgid(), setregid(), setresgid(), and setfsgid() receive the following message(s):
 		// - SYSCALL
 		// - EOE
-
-		String time = eventData.get(AuditEventReader.TIME);
-		String pid = eventData.get(AuditEventReader.PID);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-
-		/*
-		 * Pseudo-code
-		 * 
-		 * oldProcess = current process with pid
-		 * if oldProcess is null then
-		 * 		putVertex(eventData)
-		 * 		put no edge since we don't have oldProcess
-		 * else
-		 * 		if oldProcess is not an iteration i.e. a simple process then
-		 * 			newProcess = putVertex(eventData)
-		 * 			draw edge from newProcess to oldProcess
-		 * 		else if oldProcess is an iteration then
-		 * 			oldContainingProcess = get old containing process
-		 * 			newContainingProcess = create new containing process
-		 * 			oldRunningIterationsList = list of all currently valid unit iterations (can be multiple when nested loop only)
-		 * 			newRunningIterationsList = copy of all unit iterations with updated fields
-		 * 			put newContainingVertex and all newRunningIterationsList to storage
-		 * 			create edge from newContainingProcess to oldContainingProcess
-		 * 			for each newRunningIteration in newRunningIterationsList
-		 * 				draw edge from newRunningIteration to oldRunningIteration
-		 * 				draw edge from newRunningIteration to newContainingProcess
-		 * 			create edge from newProcessIteration to oldProcess (which is a unit iteration)
-		 * 			//now update internal data structures	
-		 * 			manually replace oldContainingProcess with newContainingProcess
-		 * 			
-		 * 			manually add newProcessIteration to the process stack. Doing this manually so as to not reset the iteration counter for the process
-		 * 	
-		 */
-
-		if(AGENTS){
 		
-			Process existingVertex = getProcess(pid);
-			if(existingVertex == null){
-				putProcess(eventData, time, eventId);
-			}else{
-				
-				existingVertex = getContainingProcessVertex(pid);
-				Agent agent = new Agent();
-				agent.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
-				agent.addAnnotation(OPMConstants.AGENT_UID, eventData.get(AuditEventReader.UID));
-				agent.addAnnotation(OPMConstants.AGENT_EUID, eventData.get(AuditEventReader.EUID));
-				agent.addAnnotation(OPMConstants.AGENT_GID, eventData.get(AuditEventReader.GID));
-				agent.addAnnotation(OPMConstants.AGENT_EGID, eventData.get(AuditEventReader.EGID));
-				if(!SIMPLIFY){
-					agent.addAnnotation(OPMConstants.AGENT_SUID, eventData.get(AuditEventReader.SUID));
-					agent.addAnnotation(OPMConstants.AGENT_FSUID, eventData.get(AuditEventReader.FSUID));
-					agent.addAnnotation(OPMConstants.AGENT_SGID, eventData.get(AuditEventReader.SGID));
-					agent.addAnnotation(OPMConstants.AGENT_FSGID, eventData.get(AuditEventReader.FSGID));
-				}
-				String agentHash = Hex.encodeHexString(agent.bigHashCode());
-				if(!agentHashes.contains(agentHash)){
-					agentHashes.add(agentHash);
-					putVertex(agent);
-				}
-				if(pidToAgentEdgeHashes.get(pid) == null){
-					pidToAgentEdgeHashes.put(pid, new HashSet<String>());
-				}
-				WasControlledBy wasControlledBy = new WasControlledBy(existingVertex, agent);
-				wasControlledBy.addAnnotation(OPMConstants.EDGE_OPERATION, getOperation(syscall));
-				wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
-				wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
-				wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
-				
-				String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
-				if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
-					pidToAgentEdgeHashes.get(pid).add(edgeHash);
-					putEdge(wasControlledBy);
-				}
-				
+		if(SIMPLIFY){
+			if(syscall == SYSCALL.SETRESUID 
+					|| syscall == SYSCALL.SETRESGID
+					|| syscall == SYSCALL.SETFSUID
+					|| syscall == SYSCALL.SETFSGID){
+				return;
+			}
+		}
+		
+		String pid = eventData.get(AuditEventReader.PID);
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		Process containingProcess = getContainingProcessVertex(pid);
+		
+		if(containingProcess == null){
+			// Just add this (new) vertex since we don't have the old one
+			putProcess(eventData, time, eventId);
+		}else{
+			// Annotations to update
+			Map<String, String> annotationsToUpdate = new HashMap<String, String>();
+			annotationsToUpdate.put(OPMConstants.AGENT_UID, eventData.get(AuditEventReader.UID));
+			annotationsToUpdate.put(OPMConstants.AGENT_SUID, eventData.get(AuditEventReader.SUID));
+			annotationsToUpdate.put(OPMConstants.AGENT_EUID, eventData.get(AuditEventReader.EUID));
+			annotationsToUpdate.put(OPMConstants.AGENT_FSUID, eventData.get(AuditEventReader.FSUID));
+			annotationsToUpdate.put(OPMConstants.AGENT_GID, eventData.get(AuditEventReader.GID));
+			annotationsToUpdate.put(OPMConstants.AGENT_SGID, eventData.get(AuditEventReader.SGID));
+			annotationsToUpdate.put(OPMConstants.AGENT_EGID, eventData.get(AuditEventReader.EGID));
+			annotationsToUpdate.put(OPMConstants.AGENT_FSGID, eventData.get(AuditEventReader.FSGID));
+			
+			handleSetuidAndSetgidContainingProcess(time, eventId, syscall, 
+					containingProcess, annotationsToUpdate);
+		}
+		
+	}
+	
+	private void handleSetuidAndSetgidContainingProcess(String time, String eventId, SYSCALL syscall, 
+			Process containingProcess, Map<String, String> annotationsToUpdate){
+		// Always the CONTAINING process!
+		if(AGENTS){
+			
+			String pid = containingProcess.getAnnotation(OPMConstants.PROCESS_PID);
+			
+			Agent agent = new Agent();
+			agent.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+			agent.addAnnotation(OPMConstants.AGENT_UID, annotationsToUpdate.get(OPMConstants.AGENT_UID));
+			agent.addAnnotation(OPMConstants.AGENT_EUID, annotationsToUpdate.get(OPMConstants.AGENT_EUID));
+			agent.addAnnotation(OPMConstants.AGENT_GID, annotationsToUpdate.get(OPMConstants.AGENT_GID));
+			agent.addAnnotation(OPMConstants.AGENT_EGID, annotationsToUpdate.get(OPMConstants.AGENT_EGID));
+			if(!SIMPLIFY){
+				agent.addAnnotation(OPMConstants.AGENT_SUID, annotationsToUpdate.get(OPMConstants.AGENT_SUID));
+				agent.addAnnotation(OPMConstants.AGENT_FSUID, annotationsToUpdate.get(OPMConstants.AGENT_FSUID));
+				agent.addAnnotation(OPMConstants.AGENT_SGID, annotationsToUpdate.get(OPMConstants.AGENT_SGID));
+				agent.addAnnotation(OPMConstants.AGENT_FSGID, annotationsToUpdate.get(OPMConstants.AGENT_FSGID));
+			}
+			String agentHash = Hex.encodeHexString(agent.bigHashCode());
+			if(!agentHashes.contains(agentHash)){
+				agentHashes.add(agentHash);
+				putVertex(agent);
+			}
+			if(pidToAgentEdgeHashes.get(pid) == null){
+				pidToAgentEdgeHashes.put(pid, new HashSet<String>());
+			}
+			WasControlledBy wasControlledBy = new WasControlledBy(containingProcess, agent);
+			wasControlledBy.addAnnotation(OPMConstants.EDGE_OPERATION, getOperation(syscall));
+			wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
+			wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
+			wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+			
+			String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
+			if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
+				pidToAgentEdgeHashes.get(pid).add(edgeHash);
+				putEdge(wasControlledBy);
 			}
 			
 		}else{
 		
-			Process existingVertex = getProcess(pid);
-	
-			if(existingVertex == null){
-				putProcess(eventData, time, eventId); //can't add the edge since no existing vertex with the same pid
-			}else{
-	
-				// Following are the annotations that need to be updated in processes and units while keep all other the same
-				Map<String, String> annotationsToUpdate = new HashMap<String, String>();
-				annotationsToUpdate.put(OPMConstants.AGENT_UID, eventData.get(AuditEventReader.UID));
-				annotationsToUpdate.put(OPMConstants.AGENT_SUID, eventData.get(AuditEventReader.SUID));
-				annotationsToUpdate.put(OPMConstants.AGENT_EUID, eventData.get(AuditEventReader.EUID));
-				annotationsToUpdate.put(OPMConstants.AGENT_FSUID, eventData.get(AuditEventReader.FSUID));
-	
-				/* A check for containing process. Either no unit annotation meaning that units weren't enabled or
-				 * the units are enabled and the unit annotation value is zero i.e. the containing process	
-				 */  
-				if(existingVertex.getAnnotation(OPMConstants.PROCESS_UNIT) == null || 
-						existingVertex.getAnnotation(OPMConstants.PROCESS_UNIT).equals("0")){
-					Map<String, String> existingProcessAnnotations = existingVertex.getAnnotations();
-					Map<String, String> newProcessAnnotations = 
-							updateKeyValuesInMap(existingProcessAnnotations, annotationsToUpdate);
-					//here then it means that there are no active units for the process
-					//update the modified annotations by the syscall and create the new process vertex
-					boolean RECREATE_AND_REPLACE = true; //has to be true since already an entry for the same pid exists
-					Process newProcess = putProcess(newProcessAnnotations, RECREATE_AND_REPLACE, time, eventId); 
-					//drawing edge from the new to the old
-					WasTriggeredBy newProcessToOldProcess = new WasTriggeredBy(newProcess, existingVertex);
-					putEdge(newProcessToOldProcess, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
-				}else{ //is a unit i.e. unit annotation is non-null and non-zero. 
-	
-					// oldProcessUnitStack has only active iterations. Should be only one active one since nested loops haven't been instrumented yet in BEEP.
-					// but taking care of nested loops still anyway. 
-					// IMPORTANT: Getting this here first because putProcess call on newContainingProcess would discard it
-					LinkedList<Process> oldProcessUnitStack = processUnitStack.get(pid);
-	
-					Process oldContainingProcess = getContainingProcessVertex(pid);
-					Map<String, String> oldContainingProcessAnnotations = oldContainingProcess.getAnnotations();
-					Map<String, String> newContainingProcessAnnotations = updateKeyValuesInMap(oldContainingProcessAnnotations, annotationsToUpdate);
-					boolean RECREATE_AND_REPLACE = true; //has to be true since already an entry for the same pid exists
-					Process newContainingProcess = putProcess(newContainingProcessAnnotations, RECREATE_AND_REPLACE, time, eventId);
-	
-					//Get the new process unit stack now in which the new units would be added. New because putProcess above has replaced the old one
-					LinkedList<Process> newProcessUnitStack = processUnitStack.get(pid);
-	
-					WasTriggeredBy newProcessToOldProcess = new WasTriggeredBy(newContainingProcess, oldContainingProcess);
-					putEdge(newProcessToOldProcess, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
-	
-					//recreating the rest of the stack manually because existing iteration and count annotations need to be preserved
-					for(int a = 1; a<oldProcessUnitStack.size(); a++){ //start from 1 because 0 is the containing process
-						Process oldProcessUnit = oldProcessUnitStack.get(a);
-						Map<String, String> oldProcessUnitAnnotations = oldProcessUnit.getAnnotations();
-						Map<String, String> newProcessUnitAnnotations = updateKeyValuesInMap(oldProcessUnitAnnotations, annotationsToUpdate);
-						Process newProcessUnit = createProcessVertex(newProcessUnitAnnotations); //create process unit
-						newProcessUnitStack.addLast(newProcessUnit); //add to memory
-						if(!processVertexHasBeenPutBefore(newProcessUnit)){
-							putVertex(newProcessUnit);//add to internal buffer
-						}
-	
-						//drawing an edge from newProcessUnit to currentProcessUnit with operation based on current syscall
-						WasTriggeredBy newUnitToOldUnit = new WasTriggeredBy(newProcessUnit, oldProcessUnit);
-						putEdge(newUnitToOldUnit, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
-						//drawing an edge from newProcessUnit to newContainingProcess with operation unit to keep things consistent
-						WasTriggeredBy newUnitToNewProcess = new WasTriggeredBy(newProcessUnit, newContainingProcess);
-						putEdge(newUnitToNewProcess, getOperation(SYSCALL.UNIT), time, eventId, OPMConstants.SOURCE_BEEP);
-					}
+			String pid = containingProcess.getAnnotation(OPMConstants.PROCESS_PID);
+			
+			// oldProcessUnitStack has only active iterations. 
+			// Should be only one active one since nested loops haven't been instrumented yet in BEEP.
+			// but taking care of nested loops still anyway. 
+			// IMPORTANT: Getting this here first because putProcess call on newContainingProcess would discard it
+			LinkedList<Process> oldProcessUnitStack = new LinkedList<Process>(processUnitStack.get(pid));
+
+			Map<String, String> oldContainingProcessAnnotations = containingProcess.getAnnotations();
+			Map<String, String> newContainingProcessAnnotations = 
+					updateKeyValuesInMap(oldContainingProcessAnnotations, annotationsToUpdate);
+			boolean RECREATE_AND_REPLACE = true; //has to be true since already an entry for the same pid exists
+			Process newContainingProcess = putProcess(newContainingProcessAnnotations, RECREATE_AND_REPLACE, time, eventId);
+
+			WasTriggeredBy newProcessToOldProcess = new WasTriggeredBy(newContainingProcess, containingProcess);
+			putEdge(newProcessToOldProcess, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+
+			//Get the new process unit stack now in which the new units would be added. 
+			//New because putProcess above has replaced the old one
+			LinkedList<Process> newProcessUnitStack = processUnitStack.get(pid);
+
+			if(oldProcessUnitStack != null){ // Means that there are units
+				//recreating the rest of the stack manually because existing iteration and count annotations need to be preserved
+				for(int a = 1; a<oldProcessUnitStack.size(); a++){ //start from 1 because 0 is the containing process
+					Process oldProcessUnit = oldProcessUnitStack.get(a);
+					Map<String, String> oldProcessUnitAnnotations = oldProcessUnit.getAnnotations();
+					Map<String, String> newProcessUnitAnnotations = 
+							updateKeyValuesInMap(oldProcessUnitAnnotations, annotationsToUpdate);
+					Process newProcessUnit = createProcessVertex(newProcessUnitAnnotations); //create process unit
+					newProcessUnitStack.addLast(newProcessUnit); //add to memory
+					if(!processVertexHasBeenPutBefore(newProcessUnit)){
+						putVertex(newProcessUnit);//add to internal buffer
+					}	
+					//drawing an edge from newProcessUnit to currentProcessUnit with operation based on current syscall
+					WasTriggeredBy newUnitToOldUnit = new WasTriggeredBy(newProcessUnit, oldProcessUnit);
+					putEdge(newUnitToOldUnit, getOperation(syscall), time, eventId, OPMConstants.SOURCE_BEEP);
+					//drawing an edge from newProcessUnit to newContainingProcess with operation unit to keep things consistent
+					WasTriggeredBy newUnitToNewProcess = new WasTriggeredBy(newProcessUnit, newContainingProcess);
+					putEdge(newUnitToNewProcess, getOperation(SYSCALL.UNIT), time, eventId, OPMConstants.SOURCE_BEEP);
 				}
 			}
 		}

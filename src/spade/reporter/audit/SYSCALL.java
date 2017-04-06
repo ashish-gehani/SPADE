@@ -24,7 +24,8 @@ public enum SYSCALL {
 	FORK, VFORK, CLONE, EXECVE, 
 	UNIT, // Used for beep unit creation (not an actual system call)
 	LOAD, // Used for linked libraries when an execve happens (not an actual system call)
-	SETUID, SETREUID, SETRESUID,
+	SETUID, SETREUID, SETRESUID, SETFSUID,
+	SETGID, SETREGID, SETRESGID, SETFSGID,
 	MMAP, MMAP2, MPROTECT,
 	BIND, ACCEPT, ACCEPT4, CONNECT, SOCKET, 
 	SENDTO, SENDMSG, RECVFROM, RECVMSG, 
@@ -103,9 +104,14 @@ public enum SYSCALL {
 			case 264:	return RENAMEAT;
 			case 46:	return SENDMSG;
 			case 44:	return SENDTO;
-			case 105:	return SETUID;
-			case 113:	return SETREUID;
+			case 123:	return SETFSGID;
+			case 122:	return SETFSUID;
+			case 106:	return SETGID;
+			case 114:	return SETREGID;
+			case 119:	return SETRESGID;
 			case 117:	return SETRESUID;
+			case 113:	return SETREUID;
+			case 105:	return SETUID;
 			case 41:	return SOCKET;
 			case 88:	return SYMLINK;
 			case 266:	return SYMLINKAT;
@@ -157,9 +163,6 @@ public enum SYSCALL {
 			case 334: return PWRITEV;
 			case 190: return VFORK;
 			case 192: return MMAP2;
-			case 203: return SETREUID;
-			case 208: return SETRESUID;
-			case 213: return SETUID;
 			case 252: return EXIT_GROUP;
 			case 282: return BIND;
 			case 283: return CONNECT;
@@ -176,6 +179,14 @@ public enum SYSCALL {
 			case 322: return OPENAT;
 			case 331: return PIPE2;
 			case 359: return PIPE2;
+			case 216:	return SETFSGID;
+			case 215:	return SETFSUID;
+			case 214:	return SETGID;
+			case 213:	return SETUID;
+			case 204:	return SETREGID;
+			case 203:	return SETREUID;
+			case 210:	return SETRESGID;
+			case 208:	return SETRESUID;
 			default: return UNSUPPORTED;
 		}
 	}
