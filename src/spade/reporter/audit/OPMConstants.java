@@ -123,6 +123,7 @@ public class OPMConstants {
 			OPERATION_DUP = "dup",
 			OPERATION_EXECVE = "execve",
 			OPERATION_EXIT = "exit",
+			OPERATION_FCNTL = "fcntl",
 			OPERATION_FORK = "fork",
 			OPERATION_KILL = "kill",
 			OPERATION_LINK = "link",
@@ -167,6 +168,7 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_DUP, SYSCALL.DUP, SYSCALL.DUP2, SYSCALL.DUP3);
 		addSyscallsToOperations(OPERATION_EXECVE, SYSCALL.EXECVE);
 		addSyscallsToOperations(OPERATION_EXIT, SYSCALL.EXIT, SYSCALL.EXIT_GROUP);
+		addSyscallsToOperations(OPERATION_FCNTL, SYSCALL.FCNTL);
 		addSyscallsToOperations(OPERATION_FORK, SYSCALL.FORK, SYSCALL.VFORK);
 		addSyscallsToOperations(OPERATION_KILL, SYSCALL.KILL);
 		addSyscallsToOperations(OPERATION_LINK, SYSCALL.LINK, SYSCALL.LINKAT, SYSCALL.SYMLINK, SYSCALL.SYMLINKAT);
@@ -265,7 +267,7 @@ public class OPMConstants {
 		}
 		
 		if(primaryOperation == null || (secondaryOperation == null && secondary != null)){
-			logger.log(Level.WARNING, "Unmapped syscall to operation");
+			logger.log(Level.WARNING, "Unmapped syscall to operation. Primary: " + primary + ", Secondary: " + secondary);
 			return null;
 		}else{
 			return buildOperation(primaryOperation, secondaryOperation);

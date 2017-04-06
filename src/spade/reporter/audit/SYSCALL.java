@@ -34,6 +34,7 @@ public enum SYSCALL {
 	CHMOD, FCHMOD, FCHMODAT,
 	TRUNCATE, FTRUNCATE, 
 	OPEN, OPENAT, MKNOD, MKNODAT, CREAT, CLOSE, 
+	FCNTL,
 	CREATE, // Used for grouping CREAT and OPEN system call where OPEN creates the file (not an actual system call) 
 	UPDATE, // Used for version update edges between artifacts
 	READ, READV, PREAD, PREADV, WRITE, WRITEV, PWRITE, PWRITEV, 
@@ -79,6 +80,7 @@ public enum SYSCALL {
 			case 231:	return EXIT_GROUP;	
 			case 91:	return FCHMOD;
 			case 268:	return FCHMODAT;
+			case 72:	return FCNTL;
 			case 58:	return FORK;
 			case 77:	return FTRUNCATE;
 			case 62:	return KILL;
@@ -146,6 +148,7 @@ public enum SYSCALL {
 			case 38: return RENAME;
 			case 41: return DUP;
 			case 42: return PIPE;
+			case 55: return FCNTL;
 			case 63: return DUP2;
 			case 83: return SYMLINK;
 			case 90: return MMAP2;

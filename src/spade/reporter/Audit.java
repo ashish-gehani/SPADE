@@ -116,6 +116,13 @@ public class Audit extends AbstractReporter {
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/mman-common.h#L21
 	private final int MAP_ANONYMOUS = 0x20;
+	
+	//  Following constant values are taken from:
+	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/fcntl.h#L99
+	private final int F_LINUX_SPECIFIC_BASE = 1024, F_DUPFD = 0, F_SETFL = 4;
+	//  Following constant values are taken from:
+	//  http://lxr.free-electrons.com/source/include/uapi/linux/fcntl.h#L16
+	private final int F_DUPFD_CLOEXEC = F_LINUX_SPECIFIC_BASE + 6;
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
@@ -1688,6 +1695,9 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case FCNTL:
+				handleFcntl(eventData, syscall);
+				break;
 			case EXIT:
 			case EXIT_GROUP:
 				handleExit(eventData, syscall);
@@ -2072,6 +2082,41 @@ public class Audit extends AbstractReporter {
 			Process process = putProcess(eventData, time, eventId);    	
 			WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+		}
+	}
+	
+	private void handleFcntl(Map<String, String> eventData, SYSCALL syscall){
+		// fcntl() receives the following message(s):
+		// - SYSCALL
+		// - EOE
+		 
+		String exit = eventData.get(AuditEventReader.EXIT);
+		if("-1".equals(exit)){ // Failure check
+			return;
+		}
+		
+		String pid = eventData.get(AuditEventReader.PID);
+		String fd = eventData.get(AuditEventReader.ARG0);
+		String cmdString = eventData.get(AuditEventReader.ARG1);
+		String flagsString = eventData.get(AuditEventReader.ARG2);
+		
+		int cmd = CommonFunctions.parseInt(cmdString, -1);
+		int flags = CommonFunctions.parseInt(flagsString, -1);
+		
+		if(cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC){
+			// In eventData, there should be a pid, a0 should be fd, and exit should be the new fd 
+			handleDup(eventData, syscall);
+		}else if(cmd == F_SETFL){
+			if((flags & O_APPEND) == O_APPEND){
+				ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				if(artifactIdentifier == null){
+					descriptors.addUnknownDescriptor(pid, fd);
+					artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				}
+				// Made file descriptor 'appendable', so set open for read to false so 
+				// that the edge on close is a WGB edge and not a Used edge
+				artifactIdentifier.setOpenedForRead(false);
+			}
 		}
 	}
 	
