@@ -1076,6 +1076,7 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S clone -S fork -S vfork -S execve ";
 					auditRuleWithSuccess += "-S open -S close -S creat -S openat -S mknodat -S mknod ";
 					auditRuleWithSuccess += "-S dup -S dup2 -S dup3 ";
+					auditRuleWithSuccess += "-S fcntl ";
 					auditRuleWithSuccess += "-S bind -S accept -S accept4 -S connect -S socket ";
 					auditRuleWithSuccess += "-S rename -S renameat ";
 					auditRuleWithSuccess += "-S setuid -S setreuid ";
@@ -3937,28 +3938,44 @@ public class Audit extends AbstractReporter {
 			 * Going to keep all the state if map is being used and just going to choose not to 
 			 * add the relevant annotations
 			 */
-						
+
+			Set<String> syntheticAnnotations = new HashSet<String>();
+			syntheticAnnotations.add(OPMConstants.ARTIFACT_VERSION);
+			syntheticAnnotations.add(OPMConstants.ARTIFACT_EPOCH);
+			syntheticAnnotations.add(OPMConstants.ARTIFACT_PERMISSIONS);
+			
+			Map<String, Boolean> uninitialized = new HashMap<String, Boolean>();
+			Map<String, Boolean> updated = new HashMap<String, Boolean>();
+			Map<String, Boolean> added = new HashMap<String, Boolean>();
+			
+			// Add the default values
+			added.put(OPMConstants.ARTIFACT_VERSION, false);
+			added.put(OPMConstants.ARTIFACT_EPOCH, false);
+			added.put(OPMConstants.ARTIFACT_PERMISSIONS, false);
+			
 			ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
 			
-			boolean versionUninitialized = artifactProperties.isVersionUninitialized();
-			boolean epochUninitialized = artifactProperties.isEpochUninitialized();
-			boolean isEpochPending = artifactProperties.isEpochPending();
-			boolean permissionsUninitialized = artifactProperties.isPermissionsUninitialized();
-			boolean permissionsSeenBefore = true;
-			if(permissions != null){
-				permissionsSeenBefore = artifactProperties.permissionsSeenBefore(permissions);
+			if(KEEP_VERSIONS && updateVersion){
+				artifactProperties.clearAllPermissionsExceptCurrent();
 			}
+
+			// Set if annotations have been initialized or not
+			// Version can be reinitialized
+			uninitialized.put(OPMConstants.ARTIFACT_VERSION, artifactProperties.isVersionUninitialized());
+			uninitialized.put(OPMConstants.ARTIFACT_EPOCH, artifactProperties.isEpochUninitialized());
+			uninitialized.put(OPMConstants.ARTIFACT_PERMISSIONS, artifactProperties.isPermissionsUninitialized());
 			
-			boolean versionAnnotationAdded = false;
-			boolean epochAnnotationAdded = false;
-			boolean permissionsAnnotationAdded = false;
+			// Set if annotations have been updated or not
+			updated.put(OPMConstants.ARTIFACT_VERSION, updateVersion || artifactProperties.isEpochPending());
+			updated.put(OPMConstants.ARTIFACT_EPOCH, artifactProperties.isEpochPending());
+			boolean permissionsUpdated = permissions != null && !artifactProperties.permissionsSeenBefore(permissions);
+			updated.put(OPMConstants.ARTIFACT_PERMISSIONS, permissionsUpdated);
 			
+			// Get values for annotations / this also initializes the annotations
 			Long version = artifactProperties.getVersion(updateVersion);
 			Long epoch = artifactProperties.getEpoch();
+			artifactProperties.initializePermissions();
 			String previousPermissions = artifactProperties.getCurrentPermissions();
-			if(permissionsUninitialized){
-				artifactProperties.initializePermissions();
-			}			
 			if(permissions == null){
 				permissions = artifactProperties.getCurrentPermissions();
 			}else{
@@ -3966,14 +3983,14 @@ public class Audit extends AbstractReporter {
 			}
 			
 			if(KEEP_VERSIONS){
-				versionAnnotationAdded = true;
+				added.put(OPMConstants.ARTIFACT_VERSION, true);
 				artifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, 
 						String.valueOf(version));
 			}
 			
 			if(KEEP_EPOCHS){
 				if(!artifactIdentifierClass.equals(MemoryIdentifier.class)){
-					epochAnnotationAdded = true;
+					added.put(OPMConstants.ARTIFACT_EPOCH, true);
 					artifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, 
 							String.valueOf(epoch));
 				}
@@ -3983,48 +4000,49 @@ public class Audit extends AbstractReporter {
 				// Permissions for only path based ones
 				if(artifactIdentifier instanceof IdentifierWithPath){
 					if(permissions != null){
-						permissionsAnnotationAdded = true;
+						added.put(OPMConstants.ARTIFACT_PERMISSIONS, true);
 						artifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, permissions);
 					}
 				}
 			}
 			
-			boolean versionChanged = (versionUninitialized || (updateVersion && versionAnnotationAdded));
-			boolean epochChanged = (epochUninitialized || (isEpochPending && epochAnnotationAdded));
-			boolean permissionsChanged = (permissionsUninitialized || (permissionsAnnotationAdded && !permissionsSeenBefore));
+			boolean callPutVertex = false;
+			boolean allUninitialized = true;
 			
-			if(versionChanged
-					|| epochChanged
-					|| permissionsChanged){
-				if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
-					// don't add
-				}else{
-					putVertex(artifact);
-					putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
-							eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
-							versionAnnotationAdded, version - 1, 
-							permissionsAnnotationAdded, previousPermissions,
-							epochAnnotationAdded, isEpochPending);
-				}
-			}else{
-				if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
-					// Don't add
-				}else{
-					// In case the versions are off and permissions are not off and the artifact
-					// reverts to a previously used permission
-					if((!KEEP_VERSIONS && KEEP_PATH_PERMISSIONS 
-							&& permissions != null && previousPermissions != null
-							&& !permissions.equals(previousPermissions)
-							&& permissionsSeenBefore)){
-						putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
-								eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
-								versionAnnotationAdded, version - 1, 
-								permissionsAnnotationAdded, previousPermissions,
-								epochAnnotationAdded, isEpochPending);
+			for(String syntheticAnnotation : syntheticAnnotations){
+				
+				boolean callPutVertexForThisAnnotation = false;
+				if(uninitialized.get(syntheticAnnotation)
+						|| updated.get(syntheticAnnotation)){
+					if(added.get(syntheticAnnotation)){
+						callPutVertexForThisAnnotation = true;
 					}
 				}
+				callPutVertex = callPutVertex || callPutVertexForThisAnnotation;
+				allUninitialized = allUninitialized && uninitialized.get(syntheticAnnotation);
+				
 			}
-						
+			
+			callPutVertex = callPutVertex || allUninitialized;
+			
+			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
+				// Don't do anything
+			}else{
+				
+				// Version / permissions update edge only if the vertex is actually added
+				
+				if(callPutVertex){
+					putVertex(artifact);
+					if(!updated.get(OPMConstants.ARTIFACT_EPOCH)){	
+					if((KEEP_VERSIONS && updated.get(OPMConstants.ARTIFACT_VERSION) && added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
+							|| (KEEP_PATH_PERMISSIONS && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) && added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
+						putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
+								eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
+								version - 1, previousPermissions);
+					}
+}
+				}
+			}			
 		}else{
 			// If not keeping the artifacts properties map then no way of telling if we should 
 			// call putVertex or not again (possible duplication). So, calling putVertex each time
@@ -4061,31 +4079,18 @@ public class Audit extends AbstractReporter {
 	 */
 	private void putVersionPermissionsUpdateEdge(Artifact newArtifact, 
 			String time, String eventId, String pid,
-			boolean versionAnnotationAdded, Long previousVersion,
-			boolean permissionsAnnotationAdded, String previousPermissions,
-			boolean epochAnnotationAdded, boolean wasEpochPending){
-		if(epochAnnotationAdded && wasEpochPending){
-			return;
+			long previousVersion, String previousPermissions){
+		Artifact oldArtifact = new Artifact();
+		oldArtifact.addAnnotations(newArtifact.getAnnotations());
+		if(KEEP_VERSIONS && previousVersion > -1){
+			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, String.valueOf(previousVersion));
 		}
-		if(OPMConstants.isPathBasedArtifact(newArtifact) 
-				&& (versionAnnotationAdded || permissionsAnnotationAdded)){
-			boolean updated = false;
-			Artifact oldArtifact = new Artifact();
-			oldArtifact.addAnnotations(newArtifact.getAnnotations());
-			if(versionAnnotationAdded && previousVersion > -1){
-				updated = updated || true;
-				oldArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, String.valueOf(previousVersion));
-			}
-			if(permissionsAnnotationAdded && previousPermissions != null){
-				updated = updated || true;
-				oldArtifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, String.valueOf(previousPermissions));
-			}
-			if(updated){
-				WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
-				versionUpdate.addAnnotation(OPMConstants.EDGE_PID, pid);
-				putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
-			}
+		if(KEEP_PATH_PERMISSIONS && previousPermissions != null){
+			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, String.valueOf(previousPermissions));
 		}
+		WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
+		versionUpdate.addAnnotation(OPMConstants.EDGE_PID, pid);
+		putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
 	}
 
 	/**
@@ -4108,17 +4113,16 @@ public class Audit extends AbstractReporter {
 	
 	/**
 	 * Get the corresponding artifact properties for the artifact identifier and marks a new epoch
-	 * on that. If {@link #KEEP_ARTIFACT_PROPERTIES_MAP KEEP_ARTIFACT_PROPERTIES_MAP} and 
-	 * {@link #KEEP_EPOCHS KEEP_EPOCHS} are both true on then epoch marked otherwise returns without
-	 * doing anything.
+	 * on that. If {@link #KEEP_ARTIFACT_PROPERTIES_MAP KEEP_ARTIFACT_PROPERTIES_MAP} is true 
+	 * then epoch marked otherwise returns without doing anything.
 	 * 
 	 * @param artifactIdentifier artifact identifier to get the properties of
 	 */
 	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier){
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			if(KEEP_EPOCHS){
-				getArtifactProperties(artifactIdentifier).markNewEpoch();
-			}
+	if(KEEP_EPOCHS){			
+getArtifactProperties(artifactIdentifier).markNewEpoch();
+}
 		}
 	}
 
@@ -4688,6 +4692,8 @@ public class Audit extends AbstractReporter {
 				process.getAnnotation(OPMConstants.AGENT_SGID), process.getAnnotation(OPMConstants.AGENT_FSGID), 
 				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count);
 	}
+	
+
 	
 }
 

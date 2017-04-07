@@ -52,7 +52,7 @@ public class ArtifactProperties implements Serializable{
 	 * @return true/false
 	 */
 	public boolean isPermissionsUninitialized(){
-		return seenPermissions.size() == 0;
+		return !seenPermissions.contains(String.valueOf(ARTIFACT_PROPERTY_UNINITIALIZED));
 	}
 	
 	/**
@@ -63,6 +63,14 @@ public class ArtifactProperties implements Serializable{
 		seenPermissions.add(String.valueOf(ARTIFACT_PROPERTY_UNINITIALIZED));
 	}
 	
+	public void clearAllPermissionsExceptCurrent(){
+		seenPermissions.clear();
+		initializePermissions();
+		if(currentPermissions != null){
+			seenPermissions.add(currentPermissions);
+		}
+	}
+
 	/**
 	 * Sets the current permissions and as well as adds the permission to the set of seen 
 	 * permissions
@@ -84,6 +92,8 @@ public class ArtifactProperties implements Serializable{
 	public void markNewEpoch(){
 		this.epochPending = true;
 		this.version = ARTIFACT_PROPERTY_UNINITIALIZED;
+		this.currentPermissions = null;
+		this.seenPermissions.clear();
 	}
 	
 	//autoincrements if pending true or uninitialized
