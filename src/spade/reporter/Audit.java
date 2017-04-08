@@ -1548,37 +1548,50 @@ public class Audit extends AbstractReporter {
 	private void handleUnitDependencies(Map<String, String> eventData){
 		// Also called when a unit exits
 		handleUnitExit(eventData); // Do this first
+		
 		String time = "0"; // no time and event id
 		String eventId = "0"; // no time and event id
-		String pid = eventData.get(AuditEventReader.PID);
 		Integer unitDependencyCount = CommonFunctions.parseInt(eventData.get(AuditEventReader.UNIT_DEPS_COUNT), 0);
 		// Assumption that this dependent unit has been sent before along with the unit on which they are dependent on
-		Process containingProcess = getContainingProcessVertex(pid);
 		
-		if(containingProcess == null){
-			// Haven't seen this pid before
-			// Create the process from the information in eventData
-			containingProcess = putProcess(eventData, time, eventId);
-		}
-		
-//		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
+		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
 		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
 		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
 		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
 		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
 		
-		Process actingUnit = putUnitAndEdge(containingProcess, pid, time, eventId, 
+		Process containingProcessMainUnit = getContainingProcessVertex(unitPid);
+		
+		if(containingProcessMainUnit == null){
+			// Haven't seen this pid before
+			// Create the process from the information in eventData
+			Map<String, String> newEventData = new HashMap<String, String>(eventData);
+			newEventData.put(AuditEventReader.PID, unitPid);
+			containingProcessMainUnit = putProcess(newEventData, time, eventId);
+		}
+		
+		Process actingUnit = putUnitAndEdge(containingProcessMainUnit, unitPid, time, eventId, 
 				unitId, unitIteration, unitTime, unitCount, true);
 		
 		for(int a = 0; a<unitDependencyCount; a++){
-//			String dependentUnitPid = eventData.get(AuditEventReader.UNIT_PID+a);
+			String dependentUnitPid = eventData.get(AuditEventReader.UNIT_PID+a);
 			String dependentUnitId = eventData.get(AuditEventReader.UNIT_UNITID+a);
 			String dependentUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+a);
 			String dependentUnitTime = eventData.get(AuditEventReader.UNIT_TIME+a);
 			String dependentUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+a);
 			
+			Process containingProcessDependentUnit = getContainingProcessVertex(dependentUnitPid);
+			
+			if(containingProcessDependentUnit == null){
+				// Haven't seen this pid before
+				// Create the process from the information in eventData
+				Map<String, String> newEventData = new HashMap<String, String>(eventData);
+				newEventData.put(AuditEventReader.PID, dependentUnitPid);
+				containingProcessDependentUnit = putProcess(newEventData, time, eventId);
+			}
+			
 			// Does so if not already done
-			Process dependentUnit = putUnitAndEdge(containingProcess, pid, time, eventId, 
+			Process dependentUnit = putUnitAndEdge(containingProcessDependentUnit, dependentUnitPid, time, eventId, 
 					dependentUnitId, dependentUnitIteration, dependentUnitTime, dependentUnitCount, true);
 			
 			// List contains the dependent units and the reported unit is the unit on which they are dependent
@@ -1607,26 +1620,28 @@ public class Audit extends AbstractReporter {
 	private void handleUnitEntry(Map<String, String> eventData){
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
-//		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
+//		String pid = eventData.get(AuditEventReader.PID);
+		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
 		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
 		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
 		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
 		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
 		
-		Process containingProcess = getContainingProcessVertex(pid);
+		Process containingProcess = getContainingProcessVertex(unitPid);
 		
 		if(containingProcess == null){
 			// Haven't seen this pid before
 			// Create the process from the information in eventData
-			containingProcess = putProcess(eventData, time, eventId);
+			Map<String, String> newEventData = new HashMap<String, String>(eventData);
+			newEventData.put(AuditEventReader.PID, unitPid);
+			containingProcess = putProcess(newEventData, time, eventId);
 		}
 		
 		// pop the current iteration if any before adding the new one
 		// no nested loops at the moment
-		popCurrentIterationIfAny(pid);
+		popCurrentIterationIfAny(unitPid);
 		
-		putUnitAndEdge(containingProcess, pid, time, eventId, 
+		putUnitAndEdge(containingProcess, unitPid, time, eventId, 
 				unitId, unitIteration, unitTime, unitCount, false);
 	}
 
@@ -2284,6 +2299,7 @@ public class Audit extends AbstractReporter {
 		newEventData.put(OPMConstants.PROCESS_START_TIME, time);
 
 		boolean RECREATE_AND_REPLACE = true; //true because a new process with the same pid might be being created. pids are recycled.
+
 		Process newProcess = putProcess(newEventData, RECREATE_AND_REPLACE, time, eventId);
 
 		WasTriggeredBy forkCloneEdge = new WasTriggeredBy(newProcess, oldProcess);
