@@ -317,7 +317,9 @@ public class Audit extends AbstractReporter {
 		return str == null 
 				|| "true".equalsIgnoreCase(str.trim()) || "false".equalsIgnoreCase(str.trim())
 				|| "1".equals(str.trim()) || "0".equals(str.trim())
-				|| "yes".equalsIgnoreCase(str.trim()) || "no".equals(str.trim());
+				|| "yes".equalsIgnoreCase(str.trim()) || "no".equals(str.trim())
+				|| "on".equalsIgnoreCase(str.trim()) || "off".equals(str.trim());
+
 	}
 	
 	/**
@@ -334,9 +336,9 @@ public class Audit extends AbstractReporter {
 			return defaultValue;
 		}else{
 			str = str.trim();
-			if(str.equals("1") || str.equalsIgnoreCase("yes") || str.equalsIgnoreCase("true")){
+			if(str.equals("1") || str.equalsIgnoreCase("yes") || str.equalsIgnoreCase("true") || str.equalsIgnoreCase("on")){
 				return true;
-			}else if(str.equals("0") || str.equalsIgnoreCase("no") || str.equalsIgnoreCase("false")){
+			}else if(str.equals("0") || str.equalsIgnoreCase("no") || str.equalsIgnoreCase("false") || str.equalsIgnoreCase("off")){
 				return false;
 			}else{
 				return defaultValue;
@@ -2198,28 +2200,20 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 	
-			ArtifactIdentifier fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
+			ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
 	
-			if(fileArtifactIdentifier == null){
+			if(artifactIdentifier == null){
 				descriptors.addUnknownDescriptor(pid, fd);
 				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
-				fileArtifactIdentifier = descriptors.getDescriptor(pid, fd);
+				artifactIdentifier = descriptors.getDescriptor(pid, fd);
 			}
 	
-			//if not unknown and not file
-			if((!UnknownIdentifier.class.equals(fileArtifactIdentifier.getClass()) 
-					&& !FileIdentifier.class.equals(fileArtifactIdentifier.getClass()))){
-				log(Level.INFO, "Artifact with FD '"+fd+"' is '"+
-					fileArtifactIdentifier.getClass()+"'. Must be either a file or an unknown. ", null, time, eventId, syscall);
-				return;
-			}
+			Artifact artifact = putArtifact(eventData, artifactIdentifier, null, false);
 	
-			Artifact fileArtifact = putArtifact(eventData, fileArtifactIdentifier, null, false);
-	
-			Used usedEdge = new Used(process, fileArtifact);
+			Used usedEdge = new Used(process, artifact);
 			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
 	
-			WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, fileArtifact);
+			WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, artifact);
 			wdfEdge.addAnnotation(OPMConstants.EDGE_PID, pid);
 			putEdge(wdfEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}
