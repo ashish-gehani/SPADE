@@ -231,12 +231,6 @@ public class CDM extends Kafka {
 						new TypeOperation(OPMConstants.USED, 
 								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_READ))), 
 						EventType.EVENT_LINK);
-		// A special value for Operation in class TypeOperation and means that it can be anything
-		rulesToEventType.put(
-				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE),
-						new TypeOperation(OPMConstants.WAS_GENERATED_BY, TypeOperation.ANY_OPERATION)), 
-						EventType.EVENT_UPDATE);
-		
 	}
 	
 	private Set<TypeOperation> getSet(TypeOperation... typeOperations){
@@ -858,22 +852,38 @@ public class CDM extends Kafka {
 			processIndividually = true;
 		}else if(edgesContainTypeOperation(edges,
 				new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE))){
-			// need to process the WasGeneratedBy edge first
-			// and then process WasGeneratedBy and WasDerivedFrom together
-			AbstractEdge generatedByEdge = null;
+			
+			// Process the update edge here first
+			// Remove the update edge
+			// Then send on the remaining edges to processEdges function
+			AbstractEdge updateEdge = null;
+			AbstractVertex actingVertex = null;
 			for(AbstractEdge edge : edges){
-				if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
-					generatedByEdge = edge;
+				if(OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					updateEdge = edge;
+				}
+				if(OPMConstants.USED.equals(edge.getAnnotation(OPMConstants.TYPE))){
+					actingVertex = edge.getSourceVertex();
+				}else if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
+					actingVertex = edge.getDestinationVertex();
 				}
 			}
-			if(generatedByEdge != null){
-				processEdges(Arrays.asList(generatedByEdge));
+			
+			if(updateEdge == null || actingVertex == null){
+				logger.log(Level.WARNING, "Missing acting vertex or update edge in edges: " + edges);
+				return;
 			}else{
-				logger.log(Level.WARNING, "Failed to find WasGeneratedBy edge for UPDATE: {0}", 
-						new Object[]{
-								currentEventEdges
-						});
+				publishEvent(EventType.EVENT_UPDATE, updateEdge, actingVertex, 
+						updateEdge.getDestinationVertex(), updateEdge.getSourceVertex());
+				
+				// Remove the update edge and process the rest of the edges
+				List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
+				edgesCopy.remove(updateEdge);
+				
+				processEdges(edgesCopy);
+				return;
 			}
+			
 		}else if(edgesContainTypeOperation(edges, 
 				new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT_DEPENDENCY))){
 			// very special case. ah!
@@ -1007,7 +1017,7 @@ public class CDM extends Kafka {
 				AbstractEdge edgeWithProcess = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_GENERATED_BY);
 
 				if(edges.size() == 2 || edges.size() == 3){
-					// update (2), mmap(3), rename(3), link(3)
+					// mmap(2 or 3 edges), rename(3), link(3)
 					if(twoArtifactsEdge != null && edgeWithProcess != null){
 
 						// Add the protection to the WDF edge from the WGB edge (only for mmap)
