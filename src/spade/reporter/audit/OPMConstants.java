@@ -69,6 +69,7 @@ public class OPMConstants {
 			PROCESS_NAME = "name",
 			PROCESS_PID = "pid",
 			PROCESS_PPID = "ppid",
+			PROCESS_SEEN_TIME = "seen time",
 			PROCESS_START_TIME = "start time",
 			PROCESS_UNIT = "unit",
 			

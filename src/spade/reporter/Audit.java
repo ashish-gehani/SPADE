@@ -4439,7 +4439,11 @@ getArtifactProperties(artifactIdentifier).markNewEpoch();
 						annotations.get(OPMConstants.AGENT_EGID), annotations.get(OPMConstants.AGENT_SGID), 
 						annotations.get(OPMConstants.AGENT_FSGID), annotations.get(OPMConstants.SOURCE), 
 						annotations.get(OPMConstants.PROCESS_START_TIME), annotations.get(OPMConstants.PROCESS_UNIT), 
-						annotations.get(OPMConstants.PROCESS_ITERATION), annotations.get(OPMConstants.PROCESS_COUNT));
+						annotations.get(OPMConstants.PROCESS_ITERATION), annotations.get(OPMConstants.PROCESS_COUNT),
+						//if data from audit log then 'seen time' is 'time' otherwise audit annotation key is 'seen time'
+						annotations.get(OPMConstants.PROCESS_SEEN_TIME) == null ?
+								annotations.get(AuditEventReader.TIME) :
+									annotations.get(OPMConstants.PROCESS_SEEN_TIME));
 	}
 
 	/**
@@ -4465,12 +4469,14 @@ getArtifactProperties(artifactIdentifier).markNewEpoch();
 	 * @param unit id of the unit loop. [Optional]
 	 * @param iteration iteration of the unit loop. [Optional]
 	 * @param count count of a unit with all other annotation values same. [Optional]
+	 * @param seenTime time at which the process was seen. Only used if no start time.
 	 * @return returns a Process instance with the passed in annotations.
 	 */
 	private Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
 			String uid, String euid, String suid, String fsuid, 
 			String gid, String egid, String sgid, String fsgid,
-			String source, String startTime, String unit, String iteration, String count){
+			String source, String startTime, String unit, String iteration, String count,
+			String seenTime){
 		
 		Process process = new Process();
 		process.addAnnotation(OPMConstants.PROCESS_PID, pid);
@@ -4513,8 +4519,15 @@ getArtifactProperties(artifactIdentifier).markNewEpoch();
 			process.addAnnotations(agentAnnotations);
 		}
 
+		// If there is a start time then use that.
+		// If no start time then use seen time. 
+		// If none then use nothing
 		if(startTime != null){
 			process.addAnnotation(OPMConstants.PROCESS_START_TIME, startTime);
+		}else{
+			if(seenTime != null){
+				process.addAnnotation(OPMConstants.PROCESS_SEEN_TIME, seenTime);
+			}
 		}
 
 		if(CREATE_BEEP_UNITS){
@@ -4603,7 +4616,8 @@ getArtifactProperties(artifactIdentifier).markNewEpoch();
 				Process newProcess = createProcessVertex(pid, ppid, name, null, null, 
 						uidTokens[1], uidTokens[2], uidTokens[3], uidTokens[4], 
 						gidTokens[1], gidTokens[2], gidTokens[3], gidTokens[4], 
-						OPMConstants.SOURCE_PROCFS, Long.toString(startTime), CREATE_BEEP_UNITS ? "0" : null, null, null);
+						OPMConstants.SOURCE_PROCFS, Long.toString(startTime), 
+						CREATE_BEEP_UNITS ? "0" : null, null, null, null);
 
 				// newProcess.addAnnotation("starttime_unix", stime);
 				// newProcess.addAnnotation("starttime_simple", stime_readable);
@@ -4684,11 +4698,9 @@ getArtifactProperties(artifactIdentifier).markNewEpoch();
 				process.getAnnotation(OPMConstants.AGENT_SUID), process.getAnnotation(OPMConstants.AGENT_FSUID), 
 				process.getAnnotation(OPMConstants.AGENT_GID), process.getAnnotation(OPMConstants.AGENT_EGID), 
 				process.getAnnotation(OPMConstants.AGENT_SGID), process.getAnnotation(OPMConstants.AGENT_FSGID), 
-				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count);
+				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count, null); // NULL seen time
 	}
-	
-
-	
+		
 }
 
 /**

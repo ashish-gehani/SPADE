@@ -399,7 +399,8 @@ public class CDM extends Kafka {
 							Map<CharSequence, CharSequence> properties = new HashMap<>();
 							addIfNotNull(OPMConstants.PROCESS_NAME, process.getAnnotations(), properties);
 							addIfNotNull(OPMConstants.PROCESS_CWD, process.getAnnotations(), properties);
-							properties.put(OPMConstants.PROCESS_PPID, ppid);
+							addIfNotNull(OPMConstants.PROCESS_PPID, process.getAnnotations(), properties);
+							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, process.getAnnotations(), properties);
 
 							Subject subject = new Subject(subjectUUID, subjectType, pid, 
 									pidSubjectUUID.get(ppid), principalUUID, startTime, 
