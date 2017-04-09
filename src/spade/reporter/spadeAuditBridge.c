@@ -123,7 +123,7 @@ int command_line_option(int argc, char **argv)
 										break;
 								}
 							 dirTime = mktime(&temp_tm);
-								printf("dirTime = %ld\n", dirTime);
+								fprintf(stderr, "dirTime = %ld\n", dirTime);
 								break;
 
 						case 'w':
@@ -366,6 +366,8 @@ ino_t read_log_online(ino_t inode)
 void dir_read()
 {
 		ino_t inode = 0;
+		
+		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		
 		while((inode = find_next_file(dirTime, 0)) <= 0) sleep(1);
 		//printf("Next file: inode %ld\n", inode);

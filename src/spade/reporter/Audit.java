@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -728,17 +729,12 @@ public class Audit extends AbstractReporter {
 			}
 		}
 
+		String inputLogDirectoryArgument = argsMap.get("inputDir");
 		String inputAuditLogFileArgument = argsMap.get("inputLog");
-		if(inputAuditLogFileArgument != null){
+		if(inputAuditLogFileArgument != null || inputLogDirectoryArgument != null){
 			// is log playback
 			isLiveAudit = false;
 			
-			if(!fileExists(inputAuditLogFileArgument)){
-				logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
-									+ inputAuditLogFileArgument);
-				return false;
-			}
-
 			// In case of audit log files get arch from the arguments
 			ARCH_32BIT = null;
 			if("32".equals(argsMap.get("arch"))){
@@ -749,37 +745,93 @@ public class Audit extends AbstractReporter {
 				logger.log(Level.SEVERE, "Must specify whether the system on which log was collected was 32 bit or 64 bit");
 				return false;
 			}
-
-			// Whether to read from rotated logs or not
-			boolean rotate = false;
-			String rotateArgument = argsMap.get("rotate");
-			if(isValidBoolean(rotateArgument)){
-				rotate = parseBoolean(rotateArgument, false);
-			}else{
-				logger.log(Level.SEVERE, "Invalid value for 'rotate' flag: "+ rotateArgument);
-				return false;
-			}
-
-			List<String> inputAuditLogFiles = getListOfInputAuditLogs(inputAuditLogFileArgument, rotate);
-
-			logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
-
-			// Only needed in case of audit log files and not in case of live audit
-			String tempDirPath = configMap.get("tempDir");
-			if(!setupTempDirectory(tempDirPath)){
-				return false;
-			}
-			// Create the input file for spadeAuditBridge to read the audit logs from 
-			logListFile = createLogListFileForSpadeAuditBridge(spadeAuditBridgeBinaryName, inputAuditLogFiles, tempDirPath);
-			if(logListFile == null){
-				return false;
-			}
 			
-			// Build the command to use
-			spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
-							((CREATE_BEEP_UNITS) ? " -u" : "") + 
-							((WAIT_FOR_LOG_END) ? " -w" : "") + 
-							" -f " + logListFile;
+			if(inputAuditLogFileArgument != null){
+			
+				if(!fileExists(inputAuditLogFileArgument)){
+					logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
+										+ inputAuditLogFileArgument);
+					return false;
+				}
+	
+				// Whether to read from rotated logs or not
+				boolean rotate = false;
+				String rotateArgument = argsMap.get("rotate");
+				if(isValidBoolean(rotateArgument)){
+					rotate = parseBoolean(rotateArgument, false);
+				}else{
+					logger.log(Level.SEVERE, "Invalid value for 'rotate' flag: "+ rotateArgument);
+					return false;
+				}
+	
+				List<String> inputAuditLogFiles = getListOfInputAuditLogs(inputAuditLogFileArgument, rotate);
+	
+				logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
+	
+				// Only needed in case of audit log files and not in case of live audit
+				String tempDirPath = configMap.get("tempDir");
+				if(!setupTempDirectory(tempDirPath)){
+					return false;
+				}
+				// Create the input file for spadeAuditBridge to read the audit logs from 
+				logListFile = createLogListFileForSpadeAuditBridge(spadeAuditBridgeBinaryName, inputAuditLogFiles, tempDirPath);
+				if(logListFile == null){
+					return false;
+				}
+				
+				// Build the command to use
+				spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
+								((CREATE_BEEP_UNITS) ? " -u" : "") + 
+								((WAIT_FOR_LOG_END) ? " -w" : "") + 
+								" -f " + logListFile;
+			}else{
+				// Input log directory section
+				
+				try{
+					File dir = new File(inputLogDirectoryArgument);
+					
+					if(dir.exists() && dir.isDirectory()){
+						
+						// Check if logs exist
+						if(dir.list().length != 0){
+							
+							// Confirm timestamp
+							String inputLogTimeArgument = argsMap.get("inputTime");
+							if(inputLogTimeArgument != null){
+								try{
+									SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss");
+									dateFormat.parse(inputLogTimeArgument);
+									// parsed successfully
+								}catch(Exception e){
+									logger.log(Level.SEVERE, "Invalid time format for argument 'inputTime'. "
+											+ "Expected: yyyy-MM-dd:HH:mm:ss" , e);
+									return false;
+								}
+							}
+							
+							// Build the command to use
+							spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
+											((CREATE_BEEP_UNITS) ? " -u" : "") + 
+											((WAIT_FOR_LOG_END) ? " -w" : "") + 
+											" -d " + inputLogDirectoryArgument +
+											((inputLogTimeArgument != null) ? " -t " + inputLogTimeArgument : "");
+							
+						}else{
+							logger.log(Level.SEVERE, "No log file in 'inputDir' to process");
+							return false;
+						}
+						
+					}else{
+						logger.log(Level.SEVERE, "Path for 'inputDir' doesn't exist or isn't a directory");
+						return false;
+					}
+					
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to process 'inputDir' argument", e);
+					return false;
+				}
+				
+			}
 
 		}else{ // live audit
 
