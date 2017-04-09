@@ -2155,15 +2155,11 @@ public class Audit extends AbstractReporter {
 			putEdge(exitEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 		}
 
-		// Now clearing the process unit stack after the Process vertex has been gotten.
-		// If cleared before putVertex then it would populate the processUnitStack after it has been cleared.
-
-		processUnitStack.remove(pid); // Remove all process and beep unit vertices of the process
-		descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
-		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
-		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
-		pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
-		pidToSockfdToProtocol.remove(pid); // Remove mapping of sockfd to protocol names
+		// NOT clearing process state here.
+		// Because in case of units we might see a dependent unit after the process has exited.
+		// We need the process (synthetic) annotations to create exactly the same one
+		// Clearing process state in fork and clone calls. Because that is the only way the same
+		// pid can be reassigned.
 		
 	}
 
@@ -2265,6 +2261,15 @@ public class Audit extends AbstractReporter {
 		edge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(edge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 	}
+	
+	private void clearProcessState(String pid){
+		processUnitStack.remove(pid); // Remove all process and beep unit vertices of the process
+		descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
+		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
+		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
+		pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
+		pidToSockfdToProtocol.remove(pid); // Remove mapping of sockfd to protocol names
+	}
 
 	private void handleForkClone(Map<String, String> eventData, SYSCALL syscall) {
 		// fork() and clone() receive the following message(s):
@@ -2275,6 +2280,9 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String oldPID = eventData.get(AuditEventReader.PID);
 		String newPID = eventData.get(AuditEventReader.EXIT);
+
+		// Clearing process state of the newPID which might have existed before
+		clearProcessState(newPID);
 
 		Long flags = CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), 0L);
 		if(syscall == SYSCALL.CLONE){
