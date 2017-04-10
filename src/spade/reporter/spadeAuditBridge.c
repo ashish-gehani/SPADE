@@ -199,7 +199,7 @@ void read_log(FILE *fp, char* filepath)
 						memset(&buffer, 0, BUFFER_LENGTH);
 						if(fgets(& buffer[0], BUFFER_LENGTH, fp) == NULL) {
 								fprintf(stderr, "Reached the end of file (%s).\n", filepath);
-								UBSI_buffer_flush();
+								//UBSI_buffer_flush();
 								break;
 						}
 						UBSI_buffer(buffer);
