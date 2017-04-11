@@ -1574,13 +1574,15 @@ public class Audit extends AbstractReporter {
     	}*/
 
 		try{
-			String unitRecordType = eventData.get(AuditEventReader.RECORD_TYPE_KEY);
-			if(AuditEventReader.RECORD_TYPE_UBSI_ENTRY.equals(unitRecordType)){
+			String recordType = eventData.get(AuditEventReader.RECORD_TYPE_KEY);
+			if(AuditEventReader.RECORD_TYPE_UBSI_ENTRY.equals(recordType)){
 				handleUnitEntry(eventData);
-			}else if(AuditEventReader.RECORD_TYPE_UBSI_EXIT.equals(unitRecordType)){
+			}else if(AuditEventReader.RECORD_TYPE_UBSI_EXIT.equals(recordType)){
 				handleUnitExit(eventData);
-			}else if(AuditEventReader.RECORD_TYPE_UBSI_DEP.equals(unitRecordType)){
+			}else if(AuditEventReader.RECORD_TYPE_UBSI_DEP.equals(recordType)){
 				handleUnitDependencies(eventData);
+			}else if(AuditEventReader.RECORD_TYPE_DAEMON_START.equals(recordType)){
+				clearAllProcessState();
 			}else{
 				handleSyscallEvent(eventData);
 			}
@@ -2312,6 +2314,14 @@ public class Audit extends AbstractReporter {
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
 		edge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(edge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+	}
+	
+	private void clearAllProcessState(){
+		Set<String> pids = new HashSet<String>();
+		pids.addAll(processUnitStack.keySet());
+		for(String pid : pids){
+			clearProcessState(pid);
+		}
 	}
 	
 	private void clearProcessState(String pid){
