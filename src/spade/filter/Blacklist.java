@@ -29,6 +29,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Entity;
@@ -56,7 +57,7 @@ public class Blacklist extends AbstractFilter{
 	
 	private boolean isVertexInExclusionPattern(AbstractVertex incomingVertex){
 		if(incomingVertex instanceof Artifact || incomingVertex instanceof Entity){
-			String path = incomingVertex.getAnnotation("path");
+			String path = incomingVertex.getAnnotation(OPMConstants.ARTIFACT_PATH);
 			if(path != null){
 				Matcher filepathMatcher = fileExclusionPattern.matcher(path);
 				return filepathMatcher.find();

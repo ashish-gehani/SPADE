@@ -19,10 +19,12 @@
  */
 package spade.storage;
 
+import java.nio.ByteBuffer;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -36,30 +38,31 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
 import com.bbn.tc.schema.avro.AbstractObject;
-import com.bbn.tc.schema.avro.AbstractObject.Builder;
-import com.bbn.tc.schema.avro.EdgeType;
 import com.bbn.tc.schema.avro.Event;
 import com.bbn.tc.schema.avro.EventType;
 import com.bbn.tc.schema.avro.FileObject;
+import com.bbn.tc.schema.avro.FileObjectType;
 import com.bbn.tc.schema.avro.InstrumentationSource;
 import com.bbn.tc.schema.avro.MemoryObject;
 import com.bbn.tc.schema.avro.NetFlowObject;
 import com.bbn.tc.schema.avro.Principal;
 import com.bbn.tc.schema.avro.PrincipalType;
-import com.bbn.tc.schema.avro.SimpleEdge;
+import com.bbn.tc.schema.avro.SHORT;
 import com.bbn.tc.schema.avro.SrcSinkObject;
 import com.bbn.tc.schema.avro.SrcSinkType;
 import com.bbn.tc.schema.avro.Subject;
 import com.bbn.tc.schema.avro.SubjectType;
 import com.bbn.tc.schema.avro.TCCDMDatum;
 import com.bbn.tc.schema.avro.UUID;
+import com.bbn.tc.schema.avro.UnitDependency;
+import com.bbn.tc.schema.avro.UnnamedPipeObject;
 import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Vertex;
-import spade.reporter.audit.ArtifactIdentifier;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
+import spade.vertex.prov.Agent;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -71,995 +74,1309 @@ import spade.utility.CommonFunctions;
  *
  * We also assume that when an OPM/PROV edge is received, we can map it to an event and edges to other
  * entity records that have already been serialized and published to Kafka.
+ * 
+ * How are events handled:
+ * 
+ * It is assumed that all edges for the same event are received back to back. All edges for the same event id and time
+ * are buffered until all the edges for the current event are received. Once received those edges are processed together
+ * to create the CDM event. In some special cases like setuid, update, and etc the group of edges received for a single 
+ * event need to be processed individually and that is treated like a special case. All the special cases should be in
+ * the function: {@link #processEdgesWrapper(List) processEdgesWrapper}
  *
  * @author Armando Caro
  * @author Hassaan Irshad
  * @author Ashish Gehani
  */
 public class CDM extends Kafka {
-	
+
+	private final Logger logger = Logger.getLogger(CDM.class.getName());
+
+	/**
+	 * Tracking counts of different kinds of objects being published/written
+	 */
 	private Map<String, Long> stats = new HashMap<String, Long>();
+	/**
+	 * Array of integers for an Agent as in Audit OPM model
+	 */
+	private final String[] agentAnnotations = {OPMConstants.AGENT_UID, OPMConstants.AGENT_EUID, 
+			OPMConstants.AGENT_SUID, OPMConstants.AGENT_FSUID, OPMConstants.AGENT_GID, 
+			OPMConstants.AGENT_EGID, OPMConstants.AGENT_SGID, OPMConstants.AGENT_FSGID};
+	/**
+	 * Flag whose value is set from arguments to decide whether to output hashcode and hex or raw bytes
+	 */
+	private boolean hexUUIDs = true;
+	/**
+	 * A map used to keep track of:
+	 * 1) To keep track of parent subject UUIDs, equivalent to ppid
+	 */
+	private final Map<String, UUID> pidSubjectUUID = 
+			new HashMap<String, UUID>();
+	/**
+	 * To keep track of principals published so that we don't duplicate them
+	 */
+	private final Set<UUID> publishedPrincipals = new HashSet<UUID>();
+	/**
+	 * To keep track of the last time and event id. All edges with the same time and event id are
+	 * collected first and the edges are processes as one event
+	 */
+	private SimpleEntry<String, String> lastTimeEventId = null;
+	/**
+	 * List of currently unprocessed edges i.e. all edges for an event haven't been received
+	 */
+	private List<AbstractEdge> currentEventEdges = new ArrayList<AbstractEdge>();
+	/**
+	 * A map from the Set of edges needed for each event to complete.
+	 */
+	private Map<Set<TypeOperation>, EventType> rulesToEventType = 
+			new HashMap<Set<TypeOperation>, EventType>();
 	
-	private static final Logger logger = Logger.getLogger(CDM.class.getName());
-    
-    private Map<String, ProcessInformation> pidMappings = new HashMap<>();
-    
-    // A set to keep track of principals that have been published to avoid duplication
-    private Set<UUID> principalUUIDs = new HashSet<UUID>(); 
-    
-    //Key is <time + ":" + event id>
-    private Map<String, Set<UUID>> timeEventIdToPendingLoadedFilesUUIDs = new HashMap<String, Set<UUID>>();
-    
-    private boolean hexUUIDs = false;
-    
-    private boolean agents = false;
-    
-    @Override
-    public boolean initialize(String arguments) {
-    	boolean initResult = super.initialize(arguments);
-    	
-    	try{
-	    	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
-	    	if("true".equals(argumentsMap.get("hexUUIDs"))){
-	    		hexUUIDs = true;
-	    	}
-	    	if("true".equals(argumentsMap.get("agents"))){
-	    		agents = true;
-	    	}
-    	}catch(Exception e){
-    		logger.log(Level.WARNING, "Failed to parse arguments into key-value pairs. Using default values.", e);
-    	}
-    	
-    	publishStreamMarkerObject(true);
-    	    	
-    	return initResult;
-    }
-    
-    /**
-     * Creates a SrcSinkObject with special annotations to be used as start of stream and end of stream markers
-     * AND publishes the object too
-     * 
-     * Annotations: 'start time' if start of stream, 'end time' if end of stream
-     * 
-     * @param isStart true if start of stream, false if end of stream
-     * @return SrcSinkObject instance
-     */
-    private void publishStreamMarkerObject(boolean isStart){
-    	String annotationName = isStart ? "start time" : "end time";
-    	
-    	Builder baseObjectBuilder = AbstractObject.newBuilder();
-    	baseObjectBuilder.setSource(InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE);
-        AbstractObject baseObject = baseObjectBuilder.build();
-    	
-    	SrcSinkObject.Builder streamMarkerObjectBuilder = SrcSinkObject.newBuilder();
-    	Map<CharSequence, CharSequence> properties = new HashMap<>();
-    	if(!isStart){
-    		for(Map.Entry<String, Long> entry : stats.entrySet()){
-    			properties.put(entry.getKey(), String.valueOf(entry.getValue()));
-    		}
-    	}
-    	properties.put(annotationName, String.valueOf(System.currentTimeMillis()*1000)); //millis to micros
-    	baseObject.setProperties(properties);
-    	streamMarkerObjectBuilder.setBaseObject(baseObject);
-    	streamMarkerObjectBuilder.setUuid(getUuid(properties)); //uuid is based on the annotations and values in the properties map
-    	streamMarkerObjectBuilder.setType(SrcSinkType.SOURCE_SYSTEM_PROPERTY);
-        SrcSinkObject streamMarkerObject = streamMarkerObjectBuilder.build();  
-        
-        List<GenericContainer> dataToPublish = new ArrayList<GenericContainer>();
-    	dataToPublish.add(TCCDMDatum.newBuilder().setDatum(streamMarkerObject).build());
-    	publishRecords(dataToPublish);
-    }
-    
-    public void incrementStatsCount(String key){
-    	if(stats.get(key) == null){
-    		stats.put(key, 0L);
-    	}
-    	stats.put(key, stats.get(key) + 1);
-    }
-    
-    @Override
-    protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
+	/**
+	 * Rules from OPM edges types and operations to event types in CDM
+	 */
+	private void populateEventRules(){
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXIT)), 
+						EventType.EVENT_EXIT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_FORK)), 
+						EventType.EVENT_FORK);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_CLONE)), 
+						EventType.EVENT_CLONE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)), 
+						EventType.EVENT_EXECUTE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT)), 
+						EventType.EVENT_UNIT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CLOSE)), 
+						EventType.EVENT_CLOSE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_UNLINK)), 
+						EventType.EVENT_UNLINK);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_OPEN)), 
+						EventType.EVENT_OPEN);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CREATE)), 
+						EventType.EVENT_CREATE_OBJECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_WRITE)), 
+						EventType.EVENT_WRITE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_SEND)), 
+						EventType.EVENT_SENDMSG);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_MPROTECT)), 
+						EventType.EVENT_MPROTECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CONNECT)), 
+						EventType.EVENT_CONNECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_TRUNCATE)), 
+						EventType.EVENT_TRUNCATE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CHMOD)), 
+						EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_CREATE)), 
+						EventType.EVENT_CREATE_OBJECT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_CLOSE)), 
+						EventType.EVENT_CLOSE);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_LOAD)), 
+						EventType.EVENT_LOADLIBRARY);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_OPEN)), 
+						EventType.EVENT_OPEN);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_READ)), 
+						EventType.EVENT_READ);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_RECV)), 
+						EventType.EVENT_RECVMSG);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_ACCEPT)), 
+						EventType.EVENT_ACCEPT);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+						OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE))), 
+						EventType.EVENT_MMAP);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_MMAP),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_MMAP);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_RENAME),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_RENAME, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_RENAME, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_RENAME);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_LINK),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_READ))), 
+						EventType.EVENT_LINK);
+	}
+	
+	private Set<TypeOperation> getSet(TypeOperation... typeOperations){
+		Set<TypeOperation> set = new HashSet<TypeOperation>();
+		for(TypeOperation typeOperation : typeOperations){
+			set.add(typeOperation);
+		}
+		return set;
+	}
+
+	private void publishEvent(EventType eventType, AbstractEdge edge, AbstractVertex actingProcess, 
+			AbstractVertex actedUpon1, AbstractVertex actedUpon2){
+
+		if(eventType == null || edge == null || actingProcess == null || actedUpon1 == null){
+			logger.log(Level.WARNING, "Missing arguments: eventType={0}, "
+					+ "edge={1}, actingProcess={2}, actedUpon1={3}", new Object[]{
+							eventType, edge, actingProcess, actedUpon1
+			});
+		}else{
+			InstrumentationSource source = getInstrumentationSource(edge.getAnnotation(OPMConstants.SOURCE));
+
+			UUID uuid = getUuid(edge);
+			Long sequence = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_EVENT_ID), 0L);
+			Integer threadId = CommonFunctions.parseInt(actingProcess.getAnnotation(OPMConstants.PROCESS_PID), null);
+			UUID subjectUUID = getUuid(actingProcess);
+			UUID predicateObjectUUID = getUuid(actedUpon1);
+			String predicateObjectPath = actedUpon1 != null ? actedUpon1.getAnnotation(OPMConstants.ARTIFACT_PATH) : null;
+			UUID predicateObject2UUID = getUuid(actedUpon2);
+			String predicateObject2Path = actedUpon2 != null ? actedUpon2.getAnnotation(OPMConstants.ARTIFACT_PATH) : null;
+			Long timestampNanos = convertTimeToNanoseconds(sequence, edge.getAnnotation(OPMConstants.EDGE_TIME), 0L);
+			Long size = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_SIZE), null);
+			Long location = CommonFunctions.parseLong(edge.getAnnotation(OPMConstants.EDGE_OFFSET), null);
+
+			// validation of mandatory values
+			if(uuid == null || threadId == null || subjectUUID == null 
+					|| predicateObjectUUID == null || source == null){
+				logger.log(Level.WARNING, "NULL arguments for event: "
+						+ "EdgeUUID={0}, threadId={1}, subjectUUID={2}, predicateObjectUUID={3}, "
+						+ "source={4}", 
+						new Object[]{uuid, threadId, subjectUUID, predicateObjectUUID, source});
+			}else{
+
+				// + Adding all annotations to the properties map that have not been added already 
+				// directly to the event
+				Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+				for(String key : edge.getAnnotations().keySet()){
+					if(!key.equals(OPMConstants.EDGE_EVENT_ID) && !key.equals(OPMConstants.EDGE_TIME) 
+							&& !key.equals(OPMConstants.SOURCE) && !key.equals(OPMConstants.EDGE_PID) && 
+							!key.equals(OPMConstants.EDGE_OPERATION) && !key.equals(OPMConstants.EDGE_SIZE)
+							&& !key.equals(OPMConstants.TYPE) && !key.equals(OPMConstants.EDGE_OFFSET)){
+						properties.put(key, edge.getAnnotation(key));
+					}
+				}
+
+				Event event = new Event(uuid, 
+						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, predicateObjectPath, 
+						predicateObject2UUID, predicateObject2Path, timestampNanos, null, null, 
+						location, size, null, properties);
+
+				publishRecords(Arrays.asList(buildTcCDMDatum(event, source)));
+
+			}
+		}
+	}
+
+	private boolean publishSubjectAndPrincipal(AbstractVertex process){
+
+		if(isProcessVertex(process)){
+
+			String pid = process.getAnnotation(OPMConstants.PROCESS_PID);
+
+			InstrumentationSource subjectSource = getInstrumentationSource(process.getAnnotation(OPMConstants.SOURCE));
+
+			if(subjectSource != null){
+				
+				// Agents cannot come from BEEP source. Added just in case.
+				InstrumentationSource principalSource = 
+						subjectSource.equals(InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)
+						? InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE : subjectSource;
+
+				List<GenericContainer> objectsToPublish = new ArrayList<GenericContainer>();
+
+				Principal principal = getPrincipalFromProcess(process);
+				if(principal != null){
+					UUID principalUUID = principal.getUuid();
+
+					if(!publishedPrincipals.contains(principalUUID)){
+						objectsToPublish.add(buildTcCDMDatum(principal, principalSource));
+						publishedPrincipals.add(principalUUID);
+					}
+
+					Subject subject = getSubjectFromProcess(process, principalUUID);
+					if(subject != null){
+						objectsToPublish.add(buildTcCDMDatum(subject, subjectSource));
+						if(subject.getType().equals(SubjectType.SUBJECT_PROCESS)){ // not in case of unit
+							// The map is used only for getting the parent subject UUID i.e. equivalent
+							// of ppid in OPM and that can only be the containing process as in Audit
+							pidSubjectUUID.put(pid, subject.getUuid());
+						}
+						return publishRecords(objectsToPublish) > 0;
+					}else {
+						return false;
+					}
+				}else{
+					return false;
+				}
+			}else{
+				logger.log(Level.WARNING, "Failed to publish '{0}' vertex because of missing/invalid source",
+						new Object[]{process});
+			}
+		}
+		return false;
+	}
+
+	private Subject getSubjectFromProcess(AbstractVertex process, UUID principalUUID){
+		if(isProcessVertex(process) && principalUUID != null){
+
+			// Based on complete process annotations along with agent annotations
+			UUID subjectUUID = getUuid(process);
+
+			SubjectType subjectType = SubjectType.SUBJECT_PROCESS; // default
+			if(process.getAnnotation(OPMConstants.PROCESS_ITERATION) != null){
+				subjectType = SubjectType.SUBJECT_UNIT; // if a unit
+			}
+
+			String pidString = process.getAnnotation(OPMConstants.PROCESS_PID);
+			Integer pid = CommonFunctions.parseInt(pidString, null);
+			if(pid == null){
+				logger.log(Level.WARNING, "Invalid pid {0} for Process {1}", new Object[]{
+						pidString, process
+				});
+			}else{
+
+				// Mandatory but if missing then default value is 0
+				Long startTime = convertTimeToNanoseconds(null, process.getAnnotation(OPMConstants.PROCESS_START_TIME), 0L);
+
+				String unitIdAnnotation = process.getAnnotation(OPMConstants.PROCESS_UNIT);
+				Integer unitId = CommonFunctions.parseInt(unitIdAnnotation, null);
+
+				// meaning that the unit annotation was non-numeric.
+				// Can't simply check for null because null is valid in case units=false in Audit
+				if(unitId == null && unitIdAnnotation != null){
+					logger.log(Level.WARNING, "Unexpected 'unit' value {0} for process {1}", 
+							new Object[]{unitIdAnnotation, process});
+				}else{
+
+					String iterationAnnotation = process.getAnnotation(OPMConstants.PROCESS_ITERATION);
+					Integer iteration = CommonFunctions.parseInt(iterationAnnotation, null);
+
+					if(iteration == null && iterationAnnotation != null){
+						logger.log(Level.WARNING, "Unexpected 'iteration' value {0} for process {1}", 
+								new Object[]{iterationAnnotation, process});
+					}else{
+
+						String countAnnotation = process.getAnnotation(OPMConstants.PROCESS_COUNT);
+						Integer count = CommonFunctions.parseInt(countAnnotation, null);
+
+						if(count == null && countAnnotation != null){
+							logger.log(Level.WARNING, "Unexpected 'count' value {0} for process {1}", 
+									new Object[]{countAnnotation, process});
+						}else{
+
+							String cmdLine = process.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE);
+							String ppid = process.getAnnotation(OPMConstants.PROCESS_PPID);
+							
+							Map<CharSequence, CharSequence> properties = new HashMap<>();
+							addIfNotNull(OPMConstants.PROCESS_NAME, process.getAnnotations(), properties);
+							addIfNotNull(OPMConstants.PROCESS_CWD, process.getAnnotations(), properties);
+							addIfNotNull(OPMConstants.PROCESS_PPID, process.getAnnotations(), properties);
+							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, process.getAnnotations(), properties);
+
+							Subject subject = new Subject(subjectUUID, subjectType, pid, 
+									pidSubjectUUID.get(ppid), principalUUID, startTime, 
+									unitId, iteration, count, cmdLine, null, null, null,
+									properties);
+
+							return subject;
+
+						}
+
+					}
+
+				}
+
+			}
+
+		}else{
+			logger.log(Level.WARNING, "Missing Process vertex {0} or Principal UUID {1}", 
+					new Object[]{process, principalUUID});
+		}
+		return null;
+	}
+
+	// can return null
+	private Principal getPrincipalFromProcess(AbstractVertex process){
+		if(isProcessVertex(process)){
+			AbstractVertex agentVertex = getAgentFromProcess(process);
+
+			UUID uuid = getUuid(agentVertex);
+			String userId = agentVertex.getAnnotation(OPMConstants.AGENT_UID);
+			if(userId != null){
+				Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+				addIfNotNull(OPMConstants.AGENT_EUID, agentVertex.getAnnotations(), properties);
+				addIfNotNull(OPMConstants.AGENT_SUID, agentVertex.getAnnotations(), properties);
+				addIfNotNull(OPMConstants.AGENT_FSUID, agentVertex.getAnnotations(), properties);
+
+				List<CharSequence> groupIds = new ArrayList<CharSequence>();
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_GID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_GID));
+				}
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_EGID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_EGID));
+				}
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_SGID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_SGID));
+				}
+				if(agentVertex.getAnnotation(OPMConstants.AGENT_FSGID) != null){
+					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_FSGID));
+				}
+				Principal principal = new Principal(uuid, PrincipalType.PRINCIPAL_LOCAL, 
+						userId, null, groupIds, properties);
+				return principal;
+			}else{
+				logger.log(Level.WARNING, "Missing 'uid' in agent vertex");
+				return null;
+			}
+		}else{
+			logger.log(Level.WARNING, "Vertex type MUST be Process but found {0}", new Object[]{process});
+			return null;
+		}
+	}
+
+	// Argument must be of type process and must be ensured by the caller
+	private AbstractVertex getAgentFromProcess(AbstractVertex process){
+		AbstractVertex agentVertex = new Agent();
+		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT); //Always /dev/audit unless changed in Audit.java
+		for(String agentAnnotation : agentAnnotations){
+			String agentAnnotationValue = process.getAnnotation(agentAnnotation);
+			if(agentAnnotation != null){ // some are optional so check for null
+				agentVertex.addAnnotation(agentAnnotation, agentAnnotationValue);
+			}
+		}
+		return agentVertex;
+	}
+
+	private boolean publishArtifact(AbstractVertex vertex) {
+		InstrumentationSource source = getInstrumentationSource(vertex.getAnnotation(OPMConstants.SOURCE));
+		if(source == null){
+			return false;
+		}else{
+			// Make sure all artifacts without epoch are being treated fine. 
+			String epochAnnotation = vertex.getAnnotation(OPMConstants.ARTIFACT_EPOCH);
+			Integer epoch = CommonFunctions.parseInt(epochAnnotation, null);
+			// Non-numeric value for epoch
+			if(epoch == null && epochAnnotation != null){
+				logger.log(Level.WARNING, "Epoch annotation {0} must be of type LONG", new Object[]{epochAnnotation});
+				return false;
+			}else{
+
+				Object tccdmObject = null;
+
+				String artifactType = vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
+				if(OPMConstants.SUBTYPE_FILE.equals(artifactType)){
+
+					tccdmObject = createFileObject(getUuid(vertex), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
+							epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_FILE);
+
+				}else if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
+
+					String srcAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS);
+					String srcPort = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
+					String destAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
+					String destPort = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
+					String protocolName = vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL); //can be null
+					Integer protocol = OPMConstants.getProtocolNumber(protocolName);
+
+					srcAddress = srcAddress == null ? "" : srcAddress;
+					destAddress = destAddress == null ? "" : destAddress;
+					srcPort = srcPort == null ? "0" : srcPort;
+					destPort = srcPort == null ? "0" : destPort;
+
+					Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+
+					AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+
+					tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
+							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
+							destAddress, CommonFunctions.parseInt(destPort, 0), protocol, null);
+
+				}else if(OPMConstants.SUBTYPE_UNIX_SOCKET.equals(artifactType)){
+					
+					tccdmObject = createFileObject(getUuid(vertex), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
+							epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_UNIX_SOCKET);
+					
+				}else if(OPMConstants.SUBTYPE_MEMORY_ADDRESS.equals(artifactType)){
+
+					try{
+						Long memoryAddress = Long.parseLong(vertex.getAnnotation(OPMConstants.ARTIFACT_MEMORY_ADDRESS), 16);
+						Long size = null;
+						if(vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE) != null && 
+								!vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE).trim().isEmpty()){
+							size = Long.parseLong(vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE), 16);
+						}
+
+						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
+
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+
+						tccdmObject = new MemoryObject(getUuid(vertex), baseObject, memoryAddress, null, null, size);
+
+					}catch(NumberFormatException nfe){
+						logger.log(Level.WARNING, "Failed to parse memory address or size: "
+								+ "" + vertex.getAnnotation(OPMConstants.ARTIFACT_MEMORY_ADDRESS) + ", " + 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_SIZE), nfe);
+						return false;
+					}catch(Exception e){
+						logger.log(Level.SEVERE, null, e);
+						return false;
+					}
+
+				}else if(OPMConstants.SUBTYPE_NAMED_PIPE.equals(artifactType)){
+
+					tccdmObject = createFileObject(getUuid(vertex), vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_NAMED_PIPE);
+
+				}else if(OPMConstants.SUBTYPE_UNNAMED_PIPE.equals(artifactType)){
+
+					Integer sourceFileDescriptor = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_READ_FD), null);
+					Integer sinkFileDescriptor = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_WRITE_FD), null);
+
+					if(sourceFileDescriptor == null || sinkFileDescriptor == null){
+						logger.log(Level.WARNING, "Error parsing src/sink fds in artifact {0}", new Object[]{vertex});
+						return false;
+					}else{
+						Map<CharSequence, CharSequence> properties = new HashMap<>();
+						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+
+						tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, sourceFileDescriptor, sinkFileDescriptor);
+					}
+					
+				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
+
+					Integer pid = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_PID), null);
+					Integer fd = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_FD), null);
+					if(fd == null || pid == null){
+						logger.log(Level.WARNING, "Error parsing pid/fd in artifact {0}", new Object[]{vertex});
+						return false;
+					}else{
+
+						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
+
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+
+						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
+								SrcSinkType.SRCSINK_UNKNOWN, fd);
+					}
+
+				}else{
+					logger.log(Level.WARNING, "Unexpected artifact subtype {0}", new Object[]{vertex});
+					return false;
+				}
+
+				if(tccdmObject != null){
+					return publishRecords(Arrays.asList(buildTcCDMDatum(tccdmObject, source))) > 0;
+				}else{
+					logger.log(Level.WARNING, "Failed to create Object from Artifact");
+					return false;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Creates a CDM FileObject from the given arguments
+	 * 
+	 * @param uuid UUID of the whole artifact vertex
+	 * @param path path of the file
+	 * @param version version annotation
+	 * @param epoch epoch annotation
+	 * @param permissionsAnnotation permissions in octal string format (can be null)
+	 * @param type FileObjectType
+	 * @return FileObject instance
+	 */
+	private FileObject createFileObject(UUID uuid, String path, String version,
+			Integer epoch, String permissionsAnnotation, FileObjectType type){
+
+		Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+		if(path != null){
+			properties.put(OPMConstants.ARTIFACT_PATH, path);
+		}
+		if(version != null){
+			properties.put(OPMConstants.ARTIFACT_VERSION, version);
+		}
+		
+		SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
+
+		AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
+		FileObject fileObject = new FileObject(uuid, baseObject, type, null, null, null, null, null);
+
+		return fileObject;
+	}
+
+	/**
+	 * Creates a SrcSinkObject with special annotations to be used as start of stream and end of stream markers
+	 * AND publishes the object too
+	 * 
+	 * Annotations: 'start time' if start of stream, 'end time' if end of stream
+	 * 
+	 * @param isStart true if start of stream, false if end of stream
+	 * @return SrcSinkObject instance
+	 */
+	private void publishStreamMarkerObject(boolean isStart){
+		String annotationName = isStart ? "start time" : "end time";
+
+		Map<CharSequence, CharSequence> properties = new HashMap<>();
+		if(!isStart){
+			for(Map.Entry<String, Long> entry : stats.entrySet()){
+				properties.put(entry.getKey(), String.valueOf(entry.getValue()));
+			}
+		}
+		properties.put(annotationName, 
+				String.valueOf(convertTimeToNanoseconds(null, String.valueOf(System.currentTimeMillis()), 0L)));
+		AbstractObject baseObject = new AbstractObject(null, null, properties);  
+		SrcSinkObject streamMarker = new SrcSinkObject(getUuid(properties), baseObject, 
+				SrcSinkType.SRCSINK_SYSTEM_PROPERTY, null);
+		
+		publishRecords(Arrays.asList(buildTcCDMDatum(streamMarker, InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE)));
+	}
+	
+	@Override
+	/**
+	 * Calls the superclass's publishRecords method after updating the object
+	 * type count.
+	 */
+	protected int publishRecords(List<GenericContainer> genericContainers){
+		if(genericContainers != null){
+			for(GenericContainer genericContainer : genericContainers){
+				try{
+					if(genericContainer instanceof TCCDMDatum){
+						Object cdmObject = ((TCCDMDatum) genericContainer).getDatum();
+						if(cdmObject != null){
+							if(cdmObject.getClass().equals(Subject.class)){
+								SubjectType subjectType = ((Subject)cdmObject).getType();
+								if(subjectType != null){
+									incrementStatsCount(subjectType.name());
+								}
+							}else if(cdmObject.getClass().equals(Event.class)){
+								EventType eventType = ((Event)cdmObject).getType();
+								if(eventType != null){
+									incrementStatsCount(eventType.name());
+								}
+							}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
+								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
+									incrementStatsCount(SrcSinkObject.class.getSimpleName());
+								}
+							}else if(cdmObject.getClass().equals(FileObject.class)){
+								FileObjectType fileObjectType = ((FileObject)cdmObject).getType();
+								if(fileObjectType != null){
+									incrementStatsCount(fileObjectType.name());
+								}
+							}else{
+								incrementStatsCount(cdmObject.getClass().getSimpleName());
+							}
+						}
+					}
+				}catch (Exception e) {
+					logger.log(Level.WARNING, "Failed to collect stats", e);
+				}
+			}
+			return super.publishRecords(genericContainers);
+		}else{
+			return 0;
+		}
+	}
+
+	@Override
+	protected Properties getDefaultKafkaProducerProperties(String kafkaServer, String kafkaTopic, String kafkaProducerID, String schemaFilename){
 		Properties properties = new Properties();
 		properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer);
 		properties.put(ProducerConfig.CLIENT_ID_CONFIG, kafkaProducerID);
 		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.StringSerializer");
+				"org.apache.kafka.common.serialization.StringSerializer");
 		properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer.class);
+				com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer.class);
 		properties.put(AvroConfig.SCHEMA_WRITER_FILE, schemaFilename);
 		properties.put(AvroConfig.SCHEMA_SERDE_IS_SPECIFIC, true);
 		return properties;
 	}
 
-    @Override
-    public boolean putVertex(AbstractVertex vertex) {
-        try {
-            List<GenericContainer> tccdmDatums;
+	@Override
+	public boolean initialize(String arguments) {
+		boolean initResult = super.initialize(arguments);
+		if(!initResult){
+			return false;
+		}// else continue
 
-            String vertexType = vertex.type();
-            if (vertexType.equals("Process")) {
-                tccdmDatums = mapProcess(vertex);
-            } else if (vertexType.equals("Artifact")) {
-                tccdmDatums = mapArtifact(vertex);
-            } else if(vertexType.equals("Agent")){
-            	tccdmDatums = mapAgent(vertex);
-            } else {
-                logger.log(Level.WARNING, "Unexpected vertex type: {0}", vertexType);
-                return false;
-            }
+		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+		if("false".equals(argumentsMap.get("hexUUIDs"))){
+			hexUUIDs = false;
+		}
 
-            // Now we publish the records in Kafka.
-            publishRecords(tccdmDatums);
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
+		populateEventRules();
 
-    /**
-     * Based on the subtype of artifact returns the appropriate edge type from event to artifact
-     * 
-     * @param vertex artifact vertex with subtype annotation
-     * @return appropriate EdgeType
-     */
-    private EdgeType getEventAffectsArtifactEdgeType(AbstractVertex vertex){
-    	String subtype = vertex.getAnnotation("subtype");
-    	if("memory".equals(subtype)){
-    		return EdgeType.EDGE_EVENT_AFFECTS_MEMORY;
-    	}else if("file".equals(subtype) || "pipe".equals(subtype)){
-    		return EdgeType.EDGE_EVENT_AFFECTS_FILE;
-    	}else if("unknown".equals(subtype)){
-    		return EdgeType.EDGE_EVENT_AFFECTS_SRCSINK;
-    	}else if("network".equals(subtype)){
-    		if(vertex.getAnnotation("path") != null){ //is a unix socket
-    			return EdgeType.EDGE_EVENT_AFFECTS_FILE;
-    		}
-    		return EdgeType.EDGE_EVENT_AFFECTS_NETFLOW;
-    	}else{
-    		return null;
-    	}
-    }
-    
-    /**
-     * Based on the subtype of artifact returns the appropriate edge type from artifact to event
-     * 
-     * @param vertex artifact vertex with subtype annotation
-     * @return appropriate EdgeType
-     */
-    private EdgeType getArtifactAffectsEventEdgeType(AbstractVertex vertex){
-    	String subtype = vertex.getAnnotation("subtype");
-    	if("memory".equals(subtype)){
-    		return EdgeType.EDGE_MEMORY_AFFECTS_EVENT;
-    	}else if("file".equals(subtype) || "pipe".equals(subtype)){
-    		return EdgeType.EDGE_FILE_AFFECTS_EVENT;
-    	}else if("unknown".equals(subtype)){
-    		return EdgeType.EDGE_SRCSINK_AFFECTS_EVENT;
-    	}else if("network".equals(subtype)){
-    		if(vertex.getAnnotation("path") != null){ //is a unix socket
-    			return EdgeType.EDGE_FILE_AFFECTS_EVENT;
-    		}
-    		return EdgeType.EDGE_NETFLOW_AFFECTS_EVENT;
-    	}else{
-    		return null;
-    	}
-    }
-    
-    protected int publishRecords(List<GenericContainer> genericContainers){
-    	for(GenericContainer genericContainer : genericContainers){
-    		try{
-	    		if(genericContainer instanceof TCCDMDatum){
-	    			Object cdmObject = ((TCCDMDatum) genericContainer).getDatum();
-	    			if(cdmObject != null){
-	    				if(cdmObject.getClass().equals(Subject.class)){
-	    					Integer unitId = ((Subject)cdmObject).getUnitId();
-	    					if(unitId == null){
-	    						incrementStatsCount("Subject");
-	    					}else{
-	    						if(unitId == 0){
-	    							incrementStatsCount("Subject");
-	    						}else{
-	    							incrementStatsCount("Unit");
-	    						}
-	    					}
-	    				}else if(cdmObject.getClass().equals(Principal.class)){
-	    					incrementStatsCount("Principal");
-	    				}else if(cdmObject.getClass().equals(SimpleEdge.class)){
-	    					EdgeType edgeType = ((SimpleEdge)cdmObject).getType();
-	    					if(edgeType != null){
-	    						incrementStatsCount(edgeType.name());
-	    					}
-	    				}else if(cdmObject.getClass().equals(Event.class)){
-	    					EventType eventType = ((Event)cdmObject).getType();
-	    					if(eventType != null){
-	    						incrementStatsCount(eventType.name());
-	    					}
-	    				}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
-	    					if(((SrcSinkObject)cdmObject).getType() == SrcSinkType.SOURCE_UNKNOWN){
-	    						incrementStatsCount("SrcSinkObject");
-	    					}
-	    				}else if(cdmObject.getClass().equals(MemoryObject.class)){
-	    					incrementStatsCount("MemoryObject");
-	    				}else if(cdmObject.getClass().equals(NetFlowObject.class)){
-	    					incrementStatsCount("NetFlowObject");
-	    				}else if(cdmObject.getClass().equals(FileObject.class)){
-	    					if(((FileObject)cdmObject).getIsPipe()){
-	    						incrementStatsCount("PipeObject");
-	    					}else{
-		    					AbstractObject baseObject = ((FileObject)cdmObject).getBaseObject();
-		    					if(baseObject != null){
-		    						Map<CharSequence, CharSequence> properties = baseObject.getProperties();
-		    						if(properties != null){
-		    							if("true".equals(properties.get("isUnixSocket"))){
-		    								incrementStatsCount("UnixSocketObject");
-		    							}else{
-		    								incrementStatsCount("FileObject");
-		    							}
-		    						}
-		    					}
-	    					}
-	    				}
-	    			}
-	    		}
-    		}catch (Exception e) {
-				logger.log(Level.WARNING, "Failed to collect stats", e);
+		publishStreamMarkerObject(true);
+
+		return true;
+	}
+
+	/**
+	 * Relies on the deduplication functionality in the Audit reporter.
+	 * Doesn't do any deduplication itself.
+	 * 
+	 * @param incomingVertex AbstractVertex
+	 * @return true if successfully published. false if failed to publish or didn't publish
+	 */
+	@Override
+	public boolean putVertex(AbstractVertex incomingVertex) {
+		try{
+			if(incomingVertex != null){
+				String type = incomingVertex.type();
+	
+				if(isProcessVertex(incomingVertex)){
+					return publishSubjectAndPrincipal(incomingVertex);
+				}else if(OPMConstants.ARTIFACT.equals(type)){
+					return publishArtifact(incomingVertex);
+				}else{
+					logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
+				}
+	
 			}
-    	}
-    	return super.publishRecords(genericContainers);
-    }
-    
-    /**
-     * Creates a simple edge
-     * 
-     * @param fromUuid the uuid of the source vertex
-     * @param toUuid the uuid of the destination vertex
-     * @param edgeType the type of the edge
-     * @param time the time of the edge
-     * @param properties map of additional properties to add to the edge
-     * @return a simple edge instance
-     */
-    private SimpleEdge createSimpleEdge(UUID fromUuid, UUID toUuid, EdgeType edgeType, Long time, Map<CharSequence, CharSequence> properties){
-    	SimpleEdge.Builder simpleEdgeBuilder = SimpleEdge.newBuilder();
-        simpleEdgeBuilder.setFromUuid(fromUuid);  // Event record's UID
-        simpleEdgeBuilder.setToUuid(toUuid);  //source vertex is the child
-        simpleEdgeBuilder.setType(edgeType);
-        simpleEdgeBuilder.setTimestamp(time);
-        
-        if(properties != null && properties.size() > 0){
-        	simpleEdgeBuilder.setProperties(properties);
-        }        
-        
-        SimpleEdge simpleEdge = simpleEdgeBuilder.build();
-        return simpleEdge;
-    }
-    
-    @Override
-    public boolean putEdge(AbstractEdge edge) {
-        try {
-            List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
-            EdgeType affectsEdgeType = null;
- 
-            Long eventId = CommonFunctions.parseLong(edge.getAnnotation("event id"), 0L); //the default event id value is decided to be 0
-            Long time = convertTimeToMicroseconds(eventId, edge.getAnnotation("time"), 0L);
-            InstrumentationSource edgeSource = getInstrumentationSource(edge.getAnnotation("source"));
-            String actingProcessPidString = null;
-            EventType eventType = null;
-            String protectionValue = null;
-            Long sizeValue = null;
-            String modeValue = null;
-            
-            String opmEdgeType = edge.type();
-            if(opmEdgeType == null){
-            	logger.log(Level.WARNING,
-                        "NULL OPM edge type! event id = {1}", new Object[]{opmEdgeType, eventId});
-                return false;
-            }
-            String opmOperation = edge.getAnnotation("operation");
-            if(opmOperation == null && !opmEdgeType.equals("WasControlledBy")){
-            	logger.log(Level.WARNING,
-                        "NULL {0} operation! event id = {1}", new Object[]{opmEdgeType, eventId});
-                return false;
-            }
-            
-            if(opmEdgeType.equals("WasControlledBy")){
-            	if(opmOperation == null){
-	            	SimpleEdge simpleEdge = createSimpleEdge(getUuid(edge.getSourceVertex()), 
-	            			getUuid(edge.getDestinationVertex()), 
-	    	        		EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL, 
-	    	        		convertTimeToMicroseconds(eventId, edge.getAnnotation("time"), 0L), null);
-	    	        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
-	    	        publishRecords(tccdmDatums);
-	    	        return true;
-            	}else if(opmOperation.equals("setuid")){
-            		actingProcessPidString = edge.getSourceVertex().getAnnotation("pid");
-                	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-            		eventType = EventType.EVENT_CHANGE_PRINCIPAL;
-            	}else{
-            		logger.log(Level.WARNING,
-                            "Unexpected WasControlledBy operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
-                    return false;
-            	}
-            }else if (opmEdgeType.equals("WasTriggeredBy")) {
-            	actingProcessPidString = edge.getDestinationVertex().getAnnotation("pid"); //parent process
-            	affectsEdgeType = EdgeType.EDGE_EVENT_AFFECTS_SUBJECT;
-            	if(opmOperation.equals("exit")){
-            		eventType = EventType.EVENT_EXIT;
-            	}else if(opmOperation.equals("fork")){
-            		eventType = EventType.EVENT_FORK;
-            	}else if(opmOperation.equals("clone")){
-            		eventType = EventType.EVENT_CLONE;
-            	}else if(opmOperation.equals("execve")){
-            		//uuid of edge is the uuid of the exec event vertex. putting that against the pid of the new process vertex
-            		putExecEventUUID(edge.getSourceVertex().getAnnotation("pid"), getUuid(edge));
-            		eventType = EventType.EVENT_EXECUTE;
-            		
-            		// Add any pending load edges
-            		
-            		Set<UUID> pendingLoadedFilesUUIDs = timeEventIdToPendingLoadedFilesUUIDs.get(time+":"+eventId);
-            		
-            		if(pendingLoadedFilesUUIDs != null){
-            			Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-            			properties.put("event id", edge.getAnnotation("event id"));
-            			properties.put("time", edge.getAnnotation("time"));
-            			properties.put("source", edge.getAnnotation("source"));
-            			for(UUID pendingLoadedFileUUID : pendingLoadedFilesUUIDs){
-            				SimpleEdge loadEdge = createSimpleEdge(pendingLoadedFileUUID, getUuid(edge),
-                    				EdgeType.EDGE_FILE_AFFECTS_EVENT, time, properties);
-    	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
-            			}
-            			timeEventIdToPendingLoadedFilesUUIDs.remove(time+":"+eventId); //remove since all have been added
-            		}
-            		
-            	}else if(opmOperation.equals("unknown")){
-            		eventType = EventType.EVENT_KERNEL_UNKNOWN;
-            	}else if(opmOperation.equals("setuid")){
-            		eventType = EventType.EVENT_CHANGE_PRINCIPAL;
-            	}else if(opmOperation.equals("unit")){
-            		eventType = EventType.EVENT_UNIT;
-            	}else{
-            		logger.log(Level.WARNING,
-                            "Unexpected WasTriggeredBy/WasInformedBy operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
-                    return false;
-            	}
-            } else if (opmEdgeType.equals("WasGeneratedBy")) {
-            	actingProcessPidString = edge.getDestinationVertex().getAnnotation("pid");
-            	affectsEdgeType = getEventAffectsArtifactEdgeType(edge.getSourceVertex());
-            	if(opmOperation.equals("close")){
-                	eventType = EventType.EVENT_CLOSE;
-                }else if(opmOperation.equals("unlink")){
-                	eventType = EventType.EVENT_UNLINK;
-                }else if (opmOperation.equals("open")){
-                	eventType = EventType.EVENT_OPEN;
-                } else if(opmOperation.equals("create")){
-                	eventType = EventType.EVENT_CREATE_OBJECT;  
-                } else if (opmOperation.equals("write")) {
-                	eventType = EventType.EVENT_WRITE;
-                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
-                } else if (opmOperation.equals("send") || opmOperation.equals("sendto") || opmOperation.equals("sendmsg")) {
-                	if(opmOperation.equals("sendmsg")){
-                		eventType = EventType.EVENT_SENDMSG;
-                	}else if(opmOperation.equals("sendto")){
-                		eventType = EventType.EVENT_SENDTO;
-                	}else{
-                		eventType = EventType.EVENT_SENDMSG;
-                	}
-                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
-                } else if (opmOperation.equals("mprotect")) {
-                	eventType = EventType.EVENT_MPROTECT;
-                	protectionValue = edge.getAnnotation("protection");
-                } else if (opmOperation.equals("connect")) {
-                	eventType = EventType.EVENT_CONNECT;
-                } else if (opmOperation.equals("truncate") || opmOperation.equals("ftruncate")) {
-                	eventType = EventType.EVENT_TRUNCATE;
-                } else if (opmOperation.equals("chmod") || opmOperation.equals("fchmod")) {
-                	eventType = EventType.EVENT_MODIFY_FILE_ATTRIBUTES;
-                	modeValue = edge.getAnnotation("mode");
-                } else if (opmOperation.equals("rename_write")) {
-                	//handled automatically in case of WasDerivedFrom 'rename' operation
-                    return false;
-                } else if (opmOperation.equals("link_write")) {
-                	//handled automatically in case of WasDerivedFrom 'link' operation
-                    return false;
-                } else if (opmOperation.equals("mmap_write")) {
-                	//handled automatically in case of WasDerivedFrom 'mmap' operation
-                    return false;
-                }else {
-                    logger.log(Level.WARNING,
-                            "Unexpected WasGeneratedBy operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
-                    return false;
-                }
-            } else if (opmEdgeType.equals("Used")) {
-            	actingProcessPidString = edge.getSourceVertex().getAnnotation("pid");
-            	affectsEdgeType = getArtifactAffectsEventEdgeType(edge.getDestinationVertex());
-            	if(opmOperation.equals("create")){
-                	eventType = EventType.EVENT_CREATE_OBJECT;  
-                } else if(opmOperation.equals("close")){
-                	eventType = EventType.EVENT_CLOSE;
-                }else if(opmOperation.equals("load")){
-                	if(getExecEventUUID(actingProcessPidString) != null){
-                		Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-            			properties.put("event id", edge.getAnnotation("event id"));
-            			properties.put("time", edge.getAnnotation("time"));
-            			properties.put("source", edge.getAnnotation("source"));
-                		SimpleEdge loadEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getExecEventUUID(actingProcessPidString),
-                				EdgeType.EDGE_FILE_AFFECTS_EVENT, time, properties);
-	                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(loadEdge).build());
-	                    publishRecords(tccdmDatums);
-	                    return true; //no need to create an event for this so returning from here after adding the edge
-                	}else{
-                		if(timeEventIdToPendingLoadedFilesUUIDs.get(time+":"+eventId) == null){
-                			timeEventIdToPendingLoadedFilesUUIDs.put(time+":"+eventId, new HashSet<UUID>());
-                		}
-                		timeEventIdToPendingLoadedFilesUUIDs.get(time+":"+eventId).add(getUuid(edge.getDestinationVertex()));
-                		return true;
-                	}
-                } else if (opmOperation.equals("open")){
-                	eventType = EventType.EVENT_OPEN; 
-                } else if (opmOperation.equals("read")) {
-                	eventType = EventType.EVENT_READ;
-                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
-                } else if (opmOperation.equals("recv") || opmOperation.equals("recvfrom") || opmOperation.equals("recvmsg")) {
-                	if(opmOperation.equals("recvmsg")){
-                		eventType = EventType.EVENT_RECVMSG;
-                	}else if(opmOperation.equals("recvfrom")){
-                		eventType = EventType.EVENT_RECVFROM;
-                	}else{
-                		eventType = EventType.EVENT_RECVMSG;
-                	}                    
-                	sizeValue = CommonFunctions.parseLong(edge.getAnnotation("size"), null);
-                } else if (opmOperation.equals("accept") || opmOperation.equals("accept4")) {
-                	eventType = EventType.EVENT_ACCEPT;
-                } else if (opmOperation.equals("rename_read")) {
-                	//handled automatically in case of WasDerivedFrom 'rename' operation
-                    return false;
-                } else if (opmOperation.equals("link_read")) {
-                	//handled automatically in case of WasDerivedFrom 'link' operation
-                    return false;
-                } else if(opmOperation.equals("mmap_read")){
-                	//handled automatically in case of WasDerivedFrom 'mmap' operation
-                	return false;
-                } else {
-                    logger.log(Level.WARNING,
-                            "Unexpected Used operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
-                    return false;
-                }
-            } else if (opmEdgeType.equals("WasDerivedFrom")) {
-            	actingProcessPidString = edge.getAnnotation("pid");
-            	affectsEdgeType = getEventAffectsArtifactEdgeType(edge.getSourceVertex());
-                if(opmOperation.equals("mmap") || opmOperation.equals("mmap2")){
-                	eventType = EventType.EVENT_MMAP;
-                	protectionValue = edge.getAnnotation("protection");
-                } else if (opmOperation.equals("update")) {
-                	Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-        			properties.put("event id", edge.getAnnotation("event id"));
-        			properties.put("time", edge.getAnnotation("time"));
-        			properties.put("source", edge.getAnnotation("source"));
-                	SimpleEdge updateEdge = createSimpleEdge(getUuid(edge.getSourceVertex()), getUuid(edge.getDestinationVertex()), 
-                			EdgeType.EDGE_OBJECT_PREV_VERSION, time, properties);
-                	
-                    tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(updateEdge).build());
-                    publishRecords(tccdmDatums);
-                    return true; //no need to create an event for this so returning from here after adding the edge
-                } else if (opmOperation.equals("rename")) {
-                	eventType = EventType.EVENT_RENAME;
-                } else if (opmOperation.equals("link")) {
-                	eventType = EventType.EVENT_LINK;
-                } else {
-                    logger.log(Level.WARNING,
-                            "Unexpected WasDerivedFrom operation: {0}. event id = {1}", new Object[]{opmOperation, eventId});
-                    return false;
-                }
-            } else {
-                logger.log(Level.WARNING, "Unexpected edge type: {0}. event id = {1}", new Object[]{opmEdgeType, eventId});
-                return false;
-            }
-            
-            Integer actingProcessPid = CommonFunctions.parseInt(actingProcessPidString, null);
-            if(actingProcessPid == null){
-            	logger.log(Level.WARNING, "Unknown thread ID for event ID: {0}", eventId);
-            	return false;
-            }
-            Map<CharSequence, CharSequence> eventProperties = new HashMap<>();
-            if(eventId != null){
-            	eventProperties.put("event id", String.valueOf(eventId));
-            }
-            if(protectionValue != null){
-            	eventProperties.put("protection", protectionValue);
-            }
-            if(modeValue != null){
-            	eventProperties.put("mode", modeValue);
-            }
-            
-            /* Generate the Event record */
-            Event.Builder eventBuilder = Event.newBuilder();
-            if(sizeValue != null){
-            	eventBuilder.setSize(sizeValue);
-            }
-            eventBuilder.setUuid(getUuid(edge)); //set uuid
-            eventBuilder.setType(eventType);
-            eventBuilder.setTimestampMicros(time);
-            eventBuilder.setSequence(eventId);
-            eventBuilder.setSource(edgeSource);
-            eventBuilder.setProperties(eventProperties);
-            eventBuilder.setThreadId(actingProcessPid);
-            Event event = eventBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(event).build());
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
+		}
+		return false;
+	}
 
-            /* Generate the _*_AFFECTS_* edge record */
-            UUID uuidOfProcessVertex = null;
-            SimpleEdge affectsEdge = null; 
-            if(opmEdgeType.equals("Used")){ // event affected
-            	affectsEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getUuid(edge), 
-            			affectsEdgeType, time, null);
-            	uuidOfProcessVertex = getUuid(edge.getSourceVertex()); //getting the source because that is the process
-            }else if(opmEdgeType.equals("WasControlledBy")){ 
-            	affectsEdge = createSimpleEdge(getUuid(edge), getUuid(edge.getDestinationVertex()), 
-            			affectsEdgeType, time, null);
-            	uuidOfProcessVertex = getUuid(edge.getSourceVertex()); //getting the source because that is the process
-            }else{// event affects
-            	affectsEdge = createSimpleEdge(getUuid(edge), getUuid(edge.getSourceVertex()), 
-            			affectsEdgeType, time, null);
-            	uuidOfProcessVertex = getUuid(edge.getDestinationVertex()); //getting the destination because that is the process
-            }
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEdge).build());
-            
-            if (opmEdgeType.equals("WasDerivedFrom")) {
-                /* Generate another _*_AFFECTS_* edge in the reverse direction */
-            	SimpleEdge affectsEventEdge = createSimpleEdge(getUuid(edge.getDestinationVertex()), getUuid(edge), 
-            			getArtifactAffectsEventEdgeType(edge.getDestinationVertex()), time, null);
-                tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(affectsEventEdge).build());
-                
-                uuidOfProcessVertex = getProcessSubjectUUID(String.valueOf(actingProcessPid));
-            }
-            
-            if(uuidOfProcessVertex != null){
-	            /* Generate the EVENT_ISGENERATEDBY_SUBJECT edge record */
-            	SimpleEdge eventToProcessEdge = createSimpleEdge(getUuid(edge), uuidOfProcessVertex, 
-            			EdgeType.EDGE_EVENT_ISGENERATEDBY_SUBJECT, time, null);
-	            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(eventToProcessEdge).build());
-            }else{
-            	logger.log(Level.WARNING, "Failed to find process uuid in process cache map for pid {0}. event id = {1}", new Object[]{edge.getAnnotation("pid"), eventId});
-            }
+	/**
+	 * Gets the edge passed and based on it's timestamp and event id decides
+	 * whether to put it in the list of currentEventEdges or first process the 
+	 * edges already in the list and then put it in the currentEventEdges list.
+	 * 
+	 * The currentEventEdges list is processed and emptied whenever the timestamp
+	 * and event id changes to a new one from the last seen one
+	 * 
+	 * @param edge AbstractEdge
+	 * @return false if edge is null or is missing the time and event id annotations
+	 */
+	@Override
+	public boolean putEdge(AbstractEdge edge){
 
-            // Now we publish the records in Kafka.
-            publishRecords(tccdmDatums);
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
+		// ASSUMPTION that all edges for the same event are contiguously sent (Audit follows this)
 
-    @Override
-    public boolean shutdown() {
-        try {
-            
-            for(Map.Entry<String, Set<UUID>> entry : timeEventIdToPendingLoadedFilesUUIDs.entrySet()){
-            	String timeEventId = entry.getKey();
-            	if(entry.getValue() != null && entry.getValue().size() > 0){
-            		logger.log(Level.WARNING, "Missing execve event with id with stamp '"+timeEventId+"'. Failed to add " + entry.getValue().size() + " load edges");
-            	}
-            }            
-            
-            publishStreamMarkerObject(false);
-            
-            return super.shutdown();
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
-    }
-    
-    private Long convertTimeToMicroseconds(Long eventId, String time, Long defaultValue){
-    	//expected input time example: 12345678.678 (seconds.milliseconds)
-    	try{
-            if(time == null){
-                return defaultValue;
-            }
-    		Double timeMicroseconds = Double.parseDouble(time);
-    		timeMicroseconds = timeMicroseconds * 1000 * 1000; //converting seconds to microseconds
-    		return timeMicroseconds.longValue();
-    	}catch(Exception e){
-    		logger.log(Level.INFO,
-                    "Time type is not Double: {0}. event id = {1}", new Object[]{time, eventId});
-    		return defaultValue;
-    	}
-    	//output time example: 12345678678000
-    }
+		try{
+			if(edge != null){
+				SimpleEntry<String, String> newEdgeTimeEventId = getTimeEventId(edge);
+	
+				if(newEdgeTimeEventId != null){
+	
+					if(lastTimeEventId == null){
+						lastTimeEventId = newEdgeTimeEventId;
+					}
+	
+					// handles the first edge case also
+					if(lastTimeEventId.equals(newEdgeTimeEventId)){
+						currentEventEdges.add(edge);
+					}else{
+						// new time,eventid so flush the current edges and move to the next
+						processEdgesWrapper(currentEventEdges);
+						lastTimeEventId = newEdgeTimeEventId;
+						currentEventEdges.clear();
+						currentEventEdges.add(edge);
+					}
+	
+					return true;
+				}else{
+					return false;
+				}
+	
+			}else{
+				return false;
+			}
+		}catch(Exception e){
+			logger.log(Level.WARNING, null, e);
+			return false;
+		}
+	}
+	
+	// Handles special cases before calling processEdges
+	private void processEdgesWrapper(List<AbstractEdge> edges){
+		// special cases
+		boolean processIndividually = false;
+		// If execve or setuid then multiple edges in the same time,eventid 
+		// but need to process them separately
+		if((edgesContainTypeOperation(edges, 
+				new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_LOAD))
+				|| edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)))
+				|| (edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))
+				|| (edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)))){
+			processIndividually = true;
+		}else if(edgesContainTypeOperation(edges,
+				new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE))){
+			
+			// Process the update edge here first
+			// Remove the update edge
+			// Then send on the remaining edges to processEdges function
+			AbstractEdge updateEdge = null;
+			AbstractVertex actingVertex = null;
+			for(AbstractEdge edge : edges){
+				if(OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					updateEdge = edge;
+				}
+				if(OPMConstants.USED.equals(edge.getAnnotation(OPMConstants.TYPE))){
+					actingVertex = edge.getSourceVertex();
+				}else if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
+					actingVertex = edge.getDestinationVertex();
+				}
+			}
+			
+			if(updateEdge == null || actingVertex == null){
+				logger.log(Level.WARNING, "Missing acting vertex or update edge in edges: " + edges);
+				return;
+			}else{
+				publishEvent(EventType.EVENT_UPDATE, updateEdge, actingVertex, 
+						updateEdge.getDestinationVertex(), updateEdge.getSourceVertex());
+				
+				// Remove the update edge and process the rest of the edges
+				List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
+				edgesCopy.remove(updateEdge);
+				
+				processEdges(edgesCopy);
+				return;
+			}
+			
+		}else if(edgesContainTypeOperation(edges, 
+				new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT_DEPENDENCY))){
+			// very special case. ah!
+			// We can get operation=unit edges along with operation=unit dependency edges
+			// Processing unit dependency edges individually here because they have no event type
+			// Then sending all operation=unit edges (if any) ahead to be processed individually
+			List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
+			for(int a = edgesCopy.size() - 1; a> -1; a--){
+				AbstractEdge edge = edgesCopy.get(a);
+				if(edge.getAnnotation(OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UNIT_DEPENDENCY)
+						&& edge.getAnnotation(OPMConstants.TYPE).equals(OPMConstants.WAS_TRIGGERED_BY)){
+					AbstractVertex acting = edge.getDestinationVertex();
+					AbstractVertex dependent = edge.getSourceVertex();
+					UnitDependency unitDependency = new UnitDependency(getUuid(acting), getUuid(dependent));
+					publishRecords(Arrays.asList(buildTcCDMDatum(unitDependency, InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)));
+					edgesCopy.remove(a);
+				}
+			}
+			if(edgesCopy.isEmpty()){
+				return;
+			}else{
+				processIndividually = true;
+				edges = edgesCopy;
+			}
+		}
+		
+		if(processIndividually){
+			for(AbstractEdge currentEventEdge : edges){
+				processEdges(Arrays.asList(currentEventEdge));
+			}
+		}else{
+			processEdges(edges);
+		}
+	}
 
-    private void addIfNotNull(String key, Map<String, String> from, Map<CharSequence, CharSequence> to){
-    	if(from.get(key) != null){
-    		to.put(key, from.get(key));
-    	}
-    }
-    
-    private List<GenericContainer> mapAgent(AbstractVertex vertex){
-    	List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
-    	
-    	Principal principal = createPrincipal(vertex);
-    	if(principal != null){
-    		tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build());
-    	}
-    	
-    	return tccdmDatums;
-    }
-    
-    private List<GenericContainer> mapProcess(AbstractVertex vertex) {
-        List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
+	public boolean shutdown(){
+		try {
 
-        /* Generate the Subject record */
-        Subject.Builder subjectBuilder = Subject.newBuilder();
-        
-        InstrumentationSource activitySource = getInstrumentationSource(vertex.getAnnotation("source"));
-        if (activitySource != null) {
-        	subjectBuilder.setSource(activitySource); 
-        } else {
-            logger.log(Level.WARNING,
-                    "Unexpected Activity source: {0}", vertex.getAnnotation("source"));
-            return tccdmDatums;
-        }
-        
-        putProcessSubjectUUID(vertex.getAnnotation("pid"), getUuid(vertex));
-        
-        subjectBuilder.setUuid(getUuid(vertex));
-        subjectBuilder.setType(SubjectType.SUBJECT_PROCESS);
-        subjectBuilder.setStartTimestampMicros(convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), null));
-        subjectBuilder.setPid(CommonFunctions.parseInt(vertex.getAnnotation("pid"), 0)); //Default not null because int primitive argument
-        subjectBuilder.setPpid(CommonFunctions.parseInt(vertex.getAnnotation("ppid"), 0)); //Default not null because int primitive argument
-        subjectBuilder.setUnitId(CommonFunctions.parseInt(vertex.getAnnotation("unit"), null)); //Can be null
-        subjectBuilder.setCmdLine(vertex.getAnnotation("commandline")); // optional, so null is ok
+			// Flush buffer
+			processEdgesWrapper(currentEventEdges);
+			currentEventEdges.clear();
+			pidSubjectUUID.clear();
+			publishedPrincipals.clear();
 
-        Map<CharSequence, CharSequence> properties = new HashMap<>();
-        addIfNotNull("iteration", vertex.getAnnotations(), properties);
-        addIfNotNull("count", vertex.getAnnotations(), properties);
-        addIfNotNull("name", vertex.getAnnotations(), properties);
-        addIfNotNull("uid", vertex.getAnnotations(), properties);
-        addIfNotNull("gid", vertex.getAnnotations(), properties);
-        addIfNotNull("cwd", vertex.getAnnotations(), properties);
-        subjectBuilder.setProperties(properties);
+			publishStreamMarkerObject(false);
 
-        Subject subject = subjectBuilder.build();
-        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(subject).build()); //added subject
-        
-        if(!agents){
-        
-	        AbstractVertex principalVertex = createPrincipalVertex(vertex);
-	        UUID principalVertexUUID = getUuid(principalVertex);
-	        
-	        // Add principal vertex only if it hasn't been seen before. 
-	        // Only added when seen for the first time
-	        if(!principalUUIDs.contains(principalVertexUUID)){
-	        	Principal principal = createPrincipal(principalVertex);
-	        	if(principal != null){
-	        		tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(principal).build());
-	        		principalUUIDs.add(principalVertexUUID);
-	        	}
-	        }
-	        
-	        // Making sure that the principal vertex was published successfully
-	        if(principalUUIDs.contains(principalVertexUUID)){
-		        SimpleEdge simpleEdge = createSimpleEdge(getUuid(vertex), principalVertexUUID, 
-		        		EdgeType.EDGE_SUBJECT_HASLOCALPRINCIPAL, 
-		        		convertTimeToMicroseconds(null, vertex.getAnnotation("start time"), 0L), null);
-		        tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(simpleEdge).build());
-	        }
-        
-        }
-        return tccdmDatums;
-    }
-    
-    private AbstractVertex createPrincipalVertex(AbstractVertex processVertex){
-    	AbstractVertex vertex = new Vertex();
-    	vertex.addAnnotation("uid", processVertex.getAnnotation("uid"));
-    	vertex.addAnnotation("euid", processVertex.getAnnotation("euid"));
-    	vertex.addAnnotation("gid", processVertex.getAnnotation("gid"));
-    	vertex.addAnnotation("egid", processVertex.getAnnotation("egid"));
-    	if(processVertex.getAnnotation("suid") != null){
-    		vertex.addAnnotation("suid", processVertex.getAnnotation("suid"));
-    	}
-    	if(processVertex.getAnnotation("fsuid") != null){
-    		vertex.addAnnotation("fsuid", processVertex.getAnnotation("fsuid"));
-    	}
-    	if(processVertex.getAnnotation("sgid") != null){
-    		vertex.addAnnotation("sgid", processVertex.getAnnotation("sgid"));
-    	}
-    	if(processVertex.getAnnotation("fsgid") != null){
-    		vertex.addAnnotation("fsgid", processVertex.getAnnotation("fsgid"));
-    	}
-    	vertex.addAnnotation("source", processVertex.getAnnotation("source"));
-    	return vertex;
-    }
-    
-    private Principal createPrincipal(AbstractVertex principalVertex){
-        try{
-        	InstrumentationSource source = getInstrumentationSource(principalVertex.getAnnotation("source"));
-            if(source == null){
-            	logger.log(Level.WARNING, "Missing source annotation for principal: " + principalVertex);
-            	return null;
-            }
-            
-            String userId = principalVertex.getAnnotation("uid");
-            if(userId == null){
-            	logger.log(Level.WARNING, "Missing user id for principal: " + principalVertex);
-            	return null;
-            }
-            
-        	Principal.Builder principalBuilder = Principal.newBuilder();
-        	principalBuilder.setUuid(getUuid(principalVertex));
-        	principalBuilder.setType(PrincipalType.PRINCIPAL_LOCAL);
-        	principalBuilder.setSource(source);
-        	principalBuilder.setUserId(userId);
-                        
-            Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-            addIfNotNull("euid", principalVertex.getAnnotations(), properties);
-            addIfNotNull("egid", principalVertex.getAnnotations(), properties);
-            addIfNotNull("suid", principalVertex.getAnnotations(), properties);
-            addIfNotNull("fsuid", principalVertex.getAnnotations(), properties);
-            principalBuilder.setProperties(properties);
-            
-            List<CharSequence> groupIds = new ArrayList<CharSequence>();
-            if(principalVertex.getAnnotation("gid") != null){
-            	groupIds.add(principalVertex.getAnnotation("gid"));
-            }
-            if(principalVertex.getAnnotation("egid") != null){
-            	groupIds.add(principalVertex.getAnnotation("egid"));
-            }
-            if(principalVertex.getAnnotation("sgid") != null){
-            	groupIds.add(principalVertex.getAnnotation("sgid"));
-            }
-            if(principalVertex.getAnnotation("fsgid") != null){
-            	groupIds.add(principalVertex.getAnnotation("fsgid"));
-            }
-            principalBuilder.setGroupIds(groupIds);
-            
-            return principalBuilder.build();
-        }catch(Exception e){
-        	logger.log(Level.WARNING, "Failed to create Principal from vertex: {0}", principalVertex.toString());
-        	return null;
-        }
-    }
-    
-    private InstrumentationSource getInstrumentationSource(String source){
-    	if("/dev/audit".equals(source)){
-    		return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
-    	}else if("/proc".equals(source)){
-    		return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
-    	}else if("beep".equals(source)){
-    		return InstrumentationSource.SOURCE_LINUX_BEEP_TRACE;
-    	}else{
-    		logger.log(Level.WARNING,
-                    "Unexpected source: {0}", new Object[]{source});
-    	}
-    	return null;
-    }
+			return super.shutdown();
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+	}
 
-    private List<GenericContainer> mapArtifact(AbstractVertex vertex) {
-        List<GenericContainer> tccdmDatums = new LinkedList<GenericContainer>();
-        InstrumentationSource activitySource = getInstrumentationSource(vertex.getAnnotation("source"));
-        Builder baseObjectBuilder = AbstractObject.newBuilder();
-        if(activitySource == null){
-        	logger.log(Level.WARNING, "Unexpected Artifact source: {0}", activitySource);
-        	return tccdmDatums;
-        }else{
-        	baseObjectBuilder.setSource(activitySource);
-        }
-        AbstractObject baseObject = baseObjectBuilder.build();
-        String artifactType = vertex.getAnnotation("subtype");
-        if (artifactType.equals(ArtifactIdentifier.SUBTYPE_FILE)) {
-            FileObject.Builder fileBuilder = FileObject.newBuilder();
-            fileBuilder.setUuid(getUuid(vertex));
-            fileBuilder.setBaseObject(baseObject);
-            fileBuilder.setUrl("file://" + vertex.getAnnotation("path"));
-            fileBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), 0)); // Zero default value
-            fileBuilder.setIsPipe(false);
-            
-            Map<CharSequence, CharSequence> properties = new HashMap<>();
-            addIfNotNull("epoch", vertex.getAnnotations(), properties);
-            if(properties.size() > 0){
-            	baseObject.setProperties(properties);
-            }
-            
-            FileObject fileObject = fileBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(fileObject).build());
-            return tccdmDatums;
-        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_SOCKET)) { //not handling unix sockets yet. TODO
-            if(vertex.getAnnotation("path") != null){
+	/**
+	 * Returns true if an edge has the same type and operation as the one given
+	 * 
+	 * @param edges list of edges to compare against
+	 * @param typeOperation TypeOperation object
+	 * @return true if matched else false
+	 */
+	private boolean edgesContainTypeOperation(List<AbstractEdge> edges, TypeOperation typeOperation){
+		if(edges != null){
+			for(AbstractEdge edge : edges){
+				if(typeOperation.getType().equals(edge.getAnnotation(OPMConstants.TYPE))
+						&& typeOperation.getOperation().equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * Figures out the arguments needed for constructing an event
+	 * Modifies the global state to correctly keep track of pid to subject UUID
+	 * And after the event does post publishing steps
+	 * @param edges list of edges to process
+	 */
+	private void processEdges(List<AbstractEdge> edges){
+		if(edges != null && edges.size() > 0){
 
-            	//TODO should do?
-            	FileObject.Builder unixSocketBuilder = FileObject.newBuilder();
-                unixSocketBuilder.setUuid(getUuid(vertex));
-                unixSocketBuilder.setBaseObject(baseObject);
-                unixSocketBuilder.setUrl("file://" + vertex.getAnnotation("path"));
-                unixSocketBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), 0));
-                unixSocketBuilder.setIsPipe(false);
-                Map<CharSequence, CharSequence> properties = new HashMap<>();
-                addIfNotNull("epoch", vertex.getAnnotations(), properties);
-                properties.put("isUnixSocket", "true");
-                if(properties.size() > 0){
-                	baseObject.setProperties(properties);
-                }                
-                FileObject uniSocketObject = unixSocketBuilder.build();
-                tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(uniSocketObject).build());
-            	//return always from here
-            	return tccdmDatums;
-            }
-            
-            NetFlowObject.Builder netBuilder = NetFlowObject.newBuilder();
-            netBuilder.setUuid(getUuid(vertex));
-            Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-            addIfNotNull("epoch", vertex.getAnnotations(), properties);
-            addIfNotNull("version", vertex.getAnnotations(), properties);
-            if(properties.size() > 0){
-            	baseObject.setProperties(properties);
-            }
-            netBuilder.setBaseObject(baseObject);
-            String srcAddress = vertex.getAnnotation("source address");
-            String srcPort = vertex.getAnnotation("source port");
-            String destAddress = vertex.getAnnotation("destination address");
-            String destPort = vertex.getAnnotation("destination port");
-            
-            srcAddress = srcAddress == null ? "" : srcAddress;
-            destAddress = destAddress == null ? "" : destAddress;
-            srcPort = srcPort == null ? "0" : srcPort;
-            destPort = srcPort == null ? "0" : destPort;
-            
-            netBuilder.setSrcAddress(srcAddress);
-            netBuilder.setSrcPort(CommonFunctions.parseInt(srcPort, 0));
-            
-            netBuilder.setDestAddress(destAddress);
-            netBuilder.setDestPort(CommonFunctions.parseInt(destPort, 0));
-            
-            NetFlowObject netFlowObject = netBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(netFlowObject).build());
-            return tccdmDatums;
-        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_MEMORY)) { //no epoch for memory
-        	
-        	long memoryAddres = 0L;
-            try{
-            	memoryAddres = Long.parseLong(vertex.getAnnotation("memory address"), 16);
-            }catch(Exception e){
-            	logger.log(Level.WARNING, "Failed to parse memory address: " + vertex.getAnnotation("memory address"), e);
-            	return tccdmDatums;
-            }
-                    	
-        	Map<CharSequence, CharSequence> properties = new HashMap<>();
-        	addIfNotNull("size", vertex.getAnnotations(), properties);
-        	addIfNotNull("version", vertex.getAnnotations(), properties);
-        	addIfNotNull("pid", vertex.getAnnotations(), properties);
-        	if(properties.size() > 0){
-        		baseObject.setProperties(properties);
-        	}
-            MemoryObject.Builder memoryBuilder = MemoryObject.newBuilder();
-            memoryBuilder.setUuid(getUuid(vertex));
-            memoryBuilder.setBaseObject(baseObject);
-            memoryBuilder.setMemoryAddress(memoryAddres);   
-            MemoryObject memoryObject = memoryBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(memoryObject).build());
-            return tccdmDatums;
-        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_PIPE)) {                            
-        	FileObject.Builder pipeBuilder = FileObject.newBuilder();
-        	pipeBuilder.setUuid(getUuid(vertex));
-        	pipeBuilder.setBaseObject(baseObject);
-            pipeBuilder.setUrl("file://" + vertex.getAnnotation("path")); 
-            pipeBuilder.setVersion(CommonFunctions.parseInt(vertex.getAnnotation("version"), 0));
-            pipeBuilder.setIsPipe(true);
-            Map<CharSequence, CharSequence> properties = new HashMap<>();
-            addIfNotNull("epoch", vertex.getAnnotations(), properties);
-            addIfNotNull("pid", vertex.getAnnotations(), properties);
-            if(properties.size() > 0){
-            	baseObject.setProperties(properties);
-            }
-            FileObject pipeObject = pipeBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(pipeObject).build());
-            return tccdmDatums;
-        } else if (artifactType.equals(ArtifactIdentifier.SUBTYPE_UNKNOWN)) { //can only be file or pipe subtypes behind the scenes. include all. TODO.
-        	SrcSinkObject.Builder unknownBuilder = SrcSinkObject.newBuilder();
-        	Map<CharSequence, CharSequence> properties = new HashMap<>();
-        	String path = vertex.getAnnotation("path");
-        	boolean added = false;
-        	if(path != null){
-	        	String pathTokens[] = path.split("/");
-	        	if(pathTokens.length >= 5){
-		        	String pid = pathTokens[2];
-		        	String fd = pathTokens[4];
-		        	properties.put("pid", pid);
-		        	properties.put("fd", fd);
-		        	added = true;
-	        	}
-        	}
-        	if(!added){
-        		logger.log(Level.WARNING, "Missing or malformed path annotation in unknown artifact type.");
-        		return tccdmDatums;
-        	}
-        	addIfNotNull("version", vertex.getAnnotations(), properties);
-        	addIfNotNull("epoch", vertex.getAnnotations(), properties);
-        	if(properties.size() > 0){
-            	baseObject.setProperties(properties);
-            }
-        	unknownBuilder.setBaseObject(baseObject);
-            unknownBuilder.setUuid(getUuid(vertex));
-            unknownBuilder.setType(SrcSinkType.SOURCE_UNKNOWN);
-            SrcSinkObject unknownObject = unknownBuilder.build();
-            tccdmDatums.add(TCCDMDatum.newBuilder().setDatum(unknownObject).build());
-            return tccdmDatums;	
-        } else {
-            logger.log(Level.WARNING,
-                    "Unexpected Artifact type: {0}", artifactType);
-            return tccdmDatums;
-        }
-    }
-    
-    private UUID getUuid(AbstractVertex vertex){
-    	byte[] vertexHash = vertex.bigHashCode();
-    	if(hexUUIDs){
-    		vertexHash = String.valueOf(Hex.encodeHex(vertexHash, true)).getBytes();
-    	}
-        return new UUID(vertexHash);
-    }
-    
-    private UUID getUuid(AbstractEdge edge){
-    	byte[] edgeHash = edge.bigHashCode();
-    	if(hexUUIDs){
-    		edgeHash = String.valueOf(Hex.encodeHex(edgeHash, true)).getBytes();
-    	}
-        return new UUID(edgeHash);
-    }
-    
-    private UUID getUuid(Map<CharSequence, CharSequence> map){
-    	byte[] mapHash = DigestUtils.md5(map.toString());
-    	if(hexUUIDs){
-    		mapHash = String.valueOf(Hex.encodeHex(mapHash, true)).getBytes();
-    	}
-    	return new UUID(mapHash);
-    }
-    
-    private void putProcessSubjectUUID(String pid, UUID processSubjectUUID){
-    	if(pidMappings.get(pid) == null){
-    		pidMappings.put(pid, new ProcessInformation());
-    	}
-    	pidMappings.get(pid).setProcessSubjectUUID(processSubjectUUID);
-    }
-    
-    private void putExecEventUUID(String pid, UUID execEventUUID){
-    	if(pidMappings.get(pid) == null){
-    		pidMappings.put(pid, new ProcessInformation());
-    	}
-    	pidMappings.get(pid).setExecEventUUID(execEventUUID);
-    }
-    
-    private UUID getProcessSubjectUUID(String pid){
-    	if(pidMappings.get(pid) != null){
-    		return pidMappings.get(pid).getProcessSubjectUUID();
-    	}
-    	return null;
-    }
-    
-    private UUID getExecEventUUID(String pid){
-    	if(pidMappings.get(pid) != null){
-    		return pidMappings.get(pid).getExecEventUUID();
-    	}
-    	return null;
-    }    
+			AbstractVertex actedUpon1 = null, actedUpon2 = null;
+			AbstractVertex actingVertex = null;
+			AbstractEdge edgeForEvent = null;
+			EventType eventType = getEventType(edges);
+			
+			if(edges.size() == 1){
+				edgeForEvent = edges.get(0);
+				if(edgeForEvent != null){
+					String edgeType = edgeForEvent.type();
+					String edgeOperation = edgeForEvent.getAnnotation(OPMConstants.EDGE_OPERATION);
+
+					if(OPMConstants.WAS_TRIGGERED_BY.equals(edgeType)){
+
+						actingVertex = edgeForEvent.getDestinationVertex();
+						actedUpon1 = edgeForEvent.getSourceVertex();
+
+						// Handling the case where a process A setuids and becomes A'
+						// and then A' setuid's to become A. If this is not done then 
+						// if process A creates a process C, then in putVertex the process
+						// C would get the pid for A' instead of A as it's parentProcessUUID
+						// Not doing this for UNIT vertices
+						if((OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
+								|| OPMConstants.OPERATION_SETGID.equals(edgeOperation))
+								&& actedUpon1.getAnnotation(OPMConstants.PROCESS_ITERATION) == null){
+							// The acted upon vertex is the new containing process for the pid. 
+							// Excluding units from coming in here
+							pidSubjectUUID.put(actedUpon1.getAnnotation(OPMConstants.PROCESS_PID), getUuid(actedUpon1));
+						}
+						
+					}else if(OPMConstants.WAS_GENERATED_BY.equals(edgeType)){// 'mmap (write)' here too in case of MAP_ANONYMOUS
+
+						actingVertex = edgeForEvent.getDestinationVertex();
+						actedUpon1 = edgeForEvent.getSourceVertex();
+
+					}else if(OPMConstants.USED.equals(edgeType)){
+
+						actingVertex = edgeForEvent.getSourceVertex();
+						actedUpon1 = edgeForEvent.getDestinationVertex();
+
+					}else{
+						logger.log(Level.WARNING, "Unexpected edge type {0}", new Object[]{edgeType});
+					}
+
+				}else{
+					logger.log(Level.WARNING, "NULL edge for event {0}", new Object[]{eventType});
+				}
+			}else{
+
+				AbstractEdge twoArtifactsEdge = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
+				AbstractEdge edgeWithProcess = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_GENERATED_BY);
+
+				if(edges.size() == 2 || edges.size() == 3){
+					// mmap(2 or 3 edges), rename(3), link(3)
+					if(twoArtifactsEdge != null && edgeWithProcess != null){
+
+						// Add the protection to the WDF edge from the WGB edge (only for mmap)
+						if(twoArtifactsEdge.getAnnotation(OPMConstants.EDGE_OPERATION).
+								equals(OPMConstants.OPERATION_MMAP)){
+							twoArtifactsEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, 
+									edgeWithProcess.getAnnotation(OPMConstants.EDGE_PROTECTION));
+						}
+
+						edgeForEvent = twoArtifactsEdge;
+						actedUpon1 = twoArtifactsEdge.getDestinationVertex();
+						actedUpon2 = twoArtifactsEdge.getSourceVertex();
+						actingVertex = edgeWithProcess.getDestinationVertex();
+					}else{
+						logger.log(Level.WARNING, "Failed to process event with edges {0}", new Object[]{edges});
+					}
+				}else{
+					logger.log(Level.WARNING, "Event with invalid number of edges {0}", new Object[]{edges});
+				}
+			}
+
+			if(actingVertex != null){
+				
+				publishEvent(eventType, edgeForEvent, actingVertex, actedUpon1, actedUpon2);
+
+				// POST publishing things
+				if(eventType.equals(EventType.EVENT_EXIT)){
+					pidSubjectUUID.remove(actingVertex.getAnnotation(OPMConstants.PROCESS_PID));
+				}
+
+			}else{
+				logger.log(Level.WARNING, "Null Process vertex for event with edges {0}", new Object[]{edges});
+			}
+		}
+	}
+
+	/**
+	 * Increment stats counts for the given key in the global map
+	 * 
+	 * @param key string
+	 */
+	public void incrementStatsCount(String key){
+		if(stats.get(key) == null){
+			stats.put(key, 0L);
+		}
+		stats.put(key, stats.get(key) + 1);
+	}
+
+	/**
+	 * Creates a TCCDMDatum object with the given source and the value
+	 * @param value the CDM object instance
+	 * @param source the source value for that value
+	 * @return GenericContainer instance
+	 */
+	private GenericContainer buildTcCDMDatum(Object value, InstrumentationSource source){
+		TCCDMDatum.Builder tccdmDatumBuilder = TCCDMDatum.newBuilder();
+		tccdmDatumBuilder.setDatum(value);
+		tccdmDatumBuilder.setSource(source);
+		return tccdmDatumBuilder.build();
+	}
+
+	/**
+	 * Returns the CDM object for the source annotation
+	 * Null if none matched
+	 * 
+	 * @param source allowed values: '/dev/audit', '/proc', 'beep'
+	 * @return InstrumentationSource instance or null
+	 */
+	private InstrumentationSource getInstrumentationSource(String source){
+		if(OPMConstants.SOURCE_AUDIT.equals(source)){
+			return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
+		}else if(OPMConstants.SOURCE_PROCFS.equals(source)){	
+			return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
+		}else if(OPMConstants.SOURCE_BEEP.equals(source)){
+			return InstrumentationSource.SOURCE_LINUX_BEEP_TRACE;
+		}else{
+			logger.log(Level.WARNING,
+					"Unexpected source: {0}", new Object[]{source});
+		}
+		return null;
+	}
+
+	/**
+	 * Converts the given time (in milliseconds) to nanoseconds
+	 * 
+	 * If failed to convert the given time for any reason then the default value is
+	 * returned.
+	 * 
+	 * @param eventId id of the event
+	 * @param time timestamp in milliseconds
+	 * @param defaultValue default value
+	 * @return the time in nanoseconds
+	 */
+	private Long convertTimeToNanoseconds(Long eventId, String time, Long defaultValue){
+		try{
+			if(time == null){
+				return defaultValue;
+			}
+			Double timeNanosecondsDouble = Double.parseDouble(time) * 1000; // Going to convert to long so multiply before
+			Long timeNanosecondsLong = timeNanosecondsDouble.longValue();
+			timeNanosecondsLong = timeNanosecondsLong * 1000 * 1000; //converting milliseconds to nanoseconds
+			return timeNanosecondsLong;
+		}catch(Exception e){
+			logger.log(Level.INFO,
+					"Time type is not Double: {0}. event id = {1}", new Object[]{time, eventId});
+			return defaultValue;
+		}
+	}
+
+	/**
+	 * Adds the given key from the 'from' map to the 'to' map only if non-null
+	 * 
+	 * If either of the maps null then nothing happens
+	 * 
+	 * @param key key to check for and add as in the from and to maps respectively
+	 * @param from map to get the value for the key from
+	 * @param to map to put the value for the key and the key to
+	 */
+	private void addIfNotNull(String key, Map<String, String> from, Map<CharSequence, CharSequence> to){
+		if(from != null && to != null){
+			if(from.get(key) != null){
+				to.put(key, from.get(key));
+			}
+		}
+	}
+
+	/**
+	 * Tests whether a vertex is a process vertex without throwing an NPE
+	 * 
+	 * @param process AbstractVertex
+	 * @return true if type is Process else false
+	 */
+	private boolean isProcessVertex(AbstractVertex process){
+		return process != null && process.type().equals(OPMConstants.PROCESS);
+	}
+
+	/**
+	 * Creates a SimpleEntry object where the key is the time and the value is the
+	 * event id. 
+	 * 
+	 * Returns null if edge is null.
+	 * 
+	 * @param edge AbstractEdge
+	 * @return null/SimpleEntry object
+	 */
+	private SimpleEntry<String, String> getTimeEventId(AbstractEdge edge){
+		if(edge != null){
+			return new SimpleEntry<String, String>(edge.getAnnotation(OPMConstants.EDGE_TIME), 
+					edge.getAnnotation(OPMConstants.EDGE_EVENT_ID));
+		}
+		return null;
+	}
+	
+	/**
+	 * Takes a list of edges and matches them against an array of key values.
+	 * Key values format. Every positive (and 0) index is the key and the next one
+	 * is the value
+	 * 
+	 * Returns the first one that matches all the annotations expected.
+	 * If a key is not found in the annotations of the edge then that edge is matched too
+	 * 
+	 * Returns null if edges are null or keysAndValues is null
+	 * 
+	 * @param edges list of AbstractEdges
+	 * @param keysAndValues annotation keys and their expected values
+	 * @return null / AbstractEdge
+	 */
+	private AbstractEdge getFirstMatchedEdge(List<AbstractEdge> edges, String... keysAndValues){
+		if(edges != null && keysAndValues != null && keysAndValues.length % 2 == 0){
+			for(AbstractEdge edge : edges){
+				if(edge != null){
+					boolean matched = true;
+					for(int a = 0; a<keysAndValues.length; a+=2){
+						String edgeAnnotationValue = edge.getAnnotation(keysAndValues[a]);
+						if(edgeAnnotationValue != null){
+							if(edgeAnnotationValue.equals(keysAndValues[a+1])){
+								matched = matched && true;
+							}else{
+								matched = matched && false;
+								break;
+							}
+						}else{
+							matched = matched && false;
+							break;
+						}
+					}
+					if(matched){
+						return edge;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Builds a Set of TypeOperation objects from a list of AbstractEdges by using the
+	 * 'type' and 'operation' annotations in the edge
+	 * 
+	 * @param edges list of edges
+	 * @return set of TypeOperation objects
+	 */
+	private Set<TypeOperation> getTypeOperationSet(List<AbstractEdge> edges){
+		Set<TypeOperation> typesAndOperations = new HashSet<TypeOperation>();
+		if(edges != null){
+			for(AbstractEdge edge : edges){
+				typesAndOperations.add(new TypeOperation(edge.getAnnotation(OPMConstants.TYPE), 
+						edge.getAnnotation(OPMConstants.EDGE_OPERATION)));
+			}
+		}
+		return typesAndOperations;
+	}
+
+	/**
+	 * Return EventType by first finding out the set of edge types and edge operations
+	 * from the list of edges and then looking that set in the rules map
+	 *     
+	 * @param edges list of edges
+	 * @return EventType enum value or null
+	 */
+	private EventType getEventType(List<AbstractEdge> edges){
+		return rulesToEventType.get(getTypeOperationSet(edges));
+	}
+
+	/**
+	 * Uses the bigHashCode function in AbstractVertex to get the hashcode which 
+	 * is then used to build the UUID object.
+	 * 
+	 * The bigHashCode is converted to hex values if {@link #hexUUIDs hexUUIDs} is true
+	 * 
+	 * Returns null if the vertex is null
+	 * 
+	 * @param vertex the vertex to calculate the hash of
+	 * @return null/UUID object
+	 */
+	private UUID getUuid(AbstractVertex vertex){
+		if(vertex != null){
+			byte[] vertexHash = vertex.bigHashCode();
+			if(hexUUIDs){
+				vertexHash = String.valueOf(Hex.encodeHex(vertexHash, true)).getBytes();
+			}
+			return new UUID(vertexHash);
+		}
+		return null;
+	}
+
+	/**
+	 * Uses the bigHashCode function in AbstractEdge to get the hashcode which 
+	 * is then used to build the UUID object.
+	 * 
+	 * The bigHashCode is converted to hex values if {@link #hexUUIDs hexUUIDs} is true
+	 * 
+	 * Returns null if the edge is null
+	 * 
+	 * @param edge the edge to calculate the hash of
+	 * @return null/UUID object
+	 */
+	private UUID getUuid(AbstractEdge edge){
+		if(edge != null){
+			byte[] edgeHash = edge.bigHashCode();
+			if(hexUUIDs){
+				edgeHash = String.valueOf(Hex.encodeHex(edgeHash, true)).getBytes();
+			}
+			return new UUID(edgeHash);
+		}
+		return null;
+	}
+
+	/**
+	 * Returns the MD5 hash of the result of the object's toString function
+	 * 
+	 * @param object object to hash
+	 * @return UUID
+	 */
+	private UUID getUuid(Object object){
+		byte[] hash = DigestUtils.md5(String.valueOf(object));
+		if(hexUUIDs){
+			hash = String.valueOf(Hex.encodeHex(hash, true)).getBytes();
+		}
+		return new UUID(hash);
+	}
+	
+	/**
+	 * Converts the permissions string to short first (using base 8) and then
+	 * adds writes the short to a bytebuffer and then gets the byte array from the
+	 * buffer which is then added to the CDM SHORT type
+	 * 
+	 * @param permissions octal permissions string
+	 * @return CDM SHORT type or null
+	 */
+	private SHORT getPermissionsAsCDMSHORT(String permissions){
+		// IMPORTANT: If this function is changed then change the function in CDM reporter which reverses this
+		if(permissions == null || permissions.isEmpty()){
+			return null;
+		}else{
+			Short permissionsShort = Short.parseShort(permissions, 8);
+			ByteBuffer bb = ByteBuffer.allocate(2);
+			bb.putShort(permissionsShort);
+			SHORT cdmPermissions = new SHORT(bb.array());
+			return cdmPermissions;
+		}
+	}
+	
 }
 
-class ProcessInformation{
-
-	private UUID processSubjectUUID, execEventUUID; 
-
-	public UUID getProcessSubjectUUID(){
-		return processSubjectUUID;
+/**
+ * A class to keep track of type and operation annotations on an OPM edge
+ * 
+ * hashCode and equals methods modified to add a special case when operation is '*'
+ *
+ */
+class TypeOperation{
+	public static final String ANY_OPERATION = "*";
+	private String type, operation;
+	public TypeOperation(String type, String operation){
+		this.type = type;
+		this.operation = operation;
 	}
-	
-	public UUID getExecEventUUID(){
-		return execEventUUID;
+	public String getType() {
+		return type;
 	}
-	
-	public void setProcessSubjectUUID(UUID processSubjectUUID){
-		this.processSubjectUUID = processSubjectUUID;
+	public String getOperation() {
+		return operation;
 	}
-	
-	public void setExecEventUUID(UUID execEventUUID){
-		this.execEventUUID = execEventUUID;
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		// Not using operation because it can have the special value -> '*'
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		return result;
 	}
-	
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		TypeOperation other = (TypeOperation) obj;
+		if (type == null) {
+			if (other.type != null)
+				return false;
+		} else if (!type.equals(other.type))
+			return false;
+		if(ANY_OPERATION.equals(operation) || ANY_OPERATION.equals(other.operation)){
+			return true;
+		}
+		if (operation == null) {
+			if (other.operation != null)
+				return false;
+		} else if (!operation.equals(other.operation))
+			return false;
+		return true;
+	}
+	@Override
+	public String toString() {
+		return "TypeOperation [type=" + type + ", operation=" + operation + "]";
+	}
 }

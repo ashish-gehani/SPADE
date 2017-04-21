@@ -21,8 +21,8 @@
 package spade.reporter.audit;
 
 import java.io.Serializable;
-
-import spade.utility.CommonFunctions;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ArtifactProperties implements Serializable{
 	
@@ -36,30 +36,66 @@ public class ArtifactProperties implements Serializable{
 	
 	private boolean epochPending = true;
 	
-	private double creationTime = ARTIFACT_PROPERTY_UNINITIALIZED;
-	private long creationEventId = ARTIFACT_PROPERTY_UNINITIALIZED;
+	/**
+	 * Used to tell if this permission was seen before or not. Needed when versions are off
+	 * or the artifact isn't being version on change of permissions
+	 */
+	private Set<String> seenPermissions = new HashSet<String>();
+	/**
+	 * Current permissions set
+	 */
+	private String currentPermissions = null;
 	
-	public void markNewEpoch(double creationTime, long creationEventId){
-		this.creationTime = creationTime;
-		this.creationEventId = creationEventId;
-		this.epochPending = true;
-		this.version = ARTIFACT_PROPERTY_UNINITIALIZED;
-	}	
-	
-	public void markNewEpoch(String creationTimeString, String creationEventIdString){
-		long creationEventId = CommonFunctions.parseLong(creationEventIdString, ARTIFACT_PROPERTY_UNINITIALIZED);
-		double creationTime = CommonFunctions.parseDouble(creationTimeString, (double)ARTIFACT_PROPERTY_UNINITIALIZED);
-		markNewEpoch(creationTime, creationEventId);
+	/**
+	 * Used to figure out if the artifact has been seen before or not IF
+	 * the decision comes down to permissions
+	 * @return true/false
+	 */
+	public boolean isPermissionsUninitialized(){
+		return !seenPermissions.contains(String.valueOf(ARTIFACT_PROPERTY_UNINITIALIZED));
 	}
 	
-	public long getCreationEventId(){
-		return creationEventId;
+	/**
+	 * Used to mark that this artifact has been seen before and must always be called if it 
+	 * hasn't been called
+	 */
+	public void initializePermissions(){
+		seenPermissions.add(String.valueOf(ARTIFACT_PROPERTY_UNINITIALIZED));
 	}
 	
-	public double getCreationTime(){
-		return creationTime;
+	public void clearAllPermissionsExceptCurrent(){
+		seenPermissions.clear();
+		initializePermissions();
+		if(currentPermissions != null){
+			seenPermissions.add(currentPermissions);
+		}
 	}
 
+	/**
+	 * Sets the current permissions and as well as adds the permission to the set of seen 
+	 * permissions
+	 * @param permissions permissions
+	 */
+	public void setCurrentPermissions(String permissions){
+		this.currentPermissions = permissions;
+		seenPermissions.add(permissions);
+	}
+	
+	public String getCurrentPermissions(){
+		return currentPermissions;
+	}
+	
+	public boolean permissionsSeenBefore(String permissions){
+		return seenPermissions.contains(permissions);
+	}
+		
+	public void markNewEpoch(){
+		this.epochPending = true;
+		this.version = ARTIFACT_PROPERTY_UNINITIALIZED;
+		this.currentPermissions = null;
+		this.seenPermissions.clear();
+	}
+	
 	//autoincrements if pending true or uninitialized
 	public long getEpoch(){
 		if(epochPending || epoch == ARTIFACT_PROPERTY_UNINITIALIZED){
@@ -67,6 +103,14 @@ public class ArtifactProperties implements Serializable{
 			epoch++;
 		}
 		return epoch;
+	}
+	
+	public boolean isEpochUninitialized(){
+		return epoch == ARTIFACT_PROPERTY_UNINITIALIZED;
+	}
+	
+	public boolean isEpochPending(){
+		return epochPending;
 	}
 	
 	public long getVersion(boolean increment){
@@ -84,9 +128,10 @@ public class ArtifactProperties implements Serializable{
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + (int) (creationEventId ^ (creationEventId >>> 32));
+		result = prime * result + ((currentPermissions == null) ? 0 : currentPermissions.hashCode());
 		result = prime * result + (int) (epoch ^ (epoch >>> 32));
 		result = prime * result + (epochPending ? 1231 : 1237);
+		result = prime * result + ((seenPermissions == null) ? 0 : seenPermissions.hashCode());
 		result = prime * result + (int) (version ^ (version >>> 32));
 		return result;
 	}
@@ -100,14 +145,23 @@ public class ArtifactProperties implements Serializable{
 		if (getClass() != obj.getClass())
 			return false;
 		ArtifactProperties other = (ArtifactProperties) obj;
-		if (creationEventId != other.creationEventId)
+		if (currentPermissions == null) {
+			if (other.currentPermissions != null)
+				return false;
+		} else if (!currentPermissions.equals(other.currentPermissions))
 			return false;
 		if (epoch != other.epoch)
 			return false;
 		if (epochPending != other.epochPending)
 			return false;
+		if (seenPermissions == null) {
+			if (other.seenPermissions != null)
+				return false;
+		} else if (!seenPermissions.equals(other.seenPermissions))
+			return false;
 		if (version != other.version)
 			return false;
 		return true;
 	}
+
 }

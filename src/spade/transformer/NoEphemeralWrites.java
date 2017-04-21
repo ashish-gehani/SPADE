@@ -29,6 +29,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 
 public class NoEphemeralWrites extends AbstractTransformer {
 
@@ -40,14 +41,15 @@ public class NoEphemeralWrites extends AbstractTransformer {
 			
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 		
-			if(getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")
-					|| getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
-				String operation = getAnnotationSafe(newEdge, "operation");
-				if(operation.equals("read") || operation.equals("readv") || operation.equals("pread64")){
+			if(OPMConstants.isPathBasedArtifact(newEdge.getSourceVertex())
+					|| OPMConstants.isPathBasedArtifact(newEdge.getDestinationVertex())){
+				String operation = getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION);
+				if(OPMConstants.isIncomingDataOperation(operation)){
 					if(fileReadBy.get(newEdge.getDestinationVertex()) == null){
 						fileReadBy.put(newEdge.getDestinationVertex(), new HashSet<String>());
 					}
-					fileReadBy.get(newEdge.getDestinationVertex()).add(getAnnotationSafe(newEdge.getSourceVertex(), "pid"));
+					fileReadBy.get(newEdge.getDestinationVertex()).add(
+							getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID));
 				}
 			}			
 		}
@@ -56,13 +58,12 @@ public class NoEphemeralWrites extends AbstractTransformer {
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if((getAnnotationSafe(newEdge, "operation").equals("writev") || getAnnotationSafe(newEdge, "operation").equals("write") || 
-					getAnnotationSafe(newEdge, "operation").equals("pwrite64") || getAnnotationSafe(newEdge, "operation").equals("rename_write") || getAnnotationSafe(newEdge, "operation").equals("link_write")
-					|| getAnnotationSafe(newEdge, "operation").equals("symlink_write"))
-					&& getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")){
+			if(OPMConstants.isPathBasedArtifact(newEdge.getSourceVertex()) &&
+					OPMConstants.isOutgoingDataOperation(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION))){
 				AbstractVertex vertex = newEdge.getSourceVertex();
 				if((fileReadBy.get(vertex) == null) || (fileReadBy.get(vertex).size() == 1 
-						&& fileReadBy.get(vertex).toArray()[0].equals(getAnnotationSafe(newEdge.getDestinationVertex(), "pid")))){
+						&& fileReadBy.get(vertex).toArray()[0].equals(
+								getAnnotationSafe(newEdge.getDestinationVertex(), OPMConstants.PROCESS_PID)))){
 					continue; 
 				}
 			}		

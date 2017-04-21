@@ -30,12 +30,6 @@ import java.util.Map;
  */
 public abstract class ArtifactIdentifier {
 	
-	public static final String SUBTYPE_FILE = "file",
-								SUBTYPE_SOCKET = "network",
-								SUBTYPE_MEMORY = "memory",
-								SUBTYPE_PIPE = "pipe",
-								SUBTYPE_UNKNOWN = "unknown";
-	
 	/**
 	 * Used to tell whether the artifact was opened for reading or writing
 	 * 

@@ -27,7 +27,7 @@ public class UnixSocketIdentifier extends IdentifierWithPath{
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_SOCKET;
+		return OPMConstants.SUBTYPE_UNIX_SOCKET;
 	}
 	
 }

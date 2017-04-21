@@ -64,8 +64,27 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 	//external storage for least recently used elements
 	private ExternalStore<V> cacheStore;
 	
-	//max in-memory map size
+	// Max in-memory map size
 	private int cacheMaxSize = 0;
+	
+	// Print stats variables
+	private boolean printStats = false;
+	private long printStatsAfterMillis = 2 * 60 * 1000; // 2 minutes
+	private long lastRecordedTimeMillis = 0;
+	private long mapAccessesTotal = 0,
+			mapAccessesInterval = 0;
+	private long bloomfilterFalsePositivesTotal = 0,
+			bloomfilterFalsePositivesInterval = 0;
+	private long lruCacheMissesTotal = 0,
+			lruCacheMissesInterval = 0;
+	private long lruCacheHitsTotal = 0,
+			lruCacheHitsInterval = 0;
+	private long successfulDatabaseHitsTotal = 0,
+			successfulDatabaseHitsInterval = 0;
+	private long failedDatabaseHitsTotal = 0,
+			failedDatabaseHitsInterval = 0;
+	private long databaseInsertionsTotal = 0,
+			databaseInsertionsInterval = 0;
 	
 	/**
 	 * Main constructor to create the map
@@ -144,12 +163,95 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 			Node<K, V> node = Node.removeNode(tail.previous);
 			try{
 				cacheStore.put(keyHasher.getHash(node.key), node.value); //update in db before pushing it out of memory
+				
+				if(printStats){
+					databaseInsertionsInterval++;
+				}
+				
 			}catch(Exception e){
 				logger.log(Level.WARNING, "Failed to update cache element in cachestore", e);
 			}
 		}
 	}
 
+	/**
+	 * Function to turn on or off statistics printing
+	 * 
+	 * @param printStatsIntervalInMillis print stats every this much time in millis. If
+	 * less than or equal to 0 then stats printing turned off
+	 */
+	public void printStats(long printStatsIntervalInMillis){
+		if(printStatsIntervalInMillis > 0){
+			printStatsAfterMillis = printStatsIntervalInMillis;
+			printStats = true;
+			lastRecordedTimeMillis = System.currentTimeMillis();
+			resetTotalStats();
+			resetIntervalStats();
+		}else{
+			printStats = false;
+		}
+	} 
+	
+	/**
+	 * Sets all interval count variables for the stats to 0
+	 */
+	private void resetIntervalStats(){
+		mapAccessesInterval = 0;
+		bloomfilterFalsePositivesInterval = 0;
+		lruCacheHitsInterval = 0;
+		lruCacheMissesInterval = 0;
+		successfulDatabaseHitsInterval = 0;
+		failedDatabaseHitsInterval = 0;
+		databaseInsertionsInterval = 0;
+	}
+	
+	/**
+	 * Sets all total count variables for the stats to 0
+	 */
+	private void resetTotalStats(){
+		mapAccessesTotal = 0;
+		bloomfilterFalsePositivesTotal = 0;
+		lruCacheHitsTotal = 0;
+		lruCacheMissesTotal = 0;
+		successfulDatabaseHitsTotal = 0;
+		failedDatabaseHitsTotal = 0;
+		databaseInsertionsTotal = 0;
+	}
+	
+	/**
+	 * Prints the current count of stats variables and resets the interval counts after printing
+	 */
+	private void printStats(){
+		if(System.currentTimeMillis() - lastRecordedTimeMillis >= printStatsAfterMillis){
+			lastRecordedTimeMillis = System.currentTimeMillis();
+			
+			mapAccessesTotal += mapAccessesInterval;
+			bloomfilterFalsePositivesTotal += bloomfilterFalsePositivesInterval;
+			lruCacheHitsTotal += lruCacheHitsInterval;
+			lruCacheMissesTotal += lruCacheMissesInterval;
+			successfulDatabaseHitsTotal += successfulDatabaseHitsInterval;
+			failedDatabaseHitsTotal += failedDatabaseHitsInterval;
+			databaseInsertionsTotal += databaseInsertionsInterval;
+			
+			logger.log(Level.INFO, "Total map accesses = {0}, Interval map accesses = {1}, "
+					+ "Total bloomfilter false positives = {2}, Interval bloomfilter false positives = {3}, "
+					+ "Total LRU cache hits = {4}, Interval LRU cache hits = {5}, "
+					+ "Total LRU cache misses = {6}, Interval LRU cache misses = {7}, "
+					+ "Total successful database hits = {8}, Interval successful database hits = {9}, "
+					+ "Total failed database hits = {10}, Interval failed database hits = {11}, "
+					+ "Total database insertions = {12}, Interval database insertions = {13}",
+					new Object[]{mapAccessesTotal, mapAccessesInterval,
+							bloomfilterFalsePositivesTotal, bloomfilterFalsePositivesInterval,
+							lruCacheHitsTotal, lruCacheHitsInterval,
+							lruCacheMissesTotal, lruCacheMissesInterval,
+							successfulDatabaseHitsTotal, successfulDatabaseHitsInterval,
+							failedDatabaseHitsTotal, failedDatabaseHitsInterval,
+							databaseInsertionsTotal, databaseInsertionsInterval});
+			
+			resetIntervalStats();
+		}
+	}
+	
 	/**
 	 * Gets the current Object of the paired against the key (if any) 
 	 * 
@@ -166,19 +268,45 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 	 * @return Value paired against the provided key. Null if doesn't exist
 	 */
 	public V get(Object key) {
+		
+		if(printStats){
+			printStats();
+			mapAccessesInterval++;
+		}
+		
 		try{
 			K k = (K)key;
 			if(bloomFilter.contains(k)){ //bloomfilter contains the key
 				if(leastRecentlyUsedCache.get(k) != null){ //exists in cache
+					
+					if(printStats){
+						lruCacheHitsInterval++;
+					}
+					
 					Node<K, V> node = leastRecentlyUsedCache.get(k); //get from cache
 					Node.makeNodeHead(node, head); //make this node the head
 					return node.value; //return the value
 				}else{ //doesn't exist in cache
+					
+					if(printStats){
+						lruCacheMissesInterval++;
+					}
+					
 					String hash = keyHasher.getHash(k);
 					V value = cacheStore.get(hash); //get from db
 					if(value == null){ //if not in DB
+						
+						if(printStats){
+							bloomfilterFalsePositivesInterval++;
+							failedDatabaseHitsInterval++;
+						}
+						
 						return null; //was false positive
 					}else{ //if in DB
+						
+						if(printStats){
+							successfulDatabaseHitsInterval++;
+						}
 						
 						evictLeastRecentlyUsed(); //if need be
 						
@@ -211,6 +339,9 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 	 * @return Inserted object
 	 */	
 	public V put(K key, V value) {
+		if(printStats){
+			printStats();
+		}
 		try{
 			bloomFilter.add(key);
 			Node<K, V> node = leastRecentlyUsedCache.get(key);

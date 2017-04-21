@@ -89,6 +89,7 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 		ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
 		ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteOutputStream);
 		objectOutputStream.writeObject(value);
+		objectOutputStream.flush();
 		byte[] valueBytes = byteOutputStream.toByteArray(); 
 		
 		DatabaseEntry keyEntry = new DatabaseEntry(key.getBytes());
