@@ -19,6 +19,7 @@
  */
 package spade.storage;
 
+import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +47,7 @@ import com.bbn.tc.schema.avro.MemoryObject;
 import com.bbn.tc.schema.avro.NetFlowObject;
 import com.bbn.tc.schema.avro.Principal;
 import com.bbn.tc.schema.avro.PrincipalType;
+import com.bbn.tc.schema.avro.SHORT;
 import com.bbn.tc.schema.avro.SrcSinkObject;
 import com.bbn.tc.schema.avro.SrcSinkType;
 import com.bbn.tc.schema.avro.Subject;
@@ -148,6 +150,9 @@ public class CDM extends Kafka {
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)), 
 						EventType.EVENT_CHANGE_PRINCIPAL);
 		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT)), 
 						EventType.EVENT_UNIT);
 		rulesToEventType.put(
@@ -226,12 +231,6 @@ public class CDM extends Kafka {
 						new TypeOperation(OPMConstants.USED, 
 								OPMConstants.buildOperation(OPMConstants.OPERATION_LINK, OPMConstants.OPERATION_READ))), 
 						EventType.EVENT_LINK);
-		// A special value for Operation in class TypeOperation and means that it can be anything
-		rulesToEventType.put(
-				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE),
-						new TypeOperation(OPMConstants.WAS_GENERATED_BY, TypeOperation.ANY_OPERATION)), 
-						EventType.EVENT_UPDATE);
-		
 	}
 	
 	private Set<TypeOperation> getSet(TypeOperation... typeOperations){
@@ -400,7 +399,8 @@ public class CDM extends Kafka {
 							Map<CharSequence, CharSequence> properties = new HashMap<>();
 							addIfNotNull(OPMConstants.PROCESS_NAME, process.getAnnotations(), properties);
 							addIfNotNull(OPMConstants.PROCESS_CWD, process.getAnnotations(), properties);
-							properties.put(OPMConstants.PROCESS_PPID, ppid);
+							addIfNotNull(OPMConstants.PROCESS_PPID, process.getAnnotations(), properties);
+							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, process.getAnnotations(), properties);
 
 							Subject subject = new Subject(subjectUUID, subjectType, pid, 
 									pidSubjectUUID.get(ppid), principalUUID, startTime, 
@@ -498,7 +498,9 @@ public class CDM extends Kafka {
 					tccdmObject = createFileObject(getUuid(vertex), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, FileObjectType.FILE_OBJECT_FILE);
+							epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_FILE);
 
 				}else if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
 
@@ -528,7 +530,9 @@ public class CDM extends Kafka {
 					tccdmObject = createFileObject(getUuid(vertex), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
 							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, FileObjectType.FILE_OBJECT_UNIX_SOCKET);
+							epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_UNIX_SOCKET);
 					
 				}else if(OPMConstants.SUBTYPE_MEMORY_ADDRESS.equals(artifactType)){
 
@@ -561,7 +565,9 @@ public class CDM extends Kafka {
 				}else if(OPMConstants.SUBTYPE_NAMED_PIPE.equals(artifactType)){
 
 					tccdmObject = createFileObject(getUuid(vertex), vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, FileObjectType.FILE_OBJECT_NAMED_PIPE);
+							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, 
+							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+							FileObjectType.FILE_OBJECT_NAMED_PIPE);
 
 				}else if(OPMConstants.SUBTYPE_UNNAMED_PIPE.equals(artifactType)){
 
@@ -597,7 +603,7 @@ public class CDM extends Kafka {
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
 						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
-								SrcSinkType.SOURCE_SINK_UNKNOWN, fd);
+								SrcSinkType.SRCSINK_UNKNOWN, fd);
 					}
 
 				}else{
@@ -622,11 +628,12 @@ public class CDM extends Kafka {
 	 * @param path path of the file
 	 * @param version version annotation
 	 * @param epoch epoch annotation
+	 * @param permissionsAnnotation permissions in octal string format (can be null)
 	 * @param type FileObjectType
 	 * @return FileObject instance
 	 */
-	private FileObject createFileObject(UUID uuid, String path, String version, 
-			Integer epoch, FileObjectType type){
+	private FileObject createFileObject(UUID uuid, String path, String version,
+			Integer epoch, String permissionsAnnotation, FileObjectType type){
 
 		Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 		if(path != null){
@@ -635,8 +642,10 @@ public class CDM extends Kafka {
 		if(version != null){
 			properties.put(OPMConstants.ARTIFACT_VERSION, version);
 		}
+		
+		SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
 
-		AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+		AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
 		FileObject fileObject = new FileObject(uuid, baseObject, type, null, null, null, null, null);
 
 		return fileObject;
@@ -664,7 +673,7 @@ public class CDM extends Kafka {
 				String.valueOf(convertTimeToNanoseconds(null, String.valueOf(System.currentTimeMillis()), 0L)));
 		AbstractObject baseObject = new AbstractObject(null, null, properties);  
 		SrcSinkObject streamMarker = new SrcSinkObject(getUuid(properties), baseObject, 
-				SrcSinkType.SOURCE_SYSTEM_PROPERTY, null);
+				SrcSinkType.SRCSINK_SYSTEM_PROPERTY, null);
 		
 		publishRecords(Arrays.asList(buildTcCDMDatum(streamMarker, InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE)));
 	}
@@ -692,7 +701,7 @@ public class CDM extends Kafka {
 									incrementStatsCount(eventType.name());
 								}
 							}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
-								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SOURCE_SINK_UNKNOWN)){
+								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
 									incrementStatsCount(SrcSinkObject.class.getSimpleName());
 								}
 							}else if(cdmObject.getClass().equals(FileObject.class)){
@@ -838,26 +847,44 @@ public class CDM extends Kafka {
 				|| edgesContainTypeOperation(edges, 
 						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXECVE)))
 				|| (edgesContainTypeOperation(edges, 
-						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))){
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))
+				|| (edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)))){
 			processIndividually = true;
 		}else if(edgesContainTypeOperation(edges,
 				new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE))){
-			// need to process the WasGeneratedBy edge first
-			// and then process WasGeneratedBy and WasDerivedFrom together
-			AbstractEdge generatedByEdge = null;
+			
+			// Process the update edge here first
+			// Remove the update edge
+			// Then send on the remaining edges to processEdges function
+			AbstractEdge updateEdge = null;
+			AbstractVertex actingVertex = null;
 			for(AbstractEdge edge : edges){
-				if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
-					generatedByEdge = edge;
+				if(OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					updateEdge = edge;
+				}
+				if(OPMConstants.USED.equals(edge.getAnnotation(OPMConstants.TYPE))){
+					actingVertex = edge.getSourceVertex();
+				}else if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
+					actingVertex = edge.getDestinationVertex();
 				}
 			}
-			if(generatedByEdge != null){
-				processEdges(Arrays.asList(generatedByEdge));
+			
+			if(updateEdge == null || actingVertex == null){
+				logger.log(Level.WARNING, "Missing acting vertex or update edge in edges: " + edges);
+				return;
 			}else{
-				logger.log(Level.WARNING, "Failed to find WasGeneratedBy edge for UPDATE: {0}", 
-						new Object[]{
-								currentEventEdges
-						});
+				publishEvent(EventType.EVENT_UPDATE, updateEdge, actingVertex, 
+						updateEdge.getDestinationVertex(), updateEdge.getSourceVertex());
+				
+				// Remove the update edge and process the rest of the edges
+				List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
+				edgesCopy.remove(updateEdge);
+				
+				processEdges(edgesCopy);
+				return;
 			}
+			
 		}else if(edgesContainTypeOperation(edges, 
 				new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UNIT_DEPENDENCY))){
 			// very special case. ah!
@@ -955,12 +982,13 @@ public class CDM extends Kafka {
 						actingVertex = edgeForEvent.getDestinationVertex();
 						actedUpon1 = edgeForEvent.getSourceVertex();
 
-						// Handling the case where a process A setuid's and becomes A'
+						// Handling the case where a process A setuids and becomes A'
 						// and then A' setuid's to become A. If this is not done then 
 						// if process A creates a process C, then in putVertex the process
 						// C would get the pid for A' instead of A as it's parentProcessUUID
 						// Not doing this for UNIT vertices
-						if(OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
+						if((OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
+								|| OPMConstants.OPERATION_SETGID.equals(edgeOperation))
 								&& actedUpon1.getAnnotation(OPMConstants.PROCESS_ITERATION) == null){
 							// The acted upon vertex is the new containing process for the pid. 
 							// Excluding units from coming in here
@@ -990,7 +1018,7 @@ public class CDM extends Kafka {
 				AbstractEdge edgeWithProcess = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_GENERATED_BY);
 
 				if(edges.size() == 2 || edges.size() == 3){
-					// update (2), mmap(3), rename(3), link(3)
+					// mmap(2 or 3 edges), rename(3), link(3)
 					if(twoArtifactsEdge != null && edgeWithProcess != null){
 
 						// Add the protection to the WDF edge from the WGB edge (only for mmap)
@@ -1272,7 +1300,28 @@ public class CDM extends Kafka {
 		}
 		return new UUID(hash);
 	}
-
+	
+	/**
+	 * Converts the permissions string to short first (using base 8) and then
+	 * adds writes the short to a bytebuffer and then gets the byte array from the
+	 * buffer which is then added to the CDM SHORT type
+	 * 
+	 * @param permissions octal permissions string
+	 * @return CDM SHORT type or null
+	 */
+	private SHORT getPermissionsAsCDMSHORT(String permissions){
+		// IMPORTANT: If this function is changed then change the function in CDM reporter which reverses this
+		if(permissions == null || permissions.isEmpty()){
+			return null;
+		}else{
+			Short permissionsShort = Short.parseShort(permissions, 8);
+			ByteBuffer bb = ByteBuffer.allocate(2);
+			bb.putShort(permissionsShort);
+			SHORT cdmPermissions = new SHORT(bb.array());
+			return cdmPermissions;
+		}
+	}
+	
 }
 
 /**

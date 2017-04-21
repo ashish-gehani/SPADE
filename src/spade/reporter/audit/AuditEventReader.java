@@ -82,6 +82,7 @@ public class AuditEventReader {
 			PATH_PREFIX = "path",
 			PID = "pid",
 			RECORD_TYPE_CWD = "CWD",
+			RECORD_TYPE_DAEMON_START = "DAEMON_START",
 			RECORD_TYPE_EOE = "EOE",
 			RECORD_TYPE_EXECVE = "EXECVE",
 			RECORD_TYPE_FD_PAIR = "FD_PAIR",
@@ -519,6 +520,11 @@ public class AuditEventReader {
 	private Map<String, String> parseEventLine(String line) {
 
 		Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+		
+		if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_DAEMON_START)){
+			auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_DAEMON_START);
+			return auditRecordKeyValues;
+		}
 
 		boolean isUBSIEvent = false;
 		

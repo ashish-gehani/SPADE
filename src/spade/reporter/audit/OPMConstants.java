@@ -69,6 +69,7 @@ public class OPMConstants {
 			PROCESS_NAME = "name",
 			PROCESS_PID = "pid",
 			PROCESS_PPID = "ppid",
+			PROCESS_SEEN_TIME = "seen time",
 			PROCESS_START_TIME = "start time",
 			PROCESS_UNIT = "unit",
 			
@@ -78,7 +79,8 @@ public class OPMConstants {
 			ARTIFACT_EPOCH = "epoch",
 			ARTIFACT_FD = "fd",
 			ARTIFACT_MEMORY_ADDRESS = "memory address",
-			ARTIFACT_PATH = "path",	
+			ARTIFACT_PATH = "path",
+			ARTIFACT_PERMISSIONS = "permissions", 
 			ARTIFACT_PID = PROCESS_PID,
 			ARTIFACT_PROTOCOL = "protocol",
 			ARTIFACT_PROTOCOL_NAME_UDP = "udp",
@@ -122,6 +124,7 @@ public class OPMConstants {
 			OPERATION_DUP = "dup",
 			OPERATION_EXECVE = "execve",
 			OPERATION_EXIT = "exit",
+			OPERATION_FCNTL = "fcntl",
 			OPERATION_FORK = "fork",
 			OPERATION_KILL = "kill",
 			OPERATION_LINK = "link",
@@ -135,6 +138,7 @@ public class OPMConstants {
 			OPERATION_RECV = "recv",
 			OPERATION_RENAME = "rename",
 			OPERATION_SEND = "send",
+			OPERATION_SETGID = "setgid",
 			OPERATION_SETUID = "setuid",
 			OPERATION_TRUNCATE = "truncate",
 			OPERATION_UNIT = "unit",
@@ -165,6 +169,7 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_DUP, SYSCALL.DUP, SYSCALL.DUP2, SYSCALL.DUP3);
 		addSyscallsToOperations(OPERATION_EXECVE, SYSCALL.EXECVE);
 		addSyscallsToOperations(OPERATION_EXIT, SYSCALL.EXIT, SYSCALL.EXIT_GROUP);
+		addSyscallsToOperations(OPERATION_FCNTL, SYSCALL.FCNTL);
 		addSyscallsToOperations(OPERATION_FORK, SYSCALL.FORK, SYSCALL.VFORK);
 		addSyscallsToOperations(OPERATION_KILL, SYSCALL.KILL);
 		addSyscallsToOperations(OPERATION_LINK, SYSCALL.LINK, SYSCALL.LINKAT, SYSCALL.SYMLINK, SYSCALL.SYMLINKAT);
@@ -178,7 +183,8 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_RECV, SYSCALL.RECV, SYSCALL.RECVFROM, SYSCALL.RECVMSG);
 		addSyscallsToOperations(OPERATION_RENAME, SYSCALL.RENAME, SYSCALL.RENAMEAT);
 		addSyscallsToOperations(OPERATION_SEND, SYSCALL.SEND, SYSCALL.SENDMSG, SYSCALL.SENDTO);
-		addSyscallsToOperations(OPERATION_SETUID, SYSCALL.SETUID, SYSCALL.SETREUID, SYSCALL.SETRESUID);
+		addSyscallsToOperations(OPERATION_SETGID, SYSCALL.SETGID, SYSCALL.SETREGID, SYSCALL.SETRESGID, SYSCALL.SETFSGID);
+		addSyscallsToOperations(OPERATION_SETUID, SYSCALL.SETUID, SYSCALL.SETREUID, SYSCALL.SETRESUID, SYSCALL.SETFSUID);
 		addSyscallsToOperations(OPERATION_TRUNCATE, SYSCALL.TRUNCATE, SYSCALL.FTRUNCATE);
 		addSyscallsToOperations(OPERATION_UNIT, SYSCALL.UNIT);
 		addSyscallsToOperations(OPERATION_UNKNOWN, SYSCALL.UNKNOWN);
@@ -262,7 +268,7 @@ public class OPMConstants {
 		}
 		
 		if(primaryOperation == null || (secondaryOperation == null && secondary != null)){
-			logger.log(Level.WARNING, "Unmapped syscall to operation");
+			logger.log(Level.WARNING, "Unmapped syscall to operation. Primary: " + primary + ", Secondary: " + secondary);
 			return null;
 		}else{
 			return buildOperation(primaryOperation, secondaryOperation);
