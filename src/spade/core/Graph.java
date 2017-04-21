@@ -25,6 +25,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -68,7 +69,8 @@ import spade.vertex.opm.Process;
  *
  * @author Dawood Tariq
  */
-public class Graph extends AbstractStorage implements Serializable {
+public class Graph extends AbstractStorage implements Serializable
+{
 	
     private static final Logger logger = Logger.getLogger(Graph.class.getName());
     private static final int MAX_QUERY_HITS = 1000;
@@ -180,6 +182,12 @@ public class Graph extends AbstractStorage implements Serializable {
         }
         return true;
     }
+
+    @Override
+    public ResultSet executeQuery(String query) {
+        return null;
+    }
+
     /**
      * This function inserts the given edge into the underlying storage(s) and
      * updates the cache(s) accordingly.
@@ -205,8 +213,8 @@ public class Graph extends AbstractStorage implements Serializable {
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getSourceVertex())), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getDestinationVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getChildVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getParentVertex())), Field.Store.YES, Field.Index.ANALYZED));
             edgeIndexWriter.addDocument(doc);
             // edgeIndexWriter.commit();
 
@@ -600,8 +608,8 @@ public class Graph extends AbstractStorage implements Serializable {
             }
 
             String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
-            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getSourceVertex()));
-            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getDestinationVertex()));
+            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getChildVertex()));
+            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getParentVertex()));
             writer.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -644,12 +652,12 @@ public class Graph extends AbstractStorage implements Serializable {
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param sourceVertexHash      hash of the source vertex.
-     * @param destinationVertexHash hash of the destination vertex.
+     * @param childVertexHash      hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
-    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash) {
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
         return null;
     }
 
@@ -683,11 +691,11 @@ public class Graph extends AbstractStorage implements Serializable {
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childHash hash of the given vertex
+     * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childHash) {
+    public Graph getParents(String childVertexHash) {
         return null;
     }
 

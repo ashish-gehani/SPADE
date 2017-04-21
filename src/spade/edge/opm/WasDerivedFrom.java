@@ -36,8 +36,8 @@ public class WasDerivedFrom extends AbstractEdge {
      * @param destinationArtifact Destination artifact vertex
      */
     public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact) {
-        setSourceVertex(sourceArtifact);
-        setDestinationVertex(destinationArtifact);
+        setChildVertex(sourceArtifact);
+        setParentVertex(destinationArtifact);
         addAnnotation("type", "WasDerivedFrom");
     }
 }

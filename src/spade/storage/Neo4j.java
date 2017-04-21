@@ -40,7 +40,6 @@ import org.neo4j.graphdb.TransactionTerminatedException;
 import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 
-import org.neo4j.graphdb.schema.IndexDefinition;
 import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
@@ -213,9 +212,9 @@ public class Neo4j extends AbstractStorage
 
         globalTxCheckin();
         Node srcNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
-                                        incomingEdge.getSourceVertex().bigHashCode());
+                                        incomingEdge.getChildVertex().bigHashCode());
         Node dstNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
-                                        incomingEdge.getDestinationVertex().bigHashCode());
+                                        incomingEdge.getParentVertex().bigHashCode());
         Relationship newEdge = srcNode.createRelationshipTo(dstNode, RelationshipTypes.EDGE);
         newEdge.setProperty(PRIMARY_KEY, hashCode);
         for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
@@ -232,18 +231,18 @@ public class Neo4j extends AbstractStorage
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param sourceVertexHash hash of the source vertex.
-     * @param destinationVertexHash hash of the destination vertex.
+     * @param childVertexHash hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
-    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash)
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
         AbstractEdge edge = null;
         try (Transaction tx = graphDb.beginTx())
         {
-            Node srcNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY, sourceVertexHash);
-            Node dstNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY, destinationVertexHash);
+            Node srcNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY, childVertexHash);
+            Node dstNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY, parentVertexHash);
             Iterable<Relationship> srcNodeRelationships = srcNode.getRelationships(Direction.OUTGOING);
             for(Relationship srcNodeRelationship : srcNodeRelationships)
             {
@@ -288,14 +287,14 @@ public class Neo4j extends AbstractStorage
         return vertex;
     }
 
-    private Set<AbstractEdge> prepareEdgeSetFromNeo4jResult(Result result, String sourceVertexHash, String destinationVertexHash)
+    private Set<AbstractEdge> prepareEdgeSetFromNeo4jResult(Result result, String childVertexHash, String parentVertexHash)
     {
         Set<AbstractEdge> edgeSet = new HashSet<>();
         while(result.hasNext())
         {
-            AbstractVertex sourceVertex = getVertex(sourceVertexHash);
-            AbstractVertex destinationVertex = getVertex(destinationVertexHash);
-            AbstractEdge edge = new Edge(sourceVertex, destinationVertex);
+            AbstractVertex childVertex = getVertex(childVertexHash);
+            AbstractVertex parentVertex = getVertex(parentVertexHash);
+            AbstractEdge edge = new Edge(childVertex, parentVertex);
             Map<String,Object> row = result.next();
             for (String key : result.columns())
             {
@@ -355,17 +354,17 @@ public class Neo4j extends AbstractStorage
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childHash hash of the given vertex
+     * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childHash)
+    public Graph getParents(String childVertexHash)
     {
         Graph parents = null;
         try (Transaction tx = graphDb.beginTx())
         {
             parents = new Graph();
-            Node childNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY, childHash);
+            Node childNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY, childVertexHash);
             for(Relationship relationship: childNode.getRelationships(Direction.INCOMING))
             {
                 parents.putVertex(convertNodeToVertex(relationship.getStartNode()));

@@ -40,9 +40,9 @@ public class SimpleForks extends AbstractTransformer {
 			if(getAnnotationSafe(newEdge, "operation").equals("clone")
 					|| getAnnotationSafe(newEdge, "operation").equals("fork")
 					|| getAnnotationSafe(newEdge, "operation").equals("vfork")){
-				forkcloneEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), "pid"), newEdge);
+				forkcloneEdges.put(getAnnotationSafe(newEdge.getChildVertex(), "pid"), newEdge);
 			}else if(getAnnotationSafe(newEdge, "operation").equals("execve")){
-				execveEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), "pid"), newEdge);
+				execveEdges.put(getAnnotationSafe(newEdge.getChildVertex(), "pid"), newEdge);
 			}
 		}
 		
@@ -57,20 +57,20 @@ public class SimpleForks extends AbstractTransformer {
 			AbstractEdge edge = null;
 			if(hasForkClone && hasExecve){
 				edge = forkcloneEdges.get(pid);
-				edge.setSourceVertex(execveEdges.get(pid).getSourceVertex());
+				edge.setChildVertex(execveEdges.get(pid).getChildVertex());
 				edge.addAnnotation("operation", edge.getAnnotation("operation")+"-execve");
 			}else if(hasForkClone && !hasExecve){
 				edge = forkcloneEdges.get(pid);
 			}else if(!hasForkClone && hasExecve){
 				edge = execveEdges.get(pid);
-				pidToVertex.put(pid, edge.getSourceVertex());
+				pidToVertex.put(pid, edge.getChildVertex());
 				continue;
 			}else{ //both false
 				continue;
 			}
-			pidToVertex.put(pid, edge.getSourceVertex());
-			resultGraph.putVertex(edge.getSourceVertex());
-			resultGraph.putVertex(edge.getDestinationVertex());
+			pidToVertex.put(pid, edge.getChildVertex());
+			resultGraph.putVertex(edge.getChildVertex());
+			resultGraph.putVertex(edge.getParentVertex());
 			resultGraph.putEdge(edge);
 		}
 		
@@ -79,17 +79,17 @@ public class SimpleForks extends AbstractTransformer {
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			String srcPid = getAnnotationSafe(newEdge.getSourceVertex(), "pid");
+			String srcPid = getAnnotationSafe(newEdge.getChildVertex(), "pid");
 			if(srcPid != null && pidToVertex.get(srcPid) != null){
-				newEdge.setSourceVertex(pidToVertex.get(srcPid));
+				newEdge.setChildVertex(pidToVertex.get(srcPid));
 			}
-			String dstPid = getAnnotationSafe(newEdge.getDestinationVertex(), "pid");
+			String dstPid = getAnnotationSafe(newEdge.getParentVertex(), "pid");
 			if(dstPid != null && pidToVertex.get(dstPid) != null){
-				newEdge.setDestinationVertex(pidToVertex.get(dstPid));
+				newEdge.setParentVertex(pidToVertex.get(dstPid));
 			}
-			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

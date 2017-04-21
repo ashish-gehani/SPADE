@@ -129,24 +129,24 @@ public class Aggregation extends AbstractTransformer{
 				}
 			}
 			
-			AbstractVertex sourceVertex = newEdge.getSourceVertex();
-			AbstractVertex destinationVertex = newEdge.getDestinationVertex();
+			AbstractVertex childVertex = newEdge.getChildVertex();
+			AbstractVertex parentVertex = newEdge.getParentVertex();
 			
-			if(oldNewVertices.get(sourceVertex) == null){
-				AbstractVertex newSourceVertex = getVertexWithUpdatedAnnotations(sourceVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(sourceVertex));
-				oldNewVertices.put(sourceVertex, newSourceVertex);
+			if(oldNewVertices.get(childVertex) == null){
+				AbstractVertex newchildVertex = getVertexWithUpdatedAnnotations(childVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(childVertex));
+				oldNewVertices.put(childVertex, newchildVertex);
 			}
-			newEdge.setSourceVertex(oldNewVertices.get(sourceVertex));
+			newEdge.setChildVertex(oldNewVertices.get(childVertex));
 						
-			if(oldNewVertices.get(destinationVertex) == null){
-				AbstractVertex newDestinationVertex = getVertexWithUpdatedAnnotations(destinationVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(destinationVertex));
-				oldNewVertices.put(destinationVertex, newDestinationVertex);
+			if(oldNewVertices.get(parentVertex) == null){
+				AbstractVertex newparentVertex = getVertexWithUpdatedAnnotations(parentVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(parentVertex));
+				oldNewVertices.put(parentVertex, newparentVertex);
 			}
-			newEdge.setDestinationVertex(oldNewVertices.get(destinationVertex));
+			newEdge.setParentVertex(oldNewVertices.get(parentVertex));
 			
 			
-			resultGraph.putVertex(newEdge.getSourceVertex());
-			resultGraph.putVertex(newEdge.getDestinationVertex());
+			resultGraph.putVertex(newEdge.getChildVertex());
+			resultGraph.putVertex(newEdge.getParentVertex());
 			resultGraph.putEdge(newEdge);
 		}
 		

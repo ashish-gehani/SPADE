@@ -153,8 +153,8 @@ class Graph {
     }
 
     private static Edge integrateEdges(Graph g, List<Edge> edges) {
-        Vertex src = edges.iterator().next().getSourceVertex();
-        Vertex dst = edges.iterator().next().getDestinationVertex();
+        Vertex src = edges.iterator().next().getchildVertex();
+        Vertex dst = edges.iterator().next().getparentVertex();
         Edge edge = new Edge(src, dst);
         for (Edge e : edges) {
             edge.getAnnotations().putAll(e.getAnnotations());
@@ -218,15 +218,15 @@ class Graph {
 
         List<Edge> tempEdges = new ArrayList<>();
         for (Edge e : allEdges) {
-            Vertex newSrc = e.getSourceVertex();
-            Vertex newDst = e.getDestinationVertex();
+            Vertex newSrc = e.getchildVertex();
+            Vertex newDst = e.getparentVertex();
             Edge newEdge = new Edge(newSrc, newDst);
             newEdge.getAnnotations().putAll(e.getAnnotations());
             if (integratedVertexMap.containsKey(newSrc)) {
-                newEdge.setSourceVertex(integratedVertexMap.get(newSrc));
+                newEdge.setchildVertex(integratedVertexMap.get(newSrc));
             }
             if (integratedVertexMap.containsKey(newDst)) {
-                newEdge.setDestinationVertex(integratedVertexMap.get(newDst));
+                newEdge.setparentVertex(integratedVertexMap.get(newDst));
             }
             tempEdges.add(newEdge);
         }
@@ -241,8 +241,8 @@ class Graph {
                     continue;
                 }
                 Edge e2 = tempEdges.get(j);
-                if (e1.getSourceVertex().equals(e2.getSourceVertex())
-                        && e1.getDestinationVertex().equals(e2.getDestinationVertex())
+                if (e1.getchildVertex().equals(e2.getchildVertex())
+                        && e1.getparentVertex().equals(e2.getparentVertex())
                         && countCommonAnnotations(e1, e2) >= ethreshold) {
                     commonSet.add(e2);
                     tempIndices.add(j);
@@ -527,8 +527,8 @@ class Graph {
             }
 
             String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
-            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getSourceVertex()));
-            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getDestinationVertex()));
+            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getchildVertex()));
+            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getparentVertex()));
             writer.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
         } catch (IOException exception) {
             exception.printStackTrace();
@@ -609,12 +609,12 @@ class Vertex {
 class Edge {
 
     protected Map<String, String> annotations = new HashMap<>();
-    private Vertex sourceVertex;
-    private Vertex destinationVertex;
+    private Vertex childVertex;
+    private Vertex parentVertex;
 
-    public Edge(Vertex sourceVertex, Vertex destinationVertex) {
-        setSourceVertex(sourceVertex);
-        setDestinationVertex(destinationVertex);
+    public Edge(Vertex childVertex, Vertex parentVertex) {
+        setchildVertex(childVertex);
+        setparentVertex(parentVertex);
     }
 
     public final Map<String, String> getAnnotations() {
@@ -648,20 +648,20 @@ class Edge {
         return annotations.get("type");
     }
 
-    public final Vertex getSourceVertex() {
-        return sourceVertex;
+    public final Vertex getchildVertex() {
+        return childVertex;
     }
 
-    public final Vertex getDestinationVertex() {
-        return destinationVertex;
+    public final Vertex getparentVertex() {
+        return parentVertex;
     }
 
-    public final void setSourceVertex(Vertex sourceVertex) {
-        this.sourceVertex = sourceVertex;
+    public final void setchildVertex(Vertex childVertex) {
+        this.childVertex = childVertex;
     }
 
-    public final void setDestinationVertex(Vertex destinationVertex) {
-        this.destinationVertex = destinationVertex;
+    public final void setparentVertex(Vertex parentVertex) {
+        this.parentVertex = parentVertex;
     }
 
     @Override
@@ -674,8 +674,8 @@ class Edge {
         }
         Edge thatEdge = (Edge) thatObject;
         return (this.annotations.equals(thatEdge.annotations)
-                && this.getSourceVertex().equals(thatEdge.getSourceVertex())
-                && this.getDestinationVertex().equals(thatEdge.getDestinationVertex()));
+                && this.getchildVertex().equals(thatEdge.getchildVertex())
+                && this.getparentVertex().equals(thatEdge.getparentVertex()));
     }
 
     @Override
@@ -684,8 +684,8 @@ class Edge {
         final int seed2 = 97;
         int hashCode = seed1;
         hashCode = seed2 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.sourceVertex != null ? this.sourceVertex.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.destinationVertex != null ? this.destinationVertex.hashCode() : 0);
+        hashCode = seed2 * hashCode + (this.childVertex != null ? this.childVertex.hashCode() : 0);
+        hashCode = seed2 * hashCode + (this.parentVertex != null ? this.parentVertex.hashCode() : 0);
         return hashCode;
     }
 

@@ -126,8 +126,8 @@ public class LLVMFilter extends AbstractFilter {
     @Override
     public void putEdge(AbstractEdge incoming) {
         if (incoming instanceof Used) {
-            Artifact artifact = (Artifact) incoming.getDestinationVertex();
-            Process process = (Process) incoming.getSourceVertex();
+            Artifact artifact = (Artifact) incoming.getParentVertex();
+            Process process = (Process) incoming.getChildVertex();
             String ArgID = artifact.getAnnotation("ID");
             if (methodsToMonitor.contains(process.getAnnotation("FunctionName"))) {
                 if (artifacts.containsKey(ArgID)) // Every Artifact is used at most twice
@@ -146,8 +146,8 @@ public class LLVMFilter extends AbstractFilter {
             }
 
         } else if (incoming instanceof WasGeneratedBy) {
-            Process process = (Process) incoming.getDestinationVertex();
-            Artifact artifact = (Artifact) incoming.getSourceVertex();
+            Process process = (Process) incoming.getParentVertex();
+            Artifact artifact = (Artifact) incoming.getChildVertex();
             String ArgID = artifact.getAnnotation("ID");
             if (methodsToMonitor.contains(process.getAnnotation("FunctionName"))) {
                 if (artifacts.containsKey(ArgID)) {
@@ -164,8 +164,8 @@ public class LLVMFilter extends AbstractFilter {
             }
         } else // WasTriggeredBy
         {
-            AbstractVertex source = incoming.getSourceVertex();
-            AbstractVertex destination = incoming.getDestinationVertex();
+            AbstractVertex source = incoming.getChildVertex();
+            AbstractVertex destination = incoming.getParentVertex();
             if (methodsToMonitor.contains(source.getAnnotation("FunctionName"))) {
                 if (methodsToMonitor.contains(destination.getAnnotation("FunctionName"))) {
                     putInNextFilter(incoming);

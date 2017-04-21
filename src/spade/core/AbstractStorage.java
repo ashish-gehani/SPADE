@@ -19,6 +19,7 @@
  */
 package spade.core;
 
+import java.sql.ResultSet;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Queue;
@@ -36,6 +37,8 @@ import java.util.Iterator;
 public abstract class AbstractStorage
 {
     public static final String PRIMARY_KEY = "hash";
+    public static final String CHILD_VERTEX_KEY = "childVertexHash";
+    public static final String PARENT_VERTEX_KEY = "parentHash";
     protected static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     protected static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
     protected static Map<Long, String> m = new HashMap<>();
@@ -101,11 +104,11 @@ public abstract class AbstractStorage
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param sourceVertexHash hash of the source vertex.
-     * @param destinationVertexHash hash of the destination vertex.
+     * @param childVertexHash hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
-    public abstract AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash);
+    public abstract AbstractEdge getEdge(String childVertexHash, String parentVertexHash);
 
     /**
      * This function queries the underlying storage and retrieves the vertex
@@ -132,10 +135,10 @@ public abstract class AbstractStorage
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childHash hash of the given vertex
+     * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
-    public abstract Graph getParents(String childHash);
+    public abstract Graph getParents(String childVertexHash);
 
 
     /**
@@ -200,13 +203,13 @@ public abstract class AbstractStorage
     /**
      * This function finds all possible paths between source and destination vertices.
      *
-     * @param sourceVertexHash hash of the source vertex
-     * @param destinationVertexHash hash of the destination vertex
+     * @param childVertexHash hash of the source vertex
+     * @param parentVertexHash hash of the destination vertex
      * @param maxPathLength maximum length of any path to find
      *
      * @return returns graph containing all paths between the given source and destination vertex OR NULL.
      */
-    public Graph getPaths(String sourceVertexHash, String destinationVertexHash, int maxPathLength)
+    public Graph getPaths(String childVertexHash, String parentVertexHash, int maxPathLength)
     {
         Set<Graph> allPaths = new HashSet<>();
         Stack<AbstractVertex>currentPath = new Stack<>();
@@ -214,7 +217,7 @@ public abstract class AbstractStorage
         AbstractVertex currentVertex = null;
         int pathLength = 0;
         Queue<AbstractVertex> queue = new LinkedList<>();
-        queue.add(getVertex(sourceVertexHash));
+        queue.add(getVertex(childVertexHash));
         Graph children = null;
         while(!queue.isEmpty())
         {
@@ -224,7 +227,7 @@ public abstract class AbstractStorage
             currentVertex = queue.remove();
             String currentHash = currentVertex.getAnnotation("hash");
             currentPath.push(currentVertex);
-            if(currentHash.equals(destinationVertexHash))
+            if(currentHash.equals(parentVertexHash))
             {
                 allPaths.add(convertStackToGraph(currentPath));
             }
@@ -279,4 +282,6 @@ public abstract class AbstractStorage
 
         return graph;
     }
+
+    public abstract ResultSet executeQuery(String query);
 }

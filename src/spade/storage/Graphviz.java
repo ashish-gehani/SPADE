@@ -163,8 +163,8 @@ public class Graphviz extends AbstractStorage {
                 edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
             }
 
-            String srckey = DigestUtils.sha256Hex(incomingEdge.getSourceVertex().toString());
-            String dstkey = DigestUtils.sha256Hex(incomingEdge.getDestinationVertex().toString());
+            String srckey = DigestUtils.sha256Hex(incomingEdge.getChildVertex().toString());
+            String dstkey = DigestUtils.sha256Hex(incomingEdge.getParentVertex().toString());
 
             outputFile.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
             checkTransactions();
@@ -179,12 +179,12 @@ public class Graphviz extends AbstractStorage {
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param sourceVertexHash      hash of the source vertex.
-     * @param destinationVertexHash hash of the destination vertex.
+     * @param childVertexHash      hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
-    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash) {
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
         return null;
     }
 
@@ -218,11 +218,11 @@ public class Graphviz extends AbstractStorage {
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childHash hash of the given vertex
+     * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childHash) {
+    public Graph getParents(String childVertexHash) {
         return null;
     }
 

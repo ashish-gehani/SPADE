@@ -372,8 +372,8 @@ public class Query {
                 logger.log(Level.INFO, "endPathFragment - checking {0} srcVertices", ((Set<AbstractVertex>) inputSketch.objects.get("srcVertices")).size());
             }
 
-            for (AbstractVertex sourceVertex : (Set<AbstractVertex>) inputSketch.objects.get("srcVertices")) {
-                BloomFilter currentBloomFilter = receivedMatrixFilter.get(sourceVertex);
+            for (AbstractVertex childVertex : (Set<AbstractVertex>) inputSketch.objects.get("srcVertices")) {
+                BloomFilter currentBloomFilter = receivedMatrixFilter.get(childVertex);
                 for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
                     if (currentBloomFilter.contains(vertexToCheck)) {
                         matchingVerticesUp.add(vertexToCheck);
@@ -423,8 +423,8 @@ public class Query {
 
             for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
                 BloomFilter currentBloomFilter = myMatrixFilter.get(vertexToCheck);
-                for (AbstractVertex destinationVertex : (Set<AbstractVertex>) inputSketch.objects.get("dstVertices")) {
-                    if (currentBloomFilter.contains(destinationVertex)) {
+                for (AbstractVertex parentVertex : (Set<AbstractVertex>) inputSketch.objects.get("dstVertices")) {
+                    if (currentBloomFilter.contains(parentVertex)) {
                         matchingVerticesDown.add(vertexToCheck);
                     }
                 }
@@ -500,8 +500,8 @@ public class Query {
             logger.log(Level.INFO, "pathFragment.b - checking {0} srcVertices", ((Set<AbstractVertex>) inputSketch.objects.get("srcVertices")).size());
         }
 
-        for (AbstractVertex sourceVertex : (Set<AbstractVertex>) inputSketch.objects.get("srcVertices")) {
-            BloomFilter currentBloomFilter = receivedMatrixFilter.get(sourceVertex);
+        for (AbstractVertex childVertex : (Set<AbstractVertex>) inputSketch.objects.get("srcVertices")) {
+            BloomFilter currentBloomFilter = receivedMatrixFilter.get(childVertex);
             for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
                 if (currentBloomFilter.contains(vertexToCheck)) {
                     matchingVerticesUp.add(vertexToCheck);
@@ -520,8 +520,8 @@ public class Query {
 
         for (AbstractVertex vertexToCheck : myNetworkVertices.vertexSet()) {
             BloomFilter currentBloomFilter = myMatrixFilter.get(vertexToCheck);
-            for (AbstractVertex destinationVertex : (Set<AbstractVertex>) inputSketch.objects.get("dstVertices")) {
-                if (currentBloomFilter.contains(destinationVertex)) {
+            for (AbstractVertex parentVertex : (Set<AbstractVertex>) inputSketch.objects.get("dstVertices")) {
+                if (currentBloomFilter.contains(parentVertex)) {
                     matchingVerticesDown.add(vertexToCheck);
                 }
             }
@@ -837,8 +837,8 @@ public class Query {
                     continue;
                 }
                 BloomFilter ancestorFilter = currentEntry.getValue().matrixFilter.getAllBloomFilters();
-                for (AbstractVertex destinationVertex : destinationNetworkVertices) {
-                    if (ancestorFilter.contains(destinationVertex)) {
+                for (AbstractVertex parentVertex : destinationNetworkVertices) {
+                    if (ancestorFilter.contains(parentVertex)) {
                         // Send B's sketch to this host to get the path fragment
                         hostsToContact.add(currentEntry.getKey());
                         break;

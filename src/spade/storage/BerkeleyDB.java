@@ -9,6 +9,7 @@ import com.sleepycat.bind.serial.SerialBinding;
 
 import java.io.File;
 import java.io.UnsupportedEncodingException;
+import java.sql.ResultSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -86,12 +87,12 @@ public class BerkeleyDB extends AbstractStorage
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param sourceVertexHash      hash of the source vertex.
-     * @param destinationVertexHash hash of the destination vertex.
+     * @param childVertexHash      hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
-    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash)
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
         AbstractEdge edge = null;
         try
@@ -101,13 +102,13 @@ public class BerkeleyDB extends AbstractStorage
             // Create the binding
             EntryBinding vertexBinding = new SerialBinding(vertexCatalog, AbstractVertex.class);
             // Create DatabaseEntry for the key
-            DatabaseEntry key = new DatabaseEntry(vertexHash.getBytes("UTF-8"));
+            DatabaseEntry key = new DatabaseEntry(childVertexHash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
             DatabaseEntry data = new DatabaseEntry();
             myDatabase.get(null, key, data, LockMode.DEFAULT);
             // Recreate the MyData object from the retrieved DatabaseEntry using
             // the EntryBinding created above
-            edge = (AbstractVertex) vertexBinding.entryToObject(data);
+            edge = (AbstractEdge) vertexBinding.entryToObject(data);
         }
         catch (UnsupportedEncodingException ex)
         {
@@ -169,11 +170,11 @@ public class BerkeleyDB extends AbstractStorage
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childHash hash of the given vertex
+     * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childHash) {
+    public Graph getParents(String childVertexHash) {
         return null;
     }
 
@@ -245,5 +246,11 @@ public class BerkeleyDB extends AbstractStorage
         }
 
         return false;
+    }
+
+    @Override
+    public ResultSet executeQuery(String query)
+    {
+        return null;
     }
 }

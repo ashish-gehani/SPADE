@@ -77,8 +77,8 @@ class SQLTest {
         e1.addAnnotation("type", "WasTriggeredBy");
         e1.addAnnotation("time", "5:56 PM");
         e1.addAnnotation("hash", Integer.toString(e1.hashCode()));
-        e1.addAnnotation("sourcevertexhash", v2.getAnnotation("hash"));
-        e1.addAnnotation("destinationvertexhash", v1.getAnnotation("hash"));
+        e1.addAnnotation("childVertexhash", v2.getAnnotation("hash"));
+        e1.addAnnotation("parentVertexhash", v1.getAnnotation("hash"));
         e1.addAnnotation("edgeid", "1");
         graph.putEdge(e1);
 
@@ -103,8 +103,8 @@ class SQLTest {
         e2.addAnnotation("type", "Used");
         e2.addAnnotation("iotime", "12 ms");
         e2.addAnnotation("hash", Integer.toString(e2.hashCode()));
-        e2.addAnnotation("sourcevertexhash", v2.getAnnotation("hash"));
-        e2.addAnnotation("destinationvertexhash", v3.getAnnotation("hash"));
+        e2.addAnnotation("childVertexhash", v2.getAnnotation("hash"));
+        e2.addAnnotation("parentVertexhash", v3.getAnnotation("hash"));
         e2.addAnnotation("edgeid", "2");
         graph.putEdge(e2);
 
@@ -113,8 +113,8 @@ class SQLTest {
         e3.addAnnotation("type", "WasGeneratedBy");
         e3.addAnnotation("iotime", "11 ms");
         e3.addAnnotation("hash", Integer.toString(e3.hashCode()));
-        e3.addAnnotation("sourcevertexhash", v4.getAnnotation("hash"));
-        e3.addAnnotation("destinationvertexhash", v2.getAnnotation("hash"));
+        e3.addAnnotation("childVertexhash", v4.getAnnotation("hash"));
+        e3.addAnnotation("parentVertexhash", v2.getAnnotation("hash"));
         e3.addAnnotation("edgeid", "3");
         graph.putEdge(e3);
 
@@ -122,8 +122,8 @@ class SQLTest {
         e4.removeAnnotation("type");
         e4.addAnnotation("type", "WasDerivedFrom");
         e4.addAnnotation("hash", Integer.toString(e4.hashCode()));
-        e4.addAnnotation("sourcevertexhash", v4.getAnnotation("hash"));
-        e4.addAnnotation("destinationvertexhash", v3.getAnnotation("hash"));
+        e4.addAnnotation("childVertexhash", v4.getAnnotation("hash"));
+        e4.addAnnotation("parentVertexhash", v3.getAnnotation("hash"));
         e4.addAnnotation("edgeid", "4");
         graph.putEdge(e4);
 
@@ -141,8 +141,8 @@ class SQLTest {
         e5.removeAnnotation("type");
         e5.addAnnotation("type", "WasControlledBy");
         e5.addAnnotation("hash", Integer.toString(e5.hashCode()));
-        e5.addAnnotation("sourcevertexhash", v1.getAnnotation("hash"));
-        e5.addAnnotation("destinationvertexhash", v5.getAnnotation("hash"));
+        e5.addAnnotation("childVertexhash", v1.getAnnotation("hash"));
+        e5.addAnnotation("parentVertexhash", v5.getAnnotation("hash"));
         e5.addAnnotation("edgeid", "5");
         graph.putEdge(e5);
 
@@ -150,8 +150,8 @@ class SQLTest {
         e6.removeAnnotation("type");
         e6.addAnnotation("type", "WasControlledBy");
         e6.addAnnotation("hash", Integer.toString(e6.hashCode()));
-        e6.addAnnotation("sourcevertexhash", v2.getAnnotation("hash"));
-        e6.addAnnotation("destinationvertexHhash", v5.getAnnotation("hash"));
+        e6.addAnnotation("childVertexhash", v2.getAnnotation("hash"));
+        e6.addAnnotation("parentVertexHhash", v5.getAnnotation("hash"));
         e6.addAnnotation("edgeid", "6");
         graph.putEdge(e6);
 

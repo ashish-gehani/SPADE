@@ -74,14 +74,14 @@ public class NoEphemeralReads extends AbstractTransformer {
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")
-					|| getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
+			if(getAnnotationSafe(newEdge.getChildVertex(), "subtype").equals("file")
+					|| getAnnotationSafe(newEdge.getParentVertex(), "subtype").equals("file")){
 				String operation = getAnnotationSafe(newEdge, "operation");
 				if(operation.equals("write") || operation.equals("writev") || operation.equals("pwrite64") || operation.equals("rename_write") || operation.equals("link_write") || operation.equals("symlink_write")){
-					if(fileWrittenBy.get(newEdge.getSourceVertex()) == null){
-						fileWrittenBy.put(newEdge.getSourceVertex(), new HashSet<String>());
+					if(fileWrittenBy.get(newEdge.getChildVertex()) == null){
+						fileWrittenBy.put(newEdge.getChildVertex(), new HashSet<String>());
 					}
-					fileWrittenBy.get(newEdge.getSourceVertex()).add(getAnnotationSafe(newEdge.getDestinationVertex(), "pid"));
+					fileWrittenBy.get(newEdge.getChildVertex()).add(getAnnotationSafe(newEdge.getParentVertex(), "pid"));
 				}
 			}
 		}
@@ -92,21 +92,21 @@ public class NoEphemeralReads extends AbstractTransformer {
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 			if((getAnnotationSafe(newEdge, "operation").equals("read") || getAnnotationSafe(newEdge, "operation").equals("readv") || 
 					getAnnotationSafe(newEdge, "operation").equals("pread64"))
-					&& getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
-				AbstractVertex vertex = newEdge.getDestinationVertex();
+					&& getAnnotationSafe(newEdge.getParentVertex(), "subtype").equals("file")){
+				AbstractVertex vertex = newEdge.getParentVertex();
 				String path = getAnnotationSafe(vertex, "path");
 				if(!pathEqualsVertex(path, queriedVertex)){ //if file passed as an argument then always log it otherwise check further
 					if(isPathInIgnoreFilesPattern(path)){ //if file is not in ignore list then always log it otherwise check further
 						if((fileWrittenBy.get(vertex) == null) || (fileWrittenBy.get(vertex).size() == 1 
-								&& fileWrittenBy.get(vertex).toArray()[0].equals(getAnnotationSafe(newEdge.getSourceVertex(), "pid")))){
+								&& fileWrittenBy.get(vertex).toArray()[0].equals(getAnnotationSafe(newEdge.getChildVertex(), "pid")))){
 							continue;
 						}
 					}
 				}
 			}
 		
-			resultGraph.putVertex(newEdge.getSourceVertex());
-			resultGraph.putVertex(newEdge.getDestinationVertex());
+			resultGraph.putVertex(newEdge.getChildVertex());
+			resultGraph.putVertex(newEdge.getParentVertex());
 			resultGraph.putEdge(newEdge);			
 		}
 		

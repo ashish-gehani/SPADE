@@ -37,8 +37,8 @@ public class WasAssociatedWith extends AbstractEdge {
      * @param agent Agent
      */
     public WasAssociatedWith(Activity activity, Agent agent) {
-        setSourceVertex(activity);
-        setDestinationVertex(agent);
+        setChildVertex(activity);
+        setParentVertex(agent);
         addAnnotation("type", "WasAssociatedWith");
     }
 }

@@ -37,8 +37,8 @@ public class WasGeneratedBy extends AbstractEdge {
      * @param activity Activity
      */
     public WasGeneratedBy(Entity entity, Activity activity) {
-        setSourceVertex(entity);
-        setDestinationVertex(activity);
+        setChildVertex(entity);
+        setParentVertex(activity);
         addAnnotation("type", "WasGeneratedBy");
     }
 }

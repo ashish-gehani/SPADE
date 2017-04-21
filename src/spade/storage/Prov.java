@@ -239,12 +239,12 @@ public class Prov extends AbstractStorage{
 	 * This function queries the underlying storage and retrieves the edge
 	 * matching the given criteria.
 	 *
-	 * @param sourceVertexHash      hash of the source vertex.
-	 * @param destinationVertexHash hash of the destination vertex.
+	 * @param childVertexHash      hash of the source vertex.
+	 * @param parentVertexHash hash of the destination vertex.
 	 * @return returns edge object matching the given vertices OR NULL.
 	 */
 	@Override
-	public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash) {
+	public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
 		return null;
 	}
 
@@ -278,11 +278,11 @@ public class Prov extends AbstractStorage{
 	 * A parent is defined as a vertex which is the destination of a
 	 * direct edge between itself and the given vertex.
 	 *
-	 * @param childHash hash of the given vertex
+	 * @param childVertexHash hash of the given vertex
 	 * @return returns graph object containing parents of the given vertex OR NULL.
 	 */
 	@Override
-	public Graph getParents(String childHash) {
+	public Graph getParents(String childVertexHash) {
 		return null;
 	}
 
@@ -351,8 +351,8 @@ public class Prov extends AbstractStorage{
 	}
 	
 	public String getSerializedEdge(AbstractEdge edge){
-		String srcVertexKey = DigestUtils.sha256Hex(edge.getSourceVertex().toString());
-		String destVertexKey = DigestUtils.sha256Hex(edge.getDestinationVertex().toString());
+		String srcVertexKey = DigestUtils.sha256Hex(edge.getChildVertex().toString());
+		String destVertexKey = DigestUtils.sha256Hex(edge.getParentVertex().toString());
 		String edgeString = null;
 		switch (provOutputFormat) {
 			case PROVO:

@@ -122,9 +122,9 @@ public class Control {
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
                         
-                        //ACK[exit] is only received here when sent by this client only. ACK[shutdown] is received here whenever any client sends a shutdown.
-                        if("ACK[shutdown]".equals(outputLine) || "ACK[exit]".equals(outputLine)){
-                        	if("ACK[shutdown]".equals(outputLine)){
+                        //ACK[exit] is only received here when sent by this client only. ACK[KERNEL_SHUTDOWN] is received here whenever any client sends a KERNEL_SHUTDOWN.
+                        if("ACK[KERNEL_SHUTDOWN]".equals(outputLine) || "ACK[exit]".equals(outputLine)){
+                        	if("ACK[KERNEL_SHUTDOWN]".equals(outputLine)){
                         		outputStream.println("Shutting down... done");
                         	}
                         	shutdown = true;
@@ -215,8 +215,8 @@ public class Control {
                 if (line == null || line.equalsIgnoreCase("exit")) {
                     SPADEControlIn.println("exit");
                     break;
-                } else if (line.equalsIgnoreCase("shutdown")) {
-                    SPADEControlIn.println("shutdown");
+                } else if (line.equalsIgnoreCase("KERNEL_SHUTDOWN")) {
+                    SPADEControlIn.println("KERNEL_SHUTDOWN");
                     break;
                 } else {
                     SPADEControlIn.println(line);

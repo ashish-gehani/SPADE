@@ -41,21 +41,21 @@ public class GraphFinesse extends AbstractFilter {
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
-        AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
-        if (edges.containsKey(sourceVertex)) {
-            HashSet<AbstractVertex> checkSet = edges.get(sourceVertex);
-            if (checkSet.contains(destinationVertex)) {
+        AbstractVertex childVertex = incomingEdge.getChildVertex();
+        AbstractVertex parentVertex = incomingEdge.getParentVertex();
+        if (edges.containsKey(childVertex)) {
+            HashSet<AbstractVertex> checkSet = edges.get(childVertex);
+            if (checkSet.contains(parentVertex)) {
                 return;
             }
         }
 
-        if (edges.get(destinationVertex) == null) {
+        if (edges.get(parentVertex) == null) {
             HashSet<AbstractVertex> tempSet = new HashSet<>();
-            tempSet.add(sourceVertex);
-            edges.put(destinationVertex, tempSet);
-            if (edges.containsKey(sourceVertex)) {
-                HashSet<AbstractVertex> copytempSet = edges.get(sourceVertex);
+            tempSet.add(childVertex);
+            edges.put(parentVertex, tempSet);
+            if (edges.containsKey(childVertex)) {
+                HashSet<AbstractVertex> copytempSet = edges.get(childVertex);
                 Iterator iterator = copytempSet.iterator();
                 while (iterator.hasNext()) {
                     tempSet.add((AbstractVertex) iterator.next());
@@ -63,10 +63,10 @@ public class GraphFinesse extends AbstractFilter {
             }
             putInNextFilter(incomingEdge);
         } else {
-            HashSet<AbstractVertex> tempSet = edges.get(destinationVertex);
-            if (tempSet.add(sourceVertex)) {
-                if (edges.containsKey(sourceVertex)) {
-                    HashSet<AbstractVertex> copytempSet = edges.get(sourceVertex);
+            HashSet<AbstractVertex> tempSet = edges.get(parentVertex);
+            if (tempSet.add(childVertex)) {
+                if (edges.containsKey(childVertex)) {
+                    HashSet<AbstractVertex> copytempSet = edges.get(childVertex);
                     Iterator iterator = copytempSet.iterator();
                     while (iterator.hasNext()) {
                         tempSet.add((AbstractVertex) iterator.next());

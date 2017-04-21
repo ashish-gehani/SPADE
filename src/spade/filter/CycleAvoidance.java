@@ -40,18 +40,18 @@ public class CycleAvoidance extends AbstractFilter {
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
-        AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
-        if (ancestors.containsKey(destinationVertex)) {
-            HashSet<AbstractVertex> tempSet = ancestors.get(destinationVertex);
-            if (tempSet.contains(sourceVertex) == false) {
-                tempSet.add(sourceVertex);
+        AbstractVertex childVertex = incomingEdge.getChildVertex();
+        AbstractVertex parentVertex = incomingEdge.getParentVertex();
+        if (ancestors.containsKey(parentVertex)) {
+            HashSet<AbstractVertex> tempSet = ancestors.get(parentVertex);
+            if (tempSet.contains(childVertex) == false) {
+                tempSet.add(childVertex);
                 putInNextFilter(incomingEdge);
             }
         } else {
             HashSet<AbstractVertex> tempSet = new HashSet<>();
-            tempSet.add(sourceVertex);
-            ancestors.put(destinationVertex, tempSet);
+            tempSet.add(childVertex);
+            ancestors.put(parentVertex, tempSet);
             putInNextFilter(incomingEdge);
         }
     }

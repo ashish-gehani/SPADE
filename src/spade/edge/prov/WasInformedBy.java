@@ -36,8 +36,8 @@ public class WasInformedBy extends AbstractEdge {
      * @param informingActivity Calling activity vertex
      */
     public WasInformedBy(Activity informedActivity, Activity informingActivity) {
-        setSourceVertex(informedActivity);
-        setDestinationVertex(informingActivity);
+        setChildVertex(informedActivity);
+        setParentVertex(informingActivity);
         addAnnotation("type", "WasInformedBy");
     }
 }

@@ -75,8 +75,8 @@ public class Blacklist extends AbstractFilter{
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
 		if(incomingEdge != null){
-			if(!isVertexInExclusionPattern(incomingEdge.getSourceVertex()) 
-					&& !isVertexInExclusionPattern(incomingEdge.getDestinationVertex())){
+			if(!isVertexInExclusionPattern(incomingEdge.getChildVertex())
+					&& !isVertexInExclusionPattern(incomingEdge.getParentVertex())){
 				super.putInNextFilter(incomingEdge);
 			}
 		}

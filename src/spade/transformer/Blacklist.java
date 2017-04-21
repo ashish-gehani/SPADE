@@ -61,8 +61,8 @@ public class Blacklist extends AbstractTransformer{
 		}
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			String srcFilepath = getAnnotationSafe(edge.getSourceVertex(), "path");
-			String dstFilepath = getAnnotationSafe(edge.getDestinationVertex(), "path");
+			String srcFilepath = getAnnotationSafe(edge.getChildVertex(), "path");
+			String dstFilepath = getAnnotationSafe(edge.getParentVertex(), "path");
 			if(!(fileEqualsVertex(srcFilepath, queriedVertex) || fileEqualsVertex(dstFilepath, queriedVertex))){
 				if(isFileToBeRemoved(srcFilepath) 
 					|| isFileToBeRemoved(dstFilepath)){
@@ -70,9 +70,9 @@ public class Blacklist extends AbstractTransformer{
 				}
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

@@ -19,8 +19,12 @@
  */
 package spade.storage;
 
-import java.sql.*;
-
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
@@ -29,7 +33,13 @@ import java.util.HashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.core.*;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Cache;
+import spade.core.Edge;
+import spade.core.Graph;
+import spade.core.Vertex;
 
 
 /**
@@ -37,12 +47,12 @@ import spade.core.*;
  *
  * @author Dawood Tariq, Hasanat Kazmi and Raza Ahmad
  */
-public class SQL extends AbstractStorage {
-
+public class SQL extends AbstractStorage
+{
     private Connection dbConnection;
     private HashSet<String> vertexAnnotations;
     private HashSet<String> edgeAnnotations;
-    private final boolean ENABLE_SANITAZATION = true;
+    private static final boolean ENABLE_SANITAZATION = true;
     private static final String VERTEX_TABLE = "vertex";
     private static final String EDGE_TABLE = "edge";
     private static String DUPLICATE_COLUMN_ERROR_CODE;
@@ -128,8 +138,8 @@ public class SQL extends AbstractStorage {
                     + " "
                     + "UUID PRIMARY KEY, "
 //                    + "type VARCHAR(32) NOT NULL ," //TODO: remove comment
-                    + "sourceVertexHash UUID NOT NULL, "
-                    + "destinationVertexHash UUID NOT NULL "
+                    + "childVertexHash UUID NOT NULL, "
+                    + "parentHash UUID NOT NULL "
                     + ")";
             dbStatement.execute(createEdgeTable);
             query = "SELECT * FROM " + EDGE_TABLE + " WHERE false;";
@@ -182,7 +192,7 @@ public class SQL extends AbstractStorage {
      *
      * @return  returns the sanitized column name string.
      */
-    private String sanitizeColumn(String column)
+    public static String sanitizeColumn(String column)
     {
         if (ENABLE_SANITAZATION)
         {
@@ -190,6 +200,11 @@ public class SQL extends AbstractStorage {
         }
 
         return column;
+    }
+
+    public static String sanitizeString(String string)
+    {
+        return (ENABLE_SANITAZATION) ? string.replace("'", "\"") : string;
     }
 
     /**
@@ -265,29 +280,29 @@ public class SQL extends AbstractStorage {
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param sourceVertexHash      hash of the source vertex.
-     * @param destinationVertexHash hash of the destination vertex.
+     * @param childVertexHash      hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
-    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash)
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
-        if(!Cache.isPresent(sourceVertexHash) || !Cache.isPresent(destinationVertexHash))
+        if(!Cache.isPresent(childVertexHash) || !Cache.isPresent(parentVertexHash))
             return null;
 
         AbstractEdge edge = null;
         try
         {
             dbConnection.commit();
-            AbstractVertex sourceVertex = getVertex(sourceVertexHash);
-            AbstractVertex destinationVertex = getVertex(destinationVertexHash);
+            AbstractVertex childVertex = getVertex(childVertexHash);
+            AbstractVertex parentVertex = getVertex(parentVertexHash);
 
             String query = "SELECT * FROM " +
                     EDGE_TABLE +
-                    " WHERE sourceVertexHash = " +
-                    sourceVertexHash +
-                    " AND destinationVertexHash = " +
-                    destinationVertexHash;
+                    " WHERE childVertexHash = " +
+                    childVertexHash +
+                    " AND parentVertexHash = " +
+                    parentVertexHash;
             Statement vertexStatement = dbConnection.createStatement();
             ResultSet result = vertexStatement.executeQuery(query);
             ResultSetMetaData metadata = result.getMetaData();
@@ -301,7 +316,7 @@ public class SQL extends AbstractStorage {
 
             if(result.next())
             {
-                edge = new Edge(sourceVertex, destinationVertex);
+                edge = new Edge(childVertex, parentVertex);
                 for (int i = 1; i <= columnCount; i++)
                 {
                     String colName = columnLabels.get(i);
@@ -373,9 +388,9 @@ public class SQL extends AbstractStorage {
                 " WHERE " +
                 PRIMARY_KEY +
                 " IN " +
-                "(SELECT sourceVertexHash FROM " +
+                "(SELECT childVertexHash FROM " +
                 EDGE_TABLE +
-                " WHERE destinationVertexHash = " +
+                " WHERE parentVertexHash = " +
                 parentHash +
                 ")";
 
@@ -436,13 +451,13 @@ public class SQL extends AbstractStorage {
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childHash hash of the given vertex
+     * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childHash)
+    public Graph getParents(String childVertexHash)
     {
-        if(!Cache.isPresent(childHash))
+        if(!Cache.isPresent(childVertexHash))
             return null;
 
         Graph parents = null;
@@ -451,10 +466,10 @@ public class SQL extends AbstractStorage {
                 " WHERE " +
                 PRIMARY_KEY +
                 " IN(" +
-                "SELECT destinationVertexHash FROM " +
+                "SELECT parentVertexHash FROM " +
                 EDGE_TABLE +
-                " WHERE sourceVertexHash = " +
-                childHash +
+                " WHERE childVertexHash = " +
+                childVertexHash +
                 ")";
 
         parents.vertexSet().addAll(prepareVertexSetFromSQLResult(query));
@@ -479,8 +494,8 @@ public class SQL extends AbstractStorage {
         if(Cache.isPresent(edgeHash))
             return true;
 
-        String sourceVertexHash = incomingEdge.getSourceVertex().bigHashCode();
-        String destinationVertexHash = incomingEdge.getDestinationVertex().bigHashCode();
+        String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
+        String parentVertexHash = incomingEdge.getParentVertex().bigHashCode();
 
         // Use StringBuilder to build the SQL insert statement
         StringBuilder insertStringBuilder = new StringBuilder(100);
@@ -488,7 +503,7 @@ public class SQL extends AbstractStorage {
         insertStringBuilder.append(EDGE_TABLE);
         insertStringBuilder.append(" (");
         insertStringBuilder.append(PRIMARY_KEY);
-        insertStringBuilder.append(", sourceVertexHash, destinationVertexHash, ");
+        insertStringBuilder.append(", childVertexHash, parentVertexHash, ");
         for (String annotationKey : incomingEdge.getAnnotations().keySet())
         {
             // Sanitize column name to remove special characters
@@ -510,9 +525,9 @@ public class SQL extends AbstractStorage {
         // Add the hash code, and source and destination vertex Ids
         insertStringBuilder.append(edgeHash);
         insertStringBuilder.append("', '");
-        insertStringBuilder.append(sourceVertexHash);
+        insertStringBuilder.append(childVertexHash);
         insertStringBuilder.append("', '");
-        insertStringBuilder.append(destinationVertexHash);
+        insertStringBuilder.append(parentVertexHash);
         insertStringBuilder.append("', ");
 
         // Add the annotation values
@@ -610,5 +625,57 @@ public class SQL extends AbstractStorage {
         // cache the vertex successfully inserted in the storage
         Cache.addItem(incomingVertex);
         return true;
+    }
+
+    @Override
+    public ResultSet executeQuery(String query)
+    {
+        ResultSet result = null;
+        try
+        {
+            dbConnection.commit();
+            Statement queryStatement = dbConnection.createStatement();
+            result = queryStatement.executeQuery(query);
+        }
+        catch (SQLException ex)
+        {
+            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, "SQL query execution not successful!", ex);
+        }
+
+        return result;
+    }
+
+    public boolean vertexAnnotationIsPresent(String annotation)
+    {
+        if(vertexAnnotations.contains(annotation))
+            return true;
+        return false;
+    }
+
+    public boolean edgeAnnotationIsPresent(String annotation)
+    {
+        if(edgeAnnotations.contains(annotation))
+            return true;
+        return false;
+    }
+
+    public boolean addVertexAnnotation(String annotation)
+    {
+        if(!vertexAnnotationIsPresent(annotation))
+        {
+            vertexAnnotations.add(annotation);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean addEdgeAnnotation(String annotation)
+    {
+        if(!edgeAnnotationIsPresent(annotation))
+        {
+            edgeAnnotations.add(annotation);
+            return true;
+        }
+        return false;
     }
 }

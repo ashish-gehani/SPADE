@@ -37,8 +37,8 @@ public class Used extends AbstractEdge {
      * @param entity Entity
      */
     public Used(Activity activity, Entity entity) {
-        setSourceVertex(activity);
-        setDestinationVertex(entity);
+        setChildVertex(activity);
+        setParentVertex(entity);
         addAnnotation("type", "Used");
     }
 }

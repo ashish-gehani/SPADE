@@ -73,8 +73,8 @@ public class Datalog extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        long srcVertexId = vertexMapReversed.get(incomingEdge.getSourceVertex());
-        long dstVertexId = vertexMapReversed.get(incomingEdge.getDestinationVertex());
+        long srcVertexId = vertexMapReversed.get(incomingEdge.getChildVertex());
+        long dstVertexId = vertexMapReversed.get(incomingEdge.getParentVertex());
         datalogProgram.append("parent('").append(srcVertexId).append("', '").append(dstVertexId).append("')\r\n");
         return true;
     }
@@ -119,12 +119,12 @@ public class Datalog extends AbstractStorage {
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param sourceVertexHash      hash of the source vertex.
-     * @param destinationVertexHash hash of the destination vertex.
+     * @param childVertexHash      hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
-    public AbstractEdge getEdge(String sourceVertexHash, String destinationVertexHash) {
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
         return null;
     }
 
@@ -158,11 +158,11 @@ public class Datalog extends AbstractStorage {
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childHash hash of the given vertex
+     * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childHash) {
+    public Graph getParents(String childVertexHash) {
         return null;
     }
 

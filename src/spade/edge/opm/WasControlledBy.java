@@ -37,8 +37,8 @@ public class WasControlledBy extends AbstractEdge {
      * @param controllingAgent Agent vertex
      */
     public WasControlledBy(Process controlledProcess, Agent controllingAgent) {
-        setSourceVertex(controlledProcess);
-        setDestinationVertex(controllingAgent);
+        setChildVertex(controlledProcess);
+        setParentVertex(controllingAgent);
         addAnnotation("type", "WasControlledBy");
     }
 }

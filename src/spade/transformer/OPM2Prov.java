@@ -54,16 +54,16 @@ public class OPM2Prov extends AbstractTransformer{
 		Graph resultGraph = new Graph();
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 				String edgeType = getAnnotationSafe(edge, "type");
-				String srcType = getAnnotationSafe(edge.getSourceVertex(), "type");
-				String dstType = getAnnotationSafe(edge.getDestinationVertex(), "type");
+				String srcType = getAnnotationSafe(edge.getChildVertex(), "type");
+				String dstType = getAnnotationSafe(edge.getParentVertex(), "type");
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 				newEdge.addAnnotation("type", getProvEdgeTypeEquivalentToOPMEdgeType(edgeType));
-				newEdge.getSourceVertex().addAnnotation("type", getProvVertexTypeEquivalentToOPMVertexType(srcType));
-				newEdge.getDestinationVertex().addAnnotation("type", getProvVertexTypeEquivalentToOPMVertexType(dstType));
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+				newEdge.getChildVertex().addAnnotation("type", getProvVertexTypeEquivalentToOPMVertexType(srcType));
+				newEdge.getParentVertex().addAnnotation("type", getProvVertexTypeEquivalentToOPMVertexType(dstType));
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

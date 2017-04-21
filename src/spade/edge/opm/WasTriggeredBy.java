@@ -36,8 +36,8 @@ public class WasTriggeredBy extends AbstractEdge {
      * @param callingProcess Calling process vertex
      */
     public WasTriggeredBy(Process triggeredProcess, Process callingProcess) {
-        setSourceVertex(triggeredProcess);
-        setDestinationVertex(callingProcess);
+        setChildVertex(triggeredProcess);
+        setParentVertex(callingProcess);
         addAnnotation("type", "WasTriggeredBy");
     }
 }

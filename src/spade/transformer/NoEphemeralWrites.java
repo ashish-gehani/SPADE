@@ -40,14 +40,14 @@ public class NoEphemeralWrites extends AbstractTransformer {
 			
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 		
-			if(getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")
-					|| getAnnotationSafe(newEdge.getDestinationVertex(), "subtype").equals("file")){
+			if(getAnnotationSafe(newEdge.getChildVertex(), "subtype").equals("file")
+					|| getAnnotationSafe(newEdge.getParentVertex(), "subtype").equals("file")){
 				String operation = getAnnotationSafe(newEdge, "operation");
 				if(operation.equals("read") || operation.equals("readv") || operation.equals("pread64")){
-					if(fileReadBy.get(newEdge.getDestinationVertex()) == null){
-						fileReadBy.put(newEdge.getDestinationVertex(), new HashSet<String>());
+					if(fileReadBy.get(newEdge.getParentVertex()) == null){
+						fileReadBy.put(newEdge.getParentVertex(), new HashSet<String>());
 					}
-					fileReadBy.get(newEdge.getDestinationVertex()).add(getAnnotationSafe(newEdge.getSourceVertex(), "pid"));
+					fileReadBy.get(newEdge.getParentVertex()).add(getAnnotationSafe(newEdge.getChildVertex(), "pid"));
 				}
 			}			
 		}
@@ -59,15 +59,15 @@ public class NoEphemeralWrites extends AbstractTransformer {
 			if((getAnnotationSafe(newEdge, "operation").equals("writev") || getAnnotationSafe(newEdge, "operation").equals("write") || 
 					getAnnotationSafe(newEdge, "operation").equals("pwrite64") || getAnnotationSafe(newEdge, "operation").equals("rename_write") || getAnnotationSafe(newEdge, "operation").equals("link_write")
 					|| getAnnotationSafe(newEdge, "operation").equals("symlink_write"))
-					&& getAnnotationSafe(newEdge.getSourceVertex(), "subtype").equals("file")){
-				AbstractVertex vertex = newEdge.getSourceVertex();
+					&& getAnnotationSafe(newEdge.getChildVertex(), "subtype").equals("file")){
+				AbstractVertex vertex = newEdge.getChildVertex();
 				if((fileReadBy.get(vertex) == null) || (fileReadBy.get(vertex).size() == 1 
-						&& fileReadBy.get(vertex).toArray()[0].equals(getAnnotationSafe(newEdge.getDestinationVertex(), "pid")))){
+						&& fileReadBy.get(vertex).toArray()[0].equals(getAnnotationSafe(newEdge.getParentVertex(), "pid")))){
 					continue; 
 				}
 			}		
-			resultGraph.putVertex(newEdge.getSourceVertex());
-			resultGraph.putVertex(newEdge.getDestinationVertex());
+			resultGraph.putVertex(newEdge.getChildVertex());
+			resultGraph.putVertex(newEdge.getParentVertex());
 			resultGraph.putEdge(newEdge);
 		}
 		

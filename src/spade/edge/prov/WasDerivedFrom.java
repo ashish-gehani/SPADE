@@ -36,8 +36,8 @@ public class WasDerivedFrom extends AbstractEdge {
      * @param destinationEntity Destination entity vertex
      */
     public WasDerivedFrom(Entity sourceEntity, Entity destinationEntity) {
-        setSourceVertex(sourceEntity);
-        setDestinationVertex(destinationEntity);
+        setChildVertex(sourceEntity);
+        setParentVertex(destinationEntity);
         addAnnotation("type", "WasDerivedFrom");
     }
 }
