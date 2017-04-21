@@ -26,7 +26,7 @@ public enum SYSCALL {
 	LOAD, // Used for linked libraries when an execve happens (not an actual system call)
 	SETUID, SETREUID, SETRESUID,
 	MMAP, MMAP2, MPROTECT,
-	BIND, ACCEPT, ACCEPT4, CONNECT, 
+	BIND, ACCEPT, ACCEPT4, CONNECT, SOCKET, 
 	SENDTO, SENDMSG, RECVFROM, RECVMSG, 
 	SEND, // Used for grouping SENDTO and SENDMSG system call (not an actual system call) 
 	RECV, // Used for grouping RECVFROM and RECVMSG system call (not an actual system call)
@@ -35,7 +35,7 @@ public enum SYSCALL {
 	OPEN, OPENAT, MKNOD, MKNODAT, CREAT, CLOSE, 
 	CREATE, // Used for grouping CREAT and OPEN system call where OPEN creates the file (not an actual system call) 
 	UPDATE, // Used for version update edges between artifacts
-	READ, READV, PREAD64, WRITE, WRITEV, PWRITE64, 
+	READ, READV, PREAD, PREADV, WRITE, WRITEV, PWRITE, PWRITEV, 
 	SYMLINK, SYMLINKAT, LINK, LINKAT, 
 	UNLINK, UNLINKAT,		
 	RENAME, RENAMEAT,
@@ -46,7 +46,6 @@ public enum SYSCALL {
 	PIPE, PIPE2, 
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
-
 	public static SYSCALL getSyscall(int syscallNum, int arch){
 		if(arch == 32){
 			return get32BitSyscall(syscallNum);
@@ -62,57 +61,61 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch (syscallNum) {
-			case 0: return READ;
-			case 1: return WRITE;
-			case 2: return OPEN;
-			case 3: return CLOSE;
-			case 9: return MMAP;
-			case 10: return MPROTECT;
-			case 17: return PREAD64;
-			case 18: return PWRITE64;
-			case 19: return READV;
-			case 20: return WRITEV;
-			case 22: return PIPE;
-			case 32: return DUP;
-			case 33: return DUP2;
-			case 42: return CONNECT;
-			case 43: return ACCEPT;
-			case 44: return SENDTO;
-			case 45: return RECVFROM;
-			case 46: return SENDMSG;
-			case 47: return RECVMSG;
-			case 49: return BIND;
-			case 56: return CLONE;
-			case 57: return VFORK;
-			case 58: return FORK;
-			case 59: return EXECVE;
-			case 60: return EXIT;
-			case 62: return KILL;
-			case 76: return TRUNCATE;	
-			case 77: return FTRUNCATE;	
-			case 82: return RENAME;
-			case 85: return CREAT;
-			case 86: return LINK;
-			case 87: return UNLINK;
-			case 88: return SYMLINK;
-			case 90: return CHMOD;	
-			case 91: return FCHMOD;
-			case 105: return SETUID;
-			case 113: return SETREUID;
-			case 117: return SETRESUID;
-			case 133: return MKNOD;
-			case 231: return EXIT_GROUP;
-			case 257: return OPENAT;
-			case 259: return MKNODAT;  
-			case 263: return UNLINKAT;
-			case 264: return RENAMEAT;
-			case 265: return LINKAT;
-			case 266: return SYMLINKAT;
-			case 268: return FCHMODAT;
-			case 288: return ACCEPT4;
-			case 292: return DUP3;
-			case 293: return PIPE2;
-			default: return UNSUPPORTED;
+			
+			case 43:	return ACCEPT;
+			case 288:	return ACCEPT4;
+			case 49:	return BIND;
+			case 90:	return CHMOD;
+			case 85:	return CREAT;
+			case 3:		return CLOSE;
+			case 56:	return CLONE;
+			case 42:	return CONNECT;
+			case 32:	return DUP;
+			case 33:	return DUP2;
+			case 292:	return DUP3;
+			case 59:	return EXECVE;
+			case 60:	return EXIT;
+			case 231:	return EXIT_GROUP;	
+			case 91:	return FCHMOD;
+			case 268:	return FCHMODAT;
+			case 58:	return FORK;
+			case 77:	return FTRUNCATE;
+			case 62:	return KILL;
+			case 86:	return LINK;
+			case 265:	return LINKAT;
+			case 133:	return MKNOD;
+			case 259:	return MKNODAT;
+			case 9:		return MMAP;
+			case 10:	return MPROTECT;
+			case 2:		return OPEN;
+			case 257:	return OPENAT;
+			case 22:	return PIPE;
+			case 293:	return PIPE2;
+			case 17:	return PREAD;
+			case 295:	return PREADV;
+			case 18:	return PWRITE;
+			case 296:	return PWRITEV;
+			case 0:		return READ;
+			case 19:	return READV;
+			case 45:	return RECVFROM;
+			case 47:	return RECVMSG;
+			case 82:	return RENAME;
+			case 264:	return RENAMEAT;
+			case 46:	return SENDMSG;
+			case 44:	return SENDTO;
+			case 105:	return SETUID;
+			case 113:	return SETREUID;
+			case 117:	return SETRESUID;
+			case 41:	return SOCKET;
+			case 88:	return SYMLINK;
+			case 266:	return SYMLINKAT;
+			case 76:	return TRUNCATE;	
+			case 87:	return UNLINK;
+			case 263:	return UNLINKAT;
+			case 57:	return VFORK;
+			case 1:		return WRITE;
+			case 20:	return WRITEV;
+			default:	return UNSUPPORTED;
 		}
 	}
 
@@ -148,8 +151,10 @@ public enum SYSCALL {
 			case 129: return KILL;
 			case 145: return READV;
 			case 146: return WRITEV;			
-			case 180: return PREAD64;
-			case 181: return PWRITE64;
+			case 180: return PREAD;
+			case 333: return PREADV;
+			case 181: return PWRITE;
+			case 334: return PWRITEV;
 			case 190: return VFORK;
 			case 192: return MMAP2;
 			case 203: return SETREUID;

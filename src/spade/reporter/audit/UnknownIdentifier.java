@@ -43,14 +43,13 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-//		annotations.put("pid", pid); //TODO
-//		annotations.put("fd", fd);
-		annotations.put("path", "/pid/"+pid+"/fd/"+fd);
+		annotations.put(OPMConstants.ARTIFACT_PID, pid);
+		annotations.put(OPMConstants.ARTIFACT_FD, fd);
 		return annotations;
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_UNKNOWN;
+		return OPMConstants.SUBTYPE_UNKNOWN;
 	}
 	
 	@Override

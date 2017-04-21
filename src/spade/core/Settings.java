@@ -51,6 +51,7 @@ public class Settings {
             setProperty("storage_identifier", "storageID");
             setProperty("default_query_storage", "Neo4j");
             setProperty("neo4j_webserver", "true");
+            setProperty("logger_level", Level.ALL.getName());
 
             // override certain settings if the settings file is present
             prop.load(new FileInputStream(settingsFile));

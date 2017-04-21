@@ -26,7 +26,7 @@ public class NamedPipeIdentifier extends IdentifierWithPath{
 	}
 	
 	public String getSubtype(){
-		return SUBTYPE_PIPE;
+		return OPMConstants.SUBTYPE_NAMED_PIPE;
 	}
 	
 }
