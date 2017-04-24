@@ -968,7 +968,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 						ptr = strstr(buf, " exit=");
 						ret = strtol(ptr+6, NULL, 10);
 						time = get_timestamp_int(buf);
-						fprintf(stderr," clone: pid %ld, time %d.000\n", ret, time);
 						set_pid(ret, tid, time);
 				}
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
