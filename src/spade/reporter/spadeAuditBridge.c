@@ -55,6 +55,92 @@ char filePath[256];
 char dirPath[256];
 char dirTimeBuf[256];
 time_t dirTime = 0;
+int *thread_create_time;
+
+// UBSI Unit analysis
+#include <assert.h>
+#include "uthash.h"
+#define UENTRY 0xffffff9c
+#define UEXIT 0xffffff9b
+#define MREAD1 0xffffff38
+#define MREAD2 0xffffff37
+#define MWRITE1 0xfffffed4
+#define MWRITE2 0xfffffed3
+
+typedef int bool;
+#define true 1
+#define false 0
+
+typedef struct thread_unit_t {
+		int tid;
+		int loopid; // loopid. in the output, we call this unitid.
+		int iteration;
+		double timestamp; // loop start time. Not iteration start.
+		int count; // if two or more loops starts at the same timestamp. We use count to distinguish them.
+} thread_unit_t;
+
+typedef struct link_unit_t { // list of dependent units
+		thread_unit_t id;
+		UT_hash_handle hh;
+} link_unit_t;
+
+typedef struct mem_proc_t {
+		long int addr;
+		thread_unit_t last_written_unit;
+		UT_hash_handle hh;
+} mem_proc_t;
+
+typedef struct mem_unit_t {
+		long int addr;
+		UT_hash_handle hh;
+} mem_unit_t;
+
+typedef struct thread_t {
+		int tid; // pid in auditlog which is actually thread_id.
+		int time; // thread creation time in second. uthash_t cannot handle double (or long) in a key structure.
+} thread_t;
+
+typedef struct unit_table_t {
+		thread_t thread;
+//		int tid; // pid in auditlog which is actually thread_id.
+		int pid; // process id.  (main thread id)
+		thread_unit_t cur_unit;
+		bool valid; // is valid unit?
+		long int r_addr;
+		long int w_addr;
+		link_unit_t *link_unit;
+		mem_proc_t *mem_proc;
+		mem_unit_t *mem_unit; // mem_write_record in the unit
+		char proc[1024];
+		UT_hash_handle hh;
+} unit_table_t;
+
+typedef struct event_buf_t {
+		int id;
+		int event_byte;
+		char *event;
+		UT_hash_handle hh;
+} event_buf_t;
+
+// Equality check is done using only tid, unitid, and iteration
+typedef struct iteration_count_t{
+	int tid;
+	int unitid;
+	int iteration;
+	int count;
+} iteration_count_t;
+
+// Maximum iterations that can be buffered during a single timestamp
+#define iteration_count_buffer_size 1000
+// Total number of iterations so far in the iteration_count buffer
+int current_time_iterations_index = 0;
+// A buffer to keep iteration_count objects for iterations
+iteration_count_t current_time_iterations[iteration_count_buffer_size];
+// To keep track of whenever the timestamp changes on audit records
+double last_time = -1;
+
+unit_table_t *unit_table;
+event_buf_t *event_buf;
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -379,6 +465,7 @@ void dir_read()
 }
 
 int main(int argc, char *argv[]) {
+		int max_pid, i;
 		char *programName = argv[0];
 		int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
 		char buffer[BUFFER_LENGTH];
@@ -394,6 +481,13 @@ int main(int argc, char *argv[]) {
 		signal(SIGKILL, UBSI_sig_handler);
 		signal(SIGTERM, UBSI_sig_handler);
 
+		max_pid = get_max_pid() + 1;
+		max_pid = max_pid*2;
+		thread_create_time = (int*) malloc(sizeof(int)*max_pid);
+		for(i = 0; i < max_pid; i++) {
+				thread_create_time[i] = 0;
+		}
+
 		if(socketRead) socket_read(programName);
 		else if(fileRead) read_file_path();
 		else if(dirRead) dir_read();
@@ -401,85 +495,6 @@ int main(int argc, char *argv[]) {
 
 		return 0;
 }
-
-// UBSI Unit analysis
-#include <assert.h>
-#include "uthash.h"
-#define UENTRY 0xffffff9c
-#define UEXIT 0xffffff9b
-#define MREAD1 0xffffff38
-#define MREAD2 0xffffff37
-#define MWRITE1 0xfffffed4
-#define MWRITE2 0xfffffed3
-
-typedef int bool;
-#define true 1
-#define false 0
-
-typedef struct thread_unit_t {
-		int tid;
-		int loopid; // loopid. in the output, we call this unitid.
-		int iteration;
-		double timestamp; // loop start time. Not iteration start.
-		int count; // if two or more loops starts at the same timestamp. We use count to distinguish them.
-} thread_unit_t;
-
-typedef struct link_unit_t { // list of dependent units
-		thread_unit_t id;
-		UT_hash_handle hh;
-} link_unit_t;
-
-typedef struct mem_proc_t {
-		long int addr;
-		thread_unit_t last_written_unit;
-		UT_hash_handle hh;
-} mem_proc_t;
-
-typedef struct mem_unit_t {
-		long int addr;
-		UT_hash_handle hh;
-} mem_unit_t;
-
-typedef struct unit_table_t {
-		int tid; // pid in auditlog which is actually thread_id.
-		int pid; // process id.  (main thread id)
-		thread_unit_t cur_unit;
-		bool valid; // is valid unit?
-		long int r_addr;
-		long int w_addr;
-		link_unit_t *link_unit;
-		mem_proc_t *mem_proc;
-		mem_unit_t *mem_unit; // mem_write_record in the unit
-		char proc[1024];
-		UT_hash_handle hh;
-} unit_table_t;
-
-typedef struct event_buf_t {
-		int id;
-		int event_byte;
-		char *event;
-		UT_hash_handle hh;
-} event_buf_t;
-
-// Equality check is done using only tid, unitid, and iteration
-typedef struct iteration_count_t{
-	int tid;
-	int unitid;
-	int iteration;
-	int count;
-}iteration_count_t;
-
-// Maximum iterations that can be buffered during a single timestamp
-#define iteration_count_buffer_size 1000
-// Total number of iterations so far in the iteration_count buffer
-int current_time_iterations_index = 0;
-// A buffer to keep iteration_count objects for iterations
-iteration_count_t current_time_iterations[iteration_count_buffer_size];
-// To keep track of whenever the timestamp changes on audit records
-double last_time = -1;
-
-unit_table_t *unit_table;
-event_buf_t *event_buf;
 
 /*
  * Checks if an iteration exists with the arguments provided
@@ -540,6 +555,19 @@ bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 		return false;
 }
 
+int get_timestamp_int(char *buf)
+{
+		char *ptr;
+		int time;
+
+		ptr = strstr(buf, "(");
+		if(ptr == NULL) return 0;
+
+		sscanf(ptr+1, "%d", &time);
+
+		return time;
+}
+
 double get_timestamp(char *buf)
 {
 		char *ptr;
@@ -579,8 +607,8 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 		
 		rc = printf("%s", buf);
 		if(print_unit) {
-				rc += printf(" unit=(pid=%d unitid=%d iteration=%d time=%.3lf count=%d) "
-							,ut->cur_unit.tid, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
+				rc += printf(" unit=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d) "
+							,ut->cur_unit.tid, ut->thread.time, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
 		if(print_proc) {
@@ -650,7 +678,7 @@ void loop_exit(unit_table_t *unit)
 void unit_entry(unit_table_t *unit, long a1, char* buf)
 {
 		char tmp[10240];
-		int tid = unit->tid;
+		int tid = unit->thread.tid;
 		double time;
 		long eventid;
 
@@ -728,8 +756,10 @@ void proc_group_end(unit_table_t *unit)
 		int pid = unit->pid;
 		unit_table_t *pt;
 
-		if(pid != unit->tid) {
-				HASH_FIND_INT(unit_table, &pid, pt);
+		if(pid != unit->thread.tid) {
+				thread_t th;  th.tid = pid; th.time = thread_create_time[pid];
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				//HASH_FIND_INT(unit_table, &pid, pt);
 				proc_end(pt);
 		}
 
@@ -760,9 +790,11 @@ void mem_write(unit_table_t *ut, long int addr)
 		// add it into process memory map
 		int pid = ut->pid;
 		unit_table_t *pt;
-		if(pid == ut->tid) pt = ut;
+		if(pid == ut->thread.tid) pt = ut;
 		else {
-				HASH_FIND_INT(unit_table, &pid, pt);
+				thread_t th;  th.tid = pid; th.time = thread_create_time[pid];
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
 						assert(1);
 				}
@@ -784,9 +816,11 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 {
 		int pid = ut->pid;
 		unit_table_t *pt;
-		if(pid == ut->tid) pt = ut;
+		if(pid == ut->thread.tid) pt = ut;
 		else {
-				HASH_FIND_INT(unit_table, &pid, pt);
+				thread_t th;  th.tid = pid; th.time = thread_create_time[pid];
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
 						assert(1);
 				}
@@ -815,7 +849,9 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 {
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
-		ut->tid = tid;
+		//ut->tid = tid;
+		ut->thread.tid = tid;
+		ut->thread.time = thread_create_time[tid];
 		ut->pid = pid;
 		ut->valid = valid;
 
@@ -828,35 +864,44 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->link_unit = NULL;
 		ut->mem_proc = NULL;
 		ut->mem_unit = NULL;
-		HASH_ADD_INT(unit_table, tid, ut);
+		//HASH_ADD_INT(unit_table, tid, ut);
+		HASH_ADD(hh, unit_table, thread, sizeof(thread_t), ut);
 		return ut;
 }
 
-void set_pid(int tid, int pid)
+void set_pid(int tid, int pid, int time)
 {
 		struct unit_table_t *ut;
 		int ppid;
 
-		HASH_FIND_INT(unit_table, &pid, ut);  /* looking for parent thread's pid */
+		thread_create_time[tid] = time; /* set thread_create_time */
+
+		thread_t th; th.tid = pid; th.time = thread_create_time[pid];
+		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* looking for parent thread's pid */
+		//HASH_FIND_INT(unit_table, &pid, ut);  /* looking for parent thread's pid */
+
 		if(ut == NULL) ppid = pid;
 		else ppid = ut->pid;
 
 		ut = NULL;
 
-		HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
+		th.tid = tid; th.time = thread_create_time[tid];
+		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* id already in the hash? */
+		//HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
 				ut = add_unit(tid, ppid, 0); 
 		} else {
 				ut->pid = ppid;
 		}
-
 }
 
 void UBSI_event(long tid, long a0, long a1, char *buf)
 {
 		int isNewUnit = 0;
 		struct unit_table_t *ut;
-		HASH_FIND_INT(unit_table, &tid, ut);
+		thread_t th;  th.tid = tid; th.time = thread_create_time[tid];
+		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
+		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
 				isNewUnit = 1;
@@ -899,11 +944,13 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		char *ptr;
 		long a2;
 		long ret;
+		int time;
 
 		struct unit_table_t *ut;
 
-
-		HASH_FIND_INT(unit_table, &tid, ut);
+		thread_t th;  th.tid = tid; th.time = thread_create_time[tid];
+		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
+		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
 				ut = add_unit(tid, tid, 0);
@@ -920,7 +967,8 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				if(a2 > 0) { // thread_creat event
 						ptr = strstr(buf, " exit=");
 						ret = strtol(ptr+6, NULL, 10);
-						set_pid(ret, tid);
+						time = get_timestamp_int(buf);
+						set_pid(ret, tid, time);
 				}
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
 				if(sysno == 231) { // exit_group call
@@ -1112,4 +1160,14 @@ void UBSI_sig_handler(int signo)
 		} else {
 				// ignore the signal and the process continues until the end of the input stream/file.
 		}
+}
+
+int get_max_pid()
+{
+		int max_pid;
+	 FILE *fp = fopen("/proc/sys/kernel/pid_max", "r");
+		fscanf(fp, "%d", &max_pid);
+		fclose(fp);
+
+		return max_pid;
 }
