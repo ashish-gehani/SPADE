@@ -20,9 +20,8 @@ import java.util.logging.Logger;
  */
 public abstract class AbstractAnalyzer
 {
-    public static final String ANALYZER_EXIT = "exit";
 
-    protected static String QUERY_PORT;
+    public String QUERY_PORT;
     protected RemoteResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
 
