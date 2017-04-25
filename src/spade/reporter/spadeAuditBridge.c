@@ -73,6 +73,7 @@ typedef int bool;
 
 typedef struct thread_unit_t {
 		int tid;
+		int threadtime; // thread start time in second.
 		int loopid; // loopid. in the output, we call this unitid.
 		int iteration;
 		double timestamp; // loop start time. Not iteration start.
@@ -547,6 +548,7 @@ void reset_current_time_iteration_counts(){
 bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 {
 		if(u1.tid == u2.tid && 
+				 u1.threadtime == u2.threadtime &&
 					u1.loopid == u2.loopid &&
 					u1.iteration == u2.iteration &&
 					u1.timestamp == u2.timestamp &&
@@ -728,8 +730,8 @@ void unit_end(unit_table_t *unit, long a1)
 						sprintf(buf, "type=UBSI_DEP list=\"");
 						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
 								// < 200 bytes,
-								sprintf(buf+strlen(buf), "(pid=%d unitid=%d iteration=%d time=%.3lf count=%d),"
-								,ut->id.tid, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
+								sprintf(buf+strlen(buf), "(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d),"
+								,ut->id.tid, ut->id.threadtime, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
 						}
 						sprintf(buf+strlen(buf), "\" ");
 						emit_log(unit, buf, true, true);
@@ -856,6 +858,7 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->valid = valid;
 
 		ut->cur_unit.tid = tid;
+		ut->cur_unit.threadtime = thread_create_time[tid];
 		ut->cur_unit.loopid = 0;
 		ut->cur_unit.iteration = 0;
 		ut->cur_unit.timestamp = 0;
@@ -869,12 +872,10 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		return ut;
 }
 
-void set_pid(int tid, int pid, int time)
+void set_pid(int tid, int pid)
 {
 		struct unit_table_t *ut;
 		int ppid;
-
-		thread_create_time[tid] = time; /* set thread_create_time */
 
 		thread_t th; th.tid = pid; th.time = thread_create_time[pid];
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* looking for parent thread's pid */
@@ -962,13 +963,12 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		{
 				ptr = strstr(buf, " a2=");
 				a2 = strtol(ptr+4, NULL, 16);
+				ptr = strstr(buf, " exit=");
+				ret = strtol(ptr+6, NULL, 10);
 
-
+				thread_create_time[ret] = get_timestamp_int(buf); /* set thread_create_time */
 				if(a2 > 0) { // thread_creat event
-						ptr = strstr(buf, " exit=");
-						ret = strtol(ptr+6, NULL, 10);
-						time = get_timestamp_int(buf);
-						set_pid(ret, tid, time);
+						set_pid(ret, tid);
 				}
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
 				if(sysno == 231) { // exit_group call
