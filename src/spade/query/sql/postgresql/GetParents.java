@@ -14,6 +14,11 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
  */
 public class GetParents extends PostgreSQL<Graph, Map<String, List<String>>>
 {
+    public GetParents()
+    {
+        register();
+    }
+
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {

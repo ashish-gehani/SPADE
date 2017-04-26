@@ -16,6 +16,11 @@ import java.util.logging.Logger;
  */
 public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<String>>>
 {
+    public GetVertex()
+    {
+        register();
+    }
+
     @Override
     public Set<AbstractVertex> execute(Map<String, List<String>> parameters, Integer limit)
     {

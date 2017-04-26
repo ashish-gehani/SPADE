@@ -1,17 +1,16 @@
 package spade.core;
 
 
+import spade.client.Dig;
 import spade.client.QueryParameters;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -29,13 +28,10 @@ public abstract class AbstractAnalyzer
     private static Map<String, List<String>> functionToClassMap;
 
     /**
-     * The following members relate to remoteFlag.
      * remoteFlag is used by query module to signal the Analyzer
      * to resolve any outstanding remote parts of result graph.
      */
     private static boolean remoteFlag = false;
-
-    public abstract void init();
 
     public static void setRemoteFlag()
     {
@@ -52,16 +48,57 @@ public abstract class AbstractAnalyzer
         return remoteFlag;
     }
 
+    public abstract void init();
+
+    public AbstractAnalyzer()
+    {
+        // load functionToClassMap here
+        String file_name = "cfg/functionToClassMap";
+        File file = new File(file_name);
+        try
+        {
+            FileOutputStream fos = new FileOutputStream(file);
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(functionToClassMap);
+            oos.close();
+        }
+        catch(IOException ex)
+        {
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!", ex);
+            // creating ourselves
+            functionToClassMap = new HashMap<>();
+            registerFunction("GetVertex", "spade.query.sql.postgresql.GetVertex", "Set<AbstractVertex>");
+            registerFunction("GetEdge", "spade.query.sql.postgresql.GetEdge", "Set<AbstractEdge>");
+            registerFunction("GetChildren", "spade.query.sql.postgresql.GetChildren", "Graph");
+            registerFunction("GetParents", "spade.query.sql.postgresql.GetParents", "Graph");
+            registerFunction("GetLineage", "spade.query.common.GetLineage", "Graph");
+            registerFunction("GetPaths", "spade.query.common.GetPaths", "Graph");
+        }
+    }
 
     public void shutdown()
     {
+        // store functionToClassMap here
+        String file_name = "cfg/functionToClassMap";
+        File file = new File(file_name);
+        try
+        {
+            FileInputStream fis = new FileInputStream(file);
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            functionToClassMap = (Map<String, List<String>>) ois.readObject();
+            ois.close();
+        }
+        catch(IOException | ClassNotFoundException ex)
+        {
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to write functionToClassMap to file!", ex);
+        }
+        // signal to analyzer instances
         SHUTDOWN = true;
     }
 
-
-    public static void registerFunction(String func, String class_, String ret)
+    public static void registerFunction(String func_name, String class_name, String ret_type)
     {
-        functionToClassMap.put(func, Arrays.asList(class_, ret));
+        functionToClassMap.put(func_name, Arrays.asList(class_name, ret_type));
     }
 
     public String getFunctionClassName(String functionName)
@@ -71,7 +108,7 @@ public abstract class AbstractAnalyzer
         List<String> values = functionToClassMap.get(functionName);
         if(values == null)
         {
-            // some policy here
+            values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
         }
 
         return values.get(0);
@@ -82,7 +119,7 @@ public abstract class AbstractAnalyzer
         List<String> values = functionToClassMap.get(functionName);
         if(values == null)
         {
-            // some policy here
+            values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
         }
 
         return values.get(1);

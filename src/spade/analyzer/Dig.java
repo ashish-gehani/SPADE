@@ -56,6 +56,7 @@ public class Dig extends AbstractAnalyzer
         QUERY_EXIT("exit");
 
         public String value;
+
         DigQueryCommands(String value)
         {
             this.value = value;
@@ -85,13 +86,11 @@ public class Dig extends AbstractAnalyzer
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
                     }
-                }
-                catch(SocketException exception)
+                } catch(SocketException exception)
                 {
                     //TODO: how?
                     // Do nothing... this is triggered on KERNEL_SHUTDOWN.
-                }
-                catch(NumberFormatException | IOException ex)
+                } catch(NumberFormatException | IOException ex)
                 {
                     Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -110,7 +109,7 @@ public class Dig extends AbstractAnalyzer
     {
         StringBuilder query = new StringBuilder(500);
         query.append("Available Commands: \n");
-        for(DigQueryCommands command: DigQueryCommands.values())
+        for(DigQueryCommands command : DigQueryCommands.values())
         {
             query.append("\t");
             query.append(command.value);
@@ -158,7 +157,7 @@ public class Dig extends AbstractAnalyzer
                                 if(isSetRemoteFlag())
                                 {
                                     //TODO: Could use a factory pattern here to get remote resolver
-                                    remoteResolver = new Naive((Graph)result, functionName, 0, null);
+                                    remoteResolver = new Naive((Graph) result, functionName, 0, null);
                                     Thread remoteResolverThread = new Thread(remoteResolver, "Naive-RemoteResolver");
                                     remoteResolverThread.start();
                                     // wait for thread to complete to get the final graph
@@ -172,14 +171,12 @@ public class Dig extends AbstractAnalyzer
                                 }
                                 queryOutputStream.writeObject(returnType);
                                 queryOutputStream.writeObject(result.toString());
-                            }
-                            else
+                            } else
                             {
                                 //TODO: Change the need for this too
                                 queryOutputStream.writeObject(getQueryCommands());
                             }
-                        }
-                        else
+                        } else
                         {
                             Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, "Return type mismatch!");
                         }
@@ -192,8 +189,7 @@ public class Dig extends AbstractAnalyzer
                 inStream.close();
                 outStream.close();
                 querySocket.close();
-            }
-            catch(Exception ex)
+            } catch(Exception ex)
             {
                 Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -202,71 +198,75 @@ public class Dig extends AbstractAnalyzer
         @Override
         public void parseQuery(String query_line)
         {
-            // Step1: get the function name
-            Pattern token_pattern = Pattern.compile("\\(");
-            String[] tokens = token_pattern.split(query_line);
-            functionName = tokens[0];
-            String argument_string = tokens[1].substring(0, tokens[1].length() - 1);
-            Pattern argument_pattern = Pattern.compile(",");
-            String[] arguments = argument_pattern.split(",");
-            String constraints = arguments[0];
-            resultLimit = 1;
-            if(arguments.length == 2)
-                resultLimit = Integer.parseInt(arguments[1]);
-            else if(arguments.length == 3)
-                direction = arguments[2];
-            else if(arguments.length == 4)
-                maxLength = arguments[3];
-
-            // Step2: get the argument expression(s), split by the boolean operators
-            // The format for one argument is:
-            // <key> ARITHMETIC_OPERATOR <value> [BOOLEAN_OPERATOR]
-            Pattern constraints_pattern = Pattern.compile("((?i)(?<=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + "))|" +
-                    "((?i)?=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + ")))");
-            String[] expressions = constraints_pattern.split(constraints);
-
-            // extract the key value pairs
-            int i = 0;
-            while(i < expressions.length)
+            try
             {
-                String expression = expressions[i];
-                Pattern expression_pattern = Pattern.compile("((?<=("+ DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value +"))|" +
-                        "(?=(" + DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value + ")))");
-                String[] operands = expression_pattern.split(expression);
-                String key = operands[0];
-                String operator = operands[1];
-                String value = operands[2];
+                // Step1: get the function name
+                Pattern token_pattern = Pattern.compile("\\(");
+                String[] tokens = token_pattern.split(query_line);
+                functionName = tokens[0];
+                String argument_string = tokens[1].substring(0, tokens[1].length() - 1);
+                Pattern argument_pattern = Pattern.compile(",");
+                String[] arguments = argument_pattern.split(argument_string);
+                String constraints = arguments[0];
+                resultLimit = 1;
+                if(arguments.length == 2)
+                    resultLimit = Integer.parseInt(arguments[1]);
+                else if(arguments.length == 3)
+                    direction = arguments[2];
+                else if(arguments.length == 4)
+                    maxLength = arguments[3];
 
-                List<String> values = new ArrayList<>();
-                values.add(operator);
-                values.add(value);
-                i++;
-                // if boolean operator is present
-                if(i < expressions.length &&
-                    DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value.toLowerCase().contains(expressions[i].toLowerCase()))
+                // Step2: get the argument expression(s), split by the boolean operators
+                // The format for one argument is:
+                // <key> ARITHMETIC_OPERATOR <value> [BOOLEAN_OPERATOR]
+                Pattern constraints_pattern = Pattern.compile("((?i)(?<=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + "))|" +
+                        "((?i)?=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + ")))");
+                String[] expressions = constraints_pattern.split(constraints);
+
+                // extract the key value pairs
+                int i = 0;
+                while(i < expressions.length)
                 {
-                    String bool_operator = expressions[i];
-                    values.add(bool_operator);
-                    i++;
-                }
-                else
-                    values.add(null);
+                    String expression = expressions[i];
+                    Pattern expression_pattern = Pattern.compile("((?<=(" + DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value + "))|" +
+                            "(?=(" + DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value + ")))");
+                    String[] operands = expression_pattern.split(expression);
+                    String key = operands[0];
+                    String operator = operands[1];
+                    String value = operands[2];
 
-                queryParameters.put(key, values);
+                    List<String> values = new ArrayList<>();
+                    values.add(operator);
+                    values.add(value);
+                    i++;
+                    // if boolean operator is present
+                    if(i < expressions.length &&
+                            DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value.toLowerCase().contains(expressions[i].toLowerCase()))
+                    {
+                        String bool_operator = expressions[i];
+                        values.add(bool_operator);
+                        i++;
+                    } else
+                        values.add(null);
+
+                    queryParameters.put(key, values);
+                }
+                if(functionName.equals("GetLineage"))
+                {
+                    queryParameters.put("direction", Collections.singletonList(direction));
+                    queryParameters.put("maxDepth", Collections.singletonList(maxLength));
+                } else if(functionName.equals("GetPaths"))
+                {
+                    queryParameters.put("direction", Collections.singletonList(direction));
+                    queryParameters.put("maxLength", Collections.singletonList(maxLength));
+                }
             }
-            if(functionName.equals("GetLineage"))
+            catch(Exception ex)
             {
-                queryParameters.put("direction", Collections.singletonList(direction));
-                queryParameters.put("maxDepth", Collections.singletonList(maxLength));
-            }
-            else if (functionName.equals("GetPaths"))
-            {
-                queryParameters.put("direction", Collections.singletonList(direction));
-                queryParameters.put("maxLength", Collections.singletonList(maxLength));
+                Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query", ex);
             }
         }
     }
-
 }
 
 

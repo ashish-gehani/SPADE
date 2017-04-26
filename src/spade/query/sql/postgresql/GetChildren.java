@@ -14,6 +14,11 @@ import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
  */
 public class GetChildren extends PostgreSQL<Graph, Map<String, List<String>>>
 {
+    public GetChildren()
+    {
+        register();
+    }
+
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {

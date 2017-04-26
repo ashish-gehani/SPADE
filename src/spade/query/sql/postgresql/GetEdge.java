@@ -15,6 +15,11 @@ import java.util.logging.Logger;
  */
 public class GetEdge extends PostgreSQL<Set<AbstractEdge>, Map<String, List<String>>>
 {
+    public GetEdge()
+    {
+        register();
+    }
+
     @Override
     public Set<AbstractEdge> execute(Map<String, List<String>> parameters, Integer limit)
     {

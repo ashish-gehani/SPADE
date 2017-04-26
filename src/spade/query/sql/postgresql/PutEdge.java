@@ -17,6 +17,7 @@ import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
  */
 public class PutEdge extends PostgreSQL<Boolean, AbstractEdge>
 {
+
     @Override
     public Boolean execute(AbstractEdge edge, Integer limit)
     {

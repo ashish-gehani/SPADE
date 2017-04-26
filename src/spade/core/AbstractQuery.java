@@ -8,7 +8,9 @@ import java.util.logging.Logger;
  */
 public abstract class AbstractQuery<R, P>
 {
-    protected AbstractStorage currentStorage;
+    protected static AbstractStorage currentStorage;
+    protected static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
+    protected static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
 
     protected interface OPERATORS
     {
@@ -21,6 +23,11 @@ public abstract class AbstractQuery<R, P>
     }
 
     public abstract R execute(P parameters, Integer limit);
+
+    public static void setCurrentStorage(AbstractStorage storage)
+    {
+        currentStorage = storage;
+    }
 
     public void register()
     {
