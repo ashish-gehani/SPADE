@@ -22,6 +22,7 @@ public class GetChildren extends PostgreSQL<Graph, Map<String, List<String>>>
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {
+        // implicit assumption that parameters contain annotation PARENT_VERTEX_KEY
         StringBuilder query = new StringBuilder(100);
 
         query.append("SELECT * FROM ");
@@ -36,7 +37,7 @@ public class GetChildren extends PostgreSQL<Graph, Map<String, List<String>>>
         query.append(" WHERE ");
         query.append(PARENT_VERTEX_KEY);
         query.append(" = ");
-        query.append(parameters.get(PRIMARY_KEY));
+        query.append(parameters.get(PARENT_VERTEX_KEY));
         query.append(")");
         if(limit != null)
             query.append(" LIMIT ").append(limit);

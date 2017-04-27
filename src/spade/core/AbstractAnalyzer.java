@@ -1,18 +1,24 @@
 package spade.core;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
-import spade.client.Dig;
-import spade.client.QueryParameters;
-
-import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLServerSocketFactory;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static spade.core.Kernel.sslServerSocketFactory;
 
 /**
  * @author raza
@@ -23,8 +29,6 @@ public abstract class AbstractAnalyzer
     public String QUERY_PORT;
     protected RemoteResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
-
-    private static SSLServerSocketFactory sslServerSocketFactory;
     private static Map<String, List<String>> functionToClassMap;
 
     /**
@@ -125,7 +129,7 @@ public abstract class AbstractAnalyzer
         return values.get(1);
     }
 
-    public ServerSocket getServerSocket(String socketName)
+    public static ServerSocket getServerSocket(String socketName)
     {
         ServerSocket serverSocket = null;
         Integer port = null;
@@ -172,7 +176,6 @@ public abstract class AbstractAnalyzer
         {
             synchronized (Kernel.transformers)
             {
-                QueryParameters digQueryParams = QueryParameters.parseQuery(query);
                 for(int i = 0; i < Kernel.transformers.size(); i++)
                 {
                     AbstractTransformer transformer = Kernel.transformers.get(i);
@@ -180,7 +183,8 @@ public abstract class AbstractAnalyzer
                     {
                         try
                         {
-                            graph = transformer.putGraph(graph, digQueryParams);
+                            //TODO: update the transformer function to reflect changes
+                            graph = transformer.putGraph(graph, null);
                             if(graph != null)
                             {
                                 //commit after every transformer to enable reading without error

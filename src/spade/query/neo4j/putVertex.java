@@ -3,11 +3,13 @@ package spade.query.neo4j;
 import java.util.Map;
 
 /**
- * Created by raza on 3/23/17.
+ * @author raza
  */
-public class putVertex extends Neo4j {
+public class putVertex extends Neo4j
+{
     @Override
-    public Object execute(Map parameters, Integer limit) {
+    public Object execute(Object parameters, Integer limit)
+    {
         return null;
     }
 }

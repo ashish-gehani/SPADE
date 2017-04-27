@@ -19,6 +19,7 @@
  */
 package spade.storage;
 
+import java.sql.ResultSet;
 import java.util.Date;
 import java.util.Calendar;
 import java.util.HashSet;
@@ -193,6 +194,12 @@ public class Neo4j extends AbstractStorage
         }
 
         return true;
+    }
+
+    @Override
+    public ResultSet executeQuery(String query)
+    {
+        return null;
     }
 
     /**

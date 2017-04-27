@@ -1,4 +1,4 @@
-package spade.resolver;
+package spade.remoteresolver;
 
 import spade.core.AbstractVertex;
 import spade.core.Graph;
@@ -36,19 +36,22 @@ public class Naive extends RemoteResolver
                 {
                     AbstractVertex networkVertex = currentEntry.getKey();
                     int currentDepth = currentEntry.getValue();
-                        // Execute remote query
+                    // Execute remote query
                     Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction);
                     // Update the depth values of all network artifacts in the
                     // remote network map to reflect current level of iteration
-                    for (Map.Entry<AbstractVertex, Integer> currentNetworkEntry : tempRemoteGraph.networkMap().entrySet())
+                    if(tempRemoteGraph != null)
                     {
-                        AbstractVertex tempNetworkVertex = currentNetworkEntry.getKey();
-                        int updatedDepth = currentDepth + currentNetworkEntry.getValue();
-                        tempRemoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
+                        for(Map.Entry<AbstractVertex, Integer> currentNetworkEntry : tempRemoteGraph.networkMap().entrySet())
+                        {
+                            AbstractVertex tempNetworkVertex = currentNetworkEntry.getKey();
+                            int updatedDepth = currentDepth + currentNetworkEntry.getValue();
+                            tempRemoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
+                        }
+                        // Add the lineage of the current network node to the
+                        // overall result
+                        remoteGraph = Graph.union(remoteGraph, tempRemoteGraph);
                     }
-                    // Add the lineage of the current network node to the
-                    // overall result
-                    remoteGraph = Graph.union(remoteGraph, tempRemoteGraph);
                 }
                 currentNetworkMap.clear();
                 // Set the networkMap to network vertexes of the newly

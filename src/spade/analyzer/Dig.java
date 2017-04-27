@@ -3,7 +3,7 @@ package spade.analyzer;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractQuery;
 import spade.core.Graph;
-import spade.resolver.Naive;
+import spade.remoteresolver.Naive;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -78,7 +78,7 @@ public class Dig extends AbstractAnalyzer
             {
                 try
                 {
-                    ServerSocket serverSocket = getServerSocket(QUERY_PORT);
+                    ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
                     while(!KERNEL_SHUTDOWN && !SHUTDOWN)
                     {
                         Socket querySocket = serverSocket.accept();
@@ -92,7 +92,7 @@ public class Dig extends AbstractAnalyzer
                     // Do nothing... this is triggered on KERNEL_SHUTDOWN.
                 } catch(NumberFormatException | IOException ex)
                 {
-                    Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Dig.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         };
@@ -156,7 +156,7 @@ public class Dig extends AbstractAnalyzer
                             {
                                 if(isSetRemoteFlag())
                                 {
-                                    //TODO: Could use a factory pattern here to get remote resolver
+                                    //TODO: Could use a factory pattern here to get remote remoteresolver
                                     remoteResolver = new Naive((Graph) result, functionName, 0, null);
                                     Thread remoteResolverThread = new Thread(remoteResolver, "Naive-RemoteResolver");
                                     remoteResolverThread.start();
@@ -176,7 +176,8 @@ public class Dig extends AbstractAnalyzer
                                 //TODO: Change the need for this too
                                 queryOutputStream.writeObject(getQueryCommands());
                             }
-                        } else
+                        }
+                        else
                         {
                             Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, "Return type mismatch!");
                         }
@@ -209,12 +210,13 @@ public class Dig extends AbstractAnalyzer
                 String[] arguments = argument_pattern.split(argument_string);
                 String constraints = arguments[0];
                 resultLimit = 1;
-                if(arguments.length == 2)
+                if(arguments.length >= 2)
                     resultLimit = Integer.parseInt(arguments[1]);
-                else if(arguments.length == 3)
+                if(arguments.length > 2)
+                {
                     direction = arguments[2];
-                else if(arguments.length == 4)
                     maxLength = arguments[3];
+                }
 
                 // Step2: get the argument expression(s), split by the boolean operators
                 // The format for one argument is:

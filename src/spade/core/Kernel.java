@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2015 SRI International
+ Copyright (C) 2017 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -58,8 +58,8 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
-import spade.client.QueryParameters;
 import spade.filter.FinalCommitFilter;
+import spade.remoteresolver.Sketch;
 
 /**
  * The SPADE kernel containing the control client and
@@ -166,7 +166,7 @@ public class Kernel
     public static SSLServerSocketFactory sslServerSocketFactory;
 
     private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
-    
+
     static Object controlConnectionsLock = new Object(); //a lock to be able to safely modify 'remainingShutdownAcks'
     static volatile int remainingShutdownAcks = -1; //to keep track of how many control clients are connected and to how many the KERNEL_SHUTDOWN acknowledgement needs to be sent still
     static Object allShutdownsAcknowledgedLock = new Object(); //a lock for waiting and notifying when all KERNEL_SHUTDOWN acknowledgments have been sent
@@ -533,52 +533,6 @@ public class Kernel
         Thread controlThread = new Thread(controlRunnable, "controlSocket-Thread");
         controlThread.start();
 
-        // This thread creates a server socket for remote sketches. When a
-        // sketch connection
-        // is established, another new thread is created for that connection
-        // object. The
-        // remote sketch server is therefore a multithreaded server.
-        Runnable sketchRunnable = new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try
-                {
-                    ServerSocket serverSocket = null;
-                    int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
-                    if (ANDROID_PLATFORM)
-                    {
-                        serverSocket = new ServerSocket(port);
-                    }
-                    else
-                    {
-                        serverSocket = sslServerSocketFactory.createServerSocket(port);
-                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
-                    }
-                    serverSockets.add(serverSocket);
-
-                    while (!KERNEL_SHUTDOWN)
-                    {
-                        Socket clientSocket = serverSocket.accept();
-                        SketchConnection thisConnection = new SketchConnection(clientSocket);
-                        Thread connectionThread = new Thread(thisConnection);
-                        connectionThread.start();
-                    }
-                }
-                catch (SocketException exception)
-                {
-                    // Do nothing... this is triggered on KERNEL_SHUTDOWN.
-                }
-                catch (NumberFormatException | IOException exception)
-                {
-                    logger.log(Level.SEVERE, null, exception);
-                }
-            }
-        };
-        Thread sketchThread = new Thread(sketchRunnable, "remoteSketch-Thread");
-        sketchThread.start();
-
         // Load the SPADE configuration from the default config file.
         configCommand("config load " + configFile, NullStream.out);
     }
@@ -603,9 +557,8 @@ public class Kernel
                 configCommand("config save " + configFile, NullStream.out);
                 for (AbstractReporter reporter : reporters)
                 {
-                    // Shut down all reporters. After this,
-                    // their buffers are flushed and then
-                    // the storages are shut down.
+                    // Shut down all reporters, flush buffers
+                    // and then shut down storages.
                     reporter.shutdown();
                 }
                 KERNEL_SHUTDOWN = true;
@@ -789,7 +742,7 @@ public class Kernel
         string.append("\t" + SHUTDOWN_STRING);
         return string.toString();
     }
-    
+
     private static SimpleEntry<String, String> getPositionAndArguments(String partOfCommand)
     {
     	try
@@ -1543,13 +1496,13 @@ public class Kernel
         for (AbstractStorage storage : storages) {
             storage.shutdown();
         }
-        
+
         //before closing the sockets notify that the KERNEL_SHUTDOWN is complete
         synchronized (shutdownCompleteLock) {
         	shutdownComplete = true;
 			shutdownCompleteLock.notifyAll();
 		}
-        
+
         //wait for the KERNEL_SHUTDOWN acknowledgement to be sent
         synchronized (allShutdownsAcknowledgedLock) {
         	while(remainingShutdownAcks != 0){
@@ -1560,7 +1513,7 @@ public class Kernel
 				}
         	}
 		}
-        
+
         // Shut down server sockets.
         for (ServerSocket socket : serverSockets) {
             try {
@@ -1645,9 +1598,9 @@ class LocalControlConnection implements Runnable
 	                    	}
 	                        break;
 	                    }
-	                    
+
 	                    Kernel.executeCommand(line, controlOutputStream);
-	                    
+
 	                    if("KERNEL_SHUTDOWN".equals(line))
 	                    {
 	                    	break;
@@ -1696,7 +1649,7 @@ class LocalControlConnection implements Runnable
                     {
                 		logger.log(Level.SEVERE, null, e);
                 	}
-                	
+
                 	synchronized (Kernel.allShutdownsAcknowledgedLock)
                     {
                 		synchronized (Kernel.controlConnectionsLock)
@@ -1705,7 +1658,7 @@ class LocalControlConnection implements Runnable
                             //all acks sent. safe to let the kernel proceed
                 			if(Kernel.remainingShutdownAcks == 0)
 	                		{
-	                			Kernel.allShutdownsAcknowledgedLock.notifyAll(); 
+	                			Kernel.allShutdownsAcknowledgedLock.notifyAll();
 	                		}
                 		}
 					}

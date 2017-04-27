@@ -99,8 +99,8 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             if(previousVertex != null)
             {
                 Map<String, List<String>> edgeParams = new HashMap<>();
-                edgeParams.put(CHILD_VERTEX_KEY, Collections.singletonList(previousVertex.getAnnotation(PRIMARY_KEY)));
-                edgeParams.put(PARENT_VERTEX_KEY, Collections.singletonList(currentHash));
+                edgeParams.put(CHILD_VERTEX_KEY, Arrays.asList("=", previousVertex.getAnnotation(PRIMARY_KEY)));
+                edgeParams.put(PARENT_VERTEX_KEY, Arrays.asList("=", currentHash));
                 Set<AbstractEdge> edgeSet = (Set<AbstractEdge>) getEdge.execute(edgeParams, 100);
                 result.edgeSet().addAll(edgeSet);
             }

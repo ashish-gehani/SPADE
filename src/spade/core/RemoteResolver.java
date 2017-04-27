@@ -125,7 +125,8 @@ public abstract class RemoteResolver implements Runnable
         }
         catch (NumberFormatException | IOException | ClassNotFoundException exception)
         {
-            Logger.getLogger(RemoteResolver.class.getName()).log(Level.SEVERE, null, exception);
+            Logger.getLogger(RemoteResolver.class.getName()).log(Level.SEVERE, "Remote resolution unsuccessful!", exception);
+            return null;
         }
 
         return resultGraph;

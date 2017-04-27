@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import spade.client.QueryParameters;
 
 public abstract class AbstractTransformer {
 	
@@ -41,7 +40,7 @@ public abstract class AbstractTransformer {
        	return true;
     }
 	
-	public abstract Graph putGraph(Graph graph, QueryParameters digQueryParams);
+	public abstract Graph putGraph(Graph graph, Object digQueryParams);
 	
 	public static String getAnnotationSafe(AbstractVertex vertex, String annotation){
 		if(vertex != null){

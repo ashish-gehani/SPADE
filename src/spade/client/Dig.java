@@ -48,12 +48,12 @@ public class Dig
     private static final String historyFile = SPADE_ROOT + "cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, String> constraints = new HashMap<>();
-    private static String QUERY_STORAGE = "SQL";
 
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
+
 
     private static void setupKeyStores() throws Exception
     {
