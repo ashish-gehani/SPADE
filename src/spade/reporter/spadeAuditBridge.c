@@ -721,6 +721,7 @@ void unit_end(unit_table_t *unit, long a1)
 		int buf_size;
 		int link_count = HASH_COUNT(unit->link_unit);
 
+/*
 		if(unit->valid == true || link_count > 1) {
 				buf_size = link_count * 200;
 				buf = (char*) malloc(buf_size);
@@ -738,6 +739,7 @@ void unit_end(unit_table_t *unit, long a1)
 						free(buf);
 				}
 		}
+		*/
 
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
@@ -818,6 +820,8 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 {
 		int pid = ut->pid;
 		unit_table_t *pt;
+		char tmp[2048];
+
 		if(pid == ut->thread.tid) pt = ut;
 		else {
 				thread_t th;  th.tid = pid; th.time = thread_create_time[pid];
@@ -839,10 +843,13 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 				lid = pmt->last_written_unit;
 				HASH_FIND(hh, ut->link_unit, &lid, sizeof(thread_unit_t), lt);
 				if(lt == NULL) {
-						// emit the dependence. parse time and eid.
+						// emit the dependence.
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
+						sprintf(tmp, "type=UBSI_DEP dep=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d), "
+								,lt->id.tid, lt->id.threadtime, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
+						emit_log(ut, tmp, true, true);
 				}
 		}
 }
@@ -1109,7 +1116,8 @@ int UBSI_buffer(const char *buf)
 								if(eb == NULL) {
 										eb = (event_buf_t*) malloc(sizeof(event_buf_t));
 										eb->id = id;
-										eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
+										//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
+										eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
 										eb->event_byte = event_byte;
 										strncpy(eb->event, event, event_byte+1);
 										HASH_ADD_INT(event_buf, id, eb);
@@ -1117,6 +1125,7 @@ int UBSI_buffer(const char *buf)
 												next_event_id = id;
 										}
 								} else {
+										eb->event = (char*) realloc(eb->event, sizeof(char) * (eb->event_byte+event_byte+1));
 										strncpy(eb->event+eb->event_byte, event, event_byte+1);
 										eb->event_byte += event_byte;
 								}
