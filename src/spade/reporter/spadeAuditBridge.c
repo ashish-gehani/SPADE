@@ -728,7 +728,7 @@ void unit_end(unit_table_t *unit, long a1)
 				bzero(buf, buf_size);
 				// emit linked unit lists;
 				if(unit->link_unit != NULL) {
-						sprintf(buf, "type=UBSI_DEP list=\"");
+						sprintf(buf, "type=UBSI_DEP2 list=\"");
 						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
 								// < 200 bytes,
 								sprintf(buf+strlen(buf), "(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d),"
@@ -739,7 +739,7 @@ void unit_end(unit_table_t *unit, long a1)
 						free(buf);
 				}
 		}
-		*/
+*/		
 
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
@@ -778,13 +778,17 @@ void flush_all_unit()
 		}
 }
 
-void mem_write(unit_table_t *ut, long int addr)
+void mem_write(unit_table_t *ut, long int addr, char* buf)
 {
+		if(ut->cur_unit.loopid == 0 || ut->cur_unit.timestamp == 0) return;
 		// check for dup_write
 		mem_unit_t *umt;
 		HASH_FIND(hh, ut->mem_unit, &addr, sizeof(long int), umt);
 
-		if(umt != NULL) return;
+		if(umt != NULL) {
+				fprintf(stderr, "umt is not null: %lx\n", addr);
+				return;
+		}
 
 		// not duplicated write
 		umt = (mem_unit_t*) malloc(sizeof(mem_unit_t));
@@ -818,6 +822,8 @@ void mem_write(unit_table_t *ut, long int addr)
 
 void mem_read(unit_table_t *ut, long int addr, char *buf)
 {
+		if(ut->cur_unit.loopid == 0 || ut->cur_unit.timestamp == 0) return;
+
 		int pid = ut->pid;
 		unit_table_t *pt;
 		char tmp[2048];
@@ -847,8 +853,8 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
-						sprintf(tmp, "type=UBSI_DEP dep=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d), "
-								,lt->id.tid, lt->id.threadtime, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
+						sprintf(tmp, "type=UBSI_DEP (%lx) dep=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d), "
+								,addr ,lt->id.tid, lt->id.threadtime, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
 						emit_log(ut, tmp, true, true);
 				}
 		}
@@ -942,7 +948,7 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 						break;
 				case MWRITE2:
 						ut->w_addr += a1;
-						mem_write(ut, ut->w_addr);
+						mem_write(ut, ut->w_addr, buf);
 						break;
 		}
 }
