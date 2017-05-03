@@ -81,6 +81,7 @@ public class AuditEventReader {
 			NAMETYPE_UNKNOWN = "UNKNOWN",
 			PATH_PREFIX = "path",
 			PID = "pid",
+			PPID = "ppid",
 			RECORD_TYPE_CWD = "CWD",
 			RECORD_TYPE_DAEMON_START = "DAEMON_START",
 			RECORD_TYPE_EOE = "EOE",
@@ -108,6 +109,7 @@ public class AuditEventReader {
 			TIME = "time",
 			UID = "uid",
 			UNIT_PID = "unit_pid",
+			UNIT_THREAD_START_TIME = "unit_thread_start_time",
 			UNIT_UNITID = "unit_unitid",
 			UNIT_ITERATION = "unit_iteration",
 			UNIT_TIME = "unit_time",
@@ -125,7 +127,8 @@ public class AuditEventReader {
 	// Group 3: iteration
 	// Group 4: time
 	// Group 5: count
-	private final Pattern pattern_unit = Pattern.compile("\\(pid=(\\d+) unitid=(\\d+) iteration=(\\d+) time=(\\d+\\.\\d+) count=(\\d+)\\)");
+	private final Pattern pattern_unit = 
+			Pattern.compile("\\(pid=(\\d+) thread_time=(\\d+\\.\\d+) unitid=(\\d+) iteration=(\\d+) time=(\\d+\\.\\d+) count=(\\d+)\\)");
 	
 	// Group 1: key
 	// Group 2: value
@@ -495,13 +498,15 @@ public class AuditEventReader {
 		Matcher matcher2 = pattern_unit.matcher(line);
 		while(matcher2.find()){
 			String pid = matcher2.group(1);
-			String unitid = matcher2.group(2);
-			String iteration = matcher2.group(3);
-			String time = matcher2.group(4);
-			String count = matcher2.group(5);
+			String thread_start_time = matcher2.group(2);
+			String unitid = matcher2.group(3);
+			String iteration = matcher2.group(4);
+			String time = matcher2.group(5);
+			String count = matcher2.group(6);
 			
 			Map<String, String> unitKeyValues = new HashMap<String, String>();
 			unitKeyValues.put(UNIT_PID, pid);
+			unitKeyValues.put(UNIT_THREAD_START_TIME, thread_start_time);
 			unitKeyValues.put(UNIT_UNITID, unitid);
 			unitKeyValues.put(UNIT_ITERATION, iteration);
 			unitKeyValues.put(UNIT_TIME, time);

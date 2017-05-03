@@ -786,7 +786,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 		HASH_FIND(hh, ut->mem_unit, &addr, sizeof(long int), umt);
 
 		if(umt != NULL) {
-				fprintf(stderr, "umt is not null: %lx\n", addr);
+				//fprintf(stderr, "umt is not null: %lx\n", addr);
 				return;
 		}
 
@@ -853,8 +853,8 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
-						sprintf(tmp, "type=UBSI_DEP (%lx) dep=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d), "
-								,addr ,lt->id.tid, lt->id.threadtime, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
+						sprintf(tmp, "type=UBSI_DEP dep=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d), "
+								,lt->id.tid, lt->id.threadtime, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
 						emit_log(ut, tmp, true, true);
 				}
 		}

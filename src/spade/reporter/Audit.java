@@ -1600,9 +1600,6 @@ public class Audit extends AbstractReporter {
 	 * 
 	 */
 	private void handleUnitDependencies(Map<String, String> eventData){
-		// Also called when a unit exits
-		handleUnitExit(eventData); // Do this first
-		
 		String time = "0"; // no time and event id
 		String eventId = "0"; // no time and event id
 		Integer unitDependencyCount = CommonFunctions.parseInt(eventData.get(AuditEventReader.UNIT_DEPS_COUNT), 0);
@@ -1613,6 +1610,7 @@ public class Audit extends AbstractReporter {
 		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
 		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
 		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
+		String unitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME);
 		
 		Process containingProcessMainUnit = getContainingProcessVertex(unitPid);
 		
@@ -1624,8 +1622,9 @@ public class Audit extends AbstractReporter {
 			containingProcessMainUnit = putProcess(newEventData, time, eventId);
 		}
 		
-		Process actingUnit = putUnitAndEdge(containingProcessMainUnit, unitPid, time, eventId, 
-				unitId, unitIteration, unitTime, unitCount, true);
+		// Must have seen the unit entry of this unit and would have added this unit then to the buffer
+		Process actingUnit = createBEEPCopyOfProcess(containingProcessMainUnit, 
+				unitTime, unitId, unitIteration, unitCount);
 		
 		for(int a = 0; a<unitDependencyCount; a++){
 			String dependentUnitPid = eventData.get(AuditEventReader.UNIT_PID+a);
@@ -1633,25 +1632,23 @@ public class Audit extends AbstractReporter {
 			String dependentUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+a);
 			String dependentUnitTime = eventData.get(AuditEventReader.UNIT_TIME+a);
 			String dependentUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+a);
+			String dependentUnitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME+a);
 			
 			Process containingProcessDependentUnit = getContainingProcessVertex(dependentUnitPid);
 			
 			if(containingProcessDependentUnit == null){
-				// Haven't seen this pid before
-				// Create the process from the information in eventData
-				Map<String, String> newEventData = new HashMap<String, String>(eventData);
-				newEventData.put(AuditEventReader.PID, dependentUnitPid);
-				containingProcessDependentUnit = putProcess(newEventData, time, eventId);
+				logger.log(Level.WARNING, "Saw dependent unit whose process wasn't seen or has exited: " 
+								+ eventData);
+			}else{
+				// Must have seen this unit before so not adding it again
+				Process dependentUnit = createBEEPCopyOfProcess(containingProcessDependentUnit, 
+						dependentUnitTime, dependentUnitId, dependentUnitIteration, dependentUnitCount);
+				
+				// List contains the dependent units and the reported unit is the unit on which they are dependent
+				WasTriggeredBy dependencyEdge = new WasTriggeredBy(dependentUnit, actingUnit);
+				// TODO use operation directly?
+				putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_BEEP);
 			}
-			
-			// Does so if not already done
-			Process dependentUnit = putUnitAndEdge(containingProcessDependentUnit, dependentUnitPid, time, eventId, 
-					dependentUnitId, dependentUnitIteration, dependentUnitTime, dependentUnitCount, true);
-			
-			// List contains the dependent units and the reported unit is the unit on which they are dependent
-			WasTriggeredBy dependencyEdge = new WasTriggeredBy(dependentUnit, actingUnit);
-			// TODO use operation directly?
-			putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_BEEP);
 		}
 	}
 	
@@ -1680,6 +1677,7 @@ public class Audit extends AbstractReporter {
 		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
 		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
 		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
+		String unitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME);
 		
 		Process containingProcess = getContainingProcessVertex(unitPid);
 		
@@ -1696,22 +1694,21 @@ public class Audit extends AbstractReporter {
 		popCurrentIterationIfAny(unitPid);
 		
 		putUnitAndEdge(containingProcess, unitPid, time, eventId, 
-				unitId, unitIteration, unitTime, unitCount, false);
+				unitId, unitIteration, unitTime, unitCount);
 	}
 
 	// Adds only if not seen before
 	private Process putUnitAndEdge(Process containingProcess, String pid, String eventTime, String eventId, 
-			String unitId, String iteration, String startTime, String count, boolean dependencyEvent){
+			String unitId, String iteration, String startTime, String count){
 		// Add this new unit on the stack
-		Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId, iteration, count); 
+		Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId, iteration, count);
+		processUnitStack.get(pid).addLast(newUnit);
 		if(!processVertexHasBeenPutBefore(newUnit)){
-			if(!dependencyEvent){
-				processUnitStack.get(pid).addLast(newUnit);
-			}
+			// A unit can do entry only once
 			putVertex(newUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
-			WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(newUnit, containingProcess);
-			putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), eventTime, eventId, OPMConstants.SOURCE_BEEP);
 		}
+		WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(newUnit, containingProcess);
+		putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), eventTime, eventId, OPMConstants.SOURCE_BEEP);
 		return newUnit;
 	}
 	
