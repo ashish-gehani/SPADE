@@ -40,6 +40,18 @@ public abstract class AbstractEdge implements Serializable {
     private AbstractVertex parentVertex;
 
     /**
+     * Checks if edge is empty
+     *
+     * @return Returns true if edge contains no annotation,
+     * and both end points are empty
+     */
+    public final boolean isEmpty()
+    {
+        return annotations.size() == 0 && childVertex != null && parentVertex != null;
+    }
+
+
+    /**
      * Returns the map containing the annotations for this edge.
      *
      * @return The map containing the annotations.

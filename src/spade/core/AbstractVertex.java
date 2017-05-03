@@ -40,6 +40,16 @@ public abstract class AbstractVertex implements Serializable {
     protected Map<String, String> annotations = new HashMap<>();
 
     /**
+     * Checks if vertex is empty
+     *
+     * @return Returns true if vertex contains no annotation
+     */
+    public final boolean isEmpty()
+    {
+        return annotations.size() == 0;
+    }
+
+    /**
      * Returns the map containing the annotations for this vertex.
      *
      * @return The map containing the annotations.

@@ -19,6 +19,7 @@
  */
 package spade.storage;
 
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.util.Date;
 import java.util.Calendar;
@@ -28,15 +29,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.graphdb.Label;
-import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.Result;
-import org.neo4j.graphdb.Transaction;
-import org.neo4j.graphdb.TransactionTerminatedException;
+import com.mysql.jdbc.StringUtils;
+import org.neo4j.graphdb.*;
 
 import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
@@ -62,9 +56,11 @@ public class Neo4j extends AbstractStorage
 
     private GraphDatabaseService graphDb;
 
-    private enum RelationshipTypes implements RelationshipType {EDGE}
+    public static void index(String path, boolean b) {}
 
-    private enum NodeTypes implements Label {VERTEX}
+    public enum RelationshipTypes implements RelationshipType {EDGE}
+
+    public enum NodeTypes implements Label {VERTEX}
 
     private String neo4jDatabaseDirectoryPath = null;
     static final Logger logger = Logger.getLogger(Neo4j.class.getName());
@@ -137,12 +133,12 @@ public class Neo4j extends AbstractStorage
         return true;
     }
 
-    void globalTxCheckin()
+    private void globalTxCheckin()
     {
         globalTxCheckin(false);
     }
 
-    void globalTxCheckin(boolean forcedFlush)
+    private void globalTxCheckin(boolean forcedFlush)
     {
         if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush == true))
         {
@@ -152,7 +148,7 @@ public class Neo4j extends AbstractStorage
         globalTxCount++;
     }
 
-    void globalTxFinalize()
+    private void globalTxFinalize()
     {
         if (globalTx != null)
         {
@@ -197,9 +193,23 @@ public class Neo4j extends AbstractStorage
     }
 
     @Override
-    public ResultSet executeQuery(String query)
+    public Result executeQuery(String query)
     {
-        return null;
+        Result result = null;
+        globalTxCheckin();
+        try
+        {
+            result = graphDb.execute(query);
+        }
+        catch(QueryExecutionException ex)
+        {
+            logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
+        }
+        finally
+        {
+            globalTxFinalize();
+        }
+        return result;
     }
 
     /**
@@ -382,29 +392,33 @@ public class Neo4j extends AbstractStorage
         return parents;
     }
 
-    private AbstractVertex convertNodeToVertex(Node node)
+    public static AbstractVertex convertNodeToVertex(Node node)
     {
         AbstractVertex resultVertex = new Vertex();
         for (String key : node.getPropertyKeys())
         {
-            if(!key.equalsIgnoreCase(PRIMARY_KEY))
-                resultVertex.addAnnotation(key, (String) node.getProperty(key));
+            String value = (String) node.getProperty(key);
+            if(StringUtils.isNullOrEmpty(value))
+            {
+                resultVertex.addAnnotation(key, value);
+            }
         }
-
 
         return resultVertex;
     }
 
-    private AbstractEdge convertRelationshipToEdge(Relationship relationship)
+    public static AbstractEdge convertRelationshipToEdge(Relationship relationship)
     {
         AbstractEdge resultEdge = new Edge(convertNodeToVertex(relationship.getStartNode()),
-                convertNodeToVertex(relationship.getEndNode()));
+                                            convertNodeToVertex(relationship.getEndNode()));
         for (String key : relationship.getPropertyKeys())
         {
-            if(!key.equalsIgnoreCase(PRIMARY_KEY))
-                resultEdge.addAnnotation(key, (String) relationship.getProperty(key));
+            String value = (String) relationship.getProperty(key);
+            if(StringUtils.isNullOrEmpty(value))
+            {
+                resultEdge.addAnnotation(key, value);
+            }
         }
-
 
         return resultEdge;
     }

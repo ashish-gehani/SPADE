@@ -56,6 +56,7 @@ public class SQL extends AbstractStorage
     private static final String VERTEX_TABLE = "vertex";
     private static final String EDGE_TABLE = "edge";
     private static String DUPLICATE_COLUMN_ERROR_CODE;
+    private static final Logger logger = Logger.getLogger(SQL.class.getName());
     /**
      *  initializes the SQL database and creates the necessary tables
      * if not already present. The necessary tables include VERTEX and EDGE tables
@@ -158,7 +159,7 @@ public class SQL extends AbstractStorage
         }
         catch (ClassNotFoundException | InstantiationException | IllegalAccessException | SQLException ex)
         {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            logger.log(Level.SEVERE, null, ex);
             return false;
         }
     }
@@ -180,7 +181,7 @@ public class SQL extends AbstractStorage
         }
         catch (Exception ex)
         {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            logger.log(Level.SEVERE, null, ex);
             return false;
         }
     }
@@ -253,7 +254,7 @@ public class SQL extends AbstractStorage
         }
         catch (SQLException ex)
         {
-            Logger.getLogger(SQL.class.getName()).log(Level.WARNING, "Duplicate column found in table", ex);
+            logger.log(Level.WARNING, "Duplicate column found in table", ex);
             if (ex.getSQLState().equals(DUPLICATE_COLUMN_ERROR_CODE))
             {
                 if (table_name.equalsIgnoreCase(VERTEX_TABLE))
@@ -269,7 +270,7 @@ public class SQL extends AbstractStorage
         }
         catch (Exception ex)
         {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            logger.log(Level.SEVERE, null, ex);
             return false;
         }
         return false;
@@ -331,7 +332,7 @@ public class SQL extends AbstractStorage
         }
         catch (Exception ex)
         {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, ex);
+            logger.log(Level.SEVERE, null, ex);
             return null;
         }
 
@@ -546,7 +547,7 @@ public class SQL extends AbstractStorage
             s.execute(insertString);
             s.close();
         } catch (Exception e) {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, e);
+            logger.log(Level.SEVERE, null, e);
         }
 
         return true;
@@ -618,7 +619,7 @@ public class SQL extends AbstractStorage
         }
         catch (Exception e)
         {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, null, e);
+            logger.log(Level.SEVERE, null, e);
             return false;
         }
 
@@ -639,7 +640,7 @@ public class SQL extends AbstractStorage
         }
         catch (SQLException ex)
         {
-            Logger.getLogger(SQL.class.getName()).log(Level.SEVERE, "SQL query execution not successful!", ex);
+            logger.log(Level.SEVERE, "SQL query execution not successful!", ex);
         }
 
         return result;

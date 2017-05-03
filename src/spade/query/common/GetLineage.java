@@ -62,10 +62,10 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
         for(Map.Entry<String, List<String>> entry: parameters.entrySet())
         {
             String key = entry.getKey();
-            if(key.equals("direction") || key.equals(("maxDepth")))
+            if(!(key.equals("direction") || key.equals(("maxDepth"))))
                 vertexParams.put(key, entry.getValue());
         }
-        Set<AbstractVertex> startingVertexSet = (Set<AbstractVertex>) getVertex.execute(vertexParams, 100);
+        Set<AbstractVertex> startingVertexSet = getVertex.execute(vertexParams, 100);
         queue.addAll(startingVertexSet);
 
         //TODO: keep a visited array

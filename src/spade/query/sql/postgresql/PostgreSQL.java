@@ -1,5 +1,6 @@
 package spade.query.sql.postgresql;
 
+import com.mysql.jdbc.StringUtils;
 import org.apache.commons.collections.CollectionUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
@@ -39,7 +40,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
         Set<AbstractVertex> vertexSet = new HashSet<>();
         try
         {
-            ResultSet result = currentStorage.executeQuery(query);
+            ResultSet result = (ResultSet) currentStorage.executeQuery(query);
             ResultSetMetaData metadata = result.getMetaData();
             int columnCount = metadata.getColumnCount();
 
@@ -55,7 +56,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 for (int i = 1; i <= columnCount; i++)
                 {
                     String value = result.getString(i);
-                    if ((value != null) && !value.isEmpty())
+                    if (StringUtils.isNullOrEmpty(value))
                     {
                         vertex.addAnnotation(columnLabels.get(i), result.getString(i));
                     }
@@ -76,7 +77,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
         Set<AbstractEdge> edgeSet = new HashSet<>();
         try
         {
-            ResultSet result = currentStorage.executeQuery(query);
+            ResultSet result = (ResultSet) currentStorage.executeQuery(query);
             ResultSetMetaData metadata = result.getMetaData();
             int columnCount = metadata.getColumnCount();
 
@@ -92,7 +93,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 for (int i = 1; i <= columnCount; i++)
                 {
                     String value = result.getString(i);
-                    if ((value != null) && !value.isEmpty())
+                    if (StringUtils.isNullOrEmpty(value))
                     {
                         String colName = columnLabels.get(i);
                         if (colName != null)
@@ -110,6 +111,8 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 AbstractVertex childVertex = null;
                 if(!CollectionUtils.isEmpty(childVertexSet))
                     childVertex = childVertexSet.iterator().next();
+                else
+                    continue;
 
                 Map<String, List<String>> parentMap = new HashMap<>();
                 parentMap.put(PARENT_VERTEX_KEY, new ArrayList<>(
@@ -118,6 +121,8 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 AbstractVertex parentVertex = null;
                 if(!CollectionUtils.isEmpty(parentVertexSet))
                     parentVertex = parentVertexSet.iterator().next();
+                else
+                    continue;
 
                 AbstractEdge edge = new Edge(childVertex, parentVertex);
                 edgeSet.add(edge);

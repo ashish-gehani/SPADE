@@ -17,6 +17,7 @@
  package spade.storage;
 
 import java.io.FileWriter;
+import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -222,6 +223,12 @@ public class Prov extends AbstractStorage{
 	}
 
 	@Override
+	public ResultSet executeQuery(String query)
+	{
+		return null;
+	}
+
+	@Override
 	public boolean putEdge(AbstractEdge incomingEdge) {
 		try{
 			String serializedEdge = getSerializedEdge(incomingEdge);
@@ -286,31 +293,6 @@ public class Prov extends AbstractStorage{
 		return null;
 	}
 
-	/**
-	 * This function inserts the given edge into the underlying storage(s) and
-	 * updates the cache(s) accordingly.
-	 *
-	 * @param incomingEdge edge to insert into the storage
-	 * @return returns true if the insertion is successful. Insertion is considered
-	 * not successful if the edge is already present in the storage.
-	 */
-	@Override
-	public boolean putEdge(AbstractEdge incomingEdge) {
-		return false;
-	}
-
-	/**
-	 * This function inserts the given vertex into the underlying storage(s) and
-	 * updates the cache(s) accordingly.
-	 *
-	 * @param incomingVertex vertex to insert into the storage
-	 * @return returns true if the insertion is successful. Insertion is considered
-	 * not successful if the vertex is already present in the storage.
-	 */
-	@Override
-	public boolean putVertex(AbstractVertex incomingVertex) {
-		return false;
-	}
 
 	public ProvFormat getProvFormatByFileExt(String filepath){
 		filepath = String.valueOf(filepath).trim().toLowerCase();

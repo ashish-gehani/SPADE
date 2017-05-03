@@ -19,6 +19,7 @@
  */
 package spade.storage;
 
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -72,6 +73,12 @@ public class Datalog extends AbstractStorage {
     }
 
     @Override
+    public ResultSet executeQuery(String query)
+    {
+        return null;
+    }
+
+    @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         long srcVertexId = vertexMapReversed.get(incomingEdge.getChildVertex());
         long dstVertexId = vertexMapReversed.get(incomingEdge.getParentVertex());
@@ -79,7 +86,6 @@ public class Datalog extends AbstractStorage {
         return true;
     }
 
-    @Override
     public Graph getLineage(String vertexExpression, int depth, String direction, String terminatingExpression) {
         Graph result = new Graph();
         String program = datalogProgram.toString();
@@ -166,30 +172,5 @@ public class Datalog extends AbstractStorage {
         return null;
     }
 
-    /**
-     * This function inserts the given edge into the underlying storage(s) and
-     * updates the cache(s) accordingly.
-     *
-     * @param incomingEdge edge to insert into the storage
-     * @return returns true if the insertion is successful. Insertion is considered
-     * not successful if the edge is already present in the storage.
-     */
-    @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
-        return false;
-    }
-
-    /**
-     * This function inserts the given vertex into the underlying storage(s) and
-     * updates the cache(s) accordingly.
-     *
-     * @param incomingVertex vertex to insert into the storage
-     * @return returns true if the insertion is successful. Insertion is considered
-     * not successful if the vertex is already present in the storage.
-     */
-    @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
-        return false;
-    }
 
 }

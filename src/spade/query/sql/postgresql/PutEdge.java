@@ -68,7 +68,7 @@ public class PutEdge extends PostgreSQL<Boolean, AbstractEdge>
                 query.append(", ");
         }
         query.append(")");
-        ResultSet success = currentStorage.executeQuery(query.toString());
+        ResultSet success = (ResultSet) currentStorage.executeQuery(query.toString());
 
 
         if (success != null)

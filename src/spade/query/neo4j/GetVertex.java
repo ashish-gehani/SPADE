@@ -1,15 +1,36 @@
 package spade.query.neo4j;
 
-import java.util.Map;
+import org.apache.commons.collections.CollectionUtils;
+import spade.core.AbstractVertex;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import static spade.storage.Neo4j.NodeTypes;
 /**
  * @author raza
  */
-public class GetVertex extends Neo4j
+public class GetVertex extends Neo4j<Set<AbstractVertex>, Map<String, List<String>>>
 {
     @Override
-    public Object execute(Object parameters, Integer limit)
+    public Set<AbstractVertex> execute(Map<String, List<String>> parameters, Integer limit)
     {
-        return null;
+        Set<AbstractVertex> vertexSet = null;
+        try
+        {
+            String queryString = prepareGetVertexQuery(parameters, limit);
+            vertexSet = prepareVertexSetFromNeo4jResult(queryString);
+            if (!CollectionUtils.isEmpty(vertexSet))
+                return vertexSet;
+        }
+        catch (Exception ex)
+        {
+            Logger.getLogger(GetVertex.class.getName()).log(Level.SEVERE, "Error creating vertex set!", ex);
+        }
+
+        return vertexSet;
     }
 }

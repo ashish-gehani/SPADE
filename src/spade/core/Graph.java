@@ -699,4 +699,23 @@ public class Graph extends AbstractStorage implements Serializable
         return null;
     }
 
+    /*
+    * Dummy methods created to make things compile.
+    * TODO: remove them and fix issues at usage points
+    * */
+    public Graph getPaths(int src, int dst) {return null; }
+
+    public Graph getPaths(String src, String dst) {return null; }
+
+    public Graph getPaths(Graph src, Graph dst) {return null; }
+
+    public Graph getLineage(int src, String dst) {return null; }
+
+    public Graph getLineage(String src, String dst) {return null; }
+
+    public Graph getLineage(Graph src, String dst) {return null; }
+
+    public Graph getLineage(String vertexExpression, Integer depth, String direction, String terminatingExpression) {return null; }
+
+    public AbstractVertex getVertex(int id) {return null; }
 }

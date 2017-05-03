@@ -1,9 +1,7 @@
 package spade.query.sql.postgresql;
 
 import org.apache.commons.collections.CollectionUtils;
-import spade.core.AbstractAnalyzer;
 import spade.core.AbstractVertex;
-import spade.core.Graph;
 
 import java.util.Map;
 import java.util.List;

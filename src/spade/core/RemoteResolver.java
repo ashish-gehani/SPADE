@@ -23,10 +23,10 @@ import static spade.core.AbstractQuery.OPERATORS;
  */
 public abstract class RemoteResolver implements Runnable
 {
-    private static final String SOURCE_HOST = "source_host";
-    private static final String SOURCE_PORT = "source_port";
-    private static final String DESTINATION_HOST = "destination_host";
-    private static final String DESTINATION_PORT = "destination_port";
+    public static final String SOURCE_HOST = "source_host";
+    public static final String SOURCE_PORT = "source_port";
+    public static final String DESTINATION_HOST = "destination_host";
+    public static final String DESTINATION_PORT = "destination_port";
 
     // fields required to fetch and return remote parts of result graph
     protected Graph finalGraph = null;

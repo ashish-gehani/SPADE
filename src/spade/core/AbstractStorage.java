@@ -283,5 +283,5 @@ public abstract class AbstractStorage
         return graph;
     }
 
-    public abstract ResultSet executeQuery(String query);
+    public abstract Object executeQuery(String query);
 }

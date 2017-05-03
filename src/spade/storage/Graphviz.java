@@ -20,6 +20,7 @@
 package spade.storage;
 
 import java.io.FileWriter;
+import java.sql.ResultSet;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -125,6 +126,12 @@ public class Graphviz extends AbstractStorage {
     }
 
     @Override
+    public ResultSet executeQuery(String query)
+    {
+        return null;
+    }
+
+    @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
             StringBuilder annotationString = new StringBuilder();
@@ -224,32 +231,6 @@ public class Graphviz extends AbstractStorage {
     @Override
     public Graph getParents(String childVertexHash) {
         return null;
-    }
-
-    /**
-     * This function inserts the given edge into the underlying storage(s) and
-     * updates the cache(s) accordingly.
-     *
-     * @param incomingEdge edge to insert into the storage
-     * @return returns true if the insertion is successful. Insertion is considered
-     * not successful if the edge is already present in the storage.
-     */
-    @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
-        return false;
-    }
-
-    /**
-     * This function inserts the given vertex into the underlying storage(s) and
-     * updates the cache(s) accordingly.
-     *
-     * @param incomingVertex vertex to insert into the storage
-     * @return returns true if the insertion is successful. Insertion is considered
-     * not successful if the vertex is already present in the storage.
-     */
-    @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
-        return false;
     }
 
     @Override

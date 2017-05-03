@@ -27,15 +27,17 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+
 import java.security.KeyStore;
 import java.security.SecureRandom;
+
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.HashMap;
@@ -59,7 +61,6 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
 import spade.filter.FinalCommitFilter;
-import spade.remoteresolver.Sketch;
 
 /**
  * The SPADE kernel containing the control client and
@@ -274,7 +275,6 @@ public class Kernel
         {
             System.err.println("Error initializing exception logger");
         }
-
         // Register a KERNEL_SHUTDOWN hook to terminate gracefully
         Runtime.getRuntime().addShutdownHook(new Thread()
         {

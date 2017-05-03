@@ -20,15 +20,22 @@
 
 package spade.client;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractVertex;
-import spade.core.Graph;
-import spade.core.Query;
-import spade.core.Settings;
+import spade.query.sql.postgresql.GetVertex;
 
-public class QueryParameters{
+import static spade.core.AbstractQuery.OPERATORS;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
+
+public class QueryParameters
+{
 
 	private String storage;
 	private String operation;
@@ -44,9 +51,8 @@ public class QueryParameters{
 	private String direction;
 	private String terminatingExpression;
 
-	private QueryParameters(){}
-	
-	public static QueryParameters parseQuery(String query){
+	public static QueryParameters parseQuery(String query)
+	{
 		try{
 			QueryParameters digQueryParams = new QueryParameters();
 			String tokens[] = query.split("\\s+");
@@ -74,13 +80,21 @@ public class QueryParameters{
 		return null;
 	}
 	
-	private static AbstractVertex getVertexForId(String storage, String id){
-		try{
-			Graph verticesGraph = Query.executeQuery("query " + storage + " vertices " + Settings.getProperty("storage_identifier")+":"+id, false);
-			if(verticesGraph != null && verticesGraph.vertexSet().size() != 0){
-				return verticesGraph.vertexSet().toArray(new AbstractVertex[]{})[0];
+	private static AbstractVertex getVertexForId(String storage, String id)
+	{
+		try
+		{
+			GetVertex getVertex = new GetVertex();
+			Map<String, List<String>> params = new HashMap<>();
+			params.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, id));
+			Set<AbstractVertex> vertexSet = getVertex.execute(params, 100);
+			if(vertexSet != null && vertexSet.size() != 0)
+			{
+				return vertexSet.toArray(new AbstractVertex[]{})[0];
 			}
-		}catch(Exception e){
+		}
+		catch(Exception e)
+		{
 			Logger.getLogger(QueryParameters.class.getName()).log(Level.SEVERE, "Failed to get vertex for id '" + id + "'", e);
 		}
 		return null;
