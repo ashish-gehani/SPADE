@@ -1626,6 +1626,11 @@ public class Audit extends AbstractReporter {
 		Process actingUnit = createBEEPCopyOfProcess(containingProcessMainUnit, 
 				unitTime, unitId, unitIteration, unitCount);
 		
+		if(!processVertexHasBeenPutBefore(actingUnit)){
+			// A unit can do entry only once
+			putVertex(actingUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
+		}
+		
 		for(int a = 0; a<unitDependencyCount; a++){
 			String dependentUnitPid = eventData.get(AuditEventReader.UNIT_PID+a);
 			String dependentUnitId = eventData.get(AuditEventReader.UNIT_UNITID+a);
@@ -1643,6 +1648,11 @@ public class Audit extends AbstractReporter {
 				// Must have seen this unit before so not adding it again
 				Process dependentUnit = createBEEPCopyOfProcess(containingProcessDependentUnit, 
 						dependentUnitTime, dependentUnitId, dependentUnitIteration, dependentUnitCount);
+				
+				if(!processVertexHasBeenPutBefore(dependentUnit)){
+					// A unit can do entry only once
+					putVertex(dependentUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
+				}
 				
 				// List contains the dependent units and the reported unit is the unit on which they are dependent
 				WasTriggeredBy dependencyEdge = new WasTriggeredBy(dependentUnit, actingUnit);
