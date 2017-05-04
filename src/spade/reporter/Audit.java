@@ -1629,6 +1629,13 @@ public class Audit extends AbstractReporter {
 		if(!processVertexHasBeenPutBefore(actingUnit)){
 			// A unit can do entry only once
 			putVertex(actingUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
+			
+			// If this vertex wasn't seen before then that means DAEMON_START happened and blew away the state
+			// Set this the current active unit
+			popCurrentIterationIfAny(unitPid); // just to be safe
+			processUnitStack.get(unitPid).addLast(actingUnit);
+			WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(actingUnit, containingProcessMainUnit);
+			putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), unitTime, "0", OPMConstants.SOURCE_BEEP);
 		}
 		
 		for(int a = 0; a<unitDependencyCount; a++){
@@ -1652,10 +1659,13 @@ public class Audit extends AbstractReporter {
 				if(!processVertexHasBeenPutBefore(dependentUnit)){
 					// A unit can do entry only once
 					putVertex(dependentUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
+					
+					WasTriggeredBy unitToContainingProcessDep = new WasTriggeredBy(dependentUnit, containingProcessDependentUnit);
+					putEdge(unitToContainingProcessDep, getOperation(SYSCALL.UNIT), dependentUnitTime, "0", OPMConstants.SOURCE_BEEP);
 				}
 				
 				// List contains the dependent units and the reported unit is the unit on which they are dependent
-				WasTriggeredBy dependencyEdge = new WasTriggeredBy(dependentUnit, actingUnit);
+				WasTriggeredBy dependencyEdge = new WasTriggeredBy(actingUnit, dependentUnit);
 				// TODO use operation directly?
 				putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_BEEP);
 			}
