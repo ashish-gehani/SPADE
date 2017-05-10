@@ -101,7 +101,7 @@ public class Audit extends AbstractReporter {
 
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/stat.h#L14
-	private static final int S_IFIFO = 0010000, S_IFREG = 0100000, S_IFSOCK = 0140000,
+	private final int S_IFIFO = 0010000, S_IFREG = 0100000, S_IFSOCK = 0140000,
 			S_IFLNK = 0120000, S_IFBLK = 0060000, S_IFDIR = 0040000,
 			S_IFCHR = 0020000, S_IFMT = 00170000;
 
@@ -140,8 +140,7 @@ public class Audit extends AbstractReporter {
 	//A map to keep track of thread group ids for pids in case of clone where memory is being shared. 
 	//Pid->Tgid. NOTE: only to be used for memory artifacts
 	private final Map<String, String> pidToTgidForMemoryArtifactsOnly = new HashMap<String, String>();
-	// pid to sock fd to protocol name
-	private final Map<String, Map<String, String>> pidToSockfdToProtocol = new HashMap<String, Map<String, String>>();
+
 	/********************** PROCESS STATE - END *************************/
 	
 	/********************** ARITFACT STATE - START *************************/
@@ -2347,7 +2346,6 @@ public class Audit extends AbstractReporter {
 		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
 		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
 		pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
-		pidToSockfdToProtocol.remove(pid); // Remove mapping of sockfd to protocol names
 	}
 
 	private void handleForkClone(Map<String, String> eventData, SYSCALL syscall) {
@@ -3510,11 +3508,9 @@ public class Audit extends AbstractReporter {
 		
 			String pid = eventData.get(AuditEventReader.PID);
 			
-			if(pidToSockfdToProtocol.get(pid) == null){
-				pidToSockfdToProtocol.put(pid, new HashMap<String, String>());
-			}
+			NetworkSocketIdentifier identifierForProtocol = new NetworkSocketIdentifier(null, null, null, null, protocolName);
 			
-			pidToSockfdToProtocol.get(pid).put(sockFd, protocolName);
+			descriptors.addDescriptor(pid, sockFd, identifierForProtocol, false);
 			
 		}
 		
@@ -4131,13 +4127,13 @@ public class Audit extends AbstractReporter {
 				if(callPutVertex){
 					putVertex(artifact);
 					if(!updated.get(OPMConstants.ARTIFACT_EPOCH)){	
-					if((KEEP_VERSIONS && updated.get(OPMConstants.ARTIFACT_VERSION) && added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
-							|| (KEEP_PATH_PERMISSIONS && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) && added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
-						putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
-								eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
-								version - 1, previousPermissions);
+						if((KEEP_VERSIONS && updated.get(OPMConstants.ARTIFACT_VERSION) && added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
+								|| (KEEP_PATH_PERMISSIONS && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) && added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
+							putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
+									eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
+									version - 1, previousPermissions);
+						}
 					}
-}
 				}
 			}			
 		}else{
@@ -4217,9 +4213,9 @@ public class Audit extends AbstractReporter {
 	 */
 	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier){
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-	if(KEEP_EPOCHS){			
-getArtifactProperties(artifactIdentifier).markNewEpoch();
-}
+			if(KEEP_EPOCHS){			
+				getArtifactProperties(artifactIdentifier).markNewEpoch();
+			}
 		}
 	}
 
@@ -4319,8 +4315,13 @@ getArtifactProperties(artifactIdentifier).markNewEpoch();
 				if(address != null && port != null){
 					
 					String protocolName = null;
-					if(pidToSockfdToProtocol.get(pid) != null){
-						protocolName = pidToSockfdToProtocol.get(pid).get(sockFd);
+					ArtifactIdentifier identifierWithProtocolName = descriptors.getDescriptor(pid, sockFd);
+					if(identifierWithProtocolName != null){
+						if(identifierWithProtocolName.getClass().equals(NetworkSocketIdentifier.class)){
+							protocolName = ((NetworkSocketIdentifier)identifierWithProtocolName).getProtocol();
+						}else{
+							log(Level.WARNING, "Unexpected artifact identifier type: " + identifierWithProtocolName.getClass(), null, time, eventId, syscall);
+						}
 					}
 					
 					if(syscall.equals(SYSCALL.BIND)){//put address as local
