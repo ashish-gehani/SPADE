@@ -124,6 +124,8 @@ public class Audit extends AbstractReporter {
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/fcntl.h#L16
 	private final int F_DUPFD_CLOEXEC = F_LINUX_SPECIFIC_BASE + 6;
+	// Source of following: http://elixir.free-electrons.com/linux/latest/source/include/uapi/asm-generic/errno.h#L97
+	private final int EINPROGRESS = 115;
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
@@ -531,9 +533,12 @@ public class Audit extends AbstractReporter {
 			KEEP_ARTIFACT_PROPERTIES_MAP = false;
 		}	
 		
-		if("0".equals(args.get("auditctlSuccessFlag"))){
-			AUDITCTL_SYSCALL_SUCCESS_FLAG = "0";
-		}
+		// Ignore for now. Changing it now would break code in places.
+		// Sucess always assumed to be '1' for now (default value)
+		// TODO
+//		if("0".equals(args.get("auditctlSuccessFlag"))){
+//			AUDITCTL_SYSCALL_SUCCESS_FLAG = "0";
+//		}
 		
 		argValue = args.get("anonymousMmap");
 		if(isValidBoolean(argValue)){
@@ -1084,7 +1089,7 @@ public class Audit extends AbstractReporter {
 					specialSyscallsRule += archField;
 
 					allSyscallsAuditRule += "-S all ";
-					specialSyscallsRule += "-S exit -S exit_group -S kill ";
+					specialSyscallsRule += "-S exit -S exit_group -S kill -S connect ";
 
 					allSyscallsAuditRule += uidField;
 					specialSyscallsRule += uidField;
@@ -1111,7 +1116,7 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += uidField;
 					auditRuleWithoutSuccess += uidField;
 
-					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group ";
+					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group -S connect ";
 
 					if (USE_READ_WRITE) {
 						auditRuleWithSuccess += "-S read -S readv -S pread -S preadv -S write -S writev -S pwrite -S pwritev ";
@@ -1131,7 +1136,7 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S open -S close -S creat -S openat -S mknodat -S mknod ";
 					auditRuleWithSuccess += "-S dup -S dup2 -S dup3 ";
 					auditRuleWithSuccess += "-S fcntl ";
-					auditRuleWithSuccess += "-S bind -S accept -S accept4 -S connect -S socket ";
+					auditRuleWithSuccess += "-S bind -S accept -S accept4 -S socket ";
 					auditRuleWithSuccess += "-S rename -S renameat ";
 					auditRuleWithSuccess += "-S setuid -S setreuid ";
 					auditRuleWithSuccess += "-S setgid -S setregid ";
@@ -1767,8 +1772,12 @@ public class Audit extends AbstractReporter {
 			if("1".equals(AUDITCTL_SYSCALL_SUCCESS_FLAG) 
 					&& AuditEventReader.SUCCESS_NO.equals(eventData.get(AuditEventReader.SUCCESS))){
 				//if only log successful events but the current event had success no then only monitor the following calls.
-				if(syscall == SYSCALL.KILL || syscall == SYSCALL.EXIT || syscall == SYSCALL.EXIT_GROUP){
+				if(syscall == SYSCALL.KILL 
+						|| syscall == SYSCALL.EXIT || syscall == SYSCALL.EXIT_GROUP
+						|| syscall == SYSCALL.CONNECT){
 					//continue and log these syscalls irrespective of success
+					// Syscall connect can fail with EINPROGRESS flag which we want to 
+					// mark as successful even though we don't know yet
 				}else{ //for all others don't log
 					return;
 				}
@@ -3555,11 +3564,25 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - SADDR
 		// - EOE
+		
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String time = eventData.get(AuditEventReader.TIME);
 		String pid = eventData.get(AuditEventReader.PID);
 		String saddr = eventData.get(AuditEventReader.SADDR);
 		String sockFd = eventData.get(AuditEventReader.ARG0);
+		
+		Integer exit = CommonFunctions.parseInt(eventData.get(AuditEventReader.EXIT), null);
+		if(exit == null){
+			log(Level.WARNING, "Failed to parse exit value: " + eventData.get(AuditEventReader.EXIT), 
+					null, time, eventId, SYSCALL.CONNECT);
+			return;
+		}else{ // not null
+			// only handling if success is 0 or success is EINPROGRESS
+			if(exit != 0 // no success
+					&& exit != EINPROGRESS){ //in progress with possible failure in the future. see manpage.
+				return;
+			}
+		}
 		
 		if(isNetlinkSaddr(saddr)){
 			return;
