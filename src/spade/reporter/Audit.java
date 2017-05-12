@@ -125,7 +125,7 @@ public class Audit extends AbstractReporter {
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/fcntl.h#L16
 	private final int F_DUPFD_CLOEXEC = F_LINUX_SPECIFIC_BASE + 6;
 	// Source of following: http://elixir.free-electrons.com/linux/latest/source/include/uapi/asm-generic/errno.h#L97
-	private final int EINPROGRESS = 115;
+	private final int EINPROGRESS = -115;
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
