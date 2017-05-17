@@ -79,6 +79,7 @@ public class Daemonizer {
         Daemon daemon = new Daemon.WithoutChdir();
         if(daemon.isDaemonized()) {
             System.out.println("Starting SPADE as a daemon with PID: " + CLibrary.LIBC.getpid() );
+            System.out.println("");
             daemon.init(pidFile);
         } else {
             daemon.daemonize();

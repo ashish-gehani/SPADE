@@ -122,9 +122,8 @@ public class Kernel
      */
     public static Set<AbstractSketch> sketches;
     /**
-     * Boolean used to initiate the clean KERNEL_SHUTDOWN procedure. This is used by
-     * the different threads to determine if the KERNEL_SHUTDOWN procedure has been
-     * called.
+     * Boolean used to initiate the clean SHUTDOWN procedure. This is used by the
+     * different threads to determine if the KERNEL_SHUTDOWN procedure has been called.
      */
     public static volatile boolean KERNEL_SHUTDOWN;
     /**
@@ -133,7 +132,9 @@ public class Kernel
      */
     public static volatile boolean flushTransactions;
 
-    private static Thread mainThread;
+    /**
+     * Miscellaneous members
+     */
     private static List<ServerSocket> serverSockets;
     private static Set<AbstractReporter> removeReporters;
     private static Set<AbstractStorage> removeStorages;
@@ -142,8 +143,12 @@ public class Kernel
     private static final int MAIN_THREAD_SLEEP_DELAY = 10;
     private static final int REMOVE_WAIT_DELAY = 100;
     private static final int FIRST_FILTER = 0;
+    private static final Logger logger = Logger.getLogger(Kernel.class.getName());
+    private static boolean ANDROID_PLATFORM = false;
 
-    // Strings for control client
+    /**
+     * Strings for control client
+     */
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
     private static final String ADD_ANALYZER_STRING = "add analyzer <class name>";
     private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <initialization arguments>";
@@ -155,10 +160,9 @@ public class Kernel
     private static final String EXIT_STRING = "exit";
     private static final String SHUTDOWN_STRING = "KERNEL_SHUTDOWN";
 
-    private static final Logger logger = Logger.getLogger(Kernel.class.getName());
-    private static boolean ANDROID_PLATFORM = false;
-
-    // Members for creating secure sockets
+    /**
+     * Members for creating secure sockets
+     */
     private static KeyStore clientKeyStorePublic;
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
@@ -166,22 +170,98 @@ public class Kernel
     public static SSLSocketFactory sslSocketFactory;
     public static SSLServerSocketFactory sslServerSocketFactory;
 
-    private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
-
-    static Object controlConnectionsLock = new Object(); //a lock to be able to safely modify 'remainingShutdownAcks'
-    static volatile int remainingShutdownAcks = -1; //to keep track of how many control clients are connected and to how many the KERNEL_SHUTDOWN acknowledgement needs to be sent still
-    static Object allShutdownsAcknowledgedLock = new Object(); //a lock for waiting and notifying when all KERNEL_SHUTDOWN acknowledgments have been sent
-	static Object shutdownCompleteLock = new Object(); //a lock for waiting and notifying that the kernel has completed KERNEL_SHUTDOWN and it is safe to send KERNEL_SHUTDOWN acknowledgments
-	static volatile boolean shutdownComplete = false; //a boolean variable to indicate that KERNEL_SHUTDOWN has been completed by the kernel
-
-	/*
-	 * #Description of how the above locks and indicator variables are used to send acknowledgments for 'KERNEL_SHUTDOWN' and 'exit' commands back to the control clients.
-	 * #Irrespective of the control client who sent the KERNEL_SHUTDOWN command, the ACK is sent to all the connected control clients so that they know also that the kernel has been KERNEL_SHUTDOWN.
-	 * 'remainingShutdownAcks' integer is incremented every time a control client connects to the kernel. it is decremented every time a control client exits or shuts down. 
-	 * 'allShutdownsAcknowledgedLock' is used for the kernel to wait on until all the ACKS have been sent to control clients and the last control client notifies the kernel that it is safe to proceed now. 
-	 * 'controlConnectionsLock' is used to safely increment/decrement it.
-	 * 'shutdownComplete' boolean is used to indicate by the kernel to all the control clients that KERNEL_SHUTDOWN has been completed. So, all clients wait for this to be set to true by waiting on 'shutdownCompleteLock'.
+    /*
+      Description of how the below locks and indicator variables are used to send acknowledgments for 'KERNEL_SHUTDOWN'
+      and 'exit' commands back to the control clients. Irrespective of the control client who sent the KERNEL_SHUTDOWN
+      command, the ACK is sent to all the connected control clients so that they know also that the kernel has been
+      SHUTDOWN. 'remainingShutdownAcks' integer is incremented every time a control client connects to the kernel.
+      It is decremented every time a control client exits or shuts down. 'allShutdownsAcknowledgedLock' is used for the
+      kernel to wait on until all the ACKs have been sent to control clients and the last control client notifies the
+      kernel that it is safe to proceed now. 'controlConnectionsLock' is used to safely increment/decrement it.
+      'shutdownComplete' boolean is used to indicate by the kernel to all the control clients that KERNEL_SHUTDOWN has
+      been completed. So, all clients wait for this to be set to true by waiting on 'shutdownCompleteLock'.
+     */
+    /**
+     * Time to timeout after when reading from the control client socket
+     */
+    private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000;
+    /**
+     * A lock to be able to safely modify remainingShutdownAcks
+     */
+    static Object controlConnectionsLock = new Object();
+    /**
+     * To keep track of how many control clients are connected and to how many
+     * the KERNEL_SHUTDOWN acknowledgement needs to be sent still.
+     */
+    static volatile int remainingShutdownAcks = -1;
+    /**
+     * A lock for waiting and notifying when all KERNEL_SHUTDOWN
+     * acknowledgments have been sent.
+     */
+    static Object allShutdownsAcknowledgedLock = new Object();
+    /**
+	 * A lock for waiting and notifying that the kernel has completed
+     * SHUTDOWN and it is safe to send KERNEL_SHUTDOWN acknowledgments
+	*/
+	static Object shutdownCompleteLock = new Object();
+    /**
+	 * A boolean variable to indicate that SHUTDOWN has been
+     * completed by the kernel
 	 */
+	static volatile boolean shutdownComplete = false;
+
+    /**
+     * The main initialization function.
+     *
+     * @param args arguments to the main function, used for signalling Android usage for now.
+     */
+    public static void main(String args[])
+    {
+        if (args.length == 1 && args[0].equals("android"))
+        {
+            ANDROID_PLATFORM = true;
+        }
+
+        // Set up context for secure connections
+        if (!ANDROID_PLATFORM)
+        {
+            try
+            {
+                setupKeyStores();
+                setupClientSSLContext();
+                setupServerSSLContext();
+            }
+            catch (Exception exception)
+            {
+                logger.log(Level.SEVERE, null, exception);
+            }
+        }
+
+        try
+        {
+            new File(logPath).mkdirs();
+            // Configuring the global exception logger
+            String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
+            Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
+            logFileHandler.setFormatter(new SimpleFormatter());
+            Logger.getLogger("").addHandler(logFileHandler);
+        }
+        catch (IOException | SecurityException ex)
+        {
+            System.err.println("Error initializing exception logger");
+        }
+
+        registerShutdownThread();
+
+        initializeObjects();
+
+        registerMainThread();
+
+        registerControlThread();
+
+        // Load the SPADE configuration from the default config file.
+        configCommand("config load " + configFile, NullStream.out);
+    }
 
     private static void setupKeyStores() throws Exception
     {
@@ -236,123 +316,26 @@ public class Kernel
     }
 
     /**
-     * The main initialization function.
-     *
-     * @param args
+     * Initialize all basic components and moving parts of SPADE
      */
-    public static void main(String args[])
+    private static void initializeObjects()
     {
-        if (args.length == 1 && args[0].equals("android"))
-        {
-            ANDROID_PLATFORM = true;
-        }
-
-        // Set up context for secure connections
-        if (!ANDROID_PLATFORM)
-        {
-            try
-            {
-                setupKeyStores();
-                setupClientSSLContext();
-                setupServerSSLContext();
-            }
-            catch (Exception exception)
-            {
-                logger.log(Level.SEVERE, null, exception);
-            }
-        }
-
-        try
-        {
-            new File(logPath).mkdirs();
-            // Configuring the global exception logger
-            String logFilename = new java.text.SimpleDateFormat(logFilenamePattern).format(new java.util.Date(System.currentTimeMillis()));
-            Handler logFileHandler = new FileHandler(logPathAndPrefix + logFilename + ".log");
-            logFileHandler.setFormatter(new SimpleFormatter());
-            Logger.getLogger("").addHandler(logFileHandler);
-        }
-        catch (IOException | SecurityException ex)
-        {
-            System.err.println("Error initializing exception logger");
-        }
-        // Register a KERNEL_SHUTDOWN hook to terminate gracefully
-        Runtime.getRuntime().addShutdownHook(new Thread()
-        {
-            @Override
-            public void run()
-            {
-                if (!KERNEL_SHUTDOWN)
-                {
-                    // Save current configuration.
-                    configCommand("config save " + configFile, NullStream.out);
-                    // Shut down all reporters.
-                    for (AbstractReporter reporter : reporters)
-                    {
-                        reporter.shutdown();
-                    }
-                    // Wait for main thread to consume all provenance data.
-                    while (!reporters.isEmpty())
-                    {
-                        Iterator<AbstractReporter> reporterIterator = reporters.iterator();
-                        while(reporterIterator.hasNext())
-                        {
-                            AbstractReporter currentReporter = reporterIterator.next();
-                            Buffer currentBuffer = currentReporter.getBuffer();
-                            if (currentBuffer.isEmpty())
-                            {
-                                reporterIterator.remove();
-                            }
-                        }
-                        try
-                        {
-                            Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
-                        }
-                        catch (InterruptedException ex)
-                        {
-                            logger.log(Level.WARNING, null, ex);
-                        }
-                    }
-                    // Shut down filters.
-                    for (int i = 0; i < filters.size() - 1; i++)
-                    {
-                        filters.get(i).shutdown();
-                    }
-                    // Shut down storages.
-                    for (AbstractStorage storage : storages)
-                    {
-                        storage.shutdown();
-                    }
-                    // Shut down server sockets.
-                    for (ServerSocket socket : serverSockets)
-                    {
-                        try {
-                            socket.close();
-                        } catch (IOException ex) {
-                            logger.log(Level.WARNING, null, ex);
-                        }
-                    }
-                }
-                // Terminate SPADE
-            }
-        });
-
-        // Basic initialization
         reporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
         analyzers = Collections.synchronizedSet(new HashSet<AbstractAnalyzer>());
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
-        removeReporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
-        removeStorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
-        removeAnalyzers = Collections.synchronizedSet(new HashSet<AbstractAnalyzer>());
         transformers = Collections.synchronizedList(new LinkedList<AbstractTransformer>());
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
         remoteSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
         serverSockets = Collections.synchronizedList(new LinkedList<ServerSocket>());
 
+        removeReporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
+        removeStorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
+        removeAnalyzers = Collections.synchronizedSet(new HashSet<AbstractAnalyzer>());
+
         KERNEL_SHUTDOWN = false;
         flushTransactions = true;
 
-        // Initialize the SketchManager and the final commit filter.
         // The FinalCommitFilter acts as a terminator for the filter list
         // and also maintains a pointer to the list of active storages to which
         // the provenance data is finally passed. It also has a reference to
@@ -366,16 +349,21 @@ public class Kernel
         // their corresponding result Graph.
         // FinalTransformer finalTransformer = new FinalTransformer();
         // transformers.add(finalTransformer);
+    }
 
-        // Initialize the main thread. This thread performs critical
-        // provenance-related work inside SPADE.
-        // It extracts provenance objects (vertices, edges) from the
-        // buffers, adds the source_reporter annotation to each object which is
-        // class name of the reporter, and then sends these objects to the filter list.
-        // This thread is also used for cleanly removing reporters and storages
-        // through the control commands and also when shutting down. This is done by
-        // ensuring that once a reporter is marked for removal, the provenance objects from
-        // its buffer are completely flushed.
+    /**
+     * Initialize the main thread. This thread performs critical
+     * provenance-related work inside SPADE.
+     * It extracts provenance objects (vertices, edges) from the
+     * buffers, adds the source_reporter annotation to each object which is
+     * class name of the reporter, and then sends these objects to the filter list.
+     * This thread is also used for cleanly removing reporters and storages
+     * through the control commands and also when shutting down. This is done by
+     * ensuring that once a reporter is marked for removal, the provenance objects from
+     * its buffer are completely flushed.
+     */
+    private static void registerMainThread()
+    {
         Runnable mainRunnable = new Runnable()
         {
             @Override
@@ -479,19 +467,99 @@ public class Kernel
                         Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
                     }
                 }
-                catch (Exception exception) {
-                    logger.log(Level.SEVERE, null, exception);
+                catch (Exception exception)
+                {
+                    logger.log(Level.SEVERE, "Error registering Main Thread", exception);
                 }
             }
         };
-        mainThread = new Thread(mainRunnable, "mainSPADE-Thread");
+        Thread mainThread = new Thread(mainRunnable, "mainSPADE-Thread");
         mainThread.start();
+    }
 
-        // This thread creates the input and output pipes used for control
-        // (and also used by the control client). The exit value is used to
-        // determine if the pipes were successfully created.
-        // The input pipe to which commands are issued is read in
-        // a loop and the commands are processed.
+    /**
+     * Register a SHUTDOWN hook to terminate gracefully
+     */
+    private static void registerShutdownThread()
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread()
+        {
+            @Override
+            public void run()
+            {
+                if (!KERNEL_SHUTDOWN)
+                {
+                    // Save current configuration.
+                    configCommand("config save " + configFile, NullStream.out);
+                    // Shut down all reporters.
+                    for (AbstractReporter reporter : reporters)
+                    {
+                        reporter.shutdown();
+                    }
+                    // Wait for main thread to consume all provenance data.
+                    while (!reporters.isEmpty())
+                    {
+                        Iterator<AbstractReporter> reporterIterator = reporters.iterator();
+                        while(reporterIterator.hasNext())
+                        {
+                            AbstractReporter currentReporter = reporterIterator.next();
+                            Buffer currentBuffer = currentReporter.getBuffer();
+                            if (currentBuffer.isEmpty())
+                            {
+                                reporterIterator.remove();
+                            }
+                        }
+                        try
+                        {
+                            Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
+                        }
+                        catch (InterruptedException ex)
+                        {
+                            logger.log(Level.WARNING, null, ex);
+                        }
+                    }
+                    // Shut down filters.
+                    for (int i = 0; i < filters.size() - 1; i++)
+                    {
+                        filters.get(i).shutdown();
+                    }
+                    // Shut down analyzers.
+                    for(AbstractAnalyzer analyzer: analyzers)
+                    {
+                        analyzer.shutdown();
+                    }
+                    // Shut down storages.
+                    for (AbstractStorage storage : storages)
+                    {
+                        storage.shutdown();
+                    }
+                    // Shut down server sockets.
+                    for (ServerSocket socket : serverSockets)
+                    {
+                        try
+                        {
+                            socket.close();
+                        }
+                        catch (IOException ex)
+                        {
+                            logger.log(Level.WARNING, "Error closing down server socket!", ex);
+                        }
+                    }
+                }
+                // Terminate SPADE
+            }
+        });
+    }
+
+    /**
+     * This thread creates the input and output pipes used for control
+     * (and also used by the control client). The exit value is used to
+     * determine if the pipes were successfully created.
+     * The input pipe to which commands are issued is read in
+     * a loop and the commands are processed.
+     */
+    private static void registerControlThread()
+    {
         Runnable controlRunnable = new Runnable()
         {
             @Override
@@ -514,7 +582,10 @@ public class Kernel
                     while (!KERNEL_SHUTDOWN)
                     {
                         Socket controlSocket = serverSocket.accept();
-                        controlSocket.setSoTimeout(CONTROL_CLIENT_READ_TIMEOUT); //added time to timeout after when reading from the socket to be able to check if the kernel has been KERNEL_SHUTDOWN or not and send KERNEL_SHUTDOWN ack to the control clients.
+                        //added time to timeout after reading from the socket
+                        // to be able to check if the kernel has been SHUTDOWN
+                        // or not and send SHUTDOWN ack to the control clients.
+                        controlSocket.setSoTimeout(CONTROL_CLIENT_READ_TIMEOUT);
                         LocalControlConnection thisConnection = new LocalControlConnection(controlSocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
@@ -532,9 +603,6 @@ public class Kernel
         };
         Thread controlThread = new Thread(controlRunnable, "controlSocket-Thread");
         controlThread.start();
-
-        // Load the SPADE configuration from the default config file.
-        configCommand("config load " + configFile, NullStream.out);
     }
 
     /**
@@ -1486,39 +1554,52 @@ public class Kernel
     /**
      * Method to shut down SPADE completely.
      */
-    public static void shutdown() {
+    public static void shutdown()
+    {
         logger.log(Level.INFO, "Shutting down SPADE....");
         // Shut down filters.
-        for (int i = 0; i < filters.size() - 1; i++) {
+        for (int i = 0; i < filters.size() - 1; i++)
+        {
             filters.get(i).shutdown();
         }
         // Shut down storages.
-        for (AbstractStorage storage : storages) {
+        for (AbstractStorage storage : storages)
+        {
             storage.shutdown();
         }
 
         //before closing the sockets notify that the KERNEL_SHUTDOWN is complete
-        synchronized (shutdownCompleteLock) {
+        synchronized (shutdownCompleteLock)
+        {
         	shutdownComplete = true;
 			shutdownCompleteLock.notifyAll();
 		}
 
         //wait for the KERNEL_SHUTDOWN acknowledgement to be sent
-        synchronized (allShutdownsAcknowledgedLock) {
-        	while(remainingShutdownAcks != 0){
-				try{
+        synchronized (allShutdownsAcknowledgedLock)
+        {
+        	while(remainingShutdownAcks != 0)
+            {
+				try
+                {
 					allShutdownsAcknowledgedLock.wait();
-				}catch(Exception e){
+				}
+				catch(Exception e)
+                {
 					logger.log(Level.SEVERE, null, e);
 				}
         	}
 		}
 
         // Shut down server sockets.
-        for (ServerSocket socket : serverSockets) {
-            try {
+        for (ServerSocket socket : serverSockets)
+        {
+            try
+            {
                 socket.close();
-            } catch (IOException ex) {
+            }
+            catch (IOException ex)
+            {
                 logger.log(Level.SEVERE, null, ex);
             }
         }
@@ -1554,9 +1635,10 @@ class LocalControlConnection implements Runnable
 {
 
 	private final Logger logger = Logger.getLogger(LocalControlConnection.class.getName());
-    Socket controlSocket;
+    private Socket controlSocket;
 
-    LocalControlConnection(Socket socket) {
+    LocalControlConnection(Socket socket)
+    {
         controlSocket = socket;
     }
 
@@ -1601,7 +1683,7 @@ class LocalControlConnection implements Runnable
 
 	                    Kernel.executeCommand(line, controlOutputStream);
 
-	                    if("KERNEL_SHUTDOWN".equals(line))
+	                    if(line.equals("KERNEL_SHUTDOWN"))
 	                    {
 	                    	break;
 	                    }
@@ -1616,14 +1698,14 @@ class LocalControlConnection implements Runnable
                     {
                 		//logger.log(Level.SEVERE, null, exception);
                 		//normal exception. no need to log it. timeout added to be able to
-                        // KERNEL_SHUTDOWN when KERNEL_SHUTDOWN set to true by another client
+                        // SHUTDOWN when KERNEL_SHUTDOWN set to true by another client
                 	}
                 }
                 //to differentiate between exit and KERNEL_SHUTDOWN
                 if(Kernel.KERNEL_SHUTDOWN)
                 {
-                	//wait for Kernel to KERNEL_SHUTDOWN everything before replying with the
-                    // KERNEL_SHUTDOWN ack.
+                	//wait for Kernel to SHUTDOWN everything before replying with the
+                    // SHUTDOWN ack.
                     // Will be sent to all control clients irrespective of who called KERNEL_SHUTDOWN
                 	synchronized (Kernel.shutdownCompleteLock)
                     {
