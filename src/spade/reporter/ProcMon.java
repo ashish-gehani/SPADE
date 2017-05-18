@@ -101,6 +101,8 @@ public class ProcMon extends AbstractReporter {
     private final String OPERATION_UDPSend = "UDP Send";
     private final String OPERATION_TCPReceive = "TCP Receive";
     private final String OPERATION_UDPReceive = "UDP Receive";
+    private final String OPERATION_TCPConnect = "TCP Connect"; //appear in ProcMon
+    private final String OPERATION_TCPReconnect = "TCP Reconnect";//appear in ProcMon
     ////////////////////////////////////////////////////////////////////////////
 
     @Override
@@ -194,7 +196,7 @@ public class ProcMon extends AbstractReporter {
                 }
             } else if (operation.equals(OPERATION_LoadImage)) {
                 loadImage(data);
-            } else if (operation.equals(OPERATION_TCPSend) || operation.equals(OPERATION_UDPSend)) {
+            } else if (operation.equals(OPERATION_TCPSend) || operation.equals(OPERATION_UDPSend) || operation.equals(OPERATION_TCPConnect) || operation.equals(OPERATION_TCPReconnect)) {
                 networkSend(data);
             } else if (operation.equals(OPERATION_TCPReceive) || operation.equals(OPERATION_UDPReceive)) {
                 networkReceive(data);
@@ -311,10 +313,24 @@ public class ProcMon extends AbstractReporter {
 
         Artifact network = new Artifact();
         network.addAnnotation("subtype", "network");
-        network.addAnnotation("local host", local[0]);
-        network.addAnnotation("local port", local[1]);
-        network.addAnnotation("remote host", remote[0]);
-        network.addAnnotation("remote port", remote[1]);
+        int n = local.length;
+        if (n == 2){
+          network.addAnnotation("local host", local[0]);
+          network.addAnnotation("local port", local[1]);
+        }
+        else{
+          network.addAnnotation("local host", hosts[0].substring(0,hosts[0].length()-1 - local[n-1].length()));
+          network.addAnnotation("local port", local[n-1]);
+        }
+        int m = remote.length;
+        if (m == 2){
+          network.addAnnotation("remote host", remote[0]);
+          network.addAnnotation("remote port", remote[1]);
+        }
+        else{
+          network.addAnnotation("remote host", hosts[1].substring(0,hosts[1].length()-1 - remote[m-1].length()));
+          network.addAnnotation("remote port", remote[m-1]);
+        }
         if (networkConnections.add(data[N_PATH])) {
             putVertex(network);
         }
@@ -334,10 +350,24 @@ public class ProcMon extends AbstractReporter {
 
         Artifact network = new Artifact();
         network.addAnnotation("subtype", "network");
-        network.addAnnotation("local host", local[0]);
-        network.addAnnotation("local port", local[1]);
-        network.addAnnotation("remote host", remote[0]);
-        network.addAnnotation("remote port", remote[1]);
+        int n = local.length;
+        if (n == 2){
+          network.addAnnotation("local host", local[0]);
+          network.addAnnotation("local port", local[1]);
+        }
+        else{
+          network.addAnnotation("local host", hosts[0].substring(0,hosts[0].length()-1 - local[n-1].length()));
+          network.addAnnotation("local port", local[n-1]);
+        }
+        int m = remote.length;
+        if (m == 2){
+          network.addAnnotation("remote host", remote[0]);
+          network.addAnnotation("remote port", remote[1]);
+        }
+        else{
+          network.addAnnotation("remote host", hosts[1].substring(0,hosts[1].length()-1 - remote[m-1].length()));
+          network.addAnnotation("remote port", remote[m-1]);
+        }
         if (networkConnections.add(data[N_PATH])) {
             putVertex(network);
         }
