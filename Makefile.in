@@ -53,7 +53,7 @@ endif
 REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON
 # -------------------------------------------
 
-.PHONY: build prepare-dirs core reporters filters clients utilities storages android-build
+.PHONY: build prepare-dirs core reporters filters clients utilities analyzers query storages android-build
 
 all:	build
 	./bin/keys/generatekeys.sh
@@ -69,7 +69,7 @@ help:
 
 build: | prepare-dirs 
 build: build-java $$(OS_BUILD) lib/spade.jar
-build-java: core clients utilities storages filters sketches transformers reporters
+build-java: core clients utilities analyzers query storages filters sketches transformers reporters
 
 .SUFFIXES : .class .java
 
@@ -87,6 +87,12 @@ clients:
 	@echo "--- Built Clients ---"
 reporters: $$(foreach f,$$(REPORTERS), build/spade/reporter/$$(f).class ) 
 	@echo "--- Built Reporters ---"
+analyzers:
+    $(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/analyzer/*.java
+    @echo "--- Built Analyzers ---"
+query:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build $(find src/spade/query -name "*.java")
+	@echo "--- Built Queries ---"
 storages:
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/storage/*.java
 	@echo "--- Built Storages ---"

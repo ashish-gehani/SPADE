@@ -121,6 +121,7 @@ public class Control {
                         // This thread keeps reading from the output pipe and
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
+                        outputLine  = outputLine.trim();
                         
                         //ACK[exit] is only received here when sent by this client only. ACK[KERNEL_SHUTDOWN] is received here whenever any client sends a KERNEL_SHUTDOWN.
                         if("ACK[KERNEL_SHUTDOWN]".equals(outputLine) || "ACK[exit]".equals(outputLine)){
