@@ -19,10 +19,7 @@
  */
 package spade.core;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,36 +28,46 @@ import java.util.logging.Logger;
  *
  * @author Dawood Tariq and Raza Ahmad
  */
-public class Settings {
+public class Settings
+{
 
     private static final String settingsFile = "cfg/settings.config";
     private final static Properties spadeProperties = new Properties();
 
-    static {
-        try {
-            // load general settings
-            setProperty("spade_root", "./");
-            setProperty("local_control_port", "19999");
-            setProperty("dig_query_port", "35353");
-            setProperty("local_query_port", "19998");
-            setProperty("remote_query_port", "29999");
-            setProperty("remote_sketch_port", "29998");
-            setProperty("connection_timeout", "15000");
-            setProperty("source_reporter", "source_reporter");
-            setProperty("direction_ancestors", "ancestors");
-            setProperty("direction_descendants", "descendants");
-            setProperty("direction_both", "both");
-            setProperty("storage_identifier", "storageID");
-            setProperty("default_query_storage", "Neo4j");
-            setProperty("neo4j_webserver", "true");
+    static
+    {
+        // load general settings
+        setProperty("spade_root", "./");
+        setProperty("local_control_port", "19999");
+        setProperty("dig_query_port", "35353");
+        setProperty("local_query_port", "19998");
+        setProperty("remote_query_port", "29999");
+        setProperty("remote_sketch_port", "29998");
+        setProperty("connection_timeout", "15000");
+        setProperty("source_reporter", "source_reporter");
+        setProperty("direction_ancestors", "ancestors");
+        setProperty("direction_descendants", "descendants");
+        setProperty("direction_both", "both");
+        setProperty("storage_identifier", "storageID");
+        setProperty("default_query_storage", "Neo4j");
+        setProperty("neo4j_webserver", "true");
 
-            // override certain settings if the settings file is present
-            spadeProperties.load(new FileInputStream(settingsFile));
-        }
-        catch (IOException ex)
+        // override certain settings if the settings file is present
+        try
         {
-            Logger.getLogger(Settings.class.getName()).log(Level.INFO, "Default settings maintained", ex);
-            // do nothing here
+            File f = new File(settingsFile);
+            if(f.exists() && !f.isDirectory())
+            {
+                spadeProperties.load(new FileInputStream(settingsFile));
+            }
+            else
+            {
+                Logger.getLogger(Settings.class.getName()).log(Level.INFO, "Default settings maintained", (Throwable) null);
+            }
+        }
+        catch(IOException ex)
+        {
+            Logger.getLogger(Settings.class.getName()).log(Level.SEVERE, "Error Reading Settings File", ex);
         }
     }
 

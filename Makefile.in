@@ -88,10 +88,11 @@ clients:
 reporters: $$(foreach f,$$(REPORTERS), build/spade/reporter/$$(f).class ) 
 	@echo "--- Built Reporters ---"
 analyzers:
-    $(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/analyzer/*.java
-    @echo "--- Built Analyzers ---"
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/analyzer/*.java
+	@echo "--- Built Analyzers ---"
 query:
-	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build $(find src/spade/query -name "*.java")
+    find src/spade/query -name "*.java" > sources.txt
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build @sources.txt
 	@echo "--- Built Queries ---"
 storages:
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/storage/*.java

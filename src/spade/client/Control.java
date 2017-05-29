@@ -44,7 +44,8 @@ import jline.NullCompletor;
 import jline.SimpleCompletor;
 import spade.core.Settings;
 
-public class Control {
+public class Control
+{
 
     private static PrintStream outputStream;
     private static PrintStream errorStream;
@@ -62,7 +63,8 @@ public class Control {
     
     private static final Object SPADEControlInLock = new Object(); //an object to synchronize on and to wait until SPADEControlIn has been initialized
 
-    private static void setupKeyStores() throws Exception {
+    private static void setupKeyStores() throws Exception
+    {
         String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
         String clientPrivatePath = SPADE_ROOT + "cfg/ssl/client.private";
 
@@ -72,7 +74,8 @@ public class Control {
         clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
     }
 
-    private static void setupClientSSLContext() throws Exception {
+    private static void setupClientSSLContext() throws Exception
+    {
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextInt();
 
@@ -86,12 +89,16 @@ public class Control {
         sslSocketFactory = sslContext.getSocketFactory();
     }
 
-    public static void main(String args[]) {
+    public static void main(String args[])
+    {
         // Set up context for secure connections
-        try {
+        try
+        {
             setupKeyStores();
             setupClientSSLContext();
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             exception.printStackTrace();
         }
 
@@ -100,10 +107,13 @@ public class Control {
 
         shutdown = false;
 
-        Runnable outputReader = new Runnable() {
+        Runnable outputReader = new Runnable()
+        {
             @Override
-            public void run() {
-                try {
+            public void run()
+            {
+                try
+                {
                     String host = "localhost";
                     int port = Integer.parseInt(Settings.getProperty("local_control_port"));
                     SSLSocket remoteSocket = (SSLSocket) sslSocketFactory.createSocket(host, port);
@@ -113,30 +123,36 @@ public class Control {
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEControlIn = new PrintStream(outStream);
                     
-                    synchronized (SPADEControlInLock) {
+                    synchronized (SPADEControlInLock)
+                    {
                     	SPADEControlInLock.notify(); //notify the main thread that it is safe to use spadeControlIn now.
 					}
 
-                    while (!shutdown) {
+                    while (!shutdown)
+                    {
                         // This thread keeps reading from the output pipe and
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
                         outputLine  = outputLine.trim();
                         
                         //ACK[exit] is only received here when sent by this client only. ACK[KERNEL_SHUTDOWN] is received here whenever any client sends a KERNEL_SHUTDOWN.
-                        if("ACK[KERNEL_SHUTDOWN]".equals(outputLine) || "ACK[exit]".equals(outputLine)){
-                        	if("ACK[KERNEL_SHUTDOWN]".equals(outputLine)){
+                        if("ACK[KERNEL_SHUTDOWN]".equals(outputLine) || "ACK[exit]".equals(outputLine))
+                        {
+                        	if("ACK[KERNEL_SHUTDOWN]".equals(outputLine))
+                        	{
                         		outputStream.println("Shutting down... done");
                         	}
                         	shutdown = true;
                         	break;
                         }
                         
-                        if (outputLine != null) {
+                        if (outputLine != null)
+                        {
                             outputStream.println(outputLine);
                         }
                         
-                        if ("".equals(outputLine)) {
+                        if ("".equals(outputLine))
+                        {
                             outputStream.print(COMMAND_PROMPT);
                         }
                         
@@ -145,7 +161,9 @@ public class Control {
                     SPADEControlOut.close();
                     SPADEControlIn.close();
                     System.exit(0); //exit the program because the main thread is blocking on the read from the console
-                } catch (NumberFormatException | IOException | InterruptedException exception) {
+                }
+                catch (NumberFormatException | IOException | InterruptedException exception)
+                {
                     if (!shutdown) {
                         System.out.println("Error connecting to SPADE");
                     }
@@ -155,12 +173,16 @@ public class Control {
         };
         new Thread(outputReader).start();
 
-        try {
+        try
+        {
     
         	//wait for the spadeControlIn object to be initialized in the other thread
-        	synchronized (SPADEControlInLock) {
-        		while(SPADEControlIn == null){
-            		try{
+        	synchronized (SPADEControlInLock)
+            {
+        		while(SPADEControlIn == null)
+                {
+            		try
+                    {
             			SPADEControlInLock.wait();
             		}catch(Exception e){
             			e.printStackTrace(errorStream);
@@ -177,9 +199,12 @@ public class Control {
             // Set up command history and tab completion.
             ConsoleReader commandReader = new ConsoleReader();
             
-            try {
+            try
+            {
                 commandReader.getHistory().setHistoryFile(new File(historyFile));
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 // Ignore
             }
 
@@ -211,19 +236,27 @@ public class Control {
 
             commandReader.addCompletor(new MultiCompletor(completors));
             
-            while (true) {
+            while (true)
+            {
                 String line = commandReader.readLine();
-                if (line == null || line.equalsIgnoreCase("exit")) {
+                if (line == null || line.equalsIgnoreCase("exit"))
+                {
                     SPADEControlIn.println("exit");
                     break;
-                } else if (line.equalsIgnoreCase("KERNEL_SHUTDOWN")) {
+                }
+                else if (line.equalsIgnoreCase("KERNEL_SHUTDOWN"))
+                {
                     SPADEControlIn.println("KERNEL_SHUTDOWN");
                     break;
-                } else {
+                }
+                else
+                {
                     SPADEControlIn.println(line);
                 }
             }   
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             exception.printStackTrace(errorStream);
         }
     }

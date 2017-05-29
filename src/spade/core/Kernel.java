@@ -210,7 +210,7 @@ public class Kernel
 	 */
 	static volatile boolean shutdownComplete = false;
 
-    /**
+     /**
      * The main initialization function.
      *
      * @param args arguments to the main function, used for signalling Android usage for now.

@@ -47,14 +47,10 @@ if [ $# -eq 0 ] ; then
 	print_help
 else
 
-	if [ $1 = "start" ] ; then
+	if [ $1 = "start" ] || [ $1 = "stop" ] || [ $1 = "kill" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
-	elif [ $1 = "stop" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
-        elif [ $1 = "kill" ] ; then
-                java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
 	elif [ $1 = "dig" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Query
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Dig
 	elif [ $1 = "control" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Control
 	elif [ $1 = "debug" ] ; then
