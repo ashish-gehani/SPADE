@@ -49,8 +49,11 @@ import spade.utility.CommonFunctions;
 public class MLFeatures extends AbstractFilter{
 
 	private Logger logger = Logger.getLogger(this.getClass().getName());
-	private HashMap<String,HashMap<String,Float>> features = new HashMap<>();
+	private HashMap<String,HashMap<String,Double>> features = new HashMap<>();
 	private HashMap<String,String> agentsName = new HashMap<>();
+	private HashMap<String,String> firstTimeUsed = new HashMap<>();
+	private HashMap<String, String> firstTimeWgb = new HashMap<>();
+	private static int SCALE_TIME = 10000000;
 	private final String USER = "User";
 	private final String WCB = "WasControlledBy";
 	private final String PROCESS = "Process";
@@ -62,11 +65,14 @@ public class MLFeatures extends AbstractFilter{
 	private final String CURRENT_TIME_USED = "CurrentTimeUsed";
 	private final String TIME = "time";
 	private final String MEAN_TIME_BETWEEN_TWO_USED = "meanTimeBetweenTwoUsed";
-	private final Float INITIAL_ZERO = (float) 0;
+	private final Double INITIAL_ZERO = (double) 0;
 	private final String AVG_DURATION_USED = "avgDurationUsed";
 	private final String AVG_DURATION_WGB = "avgDurationWgb";
 	private final String DURATION = "duration";
-	
+	private final String COUNT_FILESYSTEM_USED = "countFilesystemUsed";
+	private final String COUNT_FILESYSTEM_WGB = "countFilesystemWgb";
+	private final String CLASS = "class";
+	private final String FILE_SYSTEM = "File System";
 	
 	public boolean initialize(String arguments){
 
@@ -80,11 +86,14 @@ public class MLFeatures extends AbstractFilter{
 			if(incomingVertex.type() == PROCESS){
 				
 				String processPid = incomingVertex.getAnnotation(PROCESS_IDENTIFIER);
-				HashMap<String,Float> initialFeatures = new HashMap<>();
+				HashMap<String,Double> initialFeatures = new HashMap<>();
 				initialFeatures.put(COUNT_USED, INITIAL_ZERO);
 				initialFeatures.put(COUNT_WGB, INITIAL_ZERO);
 				initialFeatures.put(MEAN_TIME_BETWEEN_TWO_USED,INITIAL_ZERO);
 				initialFeatures.put(AVG_DURATION_USED,INITIAL_ZERO);
+				initialFeatures.put(AVG_DURATION_WGB, INITIAL_ZERO);
+				initialFeatures.put(COUNT_FILESYSTEM_USED, INITIAL_ZERO);
+				initialFeatures.put(COUNT_FILESYSTEM_WGB, INITIAL_ZERO);
 				features.put(processPid,initialFeatures);
 				
 			}
@@ -100,35 +109,54 @@ public class MLFeatures extends AbstractFilter{
 			if (incomingEdge.getSourceVertex().type() == PROCESS) {
 				
 				AbstractVertex sourceProcessVertex = incomingEdge.getSourceVertex();
-				HashMap<String, Float> sourceProcess = features.get(sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER));
+				AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
+				HashMap<String, Double> sourceProcess = features.get(sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER));
 				
 				if (incomingEdge.type() == USED){
 					
-					float count_used = sourceProcess.get(COUNT_USED);
-					float duration = Float.parseFloat(sourceProcessVertex.getAnnotation(DURATION));
-					float currentDurationMean = sourceProcess.get(AVG_DURATION_USED);
+					double count_used = sourceProcess.get(COUNT_USED);
+					
+					if (count_used == 0){
+						firstTimeUsed.put(sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER), incomingEdge.getAnnotation(TIME));
+					}
+						
+					double duration = Double.parseDouble(incomingEdge.getAnnotation(DURATION));
+					double currentDurationMean = sourceProcess.get(AVG_DURATION_USED);
 					sourceProcess.put(AVG_DURATION_USED,(currentDurationMean*count_used + duration)/(count_used+1) );
 					sourceProcess.put(COUNT_USED, count_used + 1);
 					
+					if(destinationVertex.getAnnotation(CLASS) == FILE_SYSTEM){
+						double count_filesystem = sourceProcess.get(COUNT_FILESYSTEM_USED);
+						sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
+					}
+					
 				}else if (incomingEdge.type() == WCB){
-					
 					agentsName.put(PROCESS_IDENTIFIER,incomingEdge.getDestinationVertex().getAnnotation(USER));
-					
 				}
 				
 			}else if (incomingEdge.getDestinationVertex().type() == PROCESS){	
 				
-				AbstractVertex sourceProcessVertex = incomingEdge.getSourceVertex();
-				HashMap<String, Float> sourceProcess = features.get(sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER));
+				AbstractVertex destinationProcessVertex = incomingEdge.getDestinationVertex();
+				AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
+				HashMap<String, Double> destinationProcess = features.get(destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER));
 				
 				if (incomingEdge.type() == WGB){
 					
-					float count_wgb = sourceProcess.get(COUNT_WGB);
-					float duration = Float.parseFloat(sourceProcessVertex.getAnnotation(DURATION));
-					float currentDurationMean = sourceProcess.get(AVG_DURATION_WGB);
-					sourceProcess.put(AVG_DURATION_WGB,(currentDurationMean*count_wgb + duration)/(count_wgb+1) );
-					sourceProcess.replace(COUNT_WGB, count_wgb + 1);
+					double count_wgb = destinationProcess.get(COUNT_WGB);
 					
+					if (count_wgb == 0){
+						firstTimeWgb.put(destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER), incomingEdge.getAnnotation(TIME));
+					}
+					
+					double duration = Double.parseDouble(incomingEdge.getAnnotation(DURATION));
+					double currentDurationMean = destinationProcess.get(AVG_DURATION_WGB);
+					destinationProcess.put(AVG_DURATION_WGB,(currentDurationMean*count_wgb + duration)/(count_wgb+1) );
+					destinationProcess.replace(COUNT_WGB, count_wgb + 1);
+					
+					if(sourceVertex.getAnnotation(CLASS) == FILE_SYSTEM){
+						double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
+						destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
+					}
 				}
 			}
 			putInNextFilter(incomingEdge);
@@ -140,6 +168,78 @@ public class MLFeatures extends AbstractFilter{
 			});
 		}
 	}
+	 
+	
+	/*
+	 * do t1 - t2 and send the result in 10 nanoseconds
+	 * we suppose t1 > t2
+	 */
+	public static int differenceBetweenTwoTimesWOAmPm(String[] time1,String[] time2){
 
+		int result = 0;
+		int secondCarry = 0;
+		int minuteCarry = 0;
+		int hourCarry = 0;
+		
+		// time[0]  = hour, time[1] = minutes, time[2] = seconds, time[3] = 10 nanoseconds, time[4] = AM or PM
+		
+		int nanosec1 = Integer.parseInt(time1[3]);
+		int nanosec2 = Integer.parseInt(time2[3]);
+		if (nanosec1 >= nanosec2){
+			result += nanosec1 - nanosec2; 
+		}else{
+			result += SCALE_TIME + nanosec1 - nanosec2;
+			secondCarry += 1;
+		}
+			
+		int second1 = Integer.parseInt(time1[2]);
+		int second2 = Integer.parseInt(time2[2]);
+			
+		if ((second1-secondCarry) >= second2){
+			result += (second1 - secondCarry - second2)*SCALE_TIME;
+		}else{
+			result += (60 + second1 - secondCarry - second2)*SCALE_TIME;
+			minuteCarry += 1;
+		}
+			
+		int minute1 = Integer.parseInt(time1[1]);
+		int minute2 = Integer.parseInt(time2[1]);
+			
+		if((minute1 - minuteCarry) >= minute2){
+			result += (minute1 - minuteCarry - minute2)*60*SCALE_TIME;
+		}else{
+			result += (60 + minute1 - minuteCarry - minute2)*60*SCALE_TIME;
+			hourCarry += 1; 
+		}
+			
+		int hour1 = Integer.parseInt(time1[0]);
+		int hour2 = Integer.parseInt(time2[0]);
+			
+		if((hour1 - hourCarry) >= hour2){
+			result += (hour1 - hourCarry - hour2)*60*60*SCALE_TIME;
+		}else{
+			result += (60 + hour1 - hourCarry - hour2)*60*60*SCALE_TIME;
+		}
+			
+		
+		return result;
+	}
+	
+	/*
+	 * do t1 - t2 and send the result in 10 nanoseconds
+	 * we suppose t1 > t2
+	 */
+	public static int differenceBetweenTwoTimes(String t1,String t2){
+		String[] time1 = t1.split(":|\\.| ");
+		String[] time2 = t2.split(":|\\.| ");
+		int result = 0;
+		// time[0]  = hour, time[1] = minutes, time[2] = seconds, time[3] = 10 nanoseconds, time[4] = AM or PM
+		if(!time1[4].equals(time2[4])){
+			time1[0] =Integer.toString(Integer.parseInt(time1[0])+12);
+		}
+		result = differenceBetweenTwoTimesWOAmPm(time1, time2);
+		
+		return result;
+	}
 
 }
