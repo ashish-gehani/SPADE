@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
@@ -51,8 +53,9 @@ public class MLFeatures extends AbstractFilter{
 	private Logger logger = Logger.getLogger(this.getClass().getName());
 	private HashMap<String,HashMap<String,Double>> features = new HashMap<>();
 	private HashMap<String,String> agentsName = new HashMap<>();
-	private HashMap<String,String> firstTimeUsed = new HashMap<>();
-	private HashMap<String, String> firstTimeWgb = new HashMap<>();
+	private HashMap<String,String> firstActivity = new HashMap<>();
+	private HashMap<String,String> lastUsed = new HashMap<>();
+	private HashMap<String,String> lastWgb = new HashMap<>();
 	private static int SCALE_TIME = 10000000;
 	private final String USER = "User";
 	private final String WCB = "WasControlledBy";
@@ -62,7 +65,8 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_USED = "countUsed";
 	private final String WGB = "WasGeneratedBy";
 	private final String COUNT_WGB = "countWgb";
-	private final String CURRENT_TIME_USED = "CurrentTimeUsed";
+	private final String AVG_DURATION_BETWEEN_TWO_USED = "avgDurationBetweenTwoUsed";
+	private final String AVG_DURATION_BETWEEN_TWO_WGB = "avgDurationBetweenTwoWgb";
 	private final String TIME = "time";
 	private final String MEAN_TIME_BETWEEN_TWO_USED = "meanTimeBetweenTwoUsed";
 	private final Double INITIAL_ZERO = (double) 0;
@@ -73,6 +77,7 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_FILESYSTEM_WGB = "countFilesystemWgb";
 	private final String CLASS = "class";
 	private final String FILE_SYSTEM = "File System";
+	private final String LIFE_DURATION = "lifeDuration";
 	
 	public boolean initialize(String arguments){
 
@@ -94,6 +99,8 @@ public class MLFeatures extends AbstractFilter{
 				initialFeatures.put(AVG_DURATION_WGB, INITIAL_ZERO);
 				initialFeatures.put(COUNT_FILESYSTEM_USED, INITIAL_ZERO);
 				initialFeatures.put(COUNT_FILESYSTEM_WGB, INITIAL_ZERO);
+				initialFeatures.put(AVG_DURATION_BETWEEN_TWO_USED,Double.MAX_VALUE);
+				initialFeatures.put(AVG_DURATION_BETWEEN_TWO_WGB,Double.MAX_VALUE);
 				features.put(processPid,initialFeatures);
 				
 			}
@@ -106,22 +113,40 @@ public class MLFeatures extends AbstractFilter{
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
 		if(incomingEdge != null && incomingEdge.getSourceVertex() != null && incomingEdge.getDestinationVertex() != null){
+			
+			String time = incomingEdge.getAnnotation(TIME);
+			
 			if (incomingEdge.getSourceVertex().type() == PROCESS) {
 				
 				AbstractVertex sourceProcessVertex = incomingEdge.getSourceVertex();
 				AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
-				HashMap<String, Double> sourceProcess = features.get(sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER));
+				String ProcessPid = sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER);
+				HashMap<String, Double> sourceProcess = features.get(ProcessPid);
 				
 				if (incomingEdge.type() == USED){
 					
 					double count_used = sourceProcess.get(COUNT_USED);
 					
+					if(!firstActivity.containsKey(ProcessPid)){
+						firstActivity.put(ProcessPid, time);
+					}
+					
 					if (count_used == 0){
-						firstTimeUsed.put(sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER), incomingEdge.getAnnotation(TIME));
+						lastUsed.put(ProcessPid, time);
+					}else{
+						double avgDurationBetweenTwoUsed = sourceProcess.get(AVG_DURATION_BETWEEN_TWO_USED);
+						String lastTimeUsed = lastUsed.get(ProcessPid);
+						sourceProcess.put(AVG_DURATION_BETWEEN_TWO_USED,(avgDurationBetweenTwoUsed*(count_used-1) + differenceBetweenTwoTimes(time, lastTimeUsed))/count_used );
 					}
 						
+					sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(firstActivity.get(ProcessPid),time));
+					
+
+					
+					
 					double duration = Double.parseDouble(incomingEdge.getAnnotation(DURATION));
 					double currentDurationMean = sourceProcess.get(AVG_DURATION_USED);
+					
 					sourceProcess.put(AVG_DURATION_USED,(currentDurationMean*count_used + duration)/(count_used+1) );
 					sourceProcess.put(COUNT_USED, count_used + 1);
 					
@@ -134,24 +159,41 @@ public class MLFeatures extends AbstractFilter{
 					agentsName.put(PROCESS_IDENTIFIER,incomingEdge.getDestinationVertex().getAnnotation(USER));
 				}
 				
+				
+				
+				
+				
+				
 			}else if (incomingEdge.getDestinationVertex().type() == PROCESS){	
 				
 				AbstractVertex destinationProcessVertex = incomingEdge.getDestinationVertex();
 				AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
-				HashMap<String, Double> destinationProcess = features.get(destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER));
+				String ProcessPid = destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER);
+				HashMap<String, Double> destinationProcess = features.get(ProcessPid);
+				
+				if(!firstActivity.containsKey(ProcessPid)){
+					firstActivity.put(ProcessPid, time);
+				}
+				
+				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(firstActivity.get(ProcessPid),time));
 				
 				if (incomingEdge.type() == WGB){
 					
 					double count_wgb = destinationProcess.get(COUNT_WGB);
 					
 					if (count_wgb == 0){
-						firstTimeWgb.put(destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER), incomingEdge.getAnnotation(TIME));
+						lastWgb.put(ProcessPid, time);
+					}else{
+						double avgDurationBetweenTwoWgb = destinationProcess.get(AVG_DURATION_BETWEEN_TWO_WGB);
+						String lastTimeWgb = lastWgb.get(ProcessPid);
+						destinationProcess.put(AVG_DURATION_BETWEEN_TWO_WGB,(avgDurationBetweenTwoWgb*(count_wgb-1) + differenceBetweenTwoTimes(time, lastTimeWgb))/count_wgb );
 					}
+					
 					
 					double duration = Double.parseDouble(incomingEdge.getAnnotation(DURATION));
 					double currentDurationMean = destinationProcess.get(AVG_DURATION_WGB);
 					destinationProcess.put(AVG_DURATION_WGB,(currentDurationMean*count_wgb + duration)/(count_wgb+1) );
-					destinationProcess.replace(COUNT_WGB, count_wgb + 1);
+					destinationProcess.put(COUNT_WGB, count_wgb + 1);
 					
 					if(sourceVertex.getAnnotation(CLASS) == FILE_SYSTEM){
 						double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
@@ -159,6 +201,9 @@ public class MLFeatures extends AbstractFilter{
 					}
 				}
 			}
+			
+			
+			
 			putInNextFilter(incomingEdge);
 		}else{
 			logger.log(Level.WARNING, "Invalid edge: {0}, source: {1}, destination: {2}", new Object[]{
@@ -229,7 +274,7 @@ public class MLFeatures extends AbstractFilter{
 	 * do t1 - t2 and send the result in 10 nanoseconds
 	 * we suppose t1 > t2
 	 */
-	public static int differenceBetweenTwoTimes(String t1,String t2){
+	public static double differenceBetweenTwoTimes(String t1,String t2){
 		String[] time1 = t1.split(":|\\.| ");
 		String[] time2 = t2.split(":|\\.| ");
 		int result = 0;
@@ -239,7 +284,33 @@ public class MLFeatures extends AbstractFilter{
 		}
 		result = differenceBetweenTwoTimesWOAmPm(time1, time2);
 		
-		return result;
+		return (double)result;
 	}
 
+	/*
+	 * Length sometimes appears in the detail annotation with the form xxx: xxx, Length: 123,123, xxx: ...
+	 */
+	public static double getLengthFromDetailAnnotation(String detail){
+		int result = 0;
+		Pattern pattern = Pattern.compile("(Length:.*, )|(Length:.*)");
+		Matcher matcher = pattern.matcher(detail);
+		if(matcher.find()){
+			String lengthPattern = matcher.group();
+			lengthPattern = lengthPattern.substring(8);
+			String[] digitDecomposition = lengthPattern.split(",");
+			int n = digitDecomposition.length;
+			if(digitDecomposition[n-1].equals(" ")){
+				n -= 1;
+			}
+			int powerOfThousand = 1;
+			for(int i = n-1; i >= 0; i--){
+				result += powerOfThousand*Integer.parseInt(digitDecomposition[i]);
+				powerOfThousand *= 1000;
+			}
+		}
+		
+		
+		return (double)result;
+	}
+	
 }
