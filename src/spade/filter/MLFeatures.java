@@ -56,6 +56,10 @@ public class MLFeatures extends AbstractFilter{
 	private HashMap<String,String> firstActivity = new HashMap<>();
 	private HashMap<String,String> lastUsed = new HashMap<>();
 	private HashMap<String,String> lastWgb = new HashMap<>();
+	private HashMap<String,HashSet<String>> fileUsed = new HashMap<>();
+	private HashMap<String,HashSet<String>> fileWgb = new HashMap<>();
+	private HashMap<String,HashSet<String>> extensionUsed = new HashMap<>();
+	private HashMap<String,HashSet<String>> extensionWgb = new HashMap<>();
 	private static int SCALE_TIME = 10000000;
 	private final String USER = "User";
 	private final String WCB = "WasControlledBy";
@@ -78,6 +82,13 @@ public class MLFeatures extends AbstractFilter{
 	private final String CLASS = "class";
 	private final String FILE_SYSTEM = "File System";
 	private final String LIFE_DURATION = "lifeDuration";
+	private final String TOTAL_LENGTH_READ = "totalLengthRead";
+	private final String TOTAL_LENGTH_WRITTEN = "totalLengthWritten";
+	private final String COUNT_OF_USED_FILES = "countOfUsedFiles";
+	private final String COUNT_OF_WGB_FILES = "countOfWgbFiles";
+	private final String PATH = "path";
+	private final String COUNT_EXTENSION_TYPE_USED = "countExtensionTypeUsed";
+	private final String COUNT_EXTENSION_TYPE_WGB = "countExtensionTypeWgb";
 	
 	public boolean initialize(String arguments){
 
@@ -101,7 +112,18 @@ public class MLFeatures extends AbstractFilter{
 				initialFeatures.put(COUNT_FILESYSTEM_WGB, INITIAL_ZERO);
 				initialFeatures.put(AVG_DURATION_BETWEEN_TWO_USED,Double.MAX_VALUE);
 				initialFeatures.put(AVG_DURATION_BETWEEN_TWO_WGB,Double.MAX_VALUE);
+				initialFeatures.put(TOTAL_LENGTH_READ, INITIAL_ZERO);
+				initialFeatures.put(TOTAL_LENGTH_WRITTEN,INITIAL_ZERO);
+				initialFeatures.put(COUNT_OF_USED_FILES, INITIAL_ZERO);
+				initialFeatures.put(COUNT_OF_WGB_FILES, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXTENSION_TYPE_USED, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXTENSION_TYPE_WGB, INITIAL_ZERO);
 				features.put(processPid,initialFeatures);
+				
+				fileUsed.put(processPid, new HashSet<>());
+				fileWgb.put(processPid, new HashSet<>());
+				extensionUsed.put(processPid, new HashSet<>());
+				extensionWgb.put(processPid, new HashSet<>());
 				
 			}
 			putInNextFilter(incomingVertex);
@@ -155,6 +177,29 @@ public class MLFeatures extends AbstractFilter{
 						sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
 					}
 					
+					
+					double lengthRead = getLengthFromDetailAnnotation(sourceProcessVertex.getAnnotation("detail"));
+					double currentLength = sourceProcess.get(TOTAL_LENGTH_READ);
+					sourceProcess.put(TOTAL_LENGTH_READ, currentLength + lengthRead);
+					
+					HashSet<String> fileUsedByProcess = fileUsed.get(ProcessPid);
+					String filePath = sourceProcessVertex.getAnnotation(PATH);
+					if(!fileUsedByProcess.contains(filePath)){
+						
+						fileUsedByProcess.add(filePath);
+						double countFileUsed = sourceProcess.get(COUNT_OF_USED_FILES);
+						sourceProcess.put(ProcessPid, countFileUsed + 1);
+						
+					}
+					
+					HashSet<String> extensionUsedByProcess = extensionUsed.get(ProcessPid);
+					String extension = getExtension(filePath);
+					if(!extensionUsedByProcess.contains(extension)){
+						extensionUsedByProcess.add(extension);
+						double countExtension = sourceProcess.get(COUNT_EXTENSION_TYPE_USED);
+						sourceProcess.put(COUNT_EXTENSION_TYPE_USED, countExtension + 1);
+					}
+					
 				}else if (incomingEdge.type() == WCB){
 					agentsName.put(PROCESS_IDENTIFIER,incomingEdge.getDestinationVertex().getAnnotation(USER));
 				}
@@ -199,6 +244,27 @@ public class MLFeatures extends AbstractFilter{
 						double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
 						destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
 					}
+					
+					double lengthWritten = getLengthFromDetailAnnotation(destinationProcessVertex.getAnnotation("detail"));
+					double currentLength = destinationProcess.get(TOTAL_LENGTH_WRITTEN);
+					destinationProcess.put(TOTAL_LENGTH_WRITTEN, currentLength + lengthWritten);
+					
+					HashSet<String> fileGeneratedByProcess = fileWgb.get(ProcessPid);
+					String filePath = destinationProcessVertex.getAnnotation(PATH);
+					if(!fileGeneratedByProcess.contains(filePath)){
+						fileGeneratedByProcess.add(filePath);
+						double countFileGenerated = destinationProcess.get(COUNT_OF_USED_FILES);
+						destinationProcess.put(ProcessPid, countFileGenerated + 1);
+					}
+					
+					HashSet<String> extensionWgbByProcess = extensionWgb.get(ProcessPid);
+					String extension = getExtension(filePath);
+					if(!extensionWgbByProcess.contains(extension)){
+						extensionWgbByProcess.add(extension);
+						double countExtension = destinationProcess.get(COUNT_EXTENSION_TYPE_USED);
+						destinationProcess.put(COUNT_EXTENSION_TYPE_USED, countExtension + 1);
+					}
+					
 				}
 			}
 			
@@ -219,7 +285,7 @@ public class MLFeatures extends AbstractFilter{
 	 * do t1 - t2 and send the result in 10 nanoseconds
 	 * we suppose t1 > t2
 	 */
-	public static int differenceBetweenTwoTimesWOAmPm(String[] time1,String[] time2){
+	public static int differenceBetweenTwoTimesWoAmPm(String[] time1,String[] time2){
 
 		int result = 0;
 		int secondCarry = 0;
@@ -282,7 +348,7 @@ public class MLFeatures extends AbstractFilter{
 		if(!time1[4].equals(time2[4])){
 			time1[0] =Integer.toString(Integer.parseInt(time1[0])+12);
 		}
-		result = differenceBetweenTwoTimesWOAmPm(time1, time2);
+		result = differenceBetweenTwoTimesWoAmPm(time1, time2);
 		
 		return (double)result;
 	}
@@ -311,6 +377,18 @@ public class MLFeatures extends AbstractFilter{
 		
 		
 		return (double)result;
+	}
+	
+	public static String getExtension(String path){
+		String result = "";
+		String[] pathDecomposition = path.split("\\\\");
+		int n = pathDecomposition.length;
+		String[] filename = pathDecomposition[n-1].split("\\.");
+		if(filename.length == 2){
+			result = filename[1];
+		}
+		
+		return result;
 	}
 	
 }
