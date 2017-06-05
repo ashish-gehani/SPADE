@@ -1,15 +1,29 @@
 package spade.storage;
 
-import com.sleepycat.je.*;
-import spade.core.*;
-
+import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseConfig;
+import com.sleepycat.je.DatabaseEntry;
+import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.Environment;
+import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.LockMode;
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.bind.serial.StoredClassCatalog;
 import com.sleepycat.bind.serial.SerialBinding;
 
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+
 import java.io.File;
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
+
 import java.sql.ResultSet;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -194,7 +208,7 @@ public class BerkeleyDB extends AbstractStorage
             // Instantiate class catalog
             StoredClassCatalog edgeCatalog = new StoredClassCatalog(edgeDatabase);
             // Create the binding
-            EntryBinding edgeBinding = new SerialBinding(edgeCatalog, AbstractEdge.class);
+            EntryBinding<AbstractEdge> edgeBinding = new SerialBinding<>(edgeCatalog, AbstractEdge.class);
             // Create DatabaseEntry for the key
             DatabaseEntry key = new DatabaseEntry(incomingEdge.bigHashCode().getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
@@ -229,7 +243,7 @@ public class BerkeleyDB extends AbstractStorage
             // Instantiate class catalog
             StoredClassCatalog vertexCatalog = new StoredClassCatalog(vertexDatabase);
             // Create the binding
-            EntryBinding vertexBinding = new SerialBinding(vertexCatalog, AbstractVertex.class);
+            EntryBinding<AbstractVertex> vertexBinding = new SerialBinding<>(vertexCatalog, AbstractVertex.class);
             // Create DatabaseEntry for the key
             DatabaseEntry key = new DatabaseEntry(incomingVertex.bigHashCode().getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.

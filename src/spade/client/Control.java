@@ -31,6 +31,8 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
@@ -162,10 +164,11 @@ public class Control
                     SPADEControlIn.close();
                     System.exit(0); //exit the program because the main thread is blocking on the read from the console
                 }
-                catch (NumberFormatException | IOException | InterruptedException exception)
+                catch (NumberFormatException | IOException | InterruptedException ex)
                 {
                     if (!shutdown) {
                         System.out.println("Error connecting to SPADE");
+                        Logger.getLogger(Control.class.getName()).log(Level.SEVERE, "Error connecting to SPADE", ex);
                     }
                     System.exit(-1);
                 }

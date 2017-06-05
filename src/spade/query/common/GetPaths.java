@@ -20,6 +20,7 @@ public class GetPaths extends AbstractQuery<Graph, Map<String, List<String>>>
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {
+        //TODO: order of hashes need to be changed here
         GetLineage getLineage = new GetLineage();
         parameters.put("direction", Collections.singletonList(DIRECTION_ANCESTORS));
         Graph ancestorLineage = getLineage.execute(parameters, limit);

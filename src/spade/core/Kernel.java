@@ -231,9 +231,9 @@ public class Kernel
                 setupClientSSLContext();
                 setupServerSSLContext();
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                logger.log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, null, ex);
             }
         }
 
