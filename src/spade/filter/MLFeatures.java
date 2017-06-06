@@ -89,6 +89,10 @@ public class MLFeatures extends AbstractFilter{
 	private final String PATH = "path";
 	private final String COUNT_EXTENSION_TYPE_USED = "countExtensionTypeUsed";
 	private final String COUNT_EXTENSION_TYPE_WGB = "countExtensionTypeWgb";
+	private final String COUNT_EXE_AND_DLL_USED = "countExeAndDllUsed";
+	private final String COUNT_EXE_AND_DLL_WGB = "countExeAndDllWgb";	
+	private final String EXE = "exe";
+	private final String DLL = "dll";
 	
 	public boolean initialize(String arguments){
 
@@ -118,6 +122,8 @@ public class MLFeatures extends AbstractFilter{
 				initialFeatures.put(COUNT_OF_WGB_FILES, INITIAL_ZERO);
 				initialFeatures.put(COUNT_EXTENSION_TYPE_USED, INITIAL_ZERO);
 				initialFeatures.put(COUNT_EXTENSION_TYPE_WGB, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXE_AND_DLL_USED, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXE_AND_DLL_WGB, INITIAL_ZERO);
 				features.put(processPid,initialFeatures);
 				
 				fileUsed.put(processPid, new HashSet<>());
@@ -135,8 +141,9 @@ public class MLFeatures extends AbstractFilter{
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
 		if(incomingEdge != null && incomingEdge.getSourceVertex() != null && incomingEdge.getDestinationVertex() != null){
-			
-			String time = incomingEdge.getAnnotation(TIME);
+		
+			try{
+				String time = incomingEdge.getAnnotation(TIME);
 			
 			if (incomingEdge.getSourceVertex().type() == PROCESS) {
 				
@@ -200,6 +207,11 @@ public class MLFeatures extends AbstractFilter{
 						sourceProcess.put(COUNT_EXTENSION_TYPE_USED, countExtension + 1);
 					}
 					
+					if(extension.equals(EXE) || extension.equals(DLL)){
+						double count_exe_dll = sourceProcess.get(COUNT_EXE_AND_DLL_USED);
+						sourceProcess.put(COUNT_EXE_AND_DLL_USED, count_exe_dll + 1);
+					}
+					
 				}else if (incomingEdge.type() == WCB){
 					agentsName.put(PROCESS_IDENTIFIER,incomingEdge.getDestinationVertex().getAnnotation(USER));
 				}
@@ -253,7 +265,7 @@ public class MLFeatures extends AbstractFilter{
 					String filePath = destinationProcessVertex.getAnnotation(PATH);
 					if(!fileGeneratedByProcess.contains(filePath)){
 						fileGeneratedByProcess.add(filePath);
-						double countFileGenerated = destinationProcess.get(COUNT_OF_USED_FILES);
+						double countFileGenerated = destinationProcess.get(COUNT_OF_WGB_FILES);
 						destinationProcess.put(ProcessPid, countFileGenerated + 1);
 					}
 					
@@ -261,8 +273,13 @@ public class MLFeatures extends AbstractFilter{
 					String extension = getExtension(filePath);
 					if(!extensionWgbByProcess.contains(extension)){
 						extensionWgbByProcess.add(extension);
-						double countExtension = destinationProcess.get(COUNT_EXTENSION_TYPE_USED);
-						destinationProcess.put(COUNT_EXTENSION_TYPE_USED, countExtension + 1);
+						double countExtension = destinationProcess.get(COUNT_EXTENSION_TYPE_WGB);
+						destinationProcess.put(COUNT_EXTENSION_TYPE_WGB, countExtension + 1);
+					}
+					
+					if(extension.equals(EXE) || extension.equals(DLL)){
+						double count_exe_dll = destinationProcess.get(COUNT_EXE_AND_DLL_WGB);
+						destinationProcess.put(COUNT_EXE_AND_DLL_WGB, count_exe_dll + 1);
 					}
 					
 				}
@@ -271,6 +288,11 @@ public class MLFeatures extends AbstractFilter{
 			
 			
 			putInNextFilter(incomingEdge);
+			
+			}catch(Exception e){
+				logger.log(Level.WARNING,"Problem computing feature :" + e);
+			}
+			
 		}else{
 			logger.log(Level.WARNING, "Invalid edge: {0}, source: {1}, destination: {2}", new Object[]{
 					incomingEdge,
@@ -389,6 +411,10 @@ public class MLFeatures extends AbstractFilter{
 		}
 		
 		return result;
+	}
+	
+	public HashMap<String,HashMap<String,Double>> getFeatures(){
+		return features;
 	}
 	
 }
