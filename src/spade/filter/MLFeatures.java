@@ -20,6 +20,10 @@
  */
 package spade.filter;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -72,7 +76,6 @@ public class MLFeatures extends AbstractFilter{
 	private final String AVG_DURATION_BETWEEN_TWO_USED = "avgDurationBetweenTwoUsed";
 	private final String AVG_DURATION_BETWEEN_TWO_WGB = "avgDurationBetweenTwoWgb";
 	private final String TIME = "time";
-	private final String MEAN_TIME_BETWEEN_TWO_USED = "meanTimeBetweenTwoUsed";
 	private final Double INITIAL_ZERO = (double) 0;
 	private final String AVG_DURATION_USED = "avgDurationUsed";
 	private final String AVG_DURATION_WGB = "avgDurationWgb";
@@ -93,11 +96,46 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_EXE_AND_DLL_WGB = "countExeAndDllWgb";	
 	private final String EXE = "exe";
 	private final String DLL = "dll";
+	private final String FILEPATH_FEATURES = "/Users/mathieubarre/Desktop/somefile.csv";
+	private final String eol = System.getProperty("line.separator");
 	
 	public boolean initialize(String arguments){
 
 		return true;
 
+	}
+	
+	@Override
+	public boolean shutdown(){
+		Set<String> names = new HashSet<String>(Arrays.asList(COUNT_USED,COUNT_WGB,AVG_DURATION_BETWEEN_TWO_USED,AVG_DURATION_BETWEEN_TWO_WGB,AVG_DURATION_USED,
+				AVG_DURATION_WGB,COUNT_FILESYSTEM_USED,COUNT_FILESYSTEM_WGB,LIFE_DURATION,TOTAL_LENGTH_READ,TOTAL_LENGTH_WRITTEN,COUNT_OF_USED_FILES,
+				COUNT_OF_WGB_FILES,COUNT_EXTENSION_TYPE_USED,COUNT_EXTENSION_TYPE_WGB,COUNT_EXE_AND_DLL_USED,COUNT_EXE_AND_DLL_WGB));
+		
+		try (Writer writer = new FileWriter(FILEPATH_FEATURES)) {
+		  
+		   for (String name : names){
+			   writer.append(name)
+			   		 .append(',');
+		   }
+		   writer.append(USER);
+		   writer.append(eol);
+		   for (String key : features.keySet()) {
+			   
+			   HashMap<String,Double> current = features.get(key);
+			   
+			   for(String column : names  ){
+				   writer.append(Double.toString(current.get(column)))
+		              	 .append(',');
+			   }
+			   writer.append(agentsName.get(key));
+			   writer.append(eol);
+		   }
+		} catch (IOException ex) {
+		  ex.printStackTrace(System.err);
+		}
+		
+		
+		return true;
 	}
 
 	@Override
@@ -109,7 +147,6 @@ public class MLFeatures extends AbstractFilter{
 				HashMap<String,Double> initialFeatures = new HashMap<>();
 				initialFeatures.put(COUNT_USED, INITIAL_ZERO);
 				initialFeatures.put(COUNT_WGB, INITIAL_ZERO);
-				initialFeatures.put(MEAN_TIME_BETWEEN_TWO_USED,INITIAL_ZERO);
 				initialFeatures.put(AVG_DURATION_USED,INITIAL_ZERO);
 				initialFeatures.put(AVG_DURATION_WGB, INITIAL_ZERO);
 				initialFeatures.put(COUNT_FILESYSTEM_USED, INITIAL_ZERO);
@@ -413,8 +450,6 @@ public class MLFeatures extends AbstractFilter{
 		return result;
 	}
 	
-	public HashMap<String,HashMap<String,Double>> getFeatures(){
-		return features;
-	}
+
 	
 }
