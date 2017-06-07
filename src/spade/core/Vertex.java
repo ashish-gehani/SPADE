@@ -35,6 +35,6 @@ public class Vertex extends AbstractVertex {
      * An empty constructor - an empty map is initialized for the annotations.
      */
     public Vertex() {
-        addAnnotation("type", "Vertex");
+
     }
 }

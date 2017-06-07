@@ -40,6 +40,5 @@ public class Edge extends AbstractEdge {
     public Edge(AbstractVertex childVertex, AbstractVertex parentVertex) {
         setChildVertex(childVertex);
         setParentVertex(parentVertex);
-        addAnnotation("type", "Edge");
     }
 }
