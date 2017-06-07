@@ -90,6 +90,7 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_OF_USED_FILES = "countOfUsedFiles";
 	private final String COUNT_OF_WGB_FILES = "countOfWgbFiles";
 	private final String PATH = "path";
+	private final String DETAIL = "detail";
 	private final String COUNT_EXTENSION_TYPE_USED = "countExtensionTypeUsed";
 	private final String COUNT_EXTENSION_TYPE_WGB = "countExtensionTypeWgb";
 	private final String COUNT_EXE_AND_DLL_USED = "countExeAndDllUsed";
@@ -97,6 +98,8 @@ public class MLFeatures extends AbstractFilter{
 	private final String EXE = "exe";
 	private final String DLL = "dll";
 	private final String FILEPATH_FEATURES = "/Users/mathieubarre/Desktop/somefile.csv";
+	private final String COUNT_USED_NOT_NETWORK = "countUsedNotNetwork";
+	private final String COUNT_WGB_NOT_NETWORK = "countWgbNotNetwork";
 	private final String eol = System.getProperty("line.separator");
 	
 	public boolean initialize(String arguments){
@@ -141,7 +144,7 @@ public class MLFeatures extends AbstractFilter{
 	@Override
 	public void putVertex(AbstractVertex incomingVertex) {
 		if(incomingVertex != null){
-			if(incomingVertex.type() == PROCESS){
+			if(incomingVertex.type().equals(PROCESS)){
 				
 				String processPid = incomingVertex.getAnnotation(PROCESS_IDENTIFIER);
 				HashMap<String,Double> initialFeatures = new HashMap<>();
@@ -161,6 +164,9 @@ public class MLFeatures extends AbstractFilter{
 				initialFeatures.put(COUNT_EXTENSION_TYPE_WGB, INITIAL_ZERO);
 				initialFeatures.put(COUNT_EXE_AND_DLL_USED, INITIAL_ZERO);
 				initialFeatures.put(COUNT_EXE_AND_DLL_WGB, INITIAL_ZERO);
+				initialFeatures.put(COUNT_USED_NOT_NETWORK, INITIAL_ZERO);
+				initialFeatures.put(COUNT_WGB_NOT_NETWORK, INITIAL_ZERO);
+				initialFeatures.put(LIFE_DURATION, INITIAL_ZERO);
 				features.put(processPid,initialFeatures);
 				
 				fileUsed.put(processPid, new HashSet<>());
@@ -182,14 +188,14 @@ public class MLFeatures extends AbstractFilter{
 			try{
 				
 			
-			if (incomingEdge.getSourceVertex().type() == PROCESS) {
+			if (incomingEdge.getSourceVertex().type().equals(PROCESS)) {
 				
 				AbstractVertex sourceProcessVertex = incomingEdge.getSourceVertex();
 				AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
 				String ProcessPid = sourceProcessVertex.getAnnotation(PROCESS_IDENTIFIER);
 				HashMap<String, Double> sourceProcess = features.get(ProcessPid);
 				
-				if (incomingEdge.type() == USED){
+				if (incomingEdge.type().equals(USED)){
 					
 					String time = incomingEdge.getAnnotation(TIME);
 					
@@ -212,25 +218,30 @@ public class MLFeatures extends AbstractFilter{
 					
 
 					
-					
+					try{
 					double duration = Double.parseDouble(incomingEdge.getAnnotation(DURATION));
 					double currentDurationMean = sourceProcess.get(AVG_DURATION_USED);
+					double count_used_not_network = sourceProcess.get(COUNT_USED_NOT_NETWORK);
 					
-					sourceProcess.put(AVG_DURATION_USED,(currentDurationMean*count_used + duration)/(count_used+1) );
+					sourceProcess.put(AVG_DURATION_USED,(currentDurationMean*count_used_not_network + duration)/(count_used_not_network+1) );
+					sourceProcess.put(COUNT_USED_NOT_NETWORK, count_used_not_network + 1);
+					}catch(Exception e){}
+					
+					
 					sourceProcess.put(COUNT_USED, count_used + 1);
 					
-					if(destinationVertex.getAnnotation(CLASS) == FILE_SYSTEM){
+					if(destinationVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
 						double count_filesystem = sourceProcess.get(COUNT_FILESYSTEM_USED);
 						sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
 					}
 					
 					
-					double lengthRead = getLengthFromDetailAnnotation(sourceProcessVertex.getAnnotation("detail"));
+					double lengthRead = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
 					double currentLength = sourceProcess.get(TOTAL_LENGTH_READ);
 					sourceProcess.put(TOTAL_LENGTH_READ, currentLength + lengthRead);
 					
 					HashSet<String> fileUsedByProcess = fileUsed.get(ProcessPid);
-					String filePath = sourceProcessVertex.getAnnotation(PATH);
+					String filePath = destinationVertex.getAnnotation(PATH);
 					if(!fileUsedByProcess.contains(filePath)){
 						
 						fileUsedByProcess.add(filePath);
@@ -252,8 +263,8 @@ public class MLFeatures extends AbstractFilter{
 						sourceProcess.put(COUNT_EXE_AND_DLL_USED, count_exe_dll + 1);
 					}
 					
-				}else if (incomingEdge.type() == WCB){
-					agentsName.put(PROCESS_IDENTIFIER,destinationVertex.getAnnotation(USER));
+				}else if (incomingEdge.type().equals(WCB)){
+					agentsName.put(ProcessPid,destinationVertex.getAnnotation(USER));
 				}
 				
 				
@@ -261,7 +272,7 @@ public class MLFeatures extends AbstractFilter{
 				
 				
 				
-			}else if (incomingEdge.getDestinationVertex().type() == PROCESS){	
+			}else if (incomingEdge.getDestinationVertex().type().equals(PROCESS)){	
 				
 				AbstractVertex destinationProcessVertex = incomingEdge.getDestinationVertex();
 				AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
@@ -276,7 +287,7 @@ public class MLFeatures extends AbstractFilter{
 				
 				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
 				
-				if (incomingEdge.type() == WGB){
+				if (incomingEdge.type().equals(WGB)){
 					
 					double count_wgb = destinationProcess.get(COUNT_WGB);
 					
@@ -289,22 +300,30 @@ public class MLFeatures extends AbstractFilter{
 					}
 					
 					
+					
+					try{
 					double duration = Double.parseDouble(incomingEdge.getAnnotation(DURATION));
 					double currentDurationMean = destinationProcess.get(AVG_DURATION_WGB);
-					destinationProcess.put(AVG_DURATION_WGB,(currentDurationMean*count_wgb + duration)/(count_wgb+1) );
+					double count_wgb_not_network = destinationProcess.get(COUNT_WGB_NOT_NETWORK);
+					
+					destinationProcess.put(AVG_DURATION_WGB,(currentDurationMean*count_wgb_not_network + duration)/(count_wgb_not_network+1) );
+					destinationProcess.put(COUNT_WGB_NOT_NETWORK, count_wgb_not_network + 1);
+					}catch(Exception e){}
+					
+					
 					destinationProcess.put(COUNT_WGB, count_wgb + 1);
 					
-					if(sourceVertex.getAnnotation(CLASS) == FILE_SYSTEM){
+					if(sourceVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
 						double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
 						destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
 					}
 					
-					double lengthWritten = getLengthFromDetailAnnotation(destinationProcessVertex.getAnnotation("detail"));
+					double lengthWritten = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
 					double currentLength = destinationProcess.get(TOTAL_LENGTH_WRITTEN);
 					destinationProcess.put(TOTAL_LENGTH_WRITTEN, currentLength + lengthWritten);
 					
 					HashSet<String> fileGeneratedByProcess = fileWgb.get(ProcessPid);
-					String filePath = destinationProcessVertex.getAnnotation(PATH);
+					String filePath = sourceVertex.getAnnotation(PATH);
 					if(!fileGeneratedByProcess.contains(filePath)){
 						fileGeneratedByProcess.add(filePath);
 						double countFileGenerated = destinationProcess.get(COUNT_OF_WGB_FILES);
@@ -326,10 +345,7 @@ public class MLFeatures extends AbstractFilter{
 					
 				}
 			}
-			
-			
-			
-			
+				
 			
 			}catch(NullPointerException e){
 				logger.log(Level.SEVERE,null,e);
@@ -449,8 +465,8 @@ public class MLFeatures extends AbstractFilter{
 		String[] pathDecomposition = path.split("\\\\");
 		int n = pathDecomposition.length;
 		String[] filename = pathDecomposition[n-1].split("\\.");
-		if(filename.length == 2){
-			result = filename[1];
+		if(filename.length >= 2){
+			result = filename[filename.length - 1];
 		}
 		
 		return result;
