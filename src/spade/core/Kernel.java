@@ -180,6 +180,7 @@ public class Kernel
     private static final String LIST_STRING = "list reporters|storages|analyzers|filters|sketches|transformers|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
+    private static final String SHUTDOWN_STRING = "KERNEL_SHUTDOWN";
 
     /**
      * Members for creating secure sockets
@@ -477,104 +478,10 @@ public class Kernel
         Thread queryThread = new Thread(queryRunnable, "querySocket-Thread");
         queryThread.start();
 
-        // This thread creates a server socket for remote querying. When a spade.query
-        // connection
-        // is established, another new thread is created for that connection
-        // object. The
-        // remote spade.query server is therefore a multithreaded server.
-        Runnable remoteRunnable = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    ServerSocket serverSocket = null;
-                    int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
-                    if (ANDROID_PLATFORM) {
-                        serverSocket = new ServerSocket(port);
-                    } else {
-                        serverSocket = sslServerSocketFactory.createServerSocket(port);
-                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
-                    }
-                    serverSockets.add(serverSocket);
-                    while (!KERNEL_SHUTDOWN) {
-                        Socket clientSocket = serverSocket.accept();
-                        QueryConnection thisConnection = new QueryConnection(clientSocket);
-                        Thread connectionThread = new Thread(thisConnection);
-                        connectionThread.start();
-                    }
-                } catch (SocketException exception) {
-                    // Do nothing... this is triggered on shutdown.
-                } catch (NumberFormatException | IOException exception) {
-                    logger.log(Level.SEVERE, null, exception);
-                }
-            }
-        };
-        Thread remoteThread = new Thread(remoteRunnable, "remoteQuery-Thread");
-        remoteThread.start();
-
-        // This thread creates a server socket for remote sketches. When a
-        // sketch connection
-        // is established, another new thread is created for that connection
-        // object. The
-        // remote sketch server is therefore a multithreaded server.
-        Runnable sketchRunnable = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    ServerSocket serverSocket = null;
-                    int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
-                    if (ANDROID_PLATFORM) {
-                        serverSocket = new ServerSocket(port);
-                    } else {
-                        serverSocket = sslServerSocketFactory.createServerSocket(port);
-                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
-                    }
-                    serverSockets.add(serverSocket);
-                    while (!KERNEL_SHUTDOWN) {
-                        Socket clientSocket = serverSocket.accept();
-                        SketchConnection thisConnection = new SketchConnection(clientSocket);
-                        Thread connectionThread = new Thread(thisConnection);
-                        connectionThread.start();
-                    }
-                } catch (SocketException exception) {
-                    // Do nothing... this is triggered on shutdown.
-                } catch (NumberFormatException | IOException exception) {
-                    logger.log(Level.SEVERE, null, exception);
-                }
-            }
-        };
-        Thread sketchThread = new Thread(sketchRunnable, "remoteSketch-Thread");
-        sketchThread.start();
 
         // Load the SPADE configuration from the default config file.
         configCommand("config load " + CONFIG_FILE, NullStream.out);
     }
-
-    // The following two methods are called by the Graph object when adding
-    // vertices
-    // and edges to the result graph. Transformers are technically the same as
-    // filters
-    // and are used to modify/transform data as it is entered into a Graph
-    // object.
-    /**
-     * Method called by a Graph object to send vertices to transformers before
-     * they are finally added to the result.
-     *
-     * @param vertex The vertex to be transformed.
-     */
-//    public static void sendToTransformers(AbstractVertex vertex) {
-//        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putVertex(vertex);
-//    }
-
-    /**
-     * Method called by a Graph object to send edges to transformers before they
-     * are finally added to the result.
-     *
-     * @param edge The edge to be transformed.
-     */
-//    public static void sendToTransformers(AbstractEdge edge) {
-//        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putEdge(edge);
-//    }
-
 
     /**
      * All command strings are passed to this function which subsequently calls
@@ -591,18 +498,6 @@ public class Kernel
         String commandPrefix = line.split(" ", 2)[0].toLowerCase();
         switch(commandPrefix)
         {
-            case "shutdown":
-                // save the current configuration in the config file.
-                configCommand("config save " + configFile, NullStream.out);
-                for (AbstractReporter reporter : reporters)
-                {
-                    // Shut down all reporters, flush buffers
-                    // and then shut down storages.
-                    reporter.shutdown();
-                }
-                KERNEL_SHUTDOWN = true;
-                break;
-
             case "add":
                 addCommand(line, outputStream);
                 break;
