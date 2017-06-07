@@ -30,7 +30,7 @@ print_help ()
 	echo "'spade kill' : Stop the SPADE daemon immediately"
 	echo "'spade debug' : Starts the SPADE daemon, logs to standard out"
 	echo "'spade control' : Starts an interactive SPADE controller"
-	echo "'spade dig' : Starts an interactive SPADE spade.query client"
+	echo "'spade dig' : Starts an interactive SPADE query client"
 	echo "'spade help' : Prints this message"
 }
 
@@ -38,34 +38,19 @@ SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 FORMATTER="-Djava.util.logging.SimpleFormatter.format=%1\$tY-%1\$tm-%1\$td %1\$tH:%1\$tM:%1\$tS %4\$s %2\$s %5\$s%6\$s%n"
 CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 JAVALIBPATH="$SPADE_ROOT/lib/"
-JVMARGS="-server -Xms8G -Xmx16G"
-JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
-MOREJVMARGS=""
+JVMARGS="-server -Xms128M -Xmx512M"
+JVMARGSDEBUG="-server -Xms128M -Xmx128M -XX:+UseConcMarkSweepGC"
 
 pushd "${SPADE_ROOT}" > /dev/null
 
 if [ $# -eq 0 ] ; then
 	print_help
 else
-    if [ -n "$SPADE_LOG" ] ; then
-	    LOGGING="-Dspade.log=$SPADE_LOG"
-	fi
 
-	if [ -n "$LOGMGR_FLUSH" ]; then
-		MOREJVMARGS="-Dspade.utility.LogManager.flush=true $JVMARGS"
-	fi
-
-	JVMARGS="$MOREJVMARGS $JVMARGS"
-	JVMARGSDEBUG="$MOREJVMARGS $JVMARGSDEBUG"
-
-	if [ $1 = "start" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" $LOGGING spade.utility.Daemonizer "$@"
-	elif [ $1 = "stop" ] ; then
+	if [ $1 = "start" ] || [ $1 = "stop" ] || [ $1 = "kill" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
-        elif [ $1 = "kill" ] ; then
-                java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
 	elif [ $1 = "dig" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Query
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Dig
 	elif [ $1 = "control" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Control
 	elif [ $1 = "debug" ] ; then
@@ -77,7 +62,3 @@ else
 fi
 
 popd > /dev/null
-
-# Local Variables:
-# tab-width: 4
-# End:
