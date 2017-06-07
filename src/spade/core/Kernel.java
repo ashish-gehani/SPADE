@@ -27,7 +27,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
@@ -157,9 +156,9 @@ public class Kernel
      * Miscellaneous members
      */
     private static List<ServerSocket> serverSockets;
-    private static Set<AbstractReporter> removereporters;
-    private static Set<AbstractStorage> removestorages;
-    private static Set<AbstractAnalyzer> removeanalyzers;
+    private static Set<AbstractReporter> removeReporters;
+    private static Set<AbstractStorage> removeStorages;
+    private static Set<AbstractAnalyzer> removeAnalyzers;
 
     private static final int BATCH_BUFFER_ELEMENTS = 1000000;
     private static final int MAIN_THREAD_SLEEP_DELAY = 10;
@@ -193,7 +192,59 @@ public class Kernel
     public static SSLServerSocketFactory sslServerSocketFactory;
 
     private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
-    
+
+    /**
+     * The main initialization function.
+     *
+     * @param args
+     */
+    public static void main(String args[]) {
+        if (args.length == 1 && args[0].equals("android")) {
+            ANDROID_PLATFORM = true;
+        }
+
+        // Set up context for secure connections
+        if (!ANDROID_PLATFORM) {
+            try {
+                setupKeyStores();
+                setupClientSSLContext();
+                setupServerSSLContext();
+            } catch (Exception exception) {
+                logger.log(Level.SEVERE, null, exception);
+            }
+        }
+
+        try {
+            // Configure the global exception logger
+
+            String logFilename = System.getProperty("spade.log");
+            if(logFilename == null){
+                new File(LOG_PATH).mkdirs();
+                Date currentTime = new java.util.Date(System.currentTimeMillis());
+                String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(currentTime);
+                logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + logStartTime + ".log";
+            }
+            final Handler logFileHandler = newFileHandler(logFilename);
+            logFileHandler.setFormatter(new SimpleFormatter());
+            logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
+            Logger.getLogger("").addHandler(logFileHandler);
+            
+        } catch (IOException | SecurityException exception) {
+            System.err.println("Error initializing exception logger");
+        }
+
+        registerShutdownThread();
+
+        initializeObjects();
+
+        registerMainThread();
+
+        registerControlThread();
+
+        // Load the SPADE configuration from the default config file.
+        configCommand("config load " + CONFIG_FILE, NullStream.out);
+    }
+
     private static void setupKeyStores() throws Exception
     {
         String KEYSTORE_PATH = CONFIG_PATH + FILE_SEPARATOR + "ssl";
@@ -242,86 +293,41 @@ public class Kernel
         sslServerSocketFactory = sslContext.getServerSocketFactory();
     }
 
-	protected static FileHandler newFileHandler (final String logFilename) throws IOException
-	{
-		if (System.getProperty ("spade.utility.LogManager.flush") != null)
-			return new FileHandler (logFilename) {
-				@Override
-				public synchronized void publish (final LogRecord record) {
-					super.publish (record);
-					flush ();
-				};
-			};
-		else
+    protected static FileHandler newFileHandler (final String logFilename) throws IOException
+    {
+        if (System.getProperty ("spade.utility.LogManager.flush") != null)
+            return new FileHandler (logFilename) {
+                @Override
+                public synchronized void publish (final LogRecord record) {
+                    super.publish (record);
+                    flush ();
+                };
+            };
+        else
             return new FileHandler (logFilename);
-	}
+    }
 
     /**
-     * The main initialization function.
-     *
-     * @param args
+     * Initialize all basic components and moving parts of SPADE
      */
-    public static void main(String args[]) {
-        if (args.length == 1 && args[0].equals("android")) {
-            ANDROID_PLATFORM = true;
-        }
-
-        // Set up context for secure connections
-        if (!ANDROID_PLATFORM) {
-            try {
-                setupKeyStores();
-                setupClientSSLContext();
-                setupServerSSLContext();
-            } catch (Exception exception) {
-                logger.log(Level.SEVERE, null, exception);
-            }
-        }
-
-        try {
-            // Configure the global exception logger
-
-            String logFilename = System.getProperty("spade.log");
-            if(logFilename == null){
-                new File(LOG_PATH).mkdirs();
-                Date currentTime = new java.util.Date(System.currentTimeMillis());
-                String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(currentTime);
-                logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + logStartTime + ".log";
-            }
-            final Handler logFileHandler = newFileHandler(logFilename);
-            logFileHandler.setFormatter(new SimpleFormatter());
-            logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
-            Logger.getLogger("").addHandler(logFileHandler);
-            
-        } catch (IOException | SecurityException exception) {
-            System.err.println("Error initializing exception logger");
-        }
-
-        // Register a shutdown hook to terminate gracefully
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            @Override
-            public void run() {
-                if (!KERNEL_SHUTDOWN) {
-                    KERNEL_SHUTDOWN = true;
-                    shutdown();
-                }
-            }
-        });
-
-        // Basic initialization
+    private static void initializeObjects()
+    {
         reporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
+        analyzers = Collections.synchronizedSet(new HashSet<AbstractAnalyzer>());
         storages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
-        removereporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
-        removestorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
         transformers = Collections.synchronizedList(new LinkedList<AbstractTransformer>());
         filters = Collections.synchronizedList(new LinkedList<AbstractFilter>());
         sketches = Collections.synchronizedSet(new HashSet<AbstractSketch>());
         remoteSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
         serverSockets = Collections.synchronizedList(new LinkedList<ServerSocket>());
 
+        removeReporters = Collections.synchronizedSet(new HashSet<AbstractReporter>());
+        removeStorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
+        removeAnalyzers = Collections.synchronizedSet(new HashSet<AbstractAnalyzer>());
+
         KERNEL_SHUTDOWN = false;
         flushTransactions = true;
 
-        // Initialize the SketchManager and the final commit filter.
         // The FinalCommitFilter acts as a terminator for the filter list
         // and also maintains a pointer to the list of active storages to which
         // the provenance data is finally passed. It also has a reference to
@@ -335,69 +341,93 @@ public class Kernel
         // their corresponding result Graph.
         // FinalTransformer finalTransformer = new FinalTransformer();
         // transformers.add(finalTransformer);
+    }
 
-        // Initialize the main thread. This thread performs critical
-        // provenance-related
-        // work inside SPADE. It extracts provenance objects (vertices, edges)
-        // from the
-        // buffers, adds the source_reporter annotation to each object which is
-        // class name
-        // of the reporter, and then sends these objects to the filter list.
-        // This thread is also used for cleanly removing reporters and storages
-        // (through
-        // the control commands and also when shutting down). This is done by
-        // ensuring that
-        // once a reporter is marked for removal, the provenance objects from
-        // its buffer are
-        // completely flushed.
-        Runnable mainRunnable = new Runnable() {
+    /**
+     * Initialize the main thread. This thread performs critical
+     * provenance-related work inside SPADE.
+     * It extracts provenance objects (vertices, edges) from the
+     * buffers, adds the source_reporter annotation to each object which is
+     * class name of the reporter, and then sends these objects to the filter list.
+     * This thread is also used for cleanly removing reporters and storages
+     * through the control commands and also when shutting down. This is done by
+     * ensuring that once a reporter is marked for removal, the provenance objects from
+     * its buffer are completely flushed.
+     */
+    private static void registerMainThread()
+    {
+        Runnable mainRunnable = new Runnable()
+        {
             @Override
-            public void run() {
-                try {
-                    while (true) {
-                        if (flushTransactions) {
-                            // Flushing of transactions is also handled by this
-                            // thread to ensure that
-                            // there are no errors/problems when using storages
-                            // that are sensitive to
-                            // thread-context for their transactions. For
-                            // example, this is true for
-                            // the embedded neo4j graph database.
-                            for (AbstractStorage currentStorage : storages) {
+            public void run()
+            {
+                try
+                {
+                    while (true)
+                    {
+                        if (flushTransactions)
+                        {
+                            // Flushing of transactions is also handled by this thread to ensure that
+                            // there are no errors/problems when using storages that are sensitive to
+                            // thread-context for their transactions.
+                            // For example, this is true for the embedded neo4j graph database.
+                            for (AbstractStorage currentStorage : storages)
+                            {
                                 currentStorage.flushTransactions();
                             }
                             flushTransactions = false;
                         }
-                        if (!removestorages.isEmpty()) {
-                            // Check if a storage is marked for removal. If it
-                            // is, shut it down and
-                            // remove it from the list.
-                            for (Iterator<AbstractStorage> iterator = removestorages.iterator(); iterator.hasNext();) {
+
+                        if (!removeStorages.isEmpty())
+                        {
+                            // Check if a storage is marked for removal.
+                            // If it is, shut it down and remove it from the list.
+                            Iterator<AbstractStorage> iterator = removeStorages.iterator();
+                            while(iterator.hasNext())
+                            {
                                 AbstractStorage currentStorage = iterator.next();
                                 currentStorage.shutdown();
                                 iterator.remove();
                             }
                         }
-                        for (AbstractReporter reporter : reporters) {
-                            // This loop performs the actual task of committing
-                            // provenance data to
-                            // the storages. Each reporter is selected and the
-                            // nested loop is used to
-                            // extract buffer elements in a batch manner for
-                            // increased efficiency.
+                        if (!removeAnalyzers.isEmpty())
+                        {
+                            // Check if an analyzer is marked for removal.
+                            // If it is, shut it down and remove it from the list.
+                            Iterator<AbstractAnalyzer> iterator = removeAnalyzers.iterator();
+                            while(iterator.hasNext())
+                            {
+                                AbstractAnalyzer currentAnalyzer = iterator.next();
+                                currentAnalyzer.shutdown();
+                                iterator.remove();
+                            }
+                        }
+
+                        for (AbstractReporter reporter : reporters)
+                        {
+                            // This loop performs the actual task of committing provenance data to
+                            // the storages. Each reporter is selected and the nested loop is used to
+                            // extract buffer elements in a batch manner for increased efficiency.
                             // The elements are then passed to the filter list.
                             Buffer buffer = reporter.getBuffer();
-                            for (int i = 0; i < BATCH_BUFFER_ELEMENTS; i++) {
-                                Object bufferelement = buffer.getBufferElement();
-                                if (bufferelement instanceof AbstractVertex) {
-                                    AbstractVertex tempVertex = (AbstractVertex) bufferelement;
+                            for (int i = 0; i < BATCH_BUFFER_ELEMENTS; i++)
+                            {
+                                Object bufferElement = buffer.getBufferElement();
+                                if (bufferElement instanceof AbstractVertex)
+                                {
+                                    AbstractVertex tempVertex = (AbstractVertex) bufferElement;
                                     filters.get(FIRST_FILTER).putVertex(tempVertex);
-                                } else if (bufferelement instanceof AbstractEdge) {
-                                    AbstractEdge tempEdge = (AbstractEdge) bufferelement;
+                                }
+                                else if (bufferElement instanceof AbstractEdge)
+                                {
+                                    AbstractEdge tempEdge = (AbstractEdge) bufferElement;
                                     filters.get(FIRST_FILTER).putEdge(tempEdge);
-                                } else if (bufferelement == null) {
-                                    if (removereporters.contains(reporter)) {
-                                        removereporters.remove(reporter);
+                                }
+                                else if (bufferElement == null)
+                                {
+                                    if (removeReporters.contains(reporter))
+                                    {
+                                        removeReporters.remove(reporter);
                                     }
                                     break;
                                 }
@@ -405,83 +435,90 @@ public class Kernel
                         }
                         Thread.sleep(MAIN_THREAD_SLEEP_DELAY);
                     }
-                } catch (Exception exception) {
-                    logger.log(Level.SEVERE, null, exception);
+                }
+                catch (Exception exception)
+                {
+                    logger.log(Level.SEVERE, "Error registering Main Thread", exception);
                 }
             }
         };
-        mainThread = new Thread(mainRunnable, "mainSPADE-Thread");
+        Thread mainThread = new Thread(mainRunnable, "mainSPADE-Thread");
         mainThread.start();
+    }
 
-        // This thread creates the input and output pipes used for control (and
-        // also used
-        // by the control client). The exit value is used to determine if the
-        // pipes were
-        // successfully created. The input pipe (to which commands are issued)
-        // is read in
-        // a loop and the commands are processed.
-        Runnable controlRunnable = new Runnable() {
+    /**
+     * Register a SHUTDOWN hook to terminate gracefully
+     */
+    private static void registerShutdownThread()
+    {
+        // Register a shutdown hook to terminate gracefully
+        Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                try {
+                if (!KERNEL_SHUTDOWN) {
+                    KERNEL_SHUTDOWN = true;
+                    shutdown();
+                }
+            }
+        });
+
+    }
+
+    /**
+     * This thread creates the input and output pipes used for control
+     * (and also used by the control client). The exit value is used to
+     * determine if the pipes were successfully created.
+     * The input pipe to which commands are issued is read in
+     * a loop and the commands are processed.
+     */
+    private static void registerControlThread()
+    {
+        Runnable controlRunnable = new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                try
+                {
                     ServerSocket serverSocket = null;
                     int port = Integer.parseInt(Settings.getProperty("local_control_port"));
-                    if (ANDROID_PLATFORM) {
+                    if (ANDROID_PLATFORM)
+                    {
                         serverSocket = new ServerSocket(port);
-                    } else {
+                    }
+                    else
+                    {
                         serverSocket = sslServerSocketFactory.createServerSocket(port);
                         ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
                     }
                     serverSockets.add(serverSocket);
-                    while (!KERNEL_SHUTDOWN) {
+                    while (!KERNEL_SHUTDOWN)
+                    {
                         Socket controlSocket = serverSocket.accept();
+                        //added time to timeout after reading from the socket
+                        // to be able to check if the kernel has been SHUTDOWN
+                        // or not and send SHUTDOWN ack to the control clients.
+                        controlSocket.setSoTimeout(CONTROL_CLIENT_READ_TIMEOUT);
                         LocalControlConnection thisConnection = new LocalControlConnection(controlSocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
                     }
-                } catch (SocketException exception) {
-                    // Do nothing... this is triggered on shutdown.
-                } catch (NumberFormatException | IOException exception) {
-                    logger.log(Level.SEVERE, null, exception);
+                }
+                catch (SocketException exception)
+                {
+                    // Do nothing... this is triggered on KERNEL_SHUTDOWN.
+                }
+                catch (NumberFormatException | IOException exception)
+                {
+                    logger.log(Level.SEVERE, "control thread not able to start!", exception);
                 }
             }
         };
         Thread controlThread = new Thread(controlRunnable, "controlSocket-Thread");
         controlThread.start();
-
-        Runnable queryRunnable = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    ServerSocket serverSocket = null;
-                    int port = Integer.parseInt(Settings.getProperty("local_query_port"));
-                    if (ANDROID_PLATFORM) {
-                        serverSocket = new ServerSocket(port);
-                    } else {
-                        serverSocket = sslServerSocketFactory.createServerSocket(port);
-                        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
-                    }
-                    serverSockets.add(serverSocket);
-                    while (!KERNEL_SHUTDOWN) {
-                        Socket querySocket = serverSocket.accept();
-                        LocalQueryConnection thisConnection = new LocalQueryConnection(querySocket);
-                        Thread connectionThread = new Thread(thisConnection);
-                        connectionThread.start();
-                    }
-                } catch (SocketException exception) {
-                    // Do nothing... this is triggered on shutdown.
-                } catch (NumberFormatException | IOException exception) {
-                    logger.log(Level.SEVERE, null, exception);
-                }
-            }
-        };
-        Thread queryThread = new Thread(queryRunnable, "querySocket-Thread");
-        queryThread.start();
-
-
-        // Load the SPADE configuration from the default config file.
-        configCommand("config load " + CONFIG_FILE, NullStream.out);
     }
+
+
 
     /**
      * All command strings are passed to this function which subsequently calls
