@@ -1,35 +1,38 @@
-package query.sql.postgresql;
+package spade.query.sql.postgresql;
 
-import spade.core.AbstractVertex;
+
+import spade.core.AbstractEdge;
 import spade.storage.SQL;
 
 import java.sql.ResultSet;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.*;
 
 import static spade.core.AbstractStorage.PRIMARY_KEY;
+import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
+import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
+
 
 /**
  * @author raza
  */
-public class PutVertex extends PostgreSQL<Boolean, AbstractVertex>
+public class PutEdge extends PostgreSQL<Boolean, AbstractEdge>
 {
+
     @Override
-    public Boolean execute(AbstractVertex vertex, Integer limit)
+    public Boolean execute(AbstractEdge edge, Integer limit)
     {
-        if(vertex == null)
+        if(edge == null)
             return false;
 
         StringBuilder query = new StringBuilder( 100);
         query.append("INSERT INTO ");
-        query.append(VERTEX_TABLE);
+        query.append(EDGE_TABLE);
         query.append(" (");
         query.append(PRIMARY_KEY);  //hash is not part of annotations
         query.append(", ");
 
-        // Add annotation keys
         int i = 0;
-        for (Map.Entry<String, String> annotation : vertex.getAnnotations().entrySet())
+        for (Map.Entry<String, String> annotation: edge.getAnnotations().entrySet())
         {
             String key = annotation.getKey();
             // Sanitize column name to remove special characters
@@ -38,17 +41,19 @@ public class PutVertex extends PostgreSQL<Boolean, AbstractVertex>
             // Add column if does not already exist
             AddColumn addColumn = new AddColumn();
             Map<String, String> addColumnParameters = new HashMap<>();
-            addColumnParameters.put(VERTEX_TABLE, colName);
+            addColumnParameters.put(EDGE_TABLE, colName);
             addColumn.execute(addColumnParameters, null);
 
             query.append(colName);
             i++;
-            if(i < vertex.getAnnotations().size())
+            if(i < edge.getAnnotations().size())
                 query.append(", ");
         }
-        Map<String, String> annotations = vertex.getAnnotations();
-        annotations.put(PRIMARY_KEY, vertex.bigHashCode());
 
+        Map<String, String> annotations = edge.getAnnotations();
+        annotations.put(PRIMARY_KEY, edge.bigHashCode());
+        annotations.put(CHILD_VERTEX_KEY, edge.getChildVertex().bigHashCode());
+        annotations.put(PARENT_VERTEX_KEY, edge.getParentVertex().bigHashCode());
         query.append(") VALUES (");
 
         // Add the annotation values

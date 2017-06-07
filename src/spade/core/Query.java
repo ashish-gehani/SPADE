@@ -50,12 +50,12 @@ public class Query {
     private static final String QUERY_STORAGE = Settings.getProperty("default_query_storage");
 
     /**
-     * This method is used to call query methods on the desired storage. The
+     * This method is used to call spade.query methods on the desired storage. The
      * transactions are also flushed to ensure that the data in the storages is
      * consistent and updated with all the data received by SPADE up to this
      * point.
      *
-     * @param line The query string.
+     * @param line The spade.query string.
      * @param resolveRemote A boolean used to indicate whether or not remote
      * edges need to be resolved.
      * @return The result represented by a Graph object.
@@ -83,10 +83,10 @@ public class Query {
                 if (tokens.length>1 && storage.getClass().getName().equals("spade.storage." + tokens[1])) {
 
                     if (DEBUG_OUTPUT) {
-                        logger.log(Level.INFO, "Executing query line: {0}", line);
+                        logger.log(Level.INFO, "Executing spade.query line: {0}", line);
                     }
 
-                    // Determine the type of query and call the corresponding method
+                    // Determine the type of spade.query and call the corresponding method
                     begintime = System.currentTimeMillis();
                     if (tokens[2].equalsIgnoreCase("vertices")) {
                         resultGraph = queryVertices(tokens[3], storage);
@@ -123,7 +123,7 @@ public class Query {
         long elapsedtime = endtime - begintime;
 
         if (DEBUG_OUTPUT) {
-            logger.log(Level.INFO, "Time taken for query \"({0})\": {1}", new Object[]{line, elapsedtime});
+            logger.log(Level.INFO, "Time taken for spade.query \"({0})\": {1}", new Object[]{line, elapsedtime});
         }
 
         return resultGraph;
@@ -162,7 +162,7 @@ public class Query {
             String[] tokens = queryLine.split("\\s+", 2);
             String host = tokens[0];
             String queryExpression = tokens[1];
-            // Connect to the specified host and query for vertices.
+            // Connect to the specified host and spade.query for vertices.
             int port = Integer.parseInt(Settings.getProperty("remote_query_port"));
             SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(host, port);
 
@@ -171,7 +171,7 @@ public class Query {
             ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
             PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
-            String srcExpression = "query Neo4j vertices " + queryExpression;
+            String srcExpression = "spade.query Neo4j vertices " + queryExpression;
             remoteSocketOut.println(srcExpression);
             Graph resultGraph = (Graph) graphInputStream.readObject();
 
@@ -206,14 +206,14 @@ public class Query {
                 Map<AbstractVertex, Integer> currentNetworkMap = resultGraph.networkMap();
                 // Perform remote queries until the network map is exhausted
                 while (!currentNetworkMap.isEmpty()) {
-                    // Perform remote query on current network vertex and union
+                    // Perform remote spade.query on current network vertex and union
                     // the result with the remoteGraph. This also adds the network
                     // vertexes to the remoteGraph as well, so that deeper level
                     // network queries are resolved iteratively
                     for (Map.Entry<AbstractVertex, Integer> currentEntry : currentNetworkMap.entrySet()) {
                         AbstractVertex networkVertex = currentEntry.getKey();
                         int currentDepth = currentEntry.getValue();
-                        // Execute remote query
+                        // Execute remote spade.query
                         Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction, terminatingExpression);
                         // Update the depth values of all network artifacts in the
                         // remote network map to reflect current level of iteration
@@ -279,7 +279,7 @@ public class Query {
                 ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
                 PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
-                String srcExpression = "query Neo4j lineage " + srcVertexId + " " + maxLength + " ancestors null";
+                String srcExpression = "spade.query Neo4j lineage " + srcVertexId + " " + maxLength + " ancestors null";
                 remoteSocketOut.println(srcExpression);
                 srcGraph = (Graph) graphInputStream.readObject();
 
@@ -299,7 +299,7 @@ public class Query {
                 graphInputStream = new ObjectInputStream(inStream);
                 remoteSocketOut = new PrintWriter(outStream, true);
 
-                String dstExpression = "query Neo4j lineage " + dstVertexId + " " + maxLength + " descendants null";
+                String dstExpression = "spade.query Neo4j lineage " + dstVertexId + " " + maxLength + " descendants null";
                 remoteSocketOut.println(dstExpression);
                 dstGraph = (Graph) graphInputStream.readObject();
 
@@ -347,8 +347,8 @@ public class Query {
 
         // First, store the local network vertices in a set because they will be
         // used later.
-        //Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
-        Graph myNetworkVertices = executeQuery("query Neo4j vertices network:true", false);
+        //Graph myNetworkVertices = spade.query("spade.query Neo4j vertices type:Network", false);
+        Graph myNetworkVertices = executeQuery("spade.query Neo4j vertices network:true", false);
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
         MatrixFilter myMatrixFilter = Kernel.sketches.iterator().next().matrixFilter;
 
@@ -390,7 +390,7 @@ public class Query {
 
             for (int i = 0; i < vertices.length; i++) {
                 String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(ID_STRING);
-                Graph path = executeQuery("query Neo4j paths " + srcVertexId + " " + vertexId + " 20", false);
+                Graph path = executeQuery("spade.query Neo4j paths " + srcVertexId + " " + vertexId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
 
@@ -439,7 +439,7 @@ public class Query {
 
             for (int i = 0; i < vertices.length; i++) {
                 String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(ID_STRING);
-                Graph path = executeQuery("query Neo4j paths " + vertexId + " " + dstVertexId + " 20", false);
+                Graph path = executeQuery("spade.query Neo4j paths " + vertexId + " " + dstVertexId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
 
@@ -488,8 +488,8 @@ public class Query {
             logger.log(Level.INFO, "pathFragment.a - generating path fragment");
         }
 
-        //Graph myNetworkVertices = query("query Neo4j vertices type:Network", false);
-        Graph myNetworkVertices = executeQuery("query Neo4j vertices network:true", false);
+        //Graph myNetworkVertices = spade.query("spade.query Neo4j vertices type:Network", false);
+        Graph myNetworkVertices = executeQuery("spade.query Neo4j vertices network:true", false);
         Set<AbstractVertex> matchingVerticesDown = new HashSet<>();
         Set<AbstractVertex> matchingVerticesUp = new HashSet<>();
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
@@ -561,7 +561,7 @@ public class Query {
                 }
                 String srcId = ((AbstractVertex) vertices[i]).getAnnotation(ID_STRING);
                 String dstId = ((AbstractVertex) vertices[j]).getAnnotation(ID_STRING);
-                Graph path = executeQuery("query Neo4j paths " + srcId + " " + dstId + " 20", false);
+                Graph path = executeQuery("spade.query Neo4j paths " + srcId + " " + dstId + " 20", false);
                 if (!path.edgeSet().isEmpty()) {
                     result = Graph.union(result, path);
 
@@ -724,12 +724,12 @@ public class Query {
     }
 
     /**
-     * This method is called when a path query is executed using sketches.
+     * This method is called when a path spade.query is executed using sketches.
      *
      * @param line A string containing the source and destination host and
      * vertex IDs. It has the format "sourceHost:vertexId
      * destinationHost:vertexId"
-     * @return The result of this path query represented by a Graph object.
+     * @return The result of this path spade.query represented by a Graph object.
      */
     public static Graph getPathInSketch(String line) {
         Graph result = new Graph();
@@ -755,14 +755,14 @@ public class Query {
             ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
             PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
-            String expression = "query Neo4j vertices network:true";
+            String expression = "spade.query Neo4j vertices network:true";
             remoteSocketOut.println(expression);
-            // Check whether the remote query server returned a graph in response
+            // Check whether the remote spade.query server returned a graph in response
             Graph tempResultGraph = (Graph) graphInputStream.readObject();
             // Add those network vertices to the destination set that have a path
             // to the specified vertex
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet()) {
-                expression = "query Neo4j paths " + currentVertex.getAnnotation(ID_STRING) + " " + dstVertexId + " 20";
+                expression = "spade.query Neo4j paths " + currentVertex.getAnnotation(ID_STRING) + " " + dstVertexId + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty()) {
@@ -795,12 +795,12 @@ public class Query {
             graphInputStream = new ObjectInputStream(inStream);
             remoteSocketOut = new PrintWriter(outStream, true);
 
-            expression = "query Neo4j vertices network:true";
+            expression = "spade.query Neo4j vertices network:true";
             remoteSocketOut.println(expression);
-            // Check whether the remote query server returned a graph in response
+            // Check whether the remote spade.query server returned a graph in response
             tempResultGraph = (Graph) graphInputStream.readObject();
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet()) {
-                expression = "query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation(ID_STRING) + " 20";
+                expression = "spade.query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation(ID_STRING) + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty()) {
@@ -974,21 +974,21 @@ public class Query {
             ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
             PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
-            // The first query is used to determine the vertex id of the network
+            // The first spade.query is used to determine the vertex id of the network
             // vertex on the remote host. This is needed to execute the lineage
-            // query
-            String vertexQueryExpression = "query Neo4j vertices";
+            // spade.query
+            String vertexQueryExpression = "spade.query Neo4j vertices";
             vertexQueryExpression += " source\\ host:" + networkVertex.getAnnotation("destination host");
             vertexQueryExpression += " AND source\\ port:" + networkVertex.getAnnotation("destination port");
             vertexQueryExpression += " AND destination\\ host:" + networkVertex.getAnnotation("source host");
             vertexQueryExpression += " AND destination\\ port:" + networkVertex.getAnnotation("source port");
 
-            // Execute remote query for vertices
+            // Execute remote spade.query for vertices
             if (DEBUG_OUTPUT) {
-                logger.log(Level.INFO, "Sending query expression: {0}", vertexQueryExpression);
+                logger.log(Level.INFO, "Sending spade.query expression: {0}", vertexQueryExpression);
             }
             remoteSocketOut.println(vertexQueryExpression);
-            // Check whether the remote query server returned a graph in response
+            // Check whether the remote spade.query server returned a graph in response
             Graph vertexGraph = (Graph) graphInputStream.readObject();
             // The graph should only have one vertex which is the network vertex.
             // We use this to get the vertex id
@@ -996,8 +996,8 @@ public class Query {
             String targetVertexId = targetVertex.getAnnotation(ID_STRING);
             int vertexId = Integer.parseInt(targetVertexId);
 
-            // Build the expression for the remote lineage query
-            String lineageQueryExpression = "query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
+            // Build the expression for the remote lineage spade.query
+            String lineageQueryExpression = "spade.query Neo4j lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
             remoteSocketOut.println(lineageQueryExpression);
 
             // The graph object we get as a response is returned as the
@@ -1020,7 +1020,7 @@ public class Query {
 
 class QueryConnection implements Runnable {
 
-    // An object of this class is instantiated when a query connection is made.
+    // An object of this class is instantiated when a spade.query connection is made.
     Socket clientSocket;
 
     QueryConnection(Socket socket) {
@@ -1045,7 +1045,7 @@ class QueryConnection implements Runnable {
                 // Read lines from the querying client until 'close' is called
 
                 if (Query.DEBUG_OUTPUT) {
-                    Logger.getLogger(QueryConnection.class.getName()).log(Level.INFO, "Received query line: {0}", queryLine);
+                    Logger.getLogger(QueryConnection.class.getName()).log(Level.INFO, "Received spade.query line: {0}", queryLine);
                 }
 
                 Graph resultGraph = Query.executeQuery(queryLine, true);

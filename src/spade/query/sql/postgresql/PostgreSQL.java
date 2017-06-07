@@ -1,4 +1,4 @@
-package query.sql.postgresql;
+package spade.query.sql.postgresql;
 
 import com.mysql.jdbc.StringUtils;
 import org.apache.commons.collections.CollectionUtils;

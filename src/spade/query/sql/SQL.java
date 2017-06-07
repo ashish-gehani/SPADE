@@ -1,9 +1,6 @@
-package query.sql;
+package spade.query.sql;
 
 import spade.core.AbstractQuery;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * @author raza

@@ -1,4 +1,4 @@
-package query.common;
+package spade.query.common;
 
 import spade.core.AbstractQuery;
 import spade.core.Graph;

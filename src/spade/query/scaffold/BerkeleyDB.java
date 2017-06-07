@@ -1,4 +1,4 @@
-package query.scaffold;
+package spade.query.scaffold;
 
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.bind.serial.SerialBinding;
@@ -106,7 +106,7 @@ public class BerkeleyDB
             DatabaseEntry key = new DatabaseEntry(parentHash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
             DatabaseEntry data = new DatabaseEntry();
-            // query database to get the key-value
+            // spade.query database to get the key-value
             OperationStatus operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
             if(operationStatus != OperationStatus.NOTFOUND)
             {
@@ -133,7 +133,7 @@ public class BerkeleyDB
             DatabaseEntry key = new DatabaseEntry(childHash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
             DatabaseEntry data = new DatabaseEntry();
-            // query database to get the key-value
+            // spade.query database to get the key-value
             OperationStatus operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
             if(operationStatus != OperationStatus.NOTFOUND)
             {
@@ -167,7 +167,7 @@ public class BerkeleyDB
             DatabaseEntry key = new DatabaseEntry(hash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
             DatabaseEntry data = new DatabaseEntry();
-            // query database to get the key-value
+            // spade.query database to get the key-value
             OperationStatus operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
             List<String> ancestors = new LinkedList<>();
             if(operationStatus != OperationStatus.NOTFOUND)
@@ -237,7 +237,7 @@ public class BerkeleyDB
             DatabaseEntry key = new DatabaseEntry(childHash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
             DatabaseEntry data = new DatabaseEntry();
-            // query database to get the key-value
+            // spade.query database to get the key-value
             OperationStatus operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
             addItem(operationStatus, PARENTS , key, data, neighborBinding, parentHash);
 

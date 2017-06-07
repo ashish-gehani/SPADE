@@ -1,9 +1,7 @@
-package query.neo4j;
+package spade.query.neo4j;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.neo4j.cypher.internal.compiler.v2_0.symbols.RelationshipType;
 import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
 
 import java.util.List;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package query.sql.postgresql;
+package spade.query.sql.postgresql;
 
 import spade.core.Graph;
 

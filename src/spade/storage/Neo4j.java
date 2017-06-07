@@ -203,7 +203,7 @@ public class Neo4j extends AbstractStorage
         }
         catch(QueryExecutionException ex)
         {
-            logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
+            logger.log(Level.SEVERE, "Neo4j Cypher spade.query execution not successful!", ex);
         }
         finally
         {

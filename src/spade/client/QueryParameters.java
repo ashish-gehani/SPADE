@@ -69,14 +69,14 @@ public class QueryParameters{
 			}
 			return digQueryParams;
 		}catch(Exception e){
-			Logger.getLogger(QueryParameters.class.getName()).log(Level.SEVERE, "Malformed query", e);
+			Logger.getLogger(QueryParameters.class.getName()).log(Level.SEVERE, "Malformed spade.query", e);
 		}
 		return null;
 	}
 	
 	private static AbstractVertex getVertexForId(String storage, String id){
 		try{
-			Graph verticesGraph = Query.executeQuery("query " + storage + " vertices " + Settings.getProperty("storage_identifier")+":"+id, false);
+			Graph verticesGraph = Query.executeQuery("spade/query " + storage + " vertices " + Settings.getProperty("storage_identifier")+":"+id, false);
 			if(verticesGraph != null && verticesGraph.vertexSet().size() != 0){
 				return verticesGraph.vertexSet().toArray(new AbstractVertex[]{})[0];
 			}

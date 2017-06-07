@@ -640,7 +640,7 @@ public class SQL extends AbstractStorage
         }
         catch (SQLException ex)
         {
-            logger.log(Level.SEVERE, "SQL query execution not successful!", ex);
+            logger.log(Level.SEVERE, "SQL spade.query execution not successful!", ex);
         }
 
         return result;

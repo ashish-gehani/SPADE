@@ -69,7 +69,7 @@ import spade.utility.LogManager;
 /**
  * This mediates between vertex and edges coming from Reporters, applying Filters to them, before
  * committing them to Storage, applying Transformers when responding local queries, and using Sketches
- * to accelerate distributed query responses.
+ * to accelerate distributed spade.query responses.
  */
 
 public class Kernel {
@@ -180,7 +180,7 @@ public class Kernel {
     private static final String LIST_STRING = "list reporters|storages|filters|sketches|transformers|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     private static final String EXIT_STRING = "exit";
-    // Strings for query client
+    // Strings for spade.query client
     private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
     private static final String QUERY_EDGE1_STRING = "<result> = getEdges(source vertex id, destination vertex id)";
     private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id, maximum length)";
@@ -480,11 +480,11 @@ public class Kernel {
         Thread queryThread = new Thread(queryRunnable, "querySocket-Thread");
         queryThread.start();
 
-        // This thread creates a server socket for remote querying. When a query
+        // This thread creates a server socket for remote querying. When a spade.query
         // connection
         // is established, another new thread is created for that connection
         // object. The
-        // remote query server is therefore a multithreaded server.
+        // remote spade.query server is therefore a multithreaded server.
         Runnable remoteRunnable = new Runnable() {
             @Override
             public void run() {
@@ -696,10 +696,10 @@ public class Kernel {
     }
 
     /**
-     * This method is triggered by the query client and calls the main query
+     * This method is triggered by the spade.query client and calls the main spade.query
      * method to retrieve the result before exporting it to the desired path.
      *
-     * @param line The query expression.
+     * @param line The spade.query expression.
      * @return
      */
     public static Graph queryCommand(String line) {
@@ -709,7 +709,7 @@ public class Kernel {
 
     /**
      * Method to display control commands to the output stream. The control and
-     * query commands are displayed using separate methods since these commands
+     * spade.query commands are displayed using separate methods since these commands
      * are issued from different clients.
      *
      * @return
@@ -729,7 +729,7 @@ public class Kernel {
     }
 
     /**
-     * Method to display query commands to the given output stream.
+     * Method to display spade.query commands to the given output stream.
      *
      * @return
      */

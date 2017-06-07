@@ -97,7 +97,7 @@ public class Android {
             outputStream.println("");
             while (true) {
                 String line = commandReader.readLine();
-                if (line.split("\\s")[0].equalsIgnoreCase("query")) {
+                if (line.split("\\s")[0].equalsIgnoreCase("spade/query")) {
                     SPADEControlIn.println("");
                 } else if (line.equalsIgnoreCase("exit")) {
                     shutdown = true;

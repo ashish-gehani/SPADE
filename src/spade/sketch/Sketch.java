@@ -123,7 +123,7 @@ class updateMatrixThread implements Runnable {
             logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for USED edge for storageId: {0}", storageId);
             String remoteHost = vertex.getAnnotation("destination host");
             BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(vertex);
-            Graph descendants = Query.executeQuery("query Neo4j lineage " + storageId + " 20 d null", false);
+            Graph descendants = Query.executeQuery("spade.query Neo4j lineage " + storageId + " 20 d null", false);
             for (AbstractVertex currentVertex : descendants.vertexSet()) {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                     sketch.matrixFilter.updateAncestors(currentVertex, newAncestors);
@@ -132,7 +132,7 @@ class updateMatrixThread implements Runnable {
             logger.log(Level.INFO, "concreteSketch - Updated bloomfilters for USED edge - storageId: {0}", storageId);
         } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
             logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for WGB edge for storageId: {0}", storageId);
-            Graph ancestors = Query.executeQuery("query Neo4j lineage " + storageId + " 20 a null", false);
+            Graph ancestors = Query.executeQuery("spade.query Neo4j lineage " + storageId + " 20 a null", false);
             for (AbstractVertex currentVertex : ancestors.vertexSet()) {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
                     sketch.matrixFilter.add(vertex, currentVertex);
@@ -145,7 +145,7 @@ class updateMatrixThread implements Runnable {
     private String getStorageId(AbstractVertex networkVertex) {
         try {
             logger.log(Level.INFO, "concreteSketch - Getting storageId of networkVertex");
-            String vertexQueryExpression = "query Neo4j vertices";
+            String vertexQueryExpression = "spade.query Neo4j vertices";
             vertexQueryExpression += " source\\ host:" + networkVertex.getAnnotation("source host");
             vertexQueryExpression += " AND source\\ port:" + networkVertex.getAnnotation("source port");
             vertexQueryExpression += " AND destination\\ host:" + networkVertex.getAnnotation("destination host");

@@ -1,4 +1,4 @@
-package query.neo4j;
+package spade.query.neo4j;
 
 import org.apache.commons.collections.CollectionUtils;
 import spade.core.AbstractVertex;
@@ -9,7 +9,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.storage.Neo4j.NodeTypes;
 /**
  * @author raza
  */

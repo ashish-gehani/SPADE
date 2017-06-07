@@ -52,7 +52,7 @@ public class Query {
     private static PrintStream SPADEQueryIn;
     private static ObjectInputStream SPADEQueryOut;
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String historyFile = SPADE_ROOT + "cfg/query.history";
+    private static final String historyFile = SPADE_ROOT + "cfg/spade.query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, Graph> graphObjects;
     private static HashMap<String, String> graphExpressions;
@@ -168,7 +168,7 @@ public class Query {
 
     private static void parseQuery(String input) {
         // Accepts input of the following form and generates the corresponding
-        // query expression to pass to the Query class:
+        // spade.query expression to pass to the Query class:
         //      function(arguments)
         // Examples:
         //   <result> = getVertices(expression)
@@ -207,19 +207,19 @@ public class Query {
             result = vertexMatcher.group(1);
             queryTarget = vertexMatcher.group(2);
             String expression = vertexMatcher.group(3);
-            queryString = "query " + QUERY_STORAGE + " vertices " + expression;
+            queryString = "spade/query " + QUERY_STORAGE + " vertices " + expression;
         } else if (edgeMatcher.matches()) {
             result = edgeMatcher.group(1);
             queryTarget = edgeMatcher.group(2);
             String expression = edgeMatcher.group(3);
-            queryString = "query " + QUERY_STORAGE + " edges " + expression;
+            queryString = "spade/query " + QUERY_STORAGE + " edges " + expression;
         } else if (pathMatcher.matches()) {
             result = pathMatcher.group(1);
             queryTarget = pathMatcher.group(2);
             String srcVertex = pathMatcher.group(3);
             String dstVertex = pathMatcher.group(4);
             String maxLength = pathMatcher.group(5);
-            queryString = "query " + QUERY_STORAGE + " paths " + srcVertex + " " + dstVertex + " " + maxLength;
+            queryString = "spade/query " + QUERY_STORAGE + " paths " + srcVertex + " " + dstVertex + " " + maxLength;
         } else if (lineageMatcher.matches()) {
             result = lineageMatcher.group(1);
             queryTarget = lineageMatcher.group(2);
@@ -227,14 +227,14 @@ public class Query {
             String depth = lineageMatcher.group(4);
             String direction = lineageMatcher.group(5);
             String terminatingExpression = (lineageMatcher.group(6) == null) ? "null" : lineageMatcher.group(6).substring(1).trim();
-            queryString = "query " + QUERY_STORAGE + " lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
+            queryString = "spade/query " + QUERY_STORAGE + " lineage " + vertexId + " " + depth + " " + direction + " " + terminatingExpression;
             try {
                 if ((queryTarget == null) && graphObjects.containsKey(vertexId)) {
                     Graph totalGraphs = new Graph();
                     long begintime = System.currentTimeMillis();
                     for (AbstractVertex vertex : graphObjects.get(vertexId).vertexSet()) {
                         String storageId = vertex.getAnnotation(Settings.getProperty("storage_identifier"));
-                        queryString = "query " + QUERY_STORAGE + " lineage " + storageId + " " + depth + " " + direction + " " + terminatingExpression;
+                        queryString = "spade/query " + QUERY_STORAGE + " lineage " + storageId + " " + depth + " " + direction + " " + terminatingExpression;
                         SPADEQueryIn.println(queryString);
                         String resultString = (String) SPADEQueryOut.readObject();
                         if (resultString.equals("graph")) {
@@ -246,7 +246,7 @@ public class Query {
                     }
                     long endtime = System.currentTimeMillis();
                     long elapsedtime = endtime - begintime;
-                    System.out.println("Time taken for query: " + elapsedtime + " ms");
+                    System.out.println("Time taken for spade.query: " + elapsedtime + " ms");
 
                     graphObjects.put(result, totalGraphs);
                     String queryExpression = input.split("\\s*=\\s*")[1];
@@ -328,7 +328,7 @@ public class Query {
                 endtime = System.currentTimeMillis();
                 long elapsedtime = endtime - begintime;
 
-                System.out.println("Time taken for query: " + elapsedtime + " ms");
+                System.out.println("Time taken for spade.query: " + elapsedtime + " ms");
             } else if (queryTarget != null) {
                 queryTarget = queryTarget.substring(0, queryTarget.length() - 1);
                 if (!graphObjects.containsKey(queryTarget)) {
