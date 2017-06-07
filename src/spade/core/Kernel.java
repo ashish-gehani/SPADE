@@ -62,32 +62,22 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
-import spade.client.QueryParameters;
 import spade.filter.FinalCommitFilter;
 import spade.utility.LogManager;
 
 /**
- * This mediates between vertex and edges coming from Reporters, applying Filters to them, before
- * committing them to Storage, applying Transformers when responding local queries, and using Sketches
- * to accelerate distributed spade.query responses.
+ * The SPADE kernel containing the control client and
+ * managing all the central activities.
+ *
+ * @author Dawood Tariq and Raza Ahmad
  */
 
-public class Kernel {
+public class Kernel
+{
 	
-	static{
+	static
+    {
 		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
-		/** /
-		try {
-			PrintStream pStream = new PrintStream ("/tmp/logMgr.txt");
-
-			pStream.println (System.getProperty ("java.util.logging.manager") + ": " +
-							 LogManager.getLogManager ());
-			pStream.flush ();
-			pStream.close ();
-		} catch (Exception e) {
-			// do nothing
-		}
-		/**/
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
@@ -111,10 +101,6 @@ public class Kernel {
      * Paths to key stores.
      */
     private static final String KEYSTORE_PATH = CONFIG_PATH + FILE_SEPARATOR + "ssl";
-    private static final String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.public";
-    private static final String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.private";
-    private static final String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.public";
-    private static final String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.private";
     /**
      * Path to log files.
      */
@@ -131,6 +117,10 @@ public class Kernel {
      * Set of reporters active on the local SPADE instance.
      */
     private static Set<AbstractReporter> reporters;
+    /**
+     * Set of analyzers active on the local SPADE instance.
+     */
+    public static Set<AbstractAnalyzer> analyzers;
     /**
      * Set of storages active on the local SPADE instance.
      */
@@ -156,55 +146,60 @@ public class Kernel {
      * Used to initiate shutdown. It is used by various threads to 
      * determine whether to continue running.
      */
-    public static volatile boolean shutdown;
+    public static volatile boolean KERNEL_SHUTDOWN;
     /**
      * Used to indicate whether the transactions need to be flushed by
      * the storages.
      */
     public static volatile boolean flushTransactions;
-    private static Thread mainThread;
+
+    /**
+     * Miscellaneous members
+     */
     private static List<ServerSocket> serverSockets;
     private static Set<AbstractReporter> removereporters;
     private static Set<AbstractStorage> removestorages;
+    private static Set<AbstractAnalyzer> removeanalyzers;
+
     private static final int BATCH_BUFFER_ELEMENTS = 1000000;
     private static final int MAIN_THREAD_SLEEP_DELAY = 10;
     private static final int REMOVE_WAIT_DELAY = 100;
-    //private static final int FIRST_TRANSFORMER = 0;
     private static final int FIRST_FILTER = 0;
-    // Strings for control client
-    private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <arguments>";
-    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <arguments>";
-    private static final String ADD_SKETCH_STRING = "add sketch <class name>";
-    private static final String REMOVE_REPORTER_STORAGE_SKETCH_STRING = "remove reporter|storage|sketch <class name>";
-    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <position number>";
-    private static final String LIST_STRING = "list reporters|storages|filters|sketches|transformers|all";
-    private static final String CONFIG_STRING = "config load|save <filename>";
-    private static final String EXIT_STRING = "exit";
-    // Strings for spade.query client
-    private static final String QUERY_VERTEX_STRING = "<result> = getVertices(expression)";
-    private static final String QUERY_EDGE1_STRING = "<result> = getEdges(source vertex id, destination vertex id)";
-    private static final String QUERY_PATHS_STRING = "<result> = getPaths(source vertex id, destination vertex id, maximum length)";
-    private static final String QUERY_LINEAGE_STRING = "<result> = getLineage(vertex id|<result>, depth, direction[, terminating expression])";
-    private static final String QUERY_CHILDREN_STRING = "<result> = <result>.getChildren(expression)";
-    private static final String QUERY_PARENTS_STRING = "<result> = <result>.getParents(expression)";
-    private static final String QUERY_PRINT_STRING = "<result>.print(annotations)";
-    private static final String QUERY_EXPORT_STRING = "export <result> <path>";
-    private static final String QUERY_LIST_STRING = "list";
-    private static final String QUERY_SELECT_STORAGE = "storage Neo4j|SQL (default: Neo4j)";    
-    private static final String QUERY_EXIT_STRING = "exit";
     private static final Logger logger = Logger.getLogger(Kernel.class.getName());
     private static boolean ANDROID_PLATFORM = false;
-    // Members for creating secure sockets
+
+    /**
+     * Strings for control client
+     */
+    private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
+    private static final String ADD_ANALYZER_STRING = "add analyzer <class name>";
+    private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <initialization arguments>";
+    private static final String ADD_SKETCH_STRING = "add sketch <class name>";
+    private static final String REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING = "remove reporter|analyzer|storage|sketch <class name>";
+    private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <position number>";
+    private static final String LIST_STRING = "list reporters|storages|analyzers|filters|sketches|transformers|all";
+    private static final String CONFIG_STRING = "config load|save <filename>";
+    private static final String EXIT_STRING = "exit";
+
+    /**
+     * Members for creating secure sockets
+     */
     private static KeyStore clientKeyStorePublic;
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static KeyStore serverKeyStorePrivate;
     public static SSLSocketFactory sslSocketFactory;
     public static SSLServerSocketFactory sslServerSocketFactory;
-    
+
     private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
     
-    private static void setupKeyStores() throws Exception {
+    private static void setupKeyStores() throws Exception
+    {
+        String KEYSTORE_PATH = CONFIG_PATH + FILE_SEPARATOR + "ssl";
+        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.public";
+        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.private";
+        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.public";
+        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), "public".toCharArray());
@@ -216,7 +211,8 @@ public class Kernel {
         clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), "private".toCharArray());
     }
 
-    private static void setupClientSSLContext() throws Exception {
+    private static void setupClientSSLContext() throws Exception
+    {
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextInt();
 
@@ -230,7 +226,8 @@ public class Kernel {
         sslSocketFactory = sslContext.getSocketFactory();
     }
 
-    private static void setupServerSSLContext() throws Exception {
+    private static void setupServerSSLContext() throws Exception
+    {
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextInt();
 
@@ -302,8 +299,8 @@ public class Kernel {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                if (!shutdown) {
-                    shutdown = true;
+                if (!KERNEL_SHUTDOWN) {
+                    KERNEL_SHUTDOWN = true;
                     shutdown();
                 }
             }
@@ -320,7 +317,7 @@ public class Kernel {
         remoteSketches = Collections.synchronizedMap(new HashMap<String, AbstractSketch>());
         serverSockets = Collections.synchronizedList(new LinkedList<ServerSocket>());
 
-        shutdown = false;
+        KERNEL_SHUTDOWN = false;
         flushTransactions = true;
 
         // Initialize the SketchManager and the final commit filter.
@@ -435,7 +432,7 @@ public class Kernel {
                         ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
                     }
                     serverSockets.add(serverSocket);
-                    while (!shutdown) {
+                    while (!KERNEL_SHUTDOWN) {
                         Socket controlSocket = serverSocket.accept();
                         LocalControlConnection thisConnection = new LocalControlConnection(controlSocket);
                         Thread connectionThread = new Thread(thisConnection);
@@ -464,7 +461,7 @@ public class Kernel {
                         ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
                     }
                     serverSockets.add(serverSocket);
-                    while (!shutdown) {
+                    while (!KERNEL_SHUTDOWN) {
                         Socket querySocket = serverSocket.accept();
                         LocalQueryConnection thisConnection = new LocalQueryConnection(querySocket);
                         Thread connectionThread = new Thread(thisConnection);
@@ -498,7 +495,7 @@ public class Kernel {
                         ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
                     }
                     serverSockets.add(serverSocket);
-                    while (!shutdown) {
+                    while (!KERNEL_SHUTDOWN) {
                         Socket clientSocket = serverSocket.accept();
                         QueryConnection thisConnection = new QueryConnection(clientSocket);
                         Thread connectionThread = new Thread(thisConnection);
@@ -532,7 +529,7 @@ public class Kernel {
                         ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
                     }
                     serverSockets.add(serverSocket);
-                    while (!shutdown) {
+                    while (!KERNEL_SHUTDOWN) {
                         Socket clientSocket = serverSocket.accept();
                         SketchConnection thisConnection = new SketchConnection(clientSocket);
                         Thread connectionThread = new Thread(thisConnection);
@@ -1341,20 +1338,6 @@ public class Kernel {
     }
 }
 
-class FinalTransformer extends AbstractFilter {
-
-    // This transformer is the last one in the list so any vertices or edges
-    // received by it need to be passed to the correct graph.
-    @Override
-    public void putVertex(AbstractVertex incomingVertex) {
-        // incomingVertex.resultGraph.commitVertex(incomingVertex);
-    }
-
-    @Override
-    public void putEdge(AbstractEdge incomingEdge) {
-        // incomingEdge.resultGraph.commitEdge(incomingEdge);
-    }
-}
 
 final class NullStream {
 
@@ -1399,7 +1382,7 @@ class LocalControlConnection implements Runnable {
             BufferedReader controlInputStream = new BufferedReader(new InputStreamReader(inStream));
             PrintStream controlOutputStream = new PrintStream(outStream);
             try {
-                while (!Kernel.shutdown) {
+                while (!Kernel.KERNEL_SHUTDOWN) {
                     // Commands read from the input stream and executed.
                 	try{
 	                    String line = controlInputStream.readLine();
@@ -1451,7 +1434,7 @@ class LocalQueryConnection implements Runnable {
             ObjectOutputStream queryOutputStream = new ObjectOutputStream(outStream);
             BufferedReader queryInputStream = new BufferedReader(new InputStreamReader(inStream));
 
-            while (!Kernel.shutdown) {
+            while (!Kernel.KERNEL_SHUTDOWN) {
                 // Commands read from the input stream and executed.
                 String line = queryInputStream.readLine();
                 if (line.equalsIgnoreCase("exit")) {
@@ -1477,7 +1460,7 @@ class LocalQueryConnection implements Runnable {
             Logger.getLogger(LocalQueryConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
     public Graph iterateTransformers(Graph graph, String query){
 		synchronized (Kernel.transformers) {
 			QueryParameters digQueryParams = QueryParameters.parseQuery(query);
@@ -1496,8 +1479,8 @@ class LocalQueryConnection implements Runnable {
 					break;
 				}
 			}
-		} 
-		
+		}
+
 		return graph;
 	}
 }

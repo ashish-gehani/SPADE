@@ -223,7 +223,7 @@ public class Kafka extends AbstractStorage{
 			return false;
 		}
 	}
-	
+
 	@Override
 	public boolean putEdge(AbstractEdge edge){
 		try{
@@ -275,5 +275,5 @@ public class Kafka extends AbstractStorage{
 		}
 		return success;
 	}
-		
+
 }
