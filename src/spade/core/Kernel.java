@@ -575,6 +575,7 @@ public class Kernel
 //        ((AbstractFilter) transformers.get(FIRST_TRANSFORMER)).putEdge(edge);
 //    }
 
+
     /**
      * All command strings are passed to this function which subsequently calls
      * the correct method based on the command. Each command is determined by
@@ -584,17 +585,42 @@ public class Kernel
      * @param outputStream The output stream on which to print the result or any
      * output.
      */
-    public static void executeCommand(String line, PrintStream outputStream) {
-        if (line.startsWith("add")) {
-            addCommand(line, outputStream);
-        } else if (line.startsWith("list")) {
-            listCommand(line, outputStream);
-        } else if (line.startsWith("remove")) {
-            removeCommand(line, outputStream);
-        } else if (line.startsWith("config")) {
-            configCommand(line, outputStream);
-        } else {
-            outputStream.println(getControlCommands());
+    public static void executeCommand(String line, PrintStream outputStream)
+    {
+        //TODO: change occurred here. Check for correctness.
+        String commandPrefix = line.split(" ", 2)[0].toLowerCase();
+        switch(commandPrefix)
+        {
+            case "shutdown":
+                // save the current configuration in the config file.
+                configCommand("config save " + configFile, NullStream.out);
+                for (AbstractReporter reporter : reporters)
+                {
+                    // Shut down all reporters, flush buffers
+                    // and then shut down storages.
+                    reporter.shutdown();
+                }
+                KERNEL_SHUTDOWN = true;
+                break;
+
+            case "add":
+                addCommand(line, outputStream);
+                break;
+
+            case "list":
+                listCommand(line, outputStream);
+                break;
+
+            case "remove":
+                removeCommand(line, outputStream);
+                break;
+
+            case "config":
+                configCommand(line, outputStream);
+                break;
+
+            default:
+                outputStream.println(getControlCommands());
         }
     }
 
@@ -606,670 +632,891 @@ public class Kernel
      * @param outputStream The output stream on which to print the result or any
      * output.
      */
-    public static void configCommand(String line, PrintStream outputStream) {
+    public static void configCommand(String line, PrintStream outputStream)
+    {
+        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+");
-        if (tokens.length < 3) {
+        if (tokens.length < 3)
+        {
             outputStream.println("Usage:");
             outputStream.println("\t" + CONFIG_STRING);
             return;
         }
-        // Determine whether the command is a load or a save.
-        if (tokens[1].equalsIgnoreCase("load")) {
-            outputStream.print("Loading configuration... ");
-            BufferedReader configReader = null;
-            try {
-                configReader = new BufferedReader(new FileReader(tokens[2]));
-                String configLine;
-                while ((configLine = configReader.readLine()) != null) {
-                    executeCommand(configLine, outputStream);
-                }
-            } catch (Exception exception) {
-                outputStream.println("error! Unable to open configuration file for reading");
-                logger.log(Level.SEVERE, null, exception);
-                return;
-            }finally{
-            	try{
-            		if(configReader != null){
-            			configReader.close();
-            		}
-            	}catch(Exception e){
-            		logger.log(Level.SEVERE, "Failed to close config reader");
-            	}
-            }
-            outputStream.println("done");
-        } else if (tokens[1].equalsIgnoreCase("save")) {
-            // If the command is save, then write the current configuration.
-            outputStream.print("Saving configuration... ");
-            try {
-                FileWriter configWriter = new FileWriter(tokens[2], false);
-                for (int i = 0; i < filters.size() - 1; i++) {
-                    String arguments = filters.get(i).arguments;
-                    configWriter.write("add filter " + filters.get(i).getClass().getName().split("\\.")[2] + " position=" + (i+1));
-                    if (arguments != null) {
-                        configWriter.write(" " + arguments.trim());
+        String command = tokens[1].toLowerCase();
+        String fileName = tokens[2];
+
+        switch(command)
+        {
+            // load the saved configuration
+            case "load":
+                outputStream.print("Loading configuration... ");
+                BufferedReader configReader = null;
+                try
+                {
+                    configReader = new BufferedReader(new FileReader(fileName));
+                    String configLine;
+                    while ((configLine = configReader.readLine()) != null)
+                    {
+                        addCommand("add " + configLine, outputStream);
                     }
-                    configWriter.write("\n");
                 }
-                for (AbstractSketch sketch : sketches) {
-                    configWriter.write("sketch " + sketch.getClass().getName().split("\\.")[2] + "\n");
+                catch (Exception exception)
+                {
+                    outputStream.println("error! Unable to open configuration file for reading");
+                    logger.log(Level.SEVERE, "error! Unable to open configuration file for reading", exception);
+                    return;
                 }
-                for (AbstractStorage storage : storages) {
-                    String arguments = storage.arguments;
-                    configWriter.write("add storage " + storage.getClass().getName().split("\\.")[2]);
-                    if (arguments != null) {
-                        configWriter.write(" " + arguments);
+                finally
+                {
+                    try
+                    {
+                        if(configReader != null)
+                        {
+                            configReader.close();
+                        }
                     }
-                    configWriter.write("\n");
-                }
-                for (AbstractReporter reporter : reporters) {
-                    String arguments = reporter.arguments;
-                    configWriter.write("add reporter " + reporter.getClass().getName().split("\\.")[2]);
-                    if (arguments != null) {
-                        configWriter.write(" " + arguments);
+                    catch(Exception e)
+                    {
+                        logger.log(Level.WARNING, "Failed to close config reader!", e);
                     }
-                    configWriter.write("\n");
                 }
-                synchronized (transformers) {
-                	for(int i = 0; i<transformers.size(); i++){
-                		String arguments = transformers.get(i).arguments;
-                		configWriter.write("add transformer " + transformers.get(i).getClass().getName().split("\\.")[2] + " position=" + (i + 1));
-                		if(arguments != null){
-                			configWriter.write(" " + arguments.trim());
-                		}
-                		configWriter.write("\n");
-                	}
-				}
-                configWriter.close();
-            } catch (Exception exception) {
-                outputStream.println("error! Unable to open configuration file for writing");
-                logger.log(Level.SEVERE, null, exception);
-                return;
-            }
-            outputStream.println("done");
-        } else {
-            outputStream.println("Usage:");
-            outputStream.println("\t" + CONFIG_STRING);
+                outputStream.println("done");
+                break;
+
+            // write the current configuration.
+            case "save":
+                outputStream.print("Saving configuration... ");
+                try
+                {
+                    FileWriter configWriter = new FileWriter(fileName, false);
+                    for (int i = 0; i < filters.size() - 1; i++)
+                    {
+                        String arguments = filters.get(i).arguments;
+                        configWriter.write("filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i);
+                        if (arguments != null)
+                        {
+                            configWriter.write(" " + arguments);
+                        }
+                        configWriter.write("\n");
+                    }
+                    for (AbstractSketch sketch : sketches)
+                    {
+                        configWriter.write("sketch " + sketch.getClass().getName().split("\\.")[2] + "\n");
+                    }
+                    for (AbstractStorage storage : storages)
+                    {
+                        String arguments = storage.arguments;
+                        configWriter.write("storage " + storage.getClass().getName().split("\\.")[2]);
+                        if (arguments != null)
+                        {
+                            configWriter.write(" " + arguments);
+                        }
+                        configWriter.write("\n");
+                    }
+                    for(AbstractAnalyzer analyzer: analyzers)
+                    {
+                        configWriter.write("analyzer " + analyzer.getClass().getName().split("\\.")[2] + "\n");
+                    }
+                    for (AbstractReporter reporter : reporters)
+                    {
+                        String arguments = reporter.arguments;
+                        configWriter.write("reporter " + reporter.getClass().getName().split("\\.")[2]);
+                        if (arguments != null)
+                        {
+                            configWriter.write(" " + arguments);
+                        }
+                        configWriter.write("\n");
+                    }
+                    synchronized (transformers)
+                    {
+                        for(int i = 0; i < transformers.size(); i++)
+                        {
+                            String arguments = transformers.get(i).arguments;
+                            configWriter.write("transformer " + transformers.get(i).getClass().getName().split("\\.")[2] + " " + (i + 1));
+                            if(arguments != null)
+                            {
+                                configWriter.write(" " + arguments);
+                            }
+                            configWriter.write("\n");
+                        }
+                    }
+                    configWriter.close();
+                }
+                catch (Exception exception)
+                {
+                    outputStream.println("error! Unable to open configuration file for writing");
+                    logger.log(Level.SEVERE, "error! Unable to open configuration file for writing", exception);
+                    return;
+                }
+                outputStream.println("done");
+                break;
+
+            default:
+                outputStream.println("Usage:");
+                outputStream.println("\t" + CONFIG_STRING);
+                logger.log(Level.INFO, "Usage not appropriate");
         }
     }
 
     /**
-     * This method is triggered by the spade.query client and calls the main spade.query
-     * method to retrieve the result before exporting it to the desired path.
-     *
-     * @param line The spade.query expression.
-     * @return
-     */
-    public static Graph queryCommand(String line) {
-        Graph resultGraph = Query.executeQuery(line, false);
-        return resultGraph;
-    }
-
-    /**
      * Method to display control commands to the output stream. The control and
-     * spade.query commands are displayed using separate methods since these commands
+     * query commands are displayed using separate methods since these commands
      * are issued from different clients.
      *
-     * @return
+     * @return control commands' string
      */
-    public static String getControlCommands() {
+    public static String getControlCommands()
+    {
         StringBuilder string = new StringBuilder();
         string.append("Available commands:\n");
         string.append("\t" + ADD_REPORTER_STORAGE_STRING + "\n");
+        string.append("\t" + ADD_ANALYZER_STRING + "\n");
         string.append("\t" + ADD_FILTER_TRANSFORMER_STRING + "\n");
         string.append("\t" + ADD_SKETCH_STRING + "\n");
-        string.append("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING + "\n");
+        string.append("\t" + REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING + "\n");
         string.append("\t" + REMOVE_FILTER_TRANSFORMER_STRING + "\n");
         string.append("\t" + LIST_STRING + "\n");
         string.append("\t" + CONFIG_STRING + "\n");
-        string.append("\t" + EXIT_STRING);
+        string.append("\t" + EXIT_STRING + "\n");
+        string.append("\t" + SHUTDOWN_STRING);
         return string.toString();
     }
 
-    /**
-     * Method to display spade.query commands to the given output stream.
-     *
-     * @return
-     */
-    public static String getQueryCommands() {
-        StringBuilder string = new StringBuilder();
-        string.append("Available commands:\n");
-        string.append("\t" + QUERY_VERTEX_STRING + "\n");
-        string.append("\t" + QUERY_EDGE1_STRING + "\n");
-        string.append("\t" + QUERY_PATHS_STRING + "\n");
-        string.append("\t" + QUERY_LINEAGE_STRING + "\n");
-        string.append("\t" + QUERY_CHILDREN_STRING + "\n");
-        string.append("\t" + QUERY_PARENTS_STRING + "\n");
-        string.append("\n");        
-        string.append("\t" + QUERY_PRINT_STRING + "\n");
-        string.append("\t" + QUERY_EXPORT_STRING + "\n");
-        string.append("\t" + QUERY_LIST_STRING + "\n");
-        // string.append("\t" + QUERY_SELECT_STORAGE + "\n");
-        string.append("\t" + QUERY_EXIT_STRING);
-        return string.toString();
-    }
-    
-    private static SimpleEntry<String, String> getPositionAndArguments(String partOfCommand){
-    	try{
-	    	int indexOfPosition = partOfCommand.startsWith("position") ? 0 : partOfCommand.indexOf(" position")  < 0 ? -1 : partOfCommand.indexOf(" position") + 1;
-	    	String positionSubstring = partOfCommand.substring(indexOfPosition);
-	    	int indexOfEquals = positionSubstring.indexOf('=');
-	    	String positionValue = "";
-	    	int i = indexOfEquals + 1;
-	    	for(; i < positionSubstring.length(); i++){
-	    		if(positionValue.isEmpty()){
-	    			if(positionSubstring.charAt(i) != ' '){
-	    				positionValue += positionSubstring.charAt(i);
-	    			}
-	    		}else{ //not empty
-	    			if(positionSubstring.charAt(i) != ' '){
-	    				positionValue += positionSubstring.charAt(i);
-	    			}else{
-	    				break;
-	    			}
-	    		}
-	    	}
-	    	i = i < positionSubstring.length() ? i++ : i;
-	    	String arguments = partOfCommand.replace(partOfCommand.substring(indexOfPosition, indexOfPosition+i), "");
-	    	return new SimpleEntry<String, String>(positionValue, arguments);
-		}catch(Exception e){
-    		logger.log(Level.SEVERE, null, e);
-    		return null;
-    	}
+    private static SimpleEntry<String, String> getPositionAndArguments(String partOfCommand)
+    {
+        try
+        {
+            int indexOfPosition = partOfCommand.startsWith("position") ? 0 : !partOfCommand.contains(" position") ? -1 : partOfCommand.indexOf(" position") + 1;
+            String positionSubstring = partOfCommand.substring(indexOfPosition);
+            int indexOfEquals = positionSubstring.indexOf('=');
+            String positionValue = "";
+            int i = indexOfEquals + 1;
+            for(; i < positionSubstring.length(); i++)
+            {
+                if(positionValue.isEmpty())
+                {
+                    if(positionSubstring.charAt(i) != ' ')
+                    {
+                        positionValue += positionSubstring.charAt(i);
+                    }
+                }
+                else
+                { //not empty
+                    if(positionSubstring.charAt(i) != ' ')
+                    {
+                        positionValue += positionSubstring.charAt(i);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            i = i < positionSubstring.length() ? i++ : i;
+            String arguments = partOfCommand.replace(partOfCommand.substring(indexOfPosition, indexOfPosition+i), "");
+            return new SimpleEntry<String, String>(positionValue, arguments);
+        }
+        catch(Exception e)
+        {
+            logger.log(Level.SEVERE, null, e);
+            return null;
+        }
     }
 
     /**
-     * Method to add extensions.
+     * Method to add modules.
      *
      * @param line The add command issued using the control client.
      * @param outputStream The output stream on which to print the results or
      * any output.
      */
-    public static void addCommand(String line, PrintStream outputStream) {
+    public static void addCommand(String line, PrintStream outputStream)
+    {
+        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+", 4);
-        if (tokens.length < 2) {
+        if (tokens.length < 2)
+        {
             outputStream.println("Usage:");
             outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
             outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
             outputStream.println("\t" + ADD_SKETCH_STRING);
             return;
         }
-        if (tokens[1].equalsIgnoreCase("reporter")) {
-            if (tokens.length < 3) {
+        String moduleName = tokens[1].toLowerCase();
+        String className = tokens[2];
+        String arguments = null;
+        String position = null;
+        SimpleEntry<String, String> positionArgumentsEntry;
+        int index;
+
+        switch (moduleName)
+        {
+            case "reporter":
+                if (tokens.length < 3)
+                {
+                    outputStream.println("Usage:");
+                    outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
+                    return;
+                }
+                arguments = (tokens.length == 3) ? null : tokens[3];
+                logger.log(Level.INFO, "Adding reporter: {0}", className);
+                outputStream.print("Adding reporter " + className + "... ");
+                AbstractReporter reporter;
+                try
+                {
+                    reporter = (AbstractReporter) Class.forName("spade.reporter." + className).newInstance();
+                }
+                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
+                {
+                    outputStream.println("error: Unable to find/load class");
+                    logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
+                // Create a new buffer and allocate it to this reporter.
+                Buffer buffer = new Buffer();
+                reporter.setBuffer(buffer);
+                if (reporter.launch(arguments))
+                {
+                    // The launch() method must return true to indicate a successful launch.
+                    // On true, the reporter is added to the reporters set and the buffer
+                    // is put into a HashMap keyed by the reporter. This is used by the main
+                    // SPADE thread to extract buffer elements.
+                    reporter.arguments = arguments;
+                    reporters.add(reporter);
+                    logger.log(Level.INFO, "Reporter added: {0}", className);
+                    outputStream.println("done");
+                }
+                else
+                {
+                    outputStream.println("failed");
+                }
+
+                break;
+
+            case "analyzer":
+                if (tokens.length < 3)
+                {
+                    outputStream.println("Usage:");
+                    outputStream.println("\t" + ADD_ANALYZER_STRING);
+                    return;
+                }
+                logger.log(Level.INFO, "Adding analyzer: {0}", className);
+                outputStream.print("Adding analyzer " + className + "... ");
+                AbstractAnalyzer analyzer;
+                try
+                {
+                    analyzer = (AbstractAnalyzer) Class.forName("spade.analyzer." + className).newInstance();
+                    analyzer.init();
+                    analyzers.add(analyzer);
+                    logger.log(Level.INFO, "Analyzer added: {0}", className);
+                    outputStream.println("done");
+                }
+                catch(ClassNotFoundException | InstantiationException | IllegalAccessException ex)
+                {
+                    outputStream.println("error: Unable to find/load class");
+                    logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
+
+                break;
+
+            case "storage":
+                if (tokens.length < 3)
+                {
+                    outputStream.println("Usage:");
+                    outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
+                    return;
+                }
+                arguments = (tokens.length == 3) ? null : tokens[3];
+                logger.log(Level.INFO, "Adding storage: {0}", className);
+                outputStream.print("Adding storage " + className + "... ");
+                AbstractStorage storage;
+                try
+                {
+                    storage = (AbstractStorage) Class.forName("spade.storage." + className).newInstance();
+                }
+                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
+                {
+                    outputStream.println("error: Unable to find/load class");
+                    logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
+                if (storage.initialize(arguments))
+                {
+                    // The initialize() method must return true to indicate
+                    // successful startup.
+                    storage.arguments = arguments;
+                    storage.vertexCount = 0;
+                    storage.edgeCount = 0;
+                    storages.add(storage);
+                    logger.log(Level.INFO, "Storage added: {0}", className);
+                    outputStream.println("done");
+                }
+                else
+                {
+                    outputStream.println("failed");
+                }
+
+                break;
+
+            case "filter":
+                if (tokens.length < 4)
+                {
+                    outputStream.println("Usage:");
+                    outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
+                    return;
+                }
+                positionArgumentsEntry = getPositionAndArguments(tokens[3]);
+                if(positionArgumentsEntry != null)
+                {
+                    position = positionArgumentsEntry.getKey();
+                    arguments = positionArgumentsEntry.getValue();
+                }
+                logger.log(Level.INFO, "Adding filter: {0}", className);
+                outputStream.print("Adding filter " + className + "... ");
+
+                try
+                {
+                    index = Integer.parseInt(position) - 1;
+                }
+                catch (NumberFormatException numberFormatException)
+                {
+                    outputStream.println("error: Position must be specified and must be a number");
+                    return;
+                }
+
+                AbstractFilter filter;
+                try
+                {
+                    filter = (AbstractFilter) Class.forName("spade.filter." + className).newInstance();
+                }
+                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
+                {
+                    outputStream.println("error: Unable to find/load class");
+                    logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
+
+                filter.initialize(arguments);
+                filter.arguments = arguments;
+                // The argument is the index at which the filter is to be inserted.
+                if (index >= filters.size())
+                {
+                    outputStream.println("error: Invalid position");
+                    return;
+                }
+                // Set the next filter of this newly added filter.
+                filter.setNextFilter((AbstractFilter) filters.get(index));
+                if (index > 0)
+                {
+                    // If the newly added filter is not the first in the list, then
+                    // then configure the previous filter in the list to point to
+                    // this
+                    // newly added filter as its next.
+                    ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
+                }
+
+                filters.add(index, filter);
+                logger.log(Level.INFO, "Filter added: {0}", className);
+                outputStream.println("done");
+
+                break;
+
+            case "transformer":
+                if (tokens.length < 4)
+                {
+                    outputStream.println("Usage:");
+                    outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
+                    return;
+                }
+                positionArgumentsEntry = getPositionAndArguments(tokens[3]);
+                if(positionArgumentsEntry != null)
+                {
+                    position = positionArgumentsEntry.getKey();
+                    arguments = positionArgumentsEntry.getValue();
+                }
+                logger.log(Level.INFO, "Adding transformer: {0}", className);
+                outputStream.print("Adding transformer " + className + "... ");
+                try
+                {
+                    index = Integer.parseInt(position) - 1;
+                } catch (NumberFormatException numberFormatException)
+                {
+                    outputStream.println("error: Position must be specified and must be a number");
+                    return;
+                }
+                // Get the transformer by classname and create a new instance.
+                AbstractTransformer transformer;
+                try
+                {
+                    transformer = (AbstractTransformer) Class.forName("spade.transformer." + className).newInstance();
+                }
+                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
+                {
+                    outputStream.println("error: Unable to find/load class");
+                    logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
+
+                if(transformer.initialize(arguments))
+                {
+                    transformer.arguments = arguments;
+                    // The argument is the index at which the transformer is to be
+                    // inserted.
+                    if (index > transformers.size() || index < 0)
+                    {
+                        outputStream.println("error: Invalid position");
+                        return;
+                    }
+
+                    synchronized (transformers)
+                    {
+                        transformers.add(index, transformer);
+                    }
+
+                    logger.log(Level.INFO, "Transformer added: {0}", className);
+                    outputStream.println("done");
+                }
+                else
+                {
+                    outputStream.println("failed");
+                }
+
+                break;
+
+            case "sketch":
+                if (tokens.length < 3)
+                {
+                    outputStream.println("Usage:");
+                    outputStream.println("\t" + ADD_SKETCH_STRING);
+                    return;
+                }
+                logger.log(Level.INFO, "Adding sketch: {0}", className);
+                outputStream.print("Adding sketch " + className + "... ");
+
+                AbstractSketch sketch;
+                try
+                {
+                    sketch = (AbstractSketch) Class.forName("spade.sketch." + className).newInstance();
+                }
+                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
+                {
+                    outputStream.println("error: Unable to find/load class");
+                    logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
+                sketches.add(sketch);
+                logger.log(Level.INFO, "Sketch added: {0}", className);
+                outputStream.println("done");
+
+                break;
+
+            default:
                 outputStream.println("Usage:");
                 outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
-                return;
-            }
-            String classname = tokens[2];
-            String arguments = (tokens.length == 3) ? null : tokens[3];
-            // Get the reporter by classname and create a new instance.
-            logger.log(Level.INFO, "Adding reporter: {0}", classname);
-            outputStream.print("Adding reporter " + classname + "... ");
-            AbstractReporter reporter;
-            try {
-                reporter = (AbstractReporter) Class.forName("spade.reporter." + classname).newInstance();
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
-                outputStream.println("error: Unable to find/load class");
-                logger.log(Level.SEVERE, null, ex);
-                return;
-            }
-            // Create a new buffer and allocate it to this reporter.
-            Buffer buffer = new Buffer();
-            reporter.setBuffer(buffer);
-            if (reporter.launch(arguments)) {
-                // The launch() method must return true to indicate a successful
-                // launch.
-                // On true, the reporter is added to the reporters set and the
-                // buffer
-                // is put into a HashMap keyed by the reporter (this is used by
-                // the main
-                // SPADE thread to extract buffer elements).
-                reporter.arguments = arguments;
-                reporters.add(reporter);
-                logger.log(Level.INFO, "Reporter added: {0}", classname + " " + arguments);
-                outputStream.println("done");
-            } else {
-                outputStream.println("failed");
-            }
-        } else if (tokens[1].equalsIgnoreCase("storage")) {
-            if (tokens.length < 3) {
-                outputStream.println("Usage:");
-                outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
-                return;
-            }
-            String classname = tokens[2];
-            String arguments = (tokens.length == 3) ? null : tokens[3];
-            // Get the storage by classname and create a new instance.
-            logger.log(Level.INFO, "Adding storage: {0}", classname);
-            outputStream.print("Adding storage " + classname + "... ");
-            AbstractStorage storage;
-            try {
-                storage = (AbstractStorage) Class.forName("spade.storage." + classname).newInstance();
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
-                outputStream.println("error: Unable to find/load class");
-                logger.log(Level.SEVERE, null, ex);
-                return;
-            }
-            if (storage.initialize(arguments)) {
-                // The initialize() method must return true to indicate
-                // successful startup.
-                // On true, the storage is added to the storages set.
-                storage.arguments = arguments;
-                storage.vertexCount = 0;
-                storage.edgeCount = 0;
-                storages.add(storage);
-                logger.log(Level.INFO, "Storage added: {0}", classname + " " + arguments);
-                outputStream.println("done");
-            } else {
-                outputStream.println("failed");
-            }
-        } else if (tokens[1].equalsIgnoreCase("filter")) {
-            if (tokens.length < 4) {
-                outputStream.println("Usage:");
                 outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
-                return;
-            }
-            String classname = tokens[2];
-            SimpleEntry<String, String> positionArgumentsEntry = getPositionAndArguments(tokens[3]);
-            String position = null, arguments = null;
-            if(positionArgumentsEntry != null){
-            	position = positionArgumentsEntry.getKey();
-            	arguments = positionArgumentsEntry.getValue();
-            }
-            logger.log(Level.INFO, "Adding filter: {0}", classname);
-            outputStream.print("Adding filter " + classname + "... ");
-            int index;
-            try {
-                index = Integer.parseInt(position) - 1;
-            } catch (NumberFormatException numberFormatException) {
-                outputStream.println("error: Position must be specified and must be a number");
-                return;
-            }
-            // Get the filter by classname and create a new instance.
-            AbstractFilter filter;
-            try {
-                filter = (AbstractFilter) Class.forName("spade.filter." + classname).newInstance();
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
-                outputStream.println("error: Unable to find/load class");
-                logger.log(Level.SEVERE, null, ex);
-                return;
-            }
-            // Initialize filter if arguments are provided
-            if(filter.initialize(arguments)){
-	            filter.arguments = arguments;
-	            // The argument is the index at which the filter is to be inserted.
-	            if (index >= filters.size()) {
-	                outputStream.println("error: Invalid position");
-	                return;
-	            }
-	            // Set the next filter of this newly added filter.
-	            filter.setNextFilter((AbstractFilter) filters.get(index));
-	            if (index > 0) {
-	                // If the newly added filter is not the first in the list, then
-	                // then configure the previous filter in the list to point to
-	                // this
-	                // newly added filter as its next.
-	                ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
-	            }
-	            // Add filter to the list.
-	            filters.add(index, filter);
-	            logger.log(Level.INFO, "Filter added: {0}", classname + " " + arguments);
-	            outputStream.println("done");
-            }else{
-            	outputStream.println("failed");
-            }
-        } else if (tokens[1].equalsIgnoreCase("transformer")) {
-            if (tokens.length < 4) {
-                outputStream.println("Usage:");
-                outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
-                return;
-            }
-            String classname = tokens[2];
-            SimpleEntry<String, String> positionArgumentsEntry = getPositionAndArguments(tokens[3]);
-            String position = null, arguments = null;
-            if(positionArgumentsEntry != null){
-            	position = positionArgumentsEntry.getKey();
-            	arguments = positionArgumentsEntry.getValue();
-            }
-            logger.log(Level.INFO, "Adding transformer: {0}", classname);
-            outputStream.print("Adding transformer " + classname + "... ");
-            int index;
-            try {
-                index = Integer.parseInt(position) - 1;
-            } catch (NumberFormatException numberFormatException) {
-            	outputStream.println("error: Position must be specified and must be a number");
-                return;
-            }
-            // Get the transformer by classname and create a new instance.
-            AbstractTransformer transformer;
-            try {
-            	transformer = (AbstractTransformer) Class.forName("spade.transformer." + classname).newInstance();
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
-                outputStream.println("error: Unable to find/load class");
-                logger.log(Level.SEVERE, null, ex);
-                return;
-            }
-            // Initialize filter if arguments are provided
-            if(transformer.initialize(arguments)){
-	            transformer.arguments = arguments;
-	            // The argument is the index at which the transformer is to be
-	            // inserted.
-	            if (index > transformers.size() || index < 0) {
-	                outputStream.println("error: Invalid position");
-	                return;
-	            }
-	           
-	            synchronized (transformers) {
-					transformers.add(index, transformer);
-				}
-	            
-	            logger.log(Level.INFO, "Transformer added: {0}", classname + " " + arguments);
-	            outputStream.println("done");
-            }else{
-            	outputStream.println("failed");
-            }
-        } else if (tokens[1].equalsIgnoreCase("sketch")) {
-            if (tokens.length < 3) {
-                outputStream.println("Usage:");
                 outputStream.println("\t" + ADD_SKETCH_STRING);
-                return;
-            }
-            String classname = tokens[2];
-            // Get the sketch by classname and create a new instance.
-            logger.log(Level.INFO, "Adding sketch: {0}", classname);
-            outputStream.print("Adding sketch " + classname + "... ");
-            AbstractSketch sketch;
-            try {
-                sketch = (AbstractSketch) Class.forName("spade.sketch." + classname).newInstance();
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
-                outputStream.println("error: Unable to find/load class");
-                logger.log(Level.SEVERE, null, ex);
-                return;
-            }
-            sketches.add(sketch);
-            logger.log(Level.INFO, "Sketch added: {0}", classname);
-            outputStream.println("done");
-        } else {
-            outputStream.println("Usage:");
-            outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
-            outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
-            outputStream.println("\t" + ADD_SKETCH_STRING);
         }
     }
 
     /**
-     * Method to list extensions.
+     * Method to list modules.
      *
      * @param line The list command issued using the control client.
      * @param outputStream The output stream on which to print the results or
      * any output.
      */
-    public static void listCommand(String line, PrintStream outputStream) {
+    public static void listCommand(String line, PrintStream outputStream)
+    {
+        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+");
         String verbose_token = "";
-        if (tokens.length < 2) {
+        if (tokens.length < 2)
+        {
             outputStream.println("Usage:");
             outputStream.println("\t" + LIST_STRING);
             return;
         }
-
-        if (tokens[1].equalsIgnoreCase("reporters")) {
-            if (reporters.isEmpty()) {
-                // Nothing to list if the set of reporters is empty.
-                outputStream.println("No reporters added");
-                return;
-            }
-            outputStream.println(reporters.size() + " reporter(s) added:");
-            int count = 1;
-            for (AbstractReporter reporter : reporters) {
-                // Print the names and arguments of all reporters.
-                String arguments = reporter.arguments;
-                outputStream.print("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2]);
-                if (arguments != null) {
-                    outputStream.print(" (" + arguments + ")");
+        String moduleName = tokens[1].toLowerCase();
+        int count;
+        switch(moduleName)
+        {
+            case "reporters":
+                if (reporters.isEmpty())
+                {
+                    outputStream.println("No reporters added");
+                    return;
                 }
-                outputStream.println();
-                count++;
-            }
-        } else if (tokens[1].equalsIgnoreCase("storages")) {
-            if (storages.isEmpty()) {
-                // Nothing to list if the set of storages is empty.
-                outputStream.println("No storages added");
-                return;
-            }
-            outputStream.println(storages.size() + " storage(s) added:");
-            int count = 1;
-            for (AbstractStorage storage : storages) {
-                // Print the names and arguments of all storages.
-                String arguments = storage.arguments;
-                outputStream.print("\t" + count + ". " + storage.getClass().getName().split("\\.")[2]);
-                if (arguments != null) {
-                    outputStream.print(" (" + arguments + ")");
-                }
-                outputStream.println();
-                count++;
-            }
-        } else if (tokens[1].equalsIgnoreCase("filters")) {
-            if (filters.size() == 1) {
-                // The size of the filters list will always be at least 1
-                // because
-                // of the FinalCommitFilter. The user is not made aware of the
-                // presence of this filter and it is only used for committing
-                // provenance data to the storages. Therefore, there is nothing
-                // to list if the size of the filters list is 1.
-                outputStream.println("No filters added");
-                return;
-            }
-            outputStream.println((filters.size() - 1) + " filter(s) added:");
-            for (int i = 0; i < filters.size() - 1; i++) {
-                // Loop through the filters list, printing their names (except
-                // for the last FinalCommitFilter).
-                String arguments = filters.get(i).arguments;
-                outputStream.print("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
-                if (arguments != null) {
-                    outputStream.print(" (" + arguments + ")");
-                }
-                outputStream.println();
-            }
-        } else if (tokens[1].equalsIgnoreCase("transformers")) {
-            if (transformers.size() == 0) {
-                outputStream.println("No transformers added");
-                return;
-            }
-            outputStream.println((transformers.size()) + " transformer(s) added:");
-            StringBuffer transformersListString = new StringBuffer();
-            synchronized (transformers) {
-            	for (int i = 0; i < transformers.size(); i++) {
-                    // Loop through the transformers list, printing their names
-                    // (except
-                    // for the last FinalTransformer).
-            		transformersListString.append("\t").append((i + 1)).append(". ").append(transformers.get(i).getClass().getName().split("\\.")[2]);
-                    if (transformers.get(i).arguments != null) {
-                        transformersListString.append(" (" + transformers.get(i).arguments + ")");
+                outputStream.println(reporters.size() + " reporter(s) added:");
+                count = 1;
+                for (AbstractReporter reporter : reporters)
+                {
+                    String arguments = reporter.arguments;
+                    outputStream.print("\t" + count + ". " + reporter.getClass().getName().split("\\.")[2]);
+                    if (arguments != null)
+                    {
+                        outputStream.print(" (" + arguments + ")");
                     }
-                    transformersListString.append("\n");
+                    outputStream.println();
+                    count++;
                 }
-			}
-            outputStream.print(transformersListString);
-        } else if (tokens[1].equalsIgnoreCase("sketches")) {
-            if (sketches.isEmpty()) {
-                // Nothing to list if the set of sketches is empty.
-                outputStream.println("No sketches added");
-                return;
-            }
-            outputStream.println(sketches.size() + " sketch(es) added:");
-            int count = 1;
-            for (AbstractSketch sketch : sketches) {
-                // Print the names of all sketches.
-                outputStream.println("\t" + count + ". " + sketch.getClass().getName().split("\\.")[2]);
-                count++;
-            }
-        } else if (tokens[1].equalsIgnoreCase("all")) {
-            listCommand("list reporters " + verbose_token, outputStream);
-            listCommand("list storages " + verbose_token, outputStream);
-            listCommand("list filters " + verbose_token, outputStream);
-            listCommand("list transformers " + verbose_token, outputStream);
-            listCommand("list sketches " + verbose_token, outputStream);
-        } else {
-            outputStream.println("Usage:");
-            outputStream.println("\t" + LIST_STRING);
+
+                break;
+
+            case "analyzers":
+                if(analyzers.isEmpty())
+                {
+                    outputStream.println("No analyzers added");
+                    return;
+                }
+                outputStream.println(analyzers.size() + " analyzer(s) added: ");
+                count = 1;
+                for (AbstractAnalyzer analyzer : analyzers)
+                {
+                    outputStream.println("\t" + count + ". " + analyzer.getClass().getName().split("\\.")[2]);
+                    count++;
+                }
+
+                break;
+
+            case "storages":
+                if (storages.isEmpty())
+                {
+                    outputStream.println("No storages added");
+                    return;
+                }
+                outputStream.println(storages.size() + " storage(s) added:");
+                count = 1;
+                for (AbstractStorage storage : storages)
+                {
+                    String arguments = storage.arguments;
+                    outputStream.print("\t" + count + ". " + storage.getClass().getName().split("\\.")[2]);
+                    if (arguments != null)
+                    {
+                        outputStream.print(" (" + arguments + ")");
+                    }
+                    outputStream.println();
+                    count++;
+                }
+
+                break;
+
+            case "filter":
+                if (filters.size() == 1)
+                {
+                    // The size of the filters list will always be at least 1 because
+                    // of the FinalCommitFilter. The user is not made aware of the
+                    // presence of this filter and it is only used for committing
+                    // provenance data to the storages. Therefore, there is nothing
+                    // to list if the size of the filters list is 1.
+                    outputStream.println("No filters added");
+                    return;
+                }
+                outputStream.println((filters.size() - 1) + " filter(s) added:");
+                for (int i = 0; i < filters.size() - 1; i++)
+                {
+                    // Print filter names except for the FinalCommitFilter.
+                    String arguments = filters.get(i).arguments;
+                    outputStream.print("\t" + (i + 1) + ". " + filters.get(i).getClass().getName().split("\\.")[2]);
+                    if (arguments != null)
+                    {
+                        outputStream.print(" (" + arguments + ")");
+                    }
+                    outputStream.println();
+                }
+
+                break;
+
+            case "transformer":
+                if (transformers.size() == 0)
+                {
+                    outputStream.println("No transformers added");
+                    return;
+                }
+                outputStream.println((transformers.size()) + " transformer(s) added:");
+                StringBuffer transformersListString = new StringBuffer();
+                synchronized (transformers)
+                {
+                    for (int i = 0; i < transformers.size(); i++)
+                    {
+                        // Print transformer names except for the FinalTransformer.
+                        transformersListString.append("\t").append((i + 1)).append(". ");
+                        transformersListString.append(transformers.get(i).getClass().getName().split("\\.")[2]);
+                        if (transformers.get(i).arguments != null)
+                        {
+                            transformersListString.append(" (");
+                            transformersListString.append(transformers.get(i).arguments);
+                            transformersListString.append(")");
+                        }
+                        transformersListString.append("\n");
+                    }
+                }
+                outputStream.print(transformersListString);
+
+                break;
+
+            case "sketch":
+                if (sketches.isEmpty())
+                {
+                    outputStream.println("No sketches added");
+                    return;
+                }
+                outputStream.println(sketches.size() + " sketch(es) added:");
+                count = 1;
+                for (AbstractSketch sketch : sketches)
+                {
+                    outputStream.println("\t" + count + ". " + sketch.getClass().getName().split("\\.")[2]);
+                    count++;
+                }
+
+                break;
+
+            case "all":
+                listCommand("list reporters " + verbose_token, outputStream);
+                listCommand("list analyzers " + verbose_token, outputStream);
+                listCommand("list storages " + verbose_token, outputStream);
+                listCommand("list filters " + verbose_token, outputStream);
+                listCommand("list transformers " + verbose_token, outputStream);
+                listCommand("list sketches " + verbose_token, outputStream);
+                break;
+
+            default:
+                outputStream.println("Usage:");
+                outputStream.println("\t" + LIST_STRING);
         }
     }
 
     /**
-     * Method to remove extensions.
+     * Method to remove modules.
      *
      * @param line The remove command issued using the control client.
      * @param outputStream The output stream on which to print the results or
      * any output.
      */
-    public static void removeCommand(String line, PrintStream outputStream) {
+    public static void removeCommand(String line, PrintStream outputStream)
+    {
+        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+");
-        if (tokens.length < 3) {
+        if(tokens.length < 3)
+        {
             outputStream.println("Usage:");
-            outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING);
+            outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING);
             outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
             return;
         }
-        try {
-            if (tokens[1].equalsIgnoreCase("reporter")) {
-                boolean found = false;
-                for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();) {
-                    AbstractReporter reporter = reporterIterator.next();
-                    // Search for the given reporter in the set of reporters.
-                    if (reporter.getClass().getName().equals("spade.reporter." + tokens[2])) {
-                        // Mark the reporter for removal by adding it to the
-                        // removereporters set.
-                        // This will enable the main SPADE thread to cleanly
-                        // flush the reporter
-                        // buffer and remove it.
-                        reporter.shutdown();
-                        removereporters.add(reporter);
-                        found = true;
-                        logger.log(Level.INFO, "Shutting down reporter: {0}", tokens[2]);
-                        outputStream.print("Shutting down reporter " + tokens[2] + "... ");
-                        while (removereporters.contains(reporter)) {
-                            // Wait for other thread to safely remove reporter
-                            Thread.sleep(REMOVE_WAIT_DELAY);
+        String moduleName = tokens[1].toLowerCase();
+        String className = tokens[2];
+        boolean found;
+        int index;
+        try
+        {
+            switch(moduleName)
+            {
+                case "reporter":
+                    found = false;
+                    for (Iterator<AbstractReporter> reporterIterator = reporters.iterator(); reporterIterator.hasNext();)
+                    {
+                        AbstractReporter reporter = reporterIterator.next();
+                        // Search for the given reporter in the set of reporters.
+                        if (reporter.getClass().getName().equals("spade.reporter." + className))
+                        {
+                            // Mark the reporter for removal by adding it to the removeReporters set.
+                            // This will enable the main SPADE thread to cleanly flush the reporter
+                            // buffer and remove it.
+                            reporter.shutdown();
+                            removeReporters.add(reporter);
+                            found = true;
+                            logger.log(Level.INFO, "Shutting down reporter: {0}", className);
+                            outputStream.print("Shutting down reporter " + className + "... ");
+                            while (removeReporters.contains(reporter))
+                            {
+                                // Wait for other thread to safely remove reporter
+                                Thread.sleep(REMOVE_WAIT_DELAY);
+                            }
+                            reporterIterator.remove();
+                            logger.log(Level.INFO, "Reporter shut down: {0}", className);
+                            outputStream.println("done");
+                            break;
                         }
-                        reporterIterator.remove();
-                        logger.log(Level.INFO, "Reporter shut down: {0}", tokens[2]);
-                        outputStream.println("done");
-                        break;
                     }
-                }
-                if (!found) {
-                    logger.log(Level.WARNING, "Reporter not found (for shutting down): {0}", tokens[2]);
-                    outputStream.println("Reporter " + tokens[2] + " not found");
-                }
-            } else if (tokens[1].equalsIgnoreCase("storage")) {
-                boolean found = false;
-                for (Iterator<AbstractStorage> storageIterator = storages.iterator(); storageIterator.hasNext();) {
-                    AbstractStorage storage = storageIterator.next();
-                    // Search for the given storage in the storages set.
-                    if (storage.getClass().getName().equals("spade.storage." + tokens[2])) {
-                        // Mark the storage for removal by adding it to the
-                        // removestorages set.
-                        // This will enable the main SPADE thread to safely
-                        // commit any transactions
-                        // and then remove the storage.
-                        long vertexCount = storage.vertexCount;
-                        long edgeCount = storage.edgeCount;
-                        removestorages.add(storage);
-                        found = true;
-                        logger.log(Level.INFO, "Shutting down storage: {0}", tokens[2]);
-                        outputStream.print("Shutting down storage " + tokens[2] + "... ");
-                        while (removestorages.contains(storage)) {
-                            // Wait for other thread to safely remove storage
-                            Thread.sleep(REMOVE_WAIT_DELAY);
+                    if (!found)
+                    {
+                        logger.log(Level.WARNING, "Reporter not found (for shutting down): {0}", className);
+                        outputStream.println("Reporter " + className + " not found");
+                    }
+
+                    break;
+
+                case "analyzer":
+                    found = false;
+                    for (Iterator<AbstractAnalyzer> analyzerIterator = analyzers.iterator(); analyzerIterator.hasNext();)
+                    {
+                        AbstractAnalyzer analyzer = analyzerIterator.next();
+                        if (analyzer.getClass().getName().equals("spade.analyzer." + className))
+                        {
+                            // Mark the analyzer for removal by adding it to the removeanalyzer set.
+                            // This will enable the main SPADE thread to safely commit any transactions
+                            // and then remove the analyzer.
+                            removeAnalyzers.add(analyzer);
+                            found = true;
+                            logger.log(Level.INFO, "Shutting down analyzer: {0}", className);
+                            outputStream.print("Shutting down analyzer " + className + "... ");
+                            while (removeAnalyzers.contains(analyzer))
+                            {
+                                // Wait for other thread to safely remove analyzer
+                                Thread.sleep(REMOVE_WAIT_DELAY);
+                            }
+                            analyzerIterator.remove();
+                            logger.log(Level.INFO, "Analyzer shut down: {0})", className);
+                            break;
                         }
-                        storageIterator.remove();
-                        logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)", new Object[]{tokens[2], vertexCount, edgeCount});
-                        outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
-                        break;
                     }
-                }
-                if (!found) {
-                    logger.log(Level.WARNING, "Storage not found (for shutting down): {0}", tokens[2]);
-                    outputStream.println("Storage " + tokens[2] + " not found");
-                }
-            } else if (tokens[1].equalsIgnoreCase("filter")) {
-                // Filter removal is done by the index number (beginning from
-                // 1).
-                int index = Integer.parseInt(tokens[2]);
-                if ((index <= 0) || (index >= filters.size())) {
-                    logger.log(Level.WARNING, "Error: Unable to remove filter - bad index");
-                    outputStream.println("Error: Unable to remove filter - bad index");
-                    return;
-                }
-                String filterName = filters.get(index - 1).getClass().getName();
-                logger.log(Level.INFO, "Removing filter {0}", filterName.split("\\.")[2]);
-                outputStream.print("Removing filter " + filterName.split("\\.")[2] + "... ");
-                filters.get(index - 1).shutdown();
-                if (index > 1) {
-                    // Update the internal links between filters by calling the
-                    // setNextFilter
-                    // method on the filter just before the one being removed.
-                    // The (index-1)
-                    // check is used because this method is not to be called on
-                    // the first filter.
-                    ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
-                }
-                filters.remove(index - 1);
-                logger.log(Level.INFO, "Filter Removed: {0}", filterName.split("\\.")[2]);
-                outputStream.println("done");
-            } else if (tokens[1].equalsIgnoreCase("transformer")) {
-            	int index;
-            	try{
-            		index = Integer.parseInt(tokens[2]) - 1;
-            	}catch(Exception e){
-            		logger.log(Level.WARNING, "Error: Invalid index (Not a number)");
-                    outputStream.println("Error: Invalid index (Not a number)");
-            		return;
-            	}
-                if ((index < 0) || (index >= transformers.size())) {
-                    logger.log(Level.WARNING, "Error: Unable to remove transformer - bad index");
-                    outputStream.println("Error: Unable to remove transformer - bad index");
-                    return;
-                }
-                String transformerName = transformers.get(index).getClass().getName().split("\\.")[2];
-                logger.log(Level.INFO, "Removing transformer {0}", transformerName);
-                outputStream.print("Removing transformer " + transformerName + "... ");
-                AbstractTransformer removed = null;
-                synchronized (transformers) {
-                	removed = transformers.remove(index);
-				}
-                if(removed != null){
-                	removed.shutdown();
-                }
-                logger.log(Level.INFO, "Transformer removed: {0}", transformerName);
-                outputStream.println("done");
-            } else if (tokens[1].equalsIgnoreCase("sketch")) {
-                boolean found = false;
-                for (Iterator<AbstractSketch> sketchIterator = sketches.iterator(); sketchIterator.hasNext();) {
-                    AbstractSketch sketch = sketchIterator.next();
-                    // Search for the given sketch in the sketches set.
-                    if (sketch.getClass().getName().equals("spade.sketch." + tokens[2])) {
-                        found = true;
-                        logger.log(Level.INFO, "Removing sketch {0}", tokens[2]);
-                        outputStream.print("Removing sketch: " + tokens[2] + "... ");
-                        sketchIterator.remove();
-                        logger.log(Level.INFO, "Sketch removed: {0}", tokens[2]);
-                        outputStream.println("done");
-                        break;
+                    if (!found)
+                    {
+                        logger.log(Level.WARNING, "Analyzer not found (for shutting down): {0}", className);
+                        outputStream.println("Analyzer " + className + " not found");
                     }
-                }
-                if (!found) {
-                    logger.log(Level.WARNING, "Sketch not found: {0}", tokens[2]);
-                    outputStream.println("Sketch " + tokens[2] + " not found");
-                }
-            } else {
-                outputStream.println("Usage:");
-                outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING);
-                outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
+
+                    break;
+
+                case "storage":
+                    found = false;
+                    for (Iterator<AbstractStorage> storageIterator = storages.iterator(); storageIterator.hasNext();)
+                    {
+                        AbstractStorage storage = storageIterator.next();
+                        // Search for the given storage in the storages set.
+                        if (storage.getClass().getName().equals("spade.storage." + className))
+                        {
+                            // Mark the storage for removal by adding it to the removeStorages set.
+                            // This will enable the main SPADE thread to safely commit any transactions
+                            // and then remove the storage.
+                            long vertexCount = storage.vertexCount;
+                            long edgeCount = storage.edgeCount;
+                            removeStorages.add(storage);
+                            found = true;
+                            logger.log(Level.INFO, "Shutting down storage: {0}", className);
+                            outputStream.print("Shutting down storage " + className + "... ");
+
+                            while (removeStorages.contains(storage))
+                            {
+                                // Wait for other thread to safely remove storage
+                                Thread.sleep(REMOVE_WAIT_DELAY);
+                            }
+                            storageIterator.remove();
+                            logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)",
+                                    new Object[]{className, vertexCount, edgeCount});
+                            outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        logger.log(Level.WARNING, "Storage not found (for shutting down): {0}", className);
+                        outputStream.println("Storage " + className + " not found");
+                    }
+
+                    break;
+
+                case "filter":
+                    // Filter removal is done by the index number beginning from 1.
+                    index = Integer.parseInt(tokens[2]);
+                    if ((index <= 0) || (index >= filters.size()))
+                    {
+                        logger.log(Level.WARNING, "Error: Unable to remove filter - bad index");
+                        outputStream.println("Error: Unable to remove filter - bad index");
+                        return;
+                    }
+
+                    className = filters.get(index - 1).getClass().getName();
+                    logger.log(Level.INFO, "Removing filter {0}", className.split("\\.")[2]);
+                    outputStream.print("Removing filter " + className.split("\\.")[2] + "... ");
+                    filters.get(index - 1).shutdown();
+                    if (index > 1)
+                    {
+                        // Update the internal links between filters by calling the
+                        // setNextFilter
+                        // method on the filter just before the one being removed.
+                        // The (index-1)
+                        // check is used because this method is not to be called on
+                        // the first filter.
+                        ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
+                    }
+                    filters.remove(index - 1);
+                    logger.log(Level.INFO, "Filter Removed: {0}", className.split("\\.")[2]);
+                    outputStream.println("done");
+
+                    break;
+
+                case "transformer":
+                    try
+                    {
+                        index = Integer.parseInt(tokens[2]) - 1;
+                    }
+                    catch(Exception e)
+                    {
+                        logger.log(Level.WARNING, "Error: Invalid index (Not a number)");
+                        outputStream.println("Error: Invalid index (Not a number)");
+                        return;
+                    }
+                    if ((index < 0) || (index >= transformers.size()))
+                    {
+                        logger.log(Level.WARNING, "Error: Unable to remove transformer - bad index");
+                        outputStream.println("Error: Unable to remove transformer - bad index");
+                        return;
+                    }
+
+                    className = transformers.get(index).getClass().getName().split("\\.")[2];
+                    logger.log(Level.INFO, "Removing transformer {0}", className);
+                    outputStream.print("Removing transformer " + className + "... ");
+                    AbstractTransformer removed = null;
+                    synchronized (transformers)
+                    {
+                        removed = transformers.remove(index);
+                    }
+                    if(removed != null)
+                    {
+                        removed.shutdown();
+                    }
+                    logger.log(Level.INFO, "Transformer removed: {0}", className);
+                    outputStream.println("done");
+
+                    break;
+
+                case "sketch":
+                    found = false;
+                    for (Iterator<AbstractSketch> sketchIterator = sketches.iterator(); sketchIterator.hasNext();)
+                    {
+                        AbstractSketch sketch = sketchIterator.next();
+                        // Search for the given sketch in the sketches set.
+                        if (sketch.getClass().getName().equals("spade.sketch." + className))
+                        {
+                            found = true;
+                            logger.log(Level.INFO, "Removing sketch {0}", className);
+                            outputStream.print("Removing sketch: " + className + "... ");
+                            sketchIterator.remove();
+                            logger.log(Level.INFO, "Sketch removed: {0}", className);
+                            outputStream.println("done");
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        logger.log(Level.WARNING, "Sketch not found: {0}", className);
+                        outputStream.println("Sketch " + className + " not found");
+                    }
+
+                    break;
+
+                default:
+                    outputStream.println("Usage:");
+                    outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING);
+                    outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
             }
-        } catch (InterruptedException | NumberFormatException removeCommandException) {
+        }
+        catch (InterruptedException | NumberFormatException removeCommandException)
+        {
             outputStream.println("Usage:");
-            outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_STRING);
+            outputStream.println("\t" + REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING);
             outputStream.println("\t" + REMOVE_FILTER_TRANSFORMER_STRING);
             logger.log(Level.WARNING, null, removeCommandException);
         }
