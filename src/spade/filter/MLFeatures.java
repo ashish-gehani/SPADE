@@ -230,10 +230,12 @@ public class MLFeatures extends AbstractFilter{
 					
 					sourceProcess.put(COUNT_USED, count_used + 1);
 					
-					if(destinationVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-						double count_filesystem = sourceProcess.get(COUNT_FILESYSTEM_USED);
-						sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
-					}
+					try{
+						if(destinationVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
+							double count_filesystem = sourceProcess.get(COUNT_FILESYSTEM_USED);
+							sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
+						}
+					}catch(Exception e){}
 					
 					
 					double lengthRead = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
@@ -313,10 +315,14 @@ public class MLFeatures extends AbstractFilter{
 					
 					destinationProcess.put(COUNT_WGB, count_wgb + 1);
 					
-					if(sourceVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-						double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
-						destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
-					}
+					try{
+						
+						if(sourceVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
+							double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
+							destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
+						}
+						
+					}catch(Exception e){}
 					
 					double lengthWritten = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
 					double currentLength = destinationProcess.get(TOTAL_LENGTH_WRITTEN);
@@ -439,7 +445,7 @@ public class MLFeatures extends AbstractFilter{
 	 */
 	public static double getLengthFromDetailAnnotation(String detail){
 		int result = 0;
-		Pattern pattern = Pattern.compile("(Length:.*, )|(Length:.*)");
+		Pattern pattern = Pattern.compile("(Length: (1|2|3|4|5|6|7|8|9|0|,)*)");
 		Matcher matcher = pattern.matcher(detail);
 		if(matcher.find()){
 			String lengthPattern = matcher.group();
