@@ -3876,7 +3876,7 @@ public class Audit extends AbstractReporter {
 			}
 			putEdge(edge);
 		}else{
-			log(Level.WARNING, "Failed to put edge. edge = "+edge+", sourceVertex = "+(edge != null ? edge.getChildVertex() : null)+", "
+			log(Level.WARNING, "Failed to put edge. edge = "+edge+", childVertex = "+(edge != null ? edge.getChildVertex() : null)+", "
 					+ "destination vertex = "+(edge != null ? edge.getParentVertex() : null)+", operation = "+operation+", "
 					+ "time = "+time+", eventId = "+eventId+", source = " + source, null, time, eventId, SYSCALL.valueOf(operation.toUpperCase()));
 		}

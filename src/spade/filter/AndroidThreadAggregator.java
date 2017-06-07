@@ -252,12 +252,12 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
         for (AbstractEdge incomingEdge : shelvedEdges) {
 
-            AbstractVertex sourceVertex = incomingEdge.getChildVertex();
-            AbstractVertex destinationVertex = incomingEdge.getParentVertex();
+            AbstractVertex childVertex = incomingEdge.getChildVertex();
+            AbstractVertex parentVertex = incomingEdge.getParentVertex();
 
-            if (sourceVertex.type().equalsIgnoreCase("Process")) {
-                String pid = sourceVertex.getAnnotation("pid");
-                String tgid = sourceVertex.getAnnotation("tgid");
+            if (childVertex.type().equalsIgnoreCase("Process")) {
+                String pid = childVertex.getAnnotation("pid");
+                String tgid = childVertex.getAnnotation("tgid");
 
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
 
@@ -269,9 +269,9 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
             }
 
-            if (destinationVertex.type().equalsIgnoreCase("Process")) {
-                String pid = destinationVertex.getAnnotation("pid");
-                String tgid = destinationVertex.getAnnotation("tgid");
+            if (parentVertex.type().equalsIgnoreCase("Process")) {
+                String pid = parentVertex.getAnnotation("pid");
+                String tgid = parentVertex.getAnnotation("tgid");
 
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
 

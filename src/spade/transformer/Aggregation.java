@@ -129,20 +129,20 @@ public class Aggregation extends AbstractTransformer{
 				}
 			}
 			
-			AbstractVertex sourceVertex = newEdge.getChildVertex();
-			AbstractVertex destinationVertex = newEdge.getParentVertex();
+			AbstractVertex childVertex = newEdge.getChildVertex();
+			AbstractVertex parentVertex = newEdge.getParentVertex();
 			
-			if(oldNewVertices.get(sourceVertex) == null){
-				AbstractVertex newSourceVertex = getVertexWithUpdatedAnnotations(sourceVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(sourceVertex));
-				oldNewVertices.put(sourceVertex, newSourceVertex);
+			if(oldNewVertices.get(childVertex) == null){
+				AbstractVertex newChildVertex = getVertexWithUpdatedAnnotations(childVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(childVertex));
+				oldNewVertices.put(childVertex, newChildVertex);
 			}
-			newEdge.setChildVertex(oldNewVertices.get(sourceVertex));
+			newEdge.setChildVertex(oldNewVertices.get(childVertex));
 						
-			if(oldNewVertices.get(destinationVertex) == null){
-				AbstractVertex newDestinationVertex = getVertexWithUpdatedAnnotations(destinationVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(destinationVertex));
-				oldNewVertices.put(destinationVertex, newDestinationVertex);
+			if(oldNewVertices.get(parentVertex) == null){
+				AbstractVertex newParentVertex = getVertexWithUpdatedAnnotations(parentVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(parentVertex));
+				oldNewVertices.put(parentVertex, newParentVertex);
 			}
-			newEdge.setParentVertex(oldNewVertices.get(destinationVertex));
+			newEdge.setParentVertex(oldNewVertices.get(parentVertex));
 			
 			
 			resultGraph.putVertex(newEdge.getChildVertex());

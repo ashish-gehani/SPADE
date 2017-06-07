@@ -54,8 +54,8 @@ public class OnlyAgents extends AbstractTransformer{
 		
 		SimpleDirectedGraph<AbstractVertex, AbstractEdge> spadeGraph = new SimpleDirectedGraph<AbstractVertex, AbstractEdge>(new EdgeFactory<AbstractVertex, AbstractEdge>() {
 			@Override
-			public AbstractEdge createEdge(AbstractVertex sourceVertex, AbstractVertex destinationVertex) {
-				return new Edge(sourceVertex, destinationVertex);
+			public AbstractEdge createEdge(AbstractVertex childVertex, AbstractVertex parentVertex) {
+				return new Edge(childVertex, parentVertex);
 			}
 		});
 		Map<AbstractVertex, Set<AbstractEdge>> vertexToAgent = new HashMap<AbstractVertex, Set<AbstractEdge>>();
