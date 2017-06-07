@@ -51,29 +51,29 @@ import spade.vertex.prov.Entity;
 public class Prov extends AbstractStorage{
 
     public Logger logger = Logger.getLogger(this.getClass().getName());
-	
+
     public static enum ProvFormat { PROVO, PROVN }
 
     private ProvFormat provOutputFormat;
-	
+
     private FileWriter outputFile;
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
     private String filePath;
-    
+
     private final String provNamespacePrefix = "prov";
     private final String provNamespaceURI = "http://www.w3.org/ns/prov#";
-    
+
     private final String defaultNamespacePrefix = "data";
     private final String defaultNamespaceURI 	= "http://spade.csl.sri.com/#";
-    
+
     private Map<String, Set<String>> annotationToNamespaceMap = new HashMap<String, Set<String>>();
     private Map<String, String> namespacePrefixToURIMap = new HashMap<String, String>();
-    
+
     private final String OUTFILE_KEY = "output";
-    
+
     private final String TAB = "\t", NEWLINE = "\n";
-    
+
     protected Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
     protected Map<String, String> parseKeyValPairs(String arguments) {
         Matcher key_value_matcher = pattern_key_value.matcher(arguments);
@@ -83,7 +83,7 @@ public class Prov extends AbstractStorage{
         }
         return keyValPairs;
     }
-    
+
     private final Map<String, String> provoStringFormatsForEdgeTypes = new HashMap<String, String>(){
 		{
 			put("spade.edge.prov.Used", "%s:%s %s:qualifiedUsage [\n\ta %s:Usage;\n\t%s:entity %s:%s;\n%s]; .\n\n");
@@ -93,7 +93,7 @@ public class Prov extends AbstractStorage{
 			put("spade.edge.prov.WasInformedBy", "%s:%s %s:qualifiedCommunication [\n\ta %s:Communication;\n\t%s:activity %s:%s;\n%s]; .\n\n");
 		}
 	};
-	
+
 	private final Map<String, String> provnStringFormatsForEdgeTypes = new HashMap<String, String>(){
 		{
 			put("spade.edge.prov.Used", "\tused(%s:%s,%s:%s, - ,%s)\n");
@@ -106,13 +106,13 @@ public class Prov extends AbstractStorage{
 
 	private final String provoStringFormatForVertex = "%s:%s\n\ta %s:%s;\n%s .\n\n";
 	private final String provnStringFormatForVertex = "\t%s(%s:%s,%s)\n";
-	
+
 	public SimpleDateFormat iso8601TimeFormat;
-	
+
     @Override
 	public boolean initialize(String arguments) {
 		Map<String, String> args = parseKeyValPairs(arguments);
-		
+
 		Map<String, String> nsPrefixToFileMap = new HashMap<String, String>();
 		nsPrefixToFileMap.putAll(args);
 		nsPrefixToFileMap.remove(OUTFILE_KEY); //removing the key which contains the path of the output file as the key from this map which contains rdfs files to read from
@@ -133,7 +133,7 @@ public class Prov extends AbstractStorage{
 			            transaction_count = 0;
 			            switch (provOutputFormat) {
 							case PROVN:
-								outputFile.write("document\n");	            
+								outputFile.write("document\n");
 					            for(String nsPrefix : namespacePrefixToURIMap.keySet()){
 					            	outputFile.write(TAB + "prefix "+nsPrefix+" <"+namespacePrefixToURIMap.get(nsPrefix)+">\n");
 					            }
@@ -161,7 +161,7 @@ public class Prov extends AbstractStorage{
 				}
 			}else{
 				return false;
-			}		
+			}
 		}else{
 			logger.log(Level.SEVERE, "The namespace prefixes '"+provNamespacePrefix+"' and '"+defaultNamespacePrefix+"' are reserved");
 			return false;
@@ -232,7 +232,7 @@ public class Prov extends AbstractStorage{
 			return false;
 		}
 	}
-	
+
 	public ProvFormat getProvFormatByFileExt(String filepath){
 		filepath = String.valueOf(filepath).trim().toLowerCase();
 		if(filepath.endsWith(".ttl")){
@@ -242,35 +242,35 @@ public class Prov extends AbstractStorage{
 		}
 		return null;
 	}
-	
+
 	public String getSerializedVertex(AbstractVertex vertex){
 		String vertexString = null;
 		switch (provOutputFormat) {
 			case PROVO:
-				
-				vertexString = String.format(provoStringFormatForVertex, 
-													defaultNamespacePrefix, 
-													DigestUtils.sha256Hex(vertex.toString()), 
-													provNamespacePrefix, 
-													vertex.getClass().getSimpleName(), 
+
+				vertexString = String.format(provoStringFormatForVertex,
+													defaultNamespacePrefix,
+													DigestUtils.sha256Hex(vertex.toString()),
+													provNamespacePrefix,
+													vertex.getClass().getSimpleName(),
 													getProvOFormattedKeyValPair(vertex.getAnnotations()));
-								
+
 				break;
 			case PROVN:
 
-				vertexString = String.format(provnStringFormatForVertex, 
+				vertexString = String.format(provnStringFormatForVertex,
 													vertex.getClass().getSimpleName().toLowerCase(),
 													defaultNamespacePrefix,
 													DigestUtils.sha256Hex(vertex.toString()),
 													getProvNFormattedKeyValPair(vertex.getAnnotations()));
-				
+
 				break;
 			default:
 				break;
 		}
 		return vertexString;
 	}
-	
+
 	public String getSerializedEdge(AbstractEdge edge){
 		String srcVertexKey = DigestUtils.sha256Hex(edge.getChildVertex().toString());
 		String destVertexKey = DigestUtils.sha256Hex(edge.getParentVertex().toString());
@@ -286,13 +286,13 @@ public class Prov extends AbstractStorage{
 													defaultNamespacePrefix,
 													destVertexKey,
 													getProvOFormattedKeyValPair(edge.getAnnotations()));
-				
+
 				break;
 			case PROVN:
-				edgeString = String.format(provnStringFormatsForEdgeTypes.get(edge.getClass().getName()), 
-													defaultNamespacePrefix, 
-													srcVertexKey, 
-													defaultNamespacePrefix, 
+				edgeString = String.format(provnStringFormatsForEdgeTypes.get(edge.getClass().getName()),
+													defaultNamespacePrefix,
+													srcVertexKey,
+													defaultNamespacePrefix,
 													destVertexKey,
 													getProvNFormattedKeyValPair(edge.getAnnotations()));
 				break;
@@ -301,7 +301,7 @@ public class Prov extends AbstractStorage{
 		}
 		return edgeString;
 	}
-	
+
 	private String getProvNFormattedKeyValPair(Map<String, String> keyvals){
 		StringBuffer string = new StringBuffer();
 		string.append("[ ");
@@ -318,7 +318,7 @@ public class Prov extends AbstractStorage{
 		string.append("]");
 		return string.toString();
 	}
-	
+
 	private String getProvOFormattedKeyValPair(Map<String, String> keyvals){
 		StringBuffer annotationsString = new StringBuffer();
 		for(Map.Entry<String, String> currentEntry : keyvals.entrySet()){
@@ -332,7 +332,7 @@ public class Prov extends AbstractStorage{
 		}
 		return annotationsString.toString();
 	}
-	
+
 	//code updated to conform with CDM, Kafka storage
 	public String convertUnixTimeToISO8601(String timeAsString){
 		return timeAsString;
@@ -342,9 +342,9 @@ public class Prov extends AbstractStorage{
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to parse time", e);
 			return "";
-		}*/		
+		}*/
 	}
-	
+
 	private String getNSPrefixForAnnotation(String annotation){
 		if(annotationToNamespaceMap.get(annotation) != null && annotationToNamespaceMap.get(annotation).size() > 0){
 			return annotationToNamespaceMap.get(annotation).iterator().next();
@@ -353,22 +353,22 @@ public class Prov extends AbstractStorage{
 		return defaultNamespacePrefix;
 	}
 
-	
+
 	private boolean loadAnnotationsFromRDFs(Map<String, String> nsPrefixToFileMap){
-		
+
 		for(String nsprefix : nsPrefixToFileMap.keySet()){
-			
+
 			String rdfFile = nsPrefixToFileMap.get(nsprefix);
-						
+
 			Model model = null;
 			try{
 				model = FileManager.get().loadModel(rdfFile);
-				
+
 				StmtIterator stmtIterator = model.listStatements();
-				
+
 				while(stmtIterator.hasNext()){
 					Statement statement = stmtIterator.nextStatement();
-					
+
 					if(statement.getPredicate().getLocalName().equals("type") &&
 							statement.getPredicate().getNameSpace().contains("http://www.w3.org/1999/02/22-rdf-syntax-ns") &&
 							(statement.getObject().asResource().getLocalName().equals("Property") &&
@@ -383,18 +383,18 @@ public class Prov extends AbstractStorage{
 							}
 							nsSet.add(nsprefix);
 							namespacePrefixToURIMap.put(nsprefix, statement.getSubject().getNameSpace());
-						}					
-					}				
-				}			
-				
+						}
+					}
+				}
+
 				model.close();
 			}catch(Exception exception){
 				logger.log(Level.SEVERE, "Failed to read file '"+rdfFile+"'", exception);
 				return false;
-			}				
-			
+			}
+
 		}
-		
+
 		for(String annotation : annotationToNamespaceMap.keySet()){
 			if(annotationToNamespaceMap.get(annotation).size() > 1){
 				List<String> filepaths = new ArrayList<String>();
@@ -404,11 +404,11 @@ public class Prov extends AbstractStorage{
 				logger.log(Level.WARNING, "Files " + filepaths + " all have the property with name '"+annotation+"'");
 			}
 		}
-		
+
 		return true;
-				
+
 	}
-	
+
 	public static void main(String [] args) throws Exception{
 		Activity a = new Activity();
 		a.addAnnotation("name", "a1");
@@ -430,14 +430,14 @@ public class Prov extends AbstractStorage{
 		e4.addAnnotation("test", "anno");
 		Used e5 = new Used(b, f2);
 		e5.addAnnotation("operation", "read");
-				
+
 		Prov ttl = new Prov();
 		ttl.initialize("output=/home/ubwork/prov.ttl audit=/home/ubwork/Desktop/audit.rdfs");
 		Prov provn = new Prov();
 		provn.initialize("output=/home/ubwork/prov.provn audit=/home/ubwork/Desktop/audit.rdfs");
-		
+
 		Prov provs[] = new Prov[]{ttl, provn};
-		
+
 		for(int cc = 0; cc<provs.length; cc++){
 			Prov prov = provs[cc];
 			prov.putVertex(a);
