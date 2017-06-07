@@ -180,7 +180,7 @@ public class MLFeatures extends AbstractFilter{
 		if(incomingEdge != null && incomingEdge.getSourceVertex() != null && incomingEdge.getDestinationVertex() != null){
 		
 			try{
-				String time = incomingEdge.getAnnotation(TIME);
+				
 			
 			if (incomingEdge.getSourceVertex().type() == PROCESS) {
 				
@@ -191,11 +191,14 @@ public class MLFeatures extends AbstractFilter{
 				
 				if (incomingEdge.type() == USED){
 					
+					String time = incomingEdge.getAnnotation(TIME);
+					
 					double count_used = sourceProcess.get(COUNT_USED);
 					
 					if(!firstActivity.containsKey(ProcessPid)){
 						firstActivity.put(ProcessPid, time);
 					}
+					sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
 					
 					if (count_used == 0){
 						lastUsed.put(ProcessPid, time);
@@ -205,7 +208,7 @@ public class MLFeatures extends AbstractFilter{
 						sourceProcess.put(AVG_DURATION_BETWEEN_TWO_USED,(avgDurationBetweenTwoUsed*(count_used-1) + differenceBetweenTwoTimes(time, lastTimeUsed))/count_used );
 					}
 						
-					sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(firstActivity.get(ProcessPid),time));
+
 					
 
 					
@@ -250,7 +253,7 @@ public class MLFeatures extends AbstractFilter{
 					}
 					
 				}else if (incomingEdge.type() == WCB){
-					agentsName.put(PROCESS_IDENTIFIER,incomingEdge.getDestinationVertex().getAnnotation(USER));
+					agentsName.put(PROCESS_IDENTIFIER,destinationVertex.getAnnotation(USER));
 				}
 				
 				
@@ -265,11 +268,13 @@ public class MLFeatures extends AbstractFilter{
 				String ProcessPid = destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER);
 				HashMap<String, Double> destinationProcess = features.get(ProcessPid);
 				
+				String time = incomingEdge.getAnnotation(TIME);
+				
 				if(!firstActivity.containsKey(ProcessPid)){
 					firstActivity.put(ProcessPid, time);
 				}
 				
-				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(firstActivity.get(ProcessPid),time));
+				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
 				
 				if (incomingEdge.type() == WGB){
 					
@@ -324,11 +329,12 @@ public class MLFeatures extends AbstractFilter{
 			
 			
 			
-			putInNextFilter(incomingEdge);
 			
-			}catch(Exception e){
-				logger.log(Level.WARNING,"Problem computing feature :" + e);
+			
+			}catch(NullPointerException e){
+				logger.log(Level.SEVERE,null,e);
 			}
+			putInNextFilter(incomingEdge);
 			
 		}else{
 			logger.log(Level.WARNING, "Invalid edge: {0}, source: {1}, destination: {2}", new Object[]{

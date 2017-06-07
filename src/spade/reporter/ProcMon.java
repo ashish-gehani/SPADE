@@ -250,7 +250,7 @@ public class ProcMon extends AbstractReporter {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("class", data[N_EVENT_CLASS]);
         artifact.addAnnotation("path", path);
-        artifact.addAnnotation("version", Integer.toString(version));
+        //artifact.addAnnotation("version", Integer.toString(version));
 
         if (put) {
             putVertex(artifact);
@@ -269,14 +269,14 @@ public class ProcMon extends AbstractReporter {
         String pid = data[N_PID];
         String path = data[N_PATH];
 
-        int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) + 1 : 1;
-        artifactVersions.put(path, version);
+        //int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) + 1 : 1;
+        //artifactVersions.put(path, version);
 
         Artifact artifact = new Artifact();
         artifact.addAnnotation("class", data[N_EVENT_CLASS]);
         artifact.addAnnotation("path", path);
-        artifact.addAnnotation("version", Integer.toString(version));
-        putVertex(artifact);
+        //artifact.addAnnotation("version", Integer.toString(version));
+        //putVertex(artifact);
 
         WasGeneratedBy wgb = new WasGeneratedBy(artifact, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
