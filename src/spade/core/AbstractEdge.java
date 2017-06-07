@@ -22,7 +22,6 @@ package spade.core;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.commons.codec.digest.DigestUtils;
 
 /**
@@ -34,15 +33,23 @@ import org.apache.commons.codec.digest.DigestUtils;
 public abstract class AbstractEdge implements Serializable {
 
     /**
-	 * 
-	 */
-	private static final long serialVersionUID = 5777793863959971982L;
-	/**
      * A map containing the annotations for this edge.
      */
     protected Map<String, String> annotations = new HashMap<>();
     private AbstractVertex childVertex;
     private AbstractVertex parentVertex;
+
+    /**
+     * Checks if edge is empty
+     *
+     * @return Returns true if edge contains no annotation,
+     * and both end points are empty
+     */
+    public final boolean isEmpty()
+    {
+        return annotations.size() == 0 && childVertex != null && parentVertex != null;
+    }
+
 
     /**
      * Returns the map containing the annotations for this edge.
@@ -152,7 +159,8 @@ public abstract class AbstractEdge implements Serializable {
     }
 
     @Override
-    public boolean equals(Object thatObject) {
+    public boolean equals(Object thatObject)
+    {
         if (this == thatObject) {
             return true;
         }
@@ -165,15 +173,9 @@ public abstract class AbstractEdge implements Serializable {
                 && this.getParentVertex().equals(thatEdge.getParentVertex()));
     }
 
-    /**
-     * Computes a function of the annotations in the edge and the vertices it is incident upon.
-     *
-     * This takes less time to compute than bigHashCode() but is less collision-resistant.
-     *
-     * @return An integer-valued hash code.
-     */
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         final int seed1 = 5;
         final int seed2 = 97;
         int hashCode = seed1;
@@ -182,31 +184,39 @@ public abstract class AbstractEdge implements Serializable {
         hashCode = seed2 * hashCode + (this.parentVertex != null ? this.parentVertex.hashCode() : 0);
         return hashCode;
     }
-    
+
+    /*
+    * Serializes the object as key-value pairs in the form: key_1:value_1|key_2:value_2|......|key_n:value_n
+    */
     @Override
-    public String toString() {
+    public String toString()
+    {
         StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
+        for (Map.Entry<String, String> currentEntry : annotations.entrySet())
+        {
             result.append(currentEntry.getKey());
             result.append(":");
             result.append(currentEntry.getValue());
             result.append("|");
         }
-        return result.substring(0, result.length() - 1);
+        result.append("childVertexHash");
+        result.append(":");
+        result.append(this.getChildVertex().bigHashCode());
+        result.append("|");
+        result.append("parentVertexHash");
+        result.append(":");
+        result.append(this.getParentVertex().bigHashCode());
+        return result.toString();
     }
-    
+
     /**
-     * Computes MD5 of the annotations in the edge and the vertices it is incident upon.
-     *
-     * This takes longer to compute than hashCode() but is more collision-resistant.
+     * Computes MD5 hash of annotations in the edge.
+     * Returns 128-bits of the digest.
      *
      @return A 128-bit hash value.
      */
-    public byte[] bigHashCode() {
-        StringBuilder annotations = new StringBuilder();
-        annotations.append(this.childVertex != null ? this.childVertex.toString() : "");
-        annotations.append(this.toString());
-        annotations.append(this.parentVertex != null ? this.parentVertex.toString() : "");
-        return DigestUtils.md5(annotations.toString());
+    public String bigHashCode()
+    {
+        return DigestUtils.md5Hex(this.toString());
     }
 }
