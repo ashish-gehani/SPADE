@@ -81,11 +81,11 @@ public class GraphFinesse extends AbstractFilter {
     // 3) If rules (1) and (2) are not met, then add the edge as a normal edge.
     @Override
     public void putEdge(AbstractEdge edge) {
-        AbstractVertex source = vertexStrings.get(edge.getSourceVertex().toString());
-        AbstractVertex destination = vertexStrings.get(edge.getDestinationVertex().toString());
+        AbstractVertex source = vertexStrings.get(edge.getChildVertex().toString());
+        AbstractVertex destination = vertexStrings.get(edge.getParentVertex().toString());
         AbstractEdge copyEdge = copyEdge(edge);
-        copyEdge.setSourceVertex(source);
-        copyEdge.setDestinationVertex(destination);
+        copyEdge.setChildVertex(source);
+        copyEdge.setParentVertex(destination);
 
         // Check for rule 1
         if (passedEdges.containsKey(copyEdge)) // Check for rule 2
@@ -166,7 +166,7 @@ public class GraphFinesse extends AbstractFilter {
     }
 
     private AbstractEdge copyEdge(AbstractEdge edge) {
-        AbstractEdge copy = new Edge(edge.getSourceVertex(), edge.getDestinationVertex());
+        AbstractEdge copy = new Edge(edge.getChildVertex(), edge.getParentVertex());
         copy.getAnnotations().clear();
         copy.addAnnotations(edge.getAnnotations());
         return copy;

@@ -34,8 +34,8 @@ public class SimpleEdge extends AbstractEdge{
      * Empty constructor - initializes an empty map for annotations.
      */
 	public SimpleEdge(AbstractVertex sourceVertex, AbstractVertex destinationVertex){
-		setSourceVertex(sourceVertex);
-		setDestinationVertex(destinationVertex);
+		setChildVertex(sourceVertex);
+		setParentVertex(destinationVertex);
 		addAnnotation("type", "SimpleEdge");
 	}
 	

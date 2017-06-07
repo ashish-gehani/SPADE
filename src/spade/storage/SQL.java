@@ -314,8 +314,8 @@ public class SQL extends AbstractStorage {
      */
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        int sourceVertexHash = incomingEdge.getSourceVertex().hashCode();
-        int destinationVertexHash = incomingEdge.getDestinationVertex().hashCode();
+        int sourceVertexHash = incomingEdge.getChildVertex().hashCode();
+        int destinationVertexHash = incomingEdge.getParentVertex().hashCode();
 
         // Use StringBuilder to build the SQL insert statement
         StringBuilder insertStringBuilder = new StringBuilder("INSERT INTO " + EDGE_TABLE + " (type, hash, sourceVertexHash, destinationVertexHash, ");

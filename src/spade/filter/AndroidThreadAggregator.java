@@ -252,8 +252,8 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
         for (AbstractEdge incomingEdge : shelvedEdges) {
 
-            AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
-            AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
+            AbstractVertex sourceVertex = incomingEdge.getChildVertex();
+            AbstractVertex destinationVertex = incomingEdge.getParentVertex();
 
             if (sourceVertex.type().equalsIgnoreCase("Process")) {
                 String pid = sourceVertex.getAnnotation("pid");
@@ -262,9 +262,9 @@ public class AndroidThreadAggregator extends AbstractFilter {
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
 
                 if (currentMainProcessNode.containsKey(mappedPid)) {
-                    incomingEdge.setSourceVertex(currentMainProcessNode.get(mappedPid).getVertex());
+                    incomingEdge.setChildVertex(currentMainProcessNode.get(mappedPid).getVertex());
                 } else {
-                    incomingEdge.setSourceVertex(flushedOutVertices.get(mappedPid));
+                    incomingEdge.setChildVertex(flushedOutVertices.get(mappedPid));
                 }
 
             }
@@ -276,9 +276,9 @@ public class AndroidThreadAggregator extends AbstractFilter {
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
 
                 if (currentMainProcessNode.containsKey(mappedPid)) {
-                    incomingEdge.setDestinationVertex(currentMainProcessNode.get(mappedPid).getVertex());
+                    incomingEdge.setParentVertex(currentMainProcessNode.get(mappedPid).getVertex());
                 } else {
-                    incomingEdge.setDestinationVertex(flushedOutVertices.get(mappedPid));
+                    incomingEdge.setParentVertex(flushedOutVertices.get(mappedPid));
                 }
 
             }

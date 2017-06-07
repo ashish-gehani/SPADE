@@ -907,9 +907,9 @@ public class CDM extends Kafka {
 					updateEdge = edge;
 				}
 				if(OPMConstants.USED.equals(edge.getAnnotation(OPMConstants.TYPE))){
-					actingVertex = edge.getSourceVertex();
+					actingVertex = edge.getChildVertex();
 				}else if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
-					actingVertex = edge.getDestinationVertex();
+					actingVertex = edge.getParentVertex();
 				}
 			}
 			
@@ -918,7 +918,7 @@ public class CDM extends Kafka {
 				return;
 			}else{
 				publishEvent(EventType.EVENT_UPDATE, updateEdge, actingVertex, 
-						updateEdge.getDestinationVertex(), updateEdge.getSourceVertex());
+						updateEdge.getParentVertex(), updateEdge.getChildVertex());
 				
 				// Remove the update edge and process the rest of the edges
 				List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
@@ -939,8 +939,8 @@ public class CDM extends Kafka {
 				AbstractEdge edge = edgesCopy.get(a);
 				if(edge.getAnnotation(OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UNIT_DEPENDENCY)
 						&& edge.getAnnotation(OPMConstants.TYPE).equals(OPMConstants.WAS_TRIGGERED_BY)){
-					AbstractVertex acting = edge.getDestinationVertex();
-					AbstractVertex dependent = edge.getSourceVertex();
+					AbstractVertex acting = edge.getParentVertex();
+					AbstractVertex dependent = edge.getChildVertex();
 					UnitDependency unitDependency = new UnitDependency(getUuid(acting), getUuid(dependent));
 					publishRecords(Arrays.asList(buildTcCDMDatum(unitDependency, InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)));
 					edgesCopy.remove(a);
@@ -1022,8 +1022,8 @@ public class CDM extends Kafka {
 
 					if(OPMConstants.WAS_TRIGGERED_BY.equals(edgeType)){
 
-						actingVertex = edgeForEvent.getDestinationVertex();
-						actedUpon1 = edgeForEvent.getSourceVertex();
+						actingVertex = edgeForEvent.getParentVertex();
+						actedUpon1 = edgeForEvent.getChildVertex();
 
 						// Handling the case where a process A setuids and becomes A'
 						// and then A' setuid's to become A. If this is not done then 
@@ -1040,13 +1040,13 @@ public class CDM extends Kafka {
 						
 					}else if(OPMConstants.WAS_GENERATED_BY.equals(edgeType)){// 'mmap (write)' here too in case of MAP_ANONYMOUS
 
-						actingVertex = edgeForEvent.getDestinationVertex();
-						actedUpon1 = edgeForEvent.getSourceVertex();
+						actingVertex = edgeForEvent.getParentVertex();
+						actedUpon1 = edgeForEvent.getChildVertex();
 
 					}else if(OPMConstants.USED.equals(edgeType)){
 
-						actingVertex = edgeForEvent.getSourceVertex();
-						actedUpon1 = edgeForEvent.getDestinationVertex();
+						actingVertex = edgeForEvent.getChildVertex();
+						actedUpon1 = edgeForEvent.getParentVertex();
 
 					}else{
 						logger.log(Level.WARNING, "Unexpected edge type {0}", new Object[]{edgeType});
@@ -1072,9 +1072,9 @@ public class CDM extends Kafka {
 						}
 
 						edgeForEvent = twoArtifactsEdge;
-						actedUpon1 = twoArtifactsEdge.getDestinationVertex();
-						actedUpon2 = twoArtifactsEdge.getSourceVertex();
-						actingVertex = edgeWithProcess.getDestinationVertex();
+						actedUpon1 = twoArtifactsEdge.getParentVertex();
+						actedUpon2 = twoArtifactsEdge.getChildVertex();
+						actingVertex = edgeWithProcess.getParentVertex();
 					}else{
 						logger.log(Level.WARNING, "Failed to process event with edges {0}", new Object[]{edges});
 					}

@@ -35,7 +35,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 import java.util.LinkedList;
 import java.util.Calendar;
 import java.util.Date;
@@ -389,8 +388,8 @@ public class Neo4j extends AbstractStorage {
             }
         }
         
-        AbstractVertex srcVertex = incomingEdge.getSourceVertex();
-        AbstractVertex dstVertex = incomingEdge.getDestinationVertex();
+        AbstractVertex srcVertex = incomingEdge.getChildVertex();
+        AbstractVertex dstVertex = incomingEdge.getParentVertex();
         globalTxCheckin();
 
         try {
@@ -517,19 +516,19 @@ public class Neo4j extends AbstractStorage {
                 AbstractVertex destinationVertex = convertNodeToVertex(foundRelationship.getEndNode());
                 AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
                 if ((sourceExpression != null) && (destinationExpression != null)) {
-                    if (sourceSet.contains(tempEdge.getSourceVertex()) && destinationSet.contains(tempEdge.getDestinationVertex())) {
+                    if (sourceSet.contains(tempEdge.getChildVertex()) && destinationSet.contains(tempEdge.getParentVertex())) {
                         resultGraph.putVertex(sourceVertex);
                         resultGraph.putVertex(destinationVertex);
                         resultGraph.putEdge(tempEdge);
                     }
                 } else if ((sourceExpression != null) && (destinationExpression == null)) {
-                    if (sourceSet.contains(tempEdge.getSourceVertex())) {
+                    if (sourceSet.contains(tempEdge.getChildVertex())) {
                         resultGraph.putVertex(sourceVertex);
                         resultGraph.putVertex(destinationVertex);
                         resultGraph.putEdge(tempEdge);
                     }
                 } else if ((sourceExpression == null) && (destinationExpression != null)) {
-                    if (destinationSet.contains(tempEdge.getDestinationVertex())) {
+                    if (destinationSet.contains(tempEdge.getParentVertex())) {
                         resultGraph.putVertex(sourceVertex);
                         resultGraph.putVertex(destinationVertex);
                         resultGraph.putEdge(tempEdge);
@@ -716,7 +715,7 @@ public class Neo4j extends AbstractStorage {
     }
 
     public String getHashOfEdge(AbstractEdge edge){
-    	String completeEdgeString = edge.getSourceVertex().toString() + edge.toString() + edge.getDestinationVertex().toString();
+    	String completeEdgeString = edge.getChildVertex().toString() + edge.toString() + edge.getParentVertex().toString();
     	return DigestUtils.sha256Hex(completeEdgeString);
     }
 

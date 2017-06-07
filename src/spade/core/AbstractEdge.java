@@ -41,8 +41,8 @@ public abstract class AbstractEdge implements Serializable {
      * A map containing the annotations for this edge.
      */
     protected Map<String, String> annotations = new HashMap<>();
-    private AbstractVertex sourceVertex;
-    private AbstractVertex destinationVertex;
+    private AbstractVertex childVertex;
+    private AbstractVertex parentVertex;
 
     /**
      * Returns the map containing the annotations for this edge.
@@ -118,8 +118,8 @@ public abstract class AbstractEdge implements Serializable {
      *
      * @return The source vertex attached to this edge.
      */
-    public final AbstractVertex getSourceVertex() {
-        return sourceVertex;
+    public final AbstractVertex getChildVertex() {
+        return childVertex;
     }
 
     /**
@@ -127,28 +127,28 @@ public abstract class AbstractEdge implements Serializable {
      *
      * @return The destination vertex attached to this edge.
      */
-    public final AbstractVertex getDestinationVertex() {
-        return destinationVertex;
+    public final AbstractVertex getParentVertex() {
+        return parentVertex;
     }
 
     /**
      * Sets the source vertex.
      *
-     * @param sourceVertex The vertex that is to be set as the source for this
+     * @param childVertex The vertex that is to be set as the source for this
      * edge.
      */
-    public final void setSourceVertex(AbstractVertex sourceVertex) {
-        this.sourceVertex = sourceVertex;
+    public final void setChildVertex(AbstractVertex childVertex) {
+        this.childVertex = childVertex;
     }
 
     /**
      * Sets the destination vertex.
      *
-     * @param destinationVertex The vertex that is to be set as the destination
+     * @param parentVertex The vertex that is to be set as the destination
      * for this edge.
      */
-    public final void setDestinationVertex(AbstractVertex destinationVertex) {
-        this.destinationVertex = destinationVertex;
+    public final void setParentVertex(AbstractVertex parentVertex) {
+        this.parentVertex = parentVertex;
     }
 
     @Override
@@ -161,8 +161,8 @@ public abstract class AbstractEdge implements Serializable {
         }
         AbstractEdge thatEdge = (AbstractEdge) thatObject;
         return (this.annotations.equals(thatEdge.annotations)
-                && this.getSourceVertex().equals(thatEdge.getSourceVertex())
-                && this.getDestinationVertex().equals(thatEdge.getDestinationVertex()));
+                && this.getChildVertex().equals(thatEdge.getChildVertex())
+                && this.getParentVertex().equals(thatEdge.getParentVertex()));
     }
 
     /**
@@ -178,8 +178,8 @@ public abstract class AbstractEdge implements Serializable {
         final int seed2 = 97;
         int hashCode = seed1;
         hashCode = seed2 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.sourceVertex != null ? this.sourceVertex.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.destinationVertex != null ? this.destinationVertex.hashCode() : 0);
+        hashCode = seed2 * hashCode + (this.childVertex != null ? this.childVertex.hashCode() : 0);
+        hashCode = seed2 * hashCode + (this.parentVertex != null ? this.parentVertex.hashCode() : 0);
         return hashCode;
     }
     
@@ -204,9 +204,9 @@ public abstract class AbstractEdge implements Serializable {
      */
     public byte[] bigHashCode() {
         StringBuilder annotations = new StringBuilder();
-        annotations.append(this.sourceVertex != null ? this.sourceVertex.toString() : "");
+        annotations.append(this.childVertex != null ? this.childVertex.toString() : "");
         annotations.append(this.toString());
-        annotations.append(this.destinationVertex != null ? this.destinationVertex.toString() : "");
+        annotations.append(this.parentVertex != null ? this.parentVertex.toString() : "");
         return DigestUtils.md5(annotations.toString());
     }
 }

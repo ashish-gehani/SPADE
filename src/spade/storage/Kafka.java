@@ -230,8 +230,8 @@ public class Kafka extends AbstractStorage{
 			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Edge.Builder edgeBuilder = Edge.newBuilder();
 			edgeBuilder.setAnnotations(edge.getAnnotations());
-			edgeBuilder.setSourceVertexHash(String.valueOf(edge.getSourceVertex().hashCode()));
-			edgeBuilder.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
+			edgeBuilder.setSourceVertexHash(String.valueOf(edge.getChildVertex().hashCode()));
+			edgeBuilder.setDestinationVertexHash(String.valueOf(edge.getParentVertex().hashCode()));
 			edgeBuilder.setHash(String.valueOf(edge.hashCode()));
 			Edge kafkaEdge = edgeBuilder.build();
 			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaEdge).build());

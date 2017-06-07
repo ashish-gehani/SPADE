@@ -272,8 +272,8 @@ public class Prov extends AbstractStorage{
 	}
 	
 	public String getSerializedEdge(AbstractEdge edge){
-		String srcVertexKey = DigestUtils.sha256Hex(edge.getSourceVertex().toString());
-		String destVertexKey = DigestUtils.sha256Hex(edge.getDestinationVertex().toString());
+		String srcVertexKey = DigestUtils.sha256Hex(edge.getChildVertex().toString());
+		String destVertexKey = DigestUtils.sha256Hex(edge.getParentVertex().toString());
 		String edgeString = null;
 		switch (provOutputFormat) {
 			case PROVO:

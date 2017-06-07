@@ -219,8 +219,8 @@ public class Graphviz extends AbstractStorage {
                 edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
             }
 
-            String srckey = Hex.encodeHexString(incomingEdge.getSourceVertex().bigHashCode());
-            String dstkey = Hex.encodeHexString(incomingEdge.getDestinationVertex().bigHashCode());
+            String srckey = Hex.encodeHexString(incomingEdge.getChildVertex().bigHashCode());
+            String dstkey = Hex.encodeHexString(incomingEdge.getParentVertex().bigHashCode());
 
             outputFile.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
             checkTransactions();

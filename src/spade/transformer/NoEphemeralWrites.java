@@ -41,15 +41,15 @@ public class NoEphemeralWrites extends AbstractTransformer {
 			
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 		
-			if(OPMConstants.isPathBasedArtifact(newEdge.getSourceVertex())
-					|| OPMConstants.isPathBasedArtifact(newEdge.getDestinationVertex())){
+			if(OPMConstants.isPathBasedArtifact(newEdge.getChildVertex())
+					|| OPMConstants.isPathBasedArtifact(newEdge.getParentVertex())){
 				String operation = getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION);
 				if(OPMConstants.isIncomingDataOperation(operation)){
-					if(fileReadBy.get(newEdge.getDestinationVertex()) == null){
-						fileReadBy.put(newEdge.getDestinationVertex(), new HashSet<String>());
+					if(fileReadBy.get(newEdge.getParentVertex()) == null){
+						fileReadBy.put(newEdge.getParentVertex(), new HashSet<String>());
 					}
-					fileReadBy.get(newEdge.getDestinationVertex()).add(
-							getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID));
+					fileReadBy.get(newEdge.getParentVertex()).add(
+							getAnnotationSafe(newEdge.getChildVertex(), OPMConstants.PROCESS_PID));
 				}
 			}			
 		}
@@ -58,17 +58,17 @@ public class NoEphemeralWrites extends AbstractTransformer {
 		
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(OPMConstants.isPathBasedArtifact(newEdge.getSourceVertex()) &&
+			if(OPMConstants.isPathBasedArtifact(newEdge.getChildVertex()) &&
 					OPMConstants.isOutgoingDataOperation(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION))){
-				AbstractVertex vertex = newEdge.getSourceVertex();
+				AbstractVertex vertex = newEdge.getChildVertex();
 				if((fileReadBy.get(vertex) == null) || (fileReadBy.get(vertex).size() == 1 
 						&& fileReadBy.get(vertex).toArray()[0].equals(
-								getAnnotationSafe(newEdge.getDestinationVertex(), OPMConstants.PROCESS_PID)))){
+								getAnnotationSafe(newEdge.getParentVertex(), OPMConstants.PROCESS_PID)))){
 					continue; 
 				}
 			}		
-			resultGraph.putVertex(newEdge.getSourceVertex());
-			resultGraph.putVertex(newEdge.getDestinationVertex());
+			resultGraph.putVertex(newEdge.getChildVertex());
+			resultGraph.putVertex(newEdge.getParentVertex());
 			resultGraph.putEdge(newEdge);
 		}
 		

@@ -99,8 +99,8 @@ public class AuditSanity extends AbstractFilter{
 
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
-		AbstractVertex source = incomingEdge.getSourceVertex();
-		AbstractVertex destination = incomingEdge.getDestinationVertex();
+		AbstractVertex source = incomingEdge.getChildVertex();
+		AbstractVertex destination = incomingEdge.getParentVertex();
 		
 		Integer sourceExists = vertexMap.get(source);
 		Integer destinationExists = vertexMap.get(destination);

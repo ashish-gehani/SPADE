@@ -38,8 +38,8 @@ public class Edge extends AbstractEdge {
      * @param destinationVertex Destination vertex
      */
     public Edge(AbstractVertex sourceVertex, AbstractVertex destinationVertex) {
-        setSourceVertex(sourceVertex);
-        setDestinationVertex(destinationVertex);
+        setChildVertex(sourceVertex);
+        setParentVertex(destinationVertex);
         addAnnotation("type", "Edge");
     }
 }

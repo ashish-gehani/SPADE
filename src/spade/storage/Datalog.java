@@ -73,8 +73,8 @@ public class Datalog extends AbstractStorage {
 
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
-        long srcVertexId = vertexMapReversed.get(incomingEdge.getSourceVertex());
-        long dstVertexId = vertexMapReversed.get(incomingEdge.getDestinationVertex());
+        long srcVertexId = vertexMapReversed.get(incomingEdge.getChildVertex());
+        long dstVertexId = vertexMapReversed.get(incomingEdge.getParentVertex());
         datalogProgram.append("parent('").append(srcVertexId).append("', '").append(dstVertexId).append("')\r\n");
         return true;
     }

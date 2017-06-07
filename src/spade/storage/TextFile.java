@@ -84,8 +84,8 @@ public class TextFile extends AbstractStorage {
     @Override
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
-            String srcId = DigestUtils.sha256Hex(incomingEdge.getSourceVertex().toString());
-            String dstId = DigestUtils.sha256Hex(incomingEdge.getDestinationVertex().toString());
+            String srcId = DigestUtils.sha256Hex(incomingEdge.getChildVertex().toString());
+            String dstId = DigestUtils.sha256Hex(incomingEdge.getParentVertex().toString());
             StringBuilder annotationString = new StringBuilder();
             annotationString.append("EDGE (" + srcId + " -> " + dstId + "): {");
             for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {

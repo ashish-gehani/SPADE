@@ -3856,10 +3856,10 @@ public class Audit extends AbstractReporter {
 	 * {@link #BEEP beep}
 	 */
 	private void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
-		if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 			if(!UNIX_SOCKETS && 
-					(isUnixSocketArtifact(edge.getSourceVertex()) ||
-							isUnixSocketArtifact(edge.getDestinationVertex()))){
+					(isUnixSocketArtifact(edge.getChildVertex()) ||
+							isUnixSocketArtifact(edge.getParentVertex()))){
 				return;
 			}
 			if(time != null){
@@ -3876,8 +3876,8 @@ public class Audit extends AbstractReporter {
 			}
 			putEdge(edge);
 		}else{
-			log(Level.WARNING, "Failed to put edge. edge = "+edge+", sourceVertex = "+(edge != null ? edge.getSourceVertex() : null)+", "
-					+ "destination vertex = "+(edge != null ? edge.getDestinationVertex() : null)+", operation = "+operation+", "
+			log(Level.WARNING, "Failed to put edge. edge = "+edge+", sourceVertex = "+(edge != null ? edge.getChildVertex() : null)+", "
+					+ "destination vertex = "+(edge != null ? edge.getParentVertex() : null)+", operation = "+operation+", "
 					+ "time = "+time+", eventId = "+eventId+", source = " + source, null, time, eventId, SYSCALL.valueOf(operation.toUpperCase()));
 		}
 	}

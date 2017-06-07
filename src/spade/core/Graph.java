@@ -212,8 +212,8 @@ public class Graph extends AbstractStorage implements Serializable {
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getSourceVertex())), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getDestinationVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getChildVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getParentVertex())), Field.Store.YES, Field.Index.ANALYZED));
             edgeIndexWriter.addDocument(doc);
             // edgeIndexWriter.commit();
 
@@ -607,8 +607,8 @@ public class Graph extends AbstractStorage implements Serializable {
             }
 
             String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
-            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getSourceVertex()));
-            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getDestinationVertex()));
+            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getChildVertex()));
+            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getParentVertex()));
             writer.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -745,9 +745,9 @@ public class Graph extends AbstractStorage implements Serializable {
                         AbstractEdge tempEdge = edgeIdentifiers.get(edgeId);
                         int otherVertexId = 0;
                         if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getDestinationVertex());
+                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getParentVertex());
                         } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getSourceVertex());
+                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getChildVertex());
                         }
                         if (!terminatingSet.contains(otherVertexId)) {
                             resultGraph.putVertex(vertexIdentifiers.get(otherVertexId));
@@ -844,9 +844,9 @@ public class Graph extends AbstractStorage implements Serializable {
                         AbstractEdge tempEdge = edgeIdentifiers.get(edgeId);
                         int otherVertexId = 0;
                         if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getDestinationVertex());
+                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getParentVertex());
                         } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getSourceVertex());
+                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getChildVertex());
                         }
                         if (!terminatingSet.contains(otherVertexId)) {
                             resultGraph.putVertex(vertexIdentifiers.get(otherVertexId));

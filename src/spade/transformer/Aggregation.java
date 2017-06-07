@@ -129,24 +129,24 @@ public class Aggregation extends AbstractTransformer{
 				}
 			}
 			
-			AbstractVertex sourceVertex = newEdge.getSourceVertex();
-			AbstractVertex destinationVertex = newEdge.getDestinationVertex();
+			AbstractVertex sourceVertex = newEdge.getChildVertex();
+			AbstractVertex destinationVertex = newEdge.getParentVertex();
 			
 			if(oldNewVertices.get(sourceVertex) == null){
 				AbstractVertex newSourceVertex = getVertexWithUpdatedAnnotations(sourceVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(sourceVertex));
 				oldNewVertices.put(sourceVertex, newSourceVertex);
 			}
-			newEdge.setSourceVertex(oldNewVertices.get(sourceVertex));
+			newEdge.setChildVertex(oldNewVertices.get(sourceVertex));
 						
 			if(oldNewVertices.get(destinationVertex) == null){
 				AbstractVertex newDestinationVertex = getVertexWithUpdatedAnnotations(destinationVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(destinationVertex));
 				oldNewVertices.put(destinationVertex, newDestinationVertex);
 			}
-			newEdge.setDestinationVertex(oldNewVertices.get(destinationVertex));
+			newEdge.setParentVertex(oldNewVertices.get(destinationVertex));
 			
 			
-			resultGraph.putVertex(newEdge.getSourceVertex());
-			resultGraph.putVertex(newEdge.getDestinationVertex());
+			resultGraph.putVertex(newEdge.getChildVertex());
+			resultGraph.putVertex(newEdge.getParentVertex());
 			resultGraph.putEdge(newEdge);
 		}
 		

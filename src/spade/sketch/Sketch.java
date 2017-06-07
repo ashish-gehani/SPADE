@@ -51,9 +51,9 @@ public class Sketch extends AbstractSketch {
     public void putEdge(AbstractEdge incomingEdge) {
         try {
             if (incomingEdge.type().equalsIgnoreCase("Used")
-                    && incomingEdge.getDestinationVertex().getAnnotation("network").equalsIgnoreCase("true")) {
+                    && incomingEdge.getParentVertex().getAnnotation("network").equalsIgnoreCase("true")) {
                 // Connection was created to this host
-                AbstractVertex networkVertex = incomingEdge.getDestinationVertex();
+                AbstractVertex networkVertex = incomingEdge.getParentVertex();
                 String remoteHost = networkVertex.getAnnotation("destination host");
                 String localHost = networkVertex.getAnnotation("source host");
                 if (!USE_CACHE || (USE_CACHE && !Kernel.remoteSketches.containsKey(remoteHost))) {
@@ -91,8 +91,8 @@ public class Sketch extends AbstractSketch {
                     new Thread(update).start();
                 }
             } else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")
-                    && incomingEdge.getSourceVertex().getAnnotation("network").equalsIgnoreCase("true")) {
-                AbstractVertex networkVertex = incomingEdge.getSourceVertex();
+                    && incomingEdge.getChildVertex().getAnnotation("network").equalsIgnoreCase("true")) {
+                AbstractVertex networkVertex = incomingEdge.getChildVertex();
                 Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
                 new Thread(update).start();
             }

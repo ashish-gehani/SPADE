@@ -41,8 +41,8 @@ public class OPM2Prov extends AbstractFilter {
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex sourceVertex = createProvVertex(incomingEdge.getSourceVertex());
-        AbstractVertex destinationVertex = createProvVertex(incomingEdge.getDestinationVertex());
+        AbstractVertex sourceVertex = createProvVertex(incomingEdge.getChildVertex());
+        AbstractVertex destinationVertex = createProvVertex(incomingEdge.getParentVertex());
         AbstractEdge newEdge = null;
         if (incomingEdge instanceof spade.edge.opm.Used) {
             newEdge = new spade.edge.prov.Used((Activity) sourceVertex, (Entity) destinationVertex);
