@@ -19,6 +19,7 @@
  */
 package spade.filter;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -96,16 +97,30 @@ public class Deduplicate extends AbstractFilter{
 	
 	@Override
 	public void putVertex(AbstractVertex incomingVertex) {
-		boolean contained = negativeBloomFilter.containsAndAdd(incomingVertex.bigHashCode());
-		if(!contained){
+        boolean contained = false;
+        try
+        {
+            contained = negativeBloomFilter.containsAndAdd(incomingVertex.bigHashCode().getBytes("UTF-8"));
+        } catch(UnsupportedEncodingException e)
+        {
+            logger.log(Level.SEVERE, "", e);
+        }
+        if(!contained){
 			putInNextFilter(incomingVertex);
 		}
 	}
 
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
-		boolean contained = negativeBloomFilter.containsAndAdd(incomingEdge.bigHashCode());
-		if(!contained){
+        boolean contained = false;
+        try
+        {
+            contained = negativeBloomFilter.containsAndAdd(incomingEdge.bigHashCode().getBytes("UTF-8"));
+        } catch(UnsupportedEncodingException e)
+        {
+            logger.log(Level.SEVERE, "", e);
+        }
+        if(!contained){
 			putInNextFilter(incomingEdge);
 		}
 	}

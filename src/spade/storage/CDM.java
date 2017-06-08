@@ -19,6 +19,7 @@
  */
 package spade.storage;
 
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -1299,7 +1300,14 @@ public class CDM extends Kafka {
 	 */
 	private UUID getUuid(AbstractVertex vertex){
 		if(vertex != null){
-			byte[] vertexHash = vertex.bigHashCode();
+			byte[] vertexHash = new byte[0];
+			try
+			{
+				vertexHash = vertex.bigHashCode().getBytes("UTF-8");
+			} catch(UnsupportedEncodingException e)
+			{
+				logger.log(Level.SEVERE, "", e);
+			}
 			if(hexUUIDs){
 				vertexHash = String.valueOf(Hex.encodeHex(vertexHash, true)).getBytes();
 			}
@@ -1321,7 +1329,14 @@ public class CDM extends Kafka {
 	 */
 	private UUID getUuid(AbstractEdge edge){
 		if(edge != null){
-			byte[] edgeHash = edge.bigHashCode();
+			byte[] edgeHash = new byte[0];
+			try
+			{
+				edgeHash = edge.bigHashCode().getBytes("UTF-8");
+			} catch(UnsupportedEncodingException e)
+			{
+				logger.log(Level.SEVERE, "", e);
+			}
 			if(hexUUIDs){
 				edgeHash = String.valueOf(Hex.encodeHex(edgeHash, true)).getBytes();
 			}
