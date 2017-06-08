@@ -123,10 +123,6 @@ public class Kernel
      */
     public static Set<AbstractAnalyzer> analyzers;
     /**
-     * Set of analyzers active on the local SPADE instance.
-     */
-    public static Set<AbstractAnalyzer> analyzers;
-    /**
      * Set of storages active on the local SPADE instance.
      */
     public static Set<AbstractStorage> storages;
@@ -138,6 +134,10 @@ public class Kernel
      * Set of transformers active on the local SPADE instance.
      */
     public static List<AbstractTransformer> transformers;
+    /**
+     * A map used to cache the remote sketches.
+     */
+    public static Map<String, AbstractSketch> remoteSketches;
     /**
      * Set of sketches active on the local SPADE instance.
      */
@@ -292,6 +292,12 @@ public class Kernel
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
         sslServerSocketFactory = sslContext.getServerSocketFactory();
+    }
+
+
+    public static void addServerSocket(ServerSocket socket)
+    {
+        serverSockets.add(socket);
     }
 
     protected static FileHandler newFileHandler (final String logFilename) throws IOException
@@ -1525,6 +1531,16 @@ public class Kernel
     }
 }
 
+final class NullStream
+{
+
+    public final static PrintStream out = new PrintStream(new OutputStream()
+    {
+        @Override
+        public void close() {}
+
+        @Override
+        public void flush() {}
 
         @Override
         public void write(byte[] b) {}
