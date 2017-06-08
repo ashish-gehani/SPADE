@@ -54,19 +54,19 @@ public class OnlyAgents extends AbstractTransformer{
 		
 		SimpleDirectedGraph<AbstractVertex, AbstractEdge> spadeGraph = new SimpleDirectedGraph<AbstractVertex, AbstractEdge>(new EdgeFactory<AbstractVertex, AbstractEdge>() {
 			@Override
-			public AbstractEdge createEdge(AbstractVertex sourceVertex, AbstractVertex destinationVertex) {
-				return new Edge(sourceVertex, destinationVertex);
+			public AbstractEdge createEdge(AbstractVertex childVertex, AbstractVertex parentVertex) {
+				return new Edge(childVertex, parentVertex);
 			}
 		});
 		Map<AbstractVertex, Set<AbstractEdge>> vertexToAgent = new HashMap<AbstractVertex, Set<AbstractEdge>>();
 		for(AbstractEdge edge : graph.edgeSet()){
 			AbstractVertex agentVertex = null, otherVertex = null;
-			if(getAnnotationSafe(edge.getSourceVertex(), "type").equals("Agent")){
-				otherVertex = edge.getDestinationVertex();
-				agentVertex = edge.getSourceVertex();
-			}else if(getAnnotationSafe(edge.getDestinationVertex(), "type").equals("Agent")){
-				otherVertex = edge.getSourceVertex();
-				agentVertex = edge.getDestinationVertex();
+			if(getAnnotationSafe(edge.getChildVertex(), "type").equals("Agent")){
+				otherVertex = edge.getParentVertex();
+				agentVertex = edge.getChildVertex();
+			}else if(getAnnotationSafe(edge.getParentVertex(), "type").equals("Agent")){
+				otherVertex = edge.getChildVertex();
+				agentVertex = edge.getParentVertex();
 			}
 			if(agentVertex != null && otherVertex != null){ 
 				if(vertexToAgent.get(otherVertex) == null){
@@ -75,21 +75,21 @@ public class OnlyAgents extends AbstractTransformer{
 				vertexToAgent.get(otherVertex).add(edge);
 				resultGraph.putVertex(agentVertex);
 			}
-			spadeGraph.addVertex(edge.getSourceVertex());
-			spadeGraph.addVertex(edge.getDestinationVertex());
-			spadeGraph.addEdge(edge.getSourceVertex(), edge.getDestinationVertex(), edge);
+			spadeGraph.addVertex(edge.getChildVertex());
+			spadeGraph.addVertex(edge.getParentVertex());
+			spadeGraph.addEdge(edge.getChildVertex(), edge.getParentVertex(), edge);
 		}
 		
 		TransitiveClosure.INSTANCE.closeSimpleDirectedGraph(spadeGraph);
 				
 		for(AbstractEdge edge : spadeGraph.edgeSet()){
 			Set<AbstractEdge> sourceEdges = null, destinationEdges = null;
-			if((sourceEdges = vertexToAgent.get(edge.getSourceVertex())) != null && (destinationEdges = vertexToAgent.get(edge.getDestinationVertex())) != null &&
+			if((sourceEdges = vertexToAgent.get(edge.getChildVertex())) != null && (destinationEdges = vertexToAgent.get(edge.getParentVertex())) != null &&
 					sourceEdges.size() > 0 && destinationEdges.size() > 0){
 				for(AbstractEdge sourceEdge : sourceEdges){
-					AbstractVertex sourceAgent = getAnnotationSafe(sourceEdge.getSourceVertex(), "type").equals("Agent") ? sourceEdge.getSourceVertex() : sourceEdge.getDestinationVertex();
+					AbstractVertex sourceAgent = getAnnotationSafe(sourceEdge.getChildVertex(), "type").equals("Agent") ? sourceEdge.getChildVertex() : sourceEdge.getParentVertex();
 					for(AbstractEdge destinationEdge : destinationEdges){
-						AbstractVertex destinationAgent = getAnnotationSafe(destinationEdge.getSourceVertex(), "type").equals("Agent") ? destinationEdge.getSourceVertex() : destinationEdge.getDestinationVertex();
+						AbstractVertex destinationAgent = getAnnotationSafe(destinationEdge.getChildVertex(), "type").equals("Agent") ? destinationEdge.getChildVertex() : destinationEdge.getParentVertex();
 						AbstractEdge newEdge = new Edge(sourceAgent, destinationAgent);
 						newEdge.addAnnotation("type", "ActedOnBehalfOf");
 						resultGraph.putEdge(newEdge); //have added all agents previously. so, not adding them here

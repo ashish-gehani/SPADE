@@ -20,16 +20,15 @@
 package spade.storage;
 
 import java.io.FileWriter;
+import java.sql.ResultSet;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.codec.binary.Hex;
-
+import org.apache.commons.codec.digest.DigestUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.OPMConstants;
+import spade.core.Graph;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -42,14 +41,13 @@ public class Graphviz extends AbstractStorage {
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
     private String filePath;
-    
+
     @Override
     public boolean initialize(String arguments) {
         try {
             if (arguments == null) {
                 return false;
             }
-            
             filePath = arguments;
             outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
@@ -97,25 +95,18 @@ public class Graphviz extends AbstractStorage {
             String shape = "box";
             String color = "white";
             String type = incomingVertex.getAnnotation("type");
-            if (type.equalsIgnoreCase("Agent") 
-            		|| type.equalsIgnoreCase("Principal")) {
+            if (type.equalsIgnoreCase("Agent")) {
                 shape = "octagon";
                 color = "rosybrown1";
-            } else if (type.equalsIgnoreCase("Process") 
-            		|| type.equalsIgnoreCase("Activity") 
-            		|| type.equalsIgnoreCase("Subject")) {
+            } else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity")) {
                 shape = "box";
                 color = "lightsteelblue1";
-            } else if (type.equalsIgnoreCase("Artifact") 
-            		|| type.equalsIgnoreCase("Entity") 
-            		|| type.equalsIgnoreCase("Object")) {
+            } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity")) {
                 shape = "ellipse";
                 color = "khaki1";
                 try {
-                    String subtype = incomingVertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
-                    String cdmType = incomingVertex.getAnnotation("cdm.type");
-                    if (OPMConstants.SUBTYPE_NETWORK_SOCKET.equalsIgnoreCase(subtype)
-                    		|| "NetFlowObject".equalsIgnoreCase(cdmType)) {
+                    String subtype = incomingVertex.getAnnotation("subtype");
+                    if (subtype.equalsIgnoreCase("network")) {
                         shape = "diamond";
                         color = "palegreen1";
                     }
@@ -124,7 +115,7 @@ public class Graphviz extends AbstractStorage {
                 }
             }
 
-            String key = Hex.encodeHexString(incomingVertex.bigHashCode());
+            String key = DigestUtils.sha256Hex(incomingVertex.toString());
             outputFile.write("\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
             checkTransactions();
             return true;
@@ -132,6 +123,12 @@ public class Graphviz extends AbstractStorage {
             Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
+    }
+
+    @Override
+    public ResultSet executeQuery(String query)
+    {
+        return null;
     }
 
     @Override
@@ -155,58 +152,12 @@ public class Graphviz extends AbstractStorage {
                 color = "green";
             } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
                 color = "red";
-            } else if (type.equalsIgnoreCase("WasTriggeredBy") 
-            		|| type.equalsIgnoreCase("WasInformedBy")) {
+            } else if (type.equalsIgnoreCase("WasTriggeredBy") || type.equalsIgnoreCase("WasInformedBy")) {
                 color = "blue";
-            } else if (type.equalsIgnoreCase("WasControlledBy") 
-            		|| type.equalsIgnoreCase("WasAssociatedWith")) {
+            } else if (type.equalsIgnoreCase("WasControlledBy") || type.equalsIgnoreCase("WasAssociatedWith")) {
                 color = "purple";
             } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
                 color = "orange";
-            } else if(type.equalsIgnoreCase("SimpleEdge")){
-            	String cdmTypeString = incomingEdge.getAnnotation("cdm.type");
-            	if(cdmTypeString != null){//exception handling
-	            	switch (cdmTypeString) {
-	            	case "UnitDependency": 
-	            	case "EVENT_EXIT":
-	            	case "EVENT_FORK":
-	            	case "EVENT_CLONE":
-	            	case "EVENT_EXECUTE":
-	            	case "EVENT_CHANGE_PRINCIPAL":
-	            	case "EVENT_UNIT":
-	            		color = "blue";
-	            		break;
-	            	case "EVENT_CLOSE":
-	            	case "EVENT_OPEN":
-	            	case "EVENT_CREATE_OBJECT":
-	            	case "EVENT_MMAP":
-	            	case "EVENT_RENAME":
-	            	case "EVENT_LINK":
-	            	case "EVENT_UPDATE":
-	            		color = "violet";
-	            		break;
-	            	case "EVENT_UNLINK":
-	            	case "EVENT_WRITE":
-	            	case "EVENT_SENDMSG":
-	            	case "EVENT_MPROTECT":
-	            	case "EVENT_CONNECT":
-	            	case "EVENT_TRUNCATE":
-	            	case "EVENT_MODIFY_FILE_ATTRIBUTES":
-	            		color = "red";
-	            		break;
-	            	case "EVENT_LOADLIBRARY":
-	            	case "EVENT_READ":
-	            	case "EVENT_RECVMSG":
-	            	case "EVENT_ACCEPT":
-	            		color = "green";
-	            		break;
-	            	default:
-	            		color = "black";
-	            		break;
-					}
-            	}else{
-            		color = "black";
-            	}
             }
 
             String style = "solid";
@@ -219,8 +170,8 @@ public class Graphviz extends AbstractStorage {
                 edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
             }
 
-            String srckey = Hex.encodeHexString(incomingEdge.getSourceVertex().bigHashCode());
-            String dstkey = Hex.encodeHexString(incomingEdge.getDestinationVertex().bigHashCode());
+            String srckey = DigestUtils.sha256Hex(incomingEdge.getChildVertex().toString());
+            String dstkey = DigestUtils.sha256Hex(incomingEdge.getParentVertex().toString());
 
             outputFile.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
             checkTransactions();
@@ -230,7 +181,58 @@ public class Graphviz extends AbstractStorage {
             return false;
         }
     }
-    
+
+    /**
+     * This function queries the underlying storage and retrieves the edge
+     * matching the given criteria.
+     *
+     * @param childVertexHash      hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
+     * @return returns edge object matching the given vertices OR NULL.
+     */
+    @Override
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
+        return null;
+    }
+
+    /**
+     * This function queries the underlying storage and retrieves the vertex
+     * matching the given criteria.
+     *
+     * @param vertexHash hash of the vertex to find.
+     * @return returns vertex object matching the given hash OR NULL.
+     */
+    @Override
+    public AbstractVertex getVertex(String vertexHash) {
+        return null;
+    }
+
+    /**
+     * This function finds the children of a given vertex.
+     * A child is defined as a vertex which is the source of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param parentHash hash of the given vertex
+     * @return returns graph object containing children of the given vertex OR NULL.
+     */
+    @Override
+    public Graph getChildren(String parentHash) {
+        return null;
+    }
+
+    /**
+     * This function finds the parents of a given vertex.
+     * A parent is defined as a vertex which is the destination of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param childVertexHash hash of the given vertex
+     * @return returns graph object containing parents of the given vertex OR NULL.
+     */
+    @Override
+    public Graph getParents(String childVertexHash) {
+        return null;
+    }
+
     @Override
     public boolean shutdown() {
         try {

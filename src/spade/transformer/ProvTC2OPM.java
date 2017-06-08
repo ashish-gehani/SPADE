@@ -54,13 +54,13 @@ public class ProvTC2OPM extends Prov2OPM{
 		Graph resultGraph = new Graph();
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 				replaceAnnotations(newEdge.getAnnotations(), provTC2OpmMapping);
-				replaceAnnotations(newEdge.getSourceVertex().getAnnotations(), provTC2OpmMapping);
-				replaceAnnotations(newEdge.getDestinationVertex().getAnnotations(), provTC2OpmMapping);
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+				replaceAnnotations(newEdge.getChildVertex().getAnnotations(), provTC2OpmMapping);
+				replaceAnnotations(newEdge.getParentVertex().getAnnotations(), provTC2OpmMapping);
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

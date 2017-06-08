@@ -30,10 +30,7 @@ import java.util.logging.Logger;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Settings;
+import spade.core.*;
 import spade.storage.kafka.DataWriter;
 import spade.storage.kafka.Edge;
 import spade.storage.kafka.FileWriter;
@@ -223,15 +220,21 @@ public class Kafka extends AbstractStorage{
 			return false;
 		}
 	}
-	
+
+	@Override
+	public Object executeQuery(String query)
+	{
+		return null;
+	}
+
 	@Override
 	public boolean putEdge(AbstractEdge edge){
 		try{
 			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Edge.Builder edgeBuilder = Edge.newBuilder();
 			edgeBuilder.setAnnotations(edge.getAnnotations());
-			edgeBuilder.setSourceVertexHash(String.valueOf(edge.getSourceVertex().hashCode()));
-			edgeBuilder.setDestinationVertexHash(String.valueOf(edge.getDestinationVertex().hashCode()));
+			edgeBuilder.setChildVertexHash(String.valueOf(edge.getChildVertex().hashCode()));
+			edgeBuilder.setParentVertexHash(String.valueOf(edge.getParentVertex().hashCode()));
 			edgeBuilder.setHash(String.valueOf(edge.hashCode()));
 			Edge kafkaEdge = edgeBuilder.build();
 			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaEdge).build());
@@ -275,5 +278,60 @@ public class Kafka extends AbstractStorage{
 		}
 		return success;
 	}
-		
+
+	/**
+	 * This function queries the underlying storage and retrieves the edge
+	 * matching the given criteria.
+	 *
+	 * @param childVertexHash  hash of the source vertex.
+	 * @param parentVertexHash hash of the destination vertex.
+	 * @return returns edge object matching the given vertices OR NULL.
+	 */
+	@Override
+	public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
+	{
+		return null;
+	}
+
+	/**
+	 * This function queries the underlying storage and retrieves the vertex
+	 * matching the given criteria.
+	 *
+	 * @param vertexHash hash of the vertex to find.
+	 * @return returns vertex object matching the given hash OR NULL.
+	 */
+	@Override
+	public AbstractVertex getVertex(String vertexHash)
+	{
+		return null;
+	}
+
+	/**
+	 * This function finds the children of a given vertex.
+	 * A child is defined as a vertex which is the source of a
+	 * direct edge between itself and the given vertex.
+	 *
+	 * @param parentHash hash of the given vertex
+	 * @return returns graph object containing children of the given vertex OR NULL.
+	 */
+	@Override
+	public Graph getChildren(String parentHash)
+	{
+		return null;
+	}
+
+	/**
+	 * This function finds the parents of a given vertex.
+	 * A parent is defined as a vertex which is the destination of a
+	 * direct edge between itself and the given vertex.
+	 *
+	 * @param childVertexHash hash of the given vertex
+	 * @return returns graph object containing parents of the given vertex OR NULL.
+	 */
+	@Override
+	public Graph getParents(String childVertexHash)
+	{
+		return null;
+	}
+
 }

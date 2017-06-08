@@ -19,12 +19,7 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.SimpleDateFormat;
@@ -2930,7 +2925,14 @@ public class Audit extends AbstractReporter {
 				agent.addAnnotation(OPMConstants.AGENT_SGID, annotationsToUpdate.get(OPMConstants.AGENT_SGID));
 				agent.addAnnotation(OPMConstants.AGENT_FSGID, annotationsToUpdate.get(OPMConstants.AGENT_FSGID));
 			}
-			String agentHash = Hex.encodeHexString(agent.bigHashCode());
+			String agentHash = null;
+			try
+			{
+				agentHash = Hex.encodeHexString(agent.bigHashCode().getBytes("UTF-8"));
+			} catch(UnsupportedEncodingException e)
+			{
+				logger.log(Level.SEVERE, "", e);
+			}
 			if(!agentHashes.contains(agentHash)){
 				agentHashes.add(agentHash);
 				putVertex(agent);
@@ -2943,8 +2945,15 @@ public class Audit extends AbstractReporter {
 			wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
 			wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
 			wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
-			
-			String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
+
+			String edgeHash = null;
+			try
+			{
+				edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode().getBytes("UTF-8"));
+			} catch(UnsupportedEncodingException e)
+			{
+				logger.log(Level.SEVERE, "", e);
+			}
 			if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
 				pidToAgentEdgeHashes.get(pid).add(edgeHash);
 				putEdge(wasControlledBy);
@@ -3856,10 +3865,10 @@ public class Audit extends AbstractReporter {
 	 * {@link #BEEP beep}
 	 */
 	private void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
-		if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 			if(!UNIX_SOCKETS && 
-					(isUnixSocketArtifact(edge.getSourceVertex()) ||
-							isUnixSocketArtifact(edge.getDestinationVertex()))){
+					(isUnixSocketArtifact(edge.getChildVertex()) ||
+							isUnixSocketArtifact(edge.getParentVertex()))){
 				return;
 			}
 			if(time != null){
@@ -3876,8 +3885,8 @@ public class Audit extends AbstractReporter {
 			}
 			putEdge(edge);
 		}else{
-			log(Level.WARNING, "Failed to put edge. edge = "+edge+", sourceVertex = "+(edge != null ? edge.getSourceVertex() : null)+", "
-					+ "destination vertex = "+(edge != null ? edge.getDestinationVertex() : null)+", operation = "+operation+", "
+			log(Level.WARNING, "Failed to put edge. edge = "+edge+", childVertex = "+(edge != null ? edge.getChildVertex() : null)+", "
+					+ "destination vertex = "+(edge != null ? edge.getParentVertex() : null)+", operation = "+operation+", "
 					+ "time = "+time+", eventId = "+eventId+", source = " + source, null, time, eventId, SYSCALL.valueOf(operation.toUpperCase()));
 		}
 	}
@@ -4485,7 +4494,14 @@ public class Audit extends AbstractReporter {
 						agent.addAnnotation(OPMConstants.AGENT_SGID, annotations.get(OPMConstants.AGENT_SGID));
 						agent.addAnnotation(OPMConstants.AGENT_FSGID, annotations.get(OPMConstants.AGENT_FSGID));
 					}
-					String agentHash = Hex.encodeHexString(agent.bigHashCode());
+					String agentHash = null;
+					try
+					{
+						agentHash = Hex.encodeHexString(agent.bigHashCode().getBytes("UTF-8"));
+					} catch(UnsupportedEncodingException e)
+					{
+						logger.log(Level.SEVERE, "", e);
+					}
 					if(!agentHashes.contains(agentHash)){
 						agentHashes.add(agentHash);
 						putVertex(agent);
@@ -4498,8 +4514,15 @@ public class Audit extends AbstractReporter {
 					wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
 					wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
 					wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
-					
-					String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
+
+					String edgeHash = null;
+					try
+					{
+						edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode().getBytes("UTF-8"));
+					} catch(UnsupportedEncodingException e)
+					{
+						logger.log(Level.SEVERE, "", e);
+					}
 					if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
 						pidToAgentEdgeHashes.get(pid).add(edgeHash);
 						putEdge(wasControlledBy);

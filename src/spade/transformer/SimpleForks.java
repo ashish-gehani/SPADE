@@ -42,10 +42,10 @@ public class SimpleForks extends AbstractTransformer {
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 			if(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_CLONE)
 					|| getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_FORK)){
-				forkcloneEdges.put(getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID), newEdge);
+				forkcloneEdges.put(getAnnotationSafe(newEdge.getChildVertex(), OPMConstants.PROCESS_PID), newEdge);
 			}else if(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_EXECVE)){
 				//if execve, check if there is already an edge in the map for the pid. if no then just add it
-				String pid = getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID);
+				String pid = getAnnotationSafe(newEdge.getChildVertex(), OPMConstants.PROCESS_PID);
 				if(execveEdges.get(pid) == null){
 					execveEdges.put(pid, newEdge);
 				}else{
@@ -77,7 +77,7 @@ public class SimpleForks extends AbstractTransformer {
 			AbstractEdge edge = null;
 			if(hasForkClone && hasExecve){
 				edge = forkcloneEdges.get(pid);
-				edge.setSourceVertex(execveEdges.get(pid).getSourceVertex());
+				edge.setChildVertex(execveEdges.get(pid).getChildVertex());
 				edge.addAnnotation(OPMConstants.EDGE_OPERATION, 
 						OPMConstants.buildOperation(
 								edge.getAnnotation(OPMConstants.EDGE_OPERATION), OPMConstants.OPERATION_EXECVE));
@@ -85,14 +85,14 @@ public class SimpleForks extends AbstractTransformer {
 				edge = forkcloneEdges.get(pid);
 			}else if(!hasForkClone && hasExecve){
 				edge = execveEdges.get(pid);
-				pidToVertex.put(pid, edge.getSourceVertex());
+				pidToVertex.put(pid, edge.getChildVertex());
 				continue;
 			}else{ //both false
 				continue;
 			}
-			pidToVertex.put(pid, edge.getSourceVertex());
-			resultGraph.putVertex(edge.getSourceVertex());
-			resultGraph.putVertex(edge.getDestinationVertex());
+			pidToVertex.put(pid, edge.getChildVertex());
+			resultGraph.putVertex(edge.getChildVertex());
+			resultGraph.putVertex(edge.getParentVertex());
 			resultGraph.putEdge(edge);
 		}
 		
@@ -107,17 +107,17 @@ public class SimpleForks extends AbstractTransformer {
 				}
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			String srcPid = getAnnotationSafe(newEdge.getSourceVertex(), OPMConstants.PROCESS_PID);
+			String srcPid = getAnnotationSafe(newEdge.getChildVertex(), OPMConstants.PROCESS_PID);
 			if(srcPid != null && pidToVertex.get(srcPid) != null){
-				newEdge.setSourceVertex(pidToVertex.get(srcPid));
+				newEdge.setChildVertex(pidToVertex.get(srcPid));
 			}
-			String dstPid = getAnnotationSafe(newEdge.getDestinationVertex(), OPMConstants.PROCESS_PID);
+			String dstPid = getAnnotationSafe(newEdge.getParentVertex(), OPMConstants.PROCESS_PID);
 			if(dstPid != null && pidToVertex.get(dstPid) != null){
-				newEdge.setDestinationVertex(pidToVertex.get(dstPid));
+				newEdge.setParentVertex(pidToVertex.get(dstPid));
 			}
-			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

@@ -19,11 +19,12 @@
  */
 package spade.core;
 
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is the class from which other vertex classes (e.g., OPM vertices) are
@@ -34,13 +35,19 @@ import org.apache.commons.codec.digest.DigestUtils;
 public abstract class AbstractVertex implements Serializable {
 
     /**
-	 * 
-	 */
-	private static final long serialVersionUID = 4766085487390172973L;
-	/**
      * A map containing the annotations for this vertex.
      */
     protected Map<String, String> annotations = new HashMap<>();
+
+    /**
+     * Checks if vertex is empty
+     *
+     * @return Returns true if vertex contains no annotation
+     */
+    public final boolean isEmpty()
+    {
+        return annotations.size() == 0;
+    }
 
     /**
      * Returns the map containing the annotations for this vertex.
@@ -119,13 +126,6 @@ public abstract class AbstractVertex implements Serializable {
         return (this.annotations.equals(thatVertex.annotations));
     }
 
-    /**
-     * Computes a function of the annotations in the vertex.
-     *
-     * This takes less time to compute than bigHashCode() but is less collision-resistant.
-     *
-     * @return An integer-valued hash code.
-     */
     @Override
     public int hashCode() {
         final int seed1 = 67;
@@ -135,10 +135,15 @@ public abstract class AbstractVertex implements Serializable {
         return hashCode;
     }
 
+    /*
+    * Serializes the object as key-value pairs in the form: key_1:value_1|key_2:value_2|......|key_n:value_n
+    */
     @Override
-    public String toString() {
+    public String toString()
+    {
         StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
+        for (Map.Entry<String, String> currentEntry : annotations.entrySet())
+        {
             result.append(currentEntry.getKey());
             result.append(":");
             result.append(currentEntry.getValue());
@@ -146,16 +151,15 @@ public abstract class AbstractVertex implements Serializable {
         }
         return result.substring(0, result.length() - 1);
     }
-    
+
     /**
-     * Computes MD5 of the annotations in the vertex.
-     *
-     * This takes longer to compute than hashCode() but is more collision-resistant.
+     * Computes MD5 hash of annotations in the edge.
+     * Returns 128-bits of the digest.
      *
      @return A 128-bit hash value.
      */
-    public byte[] bigHashCode() {
-        
-        return DigestUtils.md5(this.toString());
+    public String bigHashCode()
+    {
+        return DigestUtils.md5Hex(this.toString());
     }
 }
