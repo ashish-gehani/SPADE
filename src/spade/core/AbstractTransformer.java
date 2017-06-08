@@ -19,11 +19,12 @@
  */
 package spade.core;
 
+import spade.client.QueryParameters;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import spade.client.QueryParameters;
 
 public abstract class AbstractTransformer {
 	

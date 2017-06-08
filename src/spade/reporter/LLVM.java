@@ -55,9 +55,9 @@ public class LLVM extends AbstractReporter {
         /*
         * argument can be 'forcedremoval=true' (default) or 'forcedremoval=false'
         * if forcedremoval is specified as false, on removal of the reporter, reporter won't 
-        * shutdown unless the socket buffer from where instrumented programs sends in 
+        * KERNEL_SHUTDOWN unless the socket buffer from where instrumented programs sends in
         * provenance data is empitited.
-        * if forcedremoval is true, it will discard this buffer and proceed to shutdown
+        * if forcedremoval is true, it will discard this buffer and proceed to KERNEL_SHUTDOWN
         */
         try{
             String[] pairs = arguments.split("\\s+");

@@ -64,14 +64,14 @@ import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
 /**
- * This class is used to represent spade.query responses using sets for edges and
+ * This class is used to represent query responses using sets for edges and
  * vertices.
  *
  * @author Dawood Tariq
  */
 public class Graph extends AbstractStorage implements Serializable
 {
-
+	
     private static final Logger logger = Logger.getLogger(Graph.class.getName());
     private static final int MAX_QUERY_HITS = 1000;
     private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
@@ -97,7 +97,7 @@ public class Graph extends AbstractStorage implements Serializable
     private Map<AbstractVertex, Integer> networkMap = new HashMap<>();
     private int serial_number = 1;
     /**
-     * For spade.query results spanning multiple hosts, this is used to indicate
+     * For query results spanning multiple hosts, this is used to indicate
      * whether the network boundaries have been properly transformed.
      */
     public boolean transformed = false;
@@ -105,7 +105,7 @@ public class Graph extends AbstractStorage implements Serializable
     private Directory edgeIndex;
     private transient IndexWriter vertexIndexWriter;
     private transient IndexWriter edgeIndexWriter;
-
+    
     public void mergeThreads() {
 
     }

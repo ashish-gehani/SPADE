@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2015 SRI International
+ Copyright (C) 2017 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -37,6 +38,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.Date;
@@ -73,7 +75,7 @@ import spade.utility.LogManager;
 
 public class Kernel
 {
-	
+
 	static
     {
 		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
@@ -81,7 +83,7 @@ public class Kernel
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     private static final String FILE_SEPARATOR = System.getProperty("file.separator");
-    
+
     /**
      * Path to log files including the prefix.
      */
@@ -121,6 +123,10 @@ public class Kernel
      */
     public static Set<AbstractAnalyzer> analyzers;
     /**
+     * Set of analyzers active on the local SPADE instance.
+     */
+    public static Set<AbstractAnalyzer> analyzers;
+    /**
      * Set of storages active on the local SPADE instance.
      */
     public static Set<AbstractStorage> storages;
@@ -137,12 +143,7 @@ public class Kernel
      */
     public static Set<AbstractSketch> sketches;
     /**
-     * A map used to cache the remote sketches.
-     */
-    public static Map<String, AbstractSketch> remoteSketches;
-
-    /**
-     * Used to initiate shutdown. It is used by various threads to 
+     * Used to initiate shutdown. It is used by various threads to
      * determine whether to continue running.
      */
     public static volatile boolean KERNEL_SHUTDOWN;
@@ -228,7 +229,7 @@ public class Kernel
             logFileHandler.setFormatter(new SimpleFormatter());
             logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
             Logger.getLogger("").addHandler(logFileHandler);
-            
+
         } catch (IOException | SecurityException exception) {
             System.err.println("Error initializing exception logger");
         }
@@ -1457,9 +1458,10 @@ public class Kernel
     /**
      * Method to shut down SPADE completely.
      */
-    public static void shutdown() {
+    public static void shutdown()
+    {
         logger.log(Level.INFO, "Shutting down SPADE....");
-        
+
         // Save current configuration.
         configCommand("config save " + CONFIG_FILE, NullStream.out);
         // Shut down all reporters.
@@ -1481,74 +1483,68 @@ public class Kernel
                 logger.log(Level.WARNING, null, ex);
             }
         }
-        
+
         // Shut down filters.
-        for (int i = 0; i < filters.size() - 1; i++) {
+        for (int i = 0; i < filters.size() - 1; i++)
+        {
             filters.get(i).shutdown();
         }
         // Shut down storages.
-        for (AbstractStorage storage : storages) {
+        for (AbstractStorage storage : storages)
+        {
             storage.shutdown();
         }
-        
+
         // Shut down server sockets.
-        for (ServerSocket socket : serverSockets) {
-            try {
+        for (ServerSocket socket : serverSockets)
+        {
+            try
+            {
                 socket.close();
-            } catch (IOException ex) {
+            }
+            catch (IOException ex)
+            {
                 logger.log(Level.SEVERE, null, ex);
             }
         }
         logger.log(Level.INFO, "SPADE stopped.");
-        
+
         try {
-            
+
             Files.deleteIfExists(Paths.get(PID_FILE));
         } catch (Exception exception) {
             logger.log(Level.WARNING, "Could not delete PID file.");
         }
-        
+
         // Allow LogManager to complete its response to the shutdown
         LogManager.shutdownReset();
     }
-    
+
     public static String getPidFileName(){
         return PID_FILE;
     }
 }
 
 
-final class NullStream {
-
-    public final static PrintStream out = new PrintStream(new OutputStream() {
         @Override
-        public void close() {
-        }
+        public void write(byte[] b) {}
 
         @Override
-        public void flush() {
-        }
+        public void write(byte[] b, int off, int len) {}
 
         @Override
-        public void write(byte[] b) {
-        }
-
-        @Override
-        public void write(byte[] b, int off, int len) {
-        }
-
-        @Override
-        public void write(int b) {
-        }
+        public void write(int b) {}
     });
 }
 
-class LocalControlConnection implements Runnable {
+class LocalControlConnection implements Runnable
+{
 
 	private final Logger logger = Logger.getLogger(LocalControlConnection.class.getName());
-    Socket controlSocket;
+    private Socket controlSocket;
 
-    LocalControlConnection(Socket socket) {
+    LocalControlConnection(Socket socket)
+    {
         controlSocket = socket;
     }
 
@@ -1563,12 +1559,13 @@ class LocalControlConnection implements Runnable {
             try {
                 while (!Kernel.KERNEL_SHUTDOWN) {
                     // Commands read from the input stream and executed.
-                	try{
+                	try
+                    {
 	                    String line = controlInputStream.readLine();
 	                    if (line == null || line.equalsIgnoreCase("exit")) {
 	                        break;
 	                    }
-	                    
+
 	                    Kernel.executeCommand(line, controlOutputStream);
 	                    
                     	// An empty line is printed to let the client know that the command output is complete.
@@ -1578,20 +1575,27 @@ class LocalControlConnection implements Runnable {
                 		logger.log(Level.SEVERE, null, exception);
                 	}
                 }
-            } catch (IOException e) {
+            }
+            catch (IOException e)
+            {
             	logger.log(Level.SEVERE, null, e);
                 // Connection broken?
-            } finally {
+            }
+            finally
+            {
                 controlInputStream.close();
                 controlOutputStream.close();
 
                 inStream.close();
                 outStream.close();
-                if (controlSocket.isConnected()) {
+                if (controlSocket.isConnected())
+                {
                     controlSocket.close();
                 }
             }
-        } catch (Exception ex) {
+        }
+        catch (Exception ex)
+        {
             logger.log(Level.SEVERE, null, ex);
         }
     }

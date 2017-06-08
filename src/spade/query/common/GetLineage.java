@@ -33,7 +33,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
         {
             storage = "sql." + storage;
         }
-        String class_prefix = "spade.spade.query." + storage;
+        String class_prefix = "spade.query." + storage;
         String direction = parameters.get("direction").get(0);
         Integer maxDepth = Integer.parseInt(parameters.get("maxDepth").get(0));
         GetVertex getVertex;

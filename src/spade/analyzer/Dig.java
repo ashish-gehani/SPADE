@@ -179,7 +179,7 @@ public class Dig extends AbstractAnalyzer
                         }
                         else
                         {
-                            Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, "Return type mismatch!");
+                            Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, "Return type mismatch!");
                         }
                     }
 
@@ -192,7 +192,7 @@ public class Dig extends AbstractAnalyzer
                 querySocket.close();
             } catch(Exception ex)
             {
-                Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -265,7 +265,7 @@ public class Dig extends AbstractAnalyzer
             }
             catch(Exception ex)
             {
-                Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query", ex);
+                Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query", ex);
             }
         }
     }
