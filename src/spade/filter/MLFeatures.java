@@ -57,6 +57,7 @@ public class MLFeatures extends AbstractFilter{
 	private Logger logger = Logger.getLogger(this.getClass().getName());
 	private HashMap<String,HashMap<String,Double>> features = new HashMap<>();
 	private HashMap<String,String> agentsName = new HashMap<>();
+	private HashMap<String,String> processName = new HashMap<>();
 	private HashMap<String,String> firstActivity = new HashMap<>();
 	private HashMap<String,String> lastUsed = new HashMap<>();
 	private HashMap<String,String> lastWgb = new HashMap<>();
@@ -64,9 +65,11 @@ public class MLFeatures extends AbstractFilter{
 	private HashMap<String,HashSet<String>> fileWgb = new HashMap<>();
 	private HashMap<String,HashSet<String>> extensionUsed = new HashMap<>();
 	private HashMap<String,HashSet<String>> extensionWgb = new HashMap<>();
+	private  String filepathFeatures = "Default.csv";
 	private static int SCALE_TIME = 10000000;
 	private final String USER = "User";
 	private final String WCB = "WasControlledBy";
+	private final String WTB = "WasTriggeredBy";
 	private final String PROCESS = "Process";
 	private final String PROCESS_IDENTIFIER = "pid";
 	private final String USED = "Used";
@@ -84,6 +87,9 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_FILESYSTEM_WGB = "countFilesystemWgb";
 	private final String CLASS = "class";
 	private final String FILE_SYSTEM = "File System";
+	private final String REGISTRY = "Registry";
+	private final String COUNT_REGISTRY_USED = "countRegistryUsed";
+	private final String COUNT_REGISTRY_WGB = "countRegistryWgb";
 	private final String LIFE_DURATION = "lifeDuration";
 	private final String TOTAL_LENGTH_READ = "totalLengthRead";
 	private final String TOTAL_LENGTH_WRITTEN = "totalLengthWritten";
@@ -97,13 +103,21 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_EXE_AND_DLL_WGB = "countExeAndDllWgb";	
 	private final String EXE = "exe";
 	private final String DLL = "dll";
-	private final String FILEPATH_FEATURES = "/Users/mathieubarre/Desktop/somefile.csv";
 	private final String COUNT_USED_NOT_NETWORK = "countUsedNotNetwork";
 	private final String COUNT_WGB_NOT_NETWORK = "countWgbNotNetwork";
+	private final String NAME = "name";
 	private final String eol = System.getProperty("line.separator");
+	private final String COUNT_WTB = "countWasTriggeredBy";
+	private final String COUNT_NETWORK_RECEIVE = "countNetworkReceive";
+	private final String COUNT_NETWORK_SEND = "countNetworkSend";
+	private final String SUBTYPE = "subtype";
+	private final String NETWORK = "network";
 	
 	public boolean initialize(String arguments){
-
+		if(arguments != null){
+			filepathFeatures = arguments.substring(1); 
+		}
+		
 		return true;
 
 	}
@@ -112,16 +126,21 @@ public class MLFeatures extends AbstractFilter{
 	public boolean shutdown(){
 		Set<String> names = new HashSet<String>(Arrays.asList(COUNT_USED,COUNT_WGB,AVG_DURATION_BETWEEN_TWO_USED,AVG_DURATION_BETWEEN_TWO_WGB,AVG_DURATION_USED,
 				AVG_DURATION_WGB,COUNT_FILESYSTEM_USED,COUNT_FILESYSTEM_WGB,LIFE_DURATION,TOTAL_LENGTH_READ,TOTAL_LENGTH_WRITTEN,COUNT_OF_USED_FILES,
-				COUNT_OF_WGB_FILES,COUNT_EXTENSION_TYPE_USED,COUNT_EXTENSION_TYPE_WGB,COUNT_EXE_AND_DLL_USED,COUNT_EXE_AND_DLL_WGB));
+				COUNT_OF_WGB_FILES,COUNT_EXTENSION_TYPE_USED,COUNT_EXTENSION_TYPE_WGB,COUNT_EXE_AND_DLL_USED,COUNT_EXE_AND_DLL_WGB,COUNT_WTB,COUNT_REGISTRY_USED,
+				COUNT_REGISTRY_WGB,COUNT_NETWORK_RECEIVE,COUNT_NETWORK_SEND));
 		
-		try (Writer writer = new FileWriter(FILEPATH_FEATURES)) {
+		try (Writer writer = new FileWriter(filepathFeatures)) {
 		  
 		   for (String name : names){
 			   writer.append(name)
 			   		 .append(',');
 		   }
-		   writer.append(USER);
-		   writer.append(eol);
+		   writer.append(USER)
+		   		 .append(',')
+		   		 .append(NAME)
+		   		 .append(',')
+		   		 .append(PROCESS_IDENTIFIER)
+		   		 .append(eol);
 		   for (String key : features.keySet()) {
 			   
 			   HashMap<String,Double> current = features.get(key);
@@ -130,8 +149,12 @@ public class MLFeatures extends AbstractFilter{
 				   writer.append(Double.toString(current.get(column)))
 		              	 .append(',');
 			   }
-			   writer.append(agentsName.get(key));
-			   writer.append(eol);
+			   writer.append(agentsName.get(key))
+			   		 .append(',')
+			   		 .append(processName.get(key))
+			   		 .append(',')
+			   		 .append(key)
+			         .append(eol);
 		   }
 		} catch (IOException ex) {
 		  ex.printStackTrace(System.err);
@@ -167,12 +190,18 @@ public class MLFeatures extends AbstractFilter{
 				initialFeatures.put(COUNT_USED_NOT_NETWORK, INITIAL_ZERO);
 				initialFeatures.put(COUNT_WGB_NOT_NETWORK, INITIAL_ZERO);
 				initialFeatures.put(LIFE_DURATION, INITIAL_ZERO);
+				initialFeatures.put(COUNT_WTB, INITIAL_ZERO);
+				initialFeatures.put(COUNT_REGISTRY_USED, INITIAL_ZERO);
+				initialFeatures.put(COUNT_REGISTRY_WGB, INITIAL_ZERO);
+				initialFeatures.put(COUNT_NETWORK_RECEIVE, INITIAL_ZERO);
+				initialFeatures.put(COUNT_NETWORK_SEND, INITIAL_ZERO);
 				features.put(processPid,initialFeatures);
 				
 				fileUsed.put(processPid, new HashSet<>());
 				fileWgb.put(processPid, new HashSet<>());
 				extensionUsed.put(processPid, new HashSet<>());
 				extensionWgb.put(processPid, new HashSet<>());
+				processName.put(processPid, incomingVertex.getAnnotation(NAME));
 				
 			}
 			putInNextFilter(incomingVertex);
@@ -230,12 +259,7 @@ public class MLFeatures extends AbstractFilter{
 					
 					sourceProcess.put(COUNT_USED, count_used + 1);
 					
-					try{
-						if(destinationVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-							double count_filesystem = sourceProcess.get(COUNT_FILESYSTEM_USED);
-							sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
-						}
-					}catch(Exception e){}
+
 					
 					
 					double lengthRead = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
@@ -244,31 +268,60 @@ public class MLFeatures extends AbstractFilter{
 					
 					HashSet<String> fileUsedByProcess = fileUsed.get(ProcessPid);
 					String filePath = destinationVertex.getAnnotation(PATH);
-					if(!fileUsedByProcess.contains(filePath)){
+					if(filePath != null){
+						if(!fileUsedByProcess.contains(filePath)){
 						
-						fileUsedByProcess.add(filePath);
-						double countFileUsed = sourceProcess.get(COUNT_OF_USED_FILES);
-						sourceProcess.put(ProcessPid, countFileUsed + 1);
+							fileUsedByProcess.add(filePath);
+							double countFileUsed = sourceProcess.get(COUNT_OF_USED_FILES);
+							sourceProcess.put(COUNT_OF_USED_FILES, countFileUsed + 1);
 						
+						}
 					}
+					try{
+						if(destinationVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
+							double count_filesystem = sourceProcess.get(COUNT_FILESYSTEM_USED);
+							sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
+						
+							HashSet<String> extensionUsedByProcess = extensionUsed.get(ProcessPid);
+							String extension = getExtension(filePath);
+							if(!extensionUsedByProcess.contains(extension)){
+								extensionUsedByProcess.add(extension);
+								double countExtension = sourceProcess.get(COUNT_EXTENSION_TYPE_USED);
+								sourceProcess.put(COUNT_EXTENSION_TYPE_USED, countExtension + 1);
+							}
 					
-					HashSet<String> extensionUsedByProcess = extensionUsed.get(ProcessPid);
-					String extension = getExtension(filePath);
-					if(!extensionUsedByProcess.contains(extension)){
-						extensionUsedByProcess.add(extension);
-						double countExtension = sourceProcess.get(COUNT_EXTENSION_TYPE_USED);
-						sourceProcess.put(COUNT_EXTENSION_TYPE_USED, countExtension + 1);
-					}
+							if(extension.equals(EXE) || extension.equals(DLL)){
+								double count_exe_dll = sourceProcess.get(COUNT_EXE_AND_DLL_USED);
+								sourceProcess.put(COUNT_EXE_AND_DLL_USED, count_exe_dll + 1);
+							}
+							
+						}else if(destinationVertex.getAnnotation(CLASS).equals(REGISTRY)){
+							double count_registry = sourceProcess.get(COUNT_REGISTRY_USED);
+							sourceProcess.put(COUNT_REGISTRY_USED, count_registry + 1);
+						}
+						
+						
+					}catch(Exception e){}
 					
-					if(extension.equals(EXE) || extension.equals(DLL)){
-						double count_exe_dll = sourceProcess.get(COUNT_EXE_AND_DLL_USED);
-						sourceProcess.put(COUNT_EXE_AND_DLL_USED, count_exe_dll + 1);
-					}
+					try{
+						if(destinationVertex.getAnnotation(SUBTYPE).equals(NETWORK)){
+							double countNetworkReceive = sourceProcess.get(COUNT_NETWORK_RECEIVE);
+							sourceProcess.put(COUNT_NETWORK_RECEIVE, countNetworkReceive + 1);
+						}
+					}catch(Exception e){}
+						
 					
 				}else if (incomingEdge.type().equals(WCB)){
+					
 					agentsName.put(ProcessPid,destinationVertex.getAnnotation(USER));
+					
+				}else if(incomingEdge.type().equals(WTB)){
+					String destinationPid = destinationVertex.getAnnotation(PROCESS_IDENTIFIER);
+					HashMap<String,Double> destinationProcess = features.get(destinationPid);
+					double countWtb = destinationProcess.get(COUNT_WTB);
+					
+					destinationProcess.put(COUNT_WTB, countWtb + 1);
 				}
-				
 				
 				
 				
@@ -315,14 +368,7 @@ public class MLFeatures extends AbstractFilter{
 					
 					destinationProcess.put(COUNT_WGB, count_wgb + 1);
 					
-					try{
-						
-						if(sourceVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-							double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
-							destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
-						}
-						
-					}catch(Exception e){}
+					
 					
 					double lengthWritten = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
 					double currentLength = destinationProcess.get(TOTAL_LENGTH_WRITTEN);
@@ -330,24 +376,52 @@ public class MLFeatures extends AbstractFilter{
 					
 					HashSet<String> fileGeneratedByProcess = fileWgb.get(ProcessPid);
 					String filePath = sourceVertex.getAnnotation(PATH);
-					if(!fileGeneratedByProcess.contains(filePath)){
-						fileGeneratedByProcess.add(filePath);
-						double countFileGenerated = destinationProcess.get(COUNT_OF_WGB_FILES);
-						destinationProcess.put(ProcessPid, countFileGenerated + 1);
+					
+					if(filePath != null){
+					
+						if(!fileGeneratedByProcess.contains(filePath)){
+							fileGeneratedByProcess.add(filePath);
+							double countFileGenerated = destinationProcess.get(COUNT_OF_WGB_FILES);
+							destinationProcess.put(COUNT_OF_WGB_FILES, countFileGenerated + 1);
+						}
 					}
 					
-					HashSet<String> extensionWgbByProcess = extensionWgb.get(ProcessPid);
-					String extension = getExtension(filePath);
-					if(!extensionWgbByProcess.contains(extension)){
-						extensionWgbByProcess.add(extension);
-						double countExtension = destinationProcess.get(COUNT_EXTENSION_TYPE_WGB);
-						destinationProcess.put(COUNT_EXTENSION_TYPE_WGB, countExtension + 1);
-					}
 					
-					if(extension.equals(EXE) || extension.equals(DLL)){
-						double count_exe_dll = destinationProcess.get(COUNT_EXE_AND_DLL_WGB);
-						destinationProcess.put(COUNT_EXE_AND_DLL_WGB, count_exe_dll + 1);
-					}
+					try{
+						
+						if(sourceVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
+							double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
+							destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
+							
+							HashSet<String> extensionWgbByProcess = extensionWgb.get(ProcessPid);
+							String extension = getExtension(filePath);
+							
+							if(!extensionWgbByProcess.contains(extension)){
+								
+								extensionWgbByProcess.add(extension);
+								double countExtension = destinationProcess.get(COUNT_EXTENSION_TYPE_WGB);
+								destinationProcess.put(COUNT_EXTENSION_TYPE_WGB, countExtension + 1);
+							}
+						
+							if(extension.equals(EXE) || extension.equals(DLL)){
+								double count_exe_dll = destinationProcess.get(COUNT_EXE_AND_DLL_WGB);
+								destinationProcess.put(COUNT_EXE_AND_DLL_WGB, count_exe_dll + 1);
+							}
+							
+						}else if(sourceVertex.getAnnotation(CLASS).equals(REGISTRY)){
+							double count_registry = destinationProcess.get(COUNT_REGISTRY_WGB);
+							destinationProcess.put(COUNT_REGISTRY_WGB, count_registry + 1);
+						}
+						
+					}catch(Exception e){}
+					
+					try{
+						if(sourceVertex.getAnnotation(SUBTYPE).equals(NETWORK)){
+							double countNetworkSend = destinationProcess.get(COUNT_NETWORK_SEND);
+							destinationProcess.put(COUNT_NETWORK_SEND, countNetworkSend + 1);
+						}
+					}catch(Exception e){}
+						
 					
 				}
 			}
