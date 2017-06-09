@@ -290,6 +290,7 @@ public class BerkeleyDB
 
     public static void main(String args[])
     {
+        // testing code
         BerkeleyDB scaffold = new BerkeleyDB();
         scaffold.initialize("");
 

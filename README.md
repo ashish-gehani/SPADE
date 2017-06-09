@@ -1,6 +1,6 @@
 # Getting Started #
 
-Please refer to **SPADE**'s [documentation](../../wiki) to learn how to use it to collect, filter, store, and spade.query your provenance metadata.
+Please refer to **SPADE**'s [documentation](../../wiki) to learn how to use it to collect, filter, store, and query your provenance metadata.
 
 To learn more about **SPADE**, please see:
 

@@ -158,57 +158,6 @@ public abstract class AbstractEdge implements Serializable {
         this.parentVertex = parentVertex;
     }
 
-    @Override
-    public boolean equals(Object thatObject)
-    {
-        if (this == thatObject) {
-            return true;
-        }
-        if (!(thatObject instanceof AbstractEdge)) {
-            return false;
-        }
-        AbstractEdge thatEdge = (AbstractEdge) thatObject;
-        return (this.annotations.equals(thatEdge.annotations)
-                && this.getChildVertex().equals(thatEdge.getChildVertex())
-                && this.getParentVertex().equals(thatEdge.getParentVertex()));
-    }
-
-    @Override
-    public int hashCode()
-    {
-        final int seed1 = 5;
-        final int seed2 = 97;
-        int hashCode = seed1;
-        hashCode = seed2 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.childVertex != null ? this.childVertex.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.parentVertex != null ? this.parentVertex.hashCode() : 0);
-        return hashCode;
-    }
-
-    /*
-    * Serializes the object as key-value pairs in the form: key_1:value_1|key_2:value_2|......|key_n:value_n
-    */
-    @Override
-    public String toString()
-    {
-        StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet())
-        {
-            result.append(currentEntry.getKey());
-            result.append(":");
-            result.append(currentEntry.getValue());
-            result.append("|");
-        }
-        result.append("childVertexHash");
-        result.append(":");
-        result.append(this.getChildVertex().bigHashCode());
-        result.append("|");
-        result.append("parentVertexHash");
-        result.append(":");
-        result.append(this.getParentVertex().bigHashCode());
-        return result.toString();
-    }
-
     /**
      * Computes MD5 hash of annotations in the edge.
      * Returns 128-bits of the digest.
@@ -218,5 +167,37 @@ public abstract class AbstractEdge implements Serializable {
     public String bigHashCode()
     {
         return DigestUtils.md5Hex(this.toString());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if(this == o) return true;
+        if(!(o instanceof AbstractEdge)) return false;
+
+        AbstractEdge that = (AbstractEdge) o;
+
+        if(!annotations.equals(that.annotations)) return false;
+        if(!childVertex.equals(that.childVertex)) return false;
+        return parentVertex.equals(that.parentVertex);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = annotations.hashCode();
+        result = 31 * result + childVertex.hashCode();
+        result = 31 * result + parentVertex.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "AbstractEdge{" +
+                "annotations=" + annotations +
+                ", childVertex=" + childVertex +
+                ", parentVertex=" + parentVertex +
+                '}';
     }
 }

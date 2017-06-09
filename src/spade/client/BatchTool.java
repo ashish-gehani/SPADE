@@ -96,7 +96,7 @@ public class BatchTool {
             System.exit(-1);
         }
 
-        // Build the spade.query expression from the argument tokens.
+        // Build the query expression from the argument tokens.
         String line = "";
         for (int i = 2; i < args.length; i++) {
             line += args[i] + " ";
@@ -104,9 +104,9 @@ public class BatchTool {
         line = line.trim();
 
         if (!line.equalsIgnoreCase("exit")) {
-            // The output path is embedded in each spade.query sent to SPADE
-            // as the first token of the spade.query. This is to allow multiple
-            // spade.query clients to work simultaneously with SPADE.
+            // The output path is embedded in each query sent to SPADE
+            // as the first token of the query. This is to allow multiple
+            // query clients to work simultaneously with SPADE.
             SPADEQueryIn.println(nullString + " " + line);
         }
 

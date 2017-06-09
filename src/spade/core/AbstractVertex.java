@@ -114,44 +114,6 @@ public abstract class AbstractVertex implements Serializable {
         return annotations.get("type");
     }
 
-    @Override
-    public boolean equals(Object thatObject) {
-        if (this == thatObject) {
-            return true;
-        }
-        if (!(thatObject instanceof AbstractVertex)) {
-            return false;
-        }
-        AbstractVertex thatVertex = (AbstractVertex) thatObject;
-        return (this.annotations.equals(thatVertex.annotations));
-    }
-
-    @Override
-    public int hashCode() {
-        final int seed1 = 67;
-        final int seed2 = 3;
-        int hashCode = seed2;
-        hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        return hashCode;
-    }
-
-    /*
-    * Serializes the object as key-value pairs in the form: key_1:value_1|key_2:value_2|......|key_n:value_n
-    */
-    @Override
-    public String toString()
-    {
-        StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet())
-        {
-            result.append(currentEntry.getKey());
-            result.append(":");
-            result.append(currentEntry.getValue());
-            result.append("|");
-        }
-        return result.substring(0, result.length() - 1);
-    }
-
     /**
      * Computes MD5 hash of annotations in the edge.
      * Returns 128-bits of the digest.
@@ -161,5 +123,30 @@ public abstract class AbstractVertex implements Serializable {
     public String bigHashCode()
     {
         return DigestUtils.md5Hex(this.toString());
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if(this == obj) return true;
+        if(!(obj instanceof AbstractVertex)) return false;
+
+        AbstractVertex vertex = (AbstractVertex) obj;
+
+        return annotations.equals(vertex.annotations);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return annotations.hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return "AbstractVertex{" +
+                "annotations=" + annotations +
+                '}';
     }
 }

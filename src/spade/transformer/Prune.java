@@ -58,7 +58,7 @@ public class Prune extends AbstractTransformer{
 			}
 			
 		}catch(Exception e){
-			logger.log(Level.WARNING, "Missing arguments for the current spade.query", e);
+			logger.log(Level.WARNING, "Missing arguments for the current query", e);
 			return graph;
 		}
 		
