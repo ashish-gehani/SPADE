@@ -85,6 +85,10 @@ public class BerkeleyDB extends AbstractStorage
         {
             if (myDatabase != null)
                 myDatabase.close();
+            if (vertexDatabase != null)
+                vertexDatabase.close();
+            if(edgeDatabase != null)
+                edgeDatabase.close();
             if (myDbEnvironment != null)
                 myDbEnvironment.close();
             return true;
