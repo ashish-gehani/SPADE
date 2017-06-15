@@ -20,16 +20,16 @@
 
 package spade.transformer;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class OPM2Prov extends AbstractTransformer{
 	

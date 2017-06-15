@@ -11,12 +11,18 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
-import spade.core.*;
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Edge;
+import spade.core.Vertex;
 
 import java.io.File;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
-import java.util.*;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 

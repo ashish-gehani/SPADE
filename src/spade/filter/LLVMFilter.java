@@ -20,14 +20,6 @@
 
 package spade.filter;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.ArrayList;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -35,6 +27,15 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasGeneratedBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class LLVMFilter extends AbstractFilter {
 

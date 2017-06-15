@@ -19,26 +19,6 @@
  */
 package spade.core;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Serializable;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.document.Document;
@@ -53,7 +33,6 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
-
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasDerivedFrom;
@@ -62,6 +41,25 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This class is used to represent query responses using sets for edges and
@@ -77,14 +75,9 @@ public class Graph extends AbstractStorage implements Serializable
     private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
     private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
     private static final String ID_STRING = Settings.getProperty("storage_identifier");
-    private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
-    private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
 
     private static final Pattern nodePattern = Pattern.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
     private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
-    private static final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
-    private static final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
 
     private transient Analyzer analyzer = new KeywordAnalyzer();
     private transient QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
@@ -184,7 +177,7 @@ public class Graph extends AbstractStorage implements Serializable
     }
 
     @Override
-    public ResultSet executeQuery(String query) {
+    public Object executeQuery(String query) {
         return null;
     }
 

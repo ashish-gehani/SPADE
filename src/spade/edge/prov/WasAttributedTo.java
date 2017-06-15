@@ -20,8 +20,8 @@
 package spade.edge.prov;
 
 import spade.core.AbstractEdge;
-import spade.vertex.prov.Entity;
 import spade.vertex.prov.Agent;
+import spade.vertex.prov.Entity;
 
 /**
  * WasAttributedTo edge based on the PROV model.

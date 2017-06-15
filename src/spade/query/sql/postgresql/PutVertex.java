@@ -4,8 +4,8 @@ import spade.core.AbstractVertex;
 import spade.storage.SQL;
 
 import java.sql.ResultSet;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 

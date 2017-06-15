@@ -19,11 +19,6 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -31,6 +26,11 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasGeneratedBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class LinuxThreadAggregator extends AbstractFilter {
 

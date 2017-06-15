@@ -20,18 +20,18 @@
 
 package spade.transformer;
 
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
+
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class OnlyAddresses extends AbstractTransformer{
 	

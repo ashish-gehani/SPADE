@@ -3,7 +3,6 @@ package spade.query.sql.postgresql;
 import spade.storage.SQL;
 
 import java.sql.ResultSet;
-import java.util.List;
 import java.util.Map;
 /**
  * @author raza

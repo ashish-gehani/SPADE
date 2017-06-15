@@ -19,15 +19,14 @@
  */
 package spade.core;
 
-import java.sql.ResultSet;
-import java.util.Map;
 import java.util.HashMap;
-import java.util.Queue;
-import java.util.Stack;
-import java.util.Set;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.Stack;
 
 /**
  * This is the base class from which concrete storage types inherit.

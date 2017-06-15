@@ -19,7 +19,6 @@
  */
 package spade.core;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 
 import java.io.Serializable;

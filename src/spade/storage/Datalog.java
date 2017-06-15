@@ -19,18 +19,6 @@
  */
 package spade.storage;
 
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-
 import org.deri.iris.Configuration;
 import org.deri.iris.EvaluationException;
 import org.deri.iris.KnowledgeBaseFactory;
@@ -43,6 +31,18 @@ import org.deri.iris.api.terms.IVariable;
 import org.deri.iris.compiler.Parser;
 import org.deri.iris.compiler.ParserException;
 import org.deri.iris.storage.IRelation;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *

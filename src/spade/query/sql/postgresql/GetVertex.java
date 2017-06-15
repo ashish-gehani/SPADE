@@ -3,8 +3,8 @@ package spade.query.sql.postgresql;
 import org.apache.commons.collections.CollectionUtils;
 import spade.core.AbstractVertex;
 
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;

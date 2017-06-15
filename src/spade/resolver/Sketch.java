@@ -1,18 +1,43 @@
 package spade.resolver;
 
-import spade.core.*;
+import spade.core.AbstractEdge;
+import spade.core.AbstractResolver;
+import spade.core.AbstractSketch;
+import spade.core.AbstractVertex;
+import spade.core.BloomFilter;
+import spade.core.Edge;
+import spade.core.Graph;
+import spade.core.Kernel;
+import spade.core.MatrixFilter;
+import spade.core.Settings;
+import spade.core.Vertex;
 import spade.query.common.GetPaths;
 import spade.query.sql.postgresql.GetVertex;
 
 import javax.net.ssl.SSLSocket;
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.AbstractQuery.OPERATORS;
-import static spade.core.AbstractStorage.*;
+import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
+import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
+import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 /**
  * @author raza

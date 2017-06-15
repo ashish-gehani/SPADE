@@ -20,17 +20,13 @@
 
 package spade.storage;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.avro.generic.GenericContainer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-
-import spade.core.*;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Settings;
 import spade.storage.kafka.DataWriter;
 import spade.storage.kafka.Edge;
 import spade.storage.kafka.FileWriter;
@@ -40,6 +36,13 @@ import spade.storage.kafka.ServerWriter;
 import spade.storage.kafka.Vertex;
 import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Kafka extends AbstractStorage{
 

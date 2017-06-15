@@ -19,22 +19,11 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.jena.atlas.json.JSON;
 import org.apache.jena.atlas.json.JsonArray;
 import org.apache.jena.atlas.json.JsonObject;
 import org.apache.jena.atlas.json.JsonValue;
-
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
@@ -46,6 +35,16 @@ import spade.utility.FileUtility;
 import spade.utility.Hasher;
 import spade.vertex.cdm.Principal;
 import spade.vertex.cdm.Subject;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * CDM reporter that reads output of CDM json storage.

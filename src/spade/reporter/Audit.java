@@ -19,27 +19,9 @@
  */
 package spade.reporter;
 
-import java.io.*;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -72,6 +54,29 @@ import spade.utility.Hasher;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *

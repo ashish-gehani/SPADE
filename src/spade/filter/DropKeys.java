@@ -20,16 +20,16 @@
  */
 package spade.filter;
 
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.utility.CommonFunctions;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.utility.CommonFunctions;
 
 /**
  * A filter to drop annotations passed in arguments.

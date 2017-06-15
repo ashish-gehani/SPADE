@@ -19,22 +19,21 @@
  */
 package spade.storage.kafka;
 
-import java.io.File;
-import java.util.Map;
-import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.avro.generic.GenericContainer;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-
 import spade.core.Settings;
 import spade.storage.Kafka;
 import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
+
+import java.io.File;
+import java.util.Map;
+import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ServerWriter implements DataWriter{
 

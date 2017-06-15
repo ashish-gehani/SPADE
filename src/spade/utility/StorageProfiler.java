@@ -1,19 +1,18 @@
-package spade.storage;
+package spade.utility;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Vertex;
 import spade.core.Edge;
+import spade.core.Vertex;
 
-import java.io.FileWriter;
 import java.io.BufferedWriter;
-import java.io.PrintWriter;
+import java.io.FileWriter;
 import java.io.IOException;
-
-import java.util.List;
-import java.util.LinkedList;
-import java.util.Map;
+import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -21,9 +20,9 @@ import java.util.Random;
  * for insertion and retrieval purposes.
  * @author Raza Ahmad
  */
-public class StorageAnalyzer
+public class StorageProfiler
 {
-    private static final BerkeleyDB BerkeleyDBInstance = new BerkeleyDB();
+    private static final spade.storage.BerkeleyDB BerkeleyDBInstance = new spade.storage.BerkeleyDB();
     private static List<AbstractVertex> vertexList = new LinkedList<>();
     private static Map<String, String> vertexHashes = new HashMap<>();
     private static Map<String, String> edgeHashes = new HashMap<>();

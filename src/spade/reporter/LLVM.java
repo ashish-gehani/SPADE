@@ -19,17 +19,6 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Stack;
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -38,6 +27,18 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Stack;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class LLVM extends AbstractReporter {
 

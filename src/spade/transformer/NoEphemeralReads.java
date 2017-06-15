@@ -19,15 +19,6 @@
  */
 package spade.transformer;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
@@ -37,6 +28,15 @@ import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class NoEphemeralReads extends AbstractTransformer {
 	

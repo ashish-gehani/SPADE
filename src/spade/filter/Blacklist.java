@@ -20,11 +20,6 @@
  
 package spade.filter;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -33,6 +28,11 @@ import spade.reporter.audit.OPMConstants;
 import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Entity;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Blacklist extends AbstractFilter{
 	

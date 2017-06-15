@@ -19,16 +19,6 @@
  */
 package spade.sketch;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.net.ssl.SSLSocket;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractSketch;
 import spade.core.AbstractVertex;
@@ -40,9 +30,27 @@ import spade.core.Settings;
 import spade.query.common.GetLineage;
 import spade.query.sql.postgresql.GetVertex;
 
-import static spade.core.AbstractStorage.PRIMARY_KEY;
+import javax.net.ssl.SSLSocket;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import static spade.core.AbstractQuery.OPERATORS;
-import static spade.core.AbstractResolver.*;
+import static spade.core.AbstractResolver.DESTINATION_HOST;
+import static spade.core.AbstractResolver.DESTINATION_PORT;
+import static spade.core.AbstractResolver.SOURCE_HOST;
+import static spade.core.AbstractResolver.SOURCE_PORT;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 public class Sketch extends AbstractSketch
 {

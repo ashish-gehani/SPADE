@@ -16,6 +16,24 @@
  */
 package spade.storage;
 
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.Statement;
+import org.apache.jena.rdf.model.StmtIterator;
+import org.apache.jena.util.FileManager;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.edge.prov.Used;
+import spade.edge.prov.WasAssociatedWith;
+import spade.edge.prov.WasDerivedFrom;
+import spade.edge.prov.WasGeneratedBy;
+import spade.edge.prov.WasInformedBy;
+import spade.vertex.prov.Activity;
+import spade.vertex.prov.Agent;
+import spade.vertex.prov.Entity;
+
 import java.io.FileWriter;
 import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
@@ -31,25 +49,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.jena.rdf.model.Model;
-import org.apache.jena.rdf.model.Statement;
-import org.apache.jena.rdf.model.StmtIterator;
-import org.apache.jena.util.FileManager;
-
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-import spade.edge.prov.Used;
-import spade.edge.prov.WasAssociatedWith;
-import spade.edge.prov.WasDerivedFrom;
-import spade.edge.prov.WasGeneratedBy;
-import spade.edge.prov.WasInformedBy;
-import spade.vertex.prov.Activity;
-import spade.vertex.prov.Agent;
-import spade.vertex.prov.Entity;
 
 public class Prov extends AbstractStorage{
 

@@ -19,11 +19,6 @@
  */
 package spade.transformer;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
@@ -31,6 +26,11 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class SimpleForks extends AbstractTransformer {
 

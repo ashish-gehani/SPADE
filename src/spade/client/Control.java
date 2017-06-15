@@ -19,6 +19,19 @@
  */
 package spade.client;
 
+import jline.ArgumentCompletor;
+import jline.Completor;
+import jline.ConsoleReader;
+import jline.MultiCompletor;
+import jline.NullCompletor;
+import jline.SimpleCompletor;
+import spade.core.Settings;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,20 +44,6 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManagerFactory;
-
-import jline.ArgumentCompletor;
-import jline.Completor;
-import jline.ConsoleReader;
-import jline.MultiCompletor;
-import jline.NullCompletor;
-import jline.SimpleCompletor;
-import spade.core.Settings;
 
 public class Control {
 

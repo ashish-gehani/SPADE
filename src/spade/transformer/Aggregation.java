@@ -19,6 +19,14 @@
  */
 package spade.transformer;
 
+import org.apache.commons.io.FileUtils;
+import spade.client.QueryParameters;
+import spade.core.AbstractEdge;
+import spade.core.AbstractTransformer;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Settings;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,15 +38,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.io.FileUtils;
-
-import spade.client.QueryParameters;
-import spade.core.AbstractEdge;
-import spade.core.AbstractTransformer;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-import spade.core.Settings;
 
 public class Aggregation extends AbstractTransformer{
 

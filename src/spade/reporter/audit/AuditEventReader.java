@@ -19,6 +19,10 @@
  */
 package spade.reporter.audit;
 
+import spade.core.Settings;
+import spade.utility.CommonFunctions;
+import spade.utility.FileUtility;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
@@ -37,10 +41,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import spade.core.Settings;
-import spade.utility.CommonFunctions;
-import spade.utility.FileUtility;
 
 /**
  * This class reads and parses the audit logs one event at a time.

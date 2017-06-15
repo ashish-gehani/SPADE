@@ -19,6 +19,12 @@
  */
 package spade.filter;
 
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.core.Settings;
+import spade.core.Vertex;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.HashMap;
@@ -26,11 +32,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.core.Settings;
-import spade.core.Vertex;
 
 public class Fusion extends AbstractFilter {
 

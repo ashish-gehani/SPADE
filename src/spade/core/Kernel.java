@@ -19,6 +19,15 @@
  */
 package spade.core;
 
+import spade.filter.FinalCommitFilter;
+import spade.utility.LogManager;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,7 +38,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
-
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -38,7 +46,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.Date;
@@ -53,18 +60,7 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManagerFactory;
-
-import spade.filter.FinalCommitFilter;
-import spade.utility.LogManager;
 
 /**
  * The SPADE kernel containing the control client and
@@ -226,22 +222,26 @@ public class Kernel
             }
         }
 
-        try {
+        try
+        {
             // Configure the global exception logger
 
             String logFilename = System.getProperty("spade.log");
-            if(logFilename == null){
+            if(logFilename == null)
+            {
                 new File(LOG_PATH).mkdirs();
                 Date currentTime = new java.util.Date(System.currentTimeMillis());
                 String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(currentTime);
                 logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + logStartTime + ".log";
             }
-            final Handler logFileHandler = newFileHandler(logFilename);
+            final Handler logFileHandler = new FileHandler(logFilename);
             logFileHandler.setFormatter(new SimpleFormatter());
             logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
             Logger.getLogger("").addHandler(logFileHandler);
 
-        } catch (IOException | SecurityException exception) {
+        }
+        catch (IOException | SecurityException exception)
+        {
             System.err.println("Error initializing exception logger");
         }
 
@@ -309,20 +309,6 @@ public class Kernel
     public static void addServerSocket(ServerSocket socket)
     {
         serverSockets.add(socket);
-    }
-
-    protected static FileHandler newFileHandler (final String logFilename) throws IOException
-    {
-        if (System.getProperty ("spade.utility.LogManager.flush") != null)
-            return new FileHandler (logFilename) {
-                @Override
-                public synchronized void publish (final LogRecord record) {
-                    super.publish (record);
-                    flush ();
-                };
-            };
-        else
-            return new FileHandler (logFilename);
     }
 
     /**

@@ -1,12 +1,22 @@
 package spade.query.common;
 
-import spade.core.*;
+import spade.core.AbstractEdge;
+import spade.core.AbstractQuery;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
 import spade.query.sql.postgresql.GetChildren;
 import spade.query.sql.postgresql.GetEdge;
 import spade.query.sql.postgresql.GetParents;
 import spade.query.sql.postgresql.GetVertex;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 

@@ -19,20 +19,6 @@
  */
 package spade.storage;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Set;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.HashSet;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
@@ -40,6 +26,19 @@ import spade.core.Cache;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 /**

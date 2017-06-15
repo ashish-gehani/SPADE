@@ -19,6 +19,8 @@
  */
 package spade.client;
 
+import spade.core.Settings;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,7 +30,6 @@ import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
-import spade.core.Settings;
 
 /**
  *

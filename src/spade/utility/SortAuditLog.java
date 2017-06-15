@@ -20,15 +20,14 @@
 
 package spade.utility;
 
+import com.google.code.externalsorting.ExternalSort;
+import spade.core.Settings;
+
 import java.io.File;
 import java.nio.charset.Charset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-
-import com.google.code.externalsorting.ExternalSort;
-
-import spade.core.Settings;
 
 public class SortAuditLog {
 

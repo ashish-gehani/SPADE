@@ -19,16 +19,17 @@
  */
 package spade.storage;
 
-import java.io.FileWriter;
-import java.sql.ResultSet;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.codec.digest.DigestUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+
+import java.io.FileWriter;
+import java.sql.ResultSet;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * A storage implementation that writes data to a DOT file.

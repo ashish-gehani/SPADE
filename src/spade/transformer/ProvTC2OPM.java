@@ -20,15 +20,15 @@
 
 package spade.transformer;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.FileUtility;
+
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ProvTC2OPM extends Prov2OPM{
 	

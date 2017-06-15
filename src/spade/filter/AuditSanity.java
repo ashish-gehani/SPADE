@@ -19,13 +19,8 @@
  */
 package spade.filter;
 
-import java.io.File;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -33,6 +28,10 @@ import spade.core.Settings;
 import spade.utility.BerkeleyDB;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.Hasher;
+
+import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Can be used to check:

@@ -3,19 +3,17 @@ package spade.core;
 import org.apache.commons.collections.CollectionUtils;
 
 import javax.net.ssl.SSLSocket;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractStorage.PRIMARY_KEY;
 import static spade.core.AbstractQuery.OPERATORS;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 /**
  * @author raza

@@ -19,10 +19,11 @@
  */
 package spade.core;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is the class from which other edge classes (e.g., OPM edges) are

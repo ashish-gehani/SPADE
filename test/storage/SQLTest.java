@@ -19,21 +19,20 @@
  */
 
 package storage;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.codec.binary.Hex;
-import spade.storage.SQL;
 
-import spade.core.AbstractVertex;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.junit.jupiter.api.Test;
 import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
-import spade.core.Edge;
-
-import org.junit.jupiter.api.Test;
+import spade.storage.SQL;
 
 import java.sql.SQLException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * This class is used to test the functions of spade.storage.SQL.java

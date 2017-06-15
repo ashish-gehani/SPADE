@@ -19,7 +19,6 @@
  */
 package spade.filter;
 
-import java.util.Map;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -27,6 +26,8 @@ import spade.reporter.audit.OPMConstants;
 import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
+
+import java.util.Map;
 
 /**
  *

@@ -19,10 +19,6 @@
  */
 package spade.transformer;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Pattern;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
@@ -31,6 +27,10 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.FileUtility;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 public class Blacklist extends AbstractTransformer{
 	

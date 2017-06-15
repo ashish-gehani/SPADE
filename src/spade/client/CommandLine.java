@@ -1,7 +1,6 @@
 package spade.client;
 
 import jline.ConsoleReader;
-
 import spade.core.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -9,7 +8,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -17,14 +15,10 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-
 import java.security.KeyStore;
 import java.security.SecureRandom;
-
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import static spade.analyzer.CommandLine.DigQueryCommands;
@@ -149,7 +143,7 @@ public class CommandLine
                     else if(DigQueryCommands.QUERY_FUNCTION_LIST_VALUE.value.contains(line))
                     {
                         // send line to analyzer
-                        String query = parseQ(line);
+                        String query = parseQuery(line);
                         long start_time = System.currentTimeMillis();
                         clientOutputStream.println(query);
                         String returnType = (String) clientInputStream.readObject();
@@ -191,7 +185,7 @@ public class CommandLine
         constraints.put(constraint_name, constraint_expression);
     }
 
-    private static String parseQ(String line)
+    private static String parseQuery(String line)
     {
         String query = line;
         for(Map.Entry<String, String> constraint: constraints.entrySet())

@@ -20,6 +20,9 @@
 
 package spade.client;
 
+import spade.core.AbstractVertex;
+import spade.query.sql.postgresql.GetVertex;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -27,9 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import spade.core.AbstractVertex;
-import spade.query.sql.postgresql.GetVertex;
 
 import static spade.core.AbstractQuery.OPERATORS;
 import static spade.core.AbstractStorage.PRIMARY_KEY;

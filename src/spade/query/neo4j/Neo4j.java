@@ -15,9 +15,9 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.storage.Neo4j.NodeTypes;
 import static spade.storage.Neo4j.convertNodeToVertex;
 import static spade.storage.Neo4j.convertRelationshipToEdge;
-import static spade.storage.Neo4j.NodeTypes;
 /**
  * @author raza
  */

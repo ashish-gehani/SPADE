@@ -19,19 +19,18 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.ArrayList;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.vertex.opm.Process;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This filter groups together threads of same processes in one node It might

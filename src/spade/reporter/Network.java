@@ -19,6 +19,10 @@
  */
 package spade.reporter;
 
+import spade.core.AbstractReporter;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasGeneratedBy;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -28,9 +32,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import spade.core.AbstractReporter;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasGeneratedBy;
 
 public class Network extends AbstractReporter implements Runnable {
 

@@ -19,21 +19,20 @@
  */
 package spade.transformer;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import org.jgrapht.EdgeFactory;
 import org.jgrapht.alg.TransitiveClosure;
 import org.jgrapht.graph.SimpleDirectedGraph;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class OnlyAgents extends AbstractTransformer{
 	@Override

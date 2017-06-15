@@ -1,8 +1,8 @@
 package spade.resolver;
 
+import spade.core.AbstractResolver;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.core.AbstractResolver;
 
 import java.util.Map;
 import java.util.logging.Level;

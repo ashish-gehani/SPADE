@@ -19,29 +19,34 @@
  */
 package spade.storage;
 
-import java.io.IOException;
-import java.sql.ResultSet;
-import java.util.Date;
+import com.mysql.jdbc.StringUtils;
+import org.neo4j.graphdb.Direction;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.Result;
+import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.TransactionTerminatedException;
+import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
+import org.neo4j.graphdb.factory.GraphDatabaseFactory;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Cache;
+import spade.core.Edge;
+import spade.core.Graph;
+import spade.core.Vertex;
+
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import com.mysql.jdbc.StringUtils;
-import org.neo4j.graphdb.*;
-
-import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
-import org.neo4j.graphdb.factory.GraphDatabaseFactory;
-
-import spade.core.AbstractStorage;
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
-import spade.core.Edge;
-import spade.core.Vertex;
-import spade.core.Cache;
-import spade.core.Graph;
 
 
 /**

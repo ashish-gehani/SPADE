@@ -19,16 +19,17 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Vertex;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 public class CycleAvoidance extends AbstractFilter {
 

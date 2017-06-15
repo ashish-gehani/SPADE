@@ -27,6 +27,8 @@ public abstract class AbstractQuery<R, P>
         String GREATER_THAN_EQUALS = ">=";
     }
 
+    private boolean hasRegistered = false;
+
     public abstract R execute(P parameters, Integer limit);
 
     public static void setCurrentStorage(AbstractStorage storage)
@@ -38,9 +40,13 @@ public abstract class AbstractQuery<R, P>
     {
         try
         {
-            AbstractAnalyzer.registerFunction(this.getClass().getSimpleName(),
-                    this.getClass().getName(),
-                    this.getClass().getMethod("execute").getReturnType().toString());
+            if(!hasRegistered)
+            {
+                AbstractAnalyzer.registerFunction(this.getClass().getSimpleName(),
+                        this.getClass().getName(),
+                        this.getClass().getMethod("execute").getReturnType().toString());
+                hasRegistered = true;
+            }
         }
         catch(NoSuchMethodException ex)
         {

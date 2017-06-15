@@ -2,8 +2,8 @@ package spade.query.sql.postgresql;
 
 import spade.core.Graph;
 
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;

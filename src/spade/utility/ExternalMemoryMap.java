@@ -20,13 +20,13 @@
  */
 package spade.utility;
 
+import spade.core.BloomFilter;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import spade.core.BloomFilter;
 
 /**
  * A map that keeps specified number of elements in memory and kicks out the least recently
