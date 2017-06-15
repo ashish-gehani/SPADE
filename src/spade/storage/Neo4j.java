@@ -56,8 +56,6 @@ import java.util.logging.Logger;
  */
 public class Neo4j extends AbstractStorage
 {
-    private static final String VERTEX_INDEX = "vertexIndex";
-    private static final String EDGE_INDEX = "edgeIndex";
 
     private GraphDatabaseService graphDb;
 
@@ -105,12 +103,9 @@ public class Neo4j extends AbstractStorage
             }
 
             graphDb = graphDbBuilder.newGraphDatabase();
-//            IndexDefinition indexDefinition = graphDb.schema()
-//                                                .indexFor(NodeTypes.VERTEX)
-//                                                .on(PRIMARY_KEY)
-//                                                .create();
-
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
@@ -257,6 +252,7 @@ public class Neo4j extends AbstractStorage
      * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
+    @Deprecated
     @Override
     public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
@@ -291,6 +287,7 @@ public class Neo4j extends AbstractStorage
      * @param hash hash of the vertex to find.
      * @return returns vertex object matching the given hash OR NULL.
      */
+    @Deprecated
     @Override
     public AbstractVertex getVertex(String hash)
     {
@@ -309,6 +306,7 @@ public class Neo4j extends AbstractStorage
         return vertex;
     }
 
+    @Deprecated
     private Set<AbstractEdge> prepareEdgeSetFromNeo4jResult(Result result, String childVertexHash, String parentVertexHash)
     {
         Set<AbstractEdge> edgeSet = new HashSet<>();
@@ -328,6 +326,7 @@ public class Neo4j extends AbstractStorage
         return edgeSet;
     }
 
+    @Deprecated
     private Set<AbstractVertex> prepareVertexSetFromNeo4jResult(Result result)
     {
         Set<AbstractVertex> vertexSet = new HashSet<>();
@@ -353,6 +352,7 @@ public class Neo4j extends AbstractStorage
      * @param parentHash hash of the given vertex
      * @return returns graph object containing children of the given vertex OR NULL.
      */
+    @Deprecated
     @Override
     public Graph getChildren(String parentHash)
     {
@@ -379,6 +379,7 @@ public class Neo4j extends AbstractStorage
      * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
+    @Deprecated
     @Override
     public Graph getParents(String childVertexHash)
     {

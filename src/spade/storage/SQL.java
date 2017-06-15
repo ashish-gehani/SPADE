@@ -285,6 +285,7 @@ public class SQL extends AbstractStorage
      * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
+    @Deprecated
     @Override
     public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
@@ -347,6 +348,7 @@ public class SQL extends AbstractStorage
      * @param vertexHash hash of the vertex to find.
      * @return returns vertex object matching the given hash OR NULL.
      */
+    @Deprecated
     @Override
     public AbstractVertex getVertex(String vertexHash)
     {
@@ -377,6 +379,7 @@ public class SQL extends AbstractStorage
      * @param parentHash hash of the given vertex
      * @return returns graph object containing children of the given vertex OR NULL.
      */
+    @Deprecated
     @Override
     public Graph getChildren(String parentHash)
     {
@@ -408,6 +411,7 @@ public class SQL extends AbstractStorage
      * @param query
      * @return
      */
+    @Deprecated
     private Set<AbstractVertex> prepareVertexSetFromSQLResult(String query)
     {
         Set<AbstractVertex> vertexSet = new HashSet<>();
@@ -455,6 +459,7 @@ public class SQL extends AbstractStorage
      * @param childVertexHash hash of the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
+    @Deprecated
     @Override
     public Graph getParents(String childVertexHash)
     {
