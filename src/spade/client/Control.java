@@ -176,7 +176,7 @@ public class Control {
 			}        	
         	
         	outputStream.println("");
-            outputStream.println("SPADE 2.0 Control Client");
+            outputStream.println("SPADE 3.0 Control Client");
             outputStream.println("");
             
             SPADEControlIn.println(""); 

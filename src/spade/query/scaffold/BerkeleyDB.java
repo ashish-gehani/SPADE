@@ -65,7 +65,7 @@ public class BerkeleyDB
         }
         catch(DatabaseException ex)
         {
-            Logger.getLogger(spade.storage.BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
+            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
         }
 
         return false;
@@ -88,7 +88,7 @@ public class BerkeleyDB
         }
         catch(DatabaseException ex)
         {
-            Logger.getLogger(spade.storage.BerkeleyDB.class.getName()).log(Level.SEVERE, "Database closure error!", ex);
+            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Database closure error!", ex);
         }
 
         return false;
@@ -116,7 +116,7 @@ public class BerkeleyDB
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.storage.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
         return null;
     }
@@ -143,7 +143,7 @@ public class BerkeleyDB
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.storage.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
         return null;
     }
@@ -198,7 +198,7 @@ public class BerkeleyDB
         }
         catch(UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.storage.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold Get Lineage error!", ex);
+            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold Get Lineage error!", ex);
         }
 
         return null;
@@ -251,7 +251,7 @@ public class BerkeleyDB
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.storage.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
 
         return false;

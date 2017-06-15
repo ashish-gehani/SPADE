@@ -60,7 +60,7 @@ public class BerkeleyDB extends AbstractStorage
 
             // databases to store class information
             vertexDatabase = myDbEnvironment.openDatabase(null, "spade_vertexDb", dbConfig);
-            edgeDatabase = myDbEnvironment.openDatabase(null, "edge_vertexDb", dbConfig);
+            edgeDatabase = myDbEnvironment.openDatabase(null, "spade_edgeDb", dbConfig);
 
             return true;
 
@@ -112,15 +112,16 @@ public class BerkeleyDB extends AbstractStorage
     @Override
     public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
+        String hash = childVertexHash + parentVertexHash;
         AbstractEdge edge = null;
         try
         {
             // Instantiate class catalog
             StoredClassCatalog vertexCatalog = new StoredClassCatalog(vertexDatabase);
             // Create the binding
-            EntryBinding vertexBinding = new SerialBinding(vertexCatalog, AbstractVertex.class);
+            EntryBinding vertexBinding = new SerialBinding<>(vertexCatalog, AbstractEdge.class);
             // Create DatabaseEntry for the key
-            DatabaseEntry key = new DatabaseEntry(childVertexHash.getBytes("UTF-8"));
+            DatabaseEntry key = new DatabaseEntry(hash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
             DatabaseEntry data = new DatabaseEntry();
             myDatabase.get(null, key, data, LockMode.DEFAULT);
@@ -152,7 +153,7 @@ public class BerkeleyDB extends AbstractStorage
             // Instantiate class catalog
             StoredClassCatalog vertexCatalog = new StoredClassCatalog(vertexDatabase);
             // Create the binding
-            EntryBinding vertexBinding = new SerialBinding(vertexCatalog, AbstractVertex.class);
+            EntryBinding vertexBinding = new SerialBinding<>(vertexCatalog, AbstractVertex.class);
             // Create DatabaseEntry for the key
             DatabaseEntry key = new DatabaseEntry(vertexHash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
@@ -207,6 +208,7 @@ public class BerkeleyDB extends AbstractStorage
     @Override
     public boolean putEdge(AbstractEdge incomingEdge)
     {
+        String hash = incomingEdge.getChildVertex().bigHashCode() + incomingEdge.getParentVertex().bigHashCode();
         try
         {
             // Instantiate class catalog
@@ -214,7 +216,7 @@ public class BerkeleyDB extends AbstractStorage
             // Create the binding
             EntryBinding<AbstractEdge> edgeBinding = new SerialBinding<>(edgeCatalog, AbstractEdge.class);
             // Create DatabaseEntry for the key
-            DatabaseEntry key = new DatabaseEntry(incomingEdge.bigHashCode().getBytes("UTF-8"));
+            DatabaseEntry key = new DatabaseEntry(hash.getBytes("UTF-8"));
             // Create the DatabaseEntry for the data.
             DatabaseEntry data = new DatabaseEntry();
             edgeBinding.objectToEntry(incomingEdge, data);
