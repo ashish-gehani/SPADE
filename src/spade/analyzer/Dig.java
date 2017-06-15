@@ -3,6 +3,7 @@ package spade.analyzer;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractQuery;
 import spade.core.Graph;
+import spade.core.Kernel;
 import spade.remoteresolver.Naive;
 
 import java.io.BufferedReader;
@@ -22,8 +23,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-
-import static spade.core.Kernel.KERNEL_SHUTDOWN;
 
 /**
  * @author raza
@@ -79,7 +78,7 @@ public class Dig extends AbstractAnalyzer
                 try
                 {
                     ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
-                    while(!KERNEL_SHUTDOWN && !SHUTDOWN)
+                    while(!Kernel.isShutdown() && !SHUTDOWN)
                     {
                         Socket querySocket = serverSocket.accept();
                         QueryConnection thisConnection = new QueryConnection(querySocket);

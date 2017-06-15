@@ -82,7 +82,7 @@ public class Kernel
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String FILE_SEPARATOR = System.getProperty("file.separator");
+    private static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
 
     /**
      * Path to log files including the prefix.
@@ -142,11 +142,22 @@ public class Kernel
      * Set of sketches active on the local SPADE instance.
      */
     public static Set<AbstractSketch> sketches;
+
+    public static boolean isShutdown()
+    {
+        return shutdown;
+    }
+
+    public static void setShutdown(boolean shutdown)
+    {
+        Kernel.shutdown = shutdown;
+    }
+
     /**
      * Used to initiate shutdown. It is used by various threads to
      * determine whether to continue running.
      */
-    public static volatile boolean KERNEL_SHUTDOWN;
+    private static volatile boolean shutdown;
     /**
      * Used to indicate whether the transactions need to be flushed by
      * the storages.
@@ -332,7 +343,7 @@ public class Kernel
         removeStorages = Collections.synchronizedSet(new HashSet<AbstractStorage>());
         removeAnalyzers = Collections.synchronizedSet(new HashSet<AbstractAnalyzer>());
 
-        KERNEL_SHUTDOWN = false;
+        shutdown = false;
         flushTransactions = true;
 
         // The FinalCommitFilter acts as a terminator for the filter list
@@ -462,8 +473,8 @@ public class Kernel
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                if (!KERNEL_SHUTDOWN) {
-                    KERNEL_SHUTDOWN = true;
+                if (!shutdown) {
+                    shutdown = true;
                     shutdown();
                 }
             }
@@ -499,7 +510,7 @@ public class Kernel
                         ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
                     }
                     serverSockets.add(serverSocket);
-                    while (!KERNEL_SHUTDOWN)
+                    while (!shutdown)
                     {
                         Socket controlSocket = serverSocket.accept();
                         //added time to timeout after reading from the socket
@@ -1573,7 +1584,8 @@ class LocalControlConnection implements Runnable
             BufferedReader controlInputStream = new BufferedReader(new InputStreamReader(inStream));
             PrintStream controlOutputStream = new PrintStream(outStream);
             try {
-                while (!Kernel.KERNEL_SHUTDOWN) {
+                while (!Kernel.isShutdown())
+                {
                     // Commands read from the input stream and executed.
                 	try
                     {

@@ -34,6 +34,7 @@ public class BerkeleyDB extends AbstractStorage
     private static Database myDatabase = null;
     private static Database vertexDatabase = null;
     private static Database edgeDatabase = null;
+    private static String directoryPath = null;
 
     /**
      * This method is invoked by the kernel to initialize the storage.
@@ -45,6 +46,7 @@ public class BerkeleyDB extends AbstractStorage
     @Override
     public boolean initialize(String arguments)
     {
+        directoryPath = arguments;
         myDbEnvironment = null;
         myDatabase = null;
         try
@@ -52,7 +54,7 @@ public class BerkeleyDB extends AbstractStorage
             EnvironmentConfig envConfig = new EnvironmentConfig();
             envConfig.setAllowCreate(true);
             envConfig.setTransactional(true);
-            myDbEnvironment = new Environment(new File("/tmp/"), envConfig);
+            myDbEnvironment = new Environment(new File(directoryPath), envConfig);
 
             DatabaseConfig dbConfig = new DatabaseConfig();
             dbConfig.setAllowCreate(true);
