@@ -465,25 +465,25 @@ public class Graph extends AbstractStorage implements Serializable
                 graph.putVertex(vertex);
                 vertexMap.put(key, vertex);
             } else if (edgeMatcher.find()) {
-                String srckey = edgeMatcher.group(1);
+                String childkey = edgeMatcher.group(1);
                 String dstkey = edgeMatcher.group(2);
                 String label = edgeMatcher.group(3);
                 String color = edgeMatcher.group(4);
                 AbstractEdge edge;
-                AbstractVertex srcVertex = vertexMap.get(srckey);
-                AbstractVertex dstVertex = vertexMap.get(dstkey);
+                AbstractVertex childVertex = vertexMap.get(childkey);
+                AbstractVertex parentVertex = vertexMap.get(dstkey);
                 if (color.equals("green")) {
-                    edge = new Used((Process) srcVertex, (Artifact) dstVertex);
+                    edge = new Used((Process) childVertex, (Artifact) parentVertex);
                 } else if (color.equals("red")) {
-                    edge = new WasGeneratedBy((Artifact) srcVertex, (Process) dstVertex);
+                    edge = new WasGeneratedBy((Artifact) childVertex, (Process) parentVertex);
                 } else if (color.equals("blue")) {
-                    edge = new WasTriggeredBy((Process) srcVertex, (Process) dstVertex);
+                    edge = new WasTriggeredBy((Process) childVertex, (Process) parentVertex);
                 } else if (color.equals("purple")) {
-                    edge = new WasControlledBy((Process) srcVertex, (Agent) dstVertex);
+                    edge = new WasControlledBy((Process) childVertex, (Agent) parentVertex);
                 } else if (color.equals("orange")) {
-                    edge = new WasDerivedFrom((Artifact) srcVertex, (Artifact) dstVertex);
+                    edge = new WasDerivedFrom((Artifact) childVertex, (Artifact) parentVertex);
                 } else {
-                    edge = new Edge(srcVertex, dstVertex);
+                    edge = new Edge(childVertex, parentVertex);
                 }
                 if ((label != null) && (label.length() > 2)) {
                     label = label.substring(1, label.length() - 1);
@@ -601,9 +601,9 @@ public class Graph extends AbstractStorage implements Serializable
             }
 
             String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
-            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getChildVertex()));
+            String childkey = Integer.toString(reverseVertexIdentifiers.get(edge.getChildVertex()));
             String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getParentVertex()));
-            writer.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
+            writer.write("\"" + childkey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
@@ -696,17 +696,17 @@ public class Graph extends AbstractStorage implements Serializable
     * Dummy methods created to make things compile.
     * TODO: remove them and fix issues at usage points
     * */
-    public Graph getPaths(int src, int dst) {return null; }
+    public Graph getPaths(int child, int dst) {return null; }
 
-    public Graph getPaths(String src, String dst) {return null; }
+    public Graph getPaths(String child, String dst) {return null; }
 
-    public Graph getPaths(Graph src, Graph dst) {return null; }
+    public Graph getPaths(Graph child, Graph dst) {return null; }
 
-    public Graph getLineage(int src, String dst) {return null; }
+    public Graph getLineage(int child, String dst) {return null; }
 
-    public Graph getLineage(String src, String dst) {return null; }
+    public Graph getLineage(String child, String dst) {return null; }
 
-    public Graph getLineage(Graph src, String dst) {return null; }
+    public Graph getLineage(Graph child, String dst) {return null; }
 
     public Graph getLineage(String vertexExpression, Integer depth, String direction, String terminatingExpression) {return null; }
 

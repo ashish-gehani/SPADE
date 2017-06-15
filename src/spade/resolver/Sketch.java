@@ -262,9 +262,9 @@ public class Sketch extends AbstractResolver
 
         String line = (String) inputSketch.objects.get("queryLine");
         String source = line.split("\\s")[0];
-        String srcVertexId = source.split(":")[1];
+        String childVertexId = source.split(":")[1];
         String destination = line.split("\\s")[1];
-        String dstVertexId = destination.split(":")[1];
+        String parentVertexId = destination.split(":")[1];
 
         logger.log(Level.INFO, "endPathFragment - generating end path fragment");
 
@@ -317,7 +317,7 @@ public class Sketch extends AbstractResolver
                 String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(PRIMARY_KEY);
                 GetPaths getPaths = new GetPaths();
                 Map<String, List<String>> pathParams = new HashMap<>();
-                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, srcVertexId));
+                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, childVertexId));
                 pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexId));
                 pathParams.put("direction", Collections.singletonList(DIRECTION_ANCESTORS));
                 pathParams.put("maxLength", Collections.singletonList("100"));
@@ -373,7 +373,7 @@ public class Sketch extends AbstractResolver
                 GetPaths getPaths = new GetPaths();
                 Map<String, List<String>> pathParams = new HashMap<>();
                 pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexId));
-                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, dstVertexId));
+                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, parentVertexId));
                 pathParams.put("direction", Collections.singletonList(DIRECTION_ANCESTORS));
                 pathParams.put("maxLength", Collections.singletonList("100"));
                 Graph path = getPaths.execute(pathParams, 100);
@@ -556,11 +556,11 @@ public class Sketch extends AbstractResolver
 
         String source = line.split("\\s")[0];
         String srcHost = source.split(":")[0];
-        String srcVertexId = source.split(":")[1];
+        String childVertexId = source.split(":")[1];
 
         String destination = line.split("\\s")[1];
         String dstHost = destination.split(":")[0];
-        String dstVertexId = destination.split(":")[1];
+        String parentVertexId = destination.split(":")[1];
 
         Set<AbstractVertex> sourceNetworkVertices = new HashSet<>();
         Set<AbstractVertex> destinationNetworkVertices = new HashSet<>();
@@ -584,7 +584,7 @@ public class Sketch extends AbstractResolver
             // to the specified vertex
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet())
             {
-                expression = "query Neo4j paths " + currentVertex.getAnnotation(PRIMARY_KEY) + " " + dstVertexId + " 20";
+                expression = "query Neo4j paths " + currentVertex.getAnnotation(PRIMARY_KEY) + " " + parentVertexId + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty()) {
@@ -618,7 +618,7 @@ public class Sketch extends AbstractResolver
             tempResultGraph = (Graph) graphInputStream.readObject();
             for (AbstractVertex currentVertex : tempResultGraph.vertexSet())
             {
-                expression = "query Neo4j paths " + srcVertexId + " " + currentVertex.getAnnotation(PRIMARY_KEY) + " 20";
+                expression = "query Neo4j paths " + childVertexId + " " + currentVertex.getAnnotation(PRIMARY_KEY) + " 20";
                 remoteSocketOut.println(expression);
                 Graph currentGraph = (Graph) graphInputStream.readObject();
                 if (!currentGraph.edgeSet().isEmpty())

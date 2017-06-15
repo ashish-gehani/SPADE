@@ -397,9 +397,9 @@ class Graph {
                 String label = edgeMatcher.group(3);
                 String color = edgeMatcher.group(4);
                 Edge edge;
-                Vertex srcVertex = vertexMap.get(srckey);
-                Vertex dstVertex = vertexMap.get(dstkey);
-                edge = new Edge(srcVertex, dstVertex);
+                Vertex childVertex = vertexMap.get(srckey);
+                Vertex parentVertex = vertexMap.get(dstkey);
+                edge = new Edge(childVertex, parentVertex);
                 switch (color) {
                     case "green":
                         edge.addAnnotation("type", "Used");

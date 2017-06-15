@@ -3364,15 +3364,15 @@ public class Audit extends AbstractReporter {
 		//destination is new so mark epoch
 		markNewEpochForArtifact(dstArtifactIdentifier);
 
-		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
-		Used used = new Used(process, srcVertex);
+		Artifact childVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
+		Used used = new Used(process, childVertex);
 		putEdge(used, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
 
-		Artifact dstVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
-		WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
+		Artifact parentVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
+		WasGeneratedBy wgb = new WasGeneratedBy(parentVertex, process);
 		putEdge(wgb, getOperation(syscall, SYSCALL.WRITE), time, eventId, OPMConstants.SOURCE_AUDIT);
 
-		WasDerivedFrom wdf = new WasDerivedFrom(dstVertex, srcVertex);
+		WasDerivedFrom wdf = new WasDerivedFrom(parentVertex, childVertex);
 		wdf.addAnnotation(OPMConstants.EDGE_PID, pid);
 		putEdge(wdf, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 	}

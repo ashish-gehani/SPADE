@@ -42,10 +42,10 @@ public class QueryParameters
 	private String expression;
 	private String vertexId;
 	private AbstractVertex vertex;
-	private String srcVertexId;
-	private AbstractVertex srcVertex;
-	private String dstVertexId;
-	private AbstractVertex dstVertex;
+	private String childVertexId;
+	private AbstractVertex childVertex;
+	private String parentVertexId;
+	private AbstractVertex parentVertex;
 	private Integer maxLength;
 	private Integer depth;
 	private String direction;
@@ -65,10 +65,10 @@ public class QueryParameters
 				digQueryParams.direction = tokens[5];
 				digQueryParams.terminatingExpression = tokens[6];
 			}else if(digQueryParams.operation.equals("paths")){
-				digQueryParams.srcVertexId = tokens[3];
-				digQueryParams.srcVertex = getVertexForId(digQueryParams.getStorage(), digQueryParams.srcVertexId);
-				digQueryParams.dstVertexId = tokens[4];
-				digQueryParams.dstVertex = getVertexForId(digQueryParams.getStorage(), digQueryParams.dstVertexId);
+				digQueryParams.childVertexId = tokens[3];
+				digQueryParams.childVertex = getVertexForId(digQueryParams.getStorage(), digQueryParams.childVertexId);
+				digQueryParams.parentVertexId = tokens[4];
+				digQueryParams.parentVertex = getVertexForId(digQueryParams.getStorage(), digQueryParams.parentVertexId);
 				digQueryParams.maxLength = Integer.parseInt(tokens[5]);
 			}else if(digQueryParams.operation.equals("vertices") || digQueryParams.operation.equals("edges")){
 				digQueryParams.expression = tokens[3];
@@ -117,11 +117,11 @@ public class QueryParameters
 	}
 
 	public AbstractVertex getSrcVertex() {
-		return srcVertex;
+		return childVertex;
 	}
 
 	public AbstractVertex getDstVertex() {
-		return dstVertex;
+		return parentVertex;
 	}
 
 	public Integer getMaxLength() {
@@ -145,10 +145,10 @@ public class QueryParameters
 	}
 
 	public String getSrcVertexId(){
-		return srcVertexId;
+		return childVertexId;
 	}
 
 	public String getDstVertexId(){
-		return dstVertexId;
+		return parentVertexId;
 	}
 }

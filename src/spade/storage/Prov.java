@@ -332,14 +332,14 @@ public class Prov extends AbstractStorage{
 	}
 
 	public String getSerializedEdge(AbstractEdge edge){
-		String srcVertexKey = DigestUtils.sha256Hex(edge.getChildVertex().toString());
+		String childVertexKey = DigestUtils.sha256Hex(edge.getChildVertex().toString());
 		String destVertexKey = DigestUtils.sha256Hex(edge.getParentVertex().toString());
 		String edgeString = null;
 		switch (provOutputFormat) {
 			case PROVO:
 				edgeString = String.format(provoStringFormatsForEdgeTypes.get(edge.getClass().getName()),
 						defaultNamespacePrefix,
-						srcVertexKey,
+						childVertexKey,
 						provNamespacePrefix,
 						provNamespacePrefix,
 						provNamespacePrefix,
@@ -351,7 +351,7 @@ public class Prov extends AbstractStorage{
 			case PROVN:
 				edgeString = String.format(provnStringFormatsForEdgeTypes.get(edge.getClass().getName()),
 						defaultNamespacePrefix,
-						srcVertexKey,
+						childVertexKey,
 						defaultNamespacePrefix,
 						destVertexKey,
 						getProvNFormattedKeyValPair(edge.getAnnotations()));

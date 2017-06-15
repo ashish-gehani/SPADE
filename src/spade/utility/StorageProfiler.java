@@ -116,19 +116,19 @@ public class StorageProfiler
             // 25% probability of an edge creation
             if(random.nextInt(100) > 75 && vertexList.size() >= 2)
             {
-                AbstractVertex srcVertex = vertexList.get(random.nextInt(vertexList.size()));
-                AbstractVertex dstVertex = vertexList.get(random.nextInt(vertexList.size()));
-                if(!srcVertex.bigHashCode().equals(dstVertex.bigHashCode()))
+                AbstractVertex childVertex = vertexList.get(random.nextInt(vertexList.size()));
+                AbstractVertex parentVertex = vertexList.get(random.nextInt(vertexList.size()));
+                if(!childVertex.bigHashCode().equals(parentVertex.bigHashCode()))
                 {
-                    AbstractEdge edge = new Edge(srcVertex, dstVertex);
+                    AbstractEdge edge = new Edge(childVertex, parentVertex);
                     edge.addAnnotation("count", getSerialId());
                     BerkeleyDBInstance.putEdge(edge);
                     // cache a vertex hash for retrieval purposes after every thousand
                     if(cacheVertex)
                     {
-                        vertexHashes.put(srcVertex.getAnnotation("count"), srcVertex.bigHashCode());
-                        vertexHashes.put(dstVertex.getAnnotation("count"), dstVertex.bigHashCode());
-                        edgeHashes.put(srcVertex.bigHashCode(), dstVertex.bigHashCode());
+                        vertexHashes.put(childVertex.getAnnotation("count"), childVertex.bigHashCode());
+                        vertexHashes.put(parentVertex.getAnnotation("count"), parentVertex.bigHashCode());
+                        edgeHashes.put(childVertex.bigHashCode(), parentVertex.bigHashCode());
                         cacheVertex = false;
                     }
                 }
