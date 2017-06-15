@@ -35,7 +35,6 @@ print_help ()
 }
 
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-FORMATTER="-Djava.util.logging.SimpleFormatter.format=%1\$tY-%1\$tm-%1\$td %1\$tH:%1\$tM:%1\$tS %4\$s %2\$s %5\$s%6\$s%n"
 CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 JAVALIBPATH="$SPADE_ROOT/lib/"
 JVMARGS="-server -Xms128M -Xmx512M"
@@ -48,13 +47,13 @@ if [ $# -eq 0 ] ; then
 else
 
 	if [ $1 = "start" ] || [ $1 = "stop" ] || [ $1 = "kill" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
 	elif [ $1 = "dig" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Dig
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Dig
 	elif [ $1 = "control" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Control
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Control
 	elif [ $1 = "debug" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG "$FORMATTER" spade.core.Kernel
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
 	else
 		print_help
 	fi
