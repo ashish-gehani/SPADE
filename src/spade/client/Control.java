@@ -64,7 +64,8 @@ public class Control {
     
     private static final Object SPADEControlInLock = new Object(); //an object to synchronize on and to wait until SPADEControlIn has been initialized
 
-    private static void setupKeyStores() throws Exception {
+    private static void setupKeyStores() throws Exception
+    {
         String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
         String clientPrivatePath = SPADE_ROOT + "cfg/ssl/client.private";
 
@@ -74,7 +75,8 @@ public class Control {
         clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
     }
 
-    private static void setupClientSSLContext() throws Exception {
+    private static void setupClientSSLContext() throws Exception
+    {
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextInt();
 
@@ -88,12 +90,16 @@ public class Control {
         sslSocketFactory = sslContext.getSocketFactory();
     }
 
-    public static void main(String args[]) {
+    public static void main(String args[])
+    {
         // Set up context for secure connections
-        try {
+        try
+        {
             setupKeyStores();
             setupClientSSLContext();
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             exception.printStackTrace();
         }
 
@@ -102,10 +108,13 @@ public class Control {
 
         shutdown = false;
 
-        Runnable outputReader = new Runnable() {
+        Runnable outputReader = new Runnable()
+        {
             @Override
-            public void run() {
-                try {
+            public void run()
+            {
+                try
+                {
                     String host = "localhost";
                     int port = Integer.parseInt(Settings.getProperty("local_control_port"));
                     SSLSocket remoteSocket = (SSLSocket) sslSocketFactory.createSocket(host, port);
@@ -115,21 +124,25 @@ public class Control {
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEControlIn = new PrintStream(outStream);
                     
-                    synchronized (SPADEControlInLock) {
+                    synchronized (SPADEControlInLock)
+                    {
                     	SPADEControlInLock.notify(); //notify the main thread that it is safe to use spadeControlIn now.
 		    }
 
-                    while (!shutdown) {
+                    while (!shutdown)
+                    {
                         // This thread keeps reading from the output pipe and
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
                         
-                        if(shutdown){
+                        if(shutdown)
+                        {
                         	break;
                         }
                         
-                        if (outputLine == null) {
-                            System.out.println("Error connecting to SPADE Kernel");
+                        if (outputLine == null)
+                        {
+                            System.err.println("Error connecting to SPADE Kernel");
                             shutdown = true;
                         }
 
@@ -139,11 +152,13 @@ public class Control {
 //                            break;
 //                        }                        
 
-                        if (outputLine != null) {
+                        if (outputLine != null)
+                        {
                             outputStream.println(outputLine);
                         }
                         
-                        if ("".equals(outputLine)) {
+                        if ("".equals(outputLine))
+                        {
                             outputStream.print(COMMAND_PROMPT);
                         }
                         
@@ -151,10 +166,12 @@ public class Control {
                     }
                     SPADEControlOut.close();
                     SPADEControlIn.close();
-                } catch (NumberFormatException | IOException | InterruptedException exception) {
-                    if (!shutdown) {
-                        System.out.println("Exception when communicating with SPADE Kernel");
-			exception.printStackTrace(errorStream);
+                }
+                catch (NumberFormatException | IOException | InterruptedException exception)
+                {
+                    if (!shutdown)
+                    {
+                        System.err.println(Control.class.getName() + " Exception when communicating with SPADE Kernel! " + exception);
                     }
                     System.exit(-1);
                 }
@@ -162,15 +179,21 @@ public class Control {
         };
         new Thread(outputReader).start();
 
-        try {
+        try
+        {
     
         	//wait for the spadeControlIn object to be initialized in the other thread
-        	synchronized (SPADEControlInLock) {
-        		while(SPADEControlIn == null){
-            		try{
+        	synchronized (SPADEControlInLock)
+            {
+        		while(SPADEControlIn == null)
+                {
+            		try
+                    {
             			SPADEControlInLock.wait();
-            		}catch(Exception e){
-            			e.printStackTrace(errorStream);
+            		}
+            		catch(Exception exception)
+                    {
+                        System.err.println(Control.class.getName() + " Error waiting for spadeControlIn object! " + exception);
             		}
             	}
 			}        	
@@ -184,9 +207,12 @@ public class Control {
             // Set up command history and tab completion.
             ConsoleReader commandReader = new ConsoleReader();
             
-            try {
+            try
+            {
                 commandReader.getHistory().setHistoryFile(new File(historyFile));
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 // Ignore
             }
 
@@ -218,18 +244,24 @@ public class Control {
 
             commandReader.addCompletor(new MultiCompletor(completors));
             
-            while (true) {
+            while (true)
+            {
                 String line = commandReader.readLine();
-                if (line == null || line.equalsIgnoreCase("exit")) {
+                if (line == null || line.equalsIgnoreCase("exit"))
+                {
                     SPADEControlIn.println("exit");
                     shutdown = true;
                     break;
-                } else {
+                }
+                else
+                    {
                     SPADEControlIn.println(line);
                 }
             }   
-        } catch (Exception exception) {
-            exception.printStackTrace(errorStream);
+        }
+        catch (Exception exception)
+        {
+            System.err.println(Control.class.getName() + " Error connecting to SPADE client! " + exception);
         }
     }
 }

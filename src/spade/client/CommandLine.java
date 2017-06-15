@@ -84,7 +84,7 @@ public class CommandLine
         }
         catch (Exception ex)
         {
-            Logger.getLogger(CommandLine.class.getName()).log(Level.WARNING, "Error setting up context for secure connection", ex);
+            System.err.println(CommandLine.class.getName() + " Error setting up context for secure connection. " + ex);
         }
 
         try
@@ -100,8 +100,7 @@ public class CommandLine
         }
         catch (NumberFormatException | IOException ex)
         {
-            System.out.println("Error connecting to SPADE!");
-            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Error connecting to SPADE!", ex);
+            System.err.println(CommandLine.class.getName() + " Error connecting to SPADE! " + ex);
             System.exit(-1);
         }
 
@@ -117,7 +116,7 @@ public class CommandLine
             }
             catch (Exception ex)
             {
-                Logger.getLogger(CommandLine.class.getName()).log(Level.WARNING, "Command history not set up!", ex);
+                System.err.println(CommandLine.class.getName() + " Command history not set up! " + ex);
             }
 
             while (true)
@@ -173,12 +172,13 @@ public class CommandLine
                 }
                 catch (Exception ex)
                 {
-                    Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Error talking to the client!", ex);
+                    System.err.println(CommandLine.class.getName() + " Error talking to the client! " + ex);
                 }
             }
-        } catch (IOException ex)
+        }
+        catch (IOException ex)
         {
-            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Error in CommandLine Client!", ex);
+            System.err.println(CommandLine.class.getName() + " Error in CommandLine Client! " + ex);
         }
     }
 

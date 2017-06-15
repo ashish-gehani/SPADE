@@ -29,7 +29,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLSocket;
 
-import com.sleepycat.je.Get;
 import spade.core.AbstractEdge;
 import spade.core.AbstractSketch;
 import spade.core.AbstractVertex;
@@ -43,7 +42,7 @@ import spade.query.sql.postgresql.GetVertex;
 
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 import static spade.core.AbstractQuery.OPERATORS;
-import static spade.core.RemoteResolver.*;
+import static spade.core.AbstractResolver.*;
 
 public class Sketch extends AbstractSketch
 {

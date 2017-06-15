@@ -1,7 +1,6 @@
 package spade.core;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.neo4j.cypher.internal.compiler.v2_0.ast.Null;
 
 import javax.net.ssl.SSLSocket;
 
@@ -21,7 +20,7 @@ import static spade.core.AbstractQuery.OPERATORS;
 /**
  * @author raza
  */
-public abstract class RemoteResolver implements Runnable
+public abstract class AbstractResolver implements Runnable
 {
     public static final String SOURCE_HOST = "source_host";
     public static final String SOURCE_PORT = "source_port";
@@ -35,7 +34,7 @@ public abstract class RemoteResolver implements Runnable
     protected String direction;
     protected String function;
 
-    protected RemoteResolver(Graph graph, String func, int d, String dir)
+    protected AbstractResolver(Graph graph, String func, int d, String dir)
     {
         partialGraph = graph;
         depth = d;
@@ -125,7 +124,7 @@ public abstract class RemoteResolver implements Runnable
         }
         catch (NumberFormatException | IOException | ClassNotFoundException exception)
         {
-            Logger.getLogger(RemoteResolver.class.getName()).log(Level.SEVERE, "Remote resolution unsuccessful!", exception);
+            Logger.getLogger(AbstractResolver.class.getName()).log(Level.SEVERE, "Remote resolution unsuccessful!", exception);
             return null;
         }
 

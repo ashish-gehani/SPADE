@@ -4,7 +4,7 @@ import spade.core.AbstractAnalyzer;
 import spade.core.AbstractQuery;
 import spade.core.Graph;
 import spade.core.Kernel;
-import spade.remoteresolver.Naive;
+import spade.resolver.Recursive;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -149,36 +149,29 @@ public class CommandLine extends AbstractAnalyzer
                         AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
                         Class<?> returnType = Class.forName(getReturnType(functionName));
                         Object result = queryClass.execute(queryParameters, resultLimit);
-                        if(result.getClass().isAssignableFrom(returnType))
+                        if(result != null && result.getClass().isAssignableFrom(returnType))
                         {
-                            if(result != null)
+                            if(result instanceof Graph)
                             {
-                                if(isSetRemoteFlag())
+                                if(isremoteResolutionRequired())
                                 {
-                                    //TODO: Could use a factory pattern here to get remote remoteresolver
-                                    remoteResolver = new Naive((Graph) result, functionName, 0, null);
-                                    Thread remoteResolverThread = new Thread(remoteResolver, "Naive-RemoteResolver");
+                                    //TODO: Could use a factory pattern here to get remote resolver
+                                    remoteResolver = new Recursive((Graph) result, functionName, 0, null);
+                                    Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
                                     remoteResolverThread.start();
                                     // wait for thread to complete to get the final graph
                                     remoteResolverThread.join();
-                                    result = Graph.union((Graph) result, remoteResolver.getFinalGraph());
-                                    clearRemoteFlag();
+                                    result = remoteResolver.getFinalGraph();
+                                    clearRemoteResolutionRequired();
                                 }
-                                if(result instanceof Graph)
-                                {
-                                    result = iterateTransformers((Graph) result, line);
-                                }
-                                queryOutputStream.writeObject(returnType);
-                                queryOutputStream.writeObject(result.toString());
-                            } else
-                            {
-                                //TODO: Change the need for this too
-                                queryOutputStream.writeObject(getQueryCommands());
+                                result = iterateTransformers((Graph) result, line);
                             }
+                            queryOutputStream.writeObject(returnType);
+                            queryOutputStream.writeObject(result.toString());
                         }
                         else
                         {
-                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type mismatch!");
+                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type null or mismatch!");
                         }
                     }
 

@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractAnalyzer.setRemoteFlag;
+import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
@@ -92,7 +92,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             String subtype = currentVertex.getAnnotation("subtype");
             if(subtype != null && subtype.equalsIgnoreCase("network"))
             {
-                setRemoteFlag();
+                setRemoteResolutionRequired();
                 result.putNetworkVertex(currentVertex, current_depth);
             }
 

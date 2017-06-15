@@ -27,29 +27,29 @@ public abstract class AbstractAnalyzer
 {
 
     public String QUERY_PORT;
-    protected RemoteResolver remoteResolver;
+    protected AbstractResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
     private static Map<String, List<String>> functionToClassMap;
 
     /**
-     * remoteFlag is used by query module to signal the Analyzer
+     * remoteResolutionRequired is used by query module to signal the Analyzer
      * to resolve any outstanding remote parts of result graph.
      */
-    private static boolean remoteFlag = false;
+    private static boolean remoteResolutionRequired = false;
 
-    public static void setRemoteFlag()
+    public static void setRemoteResolutionRequired()
     {
-        remoteFlag = true;
+        remoteResolutionRequired = true;
     }
 
-    public static void clearRemoteFlag()
+    public static void clearRemoteResolutionRequired()
     {
-        remoteFlag = false;
+        remoteResolutionRequired = false;
     }
 
-    public static boolean isSetRemoteFlag()
+    public static boolean isremoteResolutionRequired()
     {
-        return remoteFlag;
+        return remoteResolutionRequired;
     }
 
     public abstract void init();

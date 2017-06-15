@@ -1,8 +1,8 @@
-package spade.remoteresolver;
+package spade.resolver;
 
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.core.RemoteResolver;
+import spade.core.AbstractResolver;
 
 import java.util.Map;
 import java.util.logging.Level;
@@ -11,9 +11,9 @@ import java.util.logging.Logger;
 /**
  * @author raza
  */
-public class Naive extends RemoteResolver
+public class Recursive extends AbstractResolver
 {
-    public Naive(Graph graph, String func, int d, String dir)
+    public Recursive(Graph graph, String func, int d, String dir)
     {
         super(graph, func, d, dir);
     }
@@ -63,7 +63,7 @@ public class Naive extends RemoteResolver
         }
         catch(Exception ex)
         {
-            Logger.getLogger(Naive.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Recursive.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 }

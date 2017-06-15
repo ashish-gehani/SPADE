@@ -1,8 +1,7 @@
-package spade.remoteresolver;
+package spade.resolver;
 
 import spade.core.*;
 import spade.query.common.GetPaths;
-import spade.query.sql.postgresql.GetEdge;
 import spade.query.sql.postgresql.GetVertex;
 
 import javax.net.ssl.SSLSocket;
@@ -18,7 +17,7 @@ import static spade.core.AbstractStorage.*;
 /**
  * @author raza
  */
-public class Sketch extends RemoteResolver
+public class Sketch extends AbstractResolver
 {
     private static final Logger logger = Logger.getLogger(Sketch.class.getName());
     Socket clientSocket;
