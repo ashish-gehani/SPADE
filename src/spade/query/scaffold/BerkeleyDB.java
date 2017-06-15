@@ -40,6 +40,7 @@ public class BerkeleyDB
     private static Database neighborDatabase = null;
     private static final String PARENTS = "parents";
     private static final String CHILDREN = "children";
+    private static String directoryPath = null;
 
     /**
      * This method is invoked by the kernel to initialize the storage.
@@ -50,6 +51,7 @@ public class BerkeleyDB
      */
     public boolean initialize(String arguments)
     {
+        directoryPath = arguments;
         scaffoldDbEnvironment = null;
         scaffoldDatabase = null;
         try
@@ -57,7 +59,7 @@ public class BerkeleyDB
             EnvironmentConfig envConfig = new EnvironmentConfig();
             envConfig.setAllowCreate(true);
             envConfig.setTransactional(true);
-            scaffoldDbEnvironment = new Environment(new File("/tmp/"), envConfig);
+            scaffoldDbEnvironment = new Environment(new File(directoryPath), envConfig);
 
             DatabaseConfig dbConfig = new DatabaseConfig();
             dbConfig.setAllowCreate(true);
