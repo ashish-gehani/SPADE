@@ -1299,13 +1299,7 @@ public class CDM extends Kafka {
 	private UUID getUuid(AbstractVertex vertex){
 		if(vertex != null){
 			byte[] vertexHash = new byte[0];
-			try
-			{
-				vertexHash = vertex.bigHashCode().getBytes("UTF-8");
-			} catch(UnsupportedEncodingException e)
-			{
-				logger.log(Level.SEVERE, "", e);
-			}
+			vertexHash = vertex.bigHashCodeBytes();
 			if(hexUUIDs){
 				vertexHash = String.valueOf(Hex.encodeHex(vertexHash, true)).getBytes();
 			}
@@ -1328,13 +1322,7 @@ public class CDM extends Kafka {
 	private UUID getUuid(AbstractEdge edge){
 		if(edge != null){
 			byte[] edgeHash = new byte[0];
-			try
-			{
-				edgeHash = edge.bigHashCode().getBytes("UTF-8");
-			} catch(UnsupportedEncodingException e)
-			{
-				logger.log(Level.SEVERE, "", e);
-			}
+			edgeHash = edge.bigHashCodeBytes();
 			if(hexUUIDs){
 				edgeHash = String.valueOf(Hex.encodeHex(edgeHash, true)).getBytes();
 			}

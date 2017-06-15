@@ -124,7 +124,7 @@ public class Graphviz extends AbstractStorage {
                 }
             }
 
-            String key = Hex.encodeHexString(incomingVertex.bigHashCode().getBytes("UTF-8"));
+            String key = Hex.encodeHexString(incomingVertex.bigHashCodeBytes());
             outputFile.write("\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
             checkTransactions();
             return true;
@@ -225,8 +225,8 @@ public class Graphviz extends AbstractStorage {
                 edgeString = "(" + edgeString.substring(0, edgeString.length() - 2) + ")";
             }
 
-            String srckey = Hex.encodeHexString(incomingEdge.getChildVertex().bigHashCode().getBytes("UTF-8"));
-            String dstkey = Hex.encodeHexString(incomingEdge.getParentVertex().bigHashCode().getBytes("UTF-8"));
+            String srckey = Hex.encodeHexString(incomingEdge.getChildVertex().bigHashCodeBytes());
+            String dstkey = Hex.encodeHexString(incomingEdge.getParentVertex().bigHashCodeBytes());
 
             outputFile.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
             checkTransactions();

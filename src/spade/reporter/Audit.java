@@ -2931,13 +2931,7 @@ public class Audit extends AbstractReporter {
 				agent.addAnnotation(OPMConstants.AGENT_FSGID, annotationsToUpdate.get(OPMConstants.AGENT_FSGID));
 			}
 			String agentHash = null;
-			try
-			{
-				agentHash = Hex.encodeHexString(agent.bigHashCode().getBytes("UTF-8"));
-			} catch(UnsupportedEncodingException e)
-			{
-				logger.log(Level.SEVERE, "", e);
-			}
+			agentHash = org.apache.commons.codec.binary.Hex.encodeHexString(agent.bigHashCodeBytes());
 			if(!agentHashes.contains(agentHash)){
 				agentHashes.add(agentHash);
 				putVertex(agent);
@@ -2952,13 +2946,7 @@ public class Audit extends AbstractReporter {
 			wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
 
 			String edgeHash = null;
-			try
-			{
-				edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode().getBytes("UTF-8"));
-			} catch(UnsupportedEncodingException e)
-			{
-				logger.log(Level.SEVERE, "", e);
-			}
+			edgeHash = org.apache.commons.codec.binary.Hex.encodeHexString(wasControlledBy.bigHashCodeBytes());
 			if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
 				pidToAgentEdgeHashes.get(pid).add(edgeHash);
 				putEdge(wasControlledBy);
@@ -4500,13 +4488,7 @@ public class Audit extends AbstractReporter {
 						agent.addAnnotation(OPMConstants.AGENT_FSGID, annotations.get(OPMConstants.AGENT_FSGID));
 					}
 					String agentHash = null;
-					try
-					{
-						agentHash = Hex.encodeHexString(agent.bigHashCode().getBytes("UTF-8"));
-					} catch(UnsupportedEncodingException e)
-					{
-						logger.log(Level.SEVERE, "", e);
-					}
+					agentHash = org.apache.commons.codec.binary.Hex.encodeHexString(agent.bigHashCodeBytes());
 					if(!agentHashes.contains(agentHash)){
 						agentHashes.add(agentHash);
 						putVertex(agent);
@@ -4521,13 +4503,7 @@ public class Audit extends AbstractReporter {
 					wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
 
 					String edgeHash = null;
-					try
-					{
-						edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode().getBytes("UTF-8"));
-					} catch(UnsupportedEncodingException e)
-					{
-						logger.log(Level.SEVERE, "", e);
-					}
+					edgeHash = org.apache.commons.codec.binary.Hex.encodeHexString(wasControlledBy.bigHashCodeBytes());
 					if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
 						pidToAgentEdgeHashes.get(pid).add(edgeHash);
 						putEdge(wasControlledBy);

@@ -160,14 +160,23 @@ public abstract class AbstractEdge implements Serializable {
     }
 
     /**
-     * Computes MD5 hash of annotations in the edge.
-     * Returns 128-bits of the digest.
+     * Computes MD5 hash of annotations in the edge and its end point vertices.
      *
-     @return A 128-bit hash value.
+     @return A 128-bit hash digest.
      */
     public String bigHashCode()
     {
         return DigestUtils.md5Hex(this.toString());
+    }
+
+    /**
+     * Computes MD5 hash of annotations in the vertex.
+     *
+     @return A 128-bit hash digest.
+     */
+    public byte[] bigHashCodeBytes()
+    {
+        return DigestUtils.md5(this.toString());
     }
 
     @Override

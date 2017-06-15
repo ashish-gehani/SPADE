@@ -97,14 +97,8 @@ public class Deduplicate extends AbstractFilter{
 	@Override
 	public void putVertex(AbstractVertex incomingVertex) {
         boolean contained = false;
-        try
-        {
-            contained = negativeBloomFilter.containsAndAdd(incomingVertex.bigHashCode().getBytes("UTF-8"));
-        } catch(UnsupportedEncodingException e)
-        {
-            logger.log(Level.SEVERE, "", e);
-        }
-        if(!contained){
+		contained = negativeBloomFilter.containsAndAdd(incomingVertex.bigHashCodeBytes());
+		if(!contained){
 			putInNextFilter(incomingVertex);
 		}
 	}
@@ -112,14 +106,8 @@ public class Deduplicate extends AbstractFilter{
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
         boolean contained = false;
-        try
-        {
-            contained = negativeBloomFilter.containsAndAdd(incomingEdge.bigHashCode().getBytes("UTF-8"));
-        } catch(UnsupportedEncodingException e)
-        {
-            logger.log(Level.SEVERE, "", e);
-        }
-        if(!contained){
+		contained = negativeBloomFilter.containsAndAdd(incomingEdge.bigHashCodeBytes());
+		if(!contained){
 			putInNextFilter(incomingEdge);
 		}
 	}
