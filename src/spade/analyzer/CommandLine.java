@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 /**
  * @author raza
  */
-public class Dig extends AbstractAnalyzer
+public class CommandLine extends AbstractAnalyzer
 {
     // Strings for new query format
     public enum DigQueryCommands
@@ -62,7 +62,7 @@ public class Dig extends AbstractAnalyzer
         }
     }
 
-    public Dig()
+    public CommandLine()
     {
         QUERY_PORT = "dig_query_port";
     }
@@ -91,7 +91,7 @@ public class Dig extends AbstractAnalyzer
                     // Do nothing... this is triggered on KERNEL_SHUTDOWN.
                 } catch(NumberFormatException | IOException ex)
                 {
-                    Logger.getLogger(Dig.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         };
@@ -178,7 +178,7 @@ public class Dig extends AbstractAnalyzer
                         }
                         else
                         {
-                            Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, "Return type mismatch!");
+                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type mismatch!");
                         }
                     }
 
@@ -191,7 +191,7 @@ public class Dig extends AbstractAnalyzer
                 querySocket.close();
             } catch(Exception ex)
             {
-                Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -264,7 +264,7 @@ public class Dig extends AbstractAnalyzer
             }
             catch(Exception ex)
             {
-                Logger.getLogger(Dig.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query", ex);
+                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query", ex);
             }
         }
     }

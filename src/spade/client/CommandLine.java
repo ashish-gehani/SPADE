@@ -2,9 +2,6 @@ package spade.client;
 
 import jline.ConsoleReader;
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
 import spade.core.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -24,23 +21,19 @@ import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static spade.analyzer.Dig.DigQueryCommands;
-import static spade.analyzer.Dig.getQueryCommands;
+import static spade.analyzer.CommandLine.DigQueryCommands;
+import static spade.analyzer.CommandLine.getQueryCommands;
 
 /**
  * @author raza
  */
-public class Dig
+public class CommandLine
 {
     private static PrintStream clientOutputStream;
     private static ObjectInputStream clientInputStream;
@@ -91,7 +84,7 @@ public class Dig
         }
         catch (Exception ex)
         {
-            Logger.getLogger(Dig.class.getName()).log(Level.WARNING, "Error setting up context for secure connection", ex);
+            Logger.getLogger(CommandLine.class.getName()).log(Level.WARNING, "Error setting up context for secure connection", ex);
         }
 
         try
@@ -108,7 +101,7 @@ public class Dig
         catch (NumberFormatException | IOException ex)
         {
             System.out.println("Error connecting to SPADE!");
-            Logger.getLogger(Dig.class.getName()).log(Level.SEVERE, "Error connecting to SPADE!", ex);
+            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Error connecting to SPADE!", ex);
             System.exit(-1);
         }
 
@@ -124,7 +117,7 @@ public class Dig
             }
             catch (Exception ex)
             {
-                Logger.getLogger(Dig.class.getName()).log(Level.WARNING, "Command history not set up!", ex);
+                Logger.getLogger(CommandLine.class.getName()).log(Level.WARNING, "Command history not set up!", ex);
             }
 
             while (true)
@@ -180,12 +173,12 @@ public class Dig
                 }
                 catch (Exception ex)
                 {
-                    Logger.getLogger(Dig.class.getName()).log(Level.SEVERE, "Error talking to the client!", ex);
+                    Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Error talking to the client!", ex);
                 }
             }
         } catch (IOException ex)
         {
-            Logger.getLogger(Dig.class.getName()).log(Level.SEVERE, "Error in Dig Client!", ex);
+            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Error in CommandLine Client!", ex);
         }
     }
 
