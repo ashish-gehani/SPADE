@@ -51,7 +51,7 @@ public class SQL extends AbstractStorage
     private Connection dbConnection;
     private HashSet<String> vertexAnnotations;
     private HashSet<String> edgeAnnotations;
-    private static final boolean ENABLE_SANITAZATION = true;
+    private static final boolean ENABLE_SANITIZATION = true;
     private static final String VERTEX_TABLE = "vertex";
     private static final String EDGE_TABLE = "edge";
     private static String DUPLICATE_COLUMN_ERROR_CODE;
@@ -89,11 +89,12 @@ public class SQL extends AbstractStorage
         try
         {
             String[] tokens = arguments.split("\\s+");
-            String databaseDriver = tokens[0].equalsIgnoreCase("default") ? "org.h2.Driver" : tokens[0];
+            String databaseDriver = tokens[0];
             // for postgres, it is jdbc:postgres://localhost/5432/database_name
-            String databaseURL = tokens[1].equalsIgnoreCase("default") ? "jdbc:h2:/tmp/spade.sql" : tokens[1];
-            String databaseUsername = tokens[2].equalsIgnoreCase("null") ? "" : tokens[2];
-            String databasePassword = tokens[3].equalsIgnoreCase("null") ? "" : tokens[3];
+            // for h2, it is jdbc:h2:/tmp/spade.sql
+            String databaseURL = tokens[1];
+            String databaseUsername = tokens[2];
+            String databasePassword = tokens[3];
 
             Class.forName(databaseDriver).newInstance();
             dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
@@ -194,7 +195,7 @@ public class SQL extends AbstractStorage
      */
     public static String sanitizeColumn(String column)
     {
-        if (ENABLE_SANITAZATION)
+        if (ENABLE_SANITIZATION)
         {
             column = column.replaceAll("[^a-zA-Z0-9]+", "");
         }
@@ -204,7 +205,7 @@ public class SQL extends AbstractStorage
 
     public static String sanitizeString(String string)
     {
-        return (ENABLE_SANITAZATION) ? string.replace("'", "\"") : string;
+        return (ENABLE_SANITIZATION) ? string.replace("'", "\"") : string;
     }
 
     /**
@@ -533,7 +534,7 @@ public class SQL extends AbstractStorage
         // Add the annotation values
         for (String annotationKey : incomingEdge.getAnnotations().keySet())
         {
-            String value = (ENABLE_SANITAZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"") : incomingEdge.getAnnotation(annotationKey);
+            String value = (ENABLE_SANITIZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"") : incomingEdge.getAnnotation(annotationKey);
 
             insertStringBuilder.append("'");
             insertStringBuilder.append(value);
@@ -600,7 +601,7 @@ public class SQL extends AbstractStorage
         // Add the annotation values
         for (String annotationKey : incomingVertex.getAnnotations().keySet())
         {
-            String value = (ENABLE_SANITAZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"") :
+            String value = (ENABLE_SANITIZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"") :
                     incomingVertex.getAnnotation(annotationKey);
 
             insertStringBuilder.append("'");
