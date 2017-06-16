@@ -40,7 +40,6 @@ public abstract class AbstractStorage
     public static final String PARENT_VERTEX_KEY = "parentHash";
     public static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     public static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
-    protected static Map<Long, String> m = new HashMap<>();
 
     /**
      * The arguments with which this storage was initialized.
@@ -168,6 +167,7 @@ public abstract class AbstractStorage
      * @return returns the graph comprising of the subgraph starting from the source vertex
      * up till the specified depth OR NULL.
      */
+    @Deprecated
     public Graph getLineage(String hash, String direction, int maxDepth)
     {
         Graph result = new Graph();
@@ -187,7 +187,6 @@ public abstract class AbstractStorage
                 queue.addAll(getChildren(currentHash).vertexSet());
 
             result.putVertex(currentVertex);
-            //TODO: make provision for returning multiple edges between same pair of vertices
             if(previousVertex != null)
                 result.putEdge(getEdge(previousVertex.getAnnotation("hash"), currentHash));
 
@@ -208,6 +207,7 @@ public abstract class AbstractStorage
      *
      * @return returns graph containing all paths between the given source and destination vertex OR NULL.
      */
+    @Deprecated
     public Graph getPaths(String childVertexHash, String parentVertexHash, int maxPathLength)
     {
         Set<Graph> allPaths = new HashSet<>();
@@ -263,6 +263,7 @@ public abstract class AbstractStorage
      * @param stack stack of vertices to convert into a graph
      * @return returns a graph consisting only of vertices present in the stack
      */
+    @Deprecated
     protected Graph convertStackToGraph(Stack<AbstractVertex> stack)
     {
         Graph graph = new Graph();
@@ -273,7 +274,6 @@ public abstract class AbstractStorage
         {
             AbstractVertex curr = iter.next();
             graph.putVertex(curr);
-            //TODO: make provision for returning multiple edges between same pair of vertices
             graph.putEdge(getEdge(previous.getAnnotation("hash"), curr.getAnnotation("hash")));
             previous = curr;
         }

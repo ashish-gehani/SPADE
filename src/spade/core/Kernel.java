@@ -535,7 +535,6 @@ public class Kernel
      */
     public static void executeCommand(String line, PrintStream outputStream)
     {
-        //TODO: change occurred here. Check for correctness.
         String commandPrefix = line.split(" ", 2)[0].toLowerCase();
         switch(commandPrefix)
         {
@@ -570,7 +569,6 @@ public class Kernel
      */
     public static void configCommand(String line, PrintStream outputStream)
     {
-        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+");
         if (tokens.length < 3)
         {
@@ -768,7 +766,6 @@ public class Kernel
      */
     public static void addCommand(String line, PrintStream outputStream)
     {
-        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+", 4);
         if (tokens.length < 2)
         {
@@ -1064,7 +1061,6 @@ public class Kernel
      */
     public static void listCommand(String line, PrintStream outputStream)
     {
-        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+");
         String verbose_token = "";
         if (tokens.length < 2)
@@ -1231,7 +1227,6 @@ public class Kernel
      */
     public static void removeCommand(String line, PrintStream outputStream)
     {
-        //TODO: change occurred here. Check for correctness.
         String[] tokens = line.split("\\s+");
         if(tokens.length < 3)
         {

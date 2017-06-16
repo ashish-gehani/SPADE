@@ -119,8 +119,8 @@ public class SQL extends AbstractStorage
                     + VERTEX_TABLE
                     + "(" + PRIMARY_KEY
                     + " "
-                    + "UUID PRIMARY KEY " //TODO: add comma and remove comment
-//                    + "type VARCHAR(32) NOT NULL "
+                    + "UUID PRIMARY KEY, "
+                    + "type VARCHAR(32) NOT NULL "
                     + ")";
             dbStatement.execute(createVertexTable);
             String query = "SELECT * FROM " + VERTEX_TABLE + " WHERE false;";
@@ -138,7 +138,7 @@ public class SQL extends AbstractStorage
                     + " (" + PRIMARY_KEY
                     + " "
                     + "UUID PRIMARY KEY, "
-//                    + "type VARCHAR(32) NOT NULL ," //TODO: remove comment
+                    + "type VARCHAR(32) NOT NULL ,"
                     + "childVertexHash UUID NOT NULL, "
                     + "parentHash UUID NOT NULL "
                     + ")";
@@ -324,7 +324,6 @@ public class SQL extends AbstractStorage
                     String colName = columnLabels.get(i);
                     if (colName != null)
                     {
-                        //TODO: check for src and destination vertices
                         edge.addAnnotation(colName, result.getString(i));
                     }
                 }
@@ -495,7 +494,6 @@ public class SQL extends AbstractStorage
     @Override
     public boolean putEdge(AbstractEdge incomingEdge)
     {
-        //TODO: insert vertex if not present before
         String edgeHash = incomingEdge.bigHashCode();
         if(Cache.isPresent(edgeHash))
             return true;
@@ -569,7 +567,6 @@ public class SQL extends AbstractStorage
     @Override
     public boolean putVertex(AbstractVertex incomingVertex)
     {
-        //TODO: type should come automatically as the first key-value pair
         String vertexHash = incomingVertex.bigHashCode();
         if(Cache.isPresent(vertexHash))
             return true;

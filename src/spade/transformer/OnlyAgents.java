@@ -67,7 +67,7 @@ public class OnlyAgents extends AbstractTransformer{
 				otherVertex = edge.getChildVertex();
 				agentVertex = edge.getParentVertex();
 			}
-			if(agentVertex != null && otherVertex != null){ 
+			if(agentVertex != null && otherVertex != null){
 				if(vertexToAgent.get(otherVertex) == null){
 					vertexToAgent.put(otherVertex, new HashSet<AbstractEdge>());
 				}
