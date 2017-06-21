@@ -11,12 +11,12 @@ import org.apache.avro.specific.SpecificData;
 @org.apache.avro.specific.AvroGenerated
 public class Edge extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
   private static final long serialVersionUID = 1354983295569119109L;
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Edge\",\"namespace\":\"spade.storage.kafka\",\"fields\":[{\"name\":\"annotations\",\"type\":[\"null\",{\"type\":\"map\",\"values\":\"string\"}]},{\"name\":\"childVertexHash\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"parentVertexHash\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"hash\",\"type\":\"string\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Edge\",\"namespace\":\"spade.storage.kafka\",\"fields\":[{\"name\":\"annotations\",\"type\":[\"null\",{\"type\":\"map\",\"values\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"avro.java.string\":\"String\"}]},{\"name\":\"childVertexHash\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"parentVertexHash\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"hash\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
-  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> annotations;
-  @Deprecated public java.lang.CharSequence childVertexHash;
-  @Deprecated public java.lang.CharSequence parentVertexHash;
-  @Deprecated public java.lang.CharSequence hash;
+  @Deprecated public java.util.Map<java.lang.String,java.lang.String> annotations;
+  @Deprecated public java.lang.String childVertexHash;
+  @Deprecated public java.lang.String parentVertexHash;
+  @Deprecated public java.lang.String hash;
 
   /**
    * Default constructor.  Note that this does not initialize fields
@@ -32,7 +32,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * @param parentVertexHash The new value for parentVertexHash
    * @param hash The new value for hash
    */
-  public Edge(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> annotations, java.lang.CharSequence childVertexHash, java.lang.CharSequence parentVertexHash, java.lang.CharSequence hash) {
+  public Edge(java.util.Map<java.lang.String,java.lang.String> annotations, java.lang.String childVertexHash, java.lang.String parentVertexHash, java.lang.String hash) {
     this.annotations = annotations;
     this.childVertexHash = childVertexHash;
     this.parentVertexHash = parentVertexHash;
@@ -55,10 +55,10 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
-    case 0: annotations = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 1: childVertexHash = (java.lang.CharSequence)value$; break;
-    case 2: parentVertexHash = (java.lang.CharSequence)value$; break;
-    case 3: hash = (java.lang.CharSequence)value$; break;
+    case 0: annotations = (java.util.Map<java.lang.String,java.lang.String>)value$; break;
+    case 1: childVertexHash = (java.lang.String)value$; break;
+    case 2: parentVertexHash = (java.lang.String)value$; break;
+    case 3: hash = (java.lang.String)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -67,7 +67,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Gets the value of the 'annotations' field.
    * @return The value of the 'annotations' field.
    */
-  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getAnnotations() {
+  public java.util.Map<java.lang.String,java.lang.String> getAnnotations() {
     return annotations;
   }
 
@@ -75,7 +75,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Sets the value of the 'annotations' field.
    * @param value the value to set.
    */
-  public void setAnnotations(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+  public void setAnnotations(java.util.Map<java.lang.String,java.lang.String> value) {
     this.annotations = value;
   }
 
@@ -83,7 +83,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Gets the value of the 'childVertexHash' field.
    * @return The value of the 'childVertexHash' field.
    */
-  public java.lang.CharSequence getChildVertexHash() {
+  public java.lang.String getChildVertexHash() {
     return childVertexHash;
   }
 
@@ -91,7 +91,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Sets the value of the 'childVertexHash' field.
    * @param value the value to set.
    */
-  public void setChildVertexHash(java.lang.CharSequence value) {
+  public void setChildVertexHash(java.lang.String value) {
     this.childVertexHash = value;
   }
 
@@ -99,7 +99,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Gets the value of the 'parentVertexHash' field.
    * @return The value of the 'parentVertexHash' field.
    */
-  public java.lang.CharSequence getParentVertexHash() {
+  public java.lang.String getParentVertexHash() {
     return parentVertexHash;
   }
 
@@ -107,7 +107,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Sets the value of the 'parentVertexHash' field.
    * @param value the value to set.
    */
-  public void setParentVertexHash(java.lang.CharSequence value) {
+  public void setParentVertexHash(java.lang.String value) {
     this.parentVertexHash = value;
   }
 
@@ -115,7 +115,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Gets the value of the 'hash' field.
    * @return The value of the 'hash' field.
    */
-  public java.lang.CharSequence getHash() {
+  public java.lang.String getHash() {
     return hash;
   }
 
@@ -123,7 +123,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
    * Sets the value of the 'hash' field.
    * @param value the value to set.
    */
-  public void setHash(java.lang.CharSequence value) {
+  public void setHash(java.lang.String value) {
     this.hash = value;
   }
 
@@ -159,10 +159,10 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
   public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<Edge>
     implements org.apache.avro.data.RecordBuilder<Edge> {
 
-    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> annotations;
-    private java.lang.CharSequence childVertexHash;
-    private java.lang.CharSequence parentVertexHash;
-    private java.lang.CharSequence hash;
+    private java.util.Map<java.lang.String,java.lang.String> annotations;
+    private java.lang.String childVertexHash;
+    private java.lang.String parentVertexHash;
+    private java.lang.String hash;
 
     /** Creates a new Builder */
     private Builder() {
@@ -221,7 +221,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * Gets the value of the 'annotations' field.
       * @return The value.
       */
-    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getAnnotations() {
+    public java.util.Map<java.lang.String,java.lang.String> getAnnotations() {
       return annotations;
     }
 
@@ -230,7 +230,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * @param value The value of 'annotations'.
       * @return This builder.
       */
-    public spade.storage.kafka.Edge.Builder setAnnotations(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    public spade.storage.kafka.Edge.Builder setAnnotations(java.util.Map<java.lang.String,java.lang.String> value) {
       validate(fields()[0], value);
       this.annotations = value;
       fieldSetFlags()[0] = true;
@@ -260,7 +260,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * Gets the value of the 'childVertexHash' field.
       * @return The value.
       */
-    public java.lang.CharSequence getChildVertexHash() {
+    public java.lang.String getChildVertexHash() {
       return childVertexHash;
     }
 
@@ -269,7 +269,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * @param value The value of 'childVertexHash'.
       * @return This builder.
       */
-    public spade.storage.kafka.Edge.Builder setChildVertexHash(java.lang.CharSequence value) {
+    public spade.storage.kafka.Edge.Builder setChildVertexHash(java.lang.String value) {
       validate(fields()[1], value);
       this.childVertexHash = value;
       fieldSetFlags()[1] = true;
@@ -299,7 +299,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * Gets the value of the 'parentVertexHash' field.
       * @return The value.
       */
-    public java.lang.CharSequence getParentVertexHash() {
+    public java.lang.String getParentVertexHash() {
       return parentVertexHash;
     }
 
@@ -308,7 +308,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * @param value The value of 'parentVertexHash'.
       * @return This builder.
       */
-    public spade.storage.kafka.Edge.Builder setParentVertexHash(java.lang.CharSequence value) {
+    public spade.storage.kafka.Edge.Builder setParentVertexHash(java.lang.String value) {
       validate(fields()[2], value);
       this.parentVertexHash = value;
       fieldSetFlags()[2] = true;
@@ -338,7 +338,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * Gets the value of the 'hash' field.
       * @return The value.
       */
-    public java.lang.CharSequence getHash() {
+    public java.lang.String getHash() {
       return hash;
     }
 
@@ -347,7 +347,7 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
       * @param value The value of 'hash'.
       * @return This builder.
       */
-    public spade.storage.kafka.Edge.Builder setHash(java.lang.CharSequence value) {
+    public spade.storage.kafka.Edge.Builder setHash(java.lang.String value) {
       validate(fields()[3], value);
       this.hash = value;
       fieldSetFlags()[3] = true;
@@ -377,10 +377,10 @@ public class Edge extends org.apache.avro.specific.SpecificRecordBase implements
     public Edge build() {
       try {
         Edge record = new Edge();
-        record.annotations = fieldSetFlags()[0] ? this.annotations : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[0]);
-        record.childVertexHash = fieldSetFlags()[1] ? this.childVertexHash : (java.lang.CharSequence) defaultValue(fields()[1]);
-        record.parentVertexHash = fieldSetFlags()[2] ? this.parentVertexHash : (java.lang.CharSequence) defaultValue(fields()[2]);
-        record.hash = fieldSetFlags()[3] ? this.hash : (java.lang.CharSequence) defaultValue(fields()[3]);
+        record.annotations = fieldSetFlags()[0] ? this.annotations : (java.util.Map<java.lang.String,java.lang.String>) defaultValue(fields()[0]);
+        record.childVertexHash = fieldSetFlags()[1] ? this.childVertexHash : (java.lang.String) defaultValue(fields()[1]);
+        record.parentVertexHash = fieldSetFlags()[2] ? this.parentVertexHash : (java.lang.String) defaultValue(fields()[2]);
+        record.hash = fieldSetFlags()[3] ? this.hash : (java.lang.String) defaultValue(fields()[3]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);
