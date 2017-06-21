@@ -126,7 +126,7 @@ public class Control {
                     synchronized (SPADEControlInLock)
                     {
                     	SPADEControlInLock.notify(); //notify the main thread that it is safe to use spadeControlIn now.
-		    }
+        		    }
 
                     while (!shutdown)
                     {

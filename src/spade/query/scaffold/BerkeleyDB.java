@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -163,7 +165,7 @@ public class BerkeleyDB
         return neighbors;
     }
 
-    public Set<String> getLineage(String hash, String direction, int maxDepth)
+    public Map<String, Set<String>> getLineage(String hash, String direction, int maxDepth)
     {
         try
         {
@@ -178,6 +180,7 @@ public class BerkeleyDB
             // query database to get the key-value
             OperationStatus operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
             List<String> ancestors = new LinkedList<>();
+            Map<String, Set<String>> lineageMap = new HashMap<>();
             if(operationStatus != OperationStatus.NOTFOUND)
             {
                 ancestors.add(hash);
@@ -195,13 +198,16 @@ public class BerkeleyDB
                         neighbors = getChildren(current_hash);
 
                     if(neighbors != null)
+                    {
+                        lineageMap.put(current_hash, neighbors);
                         ancestors.addAll(neighbors);
+                    }
 
                     i++;
                     depth++;
                 }
 
-                return new HashSet<>(ancestors);
+                return lineageMap;
             }
         }
         catch(UnsupportedEncodingException ex)
@@ -212,12 +218,27 @@ public class BerkeleyDB
         return null;
     }
 
-    public Set<String> getPaths(String source_hash, String destination_hash, int maxLength)
+    public Map<String, Set<String>> getPaths(String source_hash, String destination_hash, int maxLength)
     {
 
-        Set<String> path = getLineage(source_hash, DIRECTION_ANCESTORS, maxLength);
-        path.retainAll(getLineage(destination_hash, DIRECTION_DESCENDANTS, maxLength));
-        return path;
+        Map<String, Set<String>> lineageUp = getLineage(source_hash, DIRECTION_ANCESTORS, maxLength);
+        Map<String, Set<String>> lineageDown = getLineage(destination_hash, DIRECTION_DESCENDANTS, maxLength);
+        Map<String, Set<String>> paths = new HashMap<>();
+        Set<String> keys = lineageUp.keySet();
+        keys.retainAll(lineageDown.keySet());
+
+        for(String key: keys)
+        {
+            Set<String> pathEntry = paths.get(key);
+            if(pathEntry == null)
+            {
+                pathEntry = new HashSet<>();
+            }
+            pathEntry.addAll(lineageUp.get(key));
+            pathEntry.addAll(lineageDown.get(key));
+        }
+
+        return paths;
     }
 
 

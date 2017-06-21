@@ -76,7 +76,7 @@ public class CommonFunctions {
      * Convenience wrapper function for Long.parseLong. Suppresses the exception and returns
      * the given default value in that case
      * 
-     * @param string string to parse
+     * @param str string to parse
      * @param defaultValue value to return in case of exception
      * @return long representation of the string
      */
@@ -92,7 +92,7 @@ public class CommonFunctions {
      * Convenience wrapper function for Double.parseDouble. Suppresses the exception and returns
      * the given default value in that case
      * 
-     * @param string string to parse
+     * @param str string to parse
      * @param defaultValue value to return in case of exception
      * @return double representation of the string
      */
