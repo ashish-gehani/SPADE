@@ -50,6 +50,7 @@ public class Settings
         setProperty("source_reporter", "source_reporter");
         setProperty("direction_ancestors", "ancestors");
         setProperty("direction_descendants", "descendants");
+        setProperty("logger_level", Level.ALL.getName());
         setProperty("direction_both", "both");
         setProperty("storage_identifier", "storageID");
         setProperty("default_query_storage", "Neo4j");
