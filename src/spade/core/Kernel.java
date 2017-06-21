@@ -144,9 +144,9 @@ public class Kernel
         return shutdown;
     }
 
-    public static void setShutdown(boolean shutdown)
+    public static void setShutdown()
     {
-        Kernel.shutdown = shutdown;
+        Kernel.shutdown = true;
     }
 
     /**
@@ -186,8 +186,8 @@ public class Kernel
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <position number>";
     private static final String LIST_STRING = "list reporters|storages|analyzers|filters|sketches|transformers|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
-    private static final String EXIT_STRING = "exit";
-    private static final String SHUTDOWN_STRING = "KERNEL_SHUTDOWN";
+    public static final String EXIT_STRING = "exit";
+    private static final String KERNEL_SHUTDOWN_STRING = "kernel_shutdown";
 
     /**
      * Members for creating secure sockets
@@ -535,6 +535,11 @@ public class Kernel
      */
     public static void executeCommand(String line, PrintStream outputStream)
     {
+        if(line.equalsIgnoreCase(KERNEL_SHUTDOWN_STRING))
+        {
+            setShutdown();
+            return;
+        }
         String commandPrefix = line.split(" ", 2)[0].toLowerCase();
         switch(commandPrefix)
         {
@@ -712,7 +717,7 @@ public class Kernel
         string.append("\t" + LIST_STRING + "\n");
         string.append("\t" + CONFIG_STRING + "\n");
         string.append("\t" + EXIT_STRING + "\n");
-        string.append("\t" + SHUTDOWN_STRING);
+        string.append("\t" + KERNEL_SHUTDOWN_STRING);
         return string.toString();
     }
 
@@ -1521,6 +1526,77 @@ public class Kernel
     public static String getPidFileName(){
         return PID_FILE;
     }
+
+    private static class LocalControlConnection implements Runnable
+    {
+
+        private final Logger logger = Logger.getLogger(LocalControlConnection.class.getName());
+        private Socket controlSocket;
+
+        LocalControlConnection(Socket socket)
+        {
+            controlSocket = socket;
+        }
+
+        @Override
+        public void run()
+        {
+            try
+            {
+                OutputStream outStream = controlSocket.getOutputStream();
+                InputStream inStream = controlSocket.getInputStream();
+
+                BufferedReader controlInputStream = new BufferedReader(new InputStreamReader(inStream));
+                PrintStream controlOutputStream = new PrintStream(outStream);
+                try
+                {
+                    while (!Kernel.isShutdown())
+                    {
+                        // Commands read from the input stream and executed.
+                        try
+                        {
+                            String line = controlInputStream.readLine();
+                            if (line == null || line.equalsIgnoreCase(EXIT_STRING) || line.equalsIgnoreCase(KERNEL_SHUTDOWN_STRING))
+                            {
+                                break;
+                            }
+
+                            Kernel.executeCommand(line, controlOutputStream);
+
+                            // An empty line is printed to let the client know that the command output is complete.
+                            controlOutputStream.println("");
+
+                        }
+                        catch(SocketTimeoutException exception)
+                        {
+                            logger.log(Level.SEVERE, null, exception);
+                        }
+                    }
+                }
+                catch (IOException e)
+                {
+                    logger.log(Level.SEVERE, null, e);
+                    // Connection broken?
+                }
+                finally
+                {
+                    controlInputStream.close();
+                    controlOutputStream.close();
+
+                    inStream.close();
+                    outStream.close();
+                    if (controlSocket.isConnected())
+                    {
+                        controlSocket.close();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.log(Level.SEVERE, null, ex);
+            }
+        }
+    }
 }
 
 final class NullStream
@@ -1543,70 +1619,5 @@ final class NullStream
         @Override
         public void write(int b) {}
     });
-}
-
-class LocalControlConnection implements Runnable
-{
-
-	private final Logger logger = Logger.getLogger(LocalControlConnection.class.getName());
-    private Socket controlSocket;
-
-    LocalControlConnection(Socket socket)
-    {
-        controlSocket = socket;
-    }
-
-    @Override
-    public void run() {
-        try {
-            OutputStream outStream = controlSocket.getOutputStream();
-            InputStream inStream = controlSocket.getInputStream();
-
-            BufferedReader controlInputStream = new BufferedReader(new InputStreamReader(inStream));
-            PrintStream controlOutputStream = new PrintStream(outStream);
-            try {
-                while (!Kernel.isShutdown())
-                {
-                    // Commands read from the input stream and executed.
-                	try
-                    {
-	                    String line = controlInputStream.readLine();
-	                    if (line == null || line.equalsIgnoreCase("exit")) {
-	                        break;
-	                    }
-
-	                    Kernel.executeCommand(line, controlOutputStream);
-	                    
-                    	// An empty line is printed to let the client know that the command output is complete.
-                    	controlOutputStream.println("");
-
-                	}catch(SocketTimeoutException exception){
-                		logger.log(Level.SEVERE, null, exception);
-                	}
-                }
-            }
-            catch (IOException e)
-            {
-            	logger.log(Level.SEVERE, null, e);
-                // Connection broken?
-            }
-            finally
-            {
-                controlInputStream.close();
-                controlOutputStream.close();
-
-                inStream.close();
-                outStream.close();
-                if (controlSocket.isConnected())
-                {
-                    controlSocket.close();
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.log(Level.SEVERE, null, ex);
-        }
-    }
 }
 
