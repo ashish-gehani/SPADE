@@ -1138,7 +1138,7 @@ public class Kernel
 
                 break;
 
-            case "filter":
+            case "filters":
                 if (filters.size() == 1)
                 {
                     // The size of the filters list will always be at least 1 because
@@ -1164,7 +1164,7 @@ public class Kernel
 
                 break;
 
-            case "transformer":
+            case "transformers":
                 if (transformers.size() == 0)
                 {
                     outputStream.println("No transformers added");
@@ -1192,7 +1192,7 @@ public class Kernel
 
                 break;
 
-            case "sketch":
+            case "sketches":
                 if (sketches.isEmpty())
                 {
                     outputStream.println("No sketches added");
