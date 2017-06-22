@@ -99,7 +99,7 @@ public class Control {
         }
         catch (Exception exception)
         {
-            exception.printStackTrace();
+            System.err.println("Unable to set up secure communication context! " + exception);
         }
 
         outputStream = System.out;
@@ -125,7 +125,8 @@ public class Control {
                     
                     synchronized (SPADEControlInLock)
                     {
-                    	SPADEControlInLock.notify(); //notify the main thread that it is safe to use spadeControlIn now.
+                    	//notify the main thread that it is safe to use spadeControlIn now.
+                    	SPADEControlInLock.notify();
         		    }
 
                     while (!shutdown)
@@ -141,17 +142,10 @@ public class Control {
                         
                         if (outputLine == null)
                         {
-                            System.err.println("Error connecting to SPADE Kernel");
+                            System.err.println("Error connecting to SPADE Kernel!");
                             shutdown = true;
                         }
-
-                        //ACK[exit] is only received here when sent by this client only.
-//                        if ("ACK[exit]".equals(outputLine)){
-//                            shutdown = true;
-//                            break;
-//                        }                        
-
-                        if (outputLine != null)
+                        else
                         {
                             outputStream.println(outputLine);
                         }
@@ -170,7 +164,7 @@ public class Control {
                 {
                     if (!shutdown)
                     {
-                        System.err.println(Control.class.getName() + " Exception when communicating with SPADE Kernel! " + exception);
+                        errorStream.println(Control.class.getName() + " Exception when communicating with SPADE Kernel! " + exception);
                     }
                     System.exit(-1);
                 }
