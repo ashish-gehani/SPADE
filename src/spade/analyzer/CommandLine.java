@@ -39,7 +39,7 @@ public class CommandLine extends AbstractAnalyzer
         QUERY_LIMIT_KEY("result limit: "),
         QUERY_LIMIT_VALUE("LIMIT n"),
         QUERY_FUNCTION_LIST_KEY("available functions:"),
-        QUERY_FUNCTION_LIST_VALUE("GetVertex | GetEdge | GetChildren | GetParents |GetLineage | GetPaths"),
+        QUERY_FUNCTION_LIST_VALUE("GetVertex | GetEdge | GetChildren | GetParents | GetLineage | GetPaths"),
         QUERY_FUNCTION_ARGUMENTS_KEY("argument: "),
         QUERY_FUNCTION_ARGUMENTS_VALUE("<constraint_name> | (<constraint_name> <boolean_operator> <constraint_name>)+"),
 
@@ -49,7 +49,7 @@ public class CommandLine extends AbstractAnalyzer
         QUERY_FUNCTION_GET_PARENTS("GetParents(<arguments, limit>)"),
         QUERY_FUNCTION_GET_LINEAGE("GetLineage(<arguments, limit, direction, maxDepth>)"),
         QUERY_FUNCTION_GET_PATHS("GetPaths(<arguments, limit, direction, maxLength>)"),
-        QUERY_LIST_CONSTRAINTS("list_constraints"),
+        QUERY_LIST_CONSTRAINTS("list constraints"),
         QUERY_EXIT("exit");
 
         public String value;

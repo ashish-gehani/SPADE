@@ -135,7 +135,7 @@ public class CommandLine
                         {
                             String key = currentEntry.getKey();
                             String value = currentEntry.getValue();
-                            System.out.println(key + "\t\t | " + value);
+                            System.out.println(key + "\t\t\t | " + value);
                         }
                         System.out.println("-------------------------------------------------");
                         System.out.println();

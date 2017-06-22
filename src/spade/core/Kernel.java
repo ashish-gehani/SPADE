@@ -179,15 +179,13 @@ public class Kernel
      * Strings for control client
      */
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
-    private static final String ADD_ANALYZER_STRING = "add analyzer <class name>";
     private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <initialization arguments>";
-    private static final String ADD_SKETCH_STRING = "add sketch <class name>";
+    private static final String ADD_ANALYZER_SKETCH_STRING = "add analyzer|sketch <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING = "remove reporter|analyzer|storage|sketch <class name>";
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <position number>";
     private static final String LIST_STRING = "list reporters|storages|analyzers|filters|sketches|transformers|all";
     private static final String CONFIG_STRING = "config load|save <filename>";
     public static final String EXIT_STRING = "exit";
-    private static final String KERNEL_SHUTDOWN_STRING = "kernel_shutdown";
 
     /**
      * Members for creating secure sockets
@@ -587,7 +585,7 @@ public class Kernel
                     String configLine;
                     while ((configLine = configReader.readLine()) != null)
                     {
-                        addCommand("add " + configLine, outputStream);
+                        executeCommand(configLine, outputStream);
                     }
                 }
                 catch (Exception exception)
@@ -619,53 +617,53 @@ public class Kernel
                 try
                 {
                     FileWriter configWriter = new FileWriter(fileName, false);
-                    for (int i = 0; i < filters.size() - 1; i++)
+                    for (int filter = 0; filter < filters.size() - 1; filter++)
                     {
-                        String arguments = filters.get(i).arguments;
-                        configWriter.write("filter " + filters.get(i).getClass().getName().split("\\.")[2] + " " + i);
+                        String arguments = filters.get(filter).arguments;
+                        configWriter.write("add filter " + filters.get(filter).getClass().getName().split("\\.")[2] + " position=" + (filter+1));
                         if (arguments != null)
                         {
-                            configWriter.write(" " + arguments);
+                            configWriter.write(" " + arguments.trim());
                         }
                         configWriter.write("\n");
                     }
                     for (AbstractSketch sketch : sketches)
                     {
-                        configWriter.write("sketch " + sketch.getClass().getName().split("\\.")[2] + "\n");
+                        configWriter.write("add sketch " + sketch.getClass().getName().split("\\.")[2] + "\n");
                     }
                     for (AbstractStorage storage : storages)
                     {
                         String arguments = storage.arguments;
-                        configWriter.write("storage " + storage.getClass().getName().split("\\.")[2]);
+                        configWriter.write("add storage " + storage.getClass().getName().split("\\.")[2]);
                         if (arguments != null)
                         {
-                            configWriter.write(" " + arguments);
+                            configWriter.write(" " + arguments.trim());
                         }
                         configWriter.write("\n");
                     }
                     for(AbstractAnalyzer analyzer: analyzers)
                     {
-                        configWriter.write("analyzer " + analyzer.getClass().getName().split("\\.")[2] + "\n");
+                        configWriter.write("add analyzer " + analyzer.getClass().getName().split("\\.")[2] + "\n");
                     }
                     for (AbstractReporter reporter : reporters)
                     {
                         String arguments = reporter.arguments;
-                        configWriter.write("reporter " + reporter.getClass().getName().split("\\.")[2]);
+                        configWriter.write("add reporter " + reporter.getClass().getName().split("\\.")[2]);
                         if (arguments != null)
                         {
-                            configWriter.write(" " + arguments);
+                            configWriter.write(" " + arguments.trim());
                         }
                         configWriter.write("\n");
                     }
                     synchronized (transformers)
                     {
-                        for(int i = 0; i < transformers.size(); i++)
+                        for(int transformer = 0; transformer < transformers.size(); transformer++)
                         {
-                            String arguments = transformers.get(i).arguments;
-                            configWriter.write("transformer " + transformers.get(i).getClass().getName().split("\\.")[2] + " " + (i + 1));
+                            String arguments = transformers.get(transformer).arguments;
+                            configWriter.write("add transformer " + transformers.get(transformer).getClass().getName().split("\\.")[2] + " " + (transformer + 1));
                             if(arguments != null)
                             {
-                                configWriter.write(" " + arguments);
+                                configWriter.write(" " + arguments.trim());
                             }
                             configWriter.write("\n");
                         }
@@ -700,9 +698,9 @@ public class Kernel
         StringBuilder string = new StringBuilder();
         string.append("Available commands:\n");
         string.append("\t" + ADD_REPORTER_STORAGE_STRING + "\n");
-        string.append("\t" + ADD_ANALYZER_STRING + "\n");
+        string.append("\t" + ADD_ANALYZER_SKETCH_STRING + "\n");
         string.append("\t" + ADD_FILTER_TRANSFORMER_STRING + "\n");
-        string.append("\t" + ADD_SKETCH_STRING + "\n");
+        string.append("\t" + ADD_ANALYZER_SKETCH_STRING + "\n");
         string.append("\t" + REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING + "\n");
         string.append("\t" + REMOVE_FILTER_TRANSFORMER_STRING + "\n");
         string.append("\t" + LIST_STRING + "\n");
@@ -741,9 +739,9 @@ public class Kernel
                     }
                 }
             }
-            i = i < positionSubstring.length() ? i++ : i;
+            i = i < positionSubstring.length() ? ++i : i;
             String arguments = partOfCommand.replace(partOfCommand.substring(indexOfPosition, indexOfPosition+i), "");
-            return new SimpleEntry<String, String>(positionValue, arguments);
+            return new SimpleEntry<>(positionValue, arguments);
         }
         catch(Exception e)
         {
@@ -767,7 +765,7 @@ public class Kernel
             outputStream.println("Usage:");
             outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
             outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
-            outputStream.println("\t" + ADD_SKETCH_STRING);
+            outputStream.println("\t" + ADD_ANALYZER_SKETCH_STRING);
             return;
         }
         String moduleName = tokens[1].toLowerCase();
@@ -825,7 +823,7 @@ public class Kernel
                 if (tokens.length < 3)
                 {
                     outputStream.println("Usage:");
-                    outputStream.println("\t" + ADD_ANALYZER_STRING);
+                    outputStream.println("\t" + ADD_ANALYZER_SKETCH_STRING);
                     return;
                 }
                 logger.log(Level.INFO, "Adding analyzer: {0}", className);
@@ -1016,7 +1014,7 @@ public class Kernel
                 if (tokens.length < 3)
                 {
                     outputStream.println("Usage:");
-                    outputStream.println("\t" + ADD_SKETCH_STRING);
+                    outputStream.println("\t" + ADD_ANALYZER_SKETCH_STRING);
                     return;
                 }
                 logger.log(Level.INFO, "Adding sketch: {0}", className);
@@ -1041,9 +1039,9 @@ public class Kernel
 
             default:
                 outputStream.println("Usage:");
+                outputStream.println("\t" + ADD_ANALYZER_SKETCH_STRING);
                 outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
                 outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
-                outputStream.println("\t" + ADD_SKETCH_STRING);
         }
     }
 
@@ -1057,7 +1055,6 @@ public class Kernel
     public static void listCommand(String line, PrintStream outputStream)
     {
         String[] tokens = line.split("\\s+");
-        String verbose_token = "";
         if (tokens.length < 2)
         {
             outputStream.println("Usage:");
@@ -1199,12 +1196,12 @@ public class Kernel
                 break;
 
             case "all":
-                listCommand("list reporters " + verbose_token, outputStream);
-                listCommand("list analyzers " + verbose_token, outputStream);
-                listCommand("list storages " + verbose_token, outputStream);
-                listCommand("list filters " + verbose_token, outputStream);
-                listCommand("list transformers " + verbose_token, outputStream);
-                listCommand("list sketches " + verbose_token, outputStream);
+                listCommand("list reporters ", outputStream);
+                listCommand("list analyzers " , outputStream);
+                listCommand("list storages " , outputStream);
+                listCommand("list filters " , outputStream);
+                listCommand("list transformers " , outputStream);
+                listCommand("list sketches " , outputStream);
                 break;
 
             default:
@@ -1244,7 +1241,7 @@ public class Kernel
                     {
                         AbstractReporter reporter = reporterIterator.next();
                         // Search for the given reporter in the set of reporters.
-                        if (reporter.getClass().getName().equals("spade.reporter." + className))
+                        if (reporter.getClass().getSimpleName().equals(className))
                         {
                             // Mark the reporter for removal by adding it to the removeReporters set.
                             // This will enable the main SPADE thread to cleanly flush the reporter
@@ -1278,7 +1275,7 @@ public class Kernel
                     for (Iterator<AbstractAnalyzer> analyzerIterator = analyzers.iterator(); analyzerIterator.hasNext();)
                     {
                         AbstractAnalyzer analyzer = analyzerIterator.next();
-                        if (analyzer.getClass().getName().equals("spade.analyzer." + className))
+                        if (analyzer.getClass().getSimpleName().equals(className))
                         {
                             // Mark the analyzer for removal by adding it to the removeanalyzer set.
                             // This will enable the main SPADE thread to safely commit any transactions
@@ -1311,7 +1308,7 @@ public class Kernel
                     {
                         AbstractStorage storage = storageIterator.next();
                         // Search for the given storage in the storages set.
-                        if (storage.getClass().getName().equals("spade.storage." + className))
+                        if (storage.getClass().getSimpleName().equals(className))
                         {
                             // Mark the storage for removal by adding it to the removeStorages set.
                             // This will enable the main SPADE thread to safely commit any transactions
@@ -1365,7 +1362,7 @@ public class Kernel
                         // The (index-1)
                         // check is used because this method is not to be called on
                         // the first filter.
-                        ((AbstractFilter) filters.get(index - 2)).setNextFilter((AbstractFilter) filters.get(index));
+                        (filters.get(index - 2)).setNextFilter(filters.get(index));
                     }
                     filters.remove(index - 1);
                     logger.log(Level.INFO, "Filter Removed: {0}", className.split("\\.")[2]);
@@ -1414,7 +1411,7 @@ public class Kernel
                     {
                         AbstractSketch sketch = sketchIterator.next();
                         // Search for the given sketch in the sketches set.
-                        if (sketch.getClass().getName().equals("spade.sketch." + className))
+                        if (sketch.getClass().getSimpleName().equals(className))
                         {
                             found = true;
                             logger.log(Level.INFO, "Removing sketch {0}", className);
