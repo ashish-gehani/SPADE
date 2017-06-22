@@ -125,8 +125,6 @@ public abstract class AbstractAnalyzer
         try
         {
             port = Integer.parseInt(Settings.getProperty(socketName));
-            if(port == null)
-                return null;
             serverSocket = sslServerSocketFactory.createServerSocket(port);
             ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
             Kernel.addServerSocket(serverSocket);

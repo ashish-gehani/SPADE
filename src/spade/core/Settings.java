@@ -42,9 +42,7 @@ public class Settings
         // load general settings
         setProperty("spade_root", "./");
         setProperty("local_control_port", "19999");
-        setProperty("dig_query_port", "35353");
-        setProperty("local_query_port", "19998");
-        setProperty("remote_query_port", "29999");
+        setProperty("commandline_query_port", "19998");
         setProperty("remote_sketch_port", "29998");
         setProperty("connection_timeout", "15000");
         setProperty("source_reporter", "source_reporter");

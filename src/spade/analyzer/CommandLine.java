@@ -62,7 +62,7 @@ public class CommandLine extends AbstractAnalyzer
 
     public CommandLine()
     {
-        QUERY_PORT = "dig_query_port";
+        QUERY_PORT = "commandline_query_port";
     }
 
     @Override

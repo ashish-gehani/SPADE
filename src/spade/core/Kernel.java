@@ -499,10 +499,6 @@ public class Kernel
                     while (!shutdown)
                     {
                         Socket controlSocket = serverSocket.accept();
-                        //added time to timeout after reading from the socket
-                        // to be able to check if the kernel has been SHUTDOWN
-                        // or not and send SHUTDOWN ack to the control clients.
-                        controlSocket.setSoTimeout(CONTROL_CLIENT_READ_TIMEOUT);
                         LocalControlConnection thisConnection = new LocalControlConnection(controlSocket);
                         Thread connectionThread = new Thread(thisConnection);
                         connectionThread.start();
@@ -535,11 +531,6 @@ public class Kernel
      */
     public static void executeCommand(String line, PrintStream outputStream)
     {
-        if(line.equalsIgnoreCase(KERNEL_SHUTDOWN_STRING))
-        {
-            setShutdown();
-            return;
-        }
         String commandPrefix = line.split(" ", 2)[0].toLowerCase();
         switch(commandPrefix)
         {
@@ -717,7 +708,6 @@ public class Kernel
         string.append("\t" + LIST_STRING + "\n");
         string.append("\t" + CONFIG_STRING + "\n");
         string.append("\t" + EXIT_STRING + "\n");
-        string.append("\t" + KERNEL_SHUTDOWN_STRING);
         return string.toString();
     }
 
@@ -1556,7 +1546,7 @@ public class Kernel
                         try
                         {
                             String line = controlInputStream.readLine();
-                            if (line == null || line.equalsIgnoreCase(EXIT_STRING) || line.equalsIgnoreCase(KERNEL_SHUTDOWN_STRING))
+                            if (line == null || line.equalsIgnoreCase(EXIT_STRING))
                             {
                                 break;
                             }

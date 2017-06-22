@@ -84,7 +84,7 @@ public class CommandLine
         try
         {
             String host = "localhost";
-            int port = Integer.parseInt(Settings.getProperty("dig_query_port"));
+            int port = Integer.parseInt(Settings.getProperty("commandline_query_port"));
             SSLSocket remoteSocket = (SSLSocket) sslSocketFactory.createSocket(host, port);
 
             OutputStream outStream = remoteSocket.getOutputStream();
