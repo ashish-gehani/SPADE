@@ -1291,6 +1291,7 @@ public class Kernel
                             }
                             analyzerIterator.remove();
                             logger.log(Level.INFO, "Analyzer shut down: {0})", className);
+                            outputStream.println("done");
                             break;
                         }
                     }

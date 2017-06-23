@@ -151,7 +151,7 @@ public class CommandLine extends AbstractAnalyzer
                         {
                             if(result instanceof Graph)
                             {
-                                if(isremoteResolutionRequired())
+                                if(isRemoteResolutionRequired())
                                 {
                                     //TODO: Could use a factory pattern here to get remote resolver
                                     remoteResolver = new Recursive((Graph) result, functionName, 0, null);
@@ -159,8 +159,10 @@ public class CommandLine extends AbstractAnalyzer
                                     remoteResolverThread.start();
                                     // wait for thread to complete to get the final graph
                                     remoteResolverThread.join();
+                                    // final graph is a set of unstitched graphs
                                     result = remoteResolver.getFinalGraph();
                                     clearRemoteResolutionRequired();
+                                    // TODO: perform consistency check here - Carol
                                 }
                                 result = iterateTransformers((Graph) result, line);
                             }

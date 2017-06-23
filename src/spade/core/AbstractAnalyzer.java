@@ -44,7 +44,7 @@ public abstract class AbstractAnalyzer
         remoteResolutionRequired = false;
     }
 
-    public static boolean isremoteResolutionRequired()
+    public static boolean isRemoteResolutionRequired()
     {
         return remoteResolutionRequired;
     }

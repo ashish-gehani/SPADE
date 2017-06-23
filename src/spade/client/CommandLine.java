@@ -140,7 +140,12 @@ public class CommandLine
                         System.out.println("-------------------------------------------------");
                         System.out.println();
                     }
-                    else if(DigQueryCommands.QUERY_FUNCTION_LIST_VALUE.value.contains(line))
+                    else if(line.contains("="))
+                    {
+                        // probably a constraint
+                        createConstraint(line);
+                    }
+                    else if(line.contains("("))
                     {
                         // send line to analyzer
                         String query = parseQuery(line);
@@ -153,11 +158,6 @@ public class CommandLine
                         System.out.println("Return type -> " + returnType);
                         System.out.println(resultString);
                         System.out.println("Time taken for query: " + elapsed_time + " ms");
-                    }
-                    else if(line.contains("="))
-                    {
-                        // probably a constraint
-                        createConstraint(line);
                     }
                     else
                     {
