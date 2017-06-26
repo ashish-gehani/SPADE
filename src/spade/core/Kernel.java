@@ -832,10 +832,14 @@ public class Kernel
                 try
                 {
                     analyzer = (AbstractAnalyzer) Class.forName("spade.analyzer." + className).newInstance();
-                    analyzer.init();
-                    analyzers.add(analyzer);
-                    logger.log(Level.INFO, "Analyzer added: {0}", className);
-                    outputStream.println("done");
+                    if(analyzer.initialize())
+                    {
+                        analyzers.add(analyzer);
+                        logger.log(Level.INFO, "Analyzer added: {0}", className);
+                        outputStream.println("done");
+                    }
+                    else
+                        outputStream.println("failed");
                 }
                 catch(ClassNotFoundException | InstantiationException | IllegalAccessException ex)
                 {

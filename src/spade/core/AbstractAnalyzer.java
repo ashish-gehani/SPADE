@@ -10,6 +10,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -26,6 +27,7 @@ public abstract class AbstractAnalyzer
     public String QUERY_PORT;
     protected AbstractResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
+    protected boolean USE_TRANSFORMER = false;
     private static Map<String, List<String>> functionToClassMap;
 
     /**
@@ -49,7 +51,7 @@ public abstract class AbstractAnalyzer
         return remoteResolutionRequired;
     }
 
-    public abstract void init();
+    public abstract boolean initialize();
 
     public AbstractAnalyzer()
     {
@@ -65,6 +67,7 @@ public abstract class AbstractAnalyzer
         }
         catch(IOException ex)
         {
+            functionToClassMap = new HashMap<>();
             Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!", ex);
         }
     }
@@ -85,7 +88,7 @@ public abstract class AbstractAnalyzer
         {
             Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to write functionToClassMap to file!", ex);
         }
-        // signal to analyzer instances
+        // signal to analyzer
         SHUTDOWN = true;
     }
 
@@ -133,6 +136,7 @@ public abstract class AbstractAnalyzer
         {
             String message = "Socket " + socketName + " creation unsuccessful at port # " + port;
             Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, message, ex);
+            return null;
         }
 
         return serverSocket;

@@ -66,35 +66,41 @@ public class CommandLine extends AbstractAnalyzer
     }
 
     @Override
-    public void init()
+    public boolean initialize()
     {
-        Runnable queryRunnable = new Runnable()
+        try
         {
-            @Override
-            public void run()
+            Runnable queryRunnable = new Runnable()
             {
-                try
+                @Override
+                public void run()
                 {
-                    ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
-                    while(!Kernel.isShutdown() && !SHUTDOWN)
+                    try
                     {
-                        Socket querySocket = serverSocket.accept();
-                        QueryConnection thisConnection = new QueryConnection(querySocket);
-                        Thread connectionThread = new Thread(thisConnection);
-                        connectionThread.start();
+                        ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
+                        while(!Kernel.isShutdown() && !SHUTDOWN)
+                        {
+                            Socket querySocket = serverSocket.accept();
+                            QueryConnection thisConnection = new QueryConnection(querySocket);
+                            Thread connectionThread = new Thread(thisConnection);
+                            connectionThread.start();
+                        }
                     }
-                } catch(SocketException exception)
-                {
-                    //TODO: how?
-                    // Do nothing... this is triggered on KERNEL_SHUTDOWN.
-                } catch(NumberFormatException | IOException ex)
-                {
-                    Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
+                    catch(NumberFormatException | IOException ex)
+                    {
+                        Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
-            }
-        };
-        Thread queryThread = new Thread(queryRunnable, "querySocket-Thread");
-        queryThread.start();
+            };
+            Thread queryThread = new Thread(queryRunnable, "querySocket-Thread");
+            queryThread.start();
+            return true;
+        }
+        catch(Exception ex)
+        {
+            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
     }
 
     /**
@@ -164,7 +170,8 @@ public class CommandLine extends AbstractAnalyzer
                                     clearRemoteResolutionRequired();
                                     // TODO: perform consistency check here - Carol
                                 }
-                                result = iterateTransformers((Graph) result, line);
+                                if(USE_TRANSFORMER)
+                                    result = iterateTransformers((Graph) result, line);
                             }
                             queryOutputStream.writeObject(returnType);
                             queryOutputStream.writeObject(result.toString());

@@ -180,8 +180,8 @@ public class CommandLine
     {
         Pattern pattern = Pattern.compile("((?<=(=))|(?=(=)))");
         String[] tokens = pattern.split(line, 3);
-        String constraint_name = tokens[0];
-        String constraint_expression = tokens[2];
+        String constraint_name = tokens[0].trim();
+        String constraint_expression = tokens[2].trim();
         constraints.put(constraint_name, constraint_expression);
     }
 
