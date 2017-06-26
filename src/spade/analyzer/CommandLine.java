@@ -70,6 +70,8 @@ public class CommandLine extends AbstractAnalyzer
     {
         try
         {
+            ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
+            Kernel.addServerSocket(serverSocket);
             Runnable queryRunnable = new Runnable()
             {
                 @Override
@@ -77,7 +79,6 @@ public class CommandLine extends AbstractAnalyzer
                 {
                     try
                     {
-                        ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
                         while(!Kernel.isShutdown() && !SHUTDOWN)
                         {
                             Socket querySocket = serverSocket.accept();
@@ -221,7 +222,7 @@ public class CommandLine extends AbstractAnalyzer
                 // The format for one argument is:
                 // <key> ARITHMETIC_OPERATOR <value> [BOOLEAN_OPERATOR]
                 Pattern constraints_pattern = Pattern.compile("((?i)(?<=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + "))|" +
-                        "((?i)?=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + ")))");
+                        "((?i)(?=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + "))))");
                 String[] expressions = constraints_pattern.split(constraints);
 
                 // extract the key value pairs

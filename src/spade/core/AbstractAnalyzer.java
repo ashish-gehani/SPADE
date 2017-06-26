@@ -60,12 +60,13 @@ public abstract class AbstractAnalyzer
         File file = new File(file_name);
         try
         {
-            FileOutputStream fos = new FileOutputStream(file);
-            ObjectOutputStream oos = new ObjectOutputStream(fos);
-            oos.writeObject(functionToClassMap);
-            oos.close();
+            FileInputStream fis = new FileInputStream(file);
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            functionToClassMap = (Map<String, List<String>>) ois.readObject();
+            ois.close();
+            fis.close();
         }
-        catch(IOException ex)
+        catch(IOException | ClassNotFoundException ex)
         {
             functionToClassMap = new HashMap<>();
             Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!", ex);
@@ -79,12 +80,14 @@ public abstract class AbstractAnalyzer
         File file = new File(file_name);
         try
         {
-            FileInputStream fis = new FileInputStream(file);
-            ObjectInputStream ois = new ObjectInputStream(fis);
-            functionToClassMap = (Map<String, List<String>>) ois.readObject();
-            ois.close();
+            FileOutputStream fos = new FileOutputStream(file);
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(functionToClassMap);
+            oos.flush();
+            oos.close();
+            fos.close();
         }
-        catch(IOException | ClassNotFoundException ex)
+        catch(IOException ex)
         {
             Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to write functionToClassMap to file!", ex);
         }
@@ -123,7 +126,7 @@ public abstract class AbstractAnalyzer
 
     public static ServerSocket getServerSocket(String socketName)
     {
-        ServerSocket serverSocket = null;
+        ServerSocket serverSocket;
         Integer port = null;
         try
         {
