@@ -204,18 +204,18 @@ public class CommandLine extends AbstractAnalyzer
                 // Step1: get the function name
                 Pattern token_pattern = Pattern.compile("\\(");
                 String[] tokens = token_pattern.split(query_line);
-                functionName = tokens[0];
+                functionName = tokens[0].trim();
                 String argument_string = tokens[1].substring(0, tokens[1].length() - 1);
                 Pattern argument_pattern = Pattern.compile(",");
                 String[] arguments = argument_pattern.split(argument_string);
-                String constraints = arguments[0];
+                String constraints = arguments[0].trim();
                 resultLimit = 1;
                 if(arguments.length >= 2)
-                    resultLimit = Integer.parseInt(arguments[1]);
+                    resultLimit = Integer.parseInt(arguments[1].trim());
                 if(arguments.length > 2)
                 {
-                    direction = arguments[2];
-                    maxLength = arguments[3];
+                    direction = arguments[2].trim();
+                    maxLength = arguments[3].trim();
                 }
 
                 // Step2: get the argument expression(s), split by the boolean operators

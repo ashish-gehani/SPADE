@@ -1,5 +1,8 @@
 package spade.core;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,11 +43,12 @@ public abstract class AbstractQuery<R, P>
     {
         try
         {
+            Class[] paramTypes = new Class[]{java.util.Map.class, java.lang.Integer.class};
             if(!hasRegistered)
             {
                 AbstractAnalyzer.registerFunction(this.getClass().getSimpleName(),
                         this.getClass().getName(),
-                        this.getClass().getMethod("execute").getReturnType().toString());
+                        this.getClass().getDeclaredMethod("execute", paramTypes).getReturnType().toString());
                 hasRegistered = true;
             }
         }

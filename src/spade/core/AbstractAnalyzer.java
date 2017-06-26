@@ -107,7 +107,12 @@ public abstract class AbstractAnalyzer
         List<String> values = functionToClassMap.get(functionName);
         if(values == null)
         {
-            values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
+            //TODO: create all query classes with abstractanalyzer beforehand
+            if(functionName.equals("GetLineage") || functionName.equals("GetPaths"))
+                values = Arrays.asList("spade.query.common." + functionName, "Graph");
+            else
+                values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
+            functionToClassMap.put(functionName, values);
         }
 
         return values.get(0);
@@ -148,7 +153,7 @@ public abstract class AbstractAnalyzer
     protected abstract class QueryConnection implements Runnable
     {
         protected Socket querySocket;
-        protected Map<String, List<String>> queryParameters;
+        protected Map<String, List<String>> queryParameters = new HashMap<>();
         protected String queryConstraints;
         protected String functionName;
         protected String queryStorage;
@@ -199,4 +204,5 @@ public abstract class AbstractAnalyzer
             return graph;
         }
     }
+
 }
