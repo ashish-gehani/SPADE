@@ -98,6 +98,15 @@ public class Graph extends AbstractStorage implements Serializable
     private Directory edgeIndex;
     private transient IndexWriter vertexIndexWriter;
     private transient IndexWriter edgeIndexWriter;
+
+    /**
+     * Fields for Consistency check
+     */
+    private String hostName;
+    private String time;
+    private String maxDepth;
+    private String rootHash;
+    private String signature;
     
     public void mergeThreads() {
 

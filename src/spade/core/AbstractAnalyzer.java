@@ -109,12 +109,11 @@ public abstract class AbstractAnalyzer
         {
             //TODO: create all query classes with abstractanalyzer beforehand
             if(functionName.equals("GetLineage") || functionName.equals("GetPaths"))
-                values = Arrays.asList("spade.query.common." + functionName, "Graph");
+                values = Arrays.asList("spade.query.common." + functionName, "spade.query.common.GetLineage");
             else
                 values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
             functionToClassMap.put(functionName, values);
         }
-
         return values.get(0);
     }
 
@@ -204,5 +203,4 @@ public abstract class AbstractAnalyzer
             return graph;
         }
     }
-
 }

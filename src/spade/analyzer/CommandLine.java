@@ -152,6 +152,8 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         parseQuery(line);
                         AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
+                        Exception ex=null;
+                        Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.INFO, getReturnType(functionName), ex);
                         Class<?> returnType = Class.forName(getReturnType(functionName));
                         Object result = queryClass.execute(queryParameters, resultLimit);
                         if(result != null && result.getClass().isAssignableFrom(returnType))
