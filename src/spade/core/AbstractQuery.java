@@ -48,7 +48,7 @@ public abstract class AbstractQuery<R, P>
             {
                 AbstractAnalyzer.registerFunction(this.getClass().getSimpleName(),
                         this.getClass().getName(),
-                        this.getClass().getDeclaredMethod("execute", paramTypes).getReturnType().toString());
+                        this.getClass().getDeclaredMethod("execute", paramTypes).getReturnType().getName());
                 hasRegistered = true;
             }
         }

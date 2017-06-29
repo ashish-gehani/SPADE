@@ -504,7 +504,7 @@ public class Kernel
                 }
                 catch (SocketException exception)
                 {
-                    // Do nothing... this is triggered on KERNEL_SHUTDOWN.
+                    // Do nothing... this is triggered on shutdown.
                 }
                 catch (NumberFormatException | IOException exception)
                 {
