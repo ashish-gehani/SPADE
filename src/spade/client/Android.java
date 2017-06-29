@@ -86,9 +86,9 @@ public class Android {
             SPADEControlIn = new PrintStream(outStream);
             new Thread(outputReader).start();
 
-            if (args.length == 1 && args[0].equals("KERNEL_SHUTDOWN")) {
+            if (args.length == 1 && args[0].equals("shutdown")) {
                 shutdown = true;
-                SPADEControlIn.println("KERNEL_SHUTDOWN");
+                SPADEControlIn.println("shutdown");
                 SPADEControlIn.close();
                 return;
             }
@@ -105,9 +105,9 @@ public class Android {
                     SPADEControlIn.println("exit");
                     SPADEControlIn.close();
                     break;
-                } else if (line.equalsIgnoreCase("KERNEL_SHUTDOWN")) {
+                } else if (line.equalsIgnoreCase("shutdown")) {
                     shutdown = true;
-                    SPADEControlIn.println("KERNEL_SHUTDOWN");
+                    SPADEControlIn.println("shutdown");
                     SPADEControlIn.close();
                     break;
                 } else {
