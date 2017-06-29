@@ -20,15 +20,15 @@
 
 package spade.transformer;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.FileUtility;
+
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class OPM2ProvTC extends OPM2Prov{
 	
@@ -54,13 +54,13 @@ public class OPM2ProvTC extends OPM2Prov{
 		Graph resultGraph = new Graph();
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 				replaceAnnotations(newEdge.getAnnotations(), opm2ProvTCMapping);
-				replaceAnnotations(newEdge.getSourceVertex().getAnnotations(), opm2ProvTCMapping);
-				replaceAnnotations(newEdge.getDestinationVertex().getAnnotations(), opm2ProvTCMapping);
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+				replaceAnnotations(newEdge.getChildVertex().getAnnotations(), opm2ProvTCMapping);
+				replaceAnnotations(newEdge.getParentVertex().getAnnotations(), opm2ProvTCMapping);
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

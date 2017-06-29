@@ -21,8 +21,8 @@
  */
 package spade.reporter.bitcoin;
 
-import org.json.JSONObject;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 public class Vin {
     String txid; 

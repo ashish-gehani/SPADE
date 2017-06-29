@@ -19,32 +19,9 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -77,6 +54,29 @@ import spade.utility.Hasher;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -2930,7 +2930,8 @@ public class Audit extends AbstractReporter {
 				agent.addAnnotation(OPMConstants.AGENT_SGID, annotationsToUpdate.get(OPMConstants.AGENT_SGID));
 				agent.addAnnotation(OPMConstants.AGENT_FSGID, annotationsToUpdate.get(OPMConstants.AGENT_FSGID));
 			}
-			String agentHash = Hex.encodeHexString(agent.bigHashCode());
+			String agentHash = null;
+			agentHash = org.apache.commons.codec.binary.Hex.encodeHexString(agent.bigHashCodeBytes());
 			if(!agentHashes.contains(agentHash)){
 				agentHashes.add(agentHash);
 				putVertex(agent);
@@ -2943,8 +2944,9 @@ public class Audit extends AbstractReporter {
 			wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
 			wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
 			wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
-			
-			String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
+
+			String edgeHash = null;
+			edgeHash = org.apache.commons.codec.binary.Hex.encodeHexString(wasControlledBy.bigHashCodeBytes());
 			if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
 				pidToAgentEdgeHashes.get(pid).add(edgeHash);
 				putEdge(wasControlledBy);
@@ -3350,15 +3352,15 @@ public class Audit extends AbstractReporter {
 		//destination is new so mark epoch
 		markNewEpochForArtifact(dstArtifactIdentifier);
 
-		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
-		Used used = new Used(process, srcVertex);
+		Artifact childVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
+		Used used = new Used(process, childVertex);
 		putEdge(used, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
 
-		Artifact dstVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
-		WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
+		Artifact parentVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
+		WasGeneratedBy wgb = new WasGeneratedBy(parentVertex, process);
 		putEdge(wgb, getOperation(syscall, SYSCALL.WRITE), time, eventId, OPMConstants.SOURCE_AUDIT);
 
-		WasDerivedFrom wdf = new WasDerivedFrom(dstVertex, srcVertex);
+		WasDerivedFrom wdf = new WasDerivedFrom(parentVertex, childVertex);
 		wdf.addAnnotation(OPMConstants.EDGE_PID, pid);
 		putEdge(wdf, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
 	}
@@ -3856,10 +3858,10 @@ public class Audit extends AbstractReporter {
 	 * {@link #BEEP beep}
 	 */
 	private void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
-		if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 			if(!UNIX_SOCKETS && 
-					(isUnixSocketArtifact(edge.getSourceVertex()) ||
-							isUnixSocketArtifact(edge.getDestinationVertex()))){
+					(isUnixSocketArtifact(edge.getChildVertex()) ||
+							isUnixSocketArtifact(edge.getParentVertex()))){
 				return;
 			}
 			if(time != null){
@@ -3876,8 +3878,8 @@ public class Audit extends AbstractReporter {
 			}
 			putEdge(edge);
 		}else{
-			log(Level.WARNING, "Failed to put edge. edge = "+edge+", sourceVertex = "+(edge != null ? edge.getSourceVertex() : null)+", "
-					+ "destination vertex = "+(edge != null ? edge.getDestinationVertex() : null)+", operation = "+operation+", "
+			log(Level.WARNING, "Failed to put edge. edge = "+edge+", childVertex = "+(edge != null ? edge.getChildVertex() : null)+", "
+					+ "destination vertex = "+(edge != null ? edge.getParentVertex() : null)+", operation = "+operation+", "
 					+ "time = "+time+", eventId = "+eventId+", source = " + source, null, time, eventId, SYSCALL.valueOf(operation.toUpperCase()));
 		}
 	}
@@ -4485,7 +4487,8 @@ public class Audit extends AbstractReporter {
 						agent.addAnnotation(OPMConstants.AGENT_SGID, annotations.get(OPMConstants.AGENT_SGID));
 						agent.addAnnotation(OPMConstants.AGENT_FSGID, annotations.get(OPMConstants.AGENT_FSGID));
 					}
-					String agentHash = Hex.encodeHexString(agent.bigHashCode());
+					String agentHash = null;
+					agentHash = org.apache.commons.codec.binary.Hex.encodeHexString(agent.bigHashCodeBytes());
 					if(!agentHashes.contains(agentHash)){
 						agentHashes.add(agentHash);
 						putVertex(agent);
@@ -4498,8 +4501,9 @@ public class Audit extends AbstractReporter {
 					wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
 					wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
 					wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
-					
-					String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
+
+					String edgeHash = null;
+					edgeHash = org.apache.commons.codec.binary.Hex.encodeHexString(wasControlledBy.bigHashCodeBytes());
 					if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
 						pidToAgentEdgeHashes.get(pid).add(edgeHash);
 						putEdge(wasControlledBy);

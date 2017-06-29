@@ -19,11 +19,11 @@
  */
 package spade.core;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is the class from which other vertex classes (e.g., OPM vertices) are
@@ -34,13 +34,19 @@ import org.apache.commons.codec.digest.DigestUtils;
 public abstract class AbstractVertex implements Serializable {
 
     /**
-	 * 
-	 */
-	private static final long serialVersionUID = 4766085487390172973L;
-	/**
      * A map containing the annotations for this vertex.
      */
     protected Map<String, String> annotations = new HashMap<>();
+
+    /**
+     * Checks if vertex is empty
+     *
+     * @return Returns true if vertex contains no annotation
+     */
+    public final boolean isEmpty()
+    {
+        return annotations.size() == 0;
+    }
 
     /**
      * Returns the map containing the annotations for this vertex.
@@ -107,55 +113,48 @@ public abstract class AbstractVertex implements Serializable {
         return annotations.get("type");
     }
 
-    @Override
-    public boolean equals(Object thatObject) {
-        if (this == thatObject) {
-            return true;
-        }
-        if (!(thatObject instanceof AbstractVertex)) {
-            return false;
-        }
-        AbstractVertex thatVertex = (AbstractVertex) thatObject;
-        return (this.annotations.equals(thatVertex.annotations));
+    /**
+     * Computes MD5 hash of annotations in the vertex.
+     *
+     @return A 128-bit hash digest.
+     */
+    public String bigHashCode()
+    {
+        return DigestUtils.md5Hex(this.toString());
     }
 
-    /**
-     * Computes a function of the annotations in the vertex.
-     *
-     * This takes less time to compute than bigHashCode() but is less collision-resistant.
-     *
-     * @return An integer-valued hash code.
-     */
-    @Override
-    public int hashCode() {
-        final int seed1 = 67;
-        final int seed2 = 3;
-        int hashCode = seed2;
-        hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        return hashCode;
-    }
 
-    @Override
-    public String toString() {
-        StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
-            result.append(currentEntry.getKey());
-            result.append(":");
-            result.append(currentEntry.getValue());
-            result.append("|");
-        }
-        return result.substring(0, result.length() - 1);
-    }
-    
     /**
-     * Computes MD5 of the annotations in the vertex.
-     *
-     * This takes longer to compute than hashCode() but is more collision-resistant.
-     *
-     @return A 128-bit hash value.
+     * Computes MD5 hash of annotations in the vertex
+     * @return 16 element byte array of the digest.
      */
-    public byte[] bigHashCode() {
-        
+    public byte[] bigHashCodeBytes()
+    {
         return DigestUtils.md5(this.toString());
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if(this == obj) return true;
+        if(!(obj instanceof AbstractVertex)) return false;
+
+        AbstractVertex vertex = (AbstractVertex) obj;
+
+        return annotations.equals(vertex.annotations);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return annotations.hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return "AbstractVertex{" +
+                "annotations=" + annotations +
+                '}';
     }
 }

@@ -31,14 +31,14 @@ public class NoMemory extends AbstractTransformer{
 	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge.getSourceVertex(), OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_MEMORY_ADDRESS) 
-					|| getAnnotationSafe(edge.getDestinationVertex(), OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_MEMORY_ADDRESS)){
+			if(getAnnotationSafe(edge.getChildVertex(), OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_MEMORY_ADDRESS)
+					|| getAnnotationSafe(edge.getParentVertex(), OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_MEMORY_ADDRESS)){
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);	
 			}
 		}

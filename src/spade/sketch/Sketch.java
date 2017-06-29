@@ -19,44 +19,71 @@
  */
 package spade.sketch;
 
+import spade.core.AbstractEdge;
+import spade.core.AbstractSketch;
+import spade.core.AbstractVertex;
+import spade.core.BloomFilter;
+import spade.core.Graph;
+import spade.core.Kernel;
+import spade.core.MatrixFilter;
+import spade.core.Settings;
+import spade.query.common.GetLineage;
+import spade.query.sql.postgresql.GetVertex;
+
+import javax.net.ssl.SSLSocket;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.net.ssl.SSLSocket;
-import spade.core.*;
 
-public class Sketch extends AbstractSketch {
+import static spade.core.AbstractQuery.OPERATORS;
+import static spade.core.AbstractResolver.DESTINATION_HOST;
+import static spade.core.AbstractResolver.DESTINATION_PORT;
+import static spade.core.AbstractResolver.SOURCE_HOST;
+import static spade.core.AbstractResolver.SOURCE_PORT;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
+
+// TODO: Work in Progress here.
+public class Sketch extends AbstractSketch
+{
 
     private static final double falsePositiveProbability = 0.1;
     private static final int expectedSize = 20;
     private static final Logger logger = Logger.getLogger(Sketch.class.getName());
     private static final boolean USE_CACHE = false;
 
-    public Sketch() {
+    public Sketch()
+    {
         matrixFilter = new MatrixFilter(falsePositiveProbability, expectedSize);
         objects = new HashMap<>();
     }
 
     @Override
-    public void putVertex(AbstractVertex incomingVertex) {
-    }
+    public void putVertex(AbstractVertex incomingVertex) {}
 
     @Override
-    public void putEdge(AbstractEdge incomingEdge) {
-        try {
+    public void putEdge(AbstractEdge incomingEdge)
+    {
+        try
+        {
             if (incomingEdge.type().equalsIgnoreCase("Used")
-                    && incomingEdge.getDestinationVertex().getAnnotation("network").equalsIgnoreCase("true")) {
+                    && incomingEdge.getParentVertex().getAnnotation("network").equalsIgnoreCase("true"))
+            {
                 // Connection was created to this host
-                AbstractVertex networkVertex = incomingEdge.getDestinationVertex();
+                AbstractVertex networkVertex = incomingEdge.getParentVertex();
                 String remoteHost = networkVertex.getAnnotation("destination host");
                 String localHost = networkVertex.getAnnotation("source host");
-                if (!USE_CACHE || (USE_CACHE && !Kernel.remoteSketches.containsKey(remoteHost))) {
+                if (!USE_CACHE || (USE_CACHE && !Kernel.remoteSketches.containsKey(remoteHost)))
+                {
                     logger.log(Level.INFO, "concreteSketch - Attempting to receive sketches from {0}", remoteHost);
                     int port = Integer.parseInt(Settings.getProperty("remote_sketch_port"));
                     SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(remoteHost, port);
@@ -85,24 +112,30 @@ public class Sketch extends AbstractSketch {
                 }
                 // Update sketch bloom filters
                 BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(networkVertex);
-                if (newAncestors != null) {
+                if (newAncestors != null)
+                {
                     logger.log(Level.INFO, "concreteSketch - Found bloomfilter for networkVertex");
                     Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
                     new Thread(update).start();
                 }
-            } else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")
-                    && incomingEdge.getSourceVertex().getAnnotation("network").equalsIgnoreCase("true")) {
-                AbstractVertex networkVertex = incomingEdge.getSourceVertex();
+            }
+            else if (incomingEdge.type().equalsIgnoreCase("WasGeneratedBy")
+                    && incomingEdge.getChildVertex().getAnnotation("network").equalsIgnoreCase("true"))
+            {
+                AbstractVertex networkVertex = incomingEdge.getChildVertex();
                 Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
                 new Thread(update).start();
             }
-        } catch (NumberFormatException | IOException | ClassNotFoundException exception) {
+        }
+        catch (NumberFormatException | IOException | ClassNotFoundException exception)
+        {
             Logger.getLogger(Sketch.class.getName()).log(Level.SEVERE, null, exception);
         }
     }
 }
 
-class updateMatrixThread implements Runnable {
+class updateMatrixThread implements Runnable
+{
 
     private final AbstractSketch sketch;
     private final AbstractVertex vertex;
@@ -110,31 +143,50 @@ class updateMatrixThread implements Runnable {
     private static final Logger logger = Logger.getLogger(updateMatrixThread.class.getName());
     private static final String ID_STRING = Settings.getProperty("storage_identifier");
 
-    public updateMatrixThread(AbstractSketch workingSketch, AbstractVertex networkVertex, String edgeType) {
+    public updateMatrixThread(AbstractSketch workingSketch, AbstractVertex networkVertex, String edgeType)
+    {
         sketch = workingSketch;
         vertex = networkVertex;
         type = edgeType;
     }
 
     @Override
-    public void run() {
+    public void run()
+    {
         String storageId = getStorageId(vertex);
-        if (type.equalsIgnoreCase("Used")) {
+        if (type.equalsIgnoreCase("Used"))
+        {
             logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for USED edge for storageId: {0}", storageId);
             String remoteHost = vertex.getAnnotation("destination host");
             BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(vertex);
-            Graph descendants = Query.executeQuery("query Neo4j lineage " + storageId + " 20 d null", false);
-            for (AbstractVertex currentVertex : descendants.vertexSet()) {
-                if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
+            GetLineage getLineage = new GetLineage();
+            Map<String, List<String>> lineageParams = new HashMap<>();
+            lineageParams.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, storageId));
+            lineageParams.put("direction", Collections.singletonList("descendants"));
+            lineageParams.put("maxDepth", Collections.singletonList("20"));
+            Graph descendants = getLineage.execute(lineageParams, 100);
+            for (AbstractVertex currentVertex : descendants.vertexSet())
+            {
+                if (currentVertex.getAnnotation("network").equalsIgnoreCase("true"))
+                {
                     sketch.matrixFilter.updateAncestors(currentVertex, newAncestors);
                 }
             }
             logger.log(Level.INFO, "concreteSketch - Updated bloomfilters for USED edge - storageId: {0}", storageId);
-        } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
+        }
+        else if (type.equalsIgnoreCase("WasGeneratedBy"))
+        {
             logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for WGB edge for storageId: {0}", storageId);
-            Graph ancestors = Query.executeQuery("query Neo4j lineage " + storageId + " 20 a null", false);
-            for (AbstractVertex currentVertex : ancestors.vertexSet()) {
-                if (currentVertex.getAnnotation("network").equalsIgnoreCase("true")) {
+            GetLineage getLineage = new GetLineage();
+            Map<String, List<String>> lineageParams = new HashMap<>();
+            lineageParams.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, storageId));
+            lineageParams.put("direction", Collections.singletonList("ancestors"));
+            lineageParams.put("maxDepth", Collections.singletonList("20"));
+            Graph ancestors = getLineage.execute(lineageParams, 100);
+            for (AbstractVertex currentVertex : ancestors.vertexSet())
+            {
+                if (currentVertex.getAnnotation("network").equalsIgnoreCase("true"))
+                {
                     sketch.matrixFilter.add(vertex, currentVertex);
                 }
             }
@@ -142,19 +194,24 @@ class updateMatrixThread implements Runnable {
         }
     }
 
-    private String getStorageId(AbstractVertex networkVertex) {
-        try {
+    private String getStorageId(AbstractVertex networkVertex)
+    {
+        try
+        {
+            GetVertex getVertex = new GetVertex();
             logger.log(Level.INFO, "concreteSketch - Getting storageId of networkVertex");
-            String vertexQueryExpression = "query Neo4j vertices";
-            vertexQueryExpression += " source\\ host:" + networkVertex.getAnnotation("source host");
-            vertexQueryExpression += " AND source\\ port:" + networkVertex.getAnnotation("source port");
-            vertexQueryExpression += " AND destination\\ host:" + networkVertex.getAnnotation("destination host");
-            vertexQueryExpression += " AND destination\\ port:" + networkVertex.getAnnotation("destination port");
-            Graph result = Query.executeQuery(vertexQueryExpression, false);
-            AbstractVertex resultVertex = result.vertexSet().iterator().next();
+            Map<String, List<String>> vertexParams = new HashMap<>();
+            vertexParams.put(SOURCE_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_HOST)));
+            vertexParams.put(SOURCE_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_PORT)));
+            vertexParams.put(DESTINATION_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_HOST)));
+            vertexParams.put(DESTINATION_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_PORT)));
+            Set<AbstractVertex> vertexSet = getVertex.execute(vertexParams, 100);
+            AbstractVertex resultVertex = vertexSet.iterator().next();
             logger.log(Level.INFO, "concreteSketch - Returning storageId: {0}", resultVertex.getAnnotation(ID_STRING));
             return resultVertex.getAnnotation(ID_STRING);
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             Logger.getLogger(Sketch.class.getName()).log(Level.SEVERE, null, exception);
             return null;
         }

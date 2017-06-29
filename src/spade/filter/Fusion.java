@@ -19,6 +19,12 @@
  */
 package spade.filter;
 
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.core.Settings;
+import spade.core.Vertex;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.HashMap;
@@ -26,11 +32,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.core.Settings;
-import spade.core.Vertex;
 
 public class Fusion extends AbstractFilter {
 
@@ -121,11 +122,11 @@ public class Fusion extends AbstractFilter {
     public void putEdge(AbstractEdge incomingEdge) {
         // Determine if the source or destination vertices of this edge have been
         // fused before. If yes, then replace them with the fused vertices
-        if (fusedVertices.containsKey(incomingEdge.getSourceVertex())) {
-            incomingEdge.setSourceVertex(fusedVertices.get(incomingEdge.getSourceVertex()));
+        if (fusedVertices.containsKey(incomingEdge.getChildVertex())) {
+            incomingEdge.setChildVertex(fusedVertices.get(incomingEdge.getChildVertex()));
         }
-        if (fusedVertices.containsKey(incomingEdge.getDestinationVertex())) {
-            incomingEdge.setDestinationVertex(fusedVertices.get(incomingEdge.getDestinationVertex()));
+        if (fusedVertices.containsKey(incomingEdge.getParentVertex())) {
+            incomingEdge.setParentVertex(fusedVertices.get(incomingEdge.getParentVertex()));
         }
 
         // Determine the source reporter of the incoming vertex so that it is added
@@ -230,10 +231,10 @@ public class Fusion extends AbstractFilter {
                 firstList.set(i, fusedVertex);
             } else if (firstList.get(i) instanceof AbstractEdge) {
                 AbstractEdge tempEdge = (AbstractEdge) firstList.get(i);
-                if (tempEdge.getSourceVertex().equals(firstVertex)) {
-                    tempEdge.setSourceVertex(fusedVertex);
-                } else if (tempEdge.getDestinationVertex().equals(firstVertex)) {
-                    tempEdge.setDestinationVertex(fusedVertex);
+                if (tempEdge.getChildVertex().equals(firstVertex)) {
+                    tempEdge.setChildVertex(fusedVertex);
+                } else if (tempEdge.getParentVertex().equals(firstVertex)) {
+                    tempEdge.setParentVertex(fusedVertex);
                 }
             }
         }
@@ -243,10 +244,10 @@ public class Fusion extends AbstractFilter {
                 secondList.set(i, fusedVertex);
             } else if (secondList.get(i) instanceof AbstractEdge) {
                 AbstractEdge tempEdge = (AbstractEdge) secondList.get(i);
-                if (tempEdge.getSourceVertex().equals(secondVertex)) {
-                    tempEdge.setSourceVertex(fusedVertex);
-                } else if (tempEdge.getDestinationVertex().equals(secondVertex)) {
-                    tempEdge.setDestinationVertex(fusedVertex);
+                if (tempEdge.getChildVertex().equals(secondVertex)) {
+                    tempEdge.setChildVertex(fusedVertex);
+                } else if (tempEdge.getParentVertex().equals(secondVertex)) {
+                    tempEdge.setParentVertex(fusedVertex);
                 }
             }
         }

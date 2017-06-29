@@ -19,16 +19,6 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.lang.management.ManagementFactory;
-import java.net.InetAddress;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.StringTokenizer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
@@ -39,6 +29,17 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * The LinuxFUSE reporter.

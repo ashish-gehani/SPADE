@@ -20,13 +20,7 @@
 
 package spade.transformer;
 
-import java.io.File;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.commons.io.FileUtils;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
@@ -34,6 +28,11 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
+
+import java.io.File;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class DropKeys extends AbstractTransformer{
 	

@@ -13,12 +13,12 @@
 						"type" : ["null", {"type":"map", "values":"string"}]
 					},
 					{
-						"name" : "sourceVertexHash",
+						"name" : "childVertexHash",
 						"type" : [ "null", "string" ],
 						"default" : null
 					},
 					{
-						"name" : "destinationVertexHash",
+						"name" : "parentVertexHash",
 						"type" : [ "null", "string" ],
 						"default" : null
 					},

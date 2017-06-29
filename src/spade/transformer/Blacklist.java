@@ -19,10 +19,6 @@
  */
 package spade.transformer;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Pattern;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
@@ -31,6 +27,10 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.FileUtility;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 public class Blacklist extends AbstractTransformer{
 	
@@ -62,8 +62,8 @@ public class Blacklist extends AbstractTransformer{
 		}
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			String srcFilepath = getAnnotationSafe(edge.getSourceVertex(), OPMConstants.ARTIFACT_PATH);
-			String dstFilepath = getAnnotationSafe(edge.getDestinationVertex(), OPMConstants.ARTIFACT_PATH);
+			String srcFilepath = getAnnotationSafe(edge.getChildVertex(), OPMConstants.ARTIFACT_PATH);
+			String dstFilepath = getAnnotationSafe(edge.getParentVertex(), OPMConstants.ARTIFACT_PATH);
 			if(!(fileEqualsVertex(srcFilepath, queriedVertex) || fileEqualsVertex(dstFilepath, queriedVertex))){
 				if(isFileToBeRemoved(srcFilepath) 
 					|| isFileToBeRemoved(dstFilepath)){
@@ -71,9 +71,9 @@ public class Blacklist extends AbstractTransformer{
 				}
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(newEdge != null && newEdge.getSourceVertex() != null && newEdge.getDestinationVertex() != null){
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

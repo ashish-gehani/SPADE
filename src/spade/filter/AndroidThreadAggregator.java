@@ -19,19 +19,18 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.ArrayList;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.vertex.opm.Process;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This filter groups together threads of same processes in one node It might
@@ -252,33 +251,33 @@ public class AndroidThreadAggregator extends AbstractFilter {
 
         for (AbstractEdge incomingEdge : shelvedEdges) {
 
-            AbstractVertex sourceVertex = incomingEdge.getSourceVertex();
-            AbstractVertex destinationVertex = incomingEdge.getDestinationVertex();
+            AbstractVertex childVertex = incomingEdge.getChildVertex();
+            AbstractVertex parentVertex = incomingEdge.getParentVertex();
 
-            if (sourceVertex.type().equalsIgnoreCase("Process")) {
-                String pid = sourceVertex.getAnnotation("pid");
-                String tgid = sourceVertex.getAnnotation("tgid");
+            if (childVertex.type().equalsIgnoreCase("Process")) {
+                String pid = childVertex.getAnnotation("pid");
+                String tgid = childVertex.getAnnotation("tgid");
 
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
 
                 if (currentMainProcessNode.containsKey(mappedPid)) {
-                    incomingEdge.setSourceVertex(currentMainProcessNode.get(mappedPid).getVertex());
+                    incomingEdge.setChildVertex(currentMainProcessNode.get(mappedPid).getVertex());
                 } else {
-                    incomingEdge.setSourceVertex(flushedOutVertices.get(mappedPid));
+                    incomingEdge.setChildVertex(flushedOutVertices.get(mappedPid));
                 }
 
             }
 
-            if (destinationVertex.type().equalsIgnoreCase("Process")) {
-                String pid = destinationVertex.getAnnotation("pid");
-                String tgid = destinationVertex.getAnnotation("tgid");
+            if (parentVertex.type().equalsIgnoreCase("Process")) {
+                String pid = parentVertex.getAnnotation("pid");
+                String tgid = parentVertex.getAnnotation("tgid");
 
                 String mappedPid = pid.equals(tgid) ? pid : tgid;
 
                 if (currentMainProcessNode.containsKey(mappedPid)) {
-                    incomingEdge.setDestinationVertex(currentMainProcessNode.get(mappedPid).getVertex());
+                    incomingEdge.setParentVertex(currentMainProcessNode.get(mappedPid).getVertex());
                 } else {
-                    incomingEdge.setDestinationVertex(flushedOutVertices.get(mappedPid));
+                    incomingEdge.setParentVertex(flushedOutVertices.get(mappedPid));
                 }
 
             }
