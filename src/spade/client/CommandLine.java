@@ -155,8 +155,8 @@ public class CommandLine
                         String resultString = (String) clientInputStream.readObject();
                         long elapsed_time = System.currentTimeMillis() - start_time;
                         System.out.println("Result:");
-                        System.out.println("Return type -> " + returnType);
-                        System.out.println(resultString);
+                        System.out.println("Return type: " + returnType);
+                        System.out.println("Result: " + resultString);
                         System.out.println("Time taken for query: " + elapsed_time + " ms");
                     }
                     else

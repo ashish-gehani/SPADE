@@ -152,8 +152,6 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         parseQuery(line);
                         AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
-                        Exception ex=null;
-                        Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.INFO, getReturnType(functionName), ex);
                         Class<?> returnType = Class.forName(getReturnType(functionName));
                         Object result = queryClass.execute(queryParameters, resultLimit);
                         if(result != null && result.getClass().isAssignableFrom(returnType))
@@ -176,13 +174,13 @@ public class CommandLine extends AbstractAnalyzer
                                 if(USE_TRANSFORMER)
                                     result = iterateTransformers((Graph) result, line);
                             }
-                            queryOutputStream.writeObject(returnType);
-                            queryOutputStream.writeObject(result.toString());
                         }
                         else
                         {
                             Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type null or mismatch!");
                         }
+                        queryOutputStream.writeObject(returnType.getName());
+                        queryOutputStream.writeObject(result != null ? result.toString() : null);
                     }
 
                 }
