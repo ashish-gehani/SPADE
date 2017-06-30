@@ -154,10 +154,12 @@ public class CommandLine
                         String returnType = (String) clientInputStream.readObject();
                         String resultString = (String) clientInputStream.readObject();
                         long elapsed_time = System.currentTimeMillis() - start_time;
+                        System.out.println();
                         System.out.println("Result:");
                         System.out.println("Return type: " + returnType);
                         System.out.println("Result: " + resultString);
                         System.out.println("Time taken for query: " + elapsed_time + " ms");
+                        System.out.println("------------------");
                     }
                     else
                     {
@@ -187,14 +189,14 @@ public class CommandLine
 
     private static String parseQuery(String line)
     {
-        String query = line;
+        String query = line.substring(line.indexOf('(') + 1, line.indexOf(','));
         for(Map.Entry<String, String> constraint: constraints.entrySet())
         {
             String constraint_name = constraint.getKey();
             String constraint_expression = constraint.getValue();
             if(line.contains(constraint_name))
             {
-                query = query.replaceAll(constraint_name, constraint_expression);
+                query = query.replaceAll("\\" + constraint_name + "\\b", constraint_expression);
             }
         }
 

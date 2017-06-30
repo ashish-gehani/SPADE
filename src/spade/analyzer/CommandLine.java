@@ -190,7 +190,8 @@ public class CommandLine extends AbstractAnalyzer
                 inStream.close();
                 outStream.close();
                 querySocket.close();
-            } catch(Exception ex)
+            }
+            catch(Exception ex)
             {
                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
             }
