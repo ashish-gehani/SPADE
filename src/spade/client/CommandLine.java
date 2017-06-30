@@ -189,7 +189,9 @@ public class CommandLine
 
     private static String parseQuery(String line)
     {
-        String query = line.substring(line.indexOf('(') + 1, line.indexOf(','));
+        int start_index = line.indexOf('(') + 1;
+        int end_index = line.indexOf('(') + 1;
+        String query = line.substring(start_index, end_index);
         for(Map.Entry<String, String> constraint: constraints.entrySet())
         {
             String constraint_name = constraint.getKey();
@@ -200,6 +202,6 @@ public class CommandLine
             }
         }
 
-        return query;
+        return line.replace(line.substring(start_index, end_index), query);
     }
 }

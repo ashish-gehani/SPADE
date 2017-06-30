@@ -150,37 +150,43 @@ public class CommandLine extends AbstractAnalyzer
                     }
                     else
                     {
-                        parseQuery(line);
-                        AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
-                        Class<?> returnType = Class.forName(getReturnType(functionName));
-                        Object result = queryClass.execute(queryParameters, resultLimit);
-                        if(result != null && result.getClass().isAssignableFrom(returnType))
+                        try
                         {
-                            if(result instanceof Graph)
+                            parseQuery(line);
+                            AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
+                            Class<?> returnType = Class.forName(getReturnType(functionName));
+                            Object result = queryClass.execute(queryParameters, resultLimit);
+                            if(result != null && result.getClass().isAssignableFrom(returnType))
                             {
-                                if(isRemoteResolutionRequired())
+                                if(result instanceof Graph)
                                 {
-                                    //TODO: Could use a factory pattern here to get remote resolver
-                                    remoteResolver = new Recursive((Graph) result, functionName, 0, null);
-                                    Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
-                                    remoteResolverThread.start();
-                                    // wait for thread to complete to get the final graph
-                                    remoteResolverThread.join();
-                                    // final graph is a set of unstitched graphs
-                                    result = remoteResolver.getFinalGraph();
-                                    clearRemoteResolutionRequired();
-                                    // TODO: perform consistency check here - Carol
+                                    if(isRemoteResolutionRequired())
+                                    {
+                                        //TODO: Could use a factory pattern here to get remote resolver
+                                        remoteResolver = new Recursive((Graph) result, functionName, 0, null);
+                                        Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
+                                        remoteResolverThread.start();
+                                        // wait for thread to complete to get the final graph
+                                        remoteResolverThread.join();
+                                        // final graph is a set of unstitched graphs
+                                        result = remoteResolver.getFinalGraph();
+                                        clearRemoteResolutionRequired();
+                                        // TODO: perform consistency check here - Carol
+                                    }
+                                    if(USE_TRANSFORMER)
+                                        result = iterateTransformers((Graph) result, line);
                                 }
-                                if(USE_TRANSFORMER)
-                                    result = iterateTransformers((Graph) result, line);
+                            } else
+                            {
+                                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type null or mismatch!");
                             }
+                            queryOutputStream.writeObject(returnType.getName());
+                            queryOutputStream.writeObject(result != null ? result.toString() : null);
                         }
-                        else
+                        catch(Exception ex)
                         {
-                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type null or mismatch!");
+                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error executing query request!");
                         }
-                        queryOutputStream.writeObject(returnType.getName());
-                        queryOutputStream.writeObject(result != null ? result.toString() : null);
                     }
 
                 }
