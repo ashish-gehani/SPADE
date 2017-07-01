@@ -103,9 +103,9 @@ public class Graph extends AbstractStorage implements Serializable
      * Fields for Consistency check
      */
     private String hostName;
-    private String time;
-    private String maxDepth;
-    private String rootHash;
+    private String computeTime;
+    private int maxDepth;
+    private AbstractVertex rootVertex;
     private String signature;
     
     public void mergeThreads() {
@@ -720,4 +720,54 @@ public class Graph extends AbstractStorage implements Serializable
     public Graph getLineage(String vertexExpression, Integer depth, String direction, String terminatingExpression) {return null; }
 
     public AbstractVertex getVertex(int id) {return null; }
+
+    public String getHostName()
+    {
+        return hostName;
+    }
+
+    public void setHostName(String hostName)
+    {
+        this.hostName = hostName;
+    }
+
+    public String getComputeTime()
+    {
+        return computeTime;
+    }
+
+    public void setComputeTime(String computeTime)
+    {
+        this.computeTime = computeTime;
+    }
+
+    public int getMaxDepth()
+    {
+        return maxDepth;
+    }
+
+    public void setMaxDepth(int maxDepth)
+    {
+        this.maxDepth = maxDepth;
+    }
+
+    public AbstractVertex getRootVertex()
+    {
+        return rootVertex;
+    }
+
+    public void setRootVertex(AbstractVertex rootVertex)
+    {
+        this.rootVertex = rootVertex;
+    }
+
+    public String getSignature()
+    {
+        return signature;
+    }
+
+    public void setSignature(String signature)
+    {
+        this.signature = signature;
+    }
 }

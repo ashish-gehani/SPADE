@@ -1,5 +1,6 @@
 package spade.query.common;
 
+import org.apache.commons.collections.CollectionUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
@@ -9,8 +10,10 @@ import spade.query.sql.postgresql.GetEdge;
 import spade.query.sql.postgresql.GetParents;
 import spade.query.sql.postgresql.GetVertex;
 
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,6 +22,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import java.net.NetworkInterface;
 
 import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
@@ -40,6 +45,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
     {
         try
         {
+            Graph result = new Graph();
             String storage = currentStorage.getClass().getName();
             if(storage.contains("sql"))
             {
@@ -48,6 +54,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             String class_prefix = "spade.query." + storage;
             String direction = parameters.get("direction").get(0);
             Integer maxDepth = Integer.parseInt(parameters.get("maxDepth").get(0));
+            result.setMaxDepth(maxDepth);
             GetVertex getVertex;
             GetEdge getEdge;
             GetChildren getChildren;
@@ -64,7 +71,6 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                 return null;
             }
 
-            Graph result = new Graph();
             AbstractVertex previousVertex = null;
             AbstractVertex currentVertex = null;
             int current_depth = 0;
@@ -77,7 +83,11 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                     vertexParams.put(key, entry.getValue());
             }
             Set<AbstractVertex> startingVertexSet = getVertex.execute(vertexParams, 100);
-            queue.addAll(startingVertexSet);
+            AbstractVertex startingVertex=null;
+            if(!CollectionUtils.isEmpty(startingVertexSet))
+                startingVertex = startingVertexSet.iterator().next();
+            queue.add(startingVertex);
+            result.setRootVertex(startingVertex);
 
             //TODO: keep a visited array
             while(!queue.isEmpty() && current_depth < maxDepth)
@@ -120,6 +130,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                 current_depth++;
             }
 
+            result.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
             return result;
         }
         catch(Exception ex)

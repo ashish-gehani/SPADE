@@ -13,15 +13,14 @@ import java.util.logging.Logger;
  */
 public class Recursive extends AbstractResolver
 {
-    public Recursive(Graph graph, String func, int d, String dir)
+    public Recursive(Graph pgraph, String func, int d, String dir)
     {
-        super(graph, func, d, dir);
+        super(pgraph, func, d, dir);
     }
 
     @Override
     public void run()
     {
-        Graph remoteGraph = new Graph();
         Map<AbstractVertex, Integer> currentNetworkMap = partialGraph.networkMap();
         try
         {
@@ -32,34 +31,33 @@ public class Recursive extends AbstractResolver
                 // the result with the remoteGraph. This also adds the network
                 // vertexes to the remoteGraph as well, so that deeper level
                 // network queries are resolved iteratively.
+                Graph remoteGraph = null;
                 for (Map.Entry<AbstractVertex, Integer> currentEntry : currentNetworkMap.entrySet())
                 {
                     AbstractVertex networkVertex = currentEntry.getKey();
                     int currentDepth = currentEntry.getValue();
                     // Execute remote query
-                    Graph tempRemoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction);
+                    remoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction);
                     // Update the depth values of all network artifacts in the
                     // remote network map to reflect current level of iteration
-                    if(tempRemoteGraph != null)
+                    if(remoteGraph != null)
                     {
-                        for(Map.Entry<AbstractVertex, Integer> currentNetworkEntry : tempRemoteGraph.networkMap().entrySet())
+                        for(Map.Entry<AbstractVertex, Integer> currentNetworkEntry : remoteGraph.networkMap().entrySet())
                         {
                             AbstractVertex tempNetworkVertex = currentNetworkEntry.getKey();
                             int updatedDepth = currentDepth + currentNetworkEntry.getValue();
-                            tempRemoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
+                            remoteGraph.putNetworkVertex(tempNetworkVertex, updatedDepth);
                         }
-                        // Add the lineage of the current network node to the
-                        // overall result
-                        remoteGraph = Graph.union(remoteGraph, tempRemoteGraph);
                     }
                 }
                 currentNetworkMap.clear();
-                // Set the networkMap to network vertexes of the newly
-                // create remoteGraph
-                currentNetworkMap = remoteGraph.networkMap();
+                if(remoteGraph != null)
+                {
+                    finalGraph.add(remoteGraph);
+                    // Set the networkMap to network vertexes of the newly create remoteGraph
+                    currentNetworkMap = remoteGraph.networkMap();
+                }
             }
-
-            finalGraph = Graph.union(partialGraph, remoteGraph);
         }
         catch(Exception ex)
         {

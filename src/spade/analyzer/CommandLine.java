@@ -18,6 +18,7 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -169,9 +170,10 @@ public class CommandLine extends AbstractAnalyzer
                                         // wait for thread to complete to get the final graph
                                         remoteResolverThread.join();
                                         // final graph is a set of unstitched graphs
-                                        result = remoteResolver.getFinalGraph();
+                                        Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
                                         clearRemoteResolutionRequired();
                                         // TODO: perform consistency check here - Carol
+                                        // TODO: return the stitched graphs
                                     }
                                     if(USE_TRANSFORMER)
                                         result = iterateTransformers((Graph) result, line);

@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,21 +27,21 @@ public abstract class AbstractResolver implements Runnable
     public static final String DESTINATION_PORT = "destination_port";
 
     // fields required to fetch and return remote parts of result graph
-    protected Graph finalGraph = null;
+    protected Set<Graph> finalGraph = new HashSet<>();
     protected Graph partialGraph;
     protected int depth;
     protected String direction;
     protected String function;
 
-    protected AbstractResolver(Graph graph, String func, int d, String dir)
+    protected AbstractResolver(Graph pgraph, String func, int d, String dir)
     {
-        partialGraph = graph;
+        partialGraph = pgraph;
         depth = d;
         direction = dir;
         function = func;
     }
 
-    public Graph getFinalGraph()
+    public Set<Graph> getFinalGraph()
     {
         return finalGraph;
     }
