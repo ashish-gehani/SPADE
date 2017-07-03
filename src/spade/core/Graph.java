@@ -234,7 +234,7 @@ public class Graph extends AbstractStorage implements Serializable
             edgeIndexWriter.addDocument(doc);
             // edgeIndexWriter.commit();
 
-            String hashCode = incomingEdge.bigHashCode();
+            String hashCode = incomingEdge.getChildVertex().bigHashCode() + incomingEdge.getParentVertex().bigHashCode();
             edgeIdentifiers.put(hashCode, incomingEdge);
             reverseEdgeIdentifiers.put(incomingEdge, hashCode);
             edgeSet.add(incomingEdge);
