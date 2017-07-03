@@ -48,13 +48,17 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -82,11 +86,11 @@ public class Graph extends AbstractStorage implements Serializable
     private transient Analyzer analyzer = new KeywordAnalyzer();
     private transient QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
     private Set<AbstractVertex> vertexSet = new LinkedHashSet<>();
-    private Map<Integer, AbstractVertex> vertexIdentifiers = new HashMap<>();
-    private Map<AbstractVertex, Integer> reverseVertexIdentifiers = new HashMap<>();
+    private Map<String, AbstractVertex> vertexIdentifiers = new HashMap<>();
+    private Map<AbstractVertex, String> reverseVertexIdentifiers = new HashMap<>();
     private Set<AbstractEdge> edgeSet = new LinkedHashSet<>();
-    private Map<Integer, AbstractEdge> edgeIdentifiers = new HashMap<>();
-    private Map<AbstractEdge, Integer> reverseEdgeIdentifiers = new HashMap<>();
+    private Map<String, AbstractEdge> edgeIdentifiers = new HashMap<>();
+    private Map<AbstractEdge, String> reverseEdgeIdentifiers = new HashMap<>();
     private Map<AbstractVertex, Integer> networkMap = new HashMap<>();
     private int serial_number = 1;
     /**
@@ -128,12 +132,14 @@ public class Graph extends AbstractStorage implements Serializable
         }
     }
 
-    public int getId(AbstractVertex vertex) {
-        return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : -1;
+    public String getHash(AbstractVertex vertex)
+    {
+        return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : null;
     }
 
-    public int getId(AbstractEdge edge) {
-        return (reverseEdgeIdentifiers.containsKey(edge)) ? reverseEdgeIdentifiers.get(edge) : -1;
+    public String getHash(AbstractEdge edge)
+    {
+        return (reverseEdgeIdentifiers.containsKey(edge)) ? reverseEdgeIdentifiers.get(edge) : null;
     }
 
     /**
@@ -156,30 +162,34 @@ public class Graph extends AbstractStorage implements Serializable
      * not successful if the vertex is already present in the storage.
      */
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
-        if (reverseVertexIdentifiers.containsKey(incomingVertex)) {
+    public boolean putVertex(AbstractVertex incomingVertex)
+    {
+        if (reverseVertexIdentifiers.containsKey(incomingVertex))
+        {
             return false;
         }
         // Add vertex to Lucene index
-        try {
+        try
+        {
             Document doc = new Document();
-            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
             vertexIndexWriter.addDocument(doc);
             // vertexIndexWriter.commit();
 
-            vertexIdentifiers.put(serial_number, incomingVertex);
-            reverseVertexIdentifiers.put(incomingVertex, serial_number);
+            String hashCode = incomingVertex.bigHashCode();
+            vertexIdentifiers.put(hashCode, incomingVertex);
+            reverseVertexIdentifiers.put(incomingVertex, hashCode);
             vertexSet.add(incomingVertex);
             serial_number++;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
         }
         return true;
@@ -199,14 +209,18 @@ public class Graph extends AbstractStorage implements Serializable
      * not successful if the edge is already present in the storage.
      */
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
-        if (reverseEdgeIdentifiers.containsKey(incomingEdge)) {
+    public boolean putEdge(AbstractEdge incomingEdge)
+    {
+        if (reverseEdgeIdentifiers.containsKey(incomingEdge))
+        {
             return false;
         }
         // Add edge to Lucene index
-        try {
+        try
+        {
             Document doc = new Document();
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
                 if (key.equals(ID_STRING)) {
@@ -215,16 +229,19 @@ public class Graph extends AbstractStorage implements Serializable
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getChildVertex())), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(incomingEdge.getParentVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(SRC_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getChildVertex()), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(DST_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getParentVertex()), Field.Store.YES, Field.Index.ANALYZED));
             edgeIndexWriter.addDocument(doc);
             // edgeIndexWriter.commit();
 
-            edgeIdentifiers.put(serial_number, incomingEdge);
-            reverseEdgeIdentifiers.put(incomingEdge, serial_number);
+            String hashCode = incomingEdge.bigHashCode();
+            edgeIdentifiers.put(hashCode, incomingEdge);
+            reverseEdgeIdentifiers.put(incomingEdge, hashCode);
             edgeSet.add(incomingEdge);
             serial_number++;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
         }
         return true;
@@ -573,7 +590,7 @@ public class Graph extends AbstractStorage implements Serializable
                 }
             }
 
-            String key = Integer.toString(reverseVertexIdentifiers.get(vertex));
+            String key = reverseVertexIdentifiers.get(vertex);
             writer.write("\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -610,10 +627,11 @@ public class Graph extends AbstractStorage implements Serializable
             }
 
             String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
-            String childkey = Integer.toString(reverseVertexIdentifiers.get(edge.getChildVertex()));
-            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getParentVertex()));
+            String childkey = reverseVertexIdentifiers.get(edge.getChildVertex());
+            String dstkey = reverseVertexIdentifiers.get(edge.getParentVertex());
             writer.write("\"" + childkey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
-        } catch (Exception exception) {
+        }
+        catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
     }
@@ -659,8 +677,14 @@ public class Graph extends AbstractStorage implements Serializable
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
-    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
+    {
         return null;
+    }
+
+    public AbstractEdge getEdge(String edgeHash)
+    {
+        return (edgeIdentifiers.containsKey(edgeHash)) ? edgeIdentifiers.get(edgeHash) : null;
     }
 
     /**
@@ -671,21 +695,35 @@ public class Graph extends AbstractStorage implements Serializable
      * @return returns vertex object matching the given hash OR NULL.
      */
     @Override
-    public AbstractVertex getVertex(String vertexHash) {
-        return null;
+    public AbstractVertex getVertex(String vertexHash)
+    {
+        return (vertexIdentifiers.containsKey(vertexHash)) ? vertexIdentifiers.get(vertexHash) : null;
     }
+
 
     /**
      * This function finds the children of a given vertex.
      * A child is defined as a vertex which is the source of a
      * direct edge between itself and the given vertex.
      *
-     * @param parentHash hash of the given vertex
+     * @param parentVertexHash hash of the given vertex
      * @return returns graph object containing children of the given vertex OR NULL.
      */
     @Override
-    public Graph getChildren(String parentHash) {
-        return null;
+    public Graph getChildren(String parentVertexHash)
+    {
+        Graph result = new Graph();
+        for(Map.Entry<String, AbstractEdge> entry: edgeIdentifiers.entrySet())
+        {
+            AbstractEdge edge = entry.getValue();
+            AbstractVertex parentVertex = edge.getParentVertex();
+            if(parentVertex.bigHashCode().equals(parentVertexHash))
+            {
+                result.putVertex(edge.getChildVertex());
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -697,8 +735,54 @@ public class Graph extends AbstractStorage implements Serializable
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childVertexHash) {
-        return null;
+    public Graph getParents(String childVertexHash)
+    {
+        Graph result = new Graph();
+        for(Map.Entry<String, AbstractEdge> entry: edgeIdentifiers.entrySet())
+        {
+            AbstractEdge edge = entry.getValue();
+            AbstractVertex childVertex = edge.getChildVertex();
+            if(childVertex.bigHashCode().equals(childVertexHash))
+            {
+                result.putVertex(edge.getParentVertex());
+            }
+        }
+
+        return result;
+    }
+
+    @Override
+    public Graph getLineage(String hash, String direction, int maxDepth)
+    {
+        Graph result = new Graph();
+        AbstractVertex previousVertex = null;
+        AbstractVertex currentVertex;
+        int depth = 0;
+        Queue<AbstractVertex> queue = new LinkedList<>();
+        AbstractVertex startingVertex = getVertex(hash);
+        queue.add(startingVertex);
+        result.setRootVertex(startingVertex);
+        result.setMaxDepth(maxDepth);
+        //TODO: keep a visited array
+        while(!queue.isEmpty() && depth < maxDepth)
+        {
+            currentVertex = queue.remove();
+            String currentHash = currentVertex.bigHashCode();
+            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                queue.addAll(getParents(currentHash).vertexSet());
+            else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+                queue.addAll(getChildren(currentHash).vertexSet());
+
+            result.putVertex(currentVertex);
+            if(previousVertex != null)
+                result.putEdge(getEdge(previousVertex.bigHashCode(), currentHash));
+
+            previousVertex = currentVertex;
+            depth++;
+        }
+
+        result.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
+        return result;
     }
 
     /*
