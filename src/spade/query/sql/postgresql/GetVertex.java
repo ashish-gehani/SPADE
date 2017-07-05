@@ -23,9 +23,9 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
     public Set<AbstractVertex> execute(Map<String, List<String>> parameters, Integer limit)
     {
         Set<AbstractVertex> vertexSet = null;
+        StringBuilder query = new StringBuilder(100);
         try
         {
-            StringBuilder query = new StringBuilder(100);
             query.append("SELECT * FROM ");
             query.append(VERTEX_TABLE);
             query.append(" WHERE ");
@@ -35,7 +35,9 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
                 List<String> values = entry.getValue();
                 query.append(colName);
                 query.append(values.get(ARITHMETIC_OPERATOR));
+                query.append("'");
                 query.append(values.get(COL_VALUE));
+                query.append("'");
                 query.append(" ");
                 String boolOperator = values.get(BOOLEAN_OPERATOR);
                 if (boolOperator != null)
@@ -43,6 +45,7 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
             }
             if (limit != null)
                 query.append(" LIMIT ").append(limit);
+            query.append(";");
 
             vertexSet = prepareVertexSetFromSQLResult(query.toString());
             if (!CollectionUtils.isEmpty(vertexSet))
@@ -50,7 +53,7 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
         }
         catch (Exception ex)
         {
-            Logger.getLogger(GetVertex.class.getName()).log(Level.SEVERE, "Error creating vertex set!", ex);
+            Logger.getLogger(GetVertex.class.getName()).log(Level.SEVERE, "Error creating vertex set from the following query: \n" + query.toString(), ex);
         }
 
         return vertexSet;

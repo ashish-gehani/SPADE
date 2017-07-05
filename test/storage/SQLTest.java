@@ -195,7 +195,7 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase1 = testSQLObject.findPaths(4, 3, 10);
+        Graph actualOutcomeCase1 = null; //testSQLObject.findPaths(4, 3, 10);
         assertTrue(expectedOutcomeCase1.equals(actualOutcomeCase1));
 
         // Test Case 2:
@@ -217,7 +217,7 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase2 = testSQLObject.findPaths(4, 5, 10);
+        Graph actualOutcomeCase2 = null; //testSQLObject.findPaths(4, 5, 10);
         assertTrue(expectedOutcomeCase2.equals(actualOutcomeCase2));
 
     }
@@ -247,7 +247,7 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase1 = testSQLObject.getLineage(4, 5, "a", 3);
+        Graph actualOutcomeCase1 = null; //testSQLObject.getLineage(4, 5, "a", 3);
         assertTrue(expectedOutcomeCase1.equals(actualOutcomeCase1));
 
         //Test Case 2:
@@ -269,7 +269,7 @@ class SQLTest {
             i++;
         }
 
-        Graph actualOutcomeCase2 = testSQLObject.getLineage(3, 3, "d", 1);
+        Graph actualOutcomeCase2 = null; //testSQLObject.getLineage(3, 3, "d", 1);
         assertTrue(expectedOutcomeCase2.equals(actualOutcomeCase2));
     }
 }

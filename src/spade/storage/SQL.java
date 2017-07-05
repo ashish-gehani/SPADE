@@ -69,7 +69,7 @@ public class SQL extends AbstractStorage
      *                  *H2*
      *                  org.h2.Driver jdbc:h2:/tmp/spade.sql sa null
      *                  *PostgreSQL*
-     *                  org.postgresql.Driver jdbc:postgres://localhost/5432/spade_pg.sql root 12345
+     *                  org.postgresql.Driver jdbc:postgres://localhost/spade_pg root 12345
      *
      *                  Points to note:
      *                  1. The database driver jar should be present in lib/ in the project's root.
@@ -90,7 +90,7 @@ public class SQL extends AbstractStorage
         {
             String[] tokens = arguments.split("\\s+");
             String databaseDriver = tokens[0];
-            // for postgres, it is jdbc:postgres://localhost/5432/database_name
+            // for postgres, it is jdbc:postgres://localhost/database_name
             // for h2, it is jdbc:h2:/tmp/spade.sql
             String databaseURL = tokens[1];
             String databaseUsername = tokens[2];
@@ -157,9 +157,9 @@ public class SQL extends AbstractStorage
             return true;
 
         }
-        catch (ClassNotFoundException | InstantiationException | IllegalAccessException | SQLException ex)
+        catch (Exception ex)
         {
-            logger.log(Level.SEVERE, null, ex);
+            logger.log(Level.SEVERE, "Unable to initialize storage successfull!", ex);
             return false;
         }
     }

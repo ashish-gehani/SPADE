@@ -190,15 +190,15 @@ public class CommandLine
     private static String parseQuery(String line)
     {
         int start_index = line.indexOf('(') + 1;
-        int end_index = line.indexOf('(') + 1;
+        int end_index = line.indexOf(')');
         String query = line.substring(start_index, end_index);
         for(Map.Entry<String, String> constraint: constraints.entrySet())
         {
             String constraint_name = constraint.getKey();
             String constraint_expression = constraint.getValue();
-            if(line.contains(constraint_name))
+            if(query.contains(constraint_name))
             {
-                query = query.replaceAll("\\" + constraint_name + "\\b", constraint_expression);
+                query = query.replaceAll("\\b" + Pattern.quote(constraint_name) + "\\b", constraint_expression);
             }
         }
 

@@ -152,7 +152,7 @@ public abstract class AbstractAnalyzer
     protected abstract class QueryConnection implements Runnable
     {
         protected Socket querySocket;
-        protected Map<String, List<String>> queryParameters = new HashMap<>();
+        protected Map<String, List<String>> queryParameters;
         protected String queryConstraints;
         protected String functionName;
         protected String queryStorage;

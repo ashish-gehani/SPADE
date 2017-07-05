@@ -56,7 +56,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 for (int i = 1; i <= columnCount; i++)
                 {
                     String value = result.getString(i);
-                    if (StringUtils.isNullOrEmpty(value))
+                    if (!StringUtils.isNullOrEmpty(value))
                     {
                         vertex.addAnnotation(columnLabels.get(i), result.getString(i));
                     }
@@ -93,7 +93,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 for (int i = 1; i <= columnCount; i++)
                 {
                     String value = result.getString(i);
-                    if (StringUtils.isNullOrEmpty(value))
+                    if (!StringUtils.isNullOrEmpty(value))
                     {
                         String colName = columnLabels.get(i);
                         if (colName != null)

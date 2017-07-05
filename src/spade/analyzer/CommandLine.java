@@ -14,9 +14,9 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
@@ -157,7 +157,7 @@ public class CommandLine extends AbstractAnalyzer
                             AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
                             Class<?> returnType = Class.forName(getReturnType(functionName));
                             Object result = queryClass.execute(queryParameters, resultLimit);
-                            if(result != null && result.getClass().isAssignableFrom(returnType))
+                            if(result != null && returnType.isAssignableFrom(result.getClass()))
                             {
                                 if(result instanceof Graph)
                                 {
@@ -178,11 +178,12 @@ public class CommandLine extends AbstractAnalyzer
                                     if(USE_TRANSFORMER)
                                         result = iterateTransformers((Graph) result, line);
                                 }
-                            } else
+                            }
+                            else
                             {
                                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type null or mismatch!");
                             }
-                            queryOutputStream.writeObject(returnType.getName());
+                            queryOutputStream.writeObject(returnType.getSimpleName());
                             queryOutputStream.writeObject(result != null ? result.toString() : null);
                         }
                         catch(Exception ex)
@@ -208,6 +209,7 @@ public class CommandLine extends AbstractAnalyzer
         @Override
         public void parseQuery(String query_line)
         {
+            queryParameters = new LinkedHashMap<>();
             try
             {
                 // Step1: get the function name
@@ -242,9 +244,9 @@ public class CommandLine extends AbstractAnalyzer
                     Pattern expression_pattern = Pattern.compile("((?<=(" + DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value + "))|" +
                             "(?=(" + DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value + ")))");
                     String[] operands = expression_pattern.split(expression);
-                    String key = operands[0];
-                    String operator = operands[1];
-                    String value = operands[2];
+                    String key = operands[0].trim();
+                    String operator = operands[1].trim();
+                    String value = operands[2].trim();
 
                     List<String> values = new ArrayList<>();
                     values.add(operator);
@@ -254,7 +256,7 @@ public class CommandLine extends AbstractAnalyzer
                     if(i < expressions.length &&
                             DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value.toLowerCase().contains(expressions[i].toLowerCase()))
                     {
-                        String bool_operator = expressions[i];
+                        String bool_operator = expressions[i].trim();
                         values.add(bool_operator);
                         i++;
                     } else
@@ -274,7 +276,7 @@ public class CommandLine extends AbstractAnalyzer
             }
             catch(Exception ex)
             {
-                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query", ex);
+                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query: \n" + query_line, ex);
             }
         }
     }
