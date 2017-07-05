@@ -855,4 +855,13 @@ public class Graph extends AbstractStorage implements Serializable
     {
         this.signature = signature;
     }
+
+    @Override
+    public String toString()
+    {
+        return "Graph{" +
+                "vertexSet=" + vertexSet +
+                ", edgeSet=" + edgeSet +
+                '}';
+    }
 }

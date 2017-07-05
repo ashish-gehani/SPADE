@@ -24,9 +24,9 @@ public class GetEdge extends PostgreSQL<Set<AbstractEdge>, Map<String, List<Stri
     public Set<AbstractEdge> execute(Map<String, List<String>> parameters, Integer limit)
     {
         Set<AbstractEdge> edgeSet = null;
+        StringBuilder query = new StringBuilder(100);
         try
         {
-            StringBuilder query = new StringBuilder(100);
             query.append("SELECT * FROM ");
             query.append(EDGE_TABLE);
             query.append(" WHERE ");
@@ -36,15 +36,19 @@ public class GetEdge extends PostgreSQL<Set<AbstractEdge>, Map<String, List<Stri
                 String colName = entry.getKey();
                 query.append(colName);
                 query.append(values.get(ARITHMETIC_OPERATOR));
+                query.append("'");
                 query.append(values.get(COL_VALUE));
+                query.append("'");
                 query.append(" ");
                 String boolOperator = values.get(BOOLEAN_OPERATOR);
                 if (boolOperator != null)
-                    query.append(boolOperator);
+                    query.append(boolOperator).append(" ");
             }
             if (limit != null)
                 query.append(" LIMIT ").append(limit);
+            query.append(";");
 
+            Logger.getLogger(GetEdge.class.getName()).log(Level.INFO, "Following query: " + query.toString());
             edgeSet = prepareEdgeSetFromSQLResult(query.toString());
             if(!CollectionUtils.isEmpty(edgeSet))
                 return edgeSet;

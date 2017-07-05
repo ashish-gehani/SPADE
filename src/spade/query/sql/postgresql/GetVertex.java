@@ -41,12 +41,13 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
                 query.append(" ");
                 String boolOperator = values.get(BOOLEAN_OPERATOR);
                 if (boolOperator != null)
-                    query.append(boolOperator);
+                    query.append(boolOperator).append(" ");
             }
             if (limit != null)
                 query.append(" LIMIT ").append(limit);
             query.append(";");
 
+            Logger.getLogger(GetVertex.class.getName()).log(Level.INFO, "Following query: " + query.toString());
             vertexSet = prepareVertexSetFromSQLResult(query.toString());
             if (!CollectionUtils.isEmpty(vertexSet))
                 return vertexSet;

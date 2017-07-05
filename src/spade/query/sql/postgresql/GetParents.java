@@ -4,6 +4,8 @@ import spade.core.Graph;
 
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
@@ -38,11 +40,19 @@ public class GetParents extends PostgreSQL<Graph, Map<String, List<String>>>
         query.append(" WHERE ");
         query.append(CHILD_VERTEX_KEY);
         query.append(" = ");
-        query.append(parameters.get(CHILD_VERTEX_KEY));
+        query.append("'");
+        List<String> entry = parameters.get(CHILD_VERTEX_KEY);
+        if(entry != null)
+            query.append(entry.get(COL_VALUE));
+        else
+            return null;
+        query.append("'");
         query.append(")");
         if(limit != null)
             query.append(" LIMIT ").append(limit);
+        query.append(";");
 
+        Logger.getLogger(GetParents.class.getName()).log(Level.INFO, "Following query: " + query.toString());
         Graph parents = new Graph();
         parents.vertexSet().addAll(prepareVertexSetFromSQLResult(query.toString()));
 

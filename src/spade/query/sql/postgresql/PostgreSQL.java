@@ -23,6 +23,7 @@ import java.util.logging.Logger;
 
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 /**
  * @author raza
@@ -87,9 +88,9 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 columnLabels.put(i, metadata.getColumnName(i));
             }
 
-            Map<String, String> annotations = new HashMap<>();
             while (result.next())
             {
+                Map<String, String> annotations = new HashMap<>();
                 for (int i = 1; i <= columnCount; i++)
                 {
                     String value = result.getString(i);
@@ -105,26 +106,27 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 GetVertex getVertex = new GetVertex();
                 Map<String, List<String>> childMap = new HashMap<>();
                 // Note: implicit assumption that CHILD_VERTEX_KEY and PARENT_VERTEX_KEY are present in annotations
-                childMap.put(CHILD_VERTEX_KEY, new ArrayList<>(
-                        Arrays.asList(OPERATORS.EQUALS, annotations.get(CHILD_VERTEX_KEY), null)));
+                childMap.put(PRIMARY_KEY, new ArrayList<>(
+                        Arrays.asList(OPERATORS.EQUALS, annotations.get(CHILD_VERTEX_KEY.toLowerCase()), null)));
                 Set<AbstractVertex> childVertexSet = getVertex.execute(childMap, null);
-                AbstractVertex childVertex = null;
+                AbstractVertex childVertex;
                 if(!CollectionUtils.isEmpty(childVertexSet))
                     childVertex = childVertexSet.iterator().next();
                 else
                     continue;
 
                 Map<String, List<String>> parentMap = new HashMap<>();
-                parentMap.put(PARENT_VERTEX_KEY, new ArrayList<>(
-                        Arrays.asList(OPERATORS.EQUALS, annotations.get(PARENT_VERTEX_KEY), null)));
+                parentMap.put(PRIMARY_KEY, new ArrayList<>(
+                        Arrays.asList(OPERATORS.EQUALS, annotations.get(PARENT_VERTEX_KEY.toLowerCase()), null)));
                 Set<AbstractVertex> parentVertexSet = getVertex.execute(parentMap, null);
-                AbstractVertex parentVertex = null;
+                AbstractVertex parentVertex;
                 if(!CollectionUtils.isEmpty(parentVertexSet))
                     parentVertex = parentVertexSet.iterator().next();
                 else
                     continue;
 
                 AbstractEdge edge = new Edge(childVertex, parentVertex);
+                edge.addAnnotations(annotations);
                 edgeSet.add(edge);
             }
         }
