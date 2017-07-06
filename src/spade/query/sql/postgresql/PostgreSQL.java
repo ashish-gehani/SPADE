@@ -30,13 +30,13 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
  */
 public abstract class PostgreSQL<R, P> extends SQL<R, P>
 {
-    protected static final String VERTEX_TABLE = "vertex";
-    protected static final String EDGE_TABLE = "edge";
+    public static final String VERTEX_TABLE = "vertex";
+    public static final String EDGE_TABLE = "edge";
 
     @Override
     public abstract R execute(P parameters, Integer limit);
 
-    protected Set<AbstractVertex> prepareVertexSetFromSQLResult(String query)
+    public static Set<AbstractVertex> prepareVertexSetFromSQLResult(String query)
     {
         Set<AbstractVertex> vertexSet = new HashSet<>();
         try
@@ -73,7 +73,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
         return vertexSet;
     }
 
-    protected Set<AbstractEdge> prepareEdgeSetFromSQLResult(String query)
+    public static Set<AbstractEdge> prepareEdgeSetFromSQLResult(String query)
     {
         Set<AbstractEdge> edgeSet = new HashSet<>();
         try

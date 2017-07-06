@@ -19,6 +19,8 @@
  */
 package spade.core;
 
+import spade.query.scaffold.Scaffold;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -40,6 +42,17 @@ public abstract class AbstractStorage
     public static final String PARENT_VERTEX_KEY = "parentVertexHash";
     public static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     public static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+
+    protected static boolean USE_SCAFFOLD = false;
+
+    public static void setScaffold(Scaffold scaffold)
+    {
+        AbstractStorage.scaffold = scaffold;
+        USE_SCAFFOLD = true;
+    }
+
+    public static Scaffold scaffold;
+
 
     /**
      * The arguments with which this storage was initialized.

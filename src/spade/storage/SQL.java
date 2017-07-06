@@ -255,6 +255,14 @@ public class SQL extends AbstractStorage
         catch (SQLException ex)
         {
             logger.log(Level.WARNING, "Duplicate column found in table", ex);
+            try
+            {
+                dbConnection.rollback();
+            }
+            catch(SQLException e)
+            {
+                logger.log(Level.WARNING, "Error in roll backing!", e);
+            }
             if (ex.getSQLState().equals(DUPLICATE_COLUMN_ERROR_CODE))
             {
                 if (table_name.equalsIgnoreCase(VERTEX_TABLE))
@@ -507,7 +515,7 @@ public class SQL extends AbstractStorage
         insertStringBuilder.append(EDGE_TABLE);
         insertStringBuilder.append(" (");
         insertStringBuilder.append(PRIMARY_KEY);
-        insertStringBuilder.append(", childVertexHash, parentVertexHash, ");
+        insertStringBuilder.append(", ");
         for (String annotationKey : incomingEdge.getAnnotations().keySet())
         {
             // Sanitize column name to remove special characters
@@ -525,13 +533,8 @@ public class SQL extends AbstractStorage
         // Eliminate the last 2 characters from the string (", ") and begin adding values
         String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
         insertStringBuilder = new StringBuilder(insertString + ") VALUES ('");
-
         // Add the hash code, and source and destination vertex Ids
         insertStringBuilder.append(edgeHash);
-        insertStringBuilder.append("', '");
-        insertStringBuilder.append(childVertexHash);
-        insertStringBuilder.append("', '");
-        insertStringBuilder.append(parentVertexHash);
         insertStringBuilder.append("', ");
 
         // Add the annotation values
@@ -545,11 +548,18 @@ public class SQL extends AbstractStorage
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
 
-        try {
+        try
+        {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
+            if(USE_SCAFFOLD)
+            {
+                scaffold.insertEntry(incomingEdge);
+            }
             s.close();
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             logger.log(Level.SEVERE, null, e);
         }
 

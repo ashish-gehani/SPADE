@@ -12,9 +12,12 @@ import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import spade.core.AbstractEdge;
+import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
+import spade.core.Graph;
 import spade.core.Vertex;
+import spade.query.sql.postgresql.PostgreSQL;
 
 import java.io.File;
 import java.io.Serializable;
@@ -28,21 +31,23 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
-import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
+import static spade.query.sql.postgresql.PostgreSQL.EDGE_TABLE;
+import static spade.query.sql.postgresql.PostgreSQL.VERTEX_TABLE;
+
 
 /**
  * @author raza
  */
-public class BerkeleyDB
+public class Scaffold extends AbstractQuery
 {
-
+    public static long serial_number = 1;
+    public static long start_time;
     private static Environment scaffoldDbEnvironment = null;
     private static Database scaffoldDatabase = null;
     private static Database neighborDatabase = null;
     private static final String PARENTS = "parents";
     private static final String CHILDREN = "children";
-    private static String directoryPath = null;
 
     /**
      * This method is invoked by the kernel to initialize the storage.
@@ -53,7 +58,7 @@ public class BerkeleyDB
      */
     public boolean initialize(String arguments)
     {
-        directoryPath = arguments;
+        String directoryPath = arguments;
         scaffoldDbEnvironment = null;
         scaffoldDatabase = null;
         try
@@ -70,12 +75,13 @@ public class BerkeleyDB
             // databases to store class information
             neighborDatabase = scaffoldDbEnvironment.openDatabase(null, "neighbor_berkeleydb", dbConfig);
 
+            start_time = System.nanoTime();
             return true;
 
         }
         catch(DatabaseException ex)
         {
-            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
+            Logger.getLogger(Scaffold.class.getName()).log(Level.WARNING, null, ex);
         }
 
         return false;
@@ -98,7 +104,7 @@ public class BerkeleyDB
         }
         catch(DatabaseException ex)
         {
-            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Database closure error!", ex);
+            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Database closure error!", ex);
         }
 
         return false;
@@ -126,7 +132,7 @@ public class BerkeleyDB
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
         return null;
     }
@@ -153,7 +159,7 @@ public class BerkeleyDB
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
         return null;
     }
@@ -212,7 +218,7 @@ public class BerkeleyDB
         }
         catch(UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold Get Lineage error!", ex);
+            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold Get Lineage error!", ex);
         }
 
         return null;
@@ -276,11 +282,21 @@ public class BerkeleyDB
             operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
             addItem(operationStatus, CHILDREN, key, data, neighborBinding, childHash);
 
+            // stats calculation
+            serial_number++;
+            if(serial_number % 10000 == 0)
+            {
+                long elapsed_time = System.nanoTime() - start_time;
+                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Items Inserted: " + serial_number);
+                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Time Duration: " + elapsed_time / 1000000000.0);
+                start_time = System.nanoTime();
+            }
+
             return true;
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(spade.query.scaffold.BerkeleyDB.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
 
         return false;
@@ -317,10 +333,56 @@ public class BerkeleyDB
         scaffoldDatabase.put(null, key, data);
     }
 
+    public Graph queryManager(Map<String, List<String>> params)
+    {
+        Graph result = new Graph();
+        String hash = params.get(PRIMARY_KEY).get(COL_VALUE);
+        String direction = params.get("direction").get(0);
+        int maxDepth = Integer.parseInt(params.get("maxDepth").get(0));
+        Map<String, Set<String>> lineageMap = getLineage(hash, direction, maxDepth);
+
+        StringBuilder vertex_query = new StringBuilder(500);
+        StringBuilder edge_query = new StringBuilder(500);
+        try
+        {
+            vertex_query.append("SELECT * FROM ");
+            vertex_query.append(VERTEX_TABLE);
+            vertex_query.append(" WHERE ");
+            vertex_query.append(PRIMARY_KEY + " IN (");
+            edge_query.append("SELECT * FROM ");
+            edge_query.append(EDGE_TABLE);
+            edge_query.append(" WHERE ");
+            for (Map.Entry<String, Set<String>> entry : lineageMap.entrySet())
+            {
+                String vertexHash = entry.getKey();
+                Set<String> neighbors = entry.getValue();
+                vertex_query.append(vertexHash);
+            }
+            vertex_query.append(")");
+            vertex_query.append(";");
+            edge_query.append(";");
+
+            Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + vertex_query.toString());
+            Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + edge_query.toString());
+
+            Set<AbstractVertex> vertexSet = PostgreSQL.prepareVertexSetFromSQLResult(vertex_query.toString());
+            Set<AbstractEdge> edgeSet = PostgreSQL.prepareEdgeSetFromSQLResult(edge_query.toString());
+            result.vertexSet().addAll(vertexSet);
+            result.edgeSet().addAll(edgeSet);
+        }
+        catch(Exception ex)
+        {
+            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Error in Query Manager!", ex);
+            return null;
+        }
+
+        return result;
+    }
+
     public static void main(String args[])
     {
         // testing code
-        BerkeleyDB scaffold = new BerkeleyDB();
+        Scaffold scaffold = new Scaffold();
         scaffold.initialize("");
 
         AbstractVertex v1 = new Vertex();
@@ -376,6 +438,12 @@ public class BerkeleyDB
         System.out.println(scaffold.getPaths(v1.bigHashCode(), v2.bigHashCode(), 1));
     }
 
+    @Override
+    public Object execute(Object parameters, Integer limit)
+    {
+        return null;
+    }
+
     private static class Neighbors implements Serializable
     {
         public Set<String> parents = new HashSet<>();
@@ -411,7 +479,10 @@ public class BerkeleyDB
         @Override
         public String toString()
         {
-            return "parents:" + parents.toString() + "children:" + children.toString();
+            return "Neighbors{" +
+                    "parents=" + parents +
+                    ", children=" + children +
+                    '}';
         }
     }
 
