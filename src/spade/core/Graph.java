@@ -721,6 +721,7 @@ public class Graph extends AbstractStorage implements Serializable
             if(parentVertex.bigHashCode().equals(parentVertexHash))
             {
                 result.putVertex(edge.getChildVertex());
+                result.putEdge(edge);
             }
         }
 
@@ -746,6 +747,7 @@ public class Graph extends AbstractStorage implements Serializable
             if(childVertex.bigHashCode().equals(childVertexHash))
             {
                 result.putVertex(edge.getParentVertex());
+                result.putEdge(edge);
             }
         }
 
@@ -756,33 +758,48 @@ public class Graph extends AbstractStorage implements Serializable
     public Graph getLineage(String hash, String direction, int maxDepth)
     {
         Graph result = new Graph();
-        AbstractVertex previousVertex = null;
-        AbstractVertex currentVertex;
-        int depth = 0;
-        Queue<AbstractVertex> queue = new LinkedList<>();
+        int current_depth = 0;
+        Set<String> remainingVertices = new HashSet<>();
         AbstractVertex startingVertex = getVertex(hash);
-        queue.add(startingVertex);
+        remainingVertices.add(startingVertex.bigHashCode());
         result.setRootVertex(startingVertex);
         result.setMaxDepth(maxDepth);
-        //TODO: keep a visited array
-        while(!queue.isEmpty() && depth < maxDepth)
+        Set<String> visitedVertices = new HashSet<>();
+        while(!remainingVertices.isEmpty() && current_depth < maxDepth)
         {
-            currentVertex = queue.remove();
-            String currentHash = currentVertex.bigHashCode();
-            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
-                queue.addAll(getParents(currentHash).vertexSet());
-            else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
-                queue.addAll(getChildren(currentHash).vertexSet());
-
-            result.putVertex(currentVertex);
-            if(previousVertex != null)
-                result.putEdge(getEdge(previousVertex.bigHashCode(), currentHash));
-
-            previousVertex = currentVertex;
-            depth++;
+            visitedVertices.addAll(remainingVertices);
+            Set<String> currentSet = new HashSet<>();
+            for(String vertexHash: remainingVertices)
+            {
+                Graph neighbors = null;
+                if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                {
+                    neighbors = getParents(vertexHash);
+                }
+                else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+                {
+                    neighbors = getChildren(vertexHash);
+                }
+                if(neighbors != null)
+                {
+                    result.vertexSet().addAll(neighbors.vertexSet());
+                    result.edgeSet().addAll(neighbors.edgeSet());
+                    for(AbstractVertex vertex: neighbors.vertexSet())
+                    {
+                        String hashCode = vertex.bigHashCode();
+                        if(!visitedVertices.contains(hashCode))
+                        {
+                            currentSet.add(hashCode);
+                        }
+                    }
+                }
+            }
+            remainingVertices.clear();
+            remainingVertices.addAll(currentSet);
+            current_depth++;
         }
-
         result.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
+
         return result;
     }
 

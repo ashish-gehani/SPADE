@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {
+        //TODO: support both directions too
         try
         {
             Graph result = new Graph();
@@ -71,10 +73,6 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                 return null;
             }
 
-            AbstractVertex previousVertex = null;
-            AbstractVertex currentVertex = null;
-            int current_depth = 0;
-            Queue<AbstractVertex> queue = new LinkedList<>();
             Map<String, List<String>> vertexParams = new HashMap<>();
             for(Map.Entry<String, List<String>> entry : parameters.entrySet())
             {
@@ -82,55 +80,74 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                 if(!(key.equals("direction") || key.equals(("maxDepth"))))
                     vertexParams.put(key, entry.getValue());
             }
-            Set<AbstractVertex> startingVertexSet = getVertex.execute(vertexParams, 100);
-            AbstractVertex startingVertex=null;
+            int current_depth = 0;
+            Set<String> remainingVertices = new HashSet<>();
+            Set<String> visitedVertices = new HashSet<>();
+            Set<AbstractVertex> startingVertexSet = getVertex.execute(vertexParams, DEFAULT_LIMIT);
             if(!CollectionUtils.isEmpty(startingVertexSet))
-                startingVertex = startingVertexSet.iterator().next();
-            queue.add(startingVertex);
-            result.setRootVertex(startingVertex);
-
-            //TODO: keep a visited array
-            while(!queue.isEmpty() && current_depth < maxDepth)
             {
-                currentVertex = queue.remove();
-                String currentHash = currentVertex.getAnnotation(PRIMARY_KEY);
-                if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
-                {
-                    Map<String, List<String>> parentParams = new HashMap<>();
-                    parentParams.put(CHILD_VERTEX_KEY, Collections.singletonList(currentHash));
-                    Graph parentGraph = (Graph) getParents.execute(parentParams, 100);
-                    queue.addAll(parentGraph.vertexSet());
-                }
-                else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
-                {
-                    Map<String, List<String>> childrenParams = new HashMap<>();
-                    childrenParams.put(PARENT_VERTEX_KEY, Collections.singletonList(currentHash));
-                    Graph childrenGraph = (Graph) getChildren.execute(childrenParams, 100);
-                    queue.addAll(childrenGraph.vertexSet());
-                }
+                AbstractVertex startingVertex = startingVertexSet.iterator().next();
+                remainingVertices.add(startingVertex.bigHashCode());
+                result.setRootVertex(startingVertex);
+            }
+            else
+                return null;
 
-                result.putVertex(currentVertex);
-                String subtype = currentVertex.getAnnotation("subtype");
-                if(subtype != null && subtype.equalsIgnoreCase("network"))
+            while(!remainingVertices.isEmpty() && current_depth < maxDepth)
+            {
+                visitedVertices.addAll(remainingVertices);
+                Set<String> currentSet = new HashSet<>();
+                for(String vertexHash: remainingVertices)
                 {
-                    setRemoteResolutionRequired();
-                    result.putNetworkVertex(currentVertex, current_depth);
+                    Graph neighbors;
+                    if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                    {
+                        Map<String, List<String>> parentParams = new HashMap<>();
+                        parentParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
+                        neighbors = getParents.execute(parentParams, DEFAULT_LIMIT);
+                    }
+                    else
+                    {
+                        Map<String, List<String>> childrenParams = new HashMap<>();
+                        childrenParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
+                        neighbors = getChildren.execute(childrenParams, DEFAULT_LIMIT);
+                    }
+                    result.vertexSet().addAll(neighbors.vertexSet());
+                    result.edgeSet().addAll(neighbors.edgeSet());
+                    for(AbstractVertex vertex : neighbors.vertexSet())
+                    {
+                        String neighborHash = vertex.bigHashCode();
+                        if(!visitedVertices.contains(neighborHash))
+                        {
+                            currentSet.add(neighborHash);
+                        }
+                        String subtype = vertex.getAnnotation("subtype");
+                        if(subtype != null && subtype.equalsIgnoreCase("network"))
+                        {
+                            setRemoteResolutionRequired();
+                            result.putNetworkVertex(vertex, current_depth);
+                        }
+                        Map<String, List<String>> edgeParams = new HashMap<>();
+                        if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                        {
+                            edgeParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash));
+                            edgeParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, neighborHash));
+                        }
+                        else
+                        {
+                            edgeParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash));
+                            edgeParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, neighborHash));
+                        }
+                        Set<AbstractEdge> edgeSet = getEdge.execute(edgeParams, DEFAULT_LIMIT);
+                        result.edgeSet().addAll(edgeSet);
+                    }
                 }
-
-                if(previousVertex != null)
-                {
-                    Map<String, List<String>> edgeParams = new HashMap<>();
-                    edgeParams.put(CHILD_VERTEX_KEY, Arrays.asList("=", previousVertex.getAnnotation(PRIMARY_KEY)));
-                    edgeParams.put(PARENT_VERTEX_KEY, Arrays.asList("=", currentHash));
-                    Set<AbstractEdge> edgeSet = (Set<AbstractEdge>) getEdge.execute(edgeParams, 100);
-                    result.edgeSet().addAll(edgeSet);
-                }
-
-                previousVertex = currentVertex;
+                remainingVertices.clear();
+                remainingVertices.addAll(currentSet);
                 current_depth++;
             }
-
             result.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
+
             return result;
         }
         catch(Exception ex)

@@ -16,6 +16,8 @@ public abstract class AbstractQuery<R, P>
     protected static final int COL_VALUE = 1;
     protected static final int BOOLEAN_OPERATOR = 2;
 
+    protected static final Integer DEFAULT_LIMIT = 100;
+
     protected static AbstractStorage currentStorage;
     protected static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     protected static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
