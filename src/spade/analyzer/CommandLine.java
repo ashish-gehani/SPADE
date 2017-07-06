@@ -198,7 +198,16 @@ public class CommandLine extends AbstractAnalyzer
                                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type null or mismatch!");
                             }
                             queryOutputStream.writeObject(returnType.getSimpleName());
-                            queryOutputStream.writeObject(result != null ? result.toString() : null);
+                            if(result != null)
+                            {
+                                String string = "Vertices: " + ((Graph) result).vertexSet().size();
+                                string += ". Edges: " + ((Graph) result).edgeSet().size() + ".\n";
+                                string += result.toString();
+                                queryOutputStream.writeObject(string);
+                            }
+                            else
+                                queryOutputStream.writeObject("Result Empty");
+
                         }
                         catch(Exception ex)
                         {

@@ -26,6 +26,7 @@ import spade.core.Cache;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
+import spade.query.scaffold.Scaffold;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -154,6 +155,10 @@ public class SQL extends AbstractStorage
             }
             dbStatement.close();
 
+            Scaffold scaffold = new Scaffold();
+            scaffold.initialize("/tmp");
+            AbstractStorage.setScaffold(scaffold);
+
             return true;
 
         }
@@ -220,11 +225,11 @@ public class SQL extends AbstractStorage
     private boolean addColumn(String table_name, String column_name)
     {
         // If this column has already been added before for this table, then return
-        if ((table_name.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column_name))
+        if ((table_name.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column_name.toLowerCase()))
         {
             return true;
         }
-        else if ((table_name.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column_name))
+        else if ((table_name.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column_name.toLowerCase()))
         {
             return true;
         }
@@ -254,24 +259,23 @@ public class SQL extends AbstractStorage
         }
         catch (SQLException ex)
         {
-            logger.log(Level.WARNING, "Duplicate column found in table", ex);
             try
             {
                 dbConnection.rollback();
             }
             catch(SQLException e)
             {
-                logger.log(Level.WARNING, "Error in roll backing!", e);
+                logger.log(Level.WARNING, "Duplicate column found in table. Error in roll backing!", e);
             }
             if (ex.getSQLState().equals(DUPLICATE_COLUMN_ERROR_CODE))
             {
                 if (table_name.equalsIgnoreCase(VERTEX_TABLE))
                 {
-                    vertexAnnotations.add(column_name);
+                    vertexAnnotations.add(column_name.toLowerCase());
                 }
                 else if (table_name.equalsIgnoreCase(EDGE_TABLE))
                 {
-                    edgeAnnotations.add(column_name);
+                    edgeAnnotations.add(column_name.toLowerCase());
                 }
                 return true;
             }
@@ -510,12 +514,22 @@ public class SQL extends AbstractStorage
         String parentVertexHash = incomingEdge.getParentVertex().bigHashCode();
 
         // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder(100);
+        StringBuilder insertStringBuilder = new StringBuilder(200);
         insertStringBuilder.append("INSERT INTO ");
         insertStringBuilder.append(EDGE_TABLE);
         insertStringBuilder.append(" (");
         insertStringBuilder.append(PRIMARY_KEY);
         insertStringBuilder.append(", ");
+        if(!incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY))
+        {
+            insertStringBuilder.append(CHILD_VERTEX_KEY);
+            insertStringBuilder.append(", ");
+        }
+        if(!incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY))
+        {
+            insertStringBuilder.append(PARENT_VERTEX_KEY);
+            insertStringBuilder.append(", ");
+        }
         for (String annotationKey : incomingEdge.getAnnotations().keySet())
         {
             // Sanitize column name to remove special characters
@@ -536,6 +550,18 @@ public class SQL extends AbstractStorage
         // Add the hash code, and source and destination vertex Ids
         insertStringBuilder.append(edgeHash);
         insertStringBuilder.append("', ");
+        if(!incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY))
+        {
+            insertStringBuilder.append("'");
+            insertStringBuilder.append(childVertexHash);
+            insertStringBuilder.append("', ");
+        }
+        if(!incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY))
+        {
+            insertStringBuilder.append("'");
+            insertStringBuilder.append(parentVertexHash);
+            insertStringBuilder.append("', ");
+        }
 
         // Add the annotation values
         for (String annotationKey : incomingEdge.getAnnotations().keySet())
