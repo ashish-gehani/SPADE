@@ -187,32 +187,40 @@ public class Scaffold extends AbstractQuery
             DatabaseEntry data = new DatabaseEntry();
             // query database to get the key-value
             OperationStatus operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
-            List<String> ancestors = new LinkedList<>();
-            Map<String, Set<String>> lineageMap = new HashMap<>();
             if(operationStatus != OperationStatus.NOTFOUND)
             {
-                ancestors.add(hash);
-                int i = 0;
-                int depth = 0;
-                while(i < ancestors.size())
+                Set<String> remainingVertices = new HashSet<>();
+                Set<String> visitedVertices = new HashSet<>();
+                Map<String, Set<String>> lineageMap = new HashMap<>();
+                remainingVertices.add(hash);
+                int current_depth = 0;
+                while(!remainingVertices.isEmpty() && current_depth < maxDepth)
                 {
-                    if(depth >= maxDepth)
-                        break;
-                    String current_hash = ancestors.get(i);
-                    Set<String> neighbors = null;
-                    if(direction.startsWith(DIRECTION_ANCESTORS))
-                        neighbors = getParents(current_hash);
-                    else if(direction.startsWith(DIRECTION_DESCENDANTS))
-                        neighbors = getChildren(current_hash);
-
-                    if(neighbors != null)
+                    visitedVertices.addAll(remainingVertices);
+                    Set<String> currentSet = new HashSet<>();
+                    for(String current_hash: remainingVertices)
                     {
-                        lineageMap.put(current_hash, neighbors);
-                        ancestors.addAll(neighbors);
-                    }
+                        Set<String> neighbors = null;
+                        if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                            neighbors = getParents(current_hash);
+                        else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+                            neighbors = getChildren(current_hash);
 
-                    i++;
-                    depth++;
+                        if(neighbors != null)
+                        {
+                            lineageMap.put(current_hash, neighbors);
+                            for(String vertexHash: neighbors)
+                            {
+                                if(!visitedVertices.contains(vertexHash))
+                                {
+                                    currentSet.addAll(neighbors);
+                                }
+                            }
+                        }
+                    }
+                    remainingVertices.clear();
+                    remainingVertices.addAll(currentSet);
+                    current_depth++;
                 }
 
                 return lineageMap;
