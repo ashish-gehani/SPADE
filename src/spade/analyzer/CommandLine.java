@@ -23,6 +23,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import static spade.core.AbstractQuery.USE_SCAFFOLD;
+import static spade.core.AbstractStorage.scaffold;
+
 /**
  * @author raza
  */
@@ -154,9 +157,20 @@ public class CommandLine extends AbstractAnalyzer
                         try
                         {
                             parseQuery(line);
-                            AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
-                            Class<?> returnType = Class.forName(getReturnType(functionName));
-                            Object result = queryClass.execute(queryParameters, resultLimit);
+                            AbstractQuery queryClass;
+                            Class<?> returnType;
+                            Object result;
+                            if(USE_SCAFFOLD)
+                            {
+                                result = scaffold.queryManager(queryParameters);
+                                returnType = Graph.class;
+                            }
+                            else
+                            {
+                                queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
+                                returnType = Class.forName(getReturnType(functionName));
+                                result = queryClass.execute(queryParameters, resultLimit);
+                            }
                             if(result != null && returnType.isAssignableFrom(result.getClass()))
                             {
                                 if(result instanceof Graph)
