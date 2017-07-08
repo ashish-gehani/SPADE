@@ -24,10 +24,12 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.Test;
 import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
+import spade.query.scaffold.Scaffold;
 import spade.storage.SQL;
 
 import java.sql.SQLException;
@@ -75,10 +77,9 @@ class SQLTest {
         e1.removeAnnotation("type");
         e1.addAnnotation("type", "WasTriggeredBy");
         e1.addAnnotation("time", "5:56 PM");
-        e1.addAnnotation("hash", Integer.toString(e1.hashCode()));
         e1.addAnnotation("childVertexhash", v2.getAnnotation("hash"));
         e1.addAnnotation("parentVertexhash", v1.getAnnotation("hash"));
-        e1.addAnnotation("edgeid", "1");
+        e1.addAnnotation("edgeid", "11");
         graph.putEdge(e1);
 
         AbstractVertex v3 = new Vertex();
@@ -157,6 +158,12 @@ class SQLTest {
         String connectionString = "org.postgresql.Driver jdbc:postgresql://localhost/spade_pg sa null";
         if(!testSQLObject.initialize(connectionString))
             throw new SQLException();
+
+        Scaffold scaffold = new Scaffold();
+        scaffold.initialize("/tmp");
+        AbstractStorage.setScaffold(scaffold);
+        testSQLObject.putEdge(e1);
+        testSQLObject.putEdge(e2);
     }
 
     /**

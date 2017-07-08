@@ -29,6 +29,7 @@ public abstract class AbstractAnalyzer
     protected volatile boolean SHUTDOWN = false;
     protected boolean USE_TRANSFORMER = false;
     private static Map<String, List<String>> functionToClassMap;
+    protected static boolean EXPORT_RESULT = false;
 
     /**
      * remoteResolutionRequired is used by query module to signal the Analyzer

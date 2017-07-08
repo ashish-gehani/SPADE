@@ -1,6 +1,8 @@
 package spade.client;
 
 import jline.ConsoleReader;
+import org.apache.hadoop.fs.shell.Command;
+import org.neo4j.cypher.internal.compiler.v2_0.prettifier.Comma;
 import spade.core.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -10,6 +12,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -35,6 +38,7 @@ public class CommandLine
     private static final String historyFile = SPADE_ROOT + "cfg/query.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, String> constraints = new HashMap<>();
+    private static String RESULT_EXPORT_PATH = null;
 
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
@@ -149,17 +153,38 @@ public class CommandLine
                     {
                         // send line to analyzer
                         String query = parseQuery(line);
+                        if(RESULT_EXPORT_PATH != null)
+                        {
+                            query = "export " + query;
+                        }
                         long start_time = System.currentTimeMillis();
                         clientOutputStream.println(query);
                         String returnType = (String) clientInputStream.readObject();
                         String resultString = (String) clientInputStream.readObject();
                         long elapsed_time = System.currentTimeMillis() - start_time;
-                        System.out.println();
-                        System.out.println("Result:");
-                        System.out.println("Return type: " + returnType);
-                        System.out.println("Result: " + resultString);
                         System.out.println("Time taken for query: " + elapsed_time + " ms");
-                        System.out.println("------------------");
+                        if(RESULT_EXPORT_PATH != null)
+                        {
+                            FileWriter writer = new FileWriter(RESULT_EXPORT_PATH, false);
+                            writer.write(resultString);
+                            writer.flush();
+                            writer.close();
+                            System.out.println("Output exported to file");
+                            RESULT_EXPORT_PATH = null;
+                        }
+                        else
+                        {
+                            System.out.println();
+                            System.out.println("Result:");
+                            System.out.println("Return type: " + returnType);
+                            System.out.println("Result: " + resultString);
+                            System.out.println("------------------");
+                        }
+                    }
+                    else if(line.toLowerCase().contains("export"))
+                    {
+                        // save export path for next answer's dot file
+                        parseExport(line);
                     }
                     else
                     {
@@ -178,6 +203,25 @@ public class CommandLine
         }
     }
 
+    private static void parseExport(String line)
+    {
+        try
+        {
+            String[] tokens = line.split("\\s+");
+            String command = tokens[0].toLowerCase().trim();
+            String operator = tokens[1].trim();
+            String path = tokens[2].trim();
+            if(command.equalsIgnoreCase("export") && operator.equals(">"))
+            {
+                RESULT_EXPORT_PATH = path;
+            }
+        }
+        catch(Exception ex)
+        {
+            System.err.println(CommandLine.class.getName() + " Insufficient arguments!");
+        }
+    }
+
     private static void createConstraint(String line)
     {
         Pattern pattern = Pattern.compile("((?<=(=))|(?=(=)))");
@@ -185,6 +229,7 @@ public class CommandLine
         String constraint_name = tokens[0].trim();
         String constraint_expression = tokens[2].trim();
         constraints.put(constraint_name, constraint_expression);
+        System.out.println("Constraint '" + constraint_name + "' created.");
     }
 
     private static String parseQuery(String line)

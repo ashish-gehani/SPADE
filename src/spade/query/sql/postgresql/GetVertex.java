@@ -16,7 +16,7 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
 {
     public GetVertex()
     {
-        register();
+        //register();
     }
 
     @Override

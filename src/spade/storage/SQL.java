@@ -182,6 +182,7 @@ public class SQL extends AbstractStorage
         {
             dbConnection.commit();
             dbConnection.close();
+            scaffold.shutdown();
             return true;
         }
         catch (Exception ex)

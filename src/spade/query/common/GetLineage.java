@@ -29,6 +29,8 @@ import java.net.NetworkInterface;
 
 import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
+import static spade.core.AbstractStorage.DIRECTION;
+import static spade.core.AbstractStorage.MAX_DEPTH;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 
@@ -79,7 +81,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             for(Map.Entry<String, List<String>> entry : parameters.entrySet())
             {
                 String key = entry.getKey();
-                if(!(key.equals("direction") || key.equals(("maxDepth"))))
+                if(!(key.equals(DIRECTION) || key.equals((MAX_DEPTH))))
                     vertexParams.put(key, entry.getValue());
             }
             int current_depth = 0;
@@ -89,8 +91,8 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             if(!CollectionUtils.isEmpty(startingVertexSet))
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
-                remainingVertices.add(startingVertex.bigHashCode());
-//                remainingVertices.add(startingVertex.hashCode());
+//                remainingVertices.add(startingVertex.bigHashCode());
+                remainingVertices.add(startingVertex.getAnnotation(PRIMARY_KEY));
                 result.setRootVertex(startingVertex);
             }
             else
@@ -118,8 +120,8 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                     result.edgeSet().addAll(neighbors.edgeSet());
                     for(AbstractVertex vertex : neighbors.vertexSet())
                     {
-                        String neighborHash = vertex.bigHashCode();
-//                        String neighborHash = vertex.hashCode();
+//                        String neighborHash = vertex.bigHashCode();
+                        String neighborHash = vertex.getAnnotation(PRIMARY_KEY);
                         if(!visitedVertices.contains(neighborHash))
                         {
                             currentSet.add(neighborHash);

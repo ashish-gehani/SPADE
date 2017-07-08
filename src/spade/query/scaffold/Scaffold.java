@@ -32,6 +32,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
+import static spade.core.AbstractStorage.DIRECTION;
+import static spade.core.AbstractStorage.MAX_DEPTH;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 import static spade.query.sql.postgresql.PostgreSQL.EDGE_TABLE;
@@ -347,8 +349,8 @@ public class Scaffold extends AbstractQuery
     {
         Graph result = new Graph();
         String hash = params.get(PRIMARY_KEY).get(COL_VALUE);
-        String direction = params.get("direction").get(0);
-        int maxDepth = Integer.parseInt(params.get("maxDepth").get(0));
+        String direction = params.get(DIRECTION).get(0);
+        int maxDepth = Integer.parseInt(params.get(MAX_DEPTH).get(0));
         Map<String, Set<String>> lineageMap = getLineage(hash, direction, maxDepth);
 
         StringBuilder vertexQueryBuilder = new StringBuilder(500);
@@ -366,34 +368,46 @@ public class Scaffold extends AbstractQuery
             {
                 String vertexHash = entry.getKey();
                 Set<String> neighbors = entry.getValue();
-                vertexQueryBuilder.append(vertexHash).append(", ");
+                vertexQueryBuilder.append("'");
+                vertexQueryBuilder.append(vertexHash);
+                vertexQueryBuilder.append("'");
+                vertexQueryBuilder.append(", ");
 
                 for(String neighborHash: neighbors)
                 {
                     edgeQueryBuilder.append("(");
                     if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
                     {
-                        edgeQueryBuilder.append(CHILD_VERTEX_KEY).append(OPERATORS.EQUALS).append(vertexHash);
-                        edgeQueryBuilder.append("AND");
-                        edgeQueryBuilder.append(PARENT_VERTEX_KEY).append(OPERATORS.EQUALS).append(neighborHash);
+                        edgeQueryBuilder.append(CHILD_VERTEX_KEY).append(OPERATORS.EQUALS);
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(vertexHash);
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(" AND ");
+                        edgeQueryBuilder.append(PARENT_VERTEX_KEY).append(OPERATORS.EQUALS);
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(neighborHash);
+                        edgeQueryBuilder.append("'");
                     }
                     else
                     {
-                        edgeQueryBuilder.append(PARENT_VERTEX_KEY).append(OPERATORS.EQUALS).append(vertexHash);
-                        edgeQueryBuilder.append("AND");
-                        edgeQueryBuilder.append(CHILD_VERTEX_KEY).append(OPERATORS.EQUALS).append(neighborHash);
+                        edgeQueryBuilder.append(PARENT_VERTEX_KEY).append(OPERATORS.EQUALS);
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(vertexHash);
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(" AND ");
+                        edgeQueryBuilder.append(CHILD_VERTEX_KEY).append(OPERATORS.EQUALS);
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(neighborHash);
+                        edgeQueryBuilder.append("'");
                     }
                     edgeQueryBuilder.append(") OR");
                 }
             }
-            String vertex_query = vertexQueryBuilder.substring(0, vertexQueryBuilder.length() - 2) + ")";
-            vertexQueryBuilder = new StringBuilder(vertex_query);
-            vertexQueryBuilder.append(")");
-            vertexQueryBuilder.append(";");
+            String vertex_query = vertexQueryBuilder.substring(0, vertexQueryBuilder.length() - 2);
+            vertexQueryBuilder = new StringBuilder(vertex_query + ");");
 
-            String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 2) + ")";
-            edgeQueryBuilder = new StringBuilder(edge_query);
-            edgeQueryBuilder.append(";");
+            String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 2);
+            edgeQueryBuilder = new StringBuilder(edge_query + ";");
 
             Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + vertexQueryBuilder.toString());
             Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + edgeQueryBuilder.toString());

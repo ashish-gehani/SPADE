@@ -528,111 +528,163 @@ public class Graph extends AbstractStorage implements Serializable
         }
     }
 
+    public String exportGraph()
+    {
+        if (vertexSet.isEmpty())
+        {
+            return null;
+        }
+        StringBuilder outputString = new StringBuilder(500);
+        try
+        {
+            outputString.append("digraph spade2dot {\n" + "graph [rankdir = \"RL\"];\n" + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
+                    + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
+
+            for (AbstractVertex vertex : vertexSet)
+            {
+                outputString.append(exportVertex(vertex));
+            }
+            for (AbstractEdge edge : edgeSet)
+            {
+                outputString.append(exportEdge(edge));
+            }
+
+            outputString.append("}\n");
+        }
+        catch (Exception exception)
+        {
+            logger.log(Level.SEVERE, null, exception);
+        }
+
+        return outputString.toString();
+    }
+
     /**
      * This method is used to export the graph to a DOT file which is useful for
      * visualization.
      *
      * @param path The path to export the file to.
      */
-    public void exportGraph(String path) {
-        if ((path == null) || vertexSet.isEmpty()) {
+    public void exportGraph(String path)
+    {
+        if ((path == null) || vertexSet.isEmpty())
+        {
             return;
         }
-        try {
-            FileWriter writer = new FileWriter(path, false);
-            writer.write("digraph spade2dot {\n" + "graph [rankdir = \"RL\"];\n" + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
-                    + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
-            writer.flush();
-
-            for (AbstractVertex vertex : vertexSet) {
-                exportVertex(vertex, writer);
+        try
+        {
+            String outputString = this.exportGraph();
+            if(outputString != null)
+            {
+                FileWriter writer = new FileWriter(path, false);
+                writer.write(outputString);
+                writer.flush();
+                writer.close();
             }
-            for (AbstractEdge edge : edgeSet) {
-                exportEdge(edge, writer);
-            }
-
-            writer.write("}\n");
-            writer.flush();
-            writer.close();
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
         }
     }
 
-    private void exportVertex(AbstractVertex vertex, FileWriter writer) {
-        try {
+    private String exportVertex(AbstractVertex vertex)
+    {
+        try
+        {
             StringBuilder annotationString = new StringBuilder();
-            for (Map.Entry<String, String> currentEntry : vertex.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : vertex.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\")).append("\\n");
             }
             String vertexString = annotationString.substring(0, annotationString.length() - 2);
             String shape = "box";
             String color = "white";
             String type = vertex.getAnnotation("type");
-            if (type.equalsIgnoreCase("Agent")) {
+            if (type.equalsIgnoreCase("Agent"))
+            {
                 shape = "octagon";
                 color = "rosybrown1";
-            } else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity")) {
+            }
+            else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity"))
+            {
                 shape = "box";
                 color = "lightsteelblue1";
-            } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity")) {
+            }
+            else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity"))
+            {
                 shape = "ellipse";
                 color = "khaki1";
                 String subtype = vertex.getAnnotation("subtype");
-                if ("network".equalsIgnoreCase(subtype)) {
+                if ("network".equalsIgnoreCase(subtype))
+                {
                     shape = "diamond";
                     color = "palegreen1";
                 }
             }
 
-            String key = reverseVertexIdentifiers.get(vertex);
-            writer.write("\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
-        } catch (Exception exception) {
+            String key = vertex.bigHashCode();
+            String outputString = "\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n";
+            return outputString;
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
+            return null;
         }
     }
 
-    private void exportEdge(AbstractEdge edge, FileWriter writer) {
-        try {
+    private String exportEdge(AbstractEdge edge)
+    {
+        try
+        {
             StringBuilder annotationString = new StringBuilder();
-            for (Map.Entry<String, String> currentEntry : edge.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : edge.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\")).append("\\n");
             }
             String color = "black";
             String type = edge.getAnnotation("type");
-            if (type.equalsIgnoreCase("Used")) {
+            if (type.equalsIgnoreCase("Used"))
+            {
                 color = "green";
-            } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
+            }
+            else if (type.equalsIgnoreCase("WasGeneratedBy"))
+            {
                 color = "red";
-            } else if (type.equalsIgnoreCase("WasTriggeredBy")) {
+            }
+            else if (type.equalsIgnoreCase("WasTriggeredBy"))
+            {
                 color = "blue";
-            } else if (type.equalsIgnoreCase("WasControlledBy")) {
+            }
+            else if (type.equalsIgnoreCase("WasControlledBy"))
+            {
                 color = "purple";
-            } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
+            }
+            else if (type.equalsIgnoreCase("WasDerivedFrom"))
+            {
                 color = "orange";
             }
             String style = "solid";
-            if (edge.getAnnotation("success") != null && edge.getAnnotation("success").equals("false")) {
+            if (edge.getAnnotation("success") != null && edge.getAnnotation("success").equals("false"))
+            {
                 style = "dashed";
             }
 
             String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
-            String childkey = reverseVertexIdentifiers.get(edge.getChildVertex());
-            String dstkey = reverseVertexIdentifiers.get(edge.getParentVertex());
-            writer.write("\"" + childkey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
+            String childKey = edge.getChildVertex().bigHashCode();
+            String parentKey = edge.getParentVertex().bigHashCode();
+            String outputString = "\"" + childKey + "\" -> \"" + parentKey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n";
+            return outputString;
         }
-        catch (Exception exception) {
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
+            return null;
         }
     }
 

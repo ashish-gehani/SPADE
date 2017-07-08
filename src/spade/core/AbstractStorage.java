@@ -40,6 +40,9 @@ public abstract class AbstractStorage
     public static final String PRIMARY_KEY = "hash";
     public static final String CHILD_VERTEX_KEY = "childVertexHash";
     public static final String PARENT_VERTEX_KEY = "parentVertexHash";
+    public static final String DIRECTION = "direction";
+    public static final String MAX_DEPTH = "maxDepth";
+    public static final String MAX_LENGTH = "maxLength";
     public static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     public static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
 

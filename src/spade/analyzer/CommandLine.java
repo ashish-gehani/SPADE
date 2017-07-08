@@ -23,9 +23,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import static spade.core.AbstractQuery.USE_SCAFFOLD;
-import static spade.core.AbstractStorage.scaffold;
-
 /**
  * @author raza
  */
@@ -53,6 +50,7 @@ public class CommandLine extends AbstractAnalyzer
         QUERY_FUNCTION_GET_PARENTS("GetParents(<arguments, limit>)"),
         QUERY_FUNCTION_GET_LINEAGE("GetLineage(<arguments, limit, direction, maxDepth>)"),
         QUERY_FUNCTION_GET_PATHS("GetPaths(<arguments, limit, direction, maxLength>)"),
+        QUERY_FUNCTION_EXPORT("export > /path/to/file/for/next/query"),
         QUERY_LIST_CONSTRAINTS("list constraints"),
         QUERY_EXIT("exit");
 
@@ -72,10 +70,9 @@ public class CommandLine extends AbstractAnalyzer
     @Override
     public boolean initialize()
     {
-        try
+        ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
+        if(serverSocket != null)
         {
-            ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
-            Kernel.addServerSocket(serverSocket);
             Runnable queryRunnable = new Runnable()
             {
                 @Override
@@ -90,8 +87,7 @@ public class CommandLine extends AbstractAnalyzer
                             Thread connectionThread = new Thread(thisConnection);
                             connectionThread.start();
                         }
-                    }
-                    catch(NumberFormatException | IOException ex)
+                    } catch(NumberFormatException | IOException ex)
                     {
                         Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -101,9 +97,9 @@ public class CommandLine extends AbstractAnalyzer
             queryThread.start();
             return true;
         }
-        catch(Exception ex)
+        else
         {
-            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Server Socket not initialized");
             return false;
         }
     }
@@ -157,20 +153,9 @@ public class CommandLine extends AbstractAnalyzer
                         try
                         {
                             parseQuery(line);
-                            AbstractQuery queryClass;
-                            Class<?> returnType;
-                            Object result;
-                            if(USE_SCAFFOLD)
-                            {
-                                result = scaffold.queryManager(queryParameters);
-                                returnType = Graph.class;
-                            }
-                            else
-                            {
-                                queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
-                                returnType = Class.forName(getReturnType(functionName));
-                                result = queryClass.execute(queryParameters, resultLimit);
-                            }
+                            AbstractQuery queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
+                            Class<?> returnType = Class.forName(getReturnType(functionName));
+                            Object result = queryClass.execute(queryParameters, resultLimit);
                             if(result != null && returnType.isAssignableFrom(result.getClass()))
                             {
                                 if(result instanceof Graph)
@@ -190,7 +175,14 @@ public class CommandLine extends AbstractAnalyzer
                                         // TODO: return the stitched graphs
                                     }
                                     if(USE_TRANSFORMER)
+                                    {
                                         result = iterateTransformers((Graph) result, line);
+                                    }
+                                    if(EXPORT_RESULT)
+                                    {
+                                        result = ((Graph) result).exportGraph();
+                                        EXPORT_RESULT = false;
+                                    }
                                 }
                             }
                             else
@@ -200,18 +192,22 @@ public class CommandLine extends AbstractAnalyzer
                             queryOutputStream.writeObject(returnType.getSimpleName());
                             if(result != null)
                             {
-                                String string = "Vertices: " + ((Graph) result).vertexSet().size();
-                                string += ". Edges: " + ((Graph) result).edgeSet().size() + ".\n";
-                                string += result.toString();
-                                queryOutputStream.writeObject(string);
+//                                String string = "Vertices: " + ((Graph) result).vertexSet().size();
+//                                string += ". Edges: " + ((Graph) result).edgeSet().size() + ".\n";
+//                                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.INFO, string);
+//                                string += result.toString();
+//                                queryOutputStream.writeObject(string);
+                                queryOutputStream.writeObject(result.toString());
                             }
                             else
+                            {
                                 queryOutputStream.writeObject("Result Empty");
+                            }
 
                         }
                         catch(Exception ex)
                         {
-                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error executing query request!");
+                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error executing query request!", ex);
                         }
                     }
 
@@ -232,6 +228,11 @@ public class CommandLine extends AbstractAnalyzer
         @Override
         public void parseQuery(String query_line)
         {
+            if(query_line.startsWith("export"))
+            {
+                query_line = query_line.substring(query_line.indexOf("export") + "export".length());
+                EXPORT_RESULT = true;
+            }
             queryParameters = new LinkedHashMap<>();
             try
             {
