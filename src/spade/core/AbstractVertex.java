@@ -144,6 +144,17 @@ public abstract class AbstractVertex implements Serializable {
         return annotations.equals(vertex.annotations);
     }
 
+    public boolean isNetworkVertex()
+    {
+        String subtype = this.getAnnotation("subtype");
+        if(subtype != null && subtype.equalsIgnoreCase("network"))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     @Override
     public int hashCode()
     {

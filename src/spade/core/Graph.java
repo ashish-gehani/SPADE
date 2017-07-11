@@ -772,6 +772,7 @@ public class Graph extends AbstractStorage implements Serializable
             AbstractVertex parentVertex = edge.getParentVertex();
             if(parentVertex.bigHashCode().equals(parentVertexHash))
             {
+                result.putVertex(parentVertex);
                 result.putVertex(edge.getChildVertex());
                 result.putEdge(edge);
             }
@@ -798,6 +799,7 @@ public class Graph extends AbstractStorage implements Serializable
             AbstractVertex childVertex = edge.getChildVertex();
             if(childVertex.bigHashCode().equals(childVertexHash))
             {
+                result.putVertex(childVertex);
                 result.putVertex(edge.getParentVertex());
                 result.putEdge(edge);
             }

@@ -77,13 +77,9 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                 return null;
             }
 
-            Map<String, List<String>> vertexParams = new HashMap<>();
-            for(Map.Entry<String, List<String>> entry : parameters.entrySet())
-            {
-                String key = entry.getKey();
-                if(!(key.equals(DIRECTION) || key.equals((MAX_DEPTH))))
-                    vertexParams.put(key, entry.getValue());
-            }
+            Map<String, List<String>> vertexParams = new HashMap<>(parameters);
+            vertexParams.remove(DIRECTION);
+            vertexParams.remove(MAX_DEPTH);
             int current_depth = 0;
             Set<String> remainingVertices = new HashSet<>();
             Set<String> visitedVertices = new HashSet<>();
@@ -117,6 +113,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                         neighbors = getChildren.execute(params, DEFAULT_MAX_LIMIT);
                     }
                     result.vertexSet().addAll(neighbors.vertexSet());
+                    // empty right now. TODO: make getParents and getChildren return edges too
                     result.edgeSet().addAll(neighbors.edgeSet());
                     for(AbstractVertex vertex : neighbors.vertexSet())
                     {
@@ -126,8 +123,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                         {
                             currentSet.add(neighborHash);
                         }
-                        String subtype = vertex.getAnnotation("subtype");
-                        if(subtype != null && subtype.equalsIgnoreCase("network"))
+                        if(vertex.isNetworkVertex())
                         {
                             setRemoteResolutionRequired();
                             result.putNetworkVertex(vertex, current_depth);
@@ -143,7 +139,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                             edgeParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, "AND"));
                             edgeParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, neighborHash, null));
                         }
-                        Set<AbstractEdge> edgeSet = getEdge.execute(edgeParams, DEFAULT_MIN_LIMIT);
+                        Set<AbstractEdge> edgeSet = getEdge.execute(edgeParams, DEFAULT_MAX_LIMIT);
                         result.edgeSet().addAll(edgeSet);
                     }
                 }

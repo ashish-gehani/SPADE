@@ -14,6 +14,7 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -87,7 +88,12 @@ public class CommandLine extends AbstractAnalyzer
                             Thread connectionThread = new Thread(thisConnection);
                             connectionThread.start();
                         }
-                    } catch(NumberFormatException | IOException ex)
+                    }
+                    catch(SocketException ex)
+                    {
+                        // Do nothing. This is triggered on shutdown
+                    }
+                    catch(NumberFormatException | IOException ex)
                     {
                         Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
                     }
