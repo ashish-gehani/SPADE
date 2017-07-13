@@ -19,6 +19,12 @@
  
  USAGE: java NetfilterDelayStatistics
  IMPORTANT: audit logs should be in /var/log/audit/ and should be named in the format "audit.log.n", being n a number or just "audit.log" for n = 0
+ 
+ This tool reads log lines from the audit system and performs the following actions:
+ * calculates the mean delay (in terms of logs records) between SOCKADDR records from connect syscalls and the first NETFILTER_PKT record corresponding to the same connection
+ * calculates the variance of those delays
+ * saves a mapping of delays to their respective number of occurences in a file named "delayMap"
+ * performs the previous three actions for TCP and UDP connections in a separate way (with respective files "TCPdelayMap" and "UDPdelayMap"
  */
 package spade.utility;
 

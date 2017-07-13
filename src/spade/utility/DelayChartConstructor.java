@@ -18,9 +18,12 @@
  --------------------------------------------------------------------------------
  
  USAGE: java CDCConstructor <filename>
- Where the file should contain lines in the format:
- N : N
- where N are numbers
+ the file should contain lines in the format:
+ "D : O"
+ where "D" is a number representing a delay value (in records) and "O" is a number representing the number of occurrences of the delay
+  
+ This tool reads a file <filename> that contains a mapping between records delays and their number of occurrences in the form D : O. It performs the following action:
+ * constructs a chart containing the distribution of the occurrences over delays (delays in the x axis and occurrences in the y axis)
  */
 package spade.utility;
 
