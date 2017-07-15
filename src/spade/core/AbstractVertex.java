@@ -37,8 +37,21 @@ public abstract class AbstractVertex implements Serializable {
      * A map containing the annotations for this vertex.
      */
     protected Map<String, String> annotations = new HashMap<>();
-
+    
     /**
+     * An integer indicating the depth of the vertex in the graph
+     */
+    private int depth;
+
+    public int getDepth() {
+		return depth;
+	}
+
+	public void setDepth(int depth) {
+		this.depth = depth;
+	}
+
+	/**
      * Checks if vertex is empty
      *
      * @return Returns true if vertex contains no annotation
