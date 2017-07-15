@@ -17,7 +17,7 @@ import java.util.List;
  *
  */
 
-public class InconsistencyDetector {
+public class InconsistencyForPerformance {
 	
 	private Graph groundGraph;
 	private Graph testGraph;
@@ -29,11 +29,8 @@ public class InconsistencyDetector {
 	 * 
 	 * @param groundGraph ground (trusted) graph to take as a reference
 	 * @param testGraph new provenance graph to analyse and detect possible existing inconsistencies
-	 * @param v1 root vertex of groundGraph ground graph
-	 * @param v2 root vertex of testGraph new provenance graph to be analysed
-	 * @param maxDepthQuerry maximum depth parameter from querry that originated testGraph
 	 */
-	public InconsistencyDetector(Graph groundGraph, Graph testGraph) {
+	public InconsistencyForPerformance(Graph groundGraph, Graph testGraph) {
 		this.groundGraph = groundGraph;
 		this.testGraph = testGraph;
 		this.outgoingGroundGraphEdges = outgoingEdges(groundGraph);
@@ -153,8 +150,8 @@ public class InconsistencyDetector {
 	public static void main(String[] args) {
 		//testInconsistency();
 		//testGetLineage();
-		//findBigLineage("/tmp/data.dot");
-		//testRealGraph("/tmp/data.dot");
+		//findBigLineage("/tmp/provenance.dot");
+		//testRealGraph("/tmp/provenance.dot");
 	}
 	
 	private static void testGetLineage() {
@@ -231,7 +228,7 @@ public class InconsistencyDetector {
 		G1.putEdge(new Edge(V2,V4));
 		G1.setRootVertex(V0);
 		
-		InconsistencyDetector I1 = new InconsistencyDetector(G0, G1);
+		InconsistencyForPerformance I1 = new InconsistencyForPerformance(G0, G1);
 		System.out.println("I1 "+I1.findInconsistency());
 		
 		// testGraph - Missing Edge and Vertex
@@ -245,7 +242,7 @@ public class InconsistencyDetector {
 		G2.putEdge(new Edge(V2,V3));
 		G2.setRootVertex(V0);
 		
-		InconsistencyDetector I2 = new InconsistencyDetector(G0, G2);
+		InconsistencyForPerformance I2 = new InconsistencyForPerformance(G0, G2);
 		System.out.println("I2 "+ I2.findInconsistency());
 		
 		// G3 - Additional Edges + Vertex (okay)
@@ -264,7 +261,7 @@ public class InconsistencyDetector {
 		G3.putEdge(new Edge(V2,V5));
 		G3.setRootVertex(V0);
 		
-		InconsistencyDetector I3 = new InconsistencyDetector(G0, G3);
+		InconsistencyForPerformance I3 = new InconsistencyForPerformance(G0, G3);
 		System.out.println("I3 "+I3.findInconsistency());
 	}
 	
@@ -292,12 +289,12 @@ public class InconsistencyDetector {
 		
 		System.out.println("First test: MISSING EDGE");
 		Graph removedEdge = removeEdge(ground);
-		InconsistencyDetector I1 = new InconsistencyDetector(ground, removedEdge);
+		InconsistencyForPerformance I1 = new InconsistencyForPerformance(ground, removedEdge);
 		I1.findInconsistency();
 		
 		System.out.println("Second test: MISSING EDGE and VERTEX");
 		Graph removedVertex = removeVertex(ground);
-		InconsistencyDetector I2 = new InconsistencyDetector(ground, removedVertex);
+		InconsistencyForPerformance I2 = new InconsistencyForPerformance(ground, removedVertex);
 		I2.findInconsistency();
 	}
 	
