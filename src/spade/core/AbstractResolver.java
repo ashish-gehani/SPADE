@@ -1,6 +1,7 @@
 package spade.core;
 
 import org.apache.commons.collections.CollectionUtils;
+import spade.reporter.audit.OPMConstants;
 
 import javax.net.ssl.SSLSocket;
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.AbstractQuery.DEFAULT_MAX_LIMIT;
 import static spade.core.AbstractQuery.OPERATORS;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 
@@ -63,7 +65,7 @@ public abstract class AbstractResolver implements Runnable
         try
         {
             // Establish a connection to the remote host
-            String host = networkVertex.getAnnotation(DESTINATION_HOST);
+            String host = networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
             int port = Integer.parseInt(Settings.getProperty("dig_query_port"));
             SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(host, port);
 
@@ -73,28 +75,32 @@ public abstract class AbstractResolver implements Runnable
             PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
 
             String networkVertexQuery = "GetVertex(" +
-                    SOURCE_HOST +
+                    OPMConstants.ARTIFACT_LOCAL_ADDRESS +
                     OPERATORS.EQUALS +
-                    networkVertex.getAnnotation(DESTINATION_HOST) +
+                    networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS) +
                     " AND " +
-                    SOURCE_PORT +
+                    OPMConstants.ARTIFACT_LOCAL_PORT +
                     OPERATORS.EQUALS +
-                    networkVertex.getAnnotation(DESTINATION_PORT) +
+                    networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT) +
                     " AND " +
-                    DESTINATION_HOST +
+                    OPMConstants.ARTIFACT_REMOTE_ADDRESS +
                     OPERATORS.EQUALS +
-                    networkVertex.getAnnotation(SOURCE_HOST) +
+                    networkVertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS) +
                     " AND " +
-                    DESTINATION_PORT +
+                    OPMConstants.ARTIFACT_REMOTE_PORT +
                     OPERATORS.EQUALS +
-                    networkVertex.getAnnotation(SOURCE_PORT) +
+                    networkVertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT) +
+                    " AND " +
+                    OPMConstants.SOURCE +
+                    OPERATORS.EQUALS +
+                    OPMConstants.SOURCE_NETFILTER +
                     ", null" +
                     ")";
 
             remoteSocketOut.println(networkVertexQuery);
             // Check whether the remote query server returned a vertex set in response
             Set<AbstractVertex> vertexSet = (Set<AbstractVertex>) graphInputStream.readObject();
-            AbstractVertex targetVertex = null;
+            AbstractVertex targetVertex;
             if(!CollectionUtils.isEmpty(vertexSet))
                 targetVertex = vertexSet.iterator().next();
             else
@@ -106,10 +112,11 @@ public abstract class AbstractResolver implements Runnable
                     OPERATORS.EQUALS +
                     targetVertexHash +
                     ", " +
+                    DEFAULT_MAX_LIMIT +
+                    ", " +
                     depth +
                     ", " +
                     direction +
-                    ", " +
                     ")";
             remoteSocketOut.println(lineageQuery);
             resultGraph = (Graph) graphInputStream.readObject();

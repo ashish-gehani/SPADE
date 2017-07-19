@@ -30,6 +30,9 @@ import java.util.logging.Logger;
 public class Execute {
 	
 	private static Logger logger = Logger.getLogger(Execute.class.getName());
+	
+	private static final String PREFIX_STDOUT = "[STDOUT]",
+			PREFIX_STDERR = "[STDERR]";
 
 	public static List<String> getOutput(final String command) throws Exception{
 		
@@ -44,7 +47,7 @@ public class Execute {
 				try{
 					String line = null;
 					while((line = stdoutReader.readLine()) != null){
-						lines.add("[STDOUT]\t" + line);
+						lines.add(PREFIX_STDOUT+"\t" + line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDOUT for command: " +command, e);
@@ -57,7 +60,7 @@ public class Execute {
 				try{
 					String line = null;
 					while((line = stderrReader.readLine()) != null){
-						lines.add("[STDERR]\t" + line);
+						lines.add(PREFIX_STDERR+"\t" + line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDERR for command: " +command, e);
@@ -77,6 +80,25 @@ public class Execute {
 		stdoutReader.close();
 		
 		return lines;
+	}
+	
+	/**
+	 * Used to tell if the output of a command gotten from Execute.getOutput function has errors or not
+	 * 
+	 * @param outputLines output lines received from Execute.getOutput
+	 * @return true if errors exist, otherwise false
+	 */
+	public static boolean containsOutputFromStderr(List<String> lines){
+		if(lines != null){
+			for(String line : lines){
+				if(line != null){
+					if(line.startsWith(PREFIX_STDERR)){
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 	
 }
