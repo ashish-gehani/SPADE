@@ -3,6 +3,7 @@ package spade.query.scaffold;
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.bind.serial.SerialBinding;
 import com.sleepycat.bind.serial.StoredClassCatalog;
+import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
@@ -53,6 +54,23 @@ public class Scaffold extends AbstractQuery
     private static final String PARENTS = "parents";
     private static final String CHILDREN = "children";
 
+    public void readData(int limit)
+    {
+        Cursor cursor = scaffoldDatabase.openCursor(null, null);
+        DatabaseEntry key = new DatabaseEntry();
+        DatabaseEntry data = new DatabaseEntry();
+        int i = 0;
+        while(cursor.getNext(key, data, LockMode.DEFAULT) == OperationStatus.SUCCESS)
+        {
+            if(i >= limit)
+                break;
+            String keyString = new String(key.getData());
+            System.out.println("hash: " + keyString);
+            i++;
+        }
+        cursor.close();
+    }
+
     /**
      * This method is invoked by the kernel to initialize the storage.
      *
@@ -69,7 +87,6 @@ public class Scaffold extends AbstractQuery
         {
             EnvironmentConfig envConfig = new EnvironmentConfig();
             envConfig.setAllowCreate(true);
-            envConfig.setTransactional(true);
             scaffoldDbEnvironment = new Environment(new File(directoryPath), envConfig);
 
             DatabaseConfig dbConfig = new DatabaseConfig();
@@ -272,8 +289,10 @@ public class Scaffold extends AbstractQuery
     {
         AbstractVertex childVertex = incomingEdge.getChildVertex();
         AbstractVertex parentVertex = incomingEdge.getParentVertex();
-        String childHash = childVertex.bigHashCode();
-        String parentHash = parentVertex.bigHashCode();
+        String childHash = incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY) ?
+                incomingEdge.getAnnotation(CHILD_VERTEX_KEY) : childVertex.bigHashCode();
+        String parentHash = incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY) ?
+                incomingEdge.getAnnotation(PARENT_VERTEX_KEY) : parentVertex.bigHashCode();
         try
         {
             // Instantiate class catalog
