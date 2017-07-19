@@ -59,6 +59,8 @@ public class AuditEventReader {
 			ARG3 = "a3",
 			COMM = "comm",
 			CWD = "cwd",
+			DADDR = "daddr",
+			DPORT = "dport",
 			EGID = "egid",
 			EUID = "euid",
 			EVENT_ID = "eventid",
@@ -71,6 +73,9 @@ public class AuditEventReader {
 			FSGID = "fsgid",
 			FSUID = "fsuid",
 			GID = "gid",
+			HOOK = "hook",
+			HOOK_INPUT = "1",
+			HOOK_OUTPUT = "3",
 			ITEMS = "items",
 			MODE_PREFIX = "mode",
 			NAMETYPE_CREATE = "CREATE",
@@ -82,6 +87,7 @@ public class AuditEventReader {
 			PATH_PREFIX = "path",
 			PID = "pid",
 			PPID = "ppid",
+			PROTO = "proto",
 			RECORD_TYPE_CWD = "CWD",
 			RECORD_TYPE_DAEMON_START = "DAEMON_START",
 			RECORD_TYPE_EOE = "EOE",
@@ -101,6 +107,7 @@ public class AuditEventReader {
 			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
 			SGID = "sgid",
+			SPORT = "sport",
 			SUCCESS = "success",
 			SUCCESS_NO = "no",
 			SUCCESS_YES = "yes",
@@ -668,6 +675,9 @@ public class AuditEventReader {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
 					}
 				} else if(type.equals(RECORD_TYPE_NETFILTER_PKT)){
+					auditRecordKeyValues.put(TIME, time); // add time
+					auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_PKT); // type
+					// rest of the keys as is below
 					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
 					while (key_value_matcher.find()) {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
