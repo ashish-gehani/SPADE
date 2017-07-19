@@ -3586,6 +3586,8 @@ public class Audit extends AbstractReporter {
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort);
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_PROTOCOL, protocolName);
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_NETWORK_SOCKET);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_NETFILTER);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
 
     	Artifact artifactFromSyscall = removeNetworkArtifactSeenInSyscall(remoteAddress, remotePort);
     	if(artifactFromSyscall != null){

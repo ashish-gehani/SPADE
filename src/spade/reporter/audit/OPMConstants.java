@@ -50,6 +50,7 @@ public class OPMConstants {
 			SOURCE_AUDIT = "/dev/audit",
 			SOURCE_PROCFS = "/proc",
 			SOURCE_BEEP = "beep",
+			SOURCE_NETFILTER = "netfilter",
 			
 			// Agent specific annotations
 			AGENT_EGID = "egid",
