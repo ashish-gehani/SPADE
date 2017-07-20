@@ -15,6 +15,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.core.Kernel;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -51,10 +52,13 @@ public class CompressedStorage extends AbstractStorage {
 	static Deflater compresser;
 	static Vector<String> alreadyRenamed;
 	static Map<String, Integer> hashToID;
-	static Integer edgesInMemory;
-	static final Integer maxEdgesInMemory = 10;
+	static int edgesInMemory;
+	static int maxEdgesInMemory = 1;
 	Map<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>> scaffoldInMemory;
-
+	private static final Logger logger = Logger.getLogger(CompressedStorage.class.getName());
+	long clock;
+	static PrintWriter benchmarks;
+	
 	/**
 	 * This method is invoked by the kernel to initialize the storage.
 	 *
@@ -63,6 +67,7 @@ public class CompressedStorage extends AbstractStorage {
 	 * @return True if the storage was initialized successfully.
 	 */
 	public boolean initialize(String filePath) {
+		clock = System.currentTimeMillis();
 		scaffoldInMemory = new HashMap<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>>();
 		edgesInMemory = 0;
 		hashToID = new HashMap<String, Integer>();
@@ -72,7 +77,8 @@ public class CompressedStorage extends AbstractStorage {
 		L=5;
 		nextVertexID = 0;
 		try {
-
+			benchmarks = new PrintWriter("/Users/melanie/Documents/tests/debug/compression_time_berkeleyDB.txt", "UTF-8");
+			benchmarks.print("test");
 			// Open the environment. Create it if it does not already exist.
 			EnvironmentConfig envConfig = new EnvironmentConfig();
 			envConfig.setAllowCreate(true);
@@ -87,8 +93,9 @@ public class CompressedStorage extends AbstractStorage {
 
 			return true;
 
-		} catch (DatabaseException Databasee) {
+		} catch (Exception ex) {
 			// Exception handling goes here
+			logger.log(Level.SEVERE, "Compressed Storage Initialized not successful!", ex);
 			return false;
 		}
 	}
@@ -110,11 +117,12 @@ public class CompressedStorage extends AbstractStorage {
 			if (DatabaseEnvironment != null)
 				DatabaseEnvironment.close();
 			compresser.end();
+			benchmarks.close();
 			return true;
 		}
 		catch(DatabaseException ex)
 		{
-			Logger.getLogger(BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
+			logger.log(Level.SEVERE, "Compressed Storage Shutdown not successful!", ex);
 		}
 
 		return false;
@@ -214,7 +222,7 @@ public class CompressedStorage extends AbstractStorage {
 		//Iterator<NodeLayerAncestorSuccessor> iteratorPossibleReference = lastNodesSeen.iterator(); 
 		//while (iteratorPossibleReference.hasNext()){
 		//System.out.println("step 1");
-		for (Integer possibleReferenceID = 1; possibleReferenceID<id; possibleReferenceID ++){
+		for (Integer possibleReferenceID = Math.max(0, id - W); possibleReferenceID<id; possibleReferenceID ++){
 			//for each node in the W last nodes seen, compute the proximity, i.e. the number of successors of the current node that also are successors of the possibleReference node.
 			Pair<Pair<Integer, SortedSet<Integer>>, Pair<Integer, SortedSet<Integer>>> asl = uncompressAncestorsSuccessorsWithLayer(possibleReferenceID, true, true); 
 			if(asl.first().first() < L) {
@@ -320,6 +328,7 @@ public class CompressedStorage extends AbstractStorage {
 			previousNode = nodeID;
 
 		}
+		System.out.println(id + "?" + encoding);
 		put(scaffoldDatabase, id, encoding);
 		//System.out.println(id + " " + encoding);
 		return true;
@@ -411,6 +420,8 @@ public class CompressedStorage extends AbstractStorage {
 			}
 		}
 		Pair<Integer, Integer> count = new Pair<Integer, Integer>(nodesInCommon, numberOfZero);
+		
+		//System.out.println("Common nodes - reference size:" + reference.size() + " node size - " + node.size() + "bitlist size:" + bitlist.length()); 
 		return new Pair<Pair<Integer, Integer>, String>(count, bitlist);
 	}
 
@@ -594,7 +605,9 @@ public static SortedSet<Integer> uncompressRemainingNodes(Integer nodeID, String
 private static SortedSet<Integer> uncompressReference(Integer id, String ancestorOrSuccessorList,
 		boolean ancestorOrSuccessor) throws UnsupportedEncodingException {
 	//System.out.println("step m");
-	SortedSet<Integer> list = new TreeSet<Integer>();
+	
+		SortedSet<Integer> list = new TreeSet<Integer>();
+	
 	StringTokenizer st = new StringTokenizer(ancestorOrSuccessorList);
 	//System.out.println("ancestorOrSuccessorList :" + ancestorOrSuccessorList + " /id :" + id);
 	//st.nextToken();
@@ -626,7 +639,7 @@ private static SortedSet<Integer> uncompressReference(Integer id, String ancesto
 			toUncompress = referenceID + " " + toUncompress;
 			previousLayers.addFirst(toUncompress);
 			//System.out.println("step r");
-			if (toUncompress.contains(" _ ")) { // this is the last layer
+			if (toUncompress.contains("_")) { // this is the last layer
 				hasReference = false;
 			} else { // we need to go one layer further to uncompress the successors
 				String aux = toUncompress.substring(toUncompress.indexOf(" ")+1);
@@ -648,10 +661,11 @@ private static SortedSet<Integer> uncompressReference(Integer id, String ancesto
 	for(String layer : previousLayers) { //find the successors of the first layer and then those of the second layer and so on...
 		layerID = Integer.parseInt(layer.substring(0, layer.indexOf(" ")));
 		//System.out.println("step u");
-		if (layer.contains("_ ")) { //this is the case for the first layer only
-			remainingNodesLayer = layer.substring(layer.indexOf("_ ")+2);
+		if (layer.contains("_")) { //this is the case for the first layer only
+			remainingNodesLayer = layer.substring(layer.indexOf("_")+2);
+			benchmarks.println("____ " + layer + " /// " + remainingNodesLayer);
 			//System.out.println("step v");
-		} else {
+		} else { 
 			// uncompress the bitlist
 			remainingNodesLayer = layer.substring(layer.indexOf(" ") + 1);
 			//System.out.println("remaining Nodes Layer 1: " + remainingNodesLayer);
@@ -666,21 +680,26 @@ private static SortedSet<Integer> uncompressReference(Integer id, String ancesto
 				remainingNodesLayer = remainingNodesLayer.substring(remainingNodesLayer.indexOf(" ") + 1);
 			} else {
 				
-				bitListLayer = remainingNodesLayer.substring(0);
+				bitListLayer = remainingNodesLayer;
 				remainingNodesLayer = "";
 			}
+			benchmarks.println("ref:" + layer + " ////remaining:" + remainingNodesLayer + "////bitListLayer:" + bitListLayer );
 			//System.out.println("bitListLayer :" + bitListLayer + "/");
 			int count = 0;
 			SortedSet<Integer> list2 = new TreeSet<Integer>();
 			list2.addAll(list);
 		//	System.out.println("step x");
 			//System.out.println(bitListLayer);
+			//System.out.println("BUG:" + list2.toString() + "/bit:" +  bitListLayer);
 			for (Integer successor : list2) {
-				//System.out.println(successor + " " + count);
+			try {	
 				if(bitListLayer.charAt(count) == '0') {
 					list.remove(successor);
 					//System.out.println("step y");
 				}
+			} catch (Exception ex) {
+				System.out.println("update unsuccessful in uncompress reference :" + ex.getMessage() + "/count:" + count + "/successor.length:" + list.size() + "/list2.length:" + list2.size() + "bitListLayer.length:" + bitListLayer.length()+ "nodeID:" + layerID + "/bitListLayer:" + bitListLayer);
+			}
 				count++;
 			}
 		}
@@ -688,8 +707,10 @@ private static SortedSet<Integer> uncompressReference(Integer id, String ancesto
 		list.addAll(uncompressRemainingNodes(layerID, remainingNodesLayer)); 
 		//System.out.println("step z");
 	} 
+		
 	//System.out.println("uncompressReference : " + list.toString() + "id : " + id);
 	return list;
+	
 }
 
 public static SortedSet<Integer> findAllTheSuccessors(Integer nodeID) throws FileNotFoundException, UnsupportedEncodingException {
@@ -829,7 +850,7 @@ public static String decodingVertex(Integer toDecode) throws DataFormatException
 
 public static String decodingEdge(Integer node1, Integer node2) throws DataFormatException, UnsupportedEncodingException {
 	Inflater decompresser = new Inflater();
-	String key_s = node1.toString() + " -> " + node2.toString();
+	String key_s = node1.toString() + "->" + node2.toString();
 	/*DatabaseEntry key = new DatabaseEntry(key_s.getBytes("UTF-8"));
 	DatabaseEntry data = new DatabaseEntry();
 	annotationsDatabase.get(null, key, data, LockMode.DEFAULT);*/
@@ -912,6 +933,7 @@ public static boolean update(String textfile) {
 
 
 private static void updateAncestorsSuccessors(Map<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>> asl) {
+	try{
 	//for each line to update 
 	Set<Map.Entry<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>>> entries = asl.entrySet();
 	SortedSet<Integer> ancestors;
@@ -930,7 +952,7 @@ private static void updateAncestorsSuccessors(Map<Integer, Pair<SortedSet<Intege
 		toUpdate.put(id, new Pair(ancestors, successors));
 
 
-		//update other nodes but do not update the reference
+		//update other nodes
 		for (Integer nodeID = id + 1; nodeID < id + W + 1; nodeID++) {
 			String line = get(scaffoldDatabase, nodeID);
 			if (line != null && line.contains("/")) {
@@ -963,7 +985,10 @@ private static void updateAncestorsSuccessors(Map<Integer, Pair<SortedSet<Intege
 	}
 	Set<HashMap.Entry<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>>> entriesToUpdate = toUpdate.entrySet();
 	for(HashMap.Entry<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>> nodeToUpdate : entriesToUpdate) {
+		benchmarks.println("nodeToUpdate:" + nodeToUpdate);
 		encodeAncestorsSuccessors(nodeToUpdate);
+	}} catch (Exception ex) {
+		System.out.println("update unsuccessful:" + ex.getMessage());
 	}
 /*	Set<HashMap.Entry<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>>> entriesUnchangedToUpdate = unchangedToUpdate.entrySet();
 	for(HashMap.Entry<Integer, Pair<SortedSet<Integer>, SortedSet<Integer>>> nodeToUpdate : entriesUnchangedToUpdate) {
@@ -1087,8 +1112,8 @@ public Graph getParents(String childVertexHash) {
 @Override
 public boolean putEdge(AbstractEdge incomingEdge) {
     try {
-        String srcHash = DigestUtils.sha256Hex(incomingEdge.getChildVertex().toString());
-        String dstHash = DigestUtils.sha256Hex(incomingEdge.getParentVertex().toString());
+        String srcHash = incomingEdge.getChildVertex().bigHashCode();
+        String dstHash = incomingEdge.getParentVertex().bigHashCode();
         Integer srcID = hashToID.get(srcHash);
         Integer dstID = hashToID.get(dstHash);
         StringBuilder annotationString = new StringBuilder();
@@ -1115,7 +1140,7 @@ public boolean putEdge(AbstractEdge incomingEdge) {
     	String key = srcID + "->" + dstID;
     	put(annotationsDatabase, key, output);	
     	compresser.reset();
-    	//TODO scaffold storage
+    	// scaffold storage
     	//update scaffoldInMemory
     	Pair<SortedSet<Integer>, SortedSet<Integer>> srcLists = scaffoldInMemory.get(srcID);
     	if (srcLists == null) {
@@ -1129,12 +1154,17 @@ public boolean putEdge(AbstractEdge incomingEdge) {
     	}
     	dstLists.first().add(dstID);
     	scaffoldInMemory.put(dstID, dstLists);
-    	edgesInMemory ++;
-    	if(edgesInMemory == maxEdgesInMemory) {
-    		updateAncestorsSuccessors(scaffoldInMemory);
+    	edgesInMemory++;
+    	benchmarks.println(edgesInMemory);
+    	if(edgesInMemory % maxEdgesInMemory == 0) {
+    		System.out.print("ok1");updateAncestorsSuccessors(scaffoldInMemory);
     		scaffoldInMemory.clear();
-    		edgesInMemory = 0;
+    		long aux = System.currentTimeMillis();
+    		benchmarks.println(aux-clock);
+    		System.out.println("ok2");
+    		clock = aux;
     	}
+    	
     	
         return true;
     } catch (Exception exception) {
@@ -1147,7 +1177,7 @@ public boolean putEdge(AbstractEdge incomingEdge) {
 @Override
 public boolean putVertex(AbstractVertex incomingVertex) {
     try {
-        String vertexHash = DigestUtils.sha256Hex(incomingVertex.toString());
+        String vertexHash = incomingVertex.bigHashCode();
         Integer vertexID = nextVertexID;
         nextVertexID ++;
         hashToID.put(vertexHash, vertexID);
