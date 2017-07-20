@@ -816,6 +816,7 @@ public class Graph extends AbstractStorage implements Serializable
         Set<String> remainingVertices = new HashSet<>();
         AbstractVertex startingVertex = getVertex(hash);
         remainingVertices.add(startingVertex.bigHashCode());
+        startingVertex.setDepth(0);
         result.setRootVertex(startingVertex);
         result.setMaxDepth(maxDepth);
         Set<String> visitedVertices = new HashSet<>();
@@ -836,6 +837,8 @@ public class Graph extends AbstractStorage implements Serializable
                 }
                 if(neighbors != null)
                 {
+                	for(AbstractVertex V: neighbors.vertexSet())
+                		V.setDepth(current_depth+1);
                     result.vertexSet().addAll(neighbors.vertexSet());
                     result.edgeSet().addAll(neighbors.edgeSet());
                     for(AbstractVertex vertex: neighbors.vertexSet())
