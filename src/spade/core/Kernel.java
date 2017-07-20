@@ -814,6 +814,7 @@ public class Kernel
                 }
                 else
                 {
+                    logger.log(Level.SEVERE, "Unable to launch reporter");
                     outputStream.println("failed");
                 }
 

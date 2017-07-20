@@ -87,6 +87,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             if(!CollectionUtils.isEmpty(startingVertexSet))
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
+                startingVertex.setDepth(0);
 //                remainingVertices.add(startingVertex.bigHashCode());
                 remainingVertices.add(startingVertex.getAnnotation(PRIMARY_KEY));
                 result.setRootVertex(startingVertex);
@@ -112,6 +113,8 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                         params.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
                         neighbors = getChildren.execute(params, DEFAULT_MAX_LIMIT);
                     }
+                    for(AbstractVertex V: neighbors.vertexSet())
+                		V.setDepth(current_depth+1);
                     result.vertexSet().addAll(neighbors.vertexSet());
                     // empty right now. TODO: make getParents and getChildren return edges too
                     result.edgeSet().addAll(neighbors.edgeSet());

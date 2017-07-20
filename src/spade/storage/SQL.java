@@ -57,6 +57,17 @@ public class SQL extends AbstractStorage
     private static final String EDGE_TABLE = "edge";
     private static String DUPLICATE_COLUMN_ERROR_CODE;
     private static final Logger logger = Logger.getLogger(SQL.class.getName());
+    private int CURSOR_FETCH_SIZE = 0;
+
+    public int getCursorFetchSize()
+    {
+        return CURSOR_FETCH_SIZE;
+    }
+
+    public void setCursorFetchSize(int cursorFetchSize)
+    {
+        CURSOR_FETCH_SIZE = cursorFetchSize;
+    }
     /**
      *  initializes the SQL database and creates the necessary tables
      * if not already present. The necessary tables include VERTEX and EDGE tables
@@ -156,7 +167,7 @@ public class SQL extends AbstractStorage
             dbStatement.close();
 
             Scaffold scaffold = new Scaffold();
-            scaffold.initialize("/tmp");
+            scaffold.initialize("/tmp/scaffold/");
             AbstractStorage.setScaffold(scaffold);
 
             return true;
@@ -240,9 +251,9 @@ public class SQL extends AbstractStorage
             Statement columnStatement = dbConnection.createStatement();
             String statement = "ALTER TABLE "
                     + table_name
-                    + " ADD COLUMN "
+                    + " ADD COLUMN \""
                     + column_name
-                    + " VARCHAR(256);";
+                    + "\" VARCHAR(256);";
             columnStatement.execute(statement);
             dbConnection.commit();
             columnStatement.close();
@@ -540,8 +551,9 @@ public class SQL extends AbstractStorage
             // columns to the table_name if they do not already exist
             addColumn(EDGE_TABLE, newAnnotationKey);
 
-            insertStringBuilder.append("");
+            insertStringBuilder.append("\"");
             insertStringBuilder.append(newAnnotationKey);
+            insertStringBuilder.append("\"");
             insertStringBuilder.append(", ");
         }
 
@@ -624,7 +636,9 @@ public class SQL extends AbstractStorage
             // columns to the table if they do not already exist
             addColumn(VERTEX_TABLE, newAnnotationKey);
 
+            insertStringBuilder.append("\"");
             insertStringBuilder.append(newAnnotationKey);
+            insertStringBuilder.append("\"");
             insertStringBuilder.append(", ");
         }
 
@@ -675,6 +689,8 @@ public class SQL extends AbstractStorage
         {
             dbConnection.commit();
             Statement queryStatement = dbConnection.createStatement();
+            if(CURSOR_FETCH_SIZE > 0)
+                queryStatement.setFetchSize(CURSOR_FETCH_SIZE);
             result = queryStatement.executeQuery(query);
         }
         catch (SQLException ex)

@@ -33,7 +33,9 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
             {
                 String colName = entry.getKey();
                 List<String> values = entry.getValue();
+                query.append("\"");
                 query.append(colName);
+                query.append("\"");
                 query.append(values.get(ARITHMETIC_OPERATOR));
                 query.append("'");
                 query.append(values.get(COL_VALUE));

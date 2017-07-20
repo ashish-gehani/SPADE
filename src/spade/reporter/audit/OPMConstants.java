@@ -19,14 +19,14 @@
  */
 package spade.reporter.audit;
 
-import spade.core.AbstractVertex;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import spade.core.AbstractVertex;
 
 /**
  * All constants and convenience functions for OPM related to Audit data.
@@ -50,6 +50,7 @@ public class OPMConstants {
 			SOURCE_AUDIT = "/dev/audit",
 			SOURCE_PROCFS = "/proc",
 			SOURCE_BEEP = "beep",
+			SOURCE_NETFILTER = "netfilter",
 			
 			// Agent specific annotations
 			AGENT_EGID = "egid",
