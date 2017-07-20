@@ -3610,7 +3610,7 @@ public class Audit extends AbstractReporter {
     			artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_VERSION, version);
     		}
     		putVertex(artifactFromNetfilter);
-    		WasDerivedFrom syscallToNetfilter = new WasDerivedFrom(artifactFromSyscall, artifactFromNetfilter);
+    		WasDerivedFrom syscallToNetfilter = new WasDerivedFrom(artifactFromNetfilter, artifactFromSyscall);
     		putEdge(syscallToNetfilter, null, time, eventId, OPMConstants.SOURCE_AUDIT);
     		
     	}else{
@@ -3834,7 +3834,7 @@ public class Audit extends AbstractReporter {
 					
 		    		putVertex(netfilterArtifact);
 		    		// TODO USE A COPY OF THE SYSCALL ARTIFACT AND NOT THIS ONE!!!!
-					WasDerivedFrom edge = new WasDerivedFrom(syscallArtifact, netfilterArtifact);
+					WasDerivedFrom edge = new WasDerivedFrom(netfilterArtifact, syscallArtifact);
 					putEdge(edge, null, time, eventId, OPMConstants.SOURCE_AUDIT);
 				}else{
 					addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
