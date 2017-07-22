@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -56,10 +57,14 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 AbstractVertex vertex = new Vertex();
                 for (int i = 1; i <= columnCount; i++)
                 {
+                    String colName = columnLabels.get(i);
                     String value = result.getString(i);
                     if (!StringUtils.isNullOrEmpty(value))
                     {
-                        vertex.addAnnotation(columnLabels.get(i), result.getString(i));
+                        if(colName != null && !colName.equals(PRIMARY_KEY))
+                        {
+                            vertex.addAnnotation(colName, value);
+                        }
                     }
                 }
                 vertexSet.add(vertex);
@@ -97,7 +102,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                     if (!StringUtils.isNullOrEmpty(value))
                     {
                         String colName = columnLabels.get(i);
-                        if (colName != null)
+                        if (colName != null && !colName.equals(PRIMARY_KEY))
                         {
                             annotations.put(colName, result.getString(i));
                         }
