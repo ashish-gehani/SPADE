@@ -7,7 +7,7 @@ src/spade/query/neo4j/GetVertex.java
 src/spade/query/neo4j/Neo4j.java
 src/spade/query/neo4j/PutEdge.java
 src/spade/query/neo4j/putVertex.java
-src/spade/query/scaffold/Scaffold.java
+src/spade/query/scaffold/BerkeleyDB.java
 src/spade/query/sql/postgresql/AddColumn.java
 src/spade/query/sql/postgresql/GetChildren.java
 src/spade/query/sql/postgresql/GetEdge.java
@@ -16,4 +16,5 @@ src/spade/query/sql/postgresql/GetVertex.java
 src/spade/query/sql/postgresql/PostgreSQL.java
 src/spade/query/sql/postgresql/PutEdge.java
 src/spade/query/sql/postgresql/PutVertex.java
+src/spade/query/sql/postgresql/scratchpad.java
 src/spade/query/sql/SQL.java
