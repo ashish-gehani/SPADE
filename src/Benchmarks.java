@@ -10,7 +10,6 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.storage.CompressedStorage;
 import spade.storage.TextFile;
-import spade.storage.TextFileRenamed;
 
 public class Benchmarks {
 

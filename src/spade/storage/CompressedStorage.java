@@ -10,21 +10,16 @@ import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
-import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.utilint.Pair;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.core.Kernel;
-import spade.query.scaffold.Scaffold;
-import spade.query.scaffold.CompressedScaffold.Neighbors;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
-import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -40,8 +35,6 @@ import java.util.logging.Logger;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
-
-import org.apache.commons.codec.digest.DigestUtils;
 
 public class CompressedStorage extends AbstractStorage {
 	private static Environment DatabaseEnvironment1 = null;
