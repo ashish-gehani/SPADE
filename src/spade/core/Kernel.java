@@ -769,7 +769,7 @@ public class Kernel
             return;
         }
         String moduleName = tokens[1].toLowerCase();
-        String className = tokens[2];
+        String className = tokens.length >= 3 ? tokens[2] : null;
         String arguments = null;
         String position = null;
         SimpleEntry<String, String> positionArgumentsEntry;
