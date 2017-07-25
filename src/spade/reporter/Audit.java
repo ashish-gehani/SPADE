@@ -2745,6 +2745,18 @@ public class Audit extends AbstractReporter {
 		}
 
 		boolean openedForRead = false;
+		
+		String flagsArgs = "";
+		flagsArgs += ((flags & O_WRONLY) == O_WRONLY) ? "O_WRONLY|" : "";
+		flagsArgs += ((flags & O_RDWR) == O_RDWR) ? "O_RDWR|" : "";
+		flagsArgs += ((flags & O_APPEND) == O_APPEND) ? "O_APPEND|" : "";
+		flagsArgs += ((flags & O_TRUNC) == O_TRUNC) ? "O_TRUNC|" : "";
+		flagsArgs += ((flags & O_RDONLY) == O_RDONLY) ? "O_RDONLY|" : "";
+		flagsArgs += ((flags & O_CREAT) == O_CREAT) ? "O_CREAT|" : "";
+		
+		if(!flagsArgs.isEmpty()){
+			flagsArgs = flagsArgs.substring(0, flagsArgs.length() - 1);
+		}
 
 		if((flags & O_WRONLY) == O_WRONLY || 
 				(flags & O_RDWR) == O_RDWR ||
@@ -2769,6 +2781,9 @@ public class Audit extends AbstractReporter {
 		
 		if(edge != null){
 			edge.addAnnotation(OPMConstants.EDGE_MODE, Long.toOctalString(modeArg));
+			if(!flagsArgs.isEmpty()){
+				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsArgs);
+			}
 			//everything happened successfully. add it to descriptors
 			descriptors.addDescriptor(pid, fd, artifactIdentifier, openedForRead);
 
