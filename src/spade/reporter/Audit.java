@@ -259,7 +259,8 @@ public class Audit extends AbstractReporter {
 		Map<String, String> configMap = new HashMap<String, String>();
 		try{
 			Map<String, String> temp = FileUtility.readConfigFileAsKeyValueMap(
-					Settings.getDefaultConfigFilePath(this.getClass()), "=");
+					Settings.getDefaultConfigFilePath(this.getClass()),
+					"=");
 			if(temp != null){
 				configMap.putAll(temp);
 			}
@@ -3573,10 +3574,23 @@ public class Audit extends AbstractReporter {
     	String protocolNumber = eventData.get(AuditEventReader.PROTO);
     	String hook = eventData.get(AuditEventReader.HOOK);//hook=1 (input), hook=3 (output)
     	
-    	String localAddress = eventData.get(AuditEventReader.SADDR);
-    	String localPort = eventData.get(AuditEventReader.SPORT);
-    	String remoteAddress = eventData.get(AuditEventReader.DADDR);
-    	String remotePort = eventData.get(AuditEventReader.DPORT);
+    	String localAddress = null, localPort = null, remoteAddress = null, remotePort = null;
+    	
+    	if(AuditEventReader.HOOK_INPUT.equals(hook)){
+    		localAddress = eventData.get(AuditEventReader.DADDR);
+        	localPort = eventData.get(AuditEventReader.DPORT);
+        	remoteAddress = eventData.get(AuditEventReader.SADDR);
+        	remotePort = eventData.get(AuditEventReader.SPORT);
+    	}else if(AuditEventReader.HOOK_OUTPUT.equals(hook)){
+    		localAddress = eventData.get(AuditEventReader.SADDR);
+        	localPort = eventData.get(AuditEventReader.SPORT);
+        	remoteAddress = eventData.get(AuditEventReader.DADDR);
+        	remotePort = eventData.get(AuditEventReader.DPORT);
+    	}else{
+    		logger.log(Level.INFO, "Unexpected hook value: " + hook);
+    		return;
+    	}
+    	
     	String protocolName = OPMConstants.getProtocolName(CommonFunctions.parseInt(protocolNumber, -1));
     	
     	Artifact artifactFromNetfilter = new Artifact();
@@ -3592,7 +3606,7 @@ public class Audit extends AbstractReporter {
     	Artifact artifactFromSyscall = removeNetworkArtifactSeenInSyscall(remoteAddress, remotePort);
     	if(artifactFromSyscall != null){
     		String localPortFromSyscall = artifactFromSyscall.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
-    		if(localPortFromSyscall != null){
+    		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
     			if(!localPortFromSyscall.equals(localPort)){
     				// different connection
     				addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
@@ -3611,7 +3625,7 @@ public class Audit extends AbstractReporter {
     		}
     		putVertex(artifactFromNetfilter);
     		WasDerivedFrom syscallToNetfilter = new WasDerivedFrom(artifactFromNetfilter, artifactFromSyscall);
-    		putEdge(syscallToNetfilter, null, time, eventId, OPMConstants.SOURCE_AUDIT);
+    		putEdge(syscallToNetfilter, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
     		
     	}else{
     		addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
@@ -3812,7 +3826,7 @@ public class Audit extends AbstractReporter {
 				if(netfilterArtifact != null){
 					
 					String localPortFromSyscall = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
-		    		if(localPortFromSyscall != null){
+		    		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
 		    			if(!localPortFromSyscall.equals(netfilterArtifact.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT))){
 		    				// different connection
 		    				// basically further pruning
@@ -3835,7 +3849,7 @@ public class Audit extends AbstractReporter {
 		    		putVertex(netfilterArtifact);
 		    		// TODO USE A COPY OF THE SYSCALL ARTIFACT AND NOT THIS ONE!!!!
 					WasDerivedFrom edge = new WasDerivedFrom(netfilterArtifact, syscallArtifact);
-					putEdge(edge, null, time, eventId, OPMConstants.SOURCE_AUDIT);
+					putEdge(edge, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
 				}else{
 					addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
 				}
