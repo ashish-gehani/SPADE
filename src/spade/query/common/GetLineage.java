@@ -88,8 +88,8 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
                 startingVertex.setDepth(0);
-//                remainingVertices.add(startingVertex.bigHashCode());
-                remainingVertices.add(startingVertex.getAnnotation(PRIMARY_KEY));
+                remainingVertices.add(startingVertex.bigHashCode());
+//                remainingVertices.add(startingVertex.getAnnotation(PRIMARY_KEY));
                 result.setRootVertex(startingVertex);
             }
             else
@@ -120,8 +120,8 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                     result.edgeSet().addAll(neighbors.edgeSet());
                     for(AbstractVertex vertex : neighbors.vertexSet())
                     {
-//                        String neighborHash = vertex.bigHashCode();
-                        String neighborHash = vertex.getAnnotation(PRIMARY_KEY);
+                        String neighborHash = vertex.bigHashCode();
+//                        String neighborHash = vertex.getAnnotation(PRIMARY_KEY);
                         if(!visitedVertices.contains(neighborHash))
                         {
                             currentSet.add(neighborHash);

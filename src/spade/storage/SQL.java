@@ -152,7 +152,7 @@ public class SQL extends AbstractStorage
                     + "UUID PRIMARY KEY, "
                     + "type VARCHAR(32) NOT NULL ,"
                     + "childVertexHash UUID NOT NULL, "
-                    + "parentHash UUID NOT NULL "
+                    + "parentVertexHash UUID NOT NULL "
                     + ")";
             dbStatement.execute(createEdgeTable);
             query = "SELECT * FROM " + EDGE_TABLE + " WHERE false;";
@@ -167,7 +167,7 @@ public class SQL extends AbstractStorage
             dbStatement.close();
 
             Scaffold scaffold = new Scaffold();
-            scaffold.initialize("/tmp/scaffold/");
+            scaffold.initialize("/Users/raza/dev/scaffold/");
             AbstractStorage.setScaffold(scaffold);
 
             return true;

@@ -371,18 +371,33 @@ public class Scaffold extends AbstractQuery
         String direction = params.get(DIRECTION).get(0);
         int maxDepth = Integer.parseInt(params.get(MAX_DEPTH).get(0));
         Map<String, Set<String>> lineageMap = getLineage(hash, direction, maxDepth);
+        if(lineageMap == null)
+            return result;
 
         StringBuilder vertexQueryBuilder = new StringBuilder(500);
         StringBuilder edgeQueryBuilder = new StringBuilder(1000);
         try
         {
+            boolean edgeFound = false;
             vertexQueryBuilder.append("SELECT * FROM ");
             vertexQueryBuilder.append(VERTEX_TABLE);
             vertexQueryBuilder.append(" WHERE ");
             vertexQueryBuilder.append(PRIMARY_KEY + " IN (");
             edgeQueryBuilder.append("SELECT * FROM ");
             edgeQueryBuilder.append(EDGE_TABLE);
-            edgeQueryBuilder.append(" WHERE ");
+            edgeQueryBuilder.append(" WHERE (");
+            String vertexKey;
+            String neighborKey;
+            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+            {
+                vertexKey = CHILD_VERTEX_KEY;
+                neighborKey = PARENT_VERTEX_KEY;
+            }
+            else
+            {
+                vertexKey = PARENT_VERTEX_KEY;
+                neighborKey = CHILD_VERTEX_KEY;
+            }
             for (Map.Entry<String, Set<String>> entry : lineageMap.entrySet())
             {
                 String vertexHash = entry.getKey();
@@ -392,49 +407,42 @@ public class Scaffold extends AbstractQuery
                 vertexQueryBuilder.append("'");
                 vertexQueryBuilder.append(", ");
 
-                for(String neighborHash: neighbors)
+                if(neighbors.size() > 0)
                 {
-                    edgeQueryBuilder.append("(");
-                    if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                    edgeFound = true;
+                    edgeQueryBuilder.append(vertexKey);
+                    edgeQueryBuilder.append(OPERATORS.EQUALS);
+                    edgeQueryBuilder.append("'");
+                    edgeQueryBuilder.append(vertexHash);
+                    edgeQueryBuilder.append("'");
+                    edgeQueryBuilder.append(" AND ");
+                    edgeQueryBuilder.append(neighborKey);
+                    edgeQueryBuilder.append(" IN (");
+                    for(String neighborHash : neighbors)
                     {
-                        edgeQueryBuilder.append(CHILD_VERTEX_KEY).append(OPERATORS.EQUALS);
-                        edgeQueryBuilder.append("'");
-                        edgeQueryBuilder.append(vertexHash);
-                        edgeQueryBuilder.append("'");
-                        edgeQueryBuilder.append(" AND ");
-                        edgeQueryBuilder.append(PARENT_VERTEX_KEY).append(OPERATORS.EQUALS);
                         edgeQueryBuilder.append("'");
                         edgeQueryBuilder.append(neighborHash);
                         edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(", ");
                     }
-                    else
-                    {
-                        edgeQueryBuilder.append(PARENT_VERTEX_KEY).append(OPERATORS.EQUALS);
-                        edgeQueryBuilder.append("'");
-                        edgeQueryBuilder.append(vertexHash);
-                        edgeQueryBuilder.append("'");
-                        edgeQueryBuilder.append(" AND ");
-                        edgeQueryBuilder.append(CHILD_VERTEX_KEY).append(OPERATORS.EQUALS);
-                        edgeQueryBuilder.append("'");
-                        edgeQueryBuilder.append(neighborHash);
-                        edgeQueryBuilder.append("'");
-                    }
-                    edgeQueryBuilder.append(") OR");
+                    String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 2);
+                    edgeQueryBuilder = new StringBuilder(edge_query + ")) OR (");
                 }
             }
             String vertex_query = vertexQueryBuilder.substring(0, vertexQueryBuilder.length() - 2);
             vertexQueryBuilder = new StringBuilder(vertex_query + ");");
-
-            String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 2);
-            edgeQueryBuilder = new StringBuilder(edge_query + ";");
-
-            Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + vertexQueryBuilder.toString());
-            Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + edgeQueryBuilder.toString());
-
             Set<AbstractVertex> vertexSet = PostgreSQL.prepareVertexSetFromSQLResult(vertexQueryBuilder.toString());
-            Set<AbstractEdge> edgeSet = PostgreSQL.prepareEdgeSetFromSQLResult(edgeQueryBuilder.toString());
             result.vertexSet().addAll(vertexSet);
-            result.edgeSet().addAll(edgeSet);
+
+            if(edgeFound)
+            {
+                String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 4);
+                edgeQueryBuilder = new StringBuilder(edge_query + ";");
+                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + vertexQueryBuilder.toString());
+                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + edgeQueryBuilder.toString());
+                Set<AbstractEdge> edgeSet = PostgreSQL.prepareEdgeSetFromSQLResult(edgeQueryBuilder.toString());
+                result.edgeSet().addAll(edgeSet);
+            }
         }
         catch(Exception ex)
         {
