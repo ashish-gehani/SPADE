@@ -102,6 +102,27 @@ public class FileUtility {
 		return map;
 	}
 	
+	public static boolean fileExists(String filepath){
+		if(filepath == null){
+			return false;
+		}else{
+			try{
+				return new File(filepath).exists();
+			}catch(Exception e){
+				return false;
+			}
+		}
+	}
+	
+	public static boolean mkdirs(String dirPath){
+		try{
+			FileUtils.forceMkdir(new File(dirPath));
+			return true;
+		}catch(Exception e){
+			return false;
+		}
+	}
+	
 	//test
 	public static void main(String[] args) throws Exception{
 		Pattern p = constructRegexFromFile(args[0]);
