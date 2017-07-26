@@ -68,6 +68,7 @@ public class ProcMon extends AbstractReporter {
     private final String COLUMN_PARENT_PID = "Parent PID";
     private final String COLUMN_ARCHITECTURE = "Architecture";
     private final String COLUMN_CATEGORY = "Category";
+    private final String COLUMN_DATE_AND_TIME = "Date & Time";
     ////////////////////////////////////////////////////////////////////////////
     private int N_TIME;
     private int N_PROCESS_NAME;
@@ -87,6 +88,7 @@ public class ProcMon extends AbstractReporter {
     private int N_PARENT_PID;
     private int N_ARCHITECTURE;
     private int N_CATEGORY;
+    private int N_DATE_AND_TIME;
     ////////////////////////////////////////////////////////////////////////////
     private final String EVENT_CLASS_REGISTRY = "Registry";
     private final String EVENT_CLASS_FILE_SYSTEM = "File System";
@@ -136,6 +138,7 @@ public class ProcMon extends AbstractReporter {
             N_PARENT_PID = columnMap.get(COLUMN_PARENT_PID);
             N_ARCHITECTURE = columnMap.get(COLUMN_ARCHITECTURE);
             N_CATEGORY = columnMap.get(COLUMN_CATEGORY);
+            //N_DATE_AND_TIME = columnMap.get(COLUMN_DATE_AND_TIME);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
@@ -235,6 +238,7 @@ public class ProcMon extends AbstractReporter {
         if (processMap.containsKey(ppid)) {
             WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
             wtb.addAnnotation("time", data[N_TIME]);
+            //wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
             putEdge(wtb);
         }
     }
@@ -258,6 +262,7 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), artifact);
         used.addAnnotation("time", data[N_TIME]);
+        //used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("category", data[N_CATEGORY]);
         used.addAnnotation("detail", data[N_DETAIL]);
@@ -268,7 +273,7 @@ public class ProcMon extends AbstractReporter {
     private void writeArtifact(String[] data) {
         String pid = data[N_PID];
         String path = data[N_PATH];
-        
+
         boolean put = !artifactVersions.containsKey(path);
         int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) + 1 : 1;
         artifactVersions.put(path, version);
@@ -283,6 +288,7 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(artifact, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
+        //wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("category", data[N_CATEGORY]);
         wgb.addAnnotation("detail", data[N_DETAIL]);
@@ -302,6 +308,7 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), image);
         used.addAnnotation("time", data[N_TIME]);
+        //used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
         used.addAnnotation("duration", data[N_DURATION]);
@@ -340,6 +347,7 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(network, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
+        //wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("detail", data[N_DETAIL]);
         putEdge(wgb);
@@ -377,6 +385,7 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), network);
         used.addAnnotation("time", data[N_TIME]);
+        //used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
         putEdge(used);
