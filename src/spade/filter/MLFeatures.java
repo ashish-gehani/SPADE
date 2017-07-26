@@ -26,7 +26,6 @@ import java.io.Writer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -36,7 +35,7 @@ import java.util.regex.Pattern;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
-import spade.utility.CommonFunctions;
+
 
 /**
  * A filter to drop annotations passed in arguments.
@@ -63,14 +62,28 @@ public class MLFeatures extends AbstractFilter{
 	private HashMap<String,String> firstActivity = new HashMap<>();
 	private HashMap<String,String> lastUsed = new HashMap<>();
 	private HashMap<String,String> lastWgb = new HashMap<>();
+	private HashMap<Integer,Integer> ancestors = new HashMap<>();
 	private HashMap<String,HashSet<String>> fileUsed = new HashMap<>();
 	private HashMap<String,HashSet<String>> fileWgb = new HashMap<>();
 	private HashMap<String,HashSet<String>> extensionUsed = new HashMap<>();
 	private HashMap<String,HashSet<String>> extensionWgb = new HashMap<>();
 	private HashMap<String,HashSet<String>> directoryUsed = new HashMap<>();
 	private HashMap<String,HashSet<String>> directoryWgb = new HashMap<>();
+	private HashMap<String,HashMap<Integer,HashSet<String>>> taintPropagation = new HashMap<>();
 	private HashMap<Integer,Double> labelMap = new HashMap<>();
+	private HashMap<Integer,String> status = new HashMap<>();
 	private HashMap<String,Integer> processIdentifierToHashcode = new HashMap<>();
+	private HashSet<String> fileThatDontTaint = new HashSet<>(Arrays.asList("HKLM\\System\\CurrentControlSet\\Control\\Session Manager","HKU\\.DEFAULT",
+			"HKLM\\System\\CurrentControlSet\\Control\\ComputerName\\ActiveComputerName","HKLM\\System\\CurrentControlSet\\Control\\Lsa\\FipsAlgorithmPolicy",
+			"HKLM\\System\\CurrentControlSet\\Control\\Lsa","HKLM\\System\\CurrentControlSet\\Control\\Nls\\Sorting\\Versions"));
+	//private HashMap<String,HashSet<String>> usedDatetime = new HashMap<>();
+	//private HashMap<String,HashSet<String>> wgbDatetime = new HashMap<>();
+	//private HashMap<String,HashSet<String>> usedDatetimeWoMeta = new HashMap<>();
+	//private HashMap<String,HashSet<String>> wgbDatetimeWoMeta = new HashMap<>();
+	private HashMap<String,HashSet<String>> wtbName = new HashMap<>();
+	private HashMap<String,String> ppidMap = new HashMap<>();
+	private HashMap<String,HashSet<String>> fileSystemWgb = new HashMap<>();
+	private HashMap<String,HashSet<String>> remoteServers = new HashMap<>();
 	///////////////////////////////////////////////
 	private String maliciousName = null;
 	private  String filepathFeatures = "Default.csv";
@@ -89,11 +102,19 @@ public class MLFeatures extends AbstractFilter{
 	private final String PATH = "path";
 	private final String DETAIL = "detail";
 	private final String NAME = "name";
-	private final String COUNT_NETWORK_SEND = "countNetworkSend";
 	private final String SUBTYPE = "subtype";
 	private final String NETWORK = "network";
 	private final String DURATION = "duration";
 	private final String COMMANDLINE = "commandline";
+	private final String REGSETINFOKEY = "RegSetInfoKey";
+	private final String REGSETVALUE = "RegSetValue";
+	private final String OPERATION = "operation";
+	private final String CATEGORY = "category";
+	private final String DATETIME = "datetime";
+	private final String PPID = "ppid";
+	private final String READ = "Read";
+	private final String WRITE = "Write";
+	private final String REMOTE_HOST = "remote host";
 	///////////////////////////////////////////////
 	private final String USED = "Used";
 	private final String WCB = "WasControlledBy";
@@ -101,6 +122,7 @@ public class MLFeatures extends AbstractFilter{
 	private final String WGB = "WasGeneratedBy";
 	//////////////////////////////////////////////
 	private static int SCALE_TIME = 10000000;
+	private static int BEGINNING_THRESHOLD = 60*SCALE_TIME;
 	private final Double INITIAL_ZERO = (double) 0;
 	private final String eol = System.getProperty("line.separator");
 	/////////////////////////////////////////////
@@ -134,8 +156,33 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_USED_NOT_NETWORK = "countUsedNotNetwork";
 	private final String COUNT_WGB_NOT_NETWORK = "countWgbNotNetwork";
 	private final String COUNT_NETWORK_RECEIVE = "countNetworkReceive";
+	private final String COUNT_NETWORK_SEND = "countNetworkSend";
 	private final String COUNT_OF_DIRECTORIES_USED = "countOfDirectoriesUsed";
 	private final String COUNT_OF_DIRECTORIES_WGB = "countOftDirectoriesWgb";
+    private final String COUNT_USED_BEGINNING = "countUsedBeginning";
+    private final String COUNT_WGB_BEGINNING = "countWgbBeginning";
+    private final String IS_NEW = "isNew";
+    private final String COUNT_REG_SET_INFO_KEY = "countRegSetInfoKey";
+    private final String COUNT_REG_SET_VALUE = "countRegSetValue";
+    private final String TOTAL_LENGTH_READ_BEGINNING = "totalLengthReadBeginning";
+    private final String TOTAL_LENGTH_WRITTEN_BEGINNING = "totalLengthWrittenBeginning";
+    private final String COUNT_OF_USED_FILES_BEGINNING = "countOfUsedFilesBegining";
+    private final String COUNT_OF_WGB_FILES_BEGINNING = "countOfWgbFilesBegining";
+	private final String COUNT_FILESYSTEM_USED_BEGINNING = "countFilesystemUsedBeginning";
+	private final String COUNT_FILESYSTEM_WGB_BEGINNING = "countFilesystemWgbBeginning";
+	private final String COUNT_REGISTRY_USED_BEGINNING = "countRegistryUsedBeginning";
+	private final String COUNT_REGISTRY_WGB_BEGINNING = "countRegistryWgbBeginning";
+	private final String COUNT_EXTENSION_TYPE_USED_BEGINNING = "countExtensionTypeUsedBeginning";
+	private final String COUNT_EXTENSION_TYPE_WGB_BEGINNING = "countExtensionTypeWgbBeginning";
+	private final String COUNT_EXE_DAT_DLL_BIN_USED_BEGINNING = "countExeDatDllBinUsedBeginning";
+	private final String COUNT_EXE_DAT_DLL_BIN_WGB_BEGINNING = "countExeDatDllBinWgbBeginning";
+	private final String COUNT_NETWORK_RECEIVE_BEGINNING = "countNetworkReceiveBeginning";
+	private final String COUNT_NETWORK_SEND_BEGINNING = "countNetworkSendBeginning";
+	private final String COUNT_OF_DIRECTORIES_USED_BEGINNING = "countOfDirectoriesUsedBeginning";
+	private final String COUNT_OF_DIRECTORIES_WGB_BEGINNING = "countOftDirectoriesWgbBeginning";
+	private final String WRITES_THEN_EXECTUTES = "writeThenExecutes";
+	private final String COUNT_REMOTE_HOST = "countRemoteHost";
+
 
 
 	public boolean initialize(String arguments){
@@ -160,23 +207,37 @@ public class MLFeatures extends AbstractFilter{
 		Set<String> names = new HashSet<String>(Arrays.asList(COUNT_USED,COUNT_WGB,AVG_DURATION_BETWEEN_TWO_USED,AVG_DURATION_BETWEEN_TWO_WGB,AVG_DURATION_USED,
 				AVG_DURATION_WGB,COUNT_FILESYSTEM_USED,COUNT_FILESYSTEM_WGB,LIFE_DURATION,TOTAL_LENGTH_READ,TOTAL_LENGTH_WRITTEN,COUNT_OF_USED_FILES,
 				COUNT_OF_WGB_FILES,COUNT_EXTENSION_TYPE_USED,COUNT_EXTENSION_TYPE_WGB,COUNT_EXE_DAT_DLL_BIN_USED,COUNT_EXE_DAT_DLL_BIN_WGB,COUNT_WTB,COUNT_REGISTRY_USED,
-				COUNT_REGISTRY_WGB,COUNT_NETWORK_RECEIVE,COUNT_NETWORK_SEND,COUNT_OF_DIRECTORIES_USED,COUNT_OF_DIRECTORIES_WGB));
+				COUNT_REGISTRY_WGB,COUNT_NETWORK_RECEIVE,COUNT_NETWORK_SEND,COUNT_OF_DIRECTORIES_USED,COUNT_OF_DIRECTORIES_WGB,COUNT_USED_BEGINNING,COUNT_WGB_BEGINNING,IS_NEW,COUNT_REG_SET_INFO_KEY,
+				COUNT_REG_SET_VALUE,TOTAL_LENGTH_READ_BEGINNING,TOTAL_LENGTH_WRITTEN_BEGINNING,COUNT_OF_USED_FILES_BEGINNING,COUNT_OF_WGB_FILES_BEGINNING,
+				COUNT_FILESYSTEM_USED_BEGINNING,COUNT_FILESYSTEM_WGB_BEGINNING,COUNT_REGISTRY_USED_BEGINNING,COUNT_REGISTRY_WGB_BEGINNING,COUNT_EXTENSION_TYPE_USED_BEGINNING,
+				COUNT_EXTENSION_TYPE_WGB_BEGINNING,COUNT_EXE_DAT_DLL_BIN_USED_BEGINNING,COUNT_EXE_DAT_DLL_BIN_WGB_BEGINNING,COUNT_NETWORK_RECEIVE_BEGINNING,COUNT_NETWORK_SEND_BEGINNING,
+				COUNT_OF_DIRECTORIES_USED_BEGINNING,COUNT_OF_DIRECTORIES_WGB_BEGINNING,WRITES_THEN_EXECTUTES,COUNT_REMOTE_HOST));
 
 		try (Writer writer = new FileWriter(filepathFeatures)) {
 
 		   for (String name : names){
 			   writer.append(name)
-			   		 .append(';');
+			   		 .append(',');
 		   }
 		   writer.append(USER)
-		   		 .append(';')
+		   		 .append(',')
 		   		 .append(NAME)
-		   		 .append(';')
+		   		 .append(',')
 		   		 .append(COMMANDLINE)
-		   		 .append(';')
+		   		 .append(',')
 		   		 .append(PROCESS_IDENTIFIER)
-		   		 .append(';')
-		   		 .append(LABEL)
+		   		 .append(',')
+		   		 .append(PPID)
+		   		 .append(',')
+				 .append(LABEL)
+		   		 .append(',')
+				 .append("state")
+				 .append(',')
+				 .append("NameTriggered")
+				 .append(',')
+				 .append("listOfUsedFiles")
+				 .append(',')
+				 .append("listOfWgbFiles")
 		   		 .append(eol);
 		   for (String key : features.keySet()) {
 
@@ -184,23 +245,95 @@ public class MLFeatures extends AbstractFilter{
 
 			   for(String column : names  ){
 				   writer.append(Double.toString(current.get(column)))
-		              	 .append(';');
+		              	 .append(',');
 			   }
 			   writer.append(agentsName.get(key))
-			   		 .append(';')
+			   		 .append(',')
 			   		 .append(processName.get(key))
-			   		 .append(';')
-			   		 .append(processCommandline.get(key).replace(';', ' '))
-			   		 .append(';')
+			   		 .append(',')
+			   		 .append(processCommandline.get(key).replace(',', ' '))
+			   		 .append(',')
 			   		 .append(key)
-			   		 .append(';')
+			   		 .append(',')
+			   		 .append(ppidMap.get(key))
+			   		 .append(',')
 			   		 .append(Double.toString(labelMap.get(processIdentifierToHashcode.get(key))))
+			   		 .append(',')
+			   		 .append(status.get(processIdentifierToHashcode.get(key)))
+			   		 .append(',')
+			   		 .append(wtbName.get(key).toString().replace(',',';').trim())
+			   		 .append(',')
+			   		 .append(fileUsed.get(key).toString().replace(',', ' ').substring(1,fileUsed.get(key).toString().length()-1).trim())
+			   		 .append(',')
+			   		 .append(fileWgb.get(key).toString().replace(',', ' ').substring(1,fileWgb.get(key).toString().length()-1).trim())
 			         .append(eol);
 		   }
 		} catch (IOException ex) {
 		  ex.printStackTrace(System.err);
 		}
 
+		try (Writer writer = new FileWriter(filepathFeatures+"_")) {
+
+
+			   writer.append("FileName")
+			   		 .append(',')
+			   		 .append("CountTaintedProcesses")
+			   		 .append(',')
+			   		 .append("OperationTypes")
+			   		 .append(',')
+			   		 .append("taintedProcesses")
+			   		 .append(eol);
+			   for (String key : taintPropagation.keySet()) {
+
+				   HashSet<String> processes = taintPropagation.get(key).get(0);
+				   HashSet<String> WgbOperation = taintPropagation.get(key).get(1);
+
+				   writer.append(key)
+				   		 .append(',')
+				   		 .append(Integer.toString(processes.size()))
+				   		 .append(',')
+				   		 .append(WgbOperation.toString().replace(',', ' '))
+				   		 .append(',')
+				   		 .append(processes.toString().replace(',', ' '))
+				         .append(eol);
+			   }
+			} catch (IOException ex) {
+			  ex.printStackTrace(System.err);
+			}
+		/*try (Writer writer = new FileWriter(filepathFeatures+"__")) {
+
+
+			   writer.append("Pid")
+			   		 .append(',')
+			   		 .append("UsedDatetime")
+			   		 .append(',')
+			   		 .append("WgbDatetime")
+			   		 .append(',')
+			   		 .append("UsedDatetimeWoMeta")
+			   		 .append(',')
+			   		 .append("WgbDatetimeWoMeta")
+			   		 .append(eol);
+			   for (String key : usedDatetime.keySet()) {
+
+				   HashSet<String> usedDatetimeList = usedDatetime.get(key);
+				   HashSet<String> WgbDatetimeList = wgbDatetime.get(key);
+				   HashSet<String> usedDatetimeListWoMeta = usedDatetimeWoMeta.get(key);
+				   HashSet<String> WgbDatetimeListWoMeta = wgbDatetimeWoMeta.get(key);
+
+				   writer.append(key)
+				   		 .append(',')
+				   		 .append(usedDatetimeList.toString().replace(',', ';'))
+				   		 .append(',')
+				   		 .append(WgbDatetimeList.toString().replace(',', ';'))
+				   		 .append(',')
+				   		 .append(usedDatetimeListWoMeta.toString().replace(',', ';'))
+				   		 .append(',')
+				   		 .append(WgbDatetimeListWoMeta.toString().replace(',', ';'))
+				         .append(eol);
+			   }
+			} catch (IOException ex) {
+			  ex.printStackTrace(System.err);
+			}*/
 
 		return true;
 	}
@@ -238,10 +371,42 @@ public class MLFeatures extends AbstractFilter{
 				initialFeatures.put(COUNT_NETWORK_SEND, INITIAL_ZERO);
 				initialFeatures.put(COUNT_OF_DIRECTORIES_USED, INITIAL_ZERO);
 				initialFeatures.put(COUNT_OF_DIRECTORIES_WGB, INITIAL_ZERO);
+				initialFeatures.put(COUNT_USED_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_WGB_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(IS_NEW, INITIAL_ZERO);
+				initialFeatures.put(COUNT_REG_SET_INFO_KEY, INITIAL_ZERO);
+				initialFeatures.put(COUNT_REG_SET_VALUE, INITIAL_ZERO);
+				initialFeatures.put(TOTAL_LENGTH_READ_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(TOTAL_LENGTH_WRITTEN_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_OF_USED_FILES_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_OF_WGB_FILES_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_FILESYSTEM_USED_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_FILESYSTEM_WGB_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_REGISTRY_USED_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_REGISTRY_WGB_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXTENSION_TYPE_USED_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXTENSION_TYPE_WGB_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXE_DAT_DLL_BIN_USED_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_EXE_DAT_DLL_BIN_WGB_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_NETWORK_RECEIVE_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_NETWORK_SEND_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_OF_DIRECTORIES_USED_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(COUNT_OF_DIRECTORIES_WGB_BEGINNING, INITIAL_ZERO);
+				initialFeatures.put(WRITES_THEN_EXECTUTES, INITIAL_ZERO);
+				initialFeatures.put(COUNT_REMOTE_HOST, INITIAL_ZERO);
 				features.put(processPid,initialFeatures);
+				//usedDatetime.put(processPid, new HashSet<>());
+				//wgbDatetime.put(processPid, new HashSet<>());
+				//usedDatetimeWoMeta.put(processPid, new HashSet<>());
+				//wgbDatetimeWoMeta.put(processPid, new HashSet<>());
+				wtbName.put(processPid, new HashSet<>());
+				ppidMap.put(processPid, incomingVertex.getAnnotation(PPID));
+
+				remoteServers.put(processPid, new HashSet<>());
 
 				fileUsed.put(processPid, new HashSet<>());
 				fileWgb.put(processPid, new HashSet<>());
+				fileSystemWgb.put(processPid, new HashSet<>());
 				extensionUsed.put(processPid, new HashSet<>());
 				extensionWgb.put(processPid, new HashSet<>());
 				directoryUsed.put(processPid, new HashSet<>());
@@ -251,13 +416,16 @@ public class MLFeatures extends AbstractFilter{
 				processIdentifierToHashcode.put(processPid, incomingVertex.hashCode());
 				if((maliciousName != null) && (incomingVertex.getAnnotation(NAME).equals(maliciousName))){
 					labelMap.put(incomingVertex.hashCode(), BAD);
+					status.put(incomingVertex.hashCode(), MALICIOUS);
 				}else{
 					labelMap.put(incomingVertex.hashCode(), GOOD);
+					status.put(incomingVertex.hashCode(), BENIGN);
 				}
 			}else{
 				labelMap.put(incomingVertex.hashCode(), GOOD);
+				status.put(incomingVertex.hashCode(), BENIGN);
 			}
-
+			ancestors.put(incomingVertex.hashCode(), 0);
 			putInNextFilter(incomingVertex);
 		}else{
 			logger.log(Level.WARNING, "Null vertex");
@@ -270,12 +438,31 @@ public class MLFeatures extends AbstractFilter{
 
 			try{
 
-			if(labelMap.get(incomingEdge.getDestinationVertex().hashCode()) != GOOD){
-				if(labelMap.get(incomingEdge.getSourceVertex().hashCode()) == GOOD){
-					labelMap.put(incomingEdge.getSourceVertex().hashCode(),labelMap.get(incomingEdge.getDestinationVertex().hashCode())/1.4 );
+			if(!status.get(incomingEdge.getDestinationVertex().hashCode()).equals(BENIGN)){
+				if(status.get(incomingEdge.getSourceVertex().hashCode()).equals(BENIGN)){
+					//String testFilePath = incomingEdge.getDestinationVertex().getAnnotation(PATH) ;
+					//if((testFilePath == null)||(!fileThatDontTaint.contains(testFilePath))){
+					String testClass = incomingEdge.getDestinationVertex().getAnnotation(CLASS) ;
+					if((testClass == null)||(!testClass.equals(REGISTRY))){
+						status.put(incomingEdge.getSourceVertex().hashCode(), TAINTED);
+					}
+
 				}
 			}
 
+
+
+			if(labelMap.get(incomingEdge.getSourceVertex().hashCode()) < 1.0 ){
+				int countAncestors = ancestors.get(incomingEdge.getSourceVertex().hashCode());
+				double currentLabel = labelMap.get(incomingEdge.getSourceVertex().hashCode());
+				if(labelMap.get(incomingEdge.getDestinationVertex().hashCode())>0.5){
+					labelMap.put(incomingEdge.getSourceVertex().hashCode(),(currentLabel*countAncestors + 5*labelMap.get(incomingEdge.getDestinationVertex().hashCode()))/(countAncestors+5));
+					ancestors.put(incomingEdge.getSourceVertex().hashCode(), countAncestors+5);
+				}else{
+					labelMap.put(incomingEdge.getSourceVertex().hashCode(),(currentLabel*countAncestors + labelMap.get(incomingEdge.getDestinationVertex().hashCode()))/(countAncestors+1));
+					ancestors.put(incomingEdge.getSourceVertex().hashCode(), countAncestors+1);
+				}
+			}
 			if (incomingEdge.getSourceVertex().type().equals(PROCESS)) {
 
 				AbstractVertex sourceProcessVertex = incomingEdge.getSourceVertex();
@@ -293,6 +480,21 @@ public class MLFeatures extends AbstractFilter{
 						firstActivity.put(ProcessPid, time);
 					}
 					sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
+
+					if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+						addToCount(COUNT_USED_BEGINNING, sourceProcess);
+					}
+
+					//HashSet<String> usedDatetimeList = usedDatetime.get(ProcessPid);
+					//usedDatetimeList.add(getDate(incomingEdge.getAnnotation(DATETIME))+" "+time);
+					//usedDatetime.put(ProcessPid,usedDatetimeList);
+
+					//if(READ.equals(incomingEdge.getAnnotation(CATEGORY))){
+						//HashSet<String> usedDatetimeListWoMeta = usedDatetimeWoMeta.get(ProcessPid);
+						//usedDatetimeListWoMeta.add(getDate(incomingEdge.getAnnotation(DATETIME))+" "+time);
+						//usedDatetimeWoMeta.put(ProcessPid,usedDatetimeListWoMeta);
+					//}
+
 
 					if (count_used != 0){
 						double avgDurationBetweenTwoUsed = sourceProcess.get(AVG_DURATION_BETWEEN_TWO_USED);
@@ -315,7 +517,7 @@ public class MLFeatures extends AbstractFilter{
 					}catch(Exception e){}
 
 
-					sourceProcess.put(COUNT_USED, count_used + 1);
+					addToCount(COUNT_USED, sourceProcess);
 
 
 
@@ -323,47 +525,76 @@ public class MLFeatures extends AbstractFilter{
 					double lengthRead = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
 					double currentLength = sourceProcess.get(TOTAL_LENGTH_READ);
 					sourceProcess.put(TOTAL_LENGTH_READ, currentLength + lengthRead);
+					if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+						double currentLengthBeginning = sourceProcess.get(TOTAL_LENGTH_READ_BEGINNING);
+						sourceProcess.put(TOTAL_LENGTH_READ_BEGINNING, currentLengthBeginning + lengthRead);
+					}
 
 					HashSet<String> fileUsedByProcess = fileUsed.get(ProcessPid);
 					String filePath = destinationVertex.getAnnotation(PATH);
 					if(filePath != null){
+
+						if(taintPropagation.containsKey(filePath)){
+							HashMap<Integer,HashSet<String>> taintInfo = taintPropagation.get(filePath);
+							HashSet<String> taintProcesses = taintInfo.get(0);
+							taintProcesses.add(ProcessPid);
+							taintInfo.put(0, taintProcesses);
+							taintPropagation.put(filePath, taintInfo);
+						}
+
+
 						if(!fileUsedByProcess.contains(filePath)){
 
 							fileUsedByProcess.add(filePath);
-							double countFileUsed = sourceProcess.get(COUNT_OF_USED_FILES);
-							sourceProcess.put(COUNT_OF_USED_FILES, countFileUsed + 1);
+							addToCount(COUNT_OF_USED_FILES, sourceProcess);
+							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_OF_USED_FILES_BEGINNING, sourceProcess);
+							}
 
 						}
+
 						HashSet<String> directoriesUsedByProcess = directoryUsed.get(ProcessPid);
 						String directory = getDirectory(filePath);
 						if(!directoriesUsedByProcess.contains(directory)){
 
 							directoriesUsedByProcess.add(directory);
-							double countDirectoryUsed = sourceProcess.get(COUNT_OF_DIRECTORIES_USED);
-							sourceProcess.put(COUNT_OF_DIRECTORIES_USED, countDirectoryUsed +1);
+							addToCount(COUNT_OF_DIRECTORIES_USED, sourceProcess);
+							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_OF_DIRECTORIES_USED_BEGINNING, sourceProcess);
+							}
 						}
 					}
 					try{
 						if(destinationVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-							double count_filesystem = sourceProcess.get(COUNT_FILESYSTEM_USED);
-							sourceProcess.put(COUNT_FILESYSTEM_USED, count_filesystem + 1);
+							addToCount(COUNT_FILESYSTEM_USED, sourceProcess);
+							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_FILESYSTEM_USED_BEGINNING, sourceProcess);
+							}
 
 							HashSet<String> extensionUsedByProcess = extensionUsed.get(ProcessPid);
 							String extension = getExtension(filePath);
+
 							if(!extensionUsedByProcess.contains(extension)){
+
 								extensionUsedByProcess.add(extension);
-								double countExtension = sourceProcess.get(COUNT_EXTENSION_TYPE_USED);
-								sourceProcess.put(COUNT_EXTENSION_TYPE_USED, countExtension + 1);
+								addToCount(COUNT_EXTENSION_TYPE_USED, sourceProcess);
+								if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+									addToCount(COUNT_EXTENSION_TYPE_USED_BEGINNING, sourceProcess);
+								}
 							}
 
 							if(extension.equals(EXE) || extension.equals(DLL) || extension.equals(DAT) || extension.equals(BIN)){
-								double count_exe_dll = sourceProcess.get(COUNT_EXE_DAT_DLL_BIN_USED);
-								sourceProcess.put(COUNT_EXE_DAT_DLL_BIN_USED, count_exe_dll + 1);
+								addToCount(COUNT_EXE_DAT_DLL_BIN_USED, sourceProcess);
+								if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+									addToCount(COUNT_EXE_DAT_DLL_BIN_USED_BEGINNING, sourceProcess);
+								}
 							}
 
 						}else if(destinationVertex.getAnnotation(CLASS).equals(REGISTRY)){
-							double count_registry = sourceProcess.get(COUNT_REGISTRY_USED);
-							sourceProcess.put(COUNT_REGISTRY_USED, count_registry + 1);
+							addToCount(COUNT_REGISTRY_USED, sourceProcess);
+							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_REGISTRY_USED_BEGINNING, sourceProcess);
+							}
 						}
 
 
@@ -371,8 +602,15 @@ public class MLFeatures extends AbstractFilter{
 
 					try{
 						if(destinationVertex.getAnnotation(SUBTYPE).equals(NETWORK)){
-							double countNetworkReceive = sourceProcess.get(COUNT_NETWORK_RECEIVE);
-							sourceProcess.put(COUNT_NETWORK_RECEIVE, countNetworkReceive + 1);
+							addToCount(COUNT_NETWORK_RECEIVE, sourceProcess);
+							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_NETWORK_RECEIVE_BEGINNING, sourceProcess);
+							}
+
+							HashSet<String> remoteHost = remoteServers.get(ProcessPid);
+							remoteHost.add(destinationVertex.getAnnotation(REMOTE_HOST));
+							sourceProcess.put(COUNT_REMOTE_HOST, (double)remoteHost.size());
+
 						}
 					}catch(Exception e){}
 
@@ -385,12 +623,30 @@ public class MLFeatures extends AbstractFilter{
 					String time = incomingEdge.getAnnotation(TIME);
 					String destinationPid = destinationVertex.getAnnotation(PROCESS_IDENTIFIER);
 					HashMap<String,Double> destinationProcess = features.get(destinationPid);
-					double countWtb = destinationProcess.get(COUNT_WTB);
 
-					destinationProcess.put(COUNT_WTB, countWtb + 1);
+					HashSet<String> wtbNameSet = wtbName.get(destinationPid);
+					wtbNameSet.add(sourceProcessVertex.getAnnotation(NAME));
+					wtbName.put(destinationPid, wtbNameSet);
+
+					sourceProcess.put(IS_NEW,1.0);
+
+					addToCount(COUNT_WTB, destinationProcess);
+
+
+					double doesWritesAndExecutes = destinationProcess.get(WRITES_THEN_EXECTUTES);
+					double currentWritesExecutes = (fileSystemWgb.get(destinationPid).contains(
+							sourceProcessVertex.getAnnotation(COMMANDLINE).split(" ")[0])) ? 1.0 : 0.0;
+					if((currentWritesExecutes + doesWritesAndExecutes) >= 1.0){
+						destinationProcess.put(WRITES_THEN_EXECTUTES,1.0);
+					}
+
 
 					if(labelMap.get(incomingEdge.getDestinationVertex().hashCode()) == BAD){
 						labelMap.put(incomingEdge.getSourceVertex().hashCode(),BAD);
+					}
+
+					if(status.get(incomingEdge.getDestinationVertex().hashCode()).equals(MALICIOUS)){
+						status.put(incomingEdge.getSourceVertex().hashCode(),MALICIOUS);
 					}
 
 					if(!firstActivity.containsKey(destinationPid)){
@@ -418,7 +674,11 @@ public class MLFeatures extends AbstractFilter{
 
 				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
 
+
+
 				if (incomingEdge.type().equals(WGB)){
+
+
 
 					double count_wgb = destinationProcess.get(COUNT_WGB);
 
@@ -430,7 +690,19 @@ public class MLFeatures extends AbstractFilter{
 					}
 					lastWgb.put(ProcessPid, time);
 
+					if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+						addToCount(COUNT_WGB_BEGINNING, destinationProcess);
+					}
 
+					//HashSet<String> wgbDatetimeList = wgbDatetime.get(ProcessPid);
+					//wgbDatetimeList.add(getDate(incomingEdge.getAnnotation(DATETIME))+" "+time);
+					//wgbDatetime.put(ProcessPid, wgbDatetimeList);
+
+					//if(WRITE.equals(incomingEdge.getAnnotation(CATEGORY))){
+					//	HashSet<String> wgbDatetimeListWoMeta = wgbDatetimeWoMeta.get(ProcessPid);
+					//	wgbDatetimeListWoMeta.add(getDate(incomingEdge.getAnnotation(DATETIME))+" "+time);
+					//	wgbDatetimeWoMeta.put(ProcessPid,wgbDatetimeListWoMeta);
+					//}
 
 					try{
 					double duration = Double.parseDouble(incomingEdge.getAnnotation(DURATION));
@@ -442,32 +714,68 @@ public class MLFeatures extends AbstractFilter{
 					}catch(Exception e){}
 
 
-					destinationProcess.put(COUNT_WGB, count_wgb + 1);
+					addToCount(COUNT_WGB, destinationProcess);
 
 
 
 					double lengthWritten = getLengthFromDetailAnnotation(incomingEdge.getAnnotation(DETAIL));
 					double currentLength = destinationProcess.get(TOTAL_LENGTH_WRITTEN);
 					destinationProcess.put(TOTAL_LENGTH_WRITTEN, currentLength + lengthWritten);
+					if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+						double currentLengthBeginning = destinationProcess.get(TOTAL_LENGTH_WRITTEN_BEGINNING);
+						destinationProcess.put(TOTAL_LENGTH_WRITTEN_BEGINNING, currentLengthBeginning + lengthWritten);
+					}
 
 					HashSet<String> fileGeneratedByProcess = fileWgb.get(ProcessPid);
+
 					String filePath = sourceVertex.getAnnotation(PATH);
 
 					if(filePath != null){
 
-						if(!fileGeneratedByProcess.contains(filePath)){
-							fileGeneratedByProcess.add(filePath);
-							double countFileGenerated = destinationProcess.get(COUNT_OF_WGB_FILES);
-							destinationProcess.put(COUNT_OF_WGB_FILES, countFileGenerated + 1);
+						if((labelMap.get(destinationProcessVertex.hashCode()) == 1.0)){
+							if(!taintPropagation.containsKey(filePath)){
+								HashMap<Integer,HashSet<String>> taintInfo = new HashMap<>();
+								taintInfo.put(0,new HashSet<>());
+								HashSet<String> WgbOperation = new HashSet<>();
+								WgbOperation.add(incomingEdge.getAnnotation(OPERATION));
+								taintInfo.put(1, WgbOperation);
+								taintPropagation.put(filePath,taintInfo);
+							}else{
+								HashMap<Integer,HashSet<String>> taintInfo = taintPropagation.get(filePath);
+								HashSet<String> WgbOperation = taintInfo.get(1) ;
+								WgbOperation.add(incomingEdge.getAnnotation(OPERATION));
+								taintInfo.put(1, WgbOperation);
+								taintPropagation.put(filePath, taintInfo);
+
+
+							}
+
 						}
+
+						if(!fileGeneratedByProcess.contains(filePath)){
+
+							fileGeneratedByProcess.add(filePath);
+
+							addToCount(COUNT_OF_WGB_FILES, destinationProcess);
+							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_OF_WGB_FILES_BEGINNING, destinationProcess);
+							}
+
+						}
+
+
+
+
 
 						HashSet<String> directoriesWgbByProcess = directoryWgb.get(ProcessPid);
 						String directory = getDirectory(filePath);
 						if(!directoriesWgbByProcess.contains(directory)){
 
 							directoriesWgbByProcess.add(directory);
-							double countDirectoryWgb = destinationProcess.get(COUNT_OF_DIRECTORIES_WGB);
-							destinationProcess.put(COUNT_OF_DIRECTORIES_WGB, countDirectoryWgb +1);
+							addToCount(COUNT_OF_DIRECTORIES_WGB, destinationProcess);
+							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_OF_DIRECTORIES_WGB_BEGINNING, destinationProcess);
+							}
 						}
 
 					}
@@ -476,8 +784,12 @@ public class MLFeatures extends AbstractFilter{
 					try{
 
 						if(sourceVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-							double count_filesystem = destinationProcess.get(COUNT_FILESYSTEM_WGB);
-							destinationProcess.put(COUNT_FILESYSTEM_WGB, count_filesystem + 1);
+							addToCount(COUNT_FILESYSTEM_WGB, destinationProcess);
+							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_FILESYSTEM_WGB_BEGINNING, destinationProcess);
+							}
+
+
 
 							HashSet<String> extensionWgbByProcess = extensionWgb.get(ProcessPid);
 							String extension = getExtension(filePath);
@@ -485,26 +797,53 @@ public class MLFeatures extends AbstractFilter{
 							if(!extensionWgbByProcess.contains(extension)){
 
 								extensionWgbByProcess.add(extension);
-								double countExtension = destinationProcess.get(COUNT_EXTENSION_TYPE_WGB);
-								destinationProcess.put(COUNT_EXTENSION_TYPE_WGB, countExtension + 1);
+								addToCount(COUNT_EXTENSION_TYPE_WGB, destinationProcess);
+								if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+									addToCount(COUNT_EXTENSION_TYPE_WGB_BEGINNING, destinationProcess);
+								}
+							}
+							if(extension.equals(EXE)){
+								HashSet<String> fileSystemGeneratedByProcess = fileSystemWgb.get(ProcessPid);
+								if(!fileSystemGeneratedByProcess.contains(filePath)){
+
+									fileSystemGeneratedByProcess.add(filePath);
+
+								}
 							}
 
 							if(extension.equals(EXE) || extension.equals(DLL) || extension.equals(DAT) || extension.equals(BIN)){
-								double count_exe_dll = destinationProcess.get(COUNT_EXE_DAT_DLL_BIN_WGB);
-								destinationProcess.put(COUNT_EXE_DAT_DLL_BIN_WGB, count_exe_dll + 1);
+								addToCount(COUNT_EXE_DAT_DLL_BIN_WGB, destinationProcess);
+								if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+									addToCount(COUNT_EXE_DAT_DLL_BIN_WGB_BEGINNING, destinationProcess);
+								}
 							}
 
 						}else if(sourceVertex.getAnnotation(CLASS).equals(REGISTRY)){
-							double count_registry = destinationProcess.get(COUNT_REGISTRY_WGB);
-							destinationProcess.put(COUNT_REGISTRY_WGB, count_registry + 1);
+							addToCount(COUNT_REGISTRY_WGB, destinationProcess);
+							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_REGISTRY_WGB_BEGINNING, destinationProcess);
+							}
+
+							if(incomingEdge.getAnnotation(OPERATION).equals(REGSETINFOKEY)){
+								addToCount(COUNT_REG_SET_INFO_KEY, destinationProcess);
+							}
+							if(incomingEdge.getAnnotation(OPERATION).equals(REGSETVALUE)){
+								addToCount(COUNT_REG_SET_VALUE,destinationProcess);
+							}
 						}
 
 					}catch(Exception e){}
 
 					try{
 						if(sourceVertex.getAnnotation(SUBTYPE).equals(NETWORK)){
-							double countNetworkSend = destinationProcess.get(COUNT_NETWORK_SEND);
-							destinationProcess.put(COUNT_NETWORK_SEND, countNetworkSend + 1);
+							addToCount(COUNT_NETWORK_SEND, destinationProcess);
+							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+								addToCount(COUNT_NETWORK_SEND_BEGINNING, destinationProcess);
+							}
+
+							HashSet<String> remoteHost = remoteServers.get(ProcessPid);
+							remoteHost.add(sourceVertex.getAnnotation(REMOTE_HOST));
+							destinationProcess.put(COUNT_REMOTE_HOST, (double)remoteHost.size());
 						}
 					}catch(Exception e){}
 
@@ -525,6 +864,12 @@ public class MLFeatures extends AbstractFilter{
 					incomingEdge == null ? null : incomingEdge.getDestinationVertex()
 			});
 		}
+	}
+
+
+	public static void addToCount(String featureName,HashMap<String,Double> processFeature){
+		double currentCount = processFeature.get(featureName);
+		processFeature.put(featureName, currentCount +1);
 	}
 
 
@@ -647,6 +992,14 @@ public class MLFeatures extends AbstractFilter{
 			result = path.substring(0, path.length()-pathDecomposition[n-1].length());
 		}
 		return result;
+	}
+
+	public static String getDate(String datetime){
+		String date = "";
+		if(datetime != null){
+			date = datetime.split(" ")[0];
+		}
+		return date;
 	}
 
 }
