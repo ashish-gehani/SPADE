@@ -62,7 +62,8 @@ public class MLFeatures extends AbstractFilter{
 	private HashMap<String,String> agentsName = new HashMap<>();
 	private HashMap<String,String> processName = new HashMap<>();
 	private HashMap<String,String> processCommandline = new HashMap<>();
-	private HashMap<String,String> firstActivity = new HashMap<>();
+	private HashMap<String,String> firstActivityTime = new HashMap<>();
+	private HashMap<String,String> firstActivityDate = new HashMap<>();
 	private HashMap<String,String> lastUsed = new HashMap<>();
 	private HashMap<String,String> lastWgb = new HashMap<>();
 	private HashMap<Integer,Integer> ancestors = new HashMap<>();
@@ -475,16 +476,21 @@ public class MLFeatures extends AbstractFilter{
 
 				if (incomingEdge.type().equals(USED)){
 
-					//String time = incomingEdge.getAnnotation(TIME);
-					String time = incomingEdge.getAnnotation(DATETIME);
+					String time = incomingEdge.getAnnotation(TIME);
+					String datetime = incomingEdge.getAnnotation(DATETIME);
 					
 					double count_used = sourceProcess.get(COUNT_USED);
 
-					if(!firstActivity.containsKey(ProcessPid)){
-						firstActivity.put(ProcessPid, time);
+					if(!firstActivityTime.containsKey(ProcessPid)){
+						firstActivityTime.put(ProcessPid, time);
+						firstActivityDate.put(ProcessPid, datetime);
 					}
-					//sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
-					sourceProcess.put(LIFE_DURATION, differenceBetweenTwoDates(time,firstActivity.get(ProcessPid)));
+					if(datetime == null){
+						sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivityTime.get(ProcessPid)));
+					}else{
+						sourceProcess.put(LIFE_DURATION, differenceBetweenTwoDates(datetime,firstActivityDate.get(ProcessPid),time,firstActivityTime.get(ProcessPid)));
+					}
+					
 
 					if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
 						addToCount(COUNT_USED_BEGINNING, sourceProcess);
@@ -625,14 +631,16 @@ public class MLFeatures extends AbstractFilter{
 					agentsName.put(ProcessPid,destinationVertex.getAnnotation(USER));
 
 				}else if(incomingEdge.type().equals(WTB)){
-					//String time = incomingEdge.getAnnotation(TIME);
-					String time = incomingEdge.getAnnotation(DATETIME);
+					String time = incomingEdge.getAnnotation(TIME);
+					String datetime = incomingEdge.getAnnotation(DATETIME);
 					String destinationPid = destinationVertex.getAnnotation(PROCESS_IDENTIFIER);
 					HashMap<String,Double> destinationProcess = features.get(destinationPid);
 
 					HashSet<String> wtbNameSet = wtbName.get(destinationPid);
-					wtbNameSet.add(sourceProcessVertex.getAnnotation(NAME));
-					wtbName.put(destinationPid, wtbNameSet);
+					if(destinationPid!=ProcessPid){
+						wtbNameSet.add(sourceProcessVertex.getAnnotation(NAME));
+						wtbName.put(destinationPid, wtbNameSet);
+					}
 
 					sourceProcess.put(IS_NEW,1.0);
 
@@ -655,11 +663,15 @@ public class MLFeatures extends AbstractFilter{
 						status.put(incomingEdge.getSourceVertex().hashCode(),MALICIOUS);
 					}
 
-					if(!firstActivity.containsKey(destinationPid)){
-						firstActivity.put(destinationPid, time);
+					if(!firstActivityTime.containsKey(destinationPid)){
+						firstActivityTime.put(destinationPid, time);
+						firstActivityDate.put(destinationPid, datetime);
 					}
-					//destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(destinationPid)));
-					destinationProcess.put(LIFE_DURATION, differenceBetweenTwoDates(time,firstActivity.get(destinationPid)));
+					if(datetime == null){
+						destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivityTime.get(destinationPid)));
+					}else{
+						destinationProcess.put(LIFE_DURATION, differenceBetweenTwoDates(datetime,firstActivityDate.get(destinationPid),time,firstActivityTime.get(destinationPid)));
+					}
 				}
 
 
@@ -673,15 +685,20 @@ public class MLFeatures extends AbstractFilter{
 				String ProcessPid = destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER);
 				HashMap<String, Double> destinationProcess = features.get(ProcessPid);
 
-				//String time = incomingEdge.getAnnotation(TIME);
-				String time = incomingEdge.getAnnotation(DATETIME);
+				String time = incomingEdge.getAnnotation(TIME);
+				String datetime = incomingEdge.getAnnotation(DATETIME);
 
-				if(!firstActivity.containsKey(ProcessPid)){
-					firstActivity.put(ProcessPid, time);
+				if(!firstActivityTime.containsKey(ProcessPid)){
+					firstActivityTime.put(ProcessPid, time);
+					firstActivityDate.put(ProcessPid, datetime);
 				}
-
-				//destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
-				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoDates(time,firstActivity.get(ProcessPid)));
+				
+				//to deal with the different log that contain the date attribut or not
+				if(datetime == null){
+					destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivityTime.get(ProcessPid)));
+				}else{
+					destinationProcess.put(LIFE_DURATION, differenceBetweenTwoDates(datetime,firstActivityDate.get(ProcessPid),time,firstActivityTime.get(ProcessPid)));
+				}
 
 
 				if (incomingEdge.type().equals(WGB)){
@@ -1010,7 +1027,7 @@ public class MLFeatures extends AbstractFilter{
 		return date;
 	}
 
-	public static double differenceBetweenTwoDates(String d1,String d2){
+	public static double differenceBetweenTwoDates(String d1,String d2,String t1,String t2){
 		String[] datetime1 = d1.split(" ");
 		String[] datetime2 = d2.split(" ");
 		double oneDay = 24*60*60*SCALE_TIME;
@@ -1029,8 +1046,6 @@ public class MLFeatures extends AbstractFilter{
 	       System.out.println("Unparseable using " + ft); 
 	    }
 		
-		String t1 = datetime1[1]+" "+datetime1[2];
-		String t2 = datetime2[1]+" "+datetime2[2];
 		String[] time1 = t1.split(":|\\.| ");
 		String[] time2 = t2.split(":|\\.| ");
 		double result = 0;
