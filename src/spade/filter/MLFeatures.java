@@ -23,7 +23,10 @@ package spade.filter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -109,7 +112,7 @@ public class MLFeatures extends AbstractFilter{
 	private final String REGSETINFOKEY = "RegSetInfoKey";
 	private final String REGSETVALUE = "RegSetValue";
 	private final String OPERATION = "operation";
-	private final String CATEGORY = "category";
+	private final String CATEGORY = "category"; 
 	private final String DATETIME = "datetime";
 	private final String PPID = "ppid";
 	private final String READ = "Read";
@@ -121,8 +124,8 @@ public class MLFeatures extends AbstractFilter{
 	private final String WTB = "WasTriggeredBy";
 	private final String WGB = "WasGeneratedBy";
 	//////////////////////////////////////////////
-	private static int SCALE_TIME = 10000000;
-	private static int BEGINNING_THRESHOLD = 60*SCALE_TIME;
+	private static double SCALE_TIME = 10000000;
+	private static double BEGINNING_THRESHOLD = 60*SCALE_TIME;
 	private final Double INITIAL_ZERO = (double) 0;
 	private final String eol = System.getProperty("line.separator");
 	/////////////////////////////////////////////
@@ -472,14 +475,16 @@ public class MLFeatures extends AbstractFilter{
 
 				if (incomingEdge.type().equals(USED)){
 
-					String time = incomingEdge.getAnnotation(TIME);
-
+					//String time = incomingEdge.getAnnotation(TIME);
+					String time = incomingEdge.getAnnotation(DATETIME);
+					
 					double count_used = sourceProcess.get(COUNT_USED);
 
 					if(!firstActivity.containsKey(ProcessPid)){
 						firstActivity.put(ProcessPid, time);
 					}
-					sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
+					//sourceProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
+					sourceProcess.put(LIFE_DURATION, differenceBetweenTwoDates(time,firstActivity.get(ProcessPid)));
 
 					if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
 						addToCount(COUNT_USED_BEGINNING, sourceProcess);
@@ -620,7 +625,8 @@ public class MLFeatures extends AbstractFilter{
 					agentsName.put(ProcessPid,destinationVertex.getAnnotation(USER));
 
 				}else if(incomingEdge.type().equals(WTB)){
-					String time = incomingEdge.getAnnotation(TIME);
+					//String time = incomingEdge.getAnnotation(TIME);
+					String time = incomingEdge.getAnnotation(DATETIME);
 					String destinationPid = destinationVertex.getAnnotation(PROCESS_IDENTIFIER);
 					HashMap<String,Double> destinationProcess = features.get(destinationPid);
 
@@ -652,7 +658,8 @@ public class MLFeatures extends AbstractFilter{
 					if(!firstActivity.containsKey(destinationPid)){
 						firstActivity.put(destinationPid, time);
 					}
-					destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(destinationPid)));
+					//destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(destinationPid)));
+					destinationProcess.put(LIFE_DURATION, differenceBetweenTwoDates(time,firstActivity.get(destinationPid)));
 				}
 
 
@@ -666,14 +673,15 @@ public class MLFeatures extends AbstractFilter{
 				String ProcessPid = destinationProcessVertex.getAnnotation(PROCESS_IDENTIFIER);
 				HashMap<String, Double> destinationProcess = features.get(ProcessPid);
 
-				String time = incomingEdge.getAnnotation(TIME);
+				//String time = incomingEdge.getAnnotation(TIME);
+				String time = incomingEdge.getAnnotation(DATETIME);
 
 				if(!firstActivity.containsKey(ProcessPid)){
 					firstActivity.put(ProcessPid, time);
 				}
 
-				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
-
+				//destinationProcess.put(LIFE_DURATION, differenceBetweenTwoTimes(time,firstActivity.get(ProcessPid)));
+				destinationProcess.put(LIFE_DURATION, differenceBetweenTwoDates(time,firstActivity.get(ProcessPid)));
 
 
 				if (incomingEdge.type().equals(WGB)){
@@ -1002,4 +1010,48 @@ public class MLFeatures extends AbstractFilter{
 		return date;
 	}
 
+	public static double differenceBetweenTwoDates(String d1,String d2){
+		String[] datetime1 = d1.split(" ");
+		String[] datetime2 = d2.split(" ");
+		double oneDay = 24*60*60*SCALE_TIME;
+		String date1 = datetime1[0];
+		String date2 = datetime2[0];
+		
+		SimpleDateFormat ft = new SimpleDateFormat ("MM/dd/yyyy"); 
+	    Date dateFormat1;
+	    Date dateFormat2;
+	    double differenceDate = 0.0;
+	    try {
+	       dateFormat1 = ft.parse(date1); 
+	       dateFormat2 = ft.parse(date2);
+	       differenceDate =  (double)(dateFormat1.getTime() - dateFormat2.getTime())*10000; 
+	    }catch (ParseException e) { 
+	       System.out.println("Unparseable using " + ft); 
+	    }
+		
+		String t1 = datetime1[1]+" "+datetime1[2];
+		String t2 = datetime2[1]+" "+datetime2[2];
+		String[] time1 = t1.split(":|\\.| ");
+		String[] time2 = t2.split(":|\\.| ");
+		double result = 0;
+		// time[0]  = hour, time[1] = minutes, time[2] = seconds, time[3] = 10 nanoseconds, time[4] = AM or PM
+		if(time1[4].equals(time2[4])){
+			if(differenceDate > 0 ){
+				time1[0] =Double.toString(Double.parseDouble(time1[0])+24);
+				differenceDate -= oneDay;
+			}
+			result = differenceBetweenTwoTimesWOAmPm(time1, time2) + differenceDate;
+		}else if(time1[4].equals("PM")){
+			time1[0] =Double.toString(Double.parseDouble(time1[0])+12);
+			result = differenceBetweenTwoTimesWOAmPm(time1, time2) + differenceDate;
+		}else{
+			time1[0] =Double.toString(Double.parseDouble(time1[0])+12);
+			result = differenceBetweenTwoTimesWOAmPm(time1, time2) + (differenceDate-oneDay);
+		}
+		
+		
+
+		return result;
+	}
+	
 }
