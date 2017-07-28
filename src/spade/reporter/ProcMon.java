@@ -138,7 +138,7 @@ public class ProcMon extends AbstractReporter {
             N_PARENT_PID = columnMap.get(COLUMN_PARENT_PID);
             N_ARCHITECTURE = columnMap.get(COLUMN_ARCHITECTURE);
             N_CATEGORY = columnMap.get(COLUMN_CATEGORY);
-            //N_DATE_AND_TIME = columnMap.get(COLUMN_DATE_AND_TIME);
+            N_DATE_AND_TIME = columnMap.get(COLUMN_DATE_AND_TIME);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
@@ -238,7 +238,7 @@ public class ProcMon extends AbstractReporter {
         if (processMap.containsKey(ppid)) {
             WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
             wtb.addAnnotation("time", data[N_TIME]);
-            //wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+            wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
             putEdge(wtb);
         }
     }
@@ -262,7 +262,7 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), artifact);
         used.addAnnotation("time", data[N_TIME]);
-        //used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("category", data[N_CATEGORY]);
         used.addAnnotation("detail", data[N_DETAIL]);
@@ -273,7 +273,7 @@ public class ProcMon extends AbstractReporter {
     private void writeArtifact(String[] data) {
         String pid = data[N_PID];
         String path = data[N_PATH];
-
+        
         boolean put = !artifactVersions.containsKey(path);
         int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) + 1 : 1;
         artifactVersions.put(path, version);
@@ -288,7 +288,7 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(artifact, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
-        //wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("category", data[N_CATEGORY]);
         wgb.addAnnotation("detail", data[N_DETAIL]);
@@ -308,7 +308,7 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), image);
         used.addAnnotation("time", data[N_TIME]);
-        //used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
         used.addAnnotation("duration", data[N_DURATION]);
@@ -347,7 +347,7 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(network, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
-        //wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("detail", data[N_DETAIL]);
         putEdge(wgb);
@@ -379,13 +379,13 @@ public class ProcMon extends AbstractReporter {
           network.addAnnotation("remote host", hosts[1].substring(0,hosts[1].length()-1 - remote[m-1].length()));
           network.addAnnotation("remote port", remote[m-1]);
         }
-        if (networkConnections.add(data[N_PATH])) {
+        if (networkConnections.add(data[N_PATH])) { 
             putVertex(network);
         }
 
         Used used = new Used(processMap.get(pid), network);
         used.addAnnotation("time", data[N_TIME]);
-        //used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
         putEdge(used);
