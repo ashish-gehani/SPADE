@@ -50,10 +50,10 @@ public class OPMConstants {
 			SOURCE = "source",
 			
 			// Allowed source annotation values
-			SOURCE_AUDIT = "/dev/audit",
+			SOURCE_AUDIT_SYSCALL = "syscall",
 			SOURCE_PROCFS = "/proc",
 			SOURCE_BEEP = "beep",
-			SOURCE_NETFILTER = "netfilter",
+			SOURCE_AUDIT_NETFILTER = "netfilter",
 			
 			// Agent specific annotations
 			AGENT_EGID = "egid",

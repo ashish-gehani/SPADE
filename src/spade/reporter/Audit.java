@@ -247,6 +247,9 @@ public class Audit extends AbstractReporter {
 	private final String IPV4_NETWORK_SOCKET_SADDR_PREFIX = "02";
 	private final String IPV6_NETWORK_SOCKET_SADDR_PREFIX = "0A";
 	private final String UNIX_SOCKET_SADDR_PREFIX = "01";
+	
+	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
+	
 	/**
 	 * Returns a map which contains all the keys and values defined 
 	 * in the default config file. 
@@ -2264,7 +2267,7 @@ public class Audit extends AbstractReporter {
 			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);    	
 			Process process = putProcess(eventData, time, eventId);    	
 			WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
-			putEdge(deletedEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(deletedEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 	}
 	
@@ -2317,7 +2320,7 @@ public class Audit extends AbstractReporter {
 			// on the process/unit which called it.
 			Process process = putProcess(eventData, time, eventId); //put Process vertex if it didn't exist before
 			WasTriggeredBy exitEdge = new WasTriggeredBy(process, process);
-			putEdge(exitEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(exitEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 
 		// NOT clearing process state here.
@@ -2363,7 +2366,7 @@ public class Audit extends AbstractReporter {
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, null, true);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
-		putEdge(wgbEdge, getOperation(syscall, SYSCALL.WRITE), time, eventId, OPMConstants.SOURCE_AUDIT);		
+		putEdge(wgbEdge, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);		
 		
 		if((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS){
 			return;
@@ -2387,11 +2390,11 @@ public class Audit extends AbstractReporter {
 			Artifact artifact = putArtifact(eventData, artifactIdentifier, null, false);
 	
 			Used usedEdge = new Used(process, artifact);
-			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
 	
 			WasDerivedFrom wdfEdge = new WasDerivedFrom(memoryArtifact, artifact);
 			wdfEdge.addAnnotation(OPMConstants.EDGE_PID, pid);
-			putEdge(wdfEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(wdfEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 
 	}
@@ -2424,7 +2427,7 @@ public class Audit extends AbstractReporter {
 
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
 		edge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
-		putEdge(edge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 	}
 	
 	private void clearAllProcessState(){
@@ -2483,7 +2486,7 @@ public class Audit extends AbstractReporter {
 		Process newProcess = putProcess(newEventData, RECREATE_AND_REPLACE, time, eventId);
 
 		WasTriggeredBy forkCloneEdge = new WasTriggeredBy(newProcess, oldProcess);
-		putEdge(forkCloneEdge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(forkCloneEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 
 		if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){
 			// Gets a copy of the parent's file descriptor table
@@ -2568,7 +2571,7 @@ public class Audit extends AbstractReporter {
 
 		if(oldProcess != null){
 			WasTriggeredBy execveEdge = new WasTriggeredBy(newProcess, oldProcess);
-			putEdge(execveEdge, getOperation(SYSCALL.EXECVE), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(execveEdge, getOperation(SYSCALL.EXECVE), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}else{
 			log(Level.INFO, "Unable to create edge because process with pid '"+pid+"' missing", null, time, eventId, SYSCALL.EXECVE);
 		}
@@ -2585,7 +2588,7 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType());
 			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
 			Used usedEdge = new Used(newProcess, usedArtifact);
-			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 
 		descriptors.unlinkDescriptors(pid);
@@ -2787,7 +2790,7 @@ public class Audit extends AbstractReporter {
 			//everything happened successfully. add it to descriptors
 			descriptors.addDescriptor(pid, fd, artifactIdentifier, openedForRead);
 
-			putEdge(edge, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 	}
 
@@ -2815,7 +2818,7 @@ public class Audit extends AbstractReporter {
 					edge = new WasGeneratedBy(artifact, process);
 				}	   
 				if(edge != null){
-					putEdge(edge, getOperation(SYSCALL.CLOSE), time, eventId, OPMConstants.SOURCE_AUDIT);
+					putEdge(edge, getOperation(SYSCALL.CLOSE), time, eventId, AUDIT_SYSCALL_SOURCE);
 				}
 				//after everything done increment epoch is udp socket
 				if(closedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class) &&
@@ -2862,7 +2865,7 @@ public class Audit extends AbstractReporter {
 		if(offset != null){
 			used.addAnnotation(OPMConstants.EDGE_OFFSET, offset);
 		}
-		putEdge(used, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 
 	}
 
@@ -2897,7 +2900,7 @@ public class Audit extends AbstractReporter {
 			if(offset != null){
 				wgb.addAnnotation(OPMConstants.EDGE_OFFSET, offset);
 			}
-			putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 	}
 
@@ -2943,7 +2946,7 @@ public class Audit extends AbstractReporter {
 					|| UnknownIdentifier.class.equals(artifactIdentifier.getClass())){
 				Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
 				WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
-				putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+				putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			}else{
 				log(Level.INFO, "Unexpected artifact type '"+artifactIdentifier+
 						"'. Can only be file or unknown", null, time, eventId, syscall);
@@ -3020,7 +3023,7 @@ public class Audit extends AbstractReporter {
 			String pid = containingProcess.getAnnotation(OPMConstants.PROCESS_PID);
 			
 			Agent agent = new Agent();
-			agent.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+			agent.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
 			agent.addAnnotation(OPMConstants.AGENT_UID, annotationsToUpdate.get(OPMConstants.AGENT_UID));
 			agent.addAnnotation(OPMConstants.AGENT_EUID, annotationsToUpdate.get(OPMConstants.AGENT_EUID));
 			agent.addAnnotation(OPMConstants.AGENT_GID, annotationsToUpdate.get(OPMConstants.AGENT_GID));
@@ -3043,7 +3046,7 @@ public class Audit extends AbstractReporter {
 			wasControlledBy.addAnnotation(OPMConstants.EDGE_OPERATION, getOperation(syscall));
 			wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
 			wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
-			wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+			wasControlledBy.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
 			
 			String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
 			if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
@@ -3068,7 +3071,7 @@ public class Audit extends AbstractReporter {
 			Process newContainingProcess = putProcess(newContainingProcessAnnotations, RECREATE_AND_REPLACE, time, eventId);
 
 			WasTriggeredBy newProcessToOldProcess = new WasTriggeredBy(newContainingProcess, containingProcess);
-			putEdge(newProcessToOldProcess, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(newProcessToOldProcess, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 
 			//Get the new process unit stack now in which the new units would be added. 
 			//New because putProcess above has replaced the old one
@@ -3453,15 +3456,15 @@ public class Audit extends AbstractReporter {
 
 		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
 		Used used = new Used(process, srcVertex);
-		putEdge(used, getOperation(syscall, SYSCALL.READ), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(used, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
 
 		Artifact dstVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
 		WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
-		putEdge(wgb, getOperation(syscall, SYSCALL.WRITE), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(wgb, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);
 
 		WasDerivedFrom wdf = new WasDerivedFrom(dstVertex, srcVertex);
 		wdf.addAnnotation(OPMConstants.EDGE_PID, pid);
-		putEdge(wdf, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(wdf, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 	}
 	
 	/**
@@ -3558,7 +3561,7 @@ public class Audit extends AbstractReporter {
 		Artifact vertex = putArtifact(eventData, artifactIdentifier, mode, true);
 		WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 		wgb.addAnnotation(OPMConstants.EDGE_MODE, mode);
-		putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 	}
 
 	private void handlePipe(Map<String, String> eventData, SYSCALL syscall) {
@@ -3615,7 +3618,7 @@ public class Audit extends AbstractReporter {
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort);
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_PROTOCOL, protocolName);
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_NETWORK_SOCKET);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_NETFILTER);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_NETFILTER);
     	artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
 
     	Artifact artifactFromSyscall = removeNetworkArtifactSeenInSyscall(remoteAddress, remotePort);
@@ -3640,7 +3643,7 @@ public class Audit extends AbstractReporter {
     		}
     		putVertex(artifactFromNetfilter);
     		WasDerivedFrom syscallToNetfilter = new WasDerivedFrom(artifactFromNetfilter, artifactFromSyscall);
-    		putEdge(syscallToNetfilter, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
+    		putEdge(syscallToNetfilter, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
     		
     	}else{
     		addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
@@ -3739,7 +3742,7 @@ public class Audit extends AbstractReporter {
 
 			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
-			putEdge(wgb, getOperation(SYSCALL.CONNECT), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(wgb, getOperation(SYSCALL.CONNECT), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
 			putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, artifact);
 		}else{
@@ -3823,7 +3826,7 @@ public class Audit extends AbstractReporter {
 			
 			Artifact socket = putArtifact(eventData, artifactIdentifier, null, false);
 			Used used = new Used(process, socket);
-			putEdge(used, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
 			putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, socket);
 			
@@ -3864,7 +3867,7 @@ public class Audit extends AbstractReporter {
 		    		putVertex(netfilterArtifact);
 		    		// TODO USE A COPY OF THE SYSCALL ARTIFACT AND NOT THIS ONE!!!!
 					WasDerivedFrom edge = new WasDerivedFrom(netfilterArtifact, syscallArtifact);
-					putEdge(edge, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
+					putEdge(edge, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
 				}else{
 					addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
 				}
@@ -3968,7 +3971,7 @@ public class Audit extends AbstractReporter {
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesSent);
-			putEdge(wgb, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
 			//udp
 			if(saddr != null){
@@ -4006,7 +4009,7 @@ public class Audit extends AbstractReporter {
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
 			Used used = new Used(process, vertex);
 			used.addAnnotation(OPMConstants.EDGE_SIZE, bytesReceived);
-			putEdge(used, getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT);
+			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
 			//udp
 			if(saddr != null){
@@ -4050,8 +4053,7 @@ public class Audit extends AbstractReporter {
 	 * @param operation operation as gotten from {@link #getOperation(SYSCALL) getOperation}
 	 * @param time time of the audit log which generated this edge
 	 * @param eventId event id in the audit log which generated this edge
-	 * @param source source of the edge i.e. {@link #DEV_AUDIT /dev/audit}, {@link #PROC_FS /proc}, or
-	 * {@link #BEEP beep}
+	 * @param source source of the edge
 	 */
 	private void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
 		if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
@@ -4204,7 +4206,7 @@ public class Audit extends AbstractReporter {
 		if(useThisSource != null){
 			artifact.addAnnotation(OPMConstants.SOURCE, useThisSource);
 		}else{
-			artifact.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+			artifact.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
 		}
 
 		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
@@ -4404,7 +4406,7 @@ public class Audit extends AbstractReporter {
 		}
 		WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
 		versionUpdate.addAnnotation(OPMConstants.EDGE_PID, pid);
-		putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT);
+		putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, AUDIT_SYSCALL_SOURCE);
 	}
 
 	/**
@@ -4672,7 +4674,7 @@ public class Audit extends AbstractReporter {
 				}	 
 				if(AGENTS){
 					Agent agent = new Agent();
-					agent.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+					agent.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
 					agent.addAnnotation(OPMConstants.AGENT_UID, annotations.get(OPMConstants.AGENT_UID));
 					agent.addAnnotation(OPMConstants.AGENT_EUID, annotations.get(OPMConstants.AGENT_EUID));
 					agent.addAnnotation(OPMConstants.AGENT_GID, annotations.get(OPMConstants.AGENT_GID));
@@ -4695,7 +4697,7 @@ public class Audit extends AbstractReporter {
 					WasControlledBy wasControlledBy = new WasControlledBy(process, agent);
 					wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
 					wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
-					wasControlledBy.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+					wasControlledBy.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
 					
 					String edgeHash = Hex.encodeHexString(wasControlledBy.bigHashCode());
 					if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
@@ -4789,7 +4791,7 @@ public class Audit extends AbstractReporter {
 	 * @param egid effective group id of the process
 	 * @param sgid saved group id of the process
 	 * @param fsgid file system group id of the process
-	 * @param source source of the process information: /dev/audit, beep or /proc only. Defaults to /dev/audit if none given.
+	 * @param source source of the process information
 	 * @param startTime time at which the process was created [Optional]
 	 * @param unit id of the unit loop. [Optional]
 	 * @param iteration iteration of the unit loop. [Optional]
@@ -4812,7 +4814,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(source == null){
-			process.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT);
+			process.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
 		}else{
 			process.addAnnotation(OPMConstants.SOURCE, source);
 		}

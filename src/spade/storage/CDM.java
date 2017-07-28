@@ -472,7 +472,7 @@ public class CDM extends Kafka {
 	// Argument must be of type process and must be ensured by the caller
 	private AbstractVertex getAgentFromProcess(AbstractVertex process){
 		AbstractVertex agentVertex = new Agent();
-		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT); //Always /dev/audit unless changed in Audit.java
+		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_SYSCALL);
 		for(String agentAnnotation : agentAnnotations){
 			String agentAnnotationValue = process.getAnnotation(agentAnnotation);
 			if(agentAnnotation != null){ // some are optional so check for null
@@ -1141,12 +1141,12 @@ public class CDM extends Kafka {
 	 * Returns the CDM object for the source annotation
 	 * Null if none matched
 	 * 
-	 * @param source allowed values: '/dev/audit', '/proc', 'beep'
+	 * @param source allowed values listed in OPMConstants class
 	 * @return InstrumentationSource instance or null
 	 */
 	private InstrumentationSource getInstrumentationSource(String source){
-		if(OPMConstants.SOURCE_AUDIT.equals(source)
-				|| OPMConstants.SOURCE_NETFILTER.equals(source)){
+		if(OPMConstants.SOURCE_AUDIT_SYSCALL.equals(source)
+				|| OPMConstants.SOURCE_AUDIT_NETFILTER.equals(source)){
 			// TODO Use the 'netfilter' source value when added in CDM
 			return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
 		}else if(OPMConstants.SOURCE_PROCFS.equals(source)){	
