@@ -138,7 +138,11 @@ public class ProcMon extends AbstractReporter {
             N_PARENT_PID = columnMap.get(COLUMN_PARENT_PID);
             N_ARCHITECTURE = columnMap.get(COLUMN_ARCHITECTURE);
             N_CATEGORY = columnMap.get(COLUMN_CATEGORY);
-            N_DATE_AND_TIME = columnMap.get(COLUMN_DATE_AND_TIME);
+            try{
+            	N_DATE_AND_TIME = columnMap.get(COLUMN_DATE_AND_TIME);
+            }catch(Exception e){
+            	logger.log(Level.WARNING, null, e+" no date column in log");
+            }
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
@@ -238,7 +242,12 @@ public class ProcMon extends AbstractReporter {
         if (processMap.containsKey(ppid)) {
             WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
             wtb.addAnnotation("time", data[N_TIME]);
-            wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+            try{
+                wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+            }catch(Exception e){
+            	logger.log(Level.WARNING, null, e+" no date column in log");
+            }
+
             putEdge(wtb);
         }
     }
@@ -262,7 +271,11 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), artifact);
         used.addAnnotation("time", data[N_TIME]);
-        used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        try{
+        	used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        }catch(Exception e){
+        	logger.log(Level.WARNING, null, e+" no date column in log");
+        }
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("category", data[N_CATEGORY]);
         used.addAnnotation("detail", data[N_DETAIL]);
@@ -288,7 +301,11 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(artifact, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
-        wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        try{
+        	wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        }catch(Exception e){
+        	logger.log(Level.WARNING, null, e+" no date column in log");
+        }
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("category", data[N_CATEGORY]);
         wgb.addAnnotation("detail", data[N_DETAIL]);
@@ -308,7 +325,11 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), image);
         used.addAnnotation("time", data[N_TIME]);
-        used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        try{
+        	used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        }catch(Exception e){
+        	logger.log(Level.WARNING, null, e+" no date column in log");
+        }
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
         used.addAnnotation("duration", data[N_DURATION]);
@@ -347,7 +368,11 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(network, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
-        wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        try{
+        	wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        }catch(Exception e){
+        	logger.log(Level.WARNING, null, e+" no date column in log");
+        }
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("detail", data[N_DETAIL]);
         putEdge(wgb);
@@ -385,7 +410,11 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), network);
         used.addAnnotation("time", data[N_TIME]);
-        used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        try{
+        	used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        }catch(Exception e){
+        	logger.log(Level.WARNING, null, e+" no date column in log");
+        }
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
         putEdge(used);
