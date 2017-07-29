@@ -44,6 +44,7 @@ public class ProcMon extends AbstractReporter {
 
     private BufferedReader eventReader;
     private Map<String, Process> processMap = new HashMap<String, Process>();
+    private Map<String, Set<String>> threadMap = new HashMap<String,Set<String>>();
     private Map<String, Integer> artifactVersions = new HashMap<String, Integer>();
     private Set<String> loadedImages = new HashSet<String>();
     private Set<String> networkConnections = new HashSet<String>();
@@ -69,6 +70,7 @@ public class ProcMon extends AbstractReporter {
     private final String COLUMN_ARCHITECTURE = "Architecture";
     private final String COLUMN_CATEGORY = "Category";
     private final String COLUMN_DATE_AND_TIME = "Date & Time";
+    private final String COLUMN_TID = "TID";
     ////////////////////////////////////////////////////////////////////////////
     private int N_TIME;
     private int N_PROCESS_NAME;
@@ -89,6 +91,7 @@ public class ProcMon extends AbstractReporter {
     private int N_ARCHITECTURE;
     private int N_CATEGORY;
     private int N_DATE_AND_TIME;
+    private int N_TID;
     ////////////////////////////////////////////////////////////////////////////
     private final String EVENT_CLASS_REGISTRY = "Registry";
     private final String EVENT_CLASS_FILE_SYSTEM = "File System";
@@ -143,6 +146,11 @@ public class ProcMon extends AbstractReporter {
             }catch(Exception e){
             	logger.log(Level.WARNING, null, e+" no date column in log");
             }
+            try{
+            	N_TID = columnMap.get(COLUMN_TID);
+            }catch(Exception e){
+            	logger.log(Level.WARNING, null, e+" no date column in log");
+            }
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
             return false;
@@ -187,6 +195,19 @@ public class ProcMon extends AbstractReporter {
 
             if (!processMap.containsKey(data[N_PID])) {
                 createProcess(data);
+                try{
+                	Set<String> thread = new HashSet<String>();
+                	thread.add(data[N_TID]);
+                	threadMap.put(data[N_PID],thread);
+                }catch(Exception e){}
+            }
+            try{
+            	if(processMap.containsKey(data[N_PID])&&(!threadMap.get(data[N_PID]).contains(data[N_TID]))){
+            		createWtb(data);
+            		threadMap.get(data[N_PID]).add(data[N_TID]);
+            	}
+            }catch(Exception e){
+            	
             }
 
             String eventClass = data[N_EVENT_CLASS];
@@ -217,9 +238,9 @@ public class ProcMon extends AbstractReporter {
     private void createProcess(String[] data) {
         String pid = data[N_PID];
         String ppid = data[N_PARENT_PID];
-
         Process process = new Process();
         process.addAnnotation("pid", pid);
+        
         process.addAnnotation("ppid", ppid);
         process.addAnnotation("name", data[N_PROCESS_NAME]);
         process.addAnnotation("imagepath", data[N_IMAGE_PATH]);
@@ -232,24 +253,39 @@ public class ProcMon extends AbstractReporter {
         putVertex(process);
         processMap.put(pid, process);
 
+
+   
         Agent user = new Agent();
-        user.addAnnotation(COLUMN_USER, data[N_USER]);
-        putVertex(user);
+       	user.addAnnotation(COLUMN_USER, data[N_USER]);
+       	putVertex(user);
 
-        WasControlledBy wcb = new WasControlledBy(process, user);
-        putEdge(wcb);
+       	WasControlledBy wcb = new WasControlledBy(process, user);
+       	putEdge(wcb);
+        
+        
 
-        if (processMap.containsKey(ppid)) {
-            WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
-            wtb.addAnnotation("time", data[N_TIME]);
-            try{
-                wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
-            }catch(Exception e){
-            	logger.log(Level.WARNING, null, e+" no date column in log");
-            }
+       	if (processMap.containsKey(ppid)) {
+        	WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
+        	wtb.addAnnotation("time", data[N_TIME]);
+        	try{
+        		wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+        	}catch(Exception e){}
 
-            putEdge(wtb);
+        	putEdge(wtb);
         }
+       
+
+    }
+    
+    private void createWtb(String[] data){
+    	String pid = data[N_PID];
+    	WasTriggeredBy wtb = new WasTriggeredBy(processMap.get(pid), processMap.get(pid));
+    	wtb.addAnnotation("time", data[N_TIME]);
+    	try{
+    		wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
+    	}catch(Exception e){}
+
+    	putEdge(wtb);
     }
 
     private void readArtifact(String[] data) {
