@@ -186,6 +186,7 @@ public class MLFeatures extends AbstractFilter{
 	private final String COUNT_OF_DIRECTORIES_WGB_BEGINNING = "countOftDirectoriesWgbBeginning";
 	private final String WRITES_THEN_EXECTUTES = "writeThenExecutes";
 	private final String COUNT_REMOTE_HOST = "countRemoteHost";
+	private final String COUNT_THREAD = "countThread";
 
 
 
@@ -215,7 +216,7 @@ public class MLFeatures extends AbstractFilter{
 				COUNT_REG_SET_VALUE,TOTAL_LENGTH_READ_BEGINNING,TOTAL_LENGTH_WRITTEN_BEGINNING,COUNT_OF_USED_FILES_BEGINNING,COUNT_OF_WGB_FILES_BEGINNING,
 				COUNT_FILESYSTEM_USED_BEGINNING,COUNT_FILESYSTEM_WGB_BEGINNING,COUNT_REGISTRY_USED_BEGINNING,COUNT_REGISTRY_WGB_BEGINNING,COUNT_EXTENSION_TYPE_USED_BEGINNING,
 				COUNT_EXTENSION_TYPE_WGB_BEGINNING,COUNT_EXE_DAT_DLL_BIN_USED_BEGINNING,COUNT_EXE_DAT_DLL_BIN_WGB_BEGINNING,COUNT_NETWORK_RECEIVE_BEGINNING,COUNT_NETWORK_SEND_BEGINNING,
-				COUNT_OF_DIRECTORIES_USED_BEGINNING,COUNT_OF_DIRECTORIES_WGB_BEGINNING,WRITES_THEN_EXECTUTES,COUNT_REMOTE_HOST));
+				COUNT_OF_DIRECTORIES_USED_BEGINNING,COUNT_OF_DIRECTORIES_WGB_BEGINNING,WRITES_THEN_EXECTUTES,COUNT_REMOTE_HOST,COUNT_THREAD));
 
 		try (Writer writer = new FileWriter(filepathFeatures)) {
 
@@ -398,6 +399,7 @@ public class MLFeatures extends AbstractFilter{
 				initialFeatures.put(COUNT_OF_DIRECTORIES_WGB_BEGINNING, INITIAL_ZERO);
 				initialFeatures.put(WRITES_THEN_EXECTUTES, INITIAL_ZERO);
 				initialFeatures.put(COUNT_REMOTE_HOST, INITIAL_ZERO);
+				initialFeatures.put(COUNT_THREAD, INITIAL_ZERO);
 				features.put(processPid,initialFeatures);
 				//usedDatetime.put(processPid, new HashSet<>());
 				//wgbDatetime.put(processPid, new HashSet<>());
@@ -525,7 +527,7 @@ public class MLFeatures extends AbstractFilter{
 
 					sourceProcess.put(AVG_DURATION_USED,(currentDurationMean*count_used_not_network + duration)/(count_used_not_network+1) );
 					sourceProcess.put(COUNT_USED_NOT_NETWORK, count_used_not_network + 1);
-					}catch(Exception e){}
+					}catch(Exception e){System.err.println("Error duration" + e);}
 
 
 					addToCount(COUNT_USED, sourceProcess);
@@ -575,55 +577,51 @@ public class MLFeatures extends AbstractFilter{
 							}
 						}
 					}
-					try{
-						if(destinationVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-							addToCount(COUNT_FILESYSTEM_USED, sourceProcess);
+
+					if(FILE_SYSTEM.equals(destinationVertex.getAnnotation(CLASS))){
+						addToCount(COUNT_FILESYSTEM_USED, sourceProcess);
+						if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+							addToCount(COUNT_FILESYSTEM_USED_BEGINNING, sourceProcess);
+						}
+						HashSet<String> extensionUsedByProcess = extensionUsed.get(ProcessPid);
+						String extension = getExtension(filePath);
+
+						if(!extensionUsedByProcess.contains(extension)){
+
+							extensionUsedByProcess.add(extension);
+							addToCount(COUNT_EXTENSION_TYPE_USED, sourceProcess);
 							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-								addToCount(COUNT_FILESYSTEM_USED_BEGINNING, sourceProcess);
-							}
-
-							HashSet<String> extensionUsedByProcess = extensionUsed.get(ProcessPid);
-							String extension = getExtension(filePath);
-
-							if(!extensionUsedByProcess.contains(extension)){
-
-								extensionUsedByProcess.add(extension);
-								addToCount(COUNT_EXTENSION_TYPE_USED, sourceProcess);
-								if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-									addToCount(COUNT_EXTENSION_TYPE_USED_BEGINNING, sourceProcess);
-								}
-							}
-
-							if(extension.equals(EXE) || extension.equals(DLL) || extension.equals(DAT) || extension.equals(BIN)){
-								addToCount(COUNT_EXE_DAT_DLL_BIN_USED, sourceProcess);
-								if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-									addToCount(COUNT_EXE_DAT_DLL_BIN_USED_BEGINNING, sourceProcess);
-								}
-							}
-
-						}else if(destinationVertex.getAnnotation(CLASS).equals(REGISTRY)){
-							addToCount(COUNT_REGISTRY_USED, sourceProcess);
-							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-								addToCount(COUNT_REGISTRY_USED_BEGINNING, sourceProcess);
+								addToCount(COUNT_EXTENSION_TYPE_USED_BEGINNING, sourceProcess);
 							}
 						}
 
-
-					}catch(Exception e){}
-
-					try{
-						if(destinationVertex.getAnnotation(SUBTYPE).equals(NETWORK)){
-							addToCount(COUNT_NETWORK_RECEIVE, sourceProcess);
+						if(EXE.equals(extension) || DLL.equals(extension) || DAT.equals(extension) || BIN.equals(extension)){
+							addToCount(COUNT_EXE_DAT_DLL_BIN_USED, sourceProcess);
 							if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-								addToCount(COUNT_NETWORK_RECEIVE_BEGINNING, sourceProcess);
+								addToCount(COUNT_EXE_DAT_DLL_BIN_USED_BEGINNING, sourceProcess);
 							}
-
-							HashSet<String> remoteHost = remoteServers.get(ProcessPid);
-							remoteHost.add(destinationVertex.getAnnotation(REMOTE_HOST));
-							sourceProcess.put(COUNT_REMOTE_HOST, (double)remoteHost.size());
-
 						}
-					}catch(Exception e){}
+
+					}else if(REGISTRY.equals(destinationVertex.getAnnotation(CLASS))){
+						addToCount(COUNT_REGISTRY_USED, sourceProcess);
+						if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+							addToCount(COUNT_REGISTRY_USED_BEGINNING, sourceProcess);
+						}
+					}
+
+
+					if(NETWORK.equals(destinationVertex.getAnnotation(SUBTYPE))){
+						addToCount(COUNT_NETWORK_RECEIVE, sourceProcess);
+						if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+							addToCount(COUNT_NETWORK_RECEIVE_BEGINNING, sourceProcess);
+						}
+
+						HashSet<String> remoteHost = remoteServers.get(ProcessPid);
+						remoteHost.add(destinationVertex.getAnnotation(REMOTE_HOST));
+						sourceProcess.put(COUNT_REMOTE_HOST, (double)remoteHost.size());
+
+					}
+
 
 
 				}else if (incomingEdge.type().equals(WCB)){
@@ -640,11 +638,14 @@ public class MLFeatures extends AbstractFilter{
 					if(destinationPid!=ProcessPid){
 						wtbNameSet.add(sourceProcessVertex.getAnnotation(NAME));
 						wtbName.put(destinationPid, wtbNameSet);
+						addToCount(COUNT_WTB, destinationProcess);
+					}else{
+						addToCount(COUNT_THREAD, destinationProcess);
 					}
 
 					sourceProcess.put(IS_NEW,1.0);
 
-					addToCount(COUNT_WTB, destinationProcess);
+					
 
 
 					double doesWritesAndExecutes = destinationProcess.get(WRITES_THEN_EXECTUTES);
@@ -736,7 +737,7 @@ public class MLFeatures extends AbstractFilter{
 
 					destinationProcess.put(AVG_DURATION_WGB,(currentDurationMean*count_wgb_not_network + duration)/(count_wgb_not_network+1) );
 					destinationProcess.put(COUNT_WGB_NOT_NETWORK, count_wgb_not_network + 1);
-					}catch(Exception e){}
+					}catch(Exception e){System.err.println("Error duration" + e);}
 
 
 					addToCount(COUNT_WGB, destinationProcess);
@@ -806,71 +807,70 @@ public class MLFeatures extends AbstractFilter{
 					}
 
 
-					try{
 
-						if(sourceVertex.getAnnotation(CLASS).equals(FILE_SYSTEM)){
-							addToCount(COUNT_FILESYSTEM_WGB, destinationProcess);
+
+					if(FILE_SYSTEM.equals(sourceVertex.getAnnotation(CLASS))){
+						addToCount(COUNT_FILESYSTEM_WGB, destinationProcess);
+						if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+							addToCount(COUNT_FILESYSTEM_WGB_BEGINNING, destinationProcess);
+						}
+
+
+
+						HashSet<String> extensionWgbByProcess = extensionWgb.get(ProcessPid);
+						String extension = getExtension(filePath);
+						
+						if(!extensionWgbByProcess.contains(extension)){
+							
+							extensionWgbByProcess.add(extension);
+							addToCount(COUNT_EXTENSION_TYPE_WGB, destinationProcess);
 							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-								addToCount(COUNT_FILESYSTEM_WGB_BEGINNING, destinationProcess);
+								addToCount(COUNT_EXTENSION_TYPE_WGB_BEGINNING, destinationProcess);
 							}
+						}
+						if(EXE.equals(extension)){
+							HashSet<String> fileSystemGeneratedByProcess = fileSystemWgb.get(ProcessPid);
+							if(!fileSystemGeneratedByProcess.contains(filePath)){
+								
+								fileSystemGeneratedByProcess.add(filePath);
 
-
-
-							HashSet<String> extensionWgbByProcess = extensionWgb.get(ProcessPid);
-							String extension = getExtension(filePath);
-
-							if(!extensionWgbByProcess.contains(extension)){
-
-								extensionWgbByProcess.add(extension);
-								addToCount(COUNT_EXTENSION_TYPE_WGB, destinationProcess);
-								if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-									addToCount(COUNT_EXTENSION_TYPE_WGB_BEGINNING, destinationProcess);
-								}
-							}
-							if(extension.equals(EXE)){
-								HashSet<String> fileSystemGeneratedByProcess = fileSystemWgb.get(ProcessPid);
-								if(!fileSystemGeneratedByProcess.contains(filePath)){
-
-									fileSystemGeneratedByProcess.add(filePath);
-
-								}
-							}
-
-							if(extension.equals(EXE) || extension.equals(DLL) || extension.equals(DAT) || extension.equals(BIN)){
-								addToCount(COUNT_EXE_DAT_DLL_BIN_WGB, destinationProcess);
-								if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-									addToCount(COUNT_EXE_DAT_DLL_BIN_WGB_BEGINNING, destinationProcess);
-								}
-							}
-
-						}else if(sourceVertex.getAnnotation(CLASS).equals(REGISTRY)){
-							addToCount(COUNT_REGISTRY_WGB, destinationProcess);
-							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-								addToCount(COUNT_REGISTRY_WGB_BEGINNING, destinationProcess);
-							}
-
-							if(incomingEdge.getAnnotation(OPERATION).equals(REGSETINFOKEY)){
-								addToCount(COUNT_REG_SET_INFO_KEY, destinationProcess);
-							}
-							if(incomingEdge.getAnnotation(OPERATION).equals(REGSETVALUE)){
-								addToCount(COUNT_REG_SET_VALUE,destinationProcess);
 							}
 						}
 
-					}catch(Exception e){}
-
-					try{
-						if(sourceVertex.getAnnotation(SUBTYPE).equals(NETWORK)){
-							addToCount(COUNT_NETWORK_SEND, destinationProcess);
+						if(EXE.equals(extension) || DLL.equals(extension) || DAT.equals(extension) || BIN.equals(extension)){
+							addToCount(COUNT_EXE_DAT_DLL_BIN_WGB, destinationProcess);
 							if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
-								addToCount(COUNT_NETWORK_SEND_BEGINNING, destinationProcess);
+								addToCount(COUNT_EXE_DAT_DLL_BIN_WGB_BEGINNING, destinationProcess);
 							}
-
-							HashSet<String> remoteHost = remoteServers.get(ProcessPid);
-							remoteHost.add(sourceVertex.getAnnotation(REMOTE_HOST));
-							destinationProcess.put(COUNT_REMOTE_HOST, (double)remoteHost.size());
 						}
-					}catch(Exception e){}
+
+					}else if(REGISTRY.equals(sourceVertex.getAnnotation(CLASS))){
+						addToCount(COUNT_REGISTRY_WGB, destinationProcess);
+						if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+							addToCount(COUNT_REGISTRY_WGB_BEGINNING, destinationProcess);
+						}
+
+						if(incomingEdge.getAnnotation(OPERATION).equals(REGSETINFOKEY)){
+							addToCount(COUNT_REG_SET_INFO_KEY, destinationProcess);
+						}
+						if(incomingEdge.getAnnotation(OPERATION).equals(REGSETVALUE)){
+							addToCount(COUNT_REG_SET_VALUE,destinationProcess);
+						}
+					}
+
+
+
+					if(NETWORK.equals(sourceVertex.getAnnotation(SUBTYPE))){
+						addToCount(COUNT_NETWORK_SEND, destinationProcess);
+						if(destinationProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
+							addToCount(COUNT_NETWORK_SEND_BEGINNING, destinationProcess);
+						}
+
+						HashSet<String> remoteHost = remoteServers.get(ProcessPid);
+						remoteHost.add(sourceVertex.getAnnotation(REMOTE_HOST));
+						destinationProcess.put(COUNT_REMOTE_HOST, (double)remoteHost.size());
+					}
+
 
 
 				}
