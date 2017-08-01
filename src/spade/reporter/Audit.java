@@ -3619,7 +3619,6 @@ public class Audit extends AbstractReporter {
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_PROTOCOL, protocolName);
     	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_NETWORK_SOCKET);
     	artifactFromNetfilter.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_NETFILTER);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
 
     	Artifact artifactFromSyscall = removeNetworkArtifactSeenInSyscall(remoteAddress, remotePort);
     	if(artifactFromSyscall != null){
@@ -3627,6 +3626,8 @@ public class Audit extends AbstractReporter {
     		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
     			if(!localPortFromSyscall.equals(localPort)){
     				// different connection
+    				artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
+    				artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
     				addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
     				return;
     			}
@@ -3646,6 +3647,8 @@ public class Audit extends AbstractReporter {
     		putEdge(syscallToNetfilter, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
     		
     	}else{
+    		artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
+    		artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
     		addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
     	}
     }
@@ -3867,11 +3870,14 @@ public class Audit extends AbstractReporter {
 		    		if(version != null){
 		    			netfilterArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, version);
 		    		}
+		    		
+		    		String netfilterTime = netfilterArtifact.removeAnnotation(OPMConstants.EDGE_TIME); //remove
+		    		String netfilterEventId = netfilterArtifact.removeAnnotation(OPMConstants.EDGE_EVENT_ID); //remove
 					
 		    		putVertex(netfilterArtifact);
 		    		// TODO USE A COPY OF THE SYSCALL ARTIFACT AND NOT THIS ONE!!!!
 					WasDerivedFrom edge = new WasDerivedFrom(netfilterArtifact, syscallArtifact);
-					putEdge(edge, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
+					putEdge(edge, getOperation(SYSCALL.UPDATE), netfilterTime, netfilterEventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
 				}else{
 					addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
 				}
@@ -3881,8 +3887,6 @@ public class Audit extends AbstractReporter {
 
 	private ArtifactIdentifier getSockDescriptorArtifactIdentifier(String pid, String fd, 
 			String saddr, String time, String eventId, SYSCALL syscall){
-		
-		ArtifactIdentifier artifactIdentifier = null;
 		
 		if(saddr != null){
 			ArtifactIdentifier newOne = parseSaddr(saddr, pid, fd, time, eventId, syscall);
@@ -3909,16 +3913,16 @@ public class Audit extends AbstractReporter {
 				}
 				
 			}else{ // always network
-							
+				// non-connection based
+				// increment epoch always if not unknown
 				if(newOne == null && existing == null){
 					descriptors.addUnknownDescriptor(pid, fd);
-					artifactIdentifier = descriptors.getDescriptor(pid, fd);
-					markNewEpochForArtifact(artifactIdentifier);
+					markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 				}else if(newOne == null && existing != null){
-					artifactIdentifier = existing; //dont need to add it again
+					// dont need to add it again
 				}else if(newOne != null && existing == null){
 					NetworkSocketIdentifier newOneNetwork = (NetworkSocketIdentifier)newOne;
-					artifactIdentifier = new NetworkSocketIdentifier(
+					ArtifactIdentifier artifactIdentifier = new NetworkSocketIdentifier(
 							newOneNetwork.getLocalHost(), newOneNetwork.getLocalPort(), 
 							newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
 							OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP);
@@ -3929,8 +3933,8 @@ public class Audit extends AbstractReporter {
 							existing.getClass().equals(NetworkSocketIdentifier.class)){
 						NetworkSocketIdentifier newOneNetwork = (NetworkSocketIdentifier)newOne;
 						NetworkSocketIdentifier existingNetwork = (NetworkSocketIdentifier)existing;
-						
-						artifactIdentifier = new NetworkSocketIdentifier(
+						// existing in udp server case would have local address and port
+						ArtifactIdentifier artifactIdentifier = new NetworkSocketIdentifier(
 								existingNetwork.getLocalHost(), existingNetwork.getLocalPort(), 
 								newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
 								existingNetwork.getProtocol());
@@ -3938,11 +3942,11 @@ public class Audit extends AbstractReporter {
 						descriptors.addDescriptor(pid, fd, artifactIdentifier, false);
 					}else if(!newOne.getClass().equals(NetworkSocketIdentifier.class) &&
 							existing.getClass().equals(NetworkSocketIdentifier.class)){
-						artifactIdentifier = existing;
+						// keep the existing
 					}else if(newOne.getClass().equals(NetworkSocketIdentifier.class) &&
 							!existing.getClass().equals(NetworkSocketIdentifier.class)){
 						NetworkSocketIdentifier newOneNetwork = (NetworkSocketIdentifier)newOne;
-						artifactIdentifier = new NetworkSocketIdentifier(
+						ArtifactIdentifier artifactIdentifier = new NetworkSocketIdentifier(
 								newOneNetwork.getLocalHost(), newOneNetwork.getLocalPort(), 
 								newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
 								OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP);
@@ -3950,8 +3954,7 @@ public class Audit extends AbstractReporter {
 					}else{
 						// both Non-network. add the unknown
 						descriptors.addUnknownDescriptor(pid, fd);
-						artifactIdentifier = descriptors.getDescriptor(pid, fd);
-						markNewEpochForArtifact(artifactIdentifier);
+						markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
 					}
 					
 				}
@@ -3960,15 +3963,14 @@ public class Audit extends AbstractReporter {
 		}
 		
 		// base case. if none then add unknown
-		ArtifactIdentifier existing = descriptors.getDescriptor(pid, fd);
-		if(existing == null){
+		ArtifactIdentifier added = descriptors.getDescriptor(pid, fd);
+		if(added == null){
 			descriptors.addUnknownDescriptor(pid, fd);
-			existing = descriptors.getDescriptor(pid, fd);
-			markNewEpochForArtifact(existing);
+			added = descriptors.getDescriptor(pid, fd);
+			markNewEpochForArtifact(added);
 		}
-		artifactIdentifier = existing;
 		
-		return artifactIdentifier;
+		return added;
 	}
 
 	private void handleSend(Map<String, String> eventData, SYSCALL syscall) {
@@ -3996,6 +3998,14 @@ public class Audit extends AbstractReporter {
 		}
 				
 		if(artifactIdentifier != null){
+			
+			// If saddr value is IP and artifact identifier is network then it is ALWAYS UDP
+			// Incrementing epoch always on send for UDP
+			if(isNetworkSaddr(saddr) && 
+					artifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
+				markNewEpochForArtifact(artifactIdentifier);
+			}
+			
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesSent);
@@ -4034,6 +4044,14 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(artifactIdentifier != null){
+			
+			// If saddr value is IP and artifact identifier is network then it is ALWAYS UDP
+			// Incrementing epoch always on recv for UDP
+			if(isNetworkSaddr(saddr) && 
+					artifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
+				markNewEpochForArtifact(artifactIdentifier);
+			}
+			
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
 			Used used = new Used(process, vertex);
 			used.addAnnotation(OPMConstants.EDGE_SIZE, bytesReceived);
