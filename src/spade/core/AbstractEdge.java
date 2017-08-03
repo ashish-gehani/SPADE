@@ -20,8 +20,8 @@
 package spade.core;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -40,7 +40,7 @@ public abstract class AbstractEdge implements Serializable {
 	/**
      * A map containing the annotations for this edge.
      */
-    protected Map<String, String> annotations = new HashMap<>();
+    protected Map<String, String> annotations = new TreeMap<>();
     private AbstractVertex sourceVertex;
     private AbstractVertex destinationVertex;
 

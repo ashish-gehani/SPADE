@@ -2750,11 +2750,18 @@ public class Audit extends AbstractReporter {
 		boolean openedForRead = false;
 		
 		String flagsArgs = "";
+		
 		flagsArgs += ((flags & O_WRONLY) == O_WRONLY) ? "O_WRONLY|" : "";
 		flagsArgs += ((flags & O_RDWR) == O_RDWR) ? "O_RDWR|" : "";
+		// if neither write only nor read write then must be read only
+		if(((flags & O_WRONLY) != O_WRONLY) && 
+				((flags & O_RDWR) != O_RDWR)){ 
+			// O_RDONLY is 0, so always true
+			flagsArgs += ((flags & O_RDONLY) == O_RDONLY) ? "O_RDONLY|" : "";
+		}
+		
 		flagsArgs += ((flags & O_APPEND) == O_APPEND) ? "O_APPEND|" : "";
 		flagsArgs += ((flags & O_TRUNC) == O_TRUNC) ? "O_TRUNC|" : "";
-		flagsArgs += ((flags & O_RDONLY) == O_RDONLY) ? "O_RDONLY|" : "";
 		flagsArgs += ((flags & O_CREAT) == O_CREAT) ? "O_CREAT|" : "";
 		
 		if(!flagsArgs.isEmpty()){
