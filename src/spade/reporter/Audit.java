@@ -1113,7 +1113,7 @@ public class Audit extends AbstractReporter {
 	private boolean setIptablesRules(String[] iptablesRules){
 		try{
 			for(String iptablesRule : iptablesRules){
-				String executeCommand = "iptables -A " + iptablesRule;
+				String executeCommand = "iptables -I " + iptablesRule;
 				List<String> lines = Execute.getOutput(executeCommand);
 				if(Execute.containsOutputFromStderr(lines)){
 					throw new Exception(String.valueOf(lines));

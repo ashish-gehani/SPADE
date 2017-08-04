@@ -897,6 +897,7 @@ public class Kernel {
                 return;
             }
             // Initialize filter if arguments are provided
+            arguments = arguments != null ? arguments.trim() : null;
             if(filter.initialize(arguments)){
 	            filter.arguments = arguments;
 	            // The argument is the index at which the filter is to be inserted.
