@@ -121,6 +121,10 @@ public class ProcMon extends AbstractReporter {
             Map<String, Integer> columnMap = new HashMap<String, Integer>();
             eventReader = new BufferedReader(new FileReader(arguments));
             String initLine = eventReader.readLine();
+           /*the following line can be a cause of trouble depending on the format of the file you gave to 
+           * the reporter. If there is a problem at this line try to change to :
+           String[] columns = initLine.substring(1, initLine.length() - 1).split("\",\"");
+           */
             String[] columns = initLine.substring(2, initLine.length() - 1).split("\",\"");
             for (int i = 0; i < columns.length; i++) {
                 columnMap.put(columns[i], i);
