@@ -92,6 +92,8 @@ public class ProcMon extends AbstractReporter {
     private int N_CATEGORY;
     private int N_DATE_AND_TIME;
     private int N_TID;
+    private boolean CONTAIN_TID = false;
+    private boolean CONTAIN_DATETIME = false;
     ////////////////////////////////////////////////////////////////////////////
     private final String EVENT_CLASS_REGISTRY = "Registry";
     private final String EVENT_CLASS_FILE_SYSTEM = "File System";
@@ -143,13 +145,15 @@ public class ProcMon extends AbstractReporter {
             N_CATEGORY = columnMap.get(COLUMN_CATEGORY);
             try{
             	N_DATE_AND_TIME = columnMap.get(COLUMN_DATE_AND_TIME);
+            	CONTAIN_DATETIME = true;
             }catch(Exception e){
-            	logger.log(Level.WARNING, null, e+" no date column in log");
+            	logger.log(Level.WARNING,e+" no date column in log");
             }
             try{
             	N_TID = columnMap.get(COLUMN_TID);
+              CONTAIN_TID = true;
             }catch(Exception e){
-            	logger.log(Level.WARNING, null, e+" no date column in log");
+            	logger.log(Level.WARNING,e+" no thread column in log");
             }
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
@@ -195,19 +199,17 @@ public class ProcMon extends AbstractReporter {
 
             if (!processMap.containsKey(data[N_PID])) {
                 createProcess(data);
-                try{
+                if(CONTAIN_TID){
                 	Set<String> thread = new HashSet<String>();
                 	thread.add(data[N_TID]);
                 	threadMap.put(data[N_PID],thread);
-                }catch(Exception e){}
-            }
-            try{
+                }
+            } 
+            if(CONTAIN_TID){//to allow to count how many thread it launched, graph no longer acyclic
             	if(processMap.containsKey(data[N_PID])&&(!threadMap.get(data[N_PID]).contains(data[N_TID]))){
             		createWtb(data);
             		threadMap.get(data[N_PID]).add(data[N_TID]);
             	}
-            }catch(Exception e){
-            	
             }
 
             String eventClass = data[N_EVENT_CLASS];
@@ -240,7 +242,7 @@ public class ProcMon extends AbstractReporter {
         String ppid = data[N_PARENT_PID];
         Process process = new Process();
         process.addAnnotation("pid", pid);
-        
+
         process.addAnnotation("ppid", ppid);
         process.addAnnotation("name", data[N_PROCESS_NAME]);
         process.addAnnotation("imagepath", data[N_IMAGE_PATH]);
@@ -254,15 +256,15 @@ public class ProcMon extends AbstractReporter {
         processMap.put(pid, process);
 
 
-   
+
         Agent user = new Agent();
        	user.addAnnotation(COLUMN_USER, data[N_USER]);
        	putVertex(user);
 
        	WasControlledBy wcb = new WasControlledBy(process, user);
        	putEdge(wcb);
-        
-        
+
+
 
        	if (processMap.containsKey(ppid)) {
         	WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
@@ -273,17 +275,17 @@ public class ProcMon extends AbstractReporter {
 
         	putEdge(wtb);
         }
-       
+
 
     }
-    
+
     private void createWtb(String[] data){
     	String pid = data[N_PID];
     	WasTriggeredBy wtb = new WasTriggeredBy(processMap.get(pid), processMap.get(pid));
     	wtb.addAnnotation("time", data[N_TIME]);
-    	try{
+    	if(CONTAIN_DATETIME){
     		wtb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
-    	}catch(Exception e){}
+    	}
 
     	putEdge(wtb);
     }
@@ -299,6 +301,7 @@ public class ProcMon extends AbstractReporter {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("class", data[N_EVENT_CLASS]);
         artifact.addAnnotation("path", path);
+        //once version is commented graph is no longer acyclic
         //artifact.addAnnotation("version", Integer.toString(version));
 
         if (put) {
@@ -307,10 +310,8 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), artifact);
         used.addAnnotation("time", data[N_TIME]);
-        try{
+        if(CONTAIN_DATETIME){
         	used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
-        }catch(Exception e){
-        	logger.log(Level.WARNING, null, e+" no date column in log");
         }
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("category", data[N_CATEGORY]);
@@ -322,7 +323,7 @@ public class ProcMon extends AbstractReporter {
     private void writeArtifact(String[] data) {
         String pid = data[N_PID];
         String path = data[N_PATH];
-        
+
         boolean put = !artifactVersions.containsKey(path);
         int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) + 1 : 1;
         artifactVersions.put(path, version);
@@ -330,6 +331,7 @@ public class ProcMon extends AbstractReporter {
         Artifact artifact = new Artifact();
         artifact.addAnnotation("class", data[N_EVENT_CLASS]);
         artifact.addAnnotation("path", path);
+        //once version is commented graph is no longer acyclic
         //artifact.addAnnotation("version", Integer.toString(version));
         if (put) {
             putVertex(artifact);
@@ -337,10 +339,8 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(artifact, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
-        try{
+        if(CONTAIN_DATETIME){
         	wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
-        }catch(Exception e){
-        	logger.log(Level.WARNING, null, e+" no date column in log");
         }
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("category", data[N_CATEGORY]);
@@ -361,10 +361,8 @@ public class ProcMon extends AbstractReporter {
 
         Used used = new Used(processMap.get(pid), image);
         used.addAnnotation("time", data[N_TIME]);
-        try{
+        if(CONTAIN_DATETIME){
         	used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
-        }catch(Exception e){
-        	logger.log(Level.WARNING, null, e+" no date column in log");
         }
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
@@ -404,10 +402,8 @@ public class ProcMon extends AbstractReporter {
 
         WasGeneratedBy wgb = new WasGeneratedBy(network, processMap.get(pid));
         wgb.addAnnotation("time", data[N_TIME]);
-        try{
+        if(CONTAIN_DATETIME){
         	wgb.addAnnotation("datetime", data[N_DATE_AND_TIME]);
-        }catch(Exception e){
-        	logger.log(Level.WARNING, null, e+" no date column in log");
         }
         wgb.addAnnotation("operation", data[N_OPERATION]);
         wgb.addAnnotation("detail", data[N_DETAIL]);
@@ -440,16 +436,14 @@ public class ProcMon extends AbstractReporter {
           network.addAnnotation("remote host", hosts[1].substring(0,hosts[1].length()-1 - remote[m-1].length()));
           network.addAnnotation("remote port", remote[m-1]);
         }
-        if (networkConnections.add(data[N_PATH])) { 
+        if (networkConnections.add(data[N_PATH])) {
             putVertex(network);
         }
 
         Used used = new Used(processMap.get(pid), network);
         used.addAnnotation("time", data[N_TIME]);
-        try{
+        if(CONTAIN_DATETIME){
         	used.addAnnotation("datetime", data[N_DATE_AND_TIME]);
-        }catch(Exception e){
-        	logger.log(Level.WARNING, null, e+" no date column in log");
         }
         used.addAnnotation("operation", data[N_OPERATION]);
         used.addAnnotation("detail", data[N_DETAIL]);
