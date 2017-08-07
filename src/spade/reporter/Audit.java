@@ -2808,7 +2808,7 @@ public class Audit extends AbstractReporter {
 		String pid = eventData.get(AuditEventReader.PID);
 		String fd = String.valueOf(CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
 		ArtifactIdentifier closedArtifactIdentifier = descriptors.removeDescriptor(pid, fd);
-
+		
 		if(CONTROL){
 			String time = eventData.get(AuditEventReader.TIME);
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
@@ -2818,7 +2818,7 @@ public class Audit extends AbstractReporter {
 				AbstractEdge edge = null;
 				Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
 				if(wasOpenedForRead == null){
-					// Not drawing an edge because didn't seen an open
+					// Not drawing an edge because didn't seen an open or was a 'bound' fd
 				}else if(wasOpenedForRead){
 					edge = new Used(process, artifact);
 				}else {
@@ -3700,10 +3700,14 @@ public class Audit extends AbstractReporter {
 			//NOTE: not using the file descriptor. using the socketFD here!
 			//Doing this to be able to link the accept syscalls to the correct artifactIdentifier.
 			//In case of unix socket accept, the saddr is almost always reliably invalid
-			descriptors.addDescriptor(pid, sockFd, artifactIdentifier, false);
 			// Epoch to be incremented only in case of unix sockets and not network sockets
 			if(UnixSocketIdentifier.class.equals(artifactIdentifier.getClass())){
+				// Setting wasOpenedForRead argument to false because can be written to
+				descriptors.addDescriptor(pid, sockFd, artifactIdentifier, false);
 				markNewEpochForArtifact(artifactIdentifier);
+			}else{
+				// Setting wasOpenedForRead argument to null so that when bound fd closed, no edge is drawn.
+				descriptors.addDescriptor(pid, sockFd, artifactIdentifier, null);
 			}
 		}else{
 			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, syscall);
