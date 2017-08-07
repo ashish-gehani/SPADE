@@ -126,7 +126,7 @@ public class MLFeatures extends AbstractFilter{
 	private final String WGB = "WasGeneratedBy";
 	//////////////////////////////////////////////
 	private static double SCALE_TIME = 10000000;
-	private static double BEGINNING_THRESHOLD = 60*SCALE_TIME;
+	private static double BEGINNING_THRESHOLD = SCALE_TIME;
 	private final Double INITIAL_ZERO = (double) 0;
 	private final String eol = System.getProperty("line.separator");
 	/////////////////////////////////////////////
@@ -305,6 +305,12 @@ public class MLFeatures extends AbstractFilter{
 			} catch (IOException ex) {
 			  ex.printStackTrace(System.err);
 			}
+		
+		/*
+		 * When adding the commented line refering to usedDatetime, WgbDatetime, UsedDatetimeWoMeta and WgbDatetimeWoMeta
+		 * in the code, the following line permit to create a file that will be used to plot the histogram of activity
+		 * thanks to HistogramActivity.py
+		 */
 		/*try (Writer writer = new FileWriter(filepathFeatures+"__")) {
 
 
@@ -497,7 +503,7 @@ public class MLFeatures extends AbstractFilter{
 					if(sourceProcess.get(LIFE_DURATION) < BEGINNING_THRESHOLD){
 						addToCount(COUNT_USED_BEGINNING, sourceProcess);
 					}
-
+					//used to create the files that are used to print the histogram of activity of a process
 					//HashSet<String> usedDatetimeList = usedDatetime.get(ProcessPid);
 					//usedDatetimeList.add(getDate(incomingEdge.getAnnotation(DATETIME))+" "+time);
 					//usedDatetime.put(ProcessPid,usedDatetimeList);
@@ -1027,6 +1033,12 @@ public class MLFeatures extends AbstractFilter{
 		return date;
 	}
 
+	
+	/*
+	 * assume that d1 and d2 are the datetime annotation of edge1 and edge2
+	 * and t1 and t2 are the time annotation of edge1 and edge2 
+	 * and assume that edge1 take place after edge2
+	 */
 	public static double differenceBetweenTwoDates(String d1,String d2,String t1,String t2){
 		String[] datetime1 = d1.split(" ");
 		String[] datetime2 = d2.split(" ");
