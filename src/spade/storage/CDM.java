@@ -784,7 +784,11 @@ public class CDM extends Kafka {
 				if(isProcessVertex(incomingVertex)){
 					return publishSubjectAndPrincipal(incomingVertex);
 				}else if(OPMConstants.ARTIFACT.equals(type)){
-					return publishArtifact(incomingVertex);
+					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(incomingVertex.getAnnotation(OPMConstants.SOURCE))){
+						// Ignore until CDM updating with refine edge. TODO
+					}else{
+						return publishArtifact(incomingVertex);
+					}
 				}else{
 					logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
 				}
@@ -910,12 +914,12 @@ public class CDM extends Kafka {
 			AbstractVertex actingVertex = null;
 			for(AbstractEdge edge : edges){
 				if(OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
-					if(OPMConstants.edgeContainsNetworkArtifact(edge)){
+					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(edge.getAnnotation(OPMConstants.SOURCE))){
 						// Means that this is the new edge: netfilter network -> WDF -> syscall network
 						// TODO update this when this event option added in CDM
 						// Ignoring the edge for now
 						// This edge comes from a netfilter event and has a unique time:eventid combo
-						// Only this (one) edge for this event 
+						// Only this (one) edge for this event
 						return;
 					}
 					updateEdge = edge;
