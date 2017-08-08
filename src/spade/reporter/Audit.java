@@ -233,7 +233,8 @@ public class Audit extends AbstractReporter {
 			KEEP_PATH_PERMISSIONS = true,
 			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 	private boolean ANONYMOUS_MMAP = true;
-	private boolean NETFILTER_HANDLING = false;
+	private boolean NETFILTER_RULES = false;
+	private boolean REFINE_NET = false;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -595,9 +596,17 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("netfilter");
 		if(isValidBoolean(argValue)){
-			NETFILTER_HANDLING = parseBoolean(argValue, NETFILTER_HANDLING);
+			NETFILTER_RULES = parseBoolean(argValue, NETFILTER_RULES);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'netfilter': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("refineNet");
+		if(isValidBoolean(argValue)){
+			REFINE_NET = parseBoolean(argValue, REFINE_NET);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'refineNet': " + argValue);
 			return false;
 		}
 		
@@ -723,7 +732,7 @@ public class Audit extends AbstractReporter {
 			if(!"none".equals(rulesType)){
 				removeAuditctlRules();
 			}
-			if(NETFILTER_HANDLING){
+			if(NETFILTER_RULES){
 				removeIptablesRules(iptablesRules);
 			}
 		}else{
@@ -904,7 +913,7 @@ public class Audit extends AbstractReporter {
 			}
 			
 			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
-			rulesType = argsMap.get("rules");
+			rulesType = argsMap.get("syscall");
 			if(rulesType != null && !rulesType.equals("none") && !rulesType.equals("all")){
 				logger.log(Level.SEVERE, "Invalid value for 'rules' argument: " + rulesType);
 				return false;
@@ -927,7 +936,7 @@ public class Audit extends AbstractReporter {
 		try{
 			
 			if(isLiveAudit){
-				if(NETFILTER_HANDLING){
+				if(NETFILTER_RULES){
 					if(!setIptablesRules(iptablesRules)){
 						return false;
 					}
@@ -1621,7 +1630,7 @@ public class Audit extends AbstractReporter {
 			// Wait while the event reader thread is still running i.e. buffer being emptied
 		}
 		
-		if(NETFILTER_HANDLING){
+		if(NETFILTER_RULES){
 			// TODO add a buffer window size (outside of which we don't match) to empty the lists.
 			logger.log(Level.INFO, "{0} unmatched netfilter-syscall events", 
 					networkArtifactsFromNetfilter.size() + networkArtifactsFromSyscalls.size());
@@ -1673,7 +1682,7 @@ public class Audit extends AbstractReporter {
 			}else if(AuditEventReader.RECORD_TYPE_DAEMON_START.equals(recordType)){
 				clearAllProcessState();
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_PKT.equals(recordType)){
-				if(NETFILTER_HANDLING){
+				if(REFINE_NET){
 					handleNetfilterPacketEvent(eventData);
 				}
 			}else{
@@ -3854,7 +3863,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private void putWasDerivedFromEdgeFromNetworkArtifacts(String time, String eventId, Artifact syscallArtifact){
-		if(NETFILTER_HANDLING){
+		if(REFINE_NET){
 			if(syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_NETWORK_SOCKET)){
 				String remoteAddress = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
 				String remotePort = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
