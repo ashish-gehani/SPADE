@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+#  --------------------------------------------------------------------------------
+#  SPADE - Support for Provenance Auditing in Distributed Environments.
+#  Copyright (C) 2015 SRI International
+
+#  This program is free software: you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation, either version 3 of the
+#  License, or (at your option) any later version.
+
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  General Public License for more details.
+
+#  You should have received a copy of the GNU General Public License
+#  along with this program. If not, see <http://www.gnu.org/licenses/>.
+#  --------------------------------------------------------------------------------
+#
+# Hasanat Kazmi <hasanatkazmi@gmail.com>
+
+
+print_help ()
+{
+	echo "spade start | stop | debug | control | dig | help"
+	echo ""
+	echo "'spade start' : Starts the SPADE daemon"
+	echo "'spade stop' : Stop the SPADE daemon after buffers empty"
+	echo "'spade kill' : Stop the SPADE daemon immediately"
+	echo "'spade debug' : Starts the SPADE daemon, logs to standard out"
+	echo "'spade control' : Starts an interactive SPADE controller"
+	echo "'spade query' : Starts an interactive command line SPADE query client"
+	echo "'spade help' : Prints this message"
+}
+
+SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
+CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
+JAVALIBPATH="$SPADE_ROOT/lib/"
+JVMARGS="-server -Xms128M -Xmx512M"
+JVMARGSDEBUG="-server -Xms128M -Xmx128M -XX:+UseConcMarkSweepGC"
+
+pushd "${SPADE_ROOT}" > /dev/null
+
+if [ $# -eq 0 ] ; then
+	print_help
+else
+
+	if [ $1 = "start" ] || [ $1 = "stop" ] || [ $1 = "kill" ] ; then
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
+	elif [ $1 = "query" ] ; then
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.CommandLine
+	elif [ $1 = "control" ] ; then
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Control
+	elif [ $1 = "debug" ] ; then
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
+	else
+		print_help
+	fi
+
+fi
+
+popd > /dev/null
