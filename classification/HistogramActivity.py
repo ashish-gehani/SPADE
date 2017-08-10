@@ -11,7 +11,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-repertoryName = "/Users/mathieubarre/Desktop/TrainSet/Final/"
+repertoryName = "/Users/mathieubarre/Desktop/TrainSet/"
 
 train = pd.read_csv(repertoryName+"APT29_2017_Fireye_Train_List.csv",sep=',')
 Cozy = pd.read_csv(repertoryName+"CozyDuke_8C3E_Train_list.csv",sep=',')
@@ -56,6 +56,8 @@ def printHisto(train1,pid,bins):
         plt.subplot(211)
         b = np.arange(dateplt1.min(),dateplt1.max(),step = dateplt1.max()*bins)
         plt.hist(dateplt1,bins=b,color='blue',label='used')
+        plt.xlabel("time in days")
+        plt.ylabel("count of operation")
         plt.legend()
     
     s2 = train1.loc[train1['Pid']==pid,'WgbDatetime'].values[0].replace('[','').replace(']','')
@@ -69,7 +71,10 @@ def printHisto(train1,pid,bins):
         plt.subplot(212)
         b = np.arange(dateplt2.min(),dateplt2.max(),step = dateplt2.max()*bins)
         plt.hist(dateplt2,bins=b,color='r',label='wgb')
+        plt.xlabel("time in days")
+        plt.ylabel("count of operation")
         plt.legend()
+        
     
     plt.show()
     

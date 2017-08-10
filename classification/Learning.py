@@ -14,11 +14,12 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import cross_val_score,cross_val_predict
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC,SVC
-from sklearn.metrics import recall_score,precision_score,accuracy_score
+from sklearn.metrics import recall_score,precision_score,accuracy_score,precision_recall_curve
 import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 import xgboost as xgb
 from sklearn.feature_selection import SelectKBest,VarianceThreshold,f_classif,chi2,mutual_info_classif 
+from scipy.stats import skew
 
 repertoryName = "/Users/mathieubarre/Desktop/TrainSet/Final/"
 
@@ -56,7 +57,7 @@ l = [Benign1,Benign2,Benign3,Benign4,Benign5,Benign6,Benign7,BenignPCM,BenignPCM
 
 
     
-WhiteListProcess = ["ngen.exe","sihost.exe","svchost.exe","vboxtray.exe","installagent.exe","searchprotocolhost.exe","searchfilterhost.exe","backgroundtaskhost.exe",\
+GreyListProcess = ["ngen.exe","sihost.exe","svchost.exe","vboxtray.exe","installagent.exe","searchprotocolhost.exe","searchfilterhost.exe","backgroundtaskhost.exe",\
                     "dwm.exe","xblgamesavetask.exe","taskhostw.exe","dllhost.exe","cleanmgr.exe","wermgr.exe","compattelrunner.exe","sc.exe","audiodg.exe","mpcmdrun.exe",\
                     "skypehost.exe","runtimebroker.exe","dmclient.exe","smartscreen.exe","vboxservice.exe","timeout.exe","trustedinstaller.exe","wmiprvse.exe",\
                     "usoclient.exe","lpremove.exe","applicationframeHost.exe","sppsvc.exe","mscorsvw.exe","wsqmcons.exe","ngentask.exe","windump.exe","wuapihost.exe",\
@@ -71,8 +72,8 @@ def authorityUser(s):
 def low(s):
     return s.lower()
 
-def isInWhiteList(x):
-    return x in WhiteListProcess
+def isInGreyList(x):
+    return x in GreyListProcess
 
 
 def cmdDiff(s):
@@ -84,7 +85,7 @@ def appearsInString(s):
         res += s.rfind(a)
     return res > -len(triggeredSuspect)
 
-def test(df):
+def SuspectTriggered(df):
     return df['NameTriggered'].rfind(df['name']) > -1
 
 def addString(l,s):
@@ -97,7 +98,8 @@ def addString(l,s):
 voca1={'system':0,'edge':1,'microsoft':2,'hkcu':3,'appdata':4,'app':5,'software':6,'control':7,'run':8,'internet':9,'settings':10,\
      'config':11,'sam':12,'roaming':13,'temp':14,'tmp':15,'network':16,'cryptography':17,'lsa':18,'crypto':19,'policy':20}
 
-
+# preprocessing function that creates new features based on info on the csv file outut by MLFeatures
+# Add the filename features
 def preprocess(train):
     train.loc[train['listOfWgbFiles'].isnull(),'listOfWgbFiles'] = ''
     train.loc[train['listOfUsedFiles'].isnull(),'listOfUsedFiles'] = ''
@@ -123,9 +125,9 @@ def preprocess(train):
     #trainbis["name"]= train["name"].apply(low)
     trainbis['user']= train['User'].apply(low).apply(authorityUser)*1
     trainbis['writeThenExecutes'] = train['writeThenExecutes']
-    trainbis["nameInWhiteList"] = train['name'].apply(low).apply(isInWhiteList)*1
+    trainbis["nameInGreyList"] = train['name'].apply(low).apply(isInGreyList)*1
     trainbis["triggersSuspect"] = train['NameTriggered'].apply(low).apply(appearsInString)*1
-    trainbis["launchSameNameProcess"] = train.apply(test,axis=1)
+    trainbis["launchSameNameProcess"] = train.apply(SuspectTriggered,axis=1)
     trainbis["cmdDistinct"] = (train['commandline'].apply(cmdDiff))*(train['name']=='cmd.exe')*1
     trainbis.index = np.arange(0,trainbis.shape[0])
     vectorizerUsed = CountVectorizer(vocabulary=voca1)
@@ -156,11 +158,19 @@ def concatedBis(listData):
 
 concatedbis = pd.concat(concatedBis(l))
 concated = pd.concat(l)
+
+
+#skewed_feats = concatedbis.apply(lambda x: skew(x.dropna())) #compute skewness
+#skewed_feats = skewed_feats[skewed_feats > 0.75]
+#skewed_feats = skewed_feats.index
+
+#concatedbis[skewed_feats] = np.log1p(concatedbis[skewed_feats]+1)
+
 #concatedbis = pd.get_dummies(concatedbis)
 
-features = ['avgDurationBetweenTwoUsed','avgDurationBetweenTwoWgb','countExeDatDllBinUsed','countExeDatDllBinWgb','countExtensionTypeUsed','countExtensionTypeWgb','countFilesystemUsed',\
-            'countFilesystemWgb','countNetworkReceive','countNetworkSend','countOfDirectoriesUsed','countOfUsedFiles','countOfWgbFiles','countOftDirectoriesWgb','countRegistryUsed',\
-            'countRegistryWgb','countUsed','countWasTriggeredBy','countWgb','lifeDuration','totalLengthRead','totalLengthWritten']
+#features = ['avgDurationBetweenTwoUsed','avgDurationBetweenTwoWgb','countExeDatDllBinUsed','countExeDatDllBinWgb','countExtensionTypeUsed','countExtensionTypeWgb','countFilesystemUsed',\
+#            'countFilesystemWgb','countNetworkReceive','countNetworkSend','countOfDirectoriesUsed','countOfUsedFiles','countOfWgbFiles','countOftDirectoriesWgb','countRegistryUsed',\
+#            'countRegistryWgb','countUsed','countWasTriggeredBy','countWgb','lifeDuration','totalLengthRead','totalLengthWritten']
 
 #concatedbis = concatedbis[features]
 
@@ -170,11 +180,6 @@ features = ['avgDurationBetweenTwoUsed','avgDurationBetweenTwoWgb','countExeDatD
 
 
 #vectorizer = CountVectorizer(token_pattern=r"(?u)\b\w+\-\w+\b",stop_words=['exe'])
-
-
-
-
-
 
 
 #concatedbis=pd.get_dummies(concatedbis)
@@ -190,19 +195,25 @@ def labelToWeight(s,p):
 
 y = concated['label']
 z= concated['state']
+
+#if you want to use the continuous label as weights remove comment from following lines
 #z = 1-y
 #z[z==0] = np.ones(z[z==0].size)
-#z = np.array(z)
-#z = np.ones(len(z))
-#z/=np.sum(z)
-weight = z.apply(labelToWeight,args=(0.1,))
+# weight = z
+
+#if you want to give a constant weight to tainted process :
+#weight = z.apply(labelToWeight,args=(0.1,))
+
+
+
 
 concated['label']=np.floor(concated['label'])
 y = concated['label']
 
 params = dict()
+#if you want to use the weight in your classification
 #params["sample_weight"] = np.array(weight)
-#params["sample_weight"] = z
+
       
 clf = RandomForestClassifier(max_depth = 25,n_estimators=100,class_weight = "balanced",max_features=0.01)
 #clf = RandomForestClassifier(max_depth = 12,n_estimators=100,class_weight = "balanced",max_features=0.3)
@@ -261,6 +272,10 @@ def getResults(clf,cv,X,y):
     print "precision :" , precision_score(y,a)
     print "accuracy :" , accuracy_score(y,a)
     
+    
+# function to get the plot of the precision and recall versus the constant weight you apply to the tainted processes
+# p is an array containing the range of weights you want to test
+# clf is your classifier object    
 def plotWeight(clf,p):
     res1 = np.zeros(len(p))
     res2 = np.zeros(len(p))
@@ -275,28 +290,7 @@ def plotWeight(clf,p):
     plt.legend()
 
 
-def plotLogitWeight(c):
-    res1 = np.zeros(len(c))
-    res2 = np.zeros(len(c))
-    for i,a in enumerate(c) :
-        clf = LogisticRegression(C=a,class_weight="balanced")
-        res1[i] = recall_score(y,cross_val_predict(clf,X=concatedbis,y=y,cv=5,fit_params=params),sample_weight=z)
-        res2[i] = precision_score(y,cross_val_predict(clf,X=concatedbis,y=y,cv=5,fit_params=params),sample_weight=z)
-    plt.plot(c,res1,label='recall with weights')
-    plt.plot(c,res2,label = 'precision with weights')
-    plt.legend()
-
-def plotLogit(c):
-    res1 = np.zeros(len(c))
-    res2 = np.zeros(len(c))
-    for i,a in enumerate(c) :
-        clf = LogisticRegression(C=a,class_weight="balanced")
-        res1[i] = recall_score(y,cross_val_predict(clf,X=concatedbis,y=y,cv=5))
-        res2[i] = precision_score(y,cross_val_predict(clf,X=concatedbis,y=y,cv=5))
-    plt.plot(c,res1,label='recall wo weights')
-    plt.plot(c,res2,label = 'precision wo weights')
-    plt.legend()
-    
+#function to plot recall and precision or random forest algorithm for a range c of tree depths. x is a parameter to avoid overfitting 
 def plotRF(c,x):
     res1 = np.zeros(len(c))
     res2 = np.zeros(len(c))
@@ -306,19 +300,28 @@ def plotRF(c,x):
         res2[i] = precision_score(y,cross_val_predict(clf,X=concatedbis,y=y,cv=5))
     plt.plot(c,res1,label='recall')
     plt.plot(c,res2,label = 'precision')
+    plt.xlabel("Trees depth")
     plt.legend()
         
-def plotSVM(c):
-    res1 = np.zeros(len(c))
-    res2 = np.zeros(len(c))
-    for i,a in enumerate(c) :
-        clf = SVC(C=a,class_weight="balanced")
-        res1[i] = recall_score(y,cross_val_predict(clf,X=concatedbis,y=y,cv=5,fit_params=params))
-        res2[i] = precision_score(y,cross_val_predict(clf,X=concatedbis,y=y,cv=5,fit_params=params))
-    plt.plot(c,res1,label='recall')
-    plt.plot(c,res2,label = 'precision')
-    plt.legend()
 
+# function to plot a recall vs  precison curve for the classifier clf on the set X with label y
+def plotPrecisionRecallCurve(clf,X,y):
+    y_pred = cross_val_predict(clf,X,y,cv=5,method='predict_proba')[:,1]
+
+    pr, rc, thr = precision_recall_curve(y,y_pred)
+
+    plt.figure(figsize=(15,10))
+    lw = 2
+    plt.plot(pr, rc, color='darkorange',
+         lw=lw, label='PR curve')
+    plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('Precision')
+    plt.ylabel('Recall')
+
+    plt.legend(loc="lower right")
+    plt.show()
 
 
 clf5.fit(concatedbis,y)
@@ -350,22 +353,12 @@ print "recall :" , recall_score(y_test3,y_predict3)
 print "precision :" , precision_score(y_test3,y_predict3)
 print "accuracy :" , accuracy_score(y_test3,y_predict3)
 
-Gemini['pred'] = y_predict3
-Gemini.drop(['listOfUsedFiles','listOfWgbFiles'],axis=1).to_csv("/Users/mathieubarre/Desktop/TrainSet/GeminiPred.csv",index=False)
+
 
 #concated['pred'] = res5
 #concatCsv = concated.drop(['listOfUsedFiles','listOfWgbFiles'],axis=1)
 #concatCsv.to_csv(repertoryName+"ConcatedPred.csv",index=False)
 
-ordering = np.argsort(clf5.feature_importances_)[::-1][:50]
-
-
-importances = clf5.feature_importances_[ordering]
-feature_names = concatedbis.columns[ordering]
-
-x = np.arange(len(feature_names))
-plt.bar(x, importances)
-plt.xticks(x + 0.5, feature_names, rotation=90, fontsize=15)
 
 
 
