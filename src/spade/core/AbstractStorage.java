@@ -46,7 +46,7 @@ public abstract class AbstractStorage
     public static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     public static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
 
-    protected static boolean USE_SCAFFOLD = true;
+    protected static boolean USE_SCAFFOLD = false;
 
     public static void setScaffold(Scaffold scaffold)
     {

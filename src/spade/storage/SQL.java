@@ -165,10 +165,12 @@ public class SQL extends AbstractStorage
                 edgeAnnotations.add(metadata.getColumnLabel(i));
             }
             dbStatement.close();
-
-            Scaffold scaffold = new Scaffold();
-            scaffold.initialize("/Users/raza/dev/scaffold/");
-            AbstractStorage.setScaffold(scaffold);
+            if(USE_SCAFFOLD)
+            {
+                Scaffold scaffold = new Scaffold();
+                scaffold.initialize("/Users/raza/dev/scaffold/");
+                AbstractStorage.setScaffold(scaffold);
+            }
 
             return true;
 

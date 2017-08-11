@@ -60,16 +60,16 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             String direction = parameters.get("direction").get(0);
             Integer maxDepth = Integer.parseInt(parameters.get("maxDepth").get(0));
             result.setMaxDepth(maxDepth);
-            GetVertex getVertex;
-            GetEdge getEdge;
-            GetChildren getChildren;
-            GetParents getParents;
+            AbstractQuery getVertex;
+            AbstractQuery getEdge;
+            AbstractQuery getChildren;
+            AbstractQuery getParents;
             try
             {
-                getVertex = (GetVertex) Class.forName(class_prefix + ".GetVertex").newInstance();
-                getEdge = (GetEdge) Class.forName(class_prefix + ".GetEdge").newInstance();
-                getChildren = (GetChildren) Class.forName(class_prefix + ".GetChildren").newInstance();
-                getParents = (GetParents) Class.forName(class_prefix + ".GetParents").newInstance();
+                getVertex = (AbstractQuery) Class.forName(class_prefix + ".GetVertex").newInstance();
+                getEdge =  (AbstractQuery) Class.forName(class_prefix + ".GetEdge").newInstance();
+                getChildren = (AbstractQuery) Class.forName(class_prefix + ".GetChildren").newInstance();
+                getParents = (AbstractQuery) Class.forName(class_prefix + ".GetParents").newInstance();
             }
             catch(IllegalAccessException | InstantiationException | ClassNotFoundException ex)
             {
@@ -83,7 +83,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             int current_depth = 0;
             Set<String> remainingVertices = new HashSet<>();
             Set<String> visitedVertices = new HashSet<>();
-            Set<AbstractVertex> startingVertexSet = getVertex.execute(vertexParams, DEFAULT_MIN_LIMIT);
+            Set<AbstractVertex> startingVertexSet = (Set<AbstractVertex>) getVertex.execute(vertexParams, DEFAULT_MIN_LIMIT);
             if(!CollectionUtils.isEmpty(startingVertexSet))
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
@@ -106,12 +106,12 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                     if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
                     {
                         params.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
-                        neighbors = getParents.execute(params, DEFAULT_MAX_LIMIT);
+                        neighbors = (Graph) getParents.execute(params, DEFAULT_MAX_LIMIT);
                     }
                     else
                     {
                         params.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
-                        neighbors = getChildren.execute(params, DEFAULT_MAX_LIMIT);
+                        neighbors = (Graph) getChildren.execute(params, DEFAULT_MAX_LIMIT);
                     }
                     for(AbstractVertex V: neighbors.vertexSet())
                 		V.setDepth(current_depth+1);
@@ -142,7 +142,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                             edgeParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, "AND"));
                             edgeParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, neighborHash, null));
                         }
-                        Set<AbstractEdge> edgeSet = getEdge.execute(edgeParams, DEFAULT_MAX_LIMIT);
+                        Set<AbstractEdge> edgeSet = (Set<AbstractEdge>) getEdge.execute(edgeParams, DEFAULT_MAX_LIMIT);
                         result.edgeSet().addAll(edgeSet);
                     }
                 }
