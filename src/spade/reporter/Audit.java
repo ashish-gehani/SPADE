@@ -1633,7 +1633,7 @@ public class Audit extends AbstractReporter {
 				Runtime runtime = Runtime.getRuntime();
 				long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024*1024);   	
 				int internalBufferSize = getBuffer().size();
-				String statString = String.format("Internal buffer size: %d, JVM memory in use: %ldMB", 
+				String statString = String.format("Internal buffer size: %d, JVM memory in use: %dMB", 
 						internalBufferSize, usedMemoryMB);
 				if(REFINE_NET){
 					String netfilterStat = String.format("Unmatched: "
