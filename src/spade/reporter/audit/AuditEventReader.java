@@ -613,6 +613,11 @@ public class AuditEventReader {
 	
 				if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
+					if(messageData.contains(COMM + "=") && !messageData.contains(COMM + "=\"")
+							&& !"(null)".equals(eventData.get(COMM))){ // comm has a hex encoded value
+						// decode and replace value
+						eventData.put(COMM, parseHexStringToUTF8(eventData.get(COMM)));
+					}
 					eventData.put(TIME, time);
 					auditRecordKeyValues.putAll(eventData);
 				} else if (type.equals(RECORD_TYPE_CWD)) {

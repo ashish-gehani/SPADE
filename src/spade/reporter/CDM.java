@@ -19,78 +19,71 @@
  */
 package spade.reporter;
 
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.apache.avro.Schema;
+import org.apache.avro.Schema.Parser;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
-import org.apache.jena.atlas.json.JSON;
-import org.apache.jena.atlas.json.JsonArray;
-import org.apache.jena.atlas.json.JsonObject;
-import org.apache.jena.atlas.json.JsonValue;
+
+import com.bbn.tc.schema.avro.AbstractObject;
+import com.bbn.tc.schema.avro.Event;
+import com.bbn.tc.schema.avro.FileObject;
+import com.bbn.tc.schema.avro.MemoryObject;
+import com.bbn.tc.schema.avro.NetFlowObject;
+import com.bbn.tc.schema.avro.Principal;
+import com.bbn.tc.schema.avro.SHORT;
+import com.bbn.tc.schema.avro.SrcSinkObject;
+import com.bbn.tc.schema.avro.SrcSinkType;
+import com.bbn.tc.schema.avro.Subject;
+import com.bbn.tc.schema.avro.TCCDMDatum;
+import com.bbn.tc.schema.avro.UUID;
+import com.bbn.tc.schema.avro.UnitDependency;
+import com.bbn.tc.schema.avro.UnnamedPipeObject;
+
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.edge.cdm.SimpleEdge;
+import spade.reporter.audit.OPMConstants;
 import spade.utility.BerkeleyDB;
 import spade.utility.CommonFunctions;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.utility.Hasher;
-import spade.vertex.cdm.Principal;
-import spade.vertex.cdm.Subject;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * CDM reporter that reads output of CDM json storage.
  *	
  * Assumes that all vertices are seen before the edges they are a part of.
- * If a vertex is not found then edge is not put into the buffer.
+ * If a vertex is not found then edge is not put.
  *
  */
 public class CDM extends AbstractReporter{
 	
-	private static final String AVRO_PACKAGE = "com.bbn.tc.schema.avro";
-	private static final String AVRO_PACKAGE_UUID = AVRO_PACKAGE+".UUID";
-	private static final String BASEOBJECT = "baseObject";
-	private static final String PROPERTIES_MAP = "properties.map";
-	private static final String BASEOBJECT_PROPERTIES_MAP = BASEOBJECT + "." + PROPERTIES_MAP;
-	
-	// Special annotation keys for CDM
-	private static final String CDM_TYPE_KEY = "cdm.type"; //refers to types defined in CDM
+	private final Logger logger = Logger.getLogger(this.getClass().getName());
 	
 	// Keys used in config
 	private static final String CONFIG_KEY_CACHE_DATABASE_PARENT_PATH = "cacheDatabasePath",
 								CONFIG_KEY_CACHE_DATABASE_NAME = "verticesDatabaseName",
 								CONFIG_KEY_CACHE_SIZE = "verticesCacheSize",
 								CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY = "verticesBloomfilterFalsePositiveProbability",
-								CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS = "verticesBloomFilterExpectedNumberOfElements";
+								CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS = "verticesBloomFilterExpectedNumberOfElements",
+								CONFIG_KEY_SCHEMA = "Schema";
 	
-	// Special keys in CDM avro schema
-	private static final String UUID_KEY = "uuid",
-								EVENT_KEY_SUBJECT_UUID = "subject",
-								KEY_TYPE = "type",
-								EVENT_KEY_PREDICATE_OBJECT1_UUID = "predicateObject."+AVRO_PACKAGE_UUID,
-								EVENT_KEY_PREDICATE_OBJECT2_UUID = "predicateObject2."+AVRO_PACKAGE_UUID,
-								
-								UNIT_DEPENDENCY_KEY_UNIT_UUID = "unit",
-								UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID = "dependentUnit",
-								SUBJECT_KEY_LOCAL_PRINCIPAL = "localPrincipal",
-								
-								OBJECT_TYPE_EVENT = AVRO_PACKAGE+".Event",
-								OBJECT_TYPE_UNIT_DEPENDENCY = AVRO_PACKAGE+".UnitDependency",
-								OBJECT_TYPE_SUBJECT = AVRO_PACKAGE+".Subject",
-								OBJECT_TYPE_PRINCIPAL = AVRO_PACKAGE+".Principal",
-								OBJECT_TYPE_FILE_OBJECT = AVRO_PACKAGE+".FileObject",
-								OBJECT_TYPE_NETFLOW_OBJECT = AVRO_PACKAGE+".NetFlowObject",
-								OBJECT_TYPE_SRCSINK_OBJECT = AVRO_PACKAGE+".SrcSinkObject",
-								OBJECT_TYPE_MEMORY_OBJECT = AVRO_PACKAGE+".MemoryObject",
-								OBJECT_TYPE_UNNAMEDPIPE_OBJECT = AVRO_PACKAGE+".UnnamedPipeObject";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -98,9 +91,6 @@ public class CDM extends AbstractReporter{
 	private long lastReportedTime;
 	private long linesRead = 0;
 
-	private Logger logger = Logger.getLogger(this.getClass().getName());
-	
-	private BufferedReader fileReader;
 	private volatile boolean shutdown = false;
 	private final long THREAD_JOIN_WAIT = 1000; // One second
 	private final long BUFFER_DRAIN_DELAY = 500;
@@ -110,40 +100,29 @@ public class CDM extends AbstractReporter{
 	
 	// Using an external map because can grow arbitrarily
 	private ExternalMemoryMap<String, AbstractVertex> uuidToVertexMap;
+	
+	private DataReader dataReader;
 		
 	// The main thread that processes the file
-	private Thread jsonProcessorThread = new Thread(new Runnable() {
+	private Thread datumProcessorThread = new Thread(new Runnable() {
 		@Override
 		public void run() {
 			while(!shutdown){
-				String line = null;
 				try{
 					
-					if(fileReader != null){
-						line = fileReader.readLine();
-						
-						if(line == null){ //EOF
-							break;
-						}else{
-							processJsonObject(getJsonObject(line));
-							
-							if(reportingEnabled){
-								long currentTime = System.currentTimeMillis();
-								if((currentTime - lastReportedTime) >= reportEveryMs){
-									printStats();
-									lastReportedTime = currentTime;
-								}
-							}
-						}
-						
-					}else{
-						logger.log(Level.SEVERE, "Invalid state. File reader not initialized. Reporter exiting.");
-						shutdown = true;
+					TCCDMDatum tccdmDatum = null;
+					while((tccdmDatum = (TCCDMDatum)dataReader.read()) != null){
+						Object datum = tccdmDatum.getDatum();
+						processDatum(datum);
+					}
+					
+					// EOF
+					if(tccdmDatum == null){
 						break;
 					}
 					
 				}catch(Exception e){
-					logger.log(Level.SEVERE, "Error in reading/processing line: " + line, e);
+					logger.log(Level.SEVERE, "Error reading/processing file", e);
 				}
 			}
 			
@@ -173,162 +152,145 @@ public class CDM extends AbstractReporter{
 				logger.log(Level.INFO, "File processing successfully succeeded");
 			}
 			
-			try{
-				if(fileReader != null){
-					fileReader.close();
-				}
-			}catch(Exception e){
-				logger.log(Level.WARNING, "Failed to close file reader", e);
-			}
-			
-			try{
-				// Close and delete the external map
-				if(uuidToVertexMap != null){
-					uuidToVertexMap.close();
-				}
-				FileUtils.forceDelete(new File(dbpath));
-			}catch(Exception e){
-				logger.log(Level.WARNING, "Failed to close/delete external vertex database at path '"+dbpath+"'", e);
-			}
+			doCleanup();
 			
 		}
 	}, "CDM-Reporter");
-		
+	
+	private Map<String, String> readDefaultConfigFile(){
+		try{
+			return FileUtility.readConfigFileAsKeyValueMap(
+					Settings.getDefaultConfigFilePath(this.getClass()),
+					"="
+					);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to load config file", e);
+			return null;
+		}
+	}
+	
+	private ExternalMemoryMap<String, AbstractVertex> initCacheMap(String tempDirPath, String verticesDatabaseName, String verticesCacheSize,
+			String verticesBloomfilterFalsePositiveProbability, String verticesBloomfilterExpectedNumberOfElements){
+		logger.log(Level.INFO, "Argument(s): [{0} = {1}, {2} = {3}, {4} = {5}, {6} = {7}, {8} = {9}]", 
+				new Object[]{CONFIG_KEY_CACHE_DATABASE_PARENT_PATH, tempDirPath,
+						CONFIG_KEY_CACHE_DATABASE_NAME, verticesDatabaseName,
+						CONFIG_KEY_CACHE_SIZE, verticesCacheSize,
+						CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY, verticesBloomfilterFalsePositiveProbability,
+						CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS, verticesBloomfilterExpectedNumberOfElements});
+		try{
+			if(tempDirPath == null || verticesDatabaseName == null || verticesCacheSize == null
+					|| verticesBloomfilterFalsePositiveProbability == null ||
+					verticesBloomfilterExpectedNumberOfElements == null){
+				logger.log(Level.SEVERE, "Null argument(s)");
+				return null;
+			}else{
+				if(!FileUtility.fileExists(tempDirPath)){
+					if(!FileUtility.mkdirs(tempDirPath)){
+						logger.log(Level.SEVERE, "Failed to create temp dir at: " + tempDirPath);
+						return null;
+					}
+				}
+				
+				Integer cacheSize = CommonFunctions.parseInt(verticesCacheSize, null);
+				if(cacheSize != null){
+					Double falsePositiveProb = CommonFunctions.parseDouble(verticesBloomfilterFalsePositiveProbability, null);
+					if(falsePositiveProb != null){
+						Integer expectedNumberOfElements = CommonFunctions.parseInt(verticesBloomfilterExpectedNumberOfElements, null);
+						if(expectedNumberOfElements != null){
+							String timestampedDBName = verticesDatabaseName + "_" + System.currentTimeMillis();
+							dbpath = tempDirPath + File.separatorChar + timestampedDBName;
+							if(FileUtility.mkdirs(dbpath)){
+								ExternalMemoryMap<String, AbstractVertex> externalMap = 
+										new ExternalMemoryMap<String, AbstractVertex>(cacheSize, 
+												new BerkeleyDB<AbstractVertex>(dbpath, timestampedDBName), 
+												falsePositiveProb, expectedNumberOfElements);
+								// Setting hash to be used as the key because saving vertices by CDM hashes
+								externalMap.setKeyHashFunction(new Hasher<String>() {
+									@Override
+									public String getHash(String t) {
+										return t;
+									}
+								});
+								return externalMap;
+							}else{
+								logger.log(Level.SEVERE, "Failed to create database dir: " + timestampedDBName);
+							}
+						}else{
+							logger.log(Level.SEVERE, "Expected number of elements must be an Integer");
+						}
+					}else{
+						logger.log(Level.SEVERE, "False positive probability must be Floating-Point");
+					}
+				}else{
+					logger.log(Level.SEVERE, "Cache size must be an Integer");
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to init cache map", e);
+		}
+		return null;
+	}
+	
+	private void initReporting(String reportingIntervalSecondsConfig){
+		if(reportingIntervalSecondsConfig != null){
+			Integer reportingIntervalSeconds = CommonFunctions.parseInt(reportingIntervalSecondsConfig.trim(), null);
+			if(reportingIntervalSeconds != null){
+				reportingEnabled = true;
+				reportEveryMs = reportingIntervalSeconds * 1000;
+				lastReportedTime = System.currentTimeMillis();
+			}else{
+				logger.log(Level.WARNING, "Invalid reporting interval. Reporting disabled.");
+			}
+		}
+	}
+	
 	@Override
 	public boolean launch(String arguments) {
 		String filepath = arguments;
 		
-		if(filepath == null || filepath.trim().isEmpty()){
-			logger.log(Level.SEVERE, "No filepath in arguments");
-		}else{
-			if(filepath.endsWith(".json")){
-				File file = new File(filepath);
-				if(!file.exists()){
-					logger.log(Level.SEVERE, "'" + filepath + "' not found");
+		try{
+			if(FileUtility.fileExists(filepath)){
+				Map<String, String> configMap = readDefaultConfigFile();
+				if(configMap != null){
+					String schemaFilePath = configMap.get(CONFIG_KEY_SCHEMA);
+					if(FileUtility.fileExists(schemaFilePath)){
+						
+						initReporting(configMap.get("reportingIntervalSeconds"));
+						
+						if(filepath.endsWith(".json")){
+							dataReader = new JsonReader(filepath, schemaFilePath);
+						}else{
+							dataReader = new BinaryReader(filepath, schemaFilePath);
+						}
+						
+						uuidToVertexMap = initCacheMap(configMap.get(CONFIG_KEY_CACHE_DATABASE_PARENT_PATH), 
+								configMap.get(CONFIG_KEY_CACHE_DATABASE_NAME), configMap.get(CONFIG_KEY_CACHE_SIZE), 
+								configMap.get(CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY), 
+								configMap.get(CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS));
+						
+						if(uuidToVertexMap != null){
+							
+							datumProcessorThread.start();
+							return true;
+							
+						}else{
+							return false;
+						}
+						
+					}else{
+						logger.log(Level.SEVERE, "Failed to find schema file at: " + schemaFilePath);
+						return false;
+					}
 				}else{
-					
-					Map<String, String> config = null;
-					
-					try{
-						config = FileUtility.readConfigFileAsKeyValueMap(
-								Settings.getDefaultConfigFilePath(this.getClass()), "=");
-					}catch(Exception e){
-						logger.log(Level.SEVERE, 
-								"Failed to read config file '"+Settings.getDefaultConfigFilePath(this.getClass())+"'", e);
-						return false;
-					}
-					
-					try{
-						String cacheDatabaseParentDirectory = config.get(CONFIG_KEY_CACHE_DATABASE_PARENT_PATH);
-						String verticesDatabaseName = config.get(CONFIG_KEY_CACHE_DATABASE_NAME);
-						String verticesCacheSizeString = config.get(CONFIG_KEY_CACHE_SIZE);
-						String verticesBloomFilterFalsePositiveProbabilityString = 
-								config.get(CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY);
-						String verticesBloomFilterExpectedNumberOfElementsString = 
-								config.get(CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS);
-						
-						logger.log(Level.INFO, "[CDM reporter config]. "+CONFIG_KEY_CACHE_DATABASE_PARENT_PATH+": {0}, "
-								+ CONFIG_KEY_CACHE_DATABASE_NAME + ": {1}, "+CONFIG_KEY_CACHE_SIZE+": {2}, "
-								+ CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY + ": {3}, "
-								+ CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS + ": {4}", 
-								new Object[]{cacheDatabaseParentDirectory, verticesDatabaseName, verticesCacheSizeString, verticesBloomFilterFalsePositiveProbabilityString
-										, verticesBloomFilterExpectedNumberOfElementsString});
-						
-						// Config values checks
-						
-						// Checking if the directory which would contain the external cache is create-able.
-						try{
-							File cacheDatabaseParentFile = new File(cacheDatabaseParentDirectory);
-							if(!cacheDatabaseParentFile.exists()){
-								FileUtils.forceMkdir(cacheDatabaseParentFile);
-							}
-						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to create directory '"+cacheDatabaseParentDirectory+"'", e);
-							return false;
-						}
-						
-						// Checking if the database name key existed
-						if(verticesDatabaseName == null || verticesDatabaseName.trim().isEmpty()){
-							logger.log(Level.SEVERE, "Must specify a non-empty value for key '"+CONFIG_KEY_CACHE_DATABASE_NAME+"' in config");
-							return false;
-						}
-						
-						// Checking if the cache size is valid
-						Integer verticesCacheSize = CommonFunctions.parseInt(verticesCacheSizeString, null);
-						if(verticesCacheSize == null || verticesCacheSize < 1){
-							logger.log(Level.SEVERE, "'"+CONFIG_KEY_CACHE_SIZE+"' must be greater than 0");
-							return false;
-						}
-						
-						// Checking if the bloom filter false positive probability is valid
-						Double verticesBloomFilterFalsePositiveProbability = CommonFunctions.parseDouble(verticesBloomFilterFalsePositiveProbabilityString, null);
-						if(verticesBloomFilterFalsePositiveProbability == null || verticesBloomFilterFalsePositiveProbability < 0 || verticesBloomFilterFalsePositiveProbability > 1){
-							logger.log(Level.SEVERE, "'"+CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY+"' must be in the range [0-1]");
-							return false;
-						}
-						
-						// Checking if the bloom filter expected number of elements is valid
-						Integer verticesBloomFilterExpectedNumberOfElements = CommonFunctions.parseInt(verticesBloomFilterExpectedNumberOfElementsString, null);
-						if(verticesBloomFilterExpectedNumberOfElements == null || verticesBloomFilterExpectedNumberOfElements < 1){
-							logger.log(Level.SEVERE, "'"+CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS+"' must be greater than 0");
-							return false;
-						}
-						
-						String timestampedDBName = verticesDatabaseName + "_" + System.currentTimeMillis();
-						dbpath = cacheDatabaseParentDirectory + File.separatorChar + timestampedDBName;
-						try{
-							FileUtils.forceMkdir(new File(dbpath));
-						}catch(Exception e){
-							logger.log(Level.INFO, "Failed to create directory for external store at '"+dbpath+"'", e);
-							return false;
-						}
-						
-						uuidToVertexMap = 
-								new ExternalMemoryMap<String, AbstractVertex>(verticesCacheSize, 
-										new BerkeleyDB<AbstractVertex>(dbpath, timestampedDBName), 
-										verticesBloomFilterFalsePositiveProbability, verticesBloomFilterExpectedNumberOfElements);
-						
-						// Setting hash to be used as the key because saving vertices by CDM hashes
-						uuidToVertexMap.setKeyHashFunction(new Hasher<String>() {
-							@Override
-							public String getHash(String t) {
-								return t;
-							}
-						});
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Failed to create external map", e);
-						return false;
-					}
-										
-					try{
-						fileReader = new BufferedReader(new FileReader(file));
-						// Read the first line to make sure that it is a json file and process that object 
-						JsonObject jsonObject = getJsonObject(fileReader.readLine());
-						processJsonObject(jsonObject);
-						
-						String reportingIntervalSecondsConfig = config.get("reportingIntervalSeconds");
-						if(reportingIntervalSecondsConfig != null){
-							Integer reportingIntervalSeconds = CommonFunctions.parseInt(reportingIntervalSecondsConfig.trim(), null);
-							if(reportingIntervalSeconds != null){
-								reportingEnabled = true;
-								reportEveryMs = reportingIntervalSeconds * 1000;
-								lastReportedTime = System.currentTimeMillis();
-							}else{
-								logger.log(Level.WARNING, "Invalid reporting interval. Reporting disabled.");
-							}
-						}
-						
-						jsonProcessorThread.start();
-						
-						return true;
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Failed to read file '" + filepath + "'", e);
-						return false;
-					}
+					return false;
 				}
 			}else{
-				logger.log(Level.SEVERE, "Non-JSON file. Must be a .json file");
+				logger.log(Level.SEVERE, "Failed to find input filepath at: " + filepath);
+				return false;
 			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to launch reporter CDM", e);
+			doCleanup();
 		}
 		
 		return false;
@@ -340,294 +302,338 @@ public class CDM extends AbstractReporter{
 		long internalBufferSize = getBuffer().size();
 		logger.log(Level.INFO, "Lines read: {0}, Internal buffer size: {1}, JVM memory in use: {2}MB", new Object[]{linesRead, internalBufferSize, usedMemoryMB});
 	}
+	
+	private void processEvent(Event event){
+		Map<String, String> edgeKeyValues = new HashMap<String, String>();
+		if(event.getSequence() != null){
+			edgeKeyValues.put("sequence", String.valueOf(event.getSequence()));
+		}
+		if(event.getType() != null){
+			edgeKeyValues.put("cdm.type", String.valueOf(event.getType()));
+		}
+		if(event.getThreadId() != null){
+			edgeKeyValues.put("threadId", String.valueOf(event.getThreadId()));
+		}
+		if(event.getTimestampNanos() != null){
+			edgeKeyValues.put("timestampNanos", String.valueOf(event.getTimestampNanos()));
+		}
+		if(event.getLocation() != null){
+			edgeKeyValues.put("location", String.valueOf(event.getLocation()));
+		}
+		if(event.getSize() != null){
+			edgeKeyValues.put("size", String.valueOf(event.getSize()));
+		}
+		edgeKeyValues.putAll(getValuesFromPropertiesMap(event.getProperties()));
 		
-	/**
-	 * Strips start and end quotes only
-	 * 
-	 * @param string string to process
-	 * @return stripped string
-	 */
-	private String stripStartEndQuotes(String string){
-		if(string == null){
-			return "";
-		}else{
-			string = string.trim();
-			if(string.startsWith("\"")){
-				string = string.substring(1);
-			}
-			if(string.endsWith("\"")){
-				string = string.substring(0, string.length()-1);
-			}
-			return string;
-		}
-	}
-	
-	private Map<String, String> rewriteKeys(Map<String, String> map){
-		Map<String, String> rewritten = new HashMap<String, String>();
-		for(Map.Entry<String, String> entry : map.entrySet()){
-			String rewrittenKey = getRewrittenKey(entry.getKey());
-			if(rewrittenKey != null && !rewrittenKey.equals(KEY_TYPE)){
-				rewritten.put(rewrittenKey, entry.getValue());
-			}
-		}
-		return rewritten;
-	}
-	
-	private String getRewrittenKey(String key){
-		switch (key) {
-			// Object extra annotations in the properties map
-			case BASEOBJECT_PROPERTIES_MAP+".path": return "path";
-			case BASEOBJECT_PROPERTIES_MAP+".version": return "version";
-			case BASEOBJECT_PROPERTIES_MAP+".pid": return "pid";
-			case BASEOBJECT_PROPERTIES_MAP+".tgid": return "tgid";
-			// Object baseObject values
-			case BASEOBJECT+".epoch.int": return "epoch";
-			case "fileDescriptor.int": return "fileDescriptor";
-			case "ipProtocol.int": return "ipProtocol";
-			// Event annotations
-			case EVENT_KEY_PREDICATE_OBJECT1_UUID: return "predicateObject";
-			case EVENT_KEY_PREDICATE_OBJECT2_UUID: return "predicateObject2";
-			case "predicateObjectPath.string": return "predicateObjectPath";
-			case "predicateObject2Path.string": return "predicateObject2Path";
-			case "size.long": return "size";
-			case "location.long": return "location";
-			// Subject, Principal, Event extra annotations in the properties map
-			case PROPERTIES_MAP+".mode": return "mode";
-			case PROPERTIES_MAP+".protection": return "protection";
-			case PROPERTIES_MAP+".pid": return "pid";
-			// Subject annotations
-			case PROPERTIES_MAP+".name": return "name";
-			case PROPERTIES_MAP+".cwd": return "cwd";
-			case PROPERTIES_MAP+".ppid": return "ppid";
-			case "cid": return "pid";
-			case "parentSubject."+AVRO_PACKAGE_UUID: return "parentSubject";
-			case "unitId.int": return "unitId";
-			case "iteration.int": return "iteration";
-			case "count.int": return "count";
-			case "cmdLine.string": return "cdmLine";
-			// Principal annotations
-			case PROPERTIES_MAP+".euid": return "euid";
-			case PROPERTIES_MAP+".suid": return "suid";
-			case PROPERTIES_MAP+".fsuid": return "fsuid";
-			case "groupIds[0]": return "gid";
-			case "groupIds[1]": return "egid";
-			case "groupIds[2]": return "sgid";
-			case "groupIds[3]": return "fsgid";
-			case "groupIds[size]": return null;
-			
-			// Special case for edge
-			case "properties.map.type": return null;
-			
-			default: return key;
-		}
-	}
-	
-	/**
-	 * Flattens json object into a key value map
-	 * 
-	 * In case of arrays following is done:
-	 * 
-	 * {a:["hello","world"]} -> {a[0] = "hello", a[1] = "world", a[size] = 2}
-	 *  
-	 * @param outerObject apache jena json object
-	 * @return key value map
-	 */
-	private Map<String, String> flattenJson(JsonObject outerObject){
-		Map<String, String> flattened = new HashMap<String, String>();
+		String opmValue = null;
+		
+		UUID src1Uuid = null, dst1Uuid = null, // process to/from primary
+				src2Uuid = null, dst2Uuid = null, //process to/from secondary
+				src3Uuid = null, dst3Uuid = null; //primary to/from secondary
+		
+		switch (event.getType()) {
+			case EVENT_OPEN:
+			case EVENT_CLOSE:
+				opmValue = edgeKeyValues.get(OPMConstants.OPM);
+			case EVENT_LOADLIBRARY:
+			case EVENT_RECVMSG:
+			case EVENT_RECVFROM:
+			case EVENT_READ:
+			case EVENT_ACCEPT:
+				if(opmValue != null){
+					if(opmValue.equals(OPMConstants.USED)){
+						src1Uuid = event.getSubject();
+						dst1Uuid = event.getPredicateObject();
+					}else if(opmValue.equals(OPMConstants.WAS_GENERATED_BY)){
+						src1Uuid = event.getPredicateObject();
+						dst1Uuid = event.getSubject();
+					}
+				}else{
+					src1Uuid = event.getSubject();
+					dst1Uuid = event.getPredicateObject();
+				}
+				break;					
+			case EVENT_EXIT:
+			case EVENT_UNIT:
+			case EVENT_FORK:
+			case EVENT_EXECUTE:
+			case EVENT_CLONE:
+			case EVENT_CHANGE_PRINCIPAL:
+				src1Uuid = event.getPredicateObject();
+				dst1Uuid = event.getSubject();
+				break;								
+			case EVENT_CONNECT:
+			case EVENT_CREATE_OBJECT:
+			case EVENT_WRITE:
+			case EVENT_MPROTECT:
+			case EVENT_SENDTO:
+			case EVENT_SENDMSG:
+			case EVENT_UNLINK:
+			case EVENT_MODIFY_FILE_ATTRIBUTES:
+			case EVENT_TRUNCATE:
+				src1Uuid = event.getPredicateObject();
+				dst1Uuid = event.getSubject();
+				break;								
+			case EVENT_LINK:
+			case EVENT_RENAME:
+			case EVENT_MMAP:
+			case EVENT_UPDATE:
+				src1Uuid = event.getSubject();
+				dst1Uuid = event.getPredicateObject();
 				
-		Set<Entry<String, JsonValue>> entrySet = outerObject.entrySet();
-		for(Entry<String, JsonValue> entry : entrySet){
-			String key = entry.getKey();
-			JsonValue value = entry.getValue();
-			if(value.isPrimitive()){
-				String mapValue = stripStartEndQuotes(value.toString());
-				if(mapValue != null && !mapValue.trim().isEmpty()){
-					flattened.put(key, mapValue);
-				}
-			}else{
-				if(value.isObject()){
-					Map<String, String> subFlattened = flattenJson(value.getAsObject());
-					for(String subkey : subFlattened.keySet()){
-						String subvalue = subFlattened.get(subkey);
-						String mapValue = stripStartEndQuotes(subvalue);
-						if(mapValue != null && !mapValue.trim().isEmpty()){
-							flattened.put(key+"."+subkey, mapValue);
-						}
-					}
-				}else if(value.isArray()){
-					JsonArray array = value.getAsArray();
-					for(int a = 0; a<array.size(); a++){
-						JsonValue arrayValue = array.get(a);
-						JsonObject arrayObject = new JsonObject();
-						arrayObject.put("["+a+"]", arrayValue);
-						Map<String, String> subFlattened = flattenJson(arrayObject);
-						int addCount = 0;
-						for(String subkey : subFlattened.keySet()){
-							String subvalue = subFlattened.get(subkey);
-							String mapValue = stripStartEndQuotes(subvalue);
-							if(mapValue != null && !mapValue.trim().isEmpty()){
-								addCount++;
-								flattened.put(key+subkey, mapValue);
-							}
-						}
-						if(addCount > 0){
-							flattened.put(key+"[size]", String.valueOf(addCount));
-						}
-					}
-				}
-			}
+				src2Uuid = event.getPredicateObject2();
+				dst2Uuid = event.getSubject();
+				
+				src3Uuid = event.getPredicateObject2();
+				dst3Uuid = event.getPredicateObject();
+				break;
+			default:
+				logger.log(Level.WARNING, "Unexpected Event type: " + event.getType());
+				return;
 		}
-		return flattened;
+		
+		if(src1Uuid != null && dst1Uuid != null){
+			SimpleEdge edge = new SimpleEdge(
+					uuidToVertexMap.get(getUUIDAsString(src1Uuid)),
+					uuidToVertexMap.get(getUUIDAsString(dst1Uuid)));
+			edge.addAnnotations(edgeKeyValues);
+			putEdge(edge);
+		}
+		if(src2Uuid != null && dst2Uuid != null){
+			SimpleEdge edge = new SimpleEdge(
+					uuidToVertexMap.get(getUUIDAsString(src2Uuid)),
+					uuidToVertexMap.get(getUUIDAsString(dst2Uuid)));
+			edge.addAnnotations(edgeKeyValues);
+			putEdge(edge);
+		}
+		if(src3Uuid != null && dst3Uuid != null){
+			SimpleEdge edge = new SimpleEdge(
+					uuidToVertexMap.get(getUUIDAsString(src3Uuid)),
+					uuidToVertexMap.get(getUUIDAsString(dst3Uuid)));
+			edge.addAnnotations(edgeKeyValues);
+			putEdge(edge);
+		}
 	}
 	
-	/**
-	 * Parses json line using apache jena JSON library
-	 * 
-	 * Incrementing reporting variable 'linesRead' too if reporting enabled
-	 * 
-	 * @param line json object as string
-	 * @return returns apache jena json object
-	 * @throws Exception exception as returned by apache jena if malformed json
-	 */
-	private JsonObject getJsonObject(String line) throws Exception{
+	private void processDatum(Object datum){
 		if(reportingEnabled){
 			linesRead++;
+			long currentTime = System.currentTimeMillis();
+			if((currentTime - lastReportedTime) >= reportEveryMs){
+				printStats();
+				lastReportedTime = currentTime;
+			}
 		}
-		JsonObject jsonObject = JSON.parse(line);
-		return jsonObject;
-	}
-	
-	/**
-	 * Puts vertices and edges to reporter's buffer after flattening them
-	 * 
-	 * Following 'cfg/spade.storage.CDM.avsc' schema
-	 * 
-	 * @param jsonObject Apache jena json object
-	 * @throws Exception an unforseen exception
-	 */
-	private void processJsonObject(JsonObject jsonObject) throws Exception{
-		JsonValue datumValue = jsonObject.get("datum");
-		if(datumValue != null &&
-				datumValue.isObject()){
-			JsonObject datumValueObject = datumValue.getAsObject();
-			if(datumValueObject.values() != null &&
-					datumValueObject.values().size() > 0){
-				String typeKey = datumValueObject.keys().iterator().next();
-				JsonValue typeValue = datumValueObject.get(typeKey);
-				if(typeKey != null && typeValue != null){
-					typeKey = stripStartEndQuotes(typeKey);
-					JsonObject typeValueObject = typeValue.getAsObject();
-					Map<String, String> flattened = flattenJson(typeValueObject);
-					if(typeKey.equals(OBJECT_TYPE_UNIT_DEPENDENCY)){
-						
-						String sourceUuid = flattened.get(UNIT_DEPENDENCY_KEY_UNIT_UUID);
-						String destinationUuid = flattened.get(UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID);
-						
-						AbstractVertex source = uuidToVertexMap.get(sourceUuid);
-						AbstractVertex destination = uuidToVertexMap.get(destinationUuid);
-						
-						SimpleEdge dependencyEdge = new SimpleEdge(source, destination);
-						dependencyEdge.addAnnotation(CDM_TYPE_KEY, typeKey.substring(typeKey.lastIndexOf('.') + 1));
-						dependencyEdge.addAnnotation(UNIT_DEPENDENCY_KEY_UNIT_UUID, sourceUuid);
-						dependencyEdge.addAnnotation(UNIT_DEPENDENCY_KEY_DEPENDENT_UNIT_UUID, destinationUuid);
-						putEdge(dependencyEdge);
-						
-					}else if(typeKey.equals(OBJECT_TYPE_EVENT)){
-						String eventType = flattened.get(KEY_TYPE);
-						String sourceUuid = flattened.get(EVENT_KEY_SUBJECT_UUID);
-						String destination1Uuid = flattened.get(EVENT_KEY_PREDICATE_OBJECT1_UUID);
-						String destination2Uuid = flattened.get(EVENT_KEY_PREDICATE_OBJECT2_UUID);
-						AbstractVertex source = uuidToVertexMap.get(sourceUuid);
-						AbstractVertex destination1 = uuidToVertexMap.get(destination1Uuid);
-						AbstractVertex destination2 = null;
-						if(destination2Uuid != null){
-							destination2 = uuidToVertexMap.get(destination2Uuid);
+		
+		if(datum != null){
+			Class<?> datumClass = datum.getClass();
+			if(datumClass.equals(UnitDependency.class)){
+				UnitDependency unitDependency = (UnitDependency)datum;
+				UUID unitUuid = unitDependency.getUnit();//dst
+				UUID dependentUnitUuid = unitDependency.getDependentUnit();//src
+				String unitUuidString = getUUIDAsString(unitUuid);
+				String dependentUnitUuidString = getUUIDAsString(dependentUnitUuid);
+				AbstractVertex unitVertex = uuidToVertexMap.get(unitUuidString);
+				AbstractVertex dependentUnitVertex = uuidToVertexMap.get(dependentUnitUuidString);
+				spade.edge.cdm.SimpleEdge edge = new spade.edge.cdm.SimpleEdge(dependentUnitVertex, unitVertex);
+				putEdge(edge);
+			}else if(datumClass.equals(Event.class)){
+				Event event = (Event)datum;
+				processEvent(event);				
+			}else{
+				
+				UUID uuid = null;
+				AbstractVertex vertex = null;
+				UUID principalUuid = null;
+				
+				if(datumClass.equals(Subject.class)){
+					vertex = new spade.vertex.cdm.Subject();
+					Subject subject = (Subject)datum;
+					uuid = subject.getUuid();
+					if(subject.getCid() != null){
+						vertex.addAnnotation("pid", String.valueOf(subject.getCid()));
+					}
+					if(subject.getParentSubject() != null){
+						vertex.addAnnotation("parentSubjectUuid", getUUIDAsString(subject.getParentSubject()));
+					}
+					if(subject.getLocalPrincipal() != null){
+						vertex.addAnnotation("localPrincipal", getUUIDAsString(subject.getLocalPrincipal()));
+					}
+					principalUuid = subject.getLocalPrincipal();
+					if(subject.getStartTimestampNanos() != null){
+						vertex.addAnnotation("startTimestampNanos", String.valueOf(subject.getStartTimestampNanos()));
+					}
+					if(subject.getUnitId() != null){
+						vertex.addAnnotation("unitId", String.valueOf(subject.getUnitId()));
+					}
+					if(subject.getIteration() != null){
+						vertex.addAnnotation("iteration", String.valueOf(subject.getIteration()));
+					}
+					if(subject.getCount() != null){
+						vertex.addAnnotation("count", String.valueOf(subject.getCount()));
+					}
+					if(subject.getCmdLine() != null){
+						vertex.addAnnotation("cmdLine", String.valueOf(subject.getCmdLine()));
+					}
+					vertex.addAnnotations(getValuesFromPropertiesMap(subject.getProperties()));
+					if(subject.getType() != null){
+						vertex.addAnnotation("cdm.type", String.valueOf(subject.getType()));
+					}
+				}else if(datumClass.equals(Principal.class)){
+					vertex = new spade.vertex.cdm.Principal();
+					Principal principal = (Principal)datum;
+					uuid = principal.getUuid();
+					if(principal.getUserId() != null){
+						vertex.addAnnotation("userId", String.valueOf(principal.getUserId()));
+					}
+					List<CharSequence> groupIds = principal.getGroupIds();
+					if(groupIds.size() > 0){
+						vertex.addAnnotation("gid", String.valueOf(groupIds.get(0)));
+					}
+					if(groupIds.size() > 1){
+						vertex.addAnnotation("egid", String.valueOf(groupIds.get(1)));
+					}
+					if(groupIds.size() > 2){
+						vertex.addAnnotation("sgid", String.valueOf(groupIds.get(2)));
+					}
+					if(groupIds.size() > 3){
+						vertex.addAnnotation("fsgid", String.valueOf(groupIds.get(3)));
+					}
+					vertex.addAnnotations(getValuesFromPropertiesMap(principal.getProperties()));
+					vertex.addAnnotation("cdm.type", "Principal");
+				}else { // artifacts
+					vertex = new spade.vertex.cdm.Object();
+					AbstractObject baseObject = null;
+					if(datumClass.equals(MemoryObject.class)){
+						MemoryObject memoryObject = (MemoryObject)datum;
+						uuid = memoryObject.getUuid();
+						baseObject = memoryObject.getBaseObject();
+						if(memoryObject.getMemoryAddress() != null){
+							vertex.addAnnotation("memoryAddress", String.valueOf(memoryObject.getMemoryAddress()));
 						}
-						if(source == null || destination1 == null){
-							logger.log(Level.WARNING, "Failed to put edge with null source or destination: " + flattened);
+						if(memoryObject.getSize() != null){
+							vertex.addAnnotation("size", String.valueOf(memoryObject.getSize()));
+						}
+						vertex.addAnnotation("cdm.type", "MemoryObject");
+					}else if(datumClass.equals(NetFlowObject.class)){
+						NetFlowObject netFlowObject = (NetFlowObject)datum;
+						uuid = netFlowObject.getUuid();
+						baseObject = netFlowObject.getBaseObject();
+						if(netFlowObject.getLocalAddress() != null){
+							vertex.addAnnotation("localAddress", String.valueOf(netFlowObject.getLocalAddress()));
+						}
+						if(netFlowObject.getLocalPort() != null){
+							vertex.addAnnotation("localPort", String.valueOf(netFlowObject.getLocalPort()));
+						}
+						if(netFlowObject.getRemoteAddress() != null){
+							vertex.addAnnotation("remoteAddress", String.valueOf(netFlowObject.getRemoteAddress()));
+						}
+						if(netFlowObject.getRemotePort() != null){
+							vertex.addAnnotation("remotePort", String.valueOf(netFlowObject.getRemotePort()));
+						}
+						if(netFlowObject.getIpProtocol() != null){
+							vertex.addAnnotation("ipProtocol", String.valueOf(netFlowObject.getIpProtocol()));
+						}
+						vertex.addAnnotation("cdm.type", "NetFlowObject");
+					}else if(datumClass.equals(SrcSinkObject.class)){
+						SrcSinkObject srcSinkObject = (SrcSinkObject)datum;
+						if(srcSinkObject.getType() != null &&
+								srcSinkObject.getType().equals(SrcSinkType.SRCSINK_SYSTEM_PROPERTY)){
+							// stream marker
 						}else{
-
-							Map<String, String> edgeAnnotations = new HashMap<String, String>();
-							edgeAnnotations.put(CDM_TYPE_KEY, eventType); // Event type as cdm.key
-							
-							// Rewrite keys in the map here
-							flattened = rewriteKeys(flattened);
-							// Remove keys with null values
-							flattened = removeKeysWithNullValues(flattened);
-							// Add to edge annotations
-							edgeAnnotations.putAll(flattened);
-							
-							SimpleEdge toDst1 = new SimpleEdge(source, destination1);
-							// Add edge annotations
-							toDst1.addAnnotations(edgeAnnotations);
-							putEdge(toDst1);
-							
-							if(destination2 != null){
-								SimpleEdge toDst2 = new SimpleEdge(source, destination2);
-								toDst2.addAnnotations(edgeAnnotations);
-								putEdge(toDst2);
+							// unknown
+							uuid = srcSinkObject.getUuid();
+							baseObject = srcSinkObject.getBaseObject();
+							if(srcSinkObject.getFileDescriptor() != null){
+								vertex.addAnnotation("fileDescriptor", String.valueOf(srcSinkObject.getFileDescriptor()));
 							}
+							vertex.addAnnotation("cdm.type", "SrcSinkObject");
+						}
+					}else if(datumClass.equals(UnnamedPipeObject.class)){
+						UnnamedPipeObject unnamedPipeObject = (UnnamedPipeObject)datum;
+						uuid = unnamedPipeObject.getUuid();
+						baseObject = unnamedPipeObject.getBaseObject();
+						if(unnamedPipeObject.getSourceFileDescriptor() != null){
+							vertex.addAnnotation("sourceFileDescriptor", String.valueOf(unnamedPipeObject.getSourceFileDescriptor()));
+						}
+						if(unnamedPipeObject.getSinkFileDescriptor() != null){
+							vertex.addAnnotation("sinkFileDescriptor", String.valueOf(unnamedPipeObject.getSinkFileDescriptor()));
+						}
+						vertex.addAnnotation("cdm.type", "UnnamedPipeObject");
+					}else if(datumClass.equals(FileObject.class)){
+						FileObject fileObject = (FileObject)datum;
+						uuid = fileObject.getUuid();
+						baseObject = fileObject.getBaseObject();
+						if(fileObject.getType() != null){
+							vertex.addAnnotation("cdm.type", String.valueOf(fileObject.getType()));
 						}
 					}else{
-						String localPrincipalUUID = null;
-						String cdmTypeKeyValue = null;
-						AbstractVertex vertex = null;
-						if(typeKey.equals(OBJECT_TYPE_SRCSINK_OBJECT) &&
-								(flattened.get(BASEOBJECT_PROPERTIES_MAP+".start time") != null 
-								|| flattened.get(BASEOBJECT_PROPERTIES_MAP+".end time") != null)){
-							return; // stream marker objects
-						}else if(typeKey.equals(OBJECT_TYPE_FILE_OBJECT)){
-							vertex = new spade.vertex.cdm.Object();
-							cdmTypeKeyValue = flattened.get(KEY_TYPE);
-						}else if(typeKey.equals(OBJECT_TYPE_MEMORY_OBJECT)
-								|| typeKey.equals(OBJECT_TYPE_NETFLOW_OBJECT)
-								|| typeKey.equals(OBJECT_TYPE_SRCSINK_OBJECT)
-								|| typeKey.equals(OBJECT_TYPE_UNNAMEDPIPE_OBJECT)){
-							vertex = new spade.vertex.cdm.Object();
-							cdmTypeKeyValue = typeKey.substring(typeKey.lastIndexOf('.') + 1);
-						}else if(typeKey.equals(OBJECT_TYPE_PRINCIPAL)){
-							vertex = new Principal();
-							cdmTypeKeyValue = flattened.get(KEY_TYPE);
-						}else if(typeKey.equals(OBJECT_TYPE_SUBJECT)){
-							vertex = new Subject();
-							cdmTypeKeyValue = flattened.get(KEY_TYPE);
-							
-							localPrincipalUUID = flattened.get(SUBJECT_KEY_LOCAL_PRINCIPAL);
-							
-						}else{
-							logger.log(Level.WARNING, "Unexpected type: " + typeKey);
-						}
-						if(vertex != null){
-							String uuid = flattened.get(UUID_KEY);
-							vertex.addAnnotation(CDM_TYPE_KEY, cdmTypeKeyValue);
-							flattened = rewriteKeys(flattened);
-							flattened = removeKeysWithNullValues(flattened);
-							vertex.addAnnotations(flattened);
-							putVertex(vertex);
-							uuidToVertexMap.put(uuid, vertex);
-							
-							if(localPrincipalUUID != null){
-								AbstractVertex principalVertex = uuidToVertexMap.get(localPrincipalUUID);
-								if(principalVertex != null){
-									SimpleEdge localPrincipalEdge = new SimpleEdge(vertex, principalVertex);
-									putEdge(localPrincipalEdge);
-								}
-							}
+						// unexpected
+					}
+					vertex.addAnnotations(getValuesFromArtifactAbstractObject(baseObject));
+				}
+				if(uuid != null && vertex != null){
+					String uuidString = getUUIDAsString(uuid);
+					vertex.addAnnotation("uuid", uuidString);
+					uuidToVertexMap.put(uuidString, vertex);
+					putVertex(vertex);
+					if(principalUuid != null){
+						AbstractVertex principalVertex = uuidToVertexMap.get(getUUIDAsString(principalUuid));
+						if(principalVertex != null){
+							SimpleEdge edge = new SimpleEdge(vertex, principalVertex);
+							putEdge(edge);
 						}
 					}
 				}
 			}
+		}		
+	}
+	
+	private String getUUIDAsString(UUID uuid){
+		if(uuid != null){
+			return Hex.encodeHexString(uuid.bytes());
+		}
+		return null;
+	}
+	
+	private String getPermissionSHORTAsString(SHORT permission){
+		if(permission == null){
+			return null;
+		}else{
+			ByteBuffer bb = ByteBuffer.allocate(2);
+			bb.put(permission.bytes()[0]);
+			bb.put(permission.bytes()[1]);
+			int permissionShort = bb.getShort(0);
+			return Integer.toOctalString(permissionShort);
 		}
 	}
 	
-	private Map<String, String> removeKeysWithNullValues(Map<String, String> map){
-		Map<String, String> removedNullsMap = new HashMap<String, String>();
-		for(Map.Entry<String, String> entry : map.entrySet()){
-			if(!"null".equals(entry.getValue().trim())){
-				removedNullsMap.put(entry.getKey(), entry.getValue());
+	private Map<String, String> getValuesFromArtifactAbstractObject(AbstractObject object){
+		Map<String, String> keyValues = new HashMap<String, String>();
+		if(object != null){
+			if(object.getEpoch() != null){
+				keyValues.put("epoch", String.valueOf(object.getEpoch()));
 			}
+			if(object.getPermission() != null){
+				keyValues.put("permission", new String(getPermissionSHORTAsString(object.getPermission())));
+			}
+			keyValues.putAll(getValuesFromPropertiesMap(object.getProperties()));
 		}
-		return removedNullsMap;
+		return keyValues;
+	}
+	
+	private Map<String, String> getValuesFromPropertiesMap(Map<CharSequence, CharSequence> propertiesMap){
+		Map<String, String> keyValues = new HashMap<String, String>();
+		if(propertiesMap != null){
+			propertiesMap.entrySet().forEach(
+					entry -> {
+							if(entry.getValue() != null){
+								keyValues.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+							}
+						}
+					);
+		}
+		return keyValues;
 	}
 	
 	@Override
@@ -636,8 +642,8 @@ public class CDM extends AbstractReporter{
 		
 		try{
 			
-			if(jsonProcessorThread != null){
-				jsonProcessorThread.join(THREAD_JOIN_WAIT);
+			if(datumProcessorThread != null){
+				datumProcessorThread.join(THREAD_JOIN_WAIT);
 			}
 			
 			return true;
@@ -646,5 +652,109 @@ public class CDM extends AbstractReporter{
 			return false;
 		}
 	}
+	
 
+	private void doCleanup(){
+		
+		try{
+			if(uuidToVertexMap != null){
+				uuidToVertexMap.close();
+			}
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to close cache map", e);
+		}
+		
+		try{
+			if(dbpath != null && FileUtility.fileExists(dbpath)){
+				FileUtils.forceDelete(new File(dbpath));
+			}
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to delete database dir at: " + dbpath, e);
+		}
+		
+	}	
+}
+
+interface DataReader{
+
+	/**
+	 * Must return null to indicate EOF
+	 * 
+	 * @return TCCDMDatum object
+	 * @throws Exception
+	 */
+	public Object read() throws Exception;
+	
+	public void close() throws Exception;
+	
+	/**
+	 * @return The data file being read
+	 */
+	public String getDataFilePath();
+	
+}
+
+class JsonReader implements DataReader{
+	
+	private String filepath;
+	private DatumReader<Object> datumReader;
+	private Decoder decoder;
+	
+	public JsonReader(String dataFilepath, String schemaFilepath) throws Exception{
+		this.filepath = dataFilepath;
+		Parser parser = new Schema.Parser();
+		Schema schema = parser.parse(new File(schemaFilepath));
+		this.datumReader = new SpecificDatumReader<Object>(schema);
+		this.decoder = DecoderFactory.get().jsonDecoder(schema, 
+				new FileInputStream(new File(dataFilepath)));
+	}
+	
+	public Object read() throws Exception{
+		try{
+			return datumReader.read(null, decoder);
+		}catch(EOFException eof){
+			return null;
+		}catch(Exception e){
+			throw e;
+		}
+	}
+	
+	public void close() throws Exception{
+		// Nothing
+	}
+	
+	public String getDataFilePath(){
+		return filepath;
+	}
+	
+}
+
+class BinaryReader implements DataReader{
+	
+	private String filepath;
+	private DataFileReader<Object> dataFileReader;
+	
+	public BinaryReader(String dataFilepath, String schemaFilepath) throws Exception{
+		this.filepath = dataFilepath;
+		Parser parser = new Schema.Parser();
+		Schema schema = parser.parse(new File(schemaFilepath));
+		DatumReader<Object> datumReader = new SpecificDatumReader<Object>(schema);
+		this.dataFileReader = new DataFileReader<>(new File(dataFilepath), datumReader);
+	}
+	
+	public Object read() throws Exception{
+		if(dataFileReader.hasNext()){
+			return dataFileReader.next();
+		}else{
+			return null;
+		}
+	}
+	
+	public void close() throws Exception{
+		dataFileReader.close();
+	}
+	
+	public String getDataFilePath(){
+		return filepath;
+	}
 }

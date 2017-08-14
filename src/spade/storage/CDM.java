@@ -284,6 +284,12 @@ public class CDM extends Kafka {
 					}
 				}
 
+				if(eventType.equals(EventType.EVENT_CLOSE) ||
+						eventType.equals(EventType.EVENT_OPEN)){
+					// Used or WasGeneratedBy
+					properties.put(OPMConstants.OPM, edge.type());
+				}
+
 				Event event = new Event(uuid, 
 						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, predicateObjectPath, 
 						predicateObject2UUID, predicateObject2Path, timestampNanos, null, null, 
@@ -465,7 +471,7 @@ public class CDM extends Kafka {
 	// Argument must be of type process and must be ensured by the caller
 	private AbstractVertex getAgentFromProcess(AbstractVertex process){
 		AbstractVertex agentVertex = new Agent();
-		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT); //Always /dev/audit unless changed in Audit.java
+		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_SYSCALL);
 		for(String agentAnnotation : agentAnnotations){
 			String agentAnnotationValue = process.getAnnotation(agentAnnotation);
 			if(agentAnnotation != null){ // some are optional so check for null
@@ -777,7 +783,11 @@ public class CDM extends Kafka {
 				if(isProcessVertex(incomingVertex)){
 					return publishSubjectAndPrincipal(incomingVertex);
 				}else if(OPMConstants.ARTIFACT.equals(type)){
-					return publishArtifact(incomingVertex);
+					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(incomingVertex.getAnnotation(OPMConstants.SOURCE))){
+						// Ignore until CDM updating with refine edge. TODO
+					}else{
+						return publishArtifact(incomingVertex);
+					}
 				}else{
 					logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
 				}
@@ -903,6 +913,14 @@ public class CDM extends Kafka {
 			AbstractVertex actingVertex = null;
 			for(AbstractEdge edge : edges){
 				if(OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(edge.getAnnotation(OPMConstants.SOURCE))){
+						// Means that this is the new edge: netfilter network -> WDF -> syscall network
+						// TODO update this when this event option added in CDM
+						// Ignoring the edge for now
+						// This edge comes from a netfilter event and has a unique time:eventid combo
+						// Only this (one) edge for this event
+						return;
+					}
 					updateEdge = edge;
 				}
 				if(OPMConstants.USED.equals(edge.getAnnotation(OPMConstants.TYPE))){
@@ -1126,11 +1144,13 @@ public class CDM extends Kafka {
 	 * Returns the CDM object for the source annotation
 	 * Null if none matched
 	 * 
-	 * @param source allowed values: '/dev/audit', '/proc', 'beep'
+	 * @param source allowed values listed in OPMConstants class
 	 * @return InstrumentationSource instance or null
 	 */
 	private InstrumentationSource getInstrumentationSource(String source){
-		if(OPMConstants.SOURCE_AUDIT.equals(source)){
+		if(OPMConstants.SOURCE_AUDIT_SYSCALL.equals(source)
+				|| OPMConstants.SOURCE_AUDIT_NETFILTER.equals(source)){
+			// TODO Use the 'netfilter' source value when added in CDM
 			return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
 		}else if(OPMConstants.SOURCE_PROCFS.equals(source)){	
 			return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
@@ -1365,7 +1385,6 @@ public class CDM extends Kafka {
 			return cdmPermissions;
 		}
 	}
-	
 }
 
 /**

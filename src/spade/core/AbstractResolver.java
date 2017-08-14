@@ -93,7 +93,7 @@ public abstract class AbstractResolver implements Runnable
                     " AND " +
                     OPMConstants.SOURCE +
                     OPERATORS.EQUALS +
-                    OPMConstants.SOURCE_NETFILTER +
+                    OPMConstants.SOURCE_AUDIT_NETFILTER +
                     ", null" +
                     ")";
 

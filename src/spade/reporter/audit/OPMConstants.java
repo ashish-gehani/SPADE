@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 
 /**
@@ -34,6 +35,8 @@ import spade.core.AbstractVertex;
 public class OPMConstants {
 
 	public static final String 
+	
+			OPM = "opm",
 			// General annotations
 			TYPE = "type",
 			AGENT = "Agent",
@@ -47,10 +50,10 @@ public class OPMConstants {
 			SOURCE = "source",
 			
 			// Allowed source annotation values
-			SOURCE_AUDIT = "/dev/audit",
+			SOURCE_AUDIT_SYSCALL = "syscall",
 			SOURCE_PROCFS = "/proc",
 			SOURCE_BEEP = "beep",
-			SOURCE_NETFILTER = "netfilter",
+			SOURCE_AUDIT_NETFILTER = "netfilter",
 			
 			// Agent specific annotations
 			AGENT_EGID = "egid",
@@ -106,6 +109,7 @@ public class OPMConstants {
 			
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",
+			EDGE_FLAGS = "flags",
 			EDGE_MODE = "mode",
 			EDGE_OFFSET = "offset",
 			EDGE_OPERATION = "operation",
@@ -401,5 +405,20 @@ public class OPMConstants {
 		}else{
 			return null;
 		}
+	}
+	
+	public static boolean isNetworkArtifact(AbstractVertex vertex){
+		if(vertex != null){
+			return SUBTYPE_NETWORK_SOCKET.equals(vertex.getAnnotation(ARTIFACT_SUBTYPE));
+		}
+		return false;
+	}
+	
+	public static boolean edgeContainsNetworkArtifact(AbstractEdge edge){
+		if(edge != null){
+			return isNetworkArtifact(edge.getChildVertex())
+					|| isNetworkArtifact(edge.getParentVertex());
+		}
+		return false;
 	}
 }

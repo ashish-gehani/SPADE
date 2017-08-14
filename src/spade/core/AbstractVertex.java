@@ -22,8 +22,10 @@ package spade.core;
 import org.apache.commons.codec.digest.DigestUtils;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is the class from which other vertex classes (e.g., OPM vertices) are
@@ -34,10 +36,14 @@ import java.util.Map;
 public abstract class AbstractVertex implements Serializable {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 4766085487390172973L;
+	/**
      * A map containing the annotations for this vertex.
      */
-    protected Map<String, String> annotations = new HashMap<>();
-    
+    protected Map<String, String> annotations = new TreeMap<>();
+
     /**
      * An integer indicating the depth of the vertex in the graph
      */
@@ -168,10 +174,20 @@ public abstract class AbstractVertex implements Serializable {
         return false;
     }
 
+    /**
+     * Computes a function of the annotations in the vertex.
+     *
+     * This takes less time to compute than bigHashCode() but is less collision-resistant.
+     *
+     * @return An integer-valued hash code.
+     */
     @Override
-    public int hashCode()
-    {
-        return annotations.hashCode();
+    public int hashCode() {
+        final int seed1 = 67;
+        final int seed2 = 3;
+        int hashCode = seed2;
+        hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
+        return hashCode;
     }
 
     @Override

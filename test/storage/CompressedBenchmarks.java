@@ -1,9 +1,4 @@
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.util.Scanner;
-import java.util.zip.DataFormatException;
+package storage;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
@@ -11,7 +6,13 @@ import spade.core.Graph;
 import spade.storage.CompressedStorage;
 import spade.storage.TextFile;
 
-public class Benchmarks {
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.util.Scanner;
+
+public class CompressedBenchmarks
+{
 
 	public static void main(String[] args) {
 		
