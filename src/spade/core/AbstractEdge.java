@@ -19,11 +19,11 @@
  */
 package spade.core;
 
-import org.apache.commons.codec.digest.DigestUtils;
-
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is the class from which other edge classes (e.g., OPM edges) are
@@ -34,9 +34,13 @@ import java.util.Map;
 public abstract class AbstractEdge implements Serializable {
 
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = 5777793863959971982L;
+	/**
      * A map containing the annotations for this edge.
      */
-    protected Map<String, String> annotations = new HashMap<>();
+    protected Map<String, String> annotations = new TreeMap<>();
     private AbstractVertex childVertex;
     private AbstractVertex parentVertex;
 
@@ -192,6 +196,13 @@ public abstract class AbstractEdge implements Serializable {
         return parentVertex.equals(that.parentVertex);
     }
 
+    /**
+     * Computes a function of the annotations in the edge and the vertices it is incident upon.
+     *
+     * This takes less time to compute than bigHashCode() but is less collision-resistant.
+     *
+     * @return An integer-valued hash code.
+     */
     @Override
     public int hashCode()
     {
