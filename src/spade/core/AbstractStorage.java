@@ -29,6 +29,9 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 
 /**
  * This is the base class from which concrete storage types inherit.
@@ -43,19 +46,31 @@ public abstract class AbstractStorage
     public static final String DIRECTION = "direction";
     public static final String MAX_DEPTH = "maxDepth";
     public static final String MAX_LENGTH = "maxLength";
-    public static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    public static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+    public static final String DIRECTION_ANCESTORS = "ancestors";
+    public static final String DIRECTION_DESCENDANTS = "descendants";
 
-    protected static boolean USE_SCAFFOLD = false;
+    public static Scaffold scaffold = null;
+    protected static boolean USE_SCAFFOLD = Boolean.parseBoolean(Settings.getProperty("use_scaffold"));
+    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
+    private static final String scaffoldPath = SPADE_ROOT + Settings.getProperty("scaffold_path");
+    static
+    {
+        if(USE_SCAFFOLD)
+        {
+            scaffold = new Scaffold();
+            if(!scaffold.initialize(scaffoldPath))
+            {
+                Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING, "Scaffold not set!");
+            }
+        }
+    }
 
+    /* For testing purposes only. Set scaffold through Settings file normally. */
     public static void setScaffold(Scaffold scaffold)
     {
         AbstractStorage.scaffold = scaffold;
         USE_SCAFFOLD = true;
     }
-
-    public static Scaffold scaffold;
-
 
     /**
      * The arguments with which this storage was initialized.

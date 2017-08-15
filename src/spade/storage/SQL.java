@@ -165,19 +165,13 @@ public class SQL extends AbstractStorage
                 edgeAnnotations.add(metadata.getColumnLabel(i));
             }
             dbStatement.close();
-            if(USE_SCAFFOLD)
-            {
-                Scaffold scaffold = new Scaffold();
-                scaffold.initialize("/Users/raza/dev/scaffold/");
-                AbstractStorage.setScaffold(scaffold);
-            }
 
             return true;
 
         }
         catch (Exception ex)
         {
-            logger.log(Level.SEVERE, "Unable to initialize storage successfull!", ex);
+            logger.log(Level.SEVERE, "Unable to initialize storage successfully!", ex);
             return false;
         }
     }
