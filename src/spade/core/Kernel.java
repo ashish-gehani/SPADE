@@ -75,6 +75,7 @@ public class Kernel
 	static
     {
 		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
+		System.setProperty("java.util.logging.SimpleFormatter.format", "%1\\$tY-%1\\$tm-%1\\$td %1\\$tH:%1\\$tM:%1\\$tS %4\\$s %2\\$s %5\\$s%6\\$s%n");
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
