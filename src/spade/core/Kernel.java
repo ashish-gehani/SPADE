@@ -304,7 +304,6 @@ public class Kernel
         sslServerSocketFactory = sslContext.getServerSocketFactory();
     }
 
-
     public static void addServerSocket(ServerSocket socket)
     {
         serverSockets.add(socket);
@@ -701,7 +700,6 @@ public class Kernel
         string.append("\t" + ADD_REPORTER_STORAGE_STRING + "\n");
         string.append("\t" + ADD_ANALYZER_SKETCH_STRING + "\n");
         string.append("\t" + ADD_FILTER_TRANSFORMER_STRING + "\n");
-        string.append("\t" + ADD_ANALYZER_SKETCH_STRING + "\n");
         string.append("\t" + REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING + "\n");
         string.append("\t" + REMOVE_FILTER_TRANSFORMER_STRING + "\n");
         string.append("\t" + LIST_STRING + "\n");
@@ -867,7 +865,7 @@ public class Kernel
                 {
                     storage = (AbstractStorage) Class.forName("spade.storage." + className).newInstance();
                 }
-                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
+                catch (Exception ex)
                 {
                     outputStream.println("error: Unable to find/load class");
                     logger.log(Level.SEVERE, null, ex);

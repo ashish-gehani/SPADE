@@ -74,13 +74,11 @@ public class Scaffold extends AbstractQuery
     /**
      * This method is invoked by the kernel to initialize the storage.
      *
-     * @param arguments The arguments with which this storage is to be
-     *                  initialized.
+     * @param directoryPath The directory path of the scaffold storage.
      * @return True if the storage was initialized successfully.
      */
-    public boolean initialize(String arguments)
+    public boolean initialize(String directoryPath)
     {
-        String directoryPath = arguments;
         scaffoldDbEnvironment = null;
         scaffoldDatabase = null;
         try
@@ -100,7 +98,7 @@ public class Scaffold extends AbstractQuery
             return true;
 
         }
-        catch(DatabaseException ex)
+        catch(Exception ex)
         {
             Logger.getLogger(Scaffold.class.getName()).log(Level.WARNING, null, ex);
         }

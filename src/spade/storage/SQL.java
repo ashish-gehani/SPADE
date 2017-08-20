@@ -58,13 +58,6 @@ public abstract class SQL extends AbstractStorage
     protected Logger logger;
     protected int CURSOR_FETCH_SIZE = 0;
 
-    public SQL()
-    {
-        Logger.getLogger(SQL.class.getName());
-        vertexAnnotations = new HashSet<>();
-        edgeAnnotations = new HashSet<>();
-    }
-
     public int getCursorFetchSize()
     {
         return CURSOR_FETCH_SIZE;
@@ -98,86 +91,7 @@ public abstract class SQL extends AbstractStorage
      * @return  returns true if the connection to database has been successful.
      */
     @Override
-    public boolean initialize(String arguments)
-    {
-        // Arguments consist of 4 space-separated tokens: 'driver URL username password'
-        try
-        {
-            String[] tokens = arguments.split("\\s+");
-            String databaseDriver = tokens[0];
-            // for postgres, it is jdbc:postgres://localhost/database_name
-            // for h2, it is jdbc:h2:/tmp/spade.sql
-            String databaseURL = tokens[1];
-            String databaseUsername = tokens[2];
-            String databasePassword = tokens[3];
-
-            Class.forName(databaseDriver).newInstance();
-            dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
-            dbConnection.setAutoCommit(false);
-
-            switch(databaseDriver)
-            {
-                case("org.postgresql.Driver"):
-                    DUPLICATE_COLUMN_ERROR_CODE = "42701";
-                    break;
-                case "org.mysql.Driver":
-                    DUPLICATE_COLUMN_ERROR_CODE = "1060";
-                    break;
-                default:    // org.h2.Driver
-                    DUPLICATE_COLUMN_ERROR_CODE = "42121";
-            }
-
-
-            Statement dbStatement = dbConnection.createStatement();
-            // Create vertex table if it does not already exist
-            String createVertexTable = "CREATE TABLE IF NOT EXISTS "
-                    + VERTEX_TABLE
-                    + "(" + PRIMARY_KEY
-                    + " "
-                    + "UUID PRIMARY KEY, "
-                    + "type VARCHAR(32) NOT NULL "
-                    + ")";
-            dbStatement.execute(createVertexTable);
-            String query = "SELECT * FROM " + VERTEX_TABLE + " WHERE false;";
-            dbStatement.execute(query);
-            ResultSet result = dbStatement.executeQuery(query);
-            ResultSetMetaData metadata = result.getMetaData();
-            int columnCount = metadata.getColumnCount();
-            for(int i = 1; i <= columnCount; i++)
-            {
-                vertexAnnotations.add(metadata.getColumnLabel(i));
-            }
-
-            String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
-                    + EDGE_TABLE
-                    + " (" + PRIMARY_KEY
-                    + " "
-                    + "UUID PRIMARY KEY, "
-                    + "type VARCHAR(32) NOT NULL ,"
-                    + "childVertexHash UUID NOT NULL, "
-                    + "parentVertexHash UUID NOT NULL "
-                    + ")";
-            dbStatement.execute(createEdgeTable);
-            query = "SELECT * FROM " + EDGE_TABLE + " WHERE false;";
-            dbStatement.execute(query);
-            result = dbStatement.executeQuery(query);
-            metadata = result.getMetaData();
-            columnCount = metadata.getColumnCount();
-            for(int i = 1; i <= columnCount; i++)
-            {
-                edgeAnnotations.add(metadata.getColumnLabel(i));
-            }
-            dbStatement.close();
-
-            return true;
-
-        }
-        catch (Exception ex)
-        {
-            logger.log(Level.SEVERE, "Unable to initialize storage successfully!", ex);
-            return false;
-        }
-    }
+    public abstract boolean initialize(String arguments);
 
     /**
      *  closes the connection to the open PostgreSQL database
