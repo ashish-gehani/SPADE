@@ -2,7 +2,7 @@ package spade.query.sql.postgresql;
 
 
 import spade.core.AbstractEdge;
-import spade.storage.SQL;
+import spade.storage.sql.PostgreSQL;
 
 import java.sql.ResultSet;
 import java.util.HashMap;
@@ -16,7 +16,7 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
 /**
  * @author raza
  */
-public class PutEdge extends PostgreSQL<Boolean, AbstractEdge>
+public class PutEdge extends spade.query.sql.postgresql.PostgreSQL<Boolean, AbstractEdge>
 {
 
     @Override
@@ -37,7 +37,7 @@ public class PutEdge extends PostgreSQL<Boolean, AbstractEdge>
         {
             String key = annotation.getKey();
             // Sanitize column name to remove special characters
-            String colName = SQL.sanitizeColumn(key);
+            String colName = spade.storage.sql.PostgreSQL.sanitizeColumn(key);
 
             // Add column if does not already exist
             AddColumn addColumn = new AddColumn();
@@ -62,7 +62,7 @@ public class PutEdge extends PostgreSQL<Boolean, AbstractEdge>
         for(String colValue: annotations.values())
         {
             query.append("'");
-            query.append(SQL.sanitizeString(colValue));
+            query.append(PostgreSQL.sanitizeString(colValue));
             query.append("'");
             i++;
             if(i < annotations.size())

@@ -21,11 +21,9 @@ package spade.core;
 
 import spade.query.scaffold.Scaffold;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
@@ -63,6 +61,11 @@ public abstract class AbstractStorage
                 Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING, "Scaffold not set!");
             }
         }
+    }
+
+    protected boolean insertScaffoldEntry(AbstractEdge incomingEdge)
+    {
+        return scaffold.insertEntry(incomingEdge);
     }
 
     /* For testing purposes only. Set scaffold through Settings file normally. */

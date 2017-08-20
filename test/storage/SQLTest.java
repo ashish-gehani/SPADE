@@ -30,18 +30,18 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 import spade.query.scaffold.Scaffold;
-import spade.storage.SQL;
+import spade.storage.sql.PostgreSQL;
 
 import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * This class is used to test the functions of spade.storage.SQL.java
+ * This class is used to test the functions of spade.storage.sql.PostgreSQL.java
  * @author Raza Ahmad
  */
 class SQLTest {
-    private static final SQL testSQLObject = new SQL();
+    private static final PostgreSQL testSQLObject = new PostgreSQL();
     private static Graph graph = new Graph();
 
 
@@ -175,7 +175,7 @@ class SQLTest {
 
 
     /**
-     * This function tests the functionality of findPaths function in spade.storage.SQL.java
+     * This function tests the functionality of findPaths function in spade.storage.sql.PostgreSQL.java
      */
     @Test
     void findPaths()
@@ -230,7 +230,7 @@ class SQLTest {
     }
 
     /*
-    * This function tests the functionality of getLineage function in spade.storage.SQL.java
+    * This function tests the functionality of getLineage function in spade.storage.sql.PostgreSQL.java
     * */
     @Test
     void getLineage()

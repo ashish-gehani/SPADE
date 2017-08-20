@@ -1,7 +1,7 @@
 package spade.query.sql.postgresql;
 
 import spade.core.AbstractVertex;
-import spade.storage.SQL;
+import spade.storage.sql.PostgreSQL;
 
 import java.sql.ResultSet;
 import java.util.HashMap;
@@ -12,7 +12,7 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
 /**
  * @author raza
  */
-public class PutVertex extends PostgreSQL<Boolean, AbstractVertex>
+public class PutVertex extends spade.query.sql.postgresql.PostgreSQL<Boolean, AbstractVertex>
 {
     @Override
     public Boolean execute(AbstractVertex vertex, Integer limit)
@@ -33,7 +33,7 @@ public class PutVertex extends PostgreSQL<Boolean, AbstractVertex>
         {
             String key = annotation.getKey();
             // Sanitize column name to remove special characters
-            String colName = SQL.sanitizeColumn(key);
+            String colName = PostgreSQL.sanitizeColumn(key);
 
             // Add column if does not already exist
             AddColumn addColumn = new AddColumn();
@@ -56,7 +56,7 @@ public class PutVertex extends PostgreSQL<Boolean, AbstractVertex>
         for(String colValue: annotations.values())
         {
             query.append("'");
-            query.append(SQL.sanitizeString(colValue));
+            query.append(PostgreSQL.sanitizeString(colValue));
             query.append("'");
             i++;
             if(i < annotations.size())

@@ -26,7 +26,6 @@ import spade.core.Cache;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
-import spade.query.scaffold.Scaffold;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -43,21 +42,28 @@ import java.util.logging.Logger;
 
 
 /**
- * Basic SQL storage implementation.
+ * Basic PostgreSQL storage implementation.
  *
  * @author Dawood Tariq, Hasanat Kazmi and Raza Ahmad
  */
-public class SQL extends AbstractStorage
+public abstract class SQL extends AbstractStorage
 {
-    private Connection dbConnection;
-    private HashSet<String> vertexAnnotations;
-    private HashSet<String> edgeAnnotations;
-    private static final boolean ENABLE_SANITIZATION = true;
-    private static final String VERTEX_TABLE = "vertex";
-    private static final String EDGE_TABLE = "edge";
-    private static String DUPLICATE_COLUMN_ERROR_CODE;
-    private static final Logger logger = Logger.getLogger(SQL.class.getName());
-    private int CURSOR_FETCH_SIZE = 0;
+    protected Connection dbConnection;
+    protected HashSet<String> vertexAnnotations;
+    protected HashSet<String> edgeAnnotations;
+    protected boolean ENABLE_SANITIZATION = true;
+    protected static final String VERTEX_TABLE = "vertex";
+    protected static final String EDGE_TABLE = "edge";
+    protected String DUPLICATE_COLUMN_ERROR_CODE;
+    protected Logger logger;
+    protected int CURSOR_FETCH_SIZE = 0;
+
+    public SQL()
+    {
+        Logger.getLogger(SQL.class.getName());
+        vertexAnnotations = new HashSet<>();
+        edgeAnnotations = new HashSet<>();
+    }
 
     public int getCursorFetchSize()
     {
@@ -69,7 +75,7 @@ public class SQL extends AbstractStorage
         CURSOR_FETCH_SIZE = cursorFetchSize;
     }
     /**
-     *  initializes the SQL database and creates the necessary tables
+     *  initializes the PostgreSQL database and creates the necessary tables
      * if not already present. The necessary tables include VERTEX and EDGE tables
      * to store provenance metadata.
      *
@@ -94,9 +100,6 @@ public class SQL extends AbstractStorage
     @Override
     public boolean initialize(String arguments)
     {
-        vertexAnnotations = new HashSet<>();
-        edgeAnnotations = new HashSet<>();
-
         // Arguments consist of 4 space-separated tokens: 'driver URL username password'
         try
         {
@@ -177,27 +180,14 @@ public class SQL extends AbstractStorage
     }
 
     /**
-     *  closes the connection to the open SQL database
+     *  closes the connection to the open PostgreSQL database
      * after committing all pending transactions.
      *
      * @return  returns true if the database connection is successfully closed.
      */
     @Override
-    public boolean shutdown()
-    {
-        try
-        {
-            dbConnection.commit();
-            dbConnection.close();
-            scaffold.shutdown();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.log(Level.SEVERE, null, ex);
-            return false;
-        }
-    }
+    public abstract boolean shutdown();
+
     /**
      *  This function cleans the given column name for all characters
      * other than digits and alphabets.
@@ -208,17 +198,13 @@ public class SQL extends AbstractStorage
      */
     public static String sanitizeColumn(String column)
     {
-        if (ENABLE_SANITIZATION)
-        {
-            column = column.replaceAll("[^a-zA-Z0-9]+", "");
-        }
-
+        column = column.replaceAll("[^a-zA-Z0-9]+", "");
         return column;
     }
 
     public static String sanitizeString(String string)
     {
-        return (ENABLE_SANITIZATION) ? string.replace("'", "\"") : string;
+        return string.replace("'", "\"");
     }
 
     /**
@@ -230,71 +216,7 @@ public class SQL extends AbstractStorage
      *
      * @return  returns true if column creation in the database has been successful.
      */
-    private boolean addColumn(String table_name, String column_name)
-    {
-        // If this column has already been added before for this table, then return
-        if ((table_name.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column_name.toLowerCase()))
-        {
-            return true;
-        }
-        else if ((table_name.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column_name.toLowerCase()))
-        {
-            return true;
-        }
-
-        try
-        {
-            Statement columnStatement = dbConnection.createStatement();
-            String statement = "ALTER TABLE "
-                    + table_name
-                    + " ADD COLUMN \""
-                    + column_name
-                    + "\" VARCHAR(256);";
-            columnStatement.execute(statement);
-            dbConnection.commit();
-            columnStatement.close();
-
-            if (table_name.equalsIgnoreCase(VERTEX_TABLE))
-            {
-                vertexAnnotations.add(column_name);
-            }
-            else if (table_name.equalsIgnoreCase(EDGE_TABLE))
-            {
-                edgeAnnotations.add(column_name);
-            }
-
-            return true;
-        }
-        catch (SQLException ex)
-        {
-            try
-            {
-                dbConnection.rollback();
-            }
-            catch(SQLException e)
-            {
-                logger.log(Level.WARNING, "Duplicate column found in table. Error in roll backing!", e);
-            }
-            if (ex.getSQLState().equals(DUPLICATE_COLUMN_ERROR_CODE))
-            {
-                if (table_name.equalsIgnoreCase(VERTEX_TABLE))
-                {
-                    vertexAnnotations.add(column_name.toLowerCase());
-                }
-                else if (table_name.equalsIgnoreCase(EDGE_TABLE))
-                {
-                    edgeAnnotations.add(column_name.toLowerCase());
-                }
-                return true;
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.log(Level.SEVERE, null, ex);
-            return false;
-        }
-        return false;
-    }
+    protected abstract boolean addColumn(String table_name, String column_name);
 
 
     /**
@@ -310,55 +232,55 @@ public class SQL extends AbstractStorage
     public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
         if(!Cache.isPresent(childVertexHash) || !Cache.isPresent(parentVertexHash))
-            return null;
+        return null;
 
-        AbstractEdge edge = null;
+    AbstractEdge edge = null;
         try
+    {
+        dbConnection.commit();
+        AbstractVertex childVertex = getVertex(childVertexHash);
+        AbstractVertex parentVertex = getVertex(parentVertexHash);
+
+        String query = "SELECT * FROM " +
+                EDGE_TABLE +
+                " WHERE childVertexHash = " +
+                childVertexHash +
+                " AND parentVertexHash = " +
+                parentVertexHash;
+        Statement vertexStatement = dbConnection.createStatement();
+        ResultSet result = vertexStatement.executeQuery(query);
+        ResultSetMetaData metadata = result.getMetaData();
+        int columnCount = metadata.getColumnCount();
+
+        Map<Integer, String> columnLabels = new HashMap<>();
+        for (int i = 1; i <= columnCount; i++)
         {
-            dbConnection.commit();
-            AbstractVertex childVertex = getVertex(childVertexHash);
-            AbstractVertex parentVertex = getVertex(parentVertexHash);
+            columnLabels.put(i, metadata.getColumnName(i));
+        }
 
-            String query = "SELECT * FROM " +
-                    EDGE_TABLE +
-                    " WHERE childVertexHash = " +
-                    childVertexHash +
-                    " AND parentVertexHash = " +
-                    parentVertexHash;
-            Statement vertexStatement = dbConnection.createStatement();
-            ResultSet result = vertexStatement.executeQuery(query);
-            ResultSetMetaData metadata = result.getMetaData();
-            int columnCount = metadata.getColumnCount();
-
-            Map<Integer, String> columnLabels = new HashMap<>();
+        if(result.next())
+        {
+            edge = new Edge(childVertex, parentVertex);
             for (int i = 1; i <= columnCount; i++)
             {
-                columnLabels.put(i, metadata.getColumnName(i));
-            }
-
-            if(result.next())
-            {
-                edge = new Edge(childVertex, parentVertex);
-                for (int i = 1; i <= columnCount; i++)
+                String colName = columnLabels.get(i);
+                if (colName != null)
                 {
-                    String colName = columnLabels.get(i);
-                    if (colName != null)
-                    {
-                        edge.addAnnotation(colName, result.getString(i));
-                    }
+                    edge.addAnnotation(colName, result.getString(i));
                 }
             }
+        }
 
-        }
+    }
         catch (Exception ex)
-        {
-            logger.log(Level.SEVERE, null, ex);
-            return null;
-        }
+    {
+        logger.log(Level.SEVERE, null, ex);
+        return null;
+    }
 
 
         return edge;
-    }
+}
 
     /**
      * This function queries the underlying storage and retrieves the vertex
@@ -512,94 +434,7 @@ public class SQL extends AbstractStorage
      * not successful if the edge is already present in the storage.
      */
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge)
-    {
-        String edgeHash = incomingEdge.bigHashCode();
-        if(Cache.isPresent(edgeHash))
-            return true;
-
-        String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
-        String parentVertexHash = incomingEdge.getParentVertex().bigHashCode();
-
-        // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder(200);
-        insertStringBuilder.append("INSERT INTO ");
-        insertStringBuilder.append(EDGE_TABLE);
-        insertStringBuilder.append(" (");
-        insertStringBuilder.append(PRIMARY_KEY);
-        insertStringBuilder.append(", ");
-        if(!incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY))
-        {
-            insertStringBuilder.append(CHILD_VERTEX_KEY);
-            insertStringBuilder.append(", ");
-        }
-        if(!incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY))
-        {
-            insertStringBuilder.append(PARENT_VERTEX_KEY);
-            insertStringBuilder.append(", ");
-        }
-        for (String annotationKey : incomingEdge.getAnnotations().keySet())
-        {
-            // Sanitize column name to remove special characters
-            String newAnnotationKey = sanitizeColumn(annotationKey);
-
-            // As the annotation keys are being iterated, add them as new
-            // columns to the table_name if they do not already exist
-            addColumn(EDGE_TABLE, newAnnotationKey);
-
-            insertStringBuilder.append("\"");
-            insertStringBuilder.append(newAnnotationKey);
-            insertStringBuilder.append("\"");
-            insertStringBuilder.append(", ");
-        }
-
-        // Eliminate the last 2 characters from the string (", ") and begin adding values
-        String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
-        insertStringBuilder = new StringBuilder(insertString + ") VALUES ('");
-        // Add the hash code, and source and destination vertex Ids
-        insertStringBuilder.append(edgeHash);
-        insertStringBuilder.append("', ");
-        if(!incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY))
-        {
-            insertStringBuilder.append("'");
-            insertStringBuilder.append(childVertexHash);
-            insertStringBuilder.append("', ");
-        }
-        if(!incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY))
-        {
-            insertStringBuilder.append("'");
-            insertStringBuilder.append(parentVertexHash);
-            insertStringBuilder.append("', ");
-        }
-
-        // Add the annotation values
-        for (String annotationKey : incomingEdge.getAnnotations().keySet())
-        {
-            String value = (ENABLE_SANITIZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"") : incomingEdge.getAnnotation(annotationKey);
-
-            insertStringBuilder.append("'");
-            insertStringBuilder.append(value);
-            insertStringBuilder.append("', ");
-        }
-        insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
-
-        try
-        {
-            Statement s = dbConnection.createStatement();
-            s.execute(insertString);
-            if(USE_SCAFFOLD)
-            {
-                scaffold.insertEntry(incomingEdge);
-            }
-            s.close();
-        }
-        catch (Exception e)
-        {
-            logger.log(Level.SEVERE, null, e);
-        }
-
-        return true;
-    }
+    public abstract boolean putEdge(AbstractEdge incomingEdge);
 
     /**
      * This function inserts the given vertex into the underlying storage(s) and
@@ -610,92 +445,10 @@ public class SQL extends AbstractStorage
      * not successful if the vertex is already present in the storage.
      */
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex)
-    {
-        String vertexHash = incomingVertex.bigHashCode();
-        if(Cache.isPresent(vertexHash))
-            return true;
-
-        // Use StringBuilder to build the SQL insert statement
-        StringBuilder insertStringBuilder = new StringBuilder( 100);
-        insertStringBuilder.append("INSERT INTO ");
-        insertStringBuilder.append(VERTEX_TABLE);
-        insertStringBuilder.append(" (");
-        insertStringBuilder.append(PRIMARY_KEY);
-        insertStringBuilder.append(", ");
-        for (String annotationKey : incomingVertex.getAnnotations().keySet())
-        {
-            // Sanitize column name to remove special characters
-            String newAnnotationKey = sanitizeColumn(annotationKey);
-
-            // As the annotation keys are being iterated, add them as new
-            // columns to the table if they do not already exist
-            addColumn(VERTEX_TABLE, newAnnotationKey);
-
-            insertStringBuilder.append("\"");
-            insertStringBuilder.append(newAnnotationKey);
-            insertStringBuilder.append("\"");
-            insertStringBuilder.append(", ");
-        }
-
-        // Eliminate the last 2 characters from the string (", ") and begin adding values
-        String insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2);
-        insertStringBuilder = new StringBuilder(insertString + ") VALUES (");
-
-        // Add the hash code primary key
-        insertStringBuilder.append("'");
-        insertStringBuilder.append(vertexHash);
-        insertStringBuilder.append("', ");
-
-        // Add the annotation values
-        for (String annotationKey : incomingVertex.getAnnotations().keySet())
-        {
-            String value = (ENABLE_SANITIZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"") :
-                    incomingVertex.getAnnotation(annotationKey);
-
-            insertStringBuilder.append("'");
-            insertStringBuilder.append(value);
-            insertStringBuilder.append("', ");
-        }
-        insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
-
-        try
-        {
-            dbConnection.commit();
-            Statement s = dbConnection.createStatement();
-            s.execute(insertString);
-            s.close();
-        }
-        catch (Exception e)
-        {
-            logger.log(Level.SEVERE, null, e);
-            return false;
-        }
-
-        // cache the vertex successfully inserted in the storage
-        Cache.addItem(incomingVertex);
-        return true;
-    }
+    public abstract boolean putVertex(AbstractVertex incomingVertex);
 
     @Override
-    public ResultSet executeQuery(String query)
-    {
-        ResultSet result = null;
-        try
-        {
-            dbConnection.commit();
-            Statement queryStatement = dbConnection.createStatement();
-            if(CURSOR_FETCH_SIZE > 0)
-                queryStatement.setFetchSize(CURSOR_FETCH_SIZE);
-            result = queryStatement.executeQuery(query);
-        }
-        catch (SQLException ex)
-        {
-            logger.log(Level.SEVERE, "SQL query execution not successful!", ex);
-        }
-
-        return result;
-    }
+    public abstract ResultSet executeQuery(String query);
 
     public boolean vertexAnnotationIsPresent(String annotation)
     {

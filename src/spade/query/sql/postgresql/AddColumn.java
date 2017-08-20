@@ -1,13 +1,13 @@
 package spade.query.sql.postgresql;
 
-import spade.storage.SQL;
+import spade.storage.sql.PostgreSQL;
 
 import java.sql.ResultSet;
 import java.util.Map;
 /**
  * @author raza
  */
-public class AddColumn extends PostgreSQL<Boolean, Map<String, String>>
+public class AddColumn extends spade.query.sql.postgresql.PostgreSQL<Boolean, Map<String, String>>
 {
 
     @Override
@@ -16,7 +16,7 @@ public class AddColumn extends PostgreSQL<Boolean, Map<String, String>>
         Map.Entry<String, String> entry = parameters.entrySet().iterator().next();
         String tableName = entry.getKey();
         String colName = entry.getValue();
-        SQL postgresqlStorage = (SQL) currentStorage;
+        PostgreSQL postgresqlStorage = (PostgreSQL) currentStorage;
         // Check if this column already exists for this table
         if ((tableName.equalsIgnoreCase(VERTEX_TABLE)) && postgresqlStorage.vertexAnnotationIsPresent(colName))
             return true;
