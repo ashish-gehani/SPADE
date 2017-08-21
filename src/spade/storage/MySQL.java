@@ -1,110 +1,73 @@
-/*
- --------------------------------------------------------------------------------
- SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2016 SRI International
+package spade.storage;
 
- This program is free software: you can redistribute it and/or
- modify it under the terms of the GNU General Public License as
- published by the Free Software Foundation, either version 3 of the
- License, or (at your option) any later version.
 
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/>.
- --------------------------------------------------------------------------------
- */
-package spade.storage.sql;
-
+import org.apache.commons.io.FileUtils;
 import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
-import spade.core.Edge;
-import spade.core.Graph;
-import spade.core.Vertex;
-import spade.storage.SQL;
 
-import java.sql.Connection;
+import java.io.File;
+import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 
-/**
- * Basic PostgreSQL storage implementation.
- *
- * @author Dawood Tariq, Hasanat Kazmi and Raza Ahmad
- */
-public class PostgreSQL extends SQL
+public class MySQL extends SQL
 {
-    public PostgreSQL()
+    public MySQL()
     {
-        DUPLICATE_COLUMN_ERROR_CODE = "42701";
+        DUPLICATE_COLUMN_ERROR_CODE = "1060";
+        logger = Logger.getLogger(MySQL.class.getName());
+        String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.MySQL.config";
+        try
+        {
+            databaseDriver = FileUtils.readFileToString(new File(configFile)).trim();
+        }
+        catch(IOException e)
+        {
+            databaseDriver = "org.mysql.Driver";
+        }
     }
 
     /**
-     *  initializes the PostgreSQL database and creates the necessary tables
+     * initializes the MySQL database and creates the necessary tables
      * if not already present. The necessary tables include VERTEX and EDGE tables
      * to store provenance metadata.
      *
      * @param arguments A string of 4 space-separated tokens used for making a successful
      *                  connection to the database, of the following format:
      *                  'driver_name database_URL username password'
-     *
+     *                  <p>
      *                  Example argument strings are as follows:
-     *                  *H2*
-     *                  org.h2.Driver jdbc:h2:/tmp/spade.sql sa null
-     *                  *PostgreSQL*
-     *                  org.postgresql.Driver jdbc:postgres://localhost/spade_pg root 12345
-     *
+     *                  TODO:
+     *                  *MySQL*
+     *                  ??
+     *                  <p>
      *                  Points to note:
-     *                  1. The database driver jar should be present in lib/ in the project's root.
-     *                  2. For external databases like MySQL or PostgreSQL, a stand-alone database
+     *                  1. For external databases like MySQL or PostgreSQL, a stand-alone database
      *                  version needs to be installed and executed in parallel, and independent of the
      *                  SPADE kernel.
-     *
-     * @return  returns true if the connection to database has been successful.
+     * @return returns true if the connection to database has been successful.
      */
     @Override
     public boolean initialize(String arguments)
     {
-        vertexAnnotations = new HashSet<>();
-        edgeAnnotations = new HashSet<>();
-
-        // Arguments consist of 4 space-separated tokens: 'driver URL username password'
+        if(!super.initialize(arguments))
+            return false;
         try
         {
-            String[] tokens = arguments.split("\\s+");
-            String databaseDriver = tokens[0];
-            // for postgres, it is jdbc:postgres://localhost/database_name
-            // for h2, it is jdbc:h2:/tmp/spade.sql
-            String databaseURL = tokens[1];
-            String databaseUsername = tokens[2];
-            String databasePassword = tokens[3];
-
-            Class.forName(databaseDriver).newInstance();
-            dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
-            dbConnection.setAutoCommit(false);
-
             Statement dbStatement = dbConnection.createStatement();
             // Create vertex table if it does not already exist
             String createVertexTable = "CREATE TABLE IF NOT EXISTS "
-                    + VERTEX_TABLE
-                    + "(" + PRIMARY_KEY
-                    + " "
-                    + "UUID PRIMARY KEY, "
+                    + VERTEX_TABLE + "("
+                    + PRIMARY_KEY + " VARCHAR(32) PRIMARY KEY, "
                     + "type VARCHAR(32) NOT NULL "
                     + ")";
             dbStatement.execute(createVertexTable);
@@ -119,13 +82,11 @@ public class PostgreSQL extends SQL
             }
 
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
-                    + EDGE_TABLE
-                    + " (" + PRIMARY_KEY
-                    + " "
-                    + "UUID PRIMARY KEY, "
+                    + EDGE_TABLE + " ("
+                    + PRIMARY_KEY + " VARCHAR(32) PRIMARY KEY, "
                     + "type VARCHAR(32) NOT NULL ,"
-                    + "childVertexHash UUID NOT NULL, "
-                    + "parentVertexHash UUID NOT NULL "
+                    + "childVertexHash VARCHAR(32) NOT NULL, "
+                    + "parentVertexHash VARCHAR(32) NOT NULL "
                     + ")";
             dbStatement.execute(createEdgeTable);
             query = "SELECT * FROM " + EDGE_TABLE + " WHERE false;";
@@ -150,10 +111,10 @@ public class PostgreSQL extends SQL
     }
 
     /**
-     *  closes the connection to the open PostgreSQL database
+     * closes the connection to the open MySQL database
      * after committing all pending transactions.
      *
-     * @return  returns true if the database connection is successfully closed.
+     * @return returns true if the database connection is successfully closed.
      */
     @Override
     public boolean shutdown()
@@ -172,14 +133,14 @@ public class PostgreSQL extends SQL
     }
 
     /**
-     *  adds a new column in the database table,
+     * adds a new column in the database table,
      * if it is not already present.
      *
-     * @param table_name The name of table in database to add column to.
+     * @param table_name  The name of table in database to add column to.
      * @param column_name The name of column to add in the table.
-     *
-     * @return  returns true if column creation in the database has been successful.
+     * @return returns true if column creation in the database has been successful.
      */
+    @Override
     protected boolean addColumn(String table_name, String column_name)
     {
         // If this column has already been added before for this table, then return
@@ -197,9 +158,9 @@ public class PostgreSQL extends SQL
             Statement columnStatement = dbConnection.createStatement();
             String statement = "ALTER TABLE "
                     + table_name
-                    + " ADD COLUMN \""
+                    + " ADD COLUMN `"
                     + column_name
-                    + "\" VARCHAR(256);";
+                    + "` VARCHAR(256);";
             columnStatement.execute(statement);
             dbConnection.commit();
             columnStatement.close();
@@ -217,14 +178,6 @@ public class PostgreSQL extends SQL
         }
         catch (SQLException ex)
         {
-            try
-            {
-                dbConnection.rollback();
-            }
-            catch(SQLException e)
-            {
-                logger.log(Level.WARNING, "Duplicate column found in table. Error in roll backing!", e);
-            }
             if (ex.getSQLState().equals(DUPLICATE_COLUMN_ERROR_CODE))
             {
                 if (table_name.equalsIgnoreCase(VERTEX_TABLE))
@@ -246,7 +199,6 @@ public class PostgreSQL extends SQL
         return false;
     }
 
-
     /**
      * This function inserts the given edge into the underlying storage(s) and
      * updates the cache(s) accordingly.
@@ -265,7 +217,7 @@ public class PostgreSQL extends SQL
         String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
         String parentVertexHash = incomingEdge.getParentVertex().bigHashCode();
 
-        // Use StringBuilder to build the PostgreSQL insert statement
+        // Use StringBuilder to build the MySQL insert statement
         StringBuilder insertStringBuilder = new StringBuilder(200);
         insertStringBuilder.append("INSERT INTO ");
         insertStringBuilder.append(EDGE_TABLE);
@@ -297,9 +249,9 @@ public class PostgreSQL extends SQL
             // columns to the table_name if they do not already exist
             addColumn(EDGE_TABLE, newAnnotationKey);
 
-            insertStringBuilder.append("\"");
+            insertStringBuilder.append("`");
             insertStringBuilder.append(newAnnotationKey);
-            insertStringBuilder.append("\"");
+            insertStringBuilder.append("`");
             insertStringBuilder.append(", ");
         }
 
@@ -367,7 +319,7 @@ public class PostgreSQL extends SQL
         if(Cache.isPresent(vertexHash))
             return true;
 
-        // Use StringBuilder to build the PostgreSQL insert statement
+        // Use StringBuilder to build the MySQL insert statement
         StringBuilder insertStringBuilder = new StringBuilder( 100);
         insertStringBuilder.append("INSERT INTO ");
         insertStringBuilder.append(VERTEX_TABLE);
@@ -389,9 +341,9 @@ public class PostgreSQL extends SQL
             // columns to the table if they do not already exist
             addColumn(VERTEX_TABLE, newAnnotationKey);
 
-            insertStringBuilder.append("\"");
+            insertStringBuilder.append("`");
             insertStringBuilder.append(newAnnotationKey);
-            insertStringBuilder.append("\"");
+            insertStringBuilder.append("`");
             insertStringBuilder.append(", ");
         }
 
@@ -431,6 +383,8 @@ public class PostgreSQL extends SQL
 
         // cache the vertex successfully inserted in the storage
         Cache.addItem(incomingVertex);
+
+
         return true;
     }
 
@@ -448,7 +402,7 @@ public class PostgreSQL extends SQL
         }
         catch (SQLException ex)
         {
-            logger.log(Level.SEVERE, "PostgreSQL query execution not successful!", ex);
+        logger.log(Level.SEVERE, "MySQL query execution not successful!", ex);
         }
 
         return result;

@@ -24,7 +24,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import static spade.core.AbstractQuery.USE_SCAFFOLD;
+import static spade.core.AbstractStorage.USE_SCAFFOLD;
 import static spade.core.AbstractStorage.scaffold;
 
 /**
@@ -228,6 +228,7 @@ public class CommandLine extends AbstractAnalyzer
                         catch(Exception ex)
                         {
                             Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error executing query request!", ex);
+                            queryOutputStream.writeObject("Error");
                         }
                     }
 

@@ -99,6 +99,7 @@ public class CommandLine
         catch (NumberFormatException | IOException ex)
         {
             System.err.println(CommandLine.class.getName() + " Error connecting to SPADE! " + ex);
+            System.err.println("Make sure that the CommandLine analyzer is running.");
             System.exit(-1);
         }
 
@@ -160,6 +161,11 @@ public class CommandLine
                         long start_time = System.currentTimeMillis();
                         clientOutputStream.println(query);
                         String returnType = (String) clientInputStream.readObject();
+                        if(returnType.equalsIgnoreCase("error"))
+                        {
+                            System.out.println("Error executing query request!");
+                            continue;
+                        }
                         String resultString = (String) clientInputStream.readObject();
                         long elapsed_time = System.currentTimeMillis() - start_time;
                         System.out.println("Time taken for query: " + elapsed_time + " ms");

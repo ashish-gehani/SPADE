@@ -27,7 +27,7 @@ public abstract class AbstractAnalyzer
     public String QUERY_PORT;
     protected AbstractResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
-    protected boolean USE_TRANSFORMER = false;
+    protected boolean USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
     private static Map<String, List<String>> functionToClassMap;
     protected static boolean EXPORT_RESULT = false;
 

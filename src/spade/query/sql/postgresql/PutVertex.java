@@ -1,7 +1,7 @@
 package spade.query.sql.postgresql;
 
 import spade.core.AbstractVertex;
-import spade.storage.sql.PostgreSQL;
+import spade.storage.PostgreSQL;
 
 import java.sql.ResultSet;
 import java.util.HashMap;

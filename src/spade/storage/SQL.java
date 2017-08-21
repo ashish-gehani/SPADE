@@ -27,6 +27,7 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -39,6 +40,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static spade.core.Kernel.DB_ROOT;
 
 
 /**
@@ -57,6 +60,14 @@ public abstract class SQL extends AbstractStorage
     protected String DUPLICATE_COLUMN_ERROR_CODE;
     protected Logger logger;
     protected int CURSOR_FETCH_SIZE = 0;
+    protected String databaseDriver;
+
+    public SQL()
+    {
+        logger = Logger.getLogger(SQL.class.getName());
+        vertexAnnotations = new HashSet<>();
+        edgeAnnotations = new HashSet<>();
+    }
 
     public int getCursorFetchSize()
     {
@@ -91,7 +102,33 @@ public abstract class SQL extends AbstractStorage
      * @return  returns true if the connection to database has been successful.
      */
     @Override
-    public abstract boolean initialize(String arguments);
+    public boolean initialize(String arguments)
+    {
+        try
+        {
+            // Arguments consist of 3 space-separated tokens: 'URL username password'
+            String[] tokens = arguments.split("\\s+");
+            String databaseURL = tokens[0];
+            File f = new File(databaseURL);
+            if(!f.isAbsolute())
+            {
+                databaseURL = DB_ROOT + databaseURL;
+            }
+            String databaseUsername = tokens[1];
+            String databasePassword = tokens[2];
+
+            Class.forName(databaseDriver).newInstance();
+            dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
+            dbConnection.setAutoCommit(false);
+        }
+        catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Unable to create SQL class instance!", ex);
+            return false;
+        }
+
+        return true;
+    }
 
     /**
      *  closes the connection to the open PostgreSQL database

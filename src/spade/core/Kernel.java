@@ -78,9 +78,10 @@ public class Kernel
 		System.setProperty("java.util.logging.SimpleFormatter.format", "%1\\$tY-%1\\$tm-%1\\$td %1\\$tH:%1\\$tM:%1\\$tS %4\\$s %2\\$s %5\\$s%6\\$s%n");
 	}
 
-    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
+    public static final String SPADE_ROOT = Settings.getProperty("spade_root");
+    public static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
 
+    public static final String DB_ROOT = SPADE_ROOT + FILE_SEPARATOR + "db";
     /**
      * Path to log files including the prefix.
      */
@@ -89,7 +90,7 @@ public class Kernel
     /**
      * Path to configuration files.
      */
-     private static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
+     public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).

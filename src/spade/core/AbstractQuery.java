@@ -19,8 +19,6 @@ public abstract class AbstractQuery<R, P>
     protected static final Integer DEFAULT_MIN_LIMIT = 1;
     protected static final Integer DEFAULT_MAX_LIMIT = 100;
 
-    public static final boolean USE_SCAFFOLD = true;
-
     protected static AbstractStorage currentStorage;
     protected static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     protected static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");

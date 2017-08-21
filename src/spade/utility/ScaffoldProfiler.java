@@ -6,7 +6,7 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 import spade.query.scaffold.Scaffold;
-import spade.storage.sql.PostgreSQL;
+import spade.storage.PostgreSQL;
 
 import java.io.BufferedWriter;
 import java.io.File;

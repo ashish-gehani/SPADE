@@ -96,9 +96,7 @@ analyzers:
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/analyzer/*.java
 	@echo "--- Built Analyzers ---"
 storages:
-	find src/spade/storage -name "*.java" > storage.sources
-	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build @storage.sources
-	rm storage.sources
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/storage/*.java
 	@echo "--- Built Storages ---"
 utilities:
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/utility/*.java

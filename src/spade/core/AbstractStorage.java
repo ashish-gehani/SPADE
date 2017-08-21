@@ -30,6 +30,8 @@ import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.Kernel.SPADE_ROOT;
+
 
 /**
  * This is the base class from which concrete storage types inherit.
@@ -48,8 +50,7 @@ public abstract class AbstractStorage
     public static final String DIRECTION_DESCENDANTS = "descendants";
 
     public static Scaffold scaffold = null;
-    protected static boolean USE_SCAFFOLD = Boolean.parseBoolean(Settings.getProperty("use_scaffold"));
-    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
+    public static boolean USE_SCAFFOLD = Boolean.parseBoolean(Settings.getProperty("use_scaffold"));
     private static final String scaffoldPath = SPADE_ROOT + Settings.getProperty("scaffold_path");
     static
     {

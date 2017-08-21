@@ -1,6 +1,6 @@
 package spade.query.sql.postgresql;
 
-import spade.storage.sql.PostgreSQL;
+import spade.storage.PostgreSQL;
 
 import java.sql.ResultSet;
 import java.util.Map;
