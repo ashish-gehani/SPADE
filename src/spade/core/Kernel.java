@@ -124,6 +124,20 @@ public class Kernel
      * Set of storages active on the local SPADE instance.
      */
     public static Set<AbstractStorage> storages;
+
+    public static AbstractStorage getStorage(String storageName)
+    {
+        for(AbstractStorage storage : storages)
+        {
+            // Search for the given storage in the storages set.
+            if(storage.getClass().getSimpleName().equalsIgnoreCase(storageName))
+            {
+                return storage;
+            }
+        }
+
+        return null;
+    }
     /**
      * Set of filters active on the local SPADE instance.
      */

@@ -33,34 +33,35 @@ import static spade.core.AbstractStorage.scaffold;
 public class CommandLine extends AbstractAnalyzer
 {
     // Strings for new query format
-    public enum DigQueryCommands
+    public enum QueryCommands
     {
-        QUERY_CONSTRAINT_KEY("constraint: "),
-        QUERY_CONSTRAINT_VALUE("<constraint_name> = <key> <operator> <value>"),
-        QUERY_ARITHMETIC_OPERATORS_KEY("arithmetic operators: "),
-        QUERY_ARITHMETIC_OPERATORS_VALUE("=|>|<|>=|<="),
-        QUERY_BOOLEAN_OPERATORS_KEY("boolean operators: "),
-        QUERY_BOOLEAN_OPERATORS_VALUE("AND|OR"),
-        QUERY_LIMIT_KEY("result limit: "),
-        QUERY_LIMIT_VALUE("LIMIT n"),
         QUERY_FUNCTION_LIST_KEY("available functions:"),
-        QUERY_FUNCTION_LIST_VALUE("GetVertex | GetEdge | GetChildren | GetParents | GetLineage | GetPaths"),
-        QUERY_FUNCTION_ARGUMENTS_KEY("argument: "),
-        QUERY_FUNCTION_ARGUMENTS_VALUE("<constraint_name> | (<constraint_name> <boolean_operator> <constraint_name>)+"),
+        QUERY_FUNCTION_LIST_VALUE("\t GetVertex | GetEdge | GetChildren | GetParents | GetLineage | GetPaths"),
+        QUERY_FUNCTION_GET_VERTEX("\t GetVertex(expression, limit)"),
+        QUERY_FUNCTION_GET_EDGE("\t GetEdge(expression, limit)"),
+        QUERY_FUNCTION_GET_CHILDREN("\t GetChildren(expression, limit)"),
+        QUERY_FUNCTION_GET_PARENTS("\t GetParents(expression, limit)"),
+        QUERY_FUNCTION_GET_LINEAGE("\t GetLineage(expression, limit, direction, maxDepth)"),
+        QUERY_FUNCTION_GET_PATHS("\t GetPaths(expression, limit, direction, maxLength)"),
 
-        QUERY_FUNCTION_GET_VERTEX("GetVertex(<arguments, limit>)"),
-        QUERY_FUNCTION_GET_EDGE("GetEdge(<arguments, limit>)"),
-        QUERY_FUNCTION_GET_CHILDREN("GetVertex(<arguments, limit>)"),
-        QUERY_FUNCTION_GET_PARENTS("GetParents(<arguments, limit>)"),
-        QUERY_FUNCTION_GET_LINEAGE("GetLineage(<arguments, limit, direction, maxDepth>)"),
-        QUERY_FUNCTION_GET_PATHS("GetPaths(<arguments, limit, direction, maxLength>)"),
-        QUERY_FUNCTION_EXPORT("export > /path/to/file/for/next/query"),
+        QUERY_FUNCTION_EXPRESSION_KEY("expression: "),
+        QUERY_FUNCTION_EXPRESSION_VALUE("\t <constraint_name> [<boolean_operator> <constraint_name> ...]"),
+        QUERY_CONSTRAINT_KEY("constraint creation: "),
+        QUERY_CONSTRAINT_VALUE("\t <constraint_name> = <key> <arithmetic_operator> <value>"),
+        QUERY_ARITHMETIC_OPERATORS_KEY("arithmetic operators: "),
+        QUERY_ARITHMETIC_OPERATORS_VALUE("\t = | > | < | >= | <="),
+        QUERY_BOOLEAN_OPERATORS_KEY("boolean operators: "),
+        QUERY_BOOLEAN_OPERATORS_VALUE("\t AND | OR"),
+        QUERY_DIRECTION_KEY("direction: "),
+        QUERY_DIRECTION_VALUE("\t a[ncestors] | d[escendants]"),
+
+        QUERY_FUNCTION_EXPORT("export > <path_to_file_for_next_query>"),
         QUERY_LIST_CONSTRAINTS("list constraints"),
         QUERY_EXIT("exit");
 
         public String value;
 
-        DigQueryCommands(String value)
+        QueryCommands(String value)
         {
             this.value = value;
         }
@@ -122,7 +123,7 @@ public class CommandLine extends AbstractAnalyzer
     {
         StringBuilder query = new StringBuilder(500);
         query.append("Available Commands: \n");
-        for(DigQueryCommands command : DigQueryCommands.values())
+        for(QueryCommands command : QueryCommands.values())
         {
             query.append("\t");
             query.append(command.value);
@@ -153,7 +154,7 @@ public class CommandLine extends AbstractAnalyzer
                 {
                     // Commands read from the input stream and executed.
                     String line = queryInputStream.readLine();
-                    if(line.equalsIgnoreCase(DigQueryCommands.QUERY_EXIT.value))
+                    if(line.equalsIgnoreCase(QueryCommands.QUERY_EXIT.value))
                     {
                         break;
                     }
@@ -277,8 +278,8 @@ public class CommandLine extends AbstractAnalyzer
                 // Step2: get the argument expression(s), split by the boolean operators
                 // The format for one argument is:
                 // <key> ARITHMETIC_OPERATOR <value> [BOOLEAN_OPERATOR]
-                Pattern constraints_pattern = Pattern.compile("((?i)(?<=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + "))|" +
-                        "((?i)(?=(" + DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value + "))))");
+                Pattern constraints_pattern = Pattern.compile("((?i)(?<=(" + BOOLEAN_OPERATORS + "))|" +
+                        "((?i)(?=(" + BOOLEAN_OPERATORS + "))))");
                 String[] expressions = constraints_pattern.split(constraints);
 
                 // extract the key value pairs
@@ -286,8 +287,8 @@ public class CommandLine extends AbstractAnalyzer
                 while(i < expressions.length)
                 {
                     String expression = expressions[i];
-                    Pattern expression_pattern = Pattern.compile("((?<=(" + DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value + "))|" +
-                            "(?=(" + DigQueryCommands.QUERY_ARITHMETIC_OPERATORS_VALUE.value + ")))");
+                    Pattern expression_pattern = Pattern.compile("((?<=(" + ARITHMETIC_OPERATORS + "))|" +
+                            "(?=(" + ARITHMETIC_OPERATORS + ")))");
                     String[] operands = expression_pattern.split(expression);
                     String key = operands[0].trim();
                     String operator = operands[1].trim();
@@ -299,7 +300,7 @@ public class CommandLine extends AbstractAnalyzer
                     i++;
                     // if boolean operator is present
                     if(i < expressions.length &&
-                            DigQueryCommands.QUERY_BOOLEAN_OPERATORS_VALUE.value.toLowerCase().contains(expressions[i].toLowerCase()))
+                            BOOLEAN_OPERATORS.toLowerCase().contains(expressions[i].toLowerCase()))
                     {
                         String bool_operator = expressions[i].trim();
                         values.add(bool_operator);

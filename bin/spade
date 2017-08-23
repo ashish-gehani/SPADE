@@ -23,7 +23,7 @@
 
 print_help ()
 {
-	echo "spade start | stop | debug | control | dig | help"
+	echo "spade start | stop | debug | control | query | help"
 	echo ""
 	echo "'spade start' : Starts the SPADE daemon"
 	echo "'spade stop' : Stop the SPADE daemon after buffers empty"

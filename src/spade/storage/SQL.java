@@ -37,6 +37,7 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,7 +46,7 @@ import static spade.core.Kernel.DB_ROOT;
 
 
 /**
- * Basic PostgreSQL storage implementation.
+ * Basic SQL storage implementation.
  *
  * @author Dawood Tariq, Hasanat Kazmi and Raza Ahmad
  */
@@ -60,7 +61,7 @@ public abstract class SQL extends AbstractStorage
     protected String DUPLICATE_COLUMN_ERROR_CODE;
     protected Logger logger;
     protected int CURSOR_FETCH_SIZE = 0;
-    protected String databaseDriver;
+    protected Properties databaseConfigs = new Properties();
 
     public SQL()
     {
@@ -79,19 +80,17 @@ public abstract class SQL extends AbstractStorage
         CURSOR_FETCH_SIZE = cursorFetchSize;
     }
     /**
-     *  initializes the PostgreSQL database and creates the necessary tables
+     *  initializes the database and creates the necessary tables
      * if not already present. The necessary tables include VERTEX and EDGE tables
      * to store provenance metadata.
      *
      * @param arguments A string of 4 space-separated tokens used for making a successful
      *                  connection to the database, of the following format:
-     *                  'driver_name database_URL username password'
+     *                  'database_path username password'
      *
      *                  Example argument strings are as follows:
      *                  *H2*
-     *                  org.h2.Driver jdbc:h2:/tmp/spade.sql sa null
-     *                  *PostgreSQL*
-     *                  org.postgresql.Driver jdbc:postgres://localhost/spade_pg root 12345
+     *                  /tmp/spade.sql sa null
      *
      *                  Points to note:
      *                  1. The database driver jar should be present in lib/ in the project's root.
@@ -102,36 +101,9 @@ public abstract class SQL extends AbstractStorage
      * @return  returns true if the connection to database has been successful.
      */
     @Override
-    public boolean initialize(String arguments)
-    {
-        try
-        {
-            // Arguments consist of 3 space-separated tokens: 'URL username password'
-            String[] tokens = arguments.split("\\s+");
-            String databaseURL = tokens[0];
-            File f = new File(databaseURL);
-            if(!f.isAbsolute())
-            {
-                databaseURL = DB_ROOT + databaseURL;
-            }
-            String databaseUsername = tokens[1];
-            String databasePassword = tokens[2];
-
-            Class.forName(databaseDriver).newInstance();
-            dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
-            dbConnection.setAutoCommit(false);
-        }
-        catch(Exception ex)
-        {
-            logger.log(Level.SEVERE, "Unable to create SQL class instance!", ex);
-            return false;
-        }
-
-        return true;
-    }
-
+    public abstract boolean initialize(String arguments);
     /**
-     *  closes the connection to the open PostgreSQL database
+     *  closes the connection to the open database
      * after committing all pending transactions.
      *
      * @return  returns true if the database connection is successfully closed.

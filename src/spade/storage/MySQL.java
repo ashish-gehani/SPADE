@@ -2,11 +2,13 @@ package spade.storage;
 
 
 import org.apache.commons.io.FileUtils;
+import scala.reflect.internal.Trees;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -28,11 +30,11 @@ public class MySQL extends SQL
         String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.MySQL.config";
         try
         {
-            databaseDriver = FileUtils.readFileToString(new File(configFile)).trim();
+            databaseConfigs.load(new FileInputStream(configFile));
         }
-        catch(IOException e)
+        catch(IOException ex)
         {
-            databaseDriver = "org.mysql.Driver";
+            logger.log(Level.SEVERE, "MySQL object initialization unsuccessful!", ex);
         }
     }
 
@@ -43,12 +45,10 @@ public class MySQL extends SQL
      *
      * @param arguments A string of 4 space-separated tokens used for making a successful
      *                  connection to the database, of the following format:
-     *                  'driver_name database_URL username password'
+     *                  'database_path username password'
      *                  <p>
      *                  Example argument strings are as follows:
-     *                  TODO:
-     *                  *MySQL*
-     *                  ??
+     *                  spade.mysql sa null
      *                  <p>
      *                  Points to note:
      *                  1. For external databases like MySQL or PostgreSQL, a stand-alone database
@@ -59,8 +59,25 @@ public class MySQL extends SQL
     @Override
     public boolean initialize(String arguments)
     {
-        if(!super.initialize(arguments))
+        try
+        {
+            // Arguments consist of 3 space-separated tokens: 'URL username password'
+            String[] tokens = arguments.split("\\s+");
+            String databaseURL = tokens[0];
+            databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + "/" + databaseURL;
+            String databaseUsername = tokens[1];
+            String databasePassword = tokens[2];
+
+            Class.forName(databaseConfigs.getProperty("databaseDriver")).newInstance();
+            dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
+            dbConnection.setAutoCommit(false);
+        }
+        catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Unable to create MySQL class instance!", ex);
             return false;
+        }
+
         try
         {
             Statement dbStatement = dbConnection.createStatement();

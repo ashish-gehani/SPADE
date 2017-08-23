@@ -1,8 +1,6 @@
 package spade.client;
 
 import jline.ConsoleReader;
-import org.apache.hadoop.fs.shell.Command;
-import org.neo4j.cypher.internal.compiler.v2_0.prettifier.Comma;
 import spade.core.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -24,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static spade.analyzer.CommandLine.DigQueryCommands;
+import static spade.analyzer.CommandLine.QueryCommands;
 import static spade.analyzer.CommandLine.getQueryCommands;
 
 /**
@@ -126,12 +124,12 @@ public class CommandLine
                     System.out.print(COMMAND_PROMPT);
                     String line = commandReader.readLine();
 
-                    if(line.equals(DigQueryCommands.QUERY_EXIT.value))
+                    if(line.equals(QueryCommands.QUERY_EXIT.value))
                     {
                         clientOutputStream.println(line);
                         break;
                     }
-                    else if(line.equals(DigQueryCommands.QUERY_LIST_CONSTRAINTS.value))
+                    else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
                     {
                         System.out.println("-------------------------------------------------");
                         System.out.println("Constraint Name\t\t | Constraint Expression");

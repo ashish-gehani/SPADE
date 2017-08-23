@@ -25,6 +25,7 @@ import spade.core.AbstractVertex;
 import spade.core.Cache;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -53,11 +54,11 @@ public class PostgreSQL extends SQL
         String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.PostgreSQL.config";
         try
         {
-            databaseDriver = FileUtils.readFileToString(new File(configFile)).trim();
+            databaseConfigs.load(new FileInputStream(configFile));
         }
-        catch(IOException e)
+        catch(IOException ex)
         {
-            databaseDriver = "org.postgresql.Driver";
+            logger.log(Level.SEVERE, "PostgreSQL object initialization unsuccessful!", ex);
         }
     }
 
@@ -68,11 +69,10 @@ public class PostgreSQL extends SQL
      *
      * @param arguments A string of 4 space-separated tokens used for making a successful
      *                  connection to the database, of the following format:
-     *                  'driver_name database_URL username password'
+     *                  'database_path username password'
      *
      *                  Example argument strings are as follows:
-     *                  *PostgreSQL*
-     *                  org.postgresql.Driver jdbc:postgres://localhost/spade_pg root 12345
+     *                  spade_pg root 12345
      *
      *                  Points to note:
      *                  1. For external databases like MySQL or PostgreSQL, a stand-alone database
@@ -84,8 +84,30 @@ public class PostgreSQL extends SQL
     @Override
     public boolean initialize(String arguments)
     {
-        if(!super.initialize(arguments))
+        try
+        {
+            // Arguments consist of 3 space-separated tokens: 'URL username password'
+            String[] tokens = arguments.split("\\s+");
+            String databaseURL = tokens[0];
+            databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databaseURL;
+            File f = new File(databaseURL);
+            if(!f.isAbsolute())
+            {
+                databaseURL = DB_ROOT + databaseURL;
+            }
+            String databaseUsername = tokens[1];
+            String databasePassword = tokens[2];
+
+            Class.forName(databaseConfigs.getProperty("databaseDriver")).newInstance();
+            dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
+            dbConnection.setAutoCommit(false);
+        }
+        catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Unable to create PostgreSQL class instance!", ex);
             return false;
+        }
+
         try
         {
             Statement dbStatement = dbConnection.createStatement();

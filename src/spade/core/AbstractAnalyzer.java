@@ -23,13 +23,14 @@ import static spade.core.Kernel.sslServerSocketFactory;
  */
 public abstract class AbstractAnalyzer
 {
-
     public String QUERY_PORT;
     protected AbstractResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
     protected boolean USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
     private static Map<String, List<String>> functionToClassMap;
     protected static boolean EXPORT_RESULT = false;
+    public static final String ARITHMETIC_OPERATORS = "=|>|<|>=|<=";
+    public static final String BOOLEAN_OPERATORS = "AND|OR";
 
     /**
      * remoteResolutionRequired is used by query module to signal the Analyzer
