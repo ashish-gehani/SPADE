@@ -34,7 +34,7 @@ public class MySQL extends SQL
         }
         catch(IOException ex)
         {
-            logger.log(Level.SEVERE, "MySQL object initialization unsuccessful!", ex);
+            logger.log(Level.SEVERE, "Loading MySQL configurations from file unsuccessful!", ex);
         }
     }
 

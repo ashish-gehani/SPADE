@@ -19,12 +19,10 @@
  */
 package spade.storage;
 
-import org.apache.commons.io.FileUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.DriverManager;
@@ -36,7 +34,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.DB_ROOT;
 import static spade.core.Kernel.FILE_SEPARATOR;
 
 
@@ -58,7 +55,16 @@ public class PostgreSQL extends SQL
         }
         catch(IOException ex)
         {
-            logger.log(Level.SEVERE, "PostgreSQL object initialization unsuccessful!", ex);
+            logger.log(Level.SEVERE, "Loading PostgreSQL configurations from file unsuccessful!", ex);
+        }
+        reportingEnabled = Boolean.parseBoolean(databaseConfigs.getProperty("reportingEnabled",
+                            String.valueOf(reportingEnabled)));
+        if(reportingEnabled)
+        {
+            reportingInterval = 120;
+            reportEveryMs = reportingInterval * 1000; //convert to milliseconds
+            startTime = lastReportedTime = System.currentTimeMillis();
+            lastReportedVertexCount = lastReportedEdgeCount = 0;
         }
     }
 
@@ -90,11 +96,6 @@ public class PostgreSQL extends SQL
             String[] tokens = arguments.split("\\s+");
             String databaseURL = tokens[0];
             databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databaseURL;
-            File f = new File(databaseURL);
-            if(!f.isAbsolute())
-            {
-                databaseURL = DB_ROOT + databaseURL;
-            }
             String databaseUsername = tokens[1];
             String databasePassword = tokens[2];
 
@@ -361,6 +362,11 @@ public class PostgreSQL extends SQL
             logger.log(Level.SEVERE, null, e);
         }
 
+        if(reportingEnabled)
+        {
+            computeStats();
+        }
+
         return true;
     }
 
@@ -441,8 +447,15 @@ public class PostgreSQL extends SQL
             return false;
         }
 
+        if(reportingEnabled)
+        {
+            computeStats();
+        }
+
         // cache the vertex successfully inserted in the storage
         Cache.addItem(incomingVertex);
+
+
         return true;
     }
 

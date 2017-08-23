@@ -81,7 +81,7 @@ public class Kernel
     public static final String SPADE_ROOT = Settings.getProperty("spade_root");
     public static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
 
-    public static final String DB_ROOT = SPADE_ROOT + FILE_SEPARATOR + "db";
+    public static final String DB_ROOT = SPADE_ROOT + "db" + FILE_SEPARATOR;
     /**
      * Path to log files including the prefix.
      */

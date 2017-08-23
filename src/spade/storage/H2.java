@@ -34,7 +34,7 @@ public class H2 extends SQL
         }
         catch(IOException ex)
         {
-            logger.log(Level.SEVERE, "H2 object initialization unsuccessful!", ex);
+            logger.log(Level.SEVERE, "Loading H2 configurations from file unsuccessful!", ex);
         }
     }
 
@@ -62,7 +62,6 @@ public class H2 extends SQL
             // Arguments consist of 3 space-separated tokens: 'URL username password'
             String[] tokens = arguments.split("\\s+");
             String databaseURL = tokens[0];
-            databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + "/" + databaseURL;
             File f = new File(databaseURL);
             if(!f.isAbsolute())
             {
@@ -70,6 +69,7 @@ public class H2 extends SQL
             }
             String databaseUsername = tokens[1];
             String databasePassword = tokens[2];
+            databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databaseURL;
 
             Class.forName(databaseConfigs.getProperty("databaseDriver")).newInstance();
             dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);

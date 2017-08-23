@@ -24,6 +24,7 @@ import spade.query.scaffold.Scaffold;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Properties;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
@@ -48,7 +49,68 @@ public abstract class AbstractStorage
     public static final String MAX_LENGTH = "maxLength";
     public static final String DIRECTION_ANCESTORS = "ancestors";
     public static final String DIRECTION_DESCENDANTS = "descendants";
+    protected Logger logger;
 
+    /**
+     * The arguments with which this storage was initialized.
+     */
+    public String arguments;
+    /**
+     * The number of vertices that this storage instance has successfully
+     * received.
+     */
+    protected long vertexCount;
+    /**
+     * The number of edges that this storage instance has successfully received.
+     */
+    protected long edgeCount;
+
+    protected Properties databaseConfigs = new Properties();
+
+    /**
+     * Variables and functions for computing performance stats
+     */
+    protected boolean reportingEnabled = false;
+    protected long reportingInterval;
+    protected long reportEveryMs;
+    protected long startTime, lastReportedTime;
+    protected long lastReportedVertexCount, lastReportedEdgeCount;
+
+    protected void computeStats()
+    {
+        long currentTime = System.currentTimeMillis();
+        if((currentTime - lastReportedTime) >= reportEveryMs)
+        {
+            printStats();
+            lastReportedTime = currentTime;
+            lastReportedVertexCount = vertexCount;
+            lastReportedEdgeCount = edgeCount;
+        }
+    }
+
+    private void printStats()
+    {
+        long currentTime = System.currentTimeMillis();
+        float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
+        float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
+        if(overallTime > 0 && intervalTime > 0)
+        {
+            // # records/sec
+            float overallVertexVolume = (float) vertexCount / overallTime;
+            float overallEdgeVolume = (float) edgeCount / overallTime;
+            // # records/sec
+            float intervalVertexVolume = (float) (vertexCount - lastReportedVertexCount) / intervalTime;
+            float intervalEdgeVolume = (float) (edgeCount - lastReportedEdgeCount) / intervalTime;
+            logger.log(Level.INFO, "Overall rate: {0} vertex/sec and {1} edge/sec in total {2} seconds. " +
+                            "Interval rate: {3} vertex/sec and {4} edge/sec in {5} seconds.",
+                    new Object[]{overallVertexVolume, overallEdgeVolume, overallTime, intervalVertexVolume, intervalEdgeVolume, intervalTime});
+        }
+    }
+
+
+    /**
+     * Variables and functions for managing scaffold storage
+     */
     public static Scaffold scaffold = null;
     public static boolean USE_SCAFFOLD = Boolean.parseBoolean(Settings.getProperty("use_scaffold"));
     private static final String scaffoldPath = SPADE_ROOT + Settings.getProperty("scaffold_path");
@@ -75,20 +137,6 @@ public abstract class AbstractStorage
         AbstractStorage.scaffold = scaffold;
         USE_SCAFFOLD = true;
     }
-
-    /**
-     * The arguments with which this storage was initialized.
-     */
-    public String arguments;
-    /**
-     * The number of vertices that this storage instance has successfully
-     * received.
-     */
-    long vertexCount;
-    /**
-     * The number of edges that this storage instance has successfully received.
-     */
-    long edgeCount;
 
     /**
      * This method is invoked by the kernel to initialize the storage.

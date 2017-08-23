@@ -40,6 +40,8 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
@@ -47,6 +49,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 
 
 /**
@@ -79,6 +84,29 @@ public class Neo4j extends AbstractStorage
     private Transaction globalTx;
     private int globalTxCount = 0;
     private Date lastFlushTime;
+
+
+    public Neo4j()
+    {
+        String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.Neo4j.config";
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+        }
+        catch(IOException ex)
+        {
+            logger.log(Level.SEVERE, "Loading Neo4j configurations from file unsuccessful!", ex);
+        }
+        reportingEnabled = Boolean.parseBoolean(databaseConfigs.getProperty("reportingEnabled",
+                String.valueOf(reportingEnabled)));
+        if(reportingEnabled)
+        {
+            reportingInterval = 120;
+            reportEveryMs = reportingInterval * 1000; //convert to milliseconds
+            startTime = lastReportedTime = System.currentTimeMillis();
+            lastReportedVertexCount = lastReportedEdgeCount = 0;
+        }
+    }
 
     @Override
     public boolean initialize(String arguments)
@@ -189,6 +217,11 @@ public class Neo4j extends AbstractStorage
             newVertex.setProperty(key, value);
         }
 
+        if(reportingEnabled)
+        {
+            computeStats();
+        }
+
         return true;
     }
 
@@ -239,6 +272,11 @@ public class Neo4j extends AbstractStorage
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
             newEdge.setProperty(key, value);
+        }
+
+        if(reportingEnabled)
+        {
+            computeStats();
         }
 
         return true;

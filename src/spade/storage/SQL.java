@@ -59,9 +59,7 @@ public abstract class SQL extends AbstractStorage
     protected static final String VERTEX_TABLE = "vertex";
     protected static final String EDGE_TABLE = "edge";
     protected String DUPLICATE_COLUMN_ERROR_CODE;
-    protected Logger logger;
     protected int CURSOR_FETCH_SIZE = 0;
-    protected Properties databaseConfigs = new Properties();
 
     public SQL()
     {
