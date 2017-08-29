@@ -875,15 +875,21 @@ public class Kernel
                 arguments = (tokens.length == 3) ? null : tokens[3];
                 logger.log(Level.INFO, "Adding storage: {0}", className);
                 outputStream.print("Adding storage " + className + "... ");
-                AbstractStorage storage;
+                AbstractStorage storage = null;
                 try
                 {
                     storage = (AbstractStorage) Class.forName("spade.storage." + className).newInstance();
                 }
                 catch (Exception ex)
                 {
-                    outputStream.println("error: Unable to find/load class");
+                    outputStream.println("Unable to find/load class");
                     logger.log(Level.SEVERE, null, ex);
+                    return;
+                }
+                catch(Error er)
+                {
+                    outputStream.println("Unable to find/load class");
+                    logger.log(Level.SEVERE, "Unable to find/load class", er);
                     return;
                 }
                 if (storage.initialize(arguments))

@@ -40,6 +40,7 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Calendar;
@@ -51,6 +52,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.DB_ROOT;
 import static spade.core.Kernel.FILE_SEPARATOR;
 
 
@@ -71,7 +73,7 @@ public class Neo4j extends AbstractStorage
     public enum NodeTypes implements Label {VERTEX}
 
     private String neo4jDatabaseDirectoryPath = null;
-    static final Logger logger = Logger.getLogger(Neo4j.class.getName());
+
     private final String NEO4J_CONFIG_FILE = "cfg/neo4j.properties";
 
 
@@ -88,6 +90,7 @@ public class Neo4j extends AbstractStorage
 
     public Neo4j()
     {
+        logger = Logger.getLogger(Neo4j.class.getName());
         String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.Neo4j.config";
         try
         {
@@ -95,7 +98,7 @@ public class Neo4j extends AbstractStorage
         }
         catch(IOException ex)
         {
-            logger.log(Level.SEVERE, "Loading Neo4j configurations from file unsuccessful!", ex);
+            logger.log(Level.SEVERE, "Loading Neo4j SPADE configurations from file unsuccessful!", ex);
         }
         reportingEnabled = Boolean.parseBoolean(databaseConfigs.getProperty("reportingEnabled",
                 String.valueOf(reportingEnabled)));
@@ -118,6 +121,12 @@ public class Neo4j extends AbstractStorage
             {
                 return false;
             }
+            File f = new File(neo4jDatabaseDirectoryPath);
+            if(!f.isAbsolute())
+            {
+                neo4jDatabaseDirectoryPath = DB_ROOT + neo4jDatabaseDirectoryPath;
+            }
+
             GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
             try
             {
@@ -127,7 +136,7 @@ public class Neo4j extends AbstractStorage
             catch (Exception exception)
             {
                 //TODO: load something default here
-                logger.log(Level.INFO, "Default Neo4j configurations loaded.");
+//                logger.log(Level.INFO, "Default Neo4j configurations loaded.");
             }
 
             graphDb = graphDbBuilder.newGraphDatabase();

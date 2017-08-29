@@ -78,7 +78,6 @@ public class Graph extends AbstractStorage implements Serializable
     private static final int MAX_QUERY_HITS = 1000;
     private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
     private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
-    private static final String ID_STRING = Settings.getProperty("storage_identifier");
 
     private static final Pattern nodePattern = Pattern.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
     private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
@@ -178,7 +177,7 @@ public class Graph extends AbstractStorage implements Serializable
                 String value = currentEntry.getValue();
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
-            doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
             vertexIndexWriter.addDocument(doc);
             // vertexIndexWriter.commit();
 
@@ -223,12 +222,9 @@ public class Graph extends AbstractStorage implements Serializable
             {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
-            doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
             doc.add(new Field(SRC_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getChildVertex()), Field.Store.YES, Field.Index.ANALYZED));
             doc.add(new Field(DST_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getParentVertex()), Field.Store.YES, Field.Index.ANALYZED));
             edgeIndexWriter.addDocument(doc);
@@ -708,7 +704,7 @@ public class Graph extends AbstractStorage implements Serializable
             for (int i = 0; i < hits.length; ++i) {
                 int docId = hits[i].doc;
                 Document foundDoc = searcher.doc(docId);
-                results.add(Integer.parseInt(foundDoc.get(ID_STRING)));
+                results.add(Integer.parseInt(foundDoc.get(PRIMARY_KEY)));
             }
 
             searcher.close();

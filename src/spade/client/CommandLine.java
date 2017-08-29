@@ -173,7 +173,7 @@ public class CommandLine
                             writer.write(resultString);
                             writer.flush();
                             writer.close();
-                            System.out.println("Output exported to file");
+                            System.out.println("Output exported to file: " + RESULT_EXPORT_PATH);
                             RESULT_EXPORT_PATH = null;
                         }
                         else
@@ -181,7 +181,7 @@ public class CommandLine
                             System.out.println();
                             System.out.println("Result:");
                             System.out.println("Return type: " + returnType);
-                            System.out.println("Result: " + resultString);
+                            System.out.println("Result value: " + resultString);
                             System.out.println("------------------");
                         }
                     }

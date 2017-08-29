@@ -150,6 +150,14 @@ public class PostgreSQL extends SQL
             {
                 edgeAnnotations.add(metadata.getColumnLabel(i));
             }
+
+            String createVertexHashIndex = "CREATE INDEX IF NOT EXISTS hash_index ON vertex USING hash(hash)";
+            String createEdgeParentHashIndex = "CREATE INDEX IF NOT EXISTS parentVertexHash_index ON edge USING hash(parentVertexHash)";
+            String createEdgeChildHashIndex = "CREATE INDEX IF NOT EXISTS childVertexHash_index ON edge USING hash(childVertexHash)";
+            dbStatement.execute(createVertexHashIndex);
+            dbStatement.execute(createEdgeParentHashIndex);
+            dbStatement.execute(createEdgeChildHashIndex);
+
             dbStatement.close();
 
             return true;

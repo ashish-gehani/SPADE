@@ -36,13 +36,12 @@ public class CommandLine extends AbstractAnalyzer
     public enum QueryCommands
     {
         QUERY_FUNCTION_LIST_KEY("available functions:"),
-        QUERY_FUNCTION_LIST_VALUE("\t GetVertex | GetEdge | GetChildren | GetParents | GetLineage | GetPaths"),
-        QUERY_FUNCTION_GET_VERTEX("\t GetVertex(expression, limit)"),
-        QUERY_FUNCTION_GET_EDGE("\t GetEdge(expression, limit)"),
-        QUERY_FUNCTION_GET_CHILDREN("\t GetChildren(expression, limit)"),
-        QUERY_FUNCTION_GET_PARENTS("\t GetParents(expression, limit)"),
-        QUERY_FUNCTION_GET_LINEAGE("\t GetLineage(expression, limit, direction, maxDepth)"),
-        QUERY_FUNCTION_GET_PATHS("\t GetPaths(expression, limit, direction, maxLength)"),
+        QUERY_FUNCTION_GET_VERTEX("\t GetVertex(expression [, limit])"),
+        QUERY_FUNCTION_GET_EDGE("\t GetEdge(expression [, limit])"),
+        QUERY_FUNCTION_GET_CHILDREN("\t GetChildren(expression [, limit])"),
+        QUERY_FUNCTION_GET_PARENTS("\t GetParents(expression [, limit])"),
+        QUERY_FUNCTION_GET_LINEAGE("\t GetLineage(expression, maxDepth, direction)"),
+        QUERY_FUNCTION_GET_PATHS("\t GetPaths(expression, maxLength)"),
 
         QUERY_FUNCTION_EXPRESSION_KEY("expression: "),
         QUERY_FUNCTION_EXPRESSION_VALUE("\t <constraint_name> [<boolean_operator> <constraint_name> ...]"),
@@ -266,13 +265,19 @@ public class CommandLine extends AbstractAnalyzer
                 Pattern argument_pattern = Pattern.compile(",");
                 String[] arguments = argument_pattern.split(argument_string);
                 String constraints = arguments[0].trim();
-                resultLimit = 1;
-                if(arguments.length >= 2)
-                    resultLimit = Integer.parseInt(arguments[1].trim());
-                if(arguments.length > 2)
+                switch(functionName)
                 {
-                    direction = arguments[2].trim();
-                    maxLength = arguments[3].trim();
+                    case "GetLineage":
+                        maxLength = arguments[1].trim();
+                        direction = arguments[2].trim();
+                        break;
+                    case "GetPaths":
+                        maxLength = arguments[1].trim();
+                        break;
+                    default:
+                        if(arguments.length > 1)
+                            resultLimit = Integer.parseInt(arguments[1].trim());
+                        break;
                 }
 
                 // Step2: get the argument expression(s), split by the boolean operators

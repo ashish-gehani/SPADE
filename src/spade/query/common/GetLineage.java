@@ -83,7 +83,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             int current_depth = 0;
             Set<String> remainingVertices = new HashSet<>();
             Set<String> visitedVertices = new HashSet<>();
-            Set<AbstractVertex> startingVertexSet = (Set<AbstractVertex>) getVertex.execute(vertexParams, DEFAULT_MIN_LIMIT);
+            Set<AbstractVertex> startingVertexSet = (Set<AbstractVertex>) getVertex.execute(vertexParams, limit);
             if(!CollectionUtils.isEmpty(startingVertexSet))
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
@@ -106,12 +106,12 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                     if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
                     {
                         params.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
-                        neighbors = (Graph) getParents.execute(params, DEFAULT_MAX_LIMIT);
+                        neighbors = (Graph) getParents.execute(params, limit);
                     }
                     else
                     {
                         params.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
-                        neighbors = (Graph) getChildren.execute(params, DEFAULT_MAX_LIMIT);
+                        neighbors = (Graph) getChildren.execute(params, limit);
                     }
                     for(AbstractVertex V: neighbors.vertexSet())
                 		V.setDepth(current_depth+1);
@@ -142,7 +142,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                             edgeParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, "AND"));
                             edgeParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, neighborHash, null));
                         }
-                        Set<AbstractEdge> edgeSet = (Set<AbstractEdge>) getEdge.execute(edgeParams, DEFAULT_MAX_LIMIT);
+                        Set<AbstractEdge> edgeSet = (Set<AbstractEdge>) getEdge.execute(edgeParams, limit);
                         result.edgeSet().addAll(edgeSet);
                     }
                 }
