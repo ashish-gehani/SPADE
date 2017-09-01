@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
+import static spade.storage.SQL.stripDashes;
 
 /**
  * @author raza
@@ -98,13 +99,17 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 Map<String, String> annotations = new HashMap<>();
                 for (int i = 1; i <= columnCount; i++)
                 {
+                    String colName = columnLabels.get(i);
                     String value = result.getString(i);
                     if (!StringUtils.isNullOrEmpty(value))
                     {
-                        String colName = columnLabels.get(i);
                         if (colName != null && !colName.equals(PRIMARY_KEY))
                         {
-                            annotations.put(colName, result.getString(i));
+                            if(colName.equals(CHILD_VERTEX_KEY) || colName.equals(PARENT_VERTEX_KEY))
+                            {
+                                value = stripDashes(value);
+                            }
+                            annotations.put(colName, value);
                         }
                     }
                 }

@@ -344,12 +344,12 @@ public class PostgreSQL extends SQL
         }
 
         // Add the annotation values
-        for (String annotationKey : incomingEdge.getAnnotations().keySet())
+        for (String annotationValue : incomingEdge.getAnnotations().keySet())
         {
-            String value = (ENABLE_SANITIZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"") : incomingEdge.getAnnotation(annotationKey);
+            String value = (ENABLE_SANITIZATION) ? incomingEdge.getAnnotation(annotationValue).replace("'", "\"") : incomingEdge.getAnnotation(annotationValue);
 
             insertStringBuilder.append("'");
-            insertStringBuilder.append(value);
+            insertStringBuilder.append(clipString(value, MAX_COLUMN_VALUE_LENGTH));
             insertStringBuilder.append("', ");
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
@@ -431,13 +431,13 @@ public class PostgreSQL extends SQL
         insertStringBuilder.append("', ");
 
         // Add the annotation values
-        for (String annotationKey : incomingVertex.getAnnotations().keySet())
+        for (String annotationValue : incomingVertex.getAnnotations().keySet())
         {
-            String value = (ENABLE_SANITIZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"") :
-                    incomingVertex.getAnnotation(annotationKey);
+            String value = (ENABLE_SANITIZATION) ? incomingVertex.getAnnotation(annotationValue).replace("'", "\"") :
+                    incomingVertex.getAnnotation(annotationValue);
 
             insertStringBuilder.append("'");
-            insertStringBuilder.append(value);
+            insertStringBuilder.append(clipString(value, MAX_COLUMN_VALUE_LENGTH));
             insertStringBuilder.append("', ");
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";

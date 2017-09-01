@@ -60,6 +60,7 @@ public abstract class SQL extends AbstractStorage
     protected static final String EDGE_TABLE = "edge";
     protected String DUPLICATE_COLUMN_ERROR_CODE;
     protected int CURSOR_FETCH_SIZE = 0;
+    public int MAX_COLUMN_VALUE_LENGTH = 256;
 
     public SQL()
     {
@@ -126,6 +127,19 @@ public abstract class SQL extends AbstractStorage
     public static String sanitizeString(String string)
     {
         return string.replace("'", "\"");
+    }
+
+    public static String stripDashes(String string)
+    {
+        return string.replace("-", "");
+    }
+
+    public static String clipString(String string, int length)
+    {
+        if(string.length() > length)
+            return string.substring(0, length - 1);
+
+        return string;
     }
 
     /**

@@ -131,7 +131,7 @@ public class Neo4j extends AbstractStorage
             try
             {
                 graphDbBuilder.loadPropertiesFromFile(NEO4J_CONFIG_FILE);
-                logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
+                logger.log(Level.INFO, "Neo4j built-in configurations loaded from config file.");
             }
             catch (Exception exception)
             {

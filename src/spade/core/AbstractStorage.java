@@ -88,7 +88,7 @@ public abstract class AbstractStorage
         }
     }
 
-    private void printStats()
+    protected void printStats()
     {
         long currentTime = System.currentTimeMillis();
         float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
