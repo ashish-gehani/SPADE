@@ -177,7 +177,7 @@ public class Neo4j extends AbstractStorage
 
     private void globalTxCheckin(boolean forcedFlush)
     {
-        if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush == true))
+        if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush))
         {
             globalTxFinalize();
             globalTx = graphDb.beginTx();
@@ -216,7 +216,6 @@ public class Neo4j extends AbstractStorage
         if (Cache.isPresent(hashCode))
             return true;
 
-        globalTxCheckin();
         Node newVertex = graphDb.createNode(NodeTypes.VERTEX);
         newVertex.setProperty(PRIMARY_KEY, hashCode);
         for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
@@ -225,7 +224,50 @@ public class Neo4j extends AbstractStorage
             String value = currentEntry.getValue();
             newVertex.setProperty(key, value);
         }
+        globalTxCheckin();
 
+        if(reportingEnabled)
+        {
+            computeStats();
+        }
+
+        return true;
+    }
+
+    /**
+     * This function inserts the given edge into the underlying storage(s) and
+     * updates the cache(s) accordingly.
+     *
+     * @param incomingEdge edge to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the edge is already present in the storage.
+     */
+    @Override
+    public boolean putEdge(AbstractEdge incomingEdge)
+    {
+        String hashCode = incomingEdge.bigHashCode();
+        if (Cache.isPresent(hashCode))
+            return true;
+
+        Node srcNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
+                incomingEdge.getChildVertex().bigHashCode());
+        Node dstNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
+                incomingEdge.getParentVertex().bigHashCode());
+        Relationship newEdge = srcNode.createRelationshipTo(dstNode, RelationshipTypes.EDGE);
+        newEdge.setProperty(PRIMARY_KEY, hashCode);
+        for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
+        {
+            String key = currentEntry.getKey();
+            String value = currentEntry.getValue();
+            newEdge.setProperty(key, value);
+        }
+        globalTxCheckin();
+
+        if(USE_SCAFFOLD)
+        {
+            //TODO: device policy in case of non-insertion into scaffold
+            insertScaffoldEntry(incomingEdge);
+        }
         if(reportingEnabled)
         {
             computeStats();
@@ -252,43 +294,6 @@ public class Neo4j extends AbstractStorage
             globalTxFinalize();
         }
         return result;
-    }
-
-    /**
-     * This function inserts the given edge into the underlying storage(s) and
-     * updates the cache(s) accordingly.
-     *
-     * @param incomingEdge edge to insert into the storage
-     * @return returns true if the insertion is successful. Insertion is considered
-     * not successful if the edge is already present in the storage.
-     */
-    @Override
-    public boolean putEdge(AbstractEdge incomingEdge)
-    {
-        String hashCode = incomingEdge.bigHashCode();
-        if (Cache.isPresent(hashCode))
-            return true;
-
-        globalTxCheckin();
-        Node srcNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
-                incomingEdge.getChildVertex().bigHashCode());
-        Node dstNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
-                incomingEdge.getParentVertex().bigHashCode());
-        Relationship newEdge = srcNode.createRelationshipTo(dstNode, RelationshipTypes.EDGE);
-        newEdge.setProperty(PRIMARY_KEY, hashCode);
-        for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
-        {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            newEdge.setProperty(key, value);
-        }
-
-        if(reportingEnabled)
-        {
-            computeStats();
-        }
-
-        return true;
     }
 
     /**

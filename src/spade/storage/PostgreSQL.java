@@ -30,6 +30,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -44,6 +45,15 @@ import static spade.core.Kernel.FILE_SEPARATOR;
  */
 public class PostgreSQL extends SQL
 {
+    // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases ingestion rate.
+    // Downside: Any external (non atomic) quering to database won't report non-committed data.
+    private final int GLOBAL_TX_SIZE = 100000;
+    // Performance tuning note: This is time in sec that storage is flushed. Increase this to increase throughput / ingestion rate.
+    // Downside: Any external (non atomic) quering to database won't report non-committed data.
+    private int globalTxCount = 0;
+    private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
+    private Date lastFlushTime;
+
     public PostgreSQL()
     {
         DUPLICATE_COLUMN_ERROR_CODE = "42701";
@@ -159,6 +169,7 @@ public class PostgreSQL extends SQL
             dbStatement.execute(createEdgeChildHashIndex);
 
             dbStatement.close();
+            globalTxCheckin(true);
 
             return true;
 
@@ -167,6 +178,26 @@ public class PostgreSQL extends SQL
         {
             logger.log(Level.SEVERE, "Unable to initialize storage successfully!", ex);
             return false;
+        }
+    }
+
+    private void globalTxCheckin(boolean forcedFlush)
+    {
+        if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush))
+        {
+            try
+            {
+                dbConnection.commit();
+                globalTxCount = 0;
+            }
+            catch(SQLException ex)
+            {
+                logger.log(Level.SEVERE, null, ex);
+            }
+        }
+        else
+        {
+            globalTxCount++;
         }
     }
 
@@ -220,19 +251,10 @@ public class PostgreSQL extends SQL
                     + table_name
                     + " ADD COLUMN \""
                     + column_name
-                    + "\" VARCHAR(256);";
+                    + "\" VARCHAR; ";
             columnStatement.execute(statement);
-            dbConnection.commit();
             columnStatement.close();
-
-            if (table_name.equalsIgnoreCase(VERTEX_TABLE))
-            {
-                vertexAnnotations.add(column_name);
-            }
-            else if (table_name.equalsIgnoreCase(EDGE_TABLE))
-            {
-                edgeAnnotations.add(column_name);
-            }
+            globalTxCheckin(true);
 
             return true;
         }
@@ -244,18 +266,11 @@ public class PostgreSQL extends SQL
             }
             catch(SQLException e)
             {
-                logger.log(Level.WARNING, "Duplicate column found in table. Error in roll backing!", e);
+                logger.log(Level.WARNING, "Duplicate column found in table. Error in rollback!", e);
+                return false;
             }
             if (ex.getSQLState().equals(DUPLICATE_COLUMN_ERROR_CODE))
             {
-                if (table_name.equalsIgnoreCase(VERTEX_TABLE))
-                {
-                    vertexAnnotations.add(column_name.toLowerCase());
-                }
-                else if (table_name.equalsIgnoreCase(EDGE_TABLE))
-                {
-                    edgeAnnotations.add(column_name.toLowerCase());
-                }
                 return true;
             }
         }
@@ -264,9 +279,20 @@ public class PostgreSQL extends SQL
             logger.log(Level.SEVERE, null, ex);
             return false;
         }
+        finally
+        {
+            if (table_name.equalsIgnoreCase(VERTEX_TABLE))
+            {
+                vertexAnnotations.add(column_name.toLowerCase());
+            }
+            else if (table_name.equalsIgnoreCase(EDGE_TABLE))
+            {
+                edgeAnnotations.add(column_name.toLowerCase());
+            }
+        }
+
         return false;
     }
-
 
     /**
      * This function inserts the given edge into the underlying storage(s) and
@@ -358,12 +384,14 @@ public class PostgreSQL extends SQL
         {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
+            s.close();
+            globalTxCheckin(false);
+
             if(USE_SCAFFOLD)
             {
                 //TODO: device policy in case of non-insertion into scaffold
                 insertScaffoldEntry(incomingEdge);
             }
-            s.close();
         }
         catch (Exception e)
         {
@@ -374,6 +402,10 @@ public class PostgreSQL extends SQL
         {
             computeStats();
         }
+
+        // cache the vertex successfully inserted in the storage
+        Cache.addItem(incomingEdge);
+
 
         return true;
     }
@@ -444,10 +476,10 @@ public class PostgreSQL extends SQL
 
         try
         {
-            dbConnection.commit();
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
             s.close();
+            globalTxCheckin(false);
         }
         catch (Exception e)
         {
@@ -473,7 +505,7 @@ public class PostgreSQL extends SQL
         ResultSet result = null;
         try
         {
-            dbConnection.commit();
+            globalTxCheckin(true);
             Statement queryStatement = dbConnection.createStatement();
             if(CURSOR_FETCH_SIZE > 0)
                 queryStatement.setFetchSize(CURSOR_FETCH_SIZE);

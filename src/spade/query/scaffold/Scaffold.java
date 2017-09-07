@@ -10,6 +10,7 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.EnvironmentFailureException;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import spade.core.AbstractEdge;
@@ -52,6 +53,8 @@ public class Scaffold extends AbstractQuery
     private static Database neighborDatabase = null;
     private static final String PARENTS = "parents";
     private static final String CHILDREN = "children";
+    private static Logger logger = Logger.getLogger(Scaffold.class.getName());
+    private static String directoryPath;
 
     public void readData(int limit)
     {
@@ -73,11 +76,12 @@ public class Scaffold extends AbstractQuery
     /**
      * This method is invoked by the kernel to initialize the storage.
      *
-     * @param directoryPath The directory path of the scaffold storage.
+     * @param arguments The directory path of the scaffold storage.
      * @return True if the storage was initialized successfully.
      */
-    public boolean initialize(String directoryPath)
+    public boolean initialize(String arguments)
     {
+        directoryPath = arguments ;
         scaffoldDbEnvironment = null;
         scaffoldDatabase = null;
         try
@@ -99,7 +103,7 @@ public class Scaffold extends AbstractQuery
         }
         catch(Exception ex)
         {
-            Logger.getLogger(Scaffold.class.getName()).log(Level.WARNING, null, ex);
+            logger.log(Level.WARNING, null, ex);
         }
 
         return false;
@@ -122,7 +126,7 @@ public class Scaffold extends AbstractQuery
         }
         catch(DatabaseException ex)
         {
-            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Database closure error!", ex);
+            logger.log(Level.SEVERE, "Database closure error!", ex);
         }
 
         return false;
@@ -150,7 +154,7 @@ public class Scaffold extends AbstractQuery
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            logger.log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
         return null;
     }
@@ -177,7 +181,7 @@ public class Scaffold extends AbstractQuery
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            logger.log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
         return null;
     }
@@ -244,7 +248,7 @@ public class Scaffold extends AbstractQuery
         }
         catch(UnsupportedEncodingException ex)
         {
-            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold Get Lineage error!", ex);
+            logger.log(Level.SEVERE, "Scaffold Get Lineage error!", ex);
         }
 
         return null;
@@ -315,8 +319,8 @@ public class Scaffold extends AbstractQuery
             if(serial_number % 10000 == 0)
             {
                 long elapsed_time = System.nanoTime() - start_time;
-                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Items Inserted: " + serial_number);
-                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Time Duration: " + elapsed_time / 1000000000.0);
+                String msg = "Items Inserted: " + serial_number + ". Time Duration: " + elapsed_time / 1000000000.0;
+                logger.log(Level.INFO, msg);
                 start_time = System.nanoTime();
             }
 
@@ -324,7 +328,7 @@ public class Scaffold extends AbstractQuery
         }
         catch (UnsupportedEncodingException ex)
         {
-            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Scaffold entry insertion error!", ex);
+            logger.log(Level.SEVERE, "Scaffold entry insertion error!", ex);
         }
 
         return false;
@@ -358,7 +362,18 @@ public class Scaffold extends AbstractQuery
             neighbors.children.add(hash);
         data = new DatabaseEntry();
         neighborBinding.objectToEntry(neighbors, data);
-        scaffoldDatabase.put(null, key, data);
+        try
+        {
+            scaffoldDatabase.put(null, key, data);
+        }
+        catch(EnvironmentFailureException ex)
+        {
+            logger.log(Level.SEVERE, "Environment Failure Exception. Closing environment and database!", ex);
+            scaffoldDbEnvironment.close();
+            scaffoldDatabase.close();
+            initialize(directoryPath);
+            logger.log(Level.SEVERE, "Environment and databases opened again");
+        }
     }
 
     public Graph queryManager(Map<String, List<String>> params)

@@ -99,11 +99,15 @@ public abstract class AbstractStorage
             float overallVertexVolume = (float) vertexCount / overallTime;
             float overallEdgeVolume = (float) edgeCount / overallTime;
             // # records/sec
-            float intervalVertexVolume = (float) (vertexCount - lastReportedVertexCount) / intervalTime;
-            float intervalEdgeVolume = (float) (edgeCount - lastReportedEdgeCount) / intervalTime;
-            logger.log(Level.INFO, "Overall rate: {0} vertex/sec and {1} edge/sec in total {2} seconds. " +
-                            "Interval rate: {3} vertex/sec and {4} edge/sec in {5} seconds.",
-                    new Object[]{overallVertexVolume, overallEdgeVolume, overallTime, intervalVertexVolume, intervalEdgeVolume, intervalTime});
+
+            long intervalVertexCount = vertexCount - lastReportedVertexCount;
+            long intervalEdgeCount = edgeCount - lastReportedEdgeCount;
+            float intervalVertexVolume = (float) (intervalVertexCount) / intervalTime;
+            float intervalEdgeVolume = (float) (intervalEdgeCount) / intervalTime;
+            logger.log(Level.INFO, "Overall Stats => rate: {0} vertex/sec and {1} edge/sec. count: vertices: {2} and edges: {3}. In total {4} seconds.\n" +
+                            "Interval Stats => rate: {5} vertex/sec and {6} edge/sec. count: vertices: {7} and edges: {8}. In {9} seconds.",
+                    new Object[]{overallVertexVolume, overallEdgeVolume, vertexCount, edgeCount, overallTime, intervalVertexVolume,
+                            intervalEdgeVolume, intervalVertexCount, intervalEdgeCount, intervalTime});
         }
     }
 
