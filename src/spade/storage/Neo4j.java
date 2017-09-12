@@ -170,10 +170,6 @@ public class Neo4j extends AbstractStorage
         return true;
     }
 
-    private void globalTxCheckin()
-    {
-        globalTxCheckin(false);
-    }
 
     private void globalTxCheckin(boolean forcedFlush)
     {
@@ -216,6 +212,7 @@ public class Neo4j extends AbstractStorage
         if (Cache.isPresent(hashCode))
             return true;
 
+        globalTxCheckin(false);
         Node newVertex = graphDb.createNode(NodeTypes.VERTEX);
         newVertex.setProperty(PRIMARY_KEY, hashCode);
         for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
@@ -224,7 +221,6 @@ public class Neo4j extends AbstractStorage
             String value = currentEntry.getValue();
             newVertex.setProperty(key, value);
         }
-        globalTxCheckin();
 
         if(reportingEnabled)
         {
@@ -249,6 +245,7 @@ public class Neo4j extends AbstractStorage
         if (Cache.isPresent(hashCode))
             return true;
 
+        globalTxCheckin(false);
         Node srcNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
                 incomingEdge.getChildVertex().bigHashCode());
         Node dstNode = graphDb.findNode(NodeTypes.VERTEX, PRIMARY_KEY,
@@ -261,7 +258,6 @@ public class Neo4j extends AbstractStorage
             String value = currentEntry.getValue();
             newEdge.setProperty(key, value);
         }
-        globalTxCheckin();
 
         if(USE_SCAFFOLD)
         {
@@ -280,7 +276,7 @@ public class Neo4j extends AbstractStorage
     public Result executeQuery(String query)
     {
         Result result = null;
-        globalTxCheckin();
+        globalTxCheckin(false);
         try
         {
             result = graphDb.execute(query);

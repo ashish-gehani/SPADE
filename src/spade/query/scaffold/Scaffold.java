@@ -13,6 +13,7 @@ import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentFailureException;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.Transaction;
 import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
@@ -24,6 +25,7 @@ import spade.query.sql.postgresql.PostgreSQL;
 import java.io.File;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,15 +49,22 @@ import static spade.query.sql.postgresql.PostgreSQL.VERTEX_TABLE;
 public class Scaffold extends AbstractQuery
 {
     public static long serial_number = 1;
-    public static long start_time;
-    private static Environment scaffoldDbEnvironment = null;
-    private static Database scaffoldDatabase = null;
-    private static Database neighborDatabase = null;
+    public long start_time;
+    private Environment scaffoldDbEnvironment = null;
+    private Database scaffoldDatabase = null;
+    private Database neighborDatabase = null;
     private static final String PARENTS = "parents";
     private static final String CHILDREN = "children";
     private static Logger logger = Logger.getLogger(Scaffold.class.getName());
-    private static String directoryPath;
+    private String directoryPath;
+    private Transaction transaction = null;
 
+    private final int GLOBAL_TX_SIZE = 100000;
+    private int globalTxCount = 0;
+    private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
+    private Date lastFlushTime;
+
+    /* For testing purposes. Reads database and outputs. */
     public void readData(int limit)
     {
         Cursor cursor = scaffoldDatabase.openCursor(null, null);
@@ -88,25 +97,50 @@ public class Scaffold extends AbstractQuery
         {
             EnvironmentConfig envConfig = new EnvironmentConfig();
             envConfig.setAllowCreate(true);
+            envConfig.setTransactional(true);
             scaffoldDbEnvironment = new Environment(new File(directoryPath), envConfig);
 
             DatabaseConfig dbConfig = new DatabaseConfig();
             dbConfig.setAllowCreate(true);
+            dbConfig.setTransactional(true);
             scaffoldDatabase = scaffoldDbEnvironment.openDatabase(null, "scaffold_berkeleydb", dbConfig);
 
             // databases to store class information
             neighborDatabase = scaffoldDbEnvironment.openDatabase(null, "neighbor_berkeleydb", dbConfig);
 
+            globalTxCheckin(true);
             start_time = System.nanoTime();
-            return true;
 
+            return true;
         }
         catch(Exception ex)
         {
-            logger.log(Level.WARNING, null, ex);
+            logger.log(Level.SEVERE, null, ex);
         }
 
         return false;
+    }
+
+    private void globalTxCheckin(boolean forcedFlush)
+    {
+        if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush))
+        {
+            try
+            {
+                if(transaction != null)
+                    transaction.commit();
+                globalTxCount = 0;
+                transaction = scaffoldDbEnvironment.beginTransaction(null, null);
+            }
+            catch(Exception ex)
+            {
+                logger.log(Level.SEVERE, "Error committing transactions!", ex);
+            }
+        }
+        else
+        {
+            globalTxCount++;
+        }
     }
 
     /**
@@ -120,13 +154,16 @@ public class Scaffold extends AbstractQuery
         {
             if (scaffoldDatabase != null)
                 scaffoldDatabase.close();
+            if(neighborDatabase != null)
+                neighborDatabase.close();
             if (scaffoldDbEnvironment != null)
                 scaffoldDbEnvironment.close();
+
             return true;
         }
         catch(DatabaseException ex)
         {
-            logger.log(Level.SEVERE, "Database closure error!", ex);
+            logger.log(Level.SEVERE, "Database and environment closure error!", ex);
         }
 
         return false;
@@ -361,18 +398,20 @@ public class Scaffold extends AbstractQuery
         else if(direction.equalsIgnoreCase(CHILDREN))
             neighbors.children.add(hash);
         data = new DatabaseEntry();
-        neighborBinding.objectToEntry(neighbors, data);
         try
         {
+            neighborBinding.objectToEntry(neighbors, data);
             scaffoldDatabase.put(null, key, data);
+            globalTxCheckin(false);
         }
         catch(EnvironmentFailureException ex)
         {
             logger.log(Level.SEVERE, "Environment Failure Exception. Closing environment and database!", ex);
             scaffoldDbEnvironment.close();
+            neighborDatabase.close();
             scaffoldDatabase.close();
             initialize(directoryPath);
-            logger.log(Level.SEVERE, "Environment and databases opened again");
+            logger.log(Level.INFO, "Environment and databases opened again");
         }
     }
 
