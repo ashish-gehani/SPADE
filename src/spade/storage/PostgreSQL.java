@@ -23,20 +23,27 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.Kernel.CONFIG_PATH;
 import static spade.core.Kernel.FILE_SEPARATOR;
 
+import au.com.bytecode.opencsv.CSVWriter;
 
 /**
  * Basic PostgreSQL storage implementation.
@@ -53,6 +60,12 @@ public class PostgreSQL extends SQL
     private int globalTxCount = 0;
     private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
     private Date lastFlushTime;
+    private boolean bulkUpload = true;
+    private List<Map<String, String>> edgeList = new ArrayList<>();
+    private List<Map<String, String>> vertexList = new ArrayList<>();
+    private ArrayList<String> edgeColumnNames = new ArrayList<>();
+    private ArrayList<String> vertexColumnNames = new ArrayList<>();
+
 
     public PostgreSQL()
     {
@@ -140,6 +153,7 @@ public class PostgreSQL extends SQL
             {
                 vertexAnnotations.add(metadata.getColumnLabel(i));
             }
+            vertexColumnNames.addAll(vertexAnnotations);
 
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
                     + EDGE_TABLE
@@ -160,6 +174,7 @@ public class PostgreSQL extends SQL
             {
                 edgeAnnotations.add(metadata.getColumnLabel(i));
             }
+            edgeColumnNames.addAll(edgeAnnotations);
 
             String createVertexHashIndex = "CREATE INDEX IF NOT EXISTS hash_index ON vertex USING hash(hash)";
             String createEdgeParentHashIndex = "CREATE INDEX IF NOT EXISTS parentVertexHash_index ON edge USING hash(parentVertexHash)";
@@ -305,6 +320,11 @@ public class PostgreSQL extends SQL
     @Override
     public boolean putEdge(AbstractEdge incomingEdge)
     {
+        if(bulkUpload)
+        {
+            processBulkUpload(incomingEdge);
+            return true;
+        }
         String edgeHash = incomingEdge.bigHashCode();
         if(Cache.isPresent(edgeHash))
             return true;
@@ -410,6 +430,132 @@ public class PostgreSQL extends SQL
         return true;
     }
 
+    private void processBulkUpload(AbstractEdge incomingEdge)
+    {
+        Map<String, String> annotations = new HashMap<>(incomingEdge.getAnnotations());
+        annotations.put(PRIMARY_KEY, incomingEdge.bigHashCode());
+        annotations.put(CHILD_VERTEX_KEY, incomingEdge.getChildVertex().bigHashCode());
+        annotations.put(PARENT_VERTEX_KEY, incomingEdge.getParentVertex().bigHashCode());
+        edgeList.add(annotations);
+        for(String annotationKey: annotations.keySet())
+        {
+            String lowerCasedAnnotationKey = annotationKey.toLowerCase();
+            if(!edgeColumnNames.contains(lowerCasedAnnotationKey))
+            {
+                edgeColumnNames.add(lowerCasedAnnotationKey);
+                addColumn(EDGE_TABLE, lowerCasedAnnotationKey);
+            }
+        }
+        if(edgeCount > 0 && (edgeCount % GLOBAL_TX_SIZE) == 0)
+        {
+            String edgeFileName = "/tmp/bulk_edges.csv";
+            try
+            {
+                File file = new File(edgeFileName);
+                file.setWritable(true, false);
+                FileWriter fileWriter = new FileWriter(file);
+
+                CSVWriter writer = new CSVWriter(fileWriter);
+                writer.writeNext(edgeColumnNames.toArray(new String[edgeColumnNames.size()]));
+                for(Map<String, String> edge: edgeList)
+                {
+                    ArrayList<String> annotationValues = new ArrayList<>();
+                    for(String edgeColumnName : edgeColumnNames)
+                    {
+                        annotationValues.add(edge.get(edgeColumnName));
+                    }
+                    writer.writeNext(annotationValues.toArray(new String[annotationValues.size()]));
+                }
+                writer.close();
+            }
+            catch(Exception ex)
+            {
+                logger.log(Level.SEVERE, "Error writing edges to file", ex);
+            }
+
+            String copyTableString = "COPY "
+                                + EDGE_TABLE
+                                + " FROM '"
+                                + edgeFileName
+                                + "' CSV HEADER";
+            try
+            {
+                Statement s = dbConnection.createStatement();
+                s.execute(copyTableString);
+                s.close();
+                globalTxCheckin(true);
+                edgeList.clear();
+                logger.log(Level.INFO, "Bulk uploaded " + GLOBAL_TX_SIZE + " edges to databases. Total edges: " + edgeCount);
+            }
+            catch (Exception ex)
+            {
+                logger.log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private void processBulkUpload(AbstractVertex incomingVertex)
+    {
+        Map<String, String> annotations = new HashMap<>(incomingVertex.getAnnotations());
+        annotations.put(PRIMARY_KEY, incomingVertex.bigHashCode());
+        vertexList.add(annotations);
+        for(String annotationKey: annotations.keySet())
+        {
+            String lowerCasedAnnotationKey = annotationKey.toLowerCase();
+            if(!vertexColumnNames.contains(lowerCasedAnnotationKey))
+            {
+                vertexColumnNames.add(lowerCasedAnnotationKey);
+                addColumn(VERTEX_TABLE, lowerCasedAnnotationKey);
+            }
+        }
+        if(vertexCount > 0 && (vertexCount % GLOBAL_TX_SIZE) == 0)
+        {
+            String vertexFileName = "/tmp/bulk_vertices.csv";
+            try
+            {
+                File file = new File(vertexFileName);
+                file.setWritable(true ,false);
+                FileWriter fileWriter = new FileWriter(file);
+                CSVWriter writer = new CSVWriter(fileWriter);
+                writer.writeNext(vertexColumnNames.toArray(new String[vertexColumnNames.size()]));
+                for(Map<String, String> vertex: vertexList)
+                {
+                    ArrayList<String> annotationValues = new ArrayList<>();
+                    for(String vertexColumnName : vertexColumnNames)
+                    {
+                        annotationValues.add(vertex.get(vertexColumnName));
+                    }
+                    writer.writeNext(annotationValues.toArray(new String[annotationValues.size()]));
+                }
+                writer.close();
+            }
+            catch(Exception ex)
+            {
+                logger.log(Level.SEVERE, "Error writing vertices to file", ex);
+            }
+
+            String copyTableString = "COPY "
+                    + VERTEX_TABLE
+                    + " FROM '"
+                    + vertexFileName
+                    + "' CSV HEADER";
+            try
+            {
+                Statement s = dbConnection.createStatement();
+                s.execute(copyTableString);
+                s.close();
+                globalTxCheckin(true);
+                vertexList.clear();
+                logger.log(Level.INFO, "Bulk uploaded " + GLOBAL_TX_SIZE + " vertices to databases. Total vertices: " + vertexCount);
+            }
+            catch (Exception ex)
+            {
+                logger.log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+
     /**
      * This function inserts the given vertex into the underlying storage(s) and
      * updates the cache(s) accordingly.
@@ -421,6 +567,11 @@ public class PostgreSQL extends SQL
     @Override
     public boolean putVertex(AbstractVertex incomingVertex)
     {
+        if(bulkUpload)
+        {
+            processBulkUpload(incomingVertex);
+            return true;
+        }
         String vertexHash = incomingVertex.bigHashCode();
         if(Cache.isPresent(vertexHash))
             return true;
