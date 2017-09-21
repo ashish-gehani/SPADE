@@ -1,5 +1,7 @@
 package spade.core;
 
+import spade.client.QueryMetaData;
+
 import javax.net.ssl.SSLServerSocket;
 import java.io.File;
 import java.io.FileInputStream;
@@ -172,7 +174,7 @@ public abstract class AbstractAnalyzer
 
         protected abstract void parseQuery(String line);
 
-        protected Graph iterateTransformers(Graph graph, String query)
+        protected Graph iterateTransformers(Graph graph, QueryMetaData queryMetaData)
         {
             synchronized (Kernel.transformers)
             {
@@ -183,8 +185,7 @@ public abstract class AbstractAnalyzer
                     {
                         try
                         {
-                            //TODO: update the transformer function to reflect changes
-                            graph = transformer.putGraph(graph, null);
+                            graph = transformer.putGraph(graph, queryMetaData);
                             if(graph != null)
                             {
                                 //commit after every transformer to enable reading without error

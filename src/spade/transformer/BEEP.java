@@ -20,7 +20,7 @@
 package spade.transformer;
 
 import org.apache.commons.io.FileUtils;
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.core.Settings;
@@ -31,63 +31,86 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class BEEP extends AbstractTransformer {
+import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
+import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
+
+public class BEEP extends AbstractTransformer
+{
 	
-	private final Logger logger = Logger.getLogger(getClass().getName()); 
-	
-	private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
+	private final Logger logger = Logger.getLogger(getClass().getName());
 	
 	private List<AbstractTransformer> forwardSearchTransformers = null;
 	private List<AbstractTransformer> backwardSearchTransformers = null;
 		
-	public List<AbstractTransformer> loadTransformersFromFile(List<String> transformersFileLines){
-		try{
-			List<AbstractTransformer> transformers = new ArrayList<AbstractTransformer>();
-			if(transformersFileLines == null || transformersFileLines.isEmpty()){
+	public List<AbstractTransformer> loadTransformersFromFile(List<String> transformersFileLines)
+	{
+		try
+		{
+			List<AbstractTransformer> transformers = new ArrayList<>();
+			if(transformersFileLines == null || transformersFileLines.isEmpty())
+			{
 				logger.log(Level.SEVERE, "Transformer file list is missing or is malformed");
+
 				return null;
 			}
-			for(String line : transformersFileLines){
+			for(String line : transformersFileLines)
+			{
 				int blankCharIndex = line.indexOf(' ');
-				if(blankCharIndex == -1){
+				if(blankCharIndex == -1)
+				{
 					blankCharIndex = line.length();
 				}
 				String transformerClassName = line.substring(0, blankCharIndex);
 				String transformerArguments = line.substring(blankCharIndex);
 				AbstractTransformer transformer = (AbstractTransformer) Class.forName("spade.transformer." + transformerClassName).newInstance();
-				if(!transformer.initialize(transformerArguments)){
+				if(!transformer.initialize(transformerArguments))
+				{
 					logger.log(Level.SEVERE, "Failed to initialize transformer " + transformer.getClass().getName());
+
 					return null;
 				}
 				transformers.add(transformer);
 			}
 			return transformers;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, null, e);
+		}
+		catch(Exception ex)
+		{
+			logger.log(Level.SEVERE, null, ex);
+
 			return null;
 		}
 	}
 	
-	public boolean initialize(String arguments){
+	public boolean initialize(String arguments)
+	{
 		String configFile = Settings.getDefaultConfigFilePath(this.getClass());
-		try{
+		try
+		{
 			List<String> lines = FileUtils.readLines(new File(configFile));
-			List<String> backwardSearchLines = new ArrayList<String>();
-			List<String> forwardSearchLines = new ArrayList<String>();
+			List<String> backwardSearchLines = new ArrayList<>();
+			List<String> forwardSearchLines = new ArrayList<>();
 			List<String> listHandle = null;
-			for(int a = 0; a<lines.size(); a++){
+			for(int a = 0; a<lines.size(); a++)
+			{
 				String line = lines.get(a);
-				if(line != null){
+				if(line != null)
+				{
 					line = line.trim();
-					if(line.startsWith("#")){
-						if(line.contains("backward_search")){
+					if(line.startsWith("#"))
+					{
+						if(line.contains("backward_search"))
+						{
 							listHandle = backwardSearchLines;
-						}else if(line.contains("forward_search")){
+						}
+						else if(line.contains("forward_search"))
+						{
 							listHandle = forwardSearchLines;
 						}
-					}else{
-						if(!line.isEmpty()){
+					}
+					else
+						{
+						if(!line.isEmpty())
+						{
 							listHandle.add(line);
 						}
 					}
@@ -96,53 +119,69 @@ public class BEEP extends AbstractTransformer {
 			
 			forwardSearchTransformers = loadTransformersFromFile(forwardSearchLines);
 			
-			if(forwardSearchTransformers == null){
+			if(forwardSearchTransformers == null)
+			{
 				return false;
 			}
 			
 			backwardSearchTransformers = loadTransformersFromFile(backwardSearchLines);
 			
-			if(backwardSearchTransformers == null){
+			if(backwardSearchTransformers == null)
+			{
 				return false;
 			}
 			
 			return true;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Error reading/loading '"+configFile+"'", e);
+		}
+		catch(Exception ex)
+		{
+			logger.log(Level.SEVERE, "Error reading/loading '"+configFile+"'", ex);
+
 			return false;
 		}
 		
 	}
 	
 	@Override
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams) {
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		
-		if(digQueryParams == null || digQueryParams.getDirection() == null){
+		if(queryMetaData == null || queryMetaData.getDirection() == null)
+		{
 			return graph;
 		}
 		
-		List<AbstractTransformer> transformers = null;
+		List<AbstractTransformer> transformers;
 		
-		if(DIRECTION_ANCESTORS.startsWith(digQueryParams.getDirection())){
+		if(DIRECTION_ANCESTORS.startsWith(queryMetaData.getDirection()))
+		{
 			transformers = backwardSearchTransformers;
-		}else if(DIRECTION_DESCENDANTS.startsWith(digQueryParams.getDirection())){
+		}
+		else if(DIRECTION_DESCENDANTS.startsWith(queryMetaData.getDirection()))
+		{
 			transformers = forwardSearchTransformers;
-		}else{
+		}
+		else
+		{
 			return graph;
 		}			
 		
-		for(AbstractTransformer transformer : transformers){
-			if(graph != null){
-				graph = transformer.putGraph(graph, digQueryParams);
-				if(graph != null){
+		for(AbstractTransformer transformer : transformers)
+		{
+			if(graph != null)
+			{
+				graph = transformer.putGraph(graph, queryMetaData);
+				if(graph != null)
+				{
 					graph.commitIndex();
 				}
-			}else{
+			}
+			else
+			{
 				break;
 			}
 		}
 		
 		return graph;
 	}
-	
 }

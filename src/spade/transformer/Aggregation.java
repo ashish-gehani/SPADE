@@ -20,7 +20,7 @@
 package spade.transformer;
 
 import org.apache.commons.io.FileUtils;
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -39,60 +39,78 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Aggregation extends AbstractTransformer{
-
+public class Aggregation extends AbstractTransformer
+{
 	private final static Logger logger = Logger.getLogger(Aggregation.class.getName());
 	
-	private Map<String, String> annotationAggregationFunction = new HashMap<String, String>();
-	private Map<String, String> annotationNewAnnotation = new HashMap<String, String>();
+	private Map<String, String> annotationAggregationFunction = new HashMap<>();
+	private Map<String, String> annotationNewAnnotation = new HashMap<>();
 		
 	//read file with every line containing <originalAnnotationName newAnnotationName aggregationFunction>
-	public boolean initialize(String arguments) {
+	public boolean initialize(String arguments)
+    {
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
-		try{
+		try
+        {
 			List<String> lines = FileUtils.readLines(new File(filepath));
 			int lineNumber = 0;
-			for(String line : lines){
+			for(String line : lines)
+			{
 				lineNumber++;
 				line = line.trim();
-				if(line.startsWith("#") || line.isEmpty()){
+				if(line.startsWith("#") || line.isEmpty())
+				{
 					continue;
 				}
 				String tokens[] = line.split(",");
-				if(tokens.length == 3){
+				if(tokens.length == 3)
+				{
 					String annotationKey = tokens[0].trim();
 					String newAnnotationKey = tokens[1].trim();
 					String aggregationFunction = tokens[2].trim();
 					annotationAggregationFunction.put(annotationKey, aggregationFunction);
 					annotationNewAnnotation.put(annotationKey, newAnnotationKey);
-				}else{
+				}
+				else
+				    {
 					logger.log(Level.SEVERE, "No. " + lineNumber + " malformed in file '"+filepath+"'");
 				}
 			}
+
 			return true;
-		}catch (Exception exception){
+		}
+		catch (Exception exception)
+        {
 			logger.log(Level.SEVERE, "Unable to read file '"+filepath+"'", exception);
+
 			return false;
 		}
 	}
 	
 	@Override
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams) {
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		String[] annotationsToRemove = annotationAggregationFunction.keySet().toArray(new String[]{});
-		Map<AbstractEdge, Map<String, List<String>>> edgeAnnotationSet = new HashMap<AbstractEdge, Map<String, List<String>>>();
-		Map<AbstractVertex, Map<String, List<String>>> vertexAnnotationSet = new HashMap<AbstractVertex, Map<String, List<String>>>();
-		Map<AbstractVertex, AbstractVertex> oldNewVertices = new HashMap<AbstractVertex, AbstractVertex>(); //to avoid double work when same vertex again
+		Map<AbstractEdge, Map<String, List<String>>> edgeAnnotationSet = new HashMap<>();
+		Map<AbstractVertex, Map<String, List<String>>> vertexAnnotationSet = new HashMap<>();
+		Map<AbstractVertex, AbstractVertex> oldNewVertices = new HashMap<>(); //to avoid double work when same vertex again
 		
 		//build map which contains the vertex -> annotation -> list of values (for all vertices and their annotations)
-		for(AbstractVertex originalVertex : graph.vertexSet()){
+		for(AbstractVertex originalVertex : graph.vertexSet())
+		{
 			AbstractVertex newVertex = createNewWithoutAnnotations(originalVertex, annotationsToRemove);
-			if(vertexAnnotationSet.get(newVertex) == null){
-				vertexAnnotationSet.put(newVertex, new HashMap<String, List<String>>());
+			if(vertexAnnotationSet.get(newVertex) == null)
+			{
+				vertexAnnotationSet.put(newVertex, new HashMap<>());
 			}
-			for(String annotationToRemove : annotationsToRemove){
-				if(originalVertex.getAnnotation(annotationToRemove) != null){ //annotations actually exists for the vertex. only then.
-					if(vertexAnnotationSet.get(newVertex).get(annotationToRemove) == null){
-						vertexAnnotationSet.get(newVertex).put(annotationToRemove, new ArrayList<String>());
+			for(String annotationToRemove : annotationsToRemove)
+			{
+                //annotations actually exists for the vertex. only then.
+				if(originalVertex.getAnnotation(annotationToRemove) != null)
+				{
+					if(vertexAnnotationSet.get(newVertex).get(annotationToRemove) == null)
+					{
+						vertexAnnotationSet.get(newVertex).put(annotationToRemove, new ArrayList<>());
 					}
 					vertexAnnotationSet.get(newVertex).get(annotationToRemove).add(getAnnotationSafe(originalVertex, annotationToRemove));
 				}
@@ -100,15 +118,21 @@ public class Aggregation extends AbstractTransformer{
 		}
 		
 		//build map which contains the edge -> annotation -> list of values (for all edges and their annotations)
-		for(AbstractEdge originalEdge : graph.edgeSet()){
+		for(AbstractEdge originalEdge : graph.edgeSet())
+		{
 			AbstractEdge newEdge = createNewWithoutAnnotations(originalEdge, annotationsToRemove);
-			if(edgeAnnotationSet.get(newEdge) == null){
-				edgeAnnotationSet.put(newEdge, new HashMap<String, List<String>>());
+			if(edgeAnnotationSet.get(newEdge) == null)
+			{
+				edgeAnnotationSet.put(newEdge, new HashMap<>());
 			}
-			for(String annotationToRemove : annotationsToRemove){
-				if(originalEdge.getAnnotation(annotationToRemove) != null){ //annotations actually exists for the vertex. only then.
-					if(edgeAnnotationSet.get(newEdge).get(annotationToRemove) == null){
-						edgeAnnotationSet.get(newEdge).put(annotationToRemove, new ArrayList<String>());
+			for(String annotationToRemove : annotationsToRemove)
+			{
+                //annotations actually exists for the vertex. only then.
+				if(originalEdge.getAnnotation(annotationToRemove) != null)
+				{
+					if(edgeAnnotationSet.get(newEdge).get(annotationToRemove) == null)
+					{
+						edgeAnnotationSet.get(newEdge).put(annotationToRemove, new ArrayList<>());
 					}
 					edgeAnnotationSet.get(newEdge).get(annotationToRemove).add(getAnnotationSafe(originalEdge, annotationToRemove));
 				}
@@ -117,12 +141,15 @@ public class Aggregation extends AbstractTransformer{
 		
 		Graph resultGraph = new Graph();
 		//create a new graph with updated (aggregated) annotations
-		for(AbstractEdge edge : edgeAnnotationSet.keySet()){
+		for(AbstractEdge edge : edgeAnnotationSet.keySet())
+		{
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge, annotationsToRemove);
-			for(String annotation : edgeAnnotationSet.get(edge).keySet()){
+			for(String annotation : edgeAnnotationSet.get(edge).keySet())
+			{
 				String aggregationFunction = annotationAggregationFunction.get(annotation);
 				List<String> list = edgeAnnotationSet.get(edge).get(annotation);
-				if(list != null && list.size() != 0){
+				if(list != null && list.size() != 0)
+				{
 					String newValue = applyFunctionOnList(list, aggregationFunction);
 					newEdge.addAnnotation(annotationNewAnnotation.get(annotation), newValue);
 				}
@@ -131,13 +158,15 @@ public class Aggregation extends AbstractTransformer{
 			AbstractVertex childVertex = newEdge.getChildVertex();
 			AbstractVertex parentVertex = newEdge.getParentVertex();
 			
-			if(oldNewVertices.get(childVertex) == null){
+			if(oldNewVertices.get(childVertex) == null)
+			{
 				AbstractVertex newChildVertex = getVertexWithUpdatedAnnotations(childVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(childVertex));
 				oldNewVertices.put(childVertex, newChildVertex);
 			}
 			newEdge.setChildVertex(oldNewVertices.get(childVertex));
 						
-			if(oldNewVertices.get(parentVertex) == null){
+			if(oldNewVertices.get(parentVertex) == null)
+			{
 				AbstractVertex newParentVertex = getVertexWithUpdatedAnnotations(parentVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(parentVertex));
 				oldNewVertices.put(parentVertex, newParentVertex);
 			}
@@ -152,81 +181,115 @@ public class Aggregation extends AbstractTransformer{
 		return resultGraph;
 	}
 	
-	private AbstractVertex getVertexWithUpdatedAnnotations( 
+	private AbstractVertex getVertexWithUpdatedAnnotations
+            (
 			AbstractVertex vertex, 
 			String[] annotationsToRemove, 
 			Map<String, String> aggregationFunctionMap, 
-			Map<String, List<String>> annotationValues){
-		
+			Map<String, List<String>> annotationValues
+            )
+    {
 		AbstractVertex newVertex = createNewWithoutAnnotations(vertex, annotationsToRemove);
-		for(String annotation : annotationValues.keySet()){
+		for(String annotation : annotationValues.keySet())
+		{
 			List<String> list = annotationValues.get(annotation);
-			if(list != null && list.size() != 0){
+			if(list != null && list.size() != 0)
+			{
 				String aggregationFunction = aggregationFunctionMap.get(annotation);
 				String newValue = applyFunctionOnList(list, aggregationFunction);
 				newVertex.addAnnotation(annotationNewAnnotation.get(annotation), newValue);
 			}
 		}
+
 		return newVertex;
 	}
 	
-	private static void sortList_StringAsDouble(List<String> list){
-		Collections.sort(list, new Comparator<String>(){
-			public int compare(String a, String b){
+	private static void sortList_StringAsDouble(List<String> list)
+    {
+		Collections.sort(list, new Comparator<String>()
+        {
+			public int compare(String a, String b)
+            {
 				Double d = parseDouble(a) - parseDouble(b);
-				if(d > 0){
+				if(d > 0)
+				{
 					return 1;
-				}else if(d < 0){
+				}
+				else if(d < 0)
+				{
 					return -1;
-				}else{
+				}
+				else
+                {
 					return 0;
 				}
-			}				
+			}
 		});
 	}
 	
 	//valid function names = unique(prints unique elements from the list), list (lists all elements even if duplicate), 
 	//minmax (prints the first and and last element of the sorted list), sum (prints the sum of the list), count (prints the size of the list)
 	//all functions are only applicable on numeric lists so far.
-	private static String applyFunctionOnList(List<String> list, String function){
-		if(function.equals("unique")){
-			Set<String> set = new HashSet<String>(list);
-			list = new ArrayList<String>(set);
+	private static String applyFunctionOnList(List<String> list, String function)
+    {
+		if(function.equals("unique"))
+		{
+			Set<String> set = new HashSet<>(list);
+			list = new ArrayList<>(set);
 			sortList_StringAsDouble(list);
+
 			return list.toString();
-		}else{
+		}
+		else
+        {
 			sortList_StringAsDouble(list);
-			if(function.equals("list")){
+			if(function.equals("list"))
+			{
 				return list.toString();
-			}else if(function.equals("minmax")){
-				if(list.size() > 0){
+			}
+			else if(function.equals("minmax"))
+			{
+				if(list.size() > 0)
+				{
 					return "["+list.get(0)+", "+list.get(list.size() - 1)+"]";
-				}else{
+				}
+				else
+                {
 					return "[]";
 				}
-			}else if(function.equals("sum")){
+			}
+			else if(function.equals("sum"))
+			{
 				Double sum = 0.0;
-				for(String string : list){
+				for(String string : list)
+				{
 					sum += parseDouble(string);
 				}
 				String sumString = sum.toString();
-				if(sum == sum.intValue()){
+				if(sum == sum.intValue())
+				{
 					sumString = String.valueOf(sum.intValue());  
 				}
 				return "["+sumString+"]";
-			}else if(function.equals("count")){
+			}
+			else if(function.equals("count"))
+			{
 				return "["+list.size()+"]";
 			}
 		}
+
 		return "[unknown_aggregation_function:"+function+"]";
 	}	
 	
-	private static Double parseDouble(String str){
-		try{
+	private static Double parseDouble(String str)
+    {
+		try
+        {
 			return Double.parseDouble(str);
-		}catch(Exception e){
+		}
+		catch(Exception e)
+        {
 			return 0.0;
 		}
 	}
-
 }

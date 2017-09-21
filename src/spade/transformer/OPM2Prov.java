@@ -20,7 +20,7 @@
 
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
@@ -31,15 +31,17 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class OPM2Prov extends AbstractTransformer{
+public class OPM2Prov extends AbstractTransformer
+{
 	
 	private final static Logger logger = Logger.getLogger(OPM2Prov.class.getName());
 	
-	private static final Map<String, String> opm2ProvEdgeMappings = new HashMap<String, String>();
+	private static final Map<String, String> opm2ProvEdgeMappings = new HashMap<>();
 	
-	private static final Map<String, String> opm2ProvVertexMappings = new HashMap<String, String>();
+	private static final Map<String, String> opm2ProvVertexMappings = new HashMap<>();
 	
-	static{
+	static
+	{
 		opm2ProvVertexMappings.put(OPMConstants.AGENT,"Agent");
 		opm2ProvVertexMappings.put(OPMConstants.PROCESS,"Activity");
 		opm2ProvVertexMappings.put(OPMConstants.ARTIFACT,"Entity");
@@ -51,11 +53,14 @@ public class OPM2Prov extends AbstractTransformer{
 		opm2ProvEdgeMappings.put(OPMConstants.WAS_TRIGGERED_BY,"WasInformedBy");
 	}
 
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		Graph resultGraph = new Graph();
 		
-		for(AbstractEdge edge : graph.edgeSet()){
-			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
+			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null)
+			{
 				String edgeType = getAnnotationSafe(edge, "type");
 				String srcType = getAnnotationSafe(edge.getChildVertex(), "type");
 				String dstType = getAnnotationSafe(edge.getParentVertex(), "type");
@@ -68,26 +73,34 @@ public class OPM2Prov extends AbstractTransformer{
 				resultGraph.putEdge(newEdge);
 			}
 		}
-		
 		return resultGraph;
 	}
 	
-	private String getProvEdgeTypeEquivalentToOPMEdgeType(String opmEdgeType){
-		if(opm2ProvEdgeMappings.containsKey(opmEdgeType)){
+	private String getProvEdgeTypeEquivalentToOPMEdgeType(String opmEdgeType)
+	{
+		if(opm2ProvEdgeMappings.containsKey(opmEdgeType))
+		{
 			return opm2ProvEdgeMappings.get(opmEdgeType);
-		}else{
+		}
+		else
+		{
 			logger.log(Level.SEVERE, "No prov equivalent edge type for opm edge type: " + opmEdgeType);
+
 			return opmEdgeType;
 		}
 	}
 	
-	private String getProvVertexTypeEquivalentToOPMVertexType(String opmVertexType){
-		if(opm2ProvVertexMappings.containsKey(opmVertexType)){
+	private String getProvVertexTypeEquivalentToOPMVertexType(String opmVertexType)
+	{
+		if(opm2ProvVertexMappings.containsKey(opmVertexType))
+		{
 			return opm2ProvVertexMappings.get(opmVertexType);
-		}else{
+		}
+		else
+		{
 			logger.log(Level.SEVERE, "No prov equivalent vertex type for opm vertex type: " + opmVertexType);
-			return opmVertexType;
+
+				return opmVertexType;
 		}
 	}
-	
 }

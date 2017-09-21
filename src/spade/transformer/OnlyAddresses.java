@@ -20,7 +20,7 @@
 
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -33,10 +33,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class OnlyAddresses extends AbstractTransformer{
+public class OnlyAddresses extends AbstractTransformer
+{
 	
-	public Graph putGraph(Graph graph, QueryParameters queryParameters){
-		
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		/*
 		 * Code description:
 		 * 
@@ -53,42 +54,64 @@ public class OnlyAddresses extends AbstractTransformer{
 		
 		Graph resultGraph = new Graph();
 		
-		Map<AbstractVertex, SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>> transactionsToPayments = new HashMap<AbstractVertex, SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>>(); 
+		Map<AbstractVertex, SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>> transactionsToPayments = new HashMap<>();
 		
-		Map<AbstractVertex, AbstractVertex> paymentToAddresses = new HashMap<AbstractVertex, AbstractVertex>();
+		Map<AbstractVertex, AbstractVertex> paymentToAddresses = new HashMap<>();
 				
-		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge, "type").equals("WasAttributedTo")){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
+			if(getAnnotationSafe(edge, "type").equals("WasAttributedTo"))
+			{
 				paymentToAddresses.put(edge.getChildVertex(), edge.getParentVertex());
-				resultGraph.putVertex(edge.getParentVertex()); //adding the Agent vertex to the final graph
-			}else if(getAnnotationSafe(edge, "type").equals("Used")){ //list of edges for 'paid from' payment vertices
-				if(transactionsToPayments.get(edge.getChildVertex()) == null){
-					transactionsToPayments.put(edge.getChildVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
+				//adding the Agent vertex to the final graph
+				resultGraph.putVertex(edge.getParentVertex());
+			}
+			//list of edges for 'paid from' payment vertices
+			else if(getAnnotationSafe(edge, "type").equals("Used"))
+			{
+				if(transactionsToPayments.get(edge.getChildVertex()) == null)
+				{
+					transactionsToPayments.put(edge.getChildVertex(), new SimpleEntry<>(new ArrayList<>(), new ArrayList<>()));
 				}
 				transactionsToPayments.get(edge.getChildVertex()).getKey().add(edge);
-			}else if(getAnnotationSafe(edge, "type").equals("WasGeneratedBy")){ //list of edges for 'paid to' payment vertices
-				if(transactionsToPayments.get(edge.getParentVertex()) == null){
-					transactionsToPayments.put(edge.getParentVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
+			}
+			//list of edges for 'paid to' payment vertices
+			else if(getAnnotationSafe(edge, "type").equals("WasGeneratedBy"))
+			{
+				if(transactionsToPayments.get(edge.getParentVertex()) == null)
+				{
+					transactionsToPayments.put(edge.getParentVertex(), new SimpleEntry<>(new ArrayList<>(), new ArrayList<>()));
 				}
 				transactionsToPayments.get(edge.getParentVertex()).getValue().add(edge);
 			}
 		}				
 		
-		for(AbstractVertex transaction : transactionsToPayments.keySet()){ 
+		for(AbstractVertex transaction : transactionsToPayments.keySet())
+		{
 			SimpleEntry<List<AbstractEdge>, List<AbstractEdge>> allPayments = transactionsToPayments.get(transaction);
-			if(allPayments != null){
-				List<AbstractEdge> paymentsInEdges = allPayments.getKey(); //'paid from' payments
-				List<AbstractEdge> paymentsOutEdges = allPayments.getValue(); //'paid to' payments
-				if(paymentsInEdges != null && paymentsInEdges.size() > 0 && paymentsOutEdges != null && paymentsOutEdges.size() > 0){
-					for(AbstractEdge paymentInEdge : paymentsInEdges){
+			if(allPayments != null)
+			{
+				//'paid from' payments
+				List<AbstractEdge> paymentsInEdges = allPayments.getKey();
+				//'paid to' payments
+				List<AbstractEdge> paymentsOutEdges = allPayments.getValue();
+				if(paymentsInEdges != null && paymentsInEdges.size() > 0
+						&& paymentsOutEdges != null && paymentsOutEdges.size() > 0)
+				{
+					for(AbstractEdge paymentInEdge : paymentsInEdges)
+					{
 						AbstractVertex paymentInAddress = paymentToAddresses.get(paymentInEdge.getParentVertex());
-						if(paymentInAddress != null){
-							for(AbstractEdge paymentOutEdge : paymentsOutEdges){
+						if(paymentInAddress != null)
+						{
+							for(AbstractEdge paymentOutEdge : paymentsOutEdges)
+							{
 								AbstractVertex paymentOutAddress = paymentToAddresses.get(paymentOutEdge.getChildVertex());
-								if(paymentOutAddress != null){
+								if(paymentOutAddress != null)
+								{
 									AbstractEdge edge = new Edge(paymentOutAddress, paymentInAddress);
 									edge.addAnnotation("type", "ActedOnBehalfOf");
-									if(paymentOutEdge.getAnnotation("transactionValue") != null){
+									if(paymentOutEdge.getAnnotation("transactionValue") != null)
+									{
 										edge.addAnnotation("transactionValue", getAnnotationSafe(paymentOutEdge, "transactionValue"));
 									}
 									resultGraph.putEdge(edge);
@@ -99,8 +122,6 @@ public class OnlyAddresses extends AbstractTransformer{
 				}
 			}
 		}
-		
 		return resultGraph;
 	}
-	
 }

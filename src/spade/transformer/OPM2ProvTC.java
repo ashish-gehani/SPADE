@@ -20,7 +20,7 @@
 
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.core.Settings;
@@ -30,31 +30,40 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class OPM2ProvTC extends OPM2Prov{
+public class OPM2ProvTC extends OPM2Prov
+{
 	
 	private static final Logger logger = Logger.getLogger(OPM2ProvTC.class.getName());
 	
 	private Map<String, String> opm2ProvTCMapping = null;
 	
-	public boolean initialize(String arguments){
+	public boolean initialize(String arguments)
+	{
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
-		try{
+		try
+		{
 			opm2ProvTCMapping = FileUtility.readOPM2ProvTCFile(filepath);
 			return true;
-		}catch(Exception e){
+		}
+		catch(Exception e)
+		{
 			logger.log(Level.SEVERE, "Failed to read the file: " + filepath, e);
-			return false;
+
+				return false;
 		}
 	}
 
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
-		graph = super.putGraph(graph, digQueryParams);
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
+		graph = super.putGraph(graph, queryMetaData);
 		graph.commitIndex();
 		
 		Graph resultGraph = new Graph();
 		
-		for(AbstractEdge edge : graph.edgeSet()){
-			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
+			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null)
+			{
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 				replaceAnnotations(newEdge.getAnnotations(), opm2ProvTCMapping);
 				replaceAnnotations(newEdge.getChildVertex().getAnnotations(), opm2ProvTCMapping);
@@ -68,13 +77,15 @@ public class OPM2ProvTC extends OPM2Prov{
 		return resultGraph;
 	}
 	
-	private void replaceAnnotations(Map<String, String> annotations, Map<String, String> newMapping){
-		for(String annotation : annotations.keySet()){
-			if(newMapping.get(annotation) != null){
+	private void replaceAnnotations(Map<String, String> annotations, Map<String, String> newMapping)
+	{
+		for(String annotation : annotations.keySet())
+		{
+			if(newMapping.get(annotation) != null)
+			{
 				annotations.put(newMapping.get(annotation), annotations.get(annotation));
 				annotations.remove(annotation);
 			}
 		}
 	}
-	
 }

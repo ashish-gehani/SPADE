@@ -103,12 +103,19 @@ public class Graph extends AbstractStorage implements Serializable
     private transient IndexWriter edgeIndexWriter;
 
     /**
-     * Fields for Consistency check
+     * Fields for consistency check and query params
      */
     private String hostName;
     private String computeTime;
     private int maxDepth;
     private AbstractVertex rootVertex;
+
+    public AbstractVertex getDestinationVertex()
+    {
+        return destinationVertex;
+    }
+
+    private AbstractVertex destinationVertex;
     private String signature;
     
     public void mergeThreads() {

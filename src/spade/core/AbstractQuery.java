@@ -42,6 +42,11 @@ public abstract class AbstractQuery<R, P>
         currentStorage = storage;
     }
 
+    public static AbstractStorage getCurrentStorage()
+    {
+        return currentStorage;
+    }
+
     public void register()
     {
         try

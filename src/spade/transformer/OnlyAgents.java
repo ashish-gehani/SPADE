@@ -22,7 +22,7 @@ package spade.transformer;
 import org.jgrapht.EdgeFactory;
 import org.jgrapht.alg.TransitiveClosure;
 import org.jgrapht.graph.SimpleDirectedGraph;
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -34,9 +34,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class OnlyAgents extends AbstractTransformer{
+public class OnlyAgents extends AbstractTransformer
+{
 	@Override
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams) {
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		/*
 		 * Code description: 
 		 * 
@@ -51,25 +53,35 @@ public class OnlyAgents extends AbstractTransformer{
 		
 		Graph resultGraph = new Graph();
 		
-		SimpleDirectedGraph<AbstractVertex, AbstractEdge> spadeGraph = new SimpleDirectedGraph<AbstractVertex, AbstractEdge>(new EdgeFactory<AbstractVertex, AbstractEdge>() {
+		SimpleDirectedGraph<AbstractVertex, AbstractEdge> spadeGraph =
+				new SimpleDirectedGraph<>(new EdgeFactory<AbstractVertex, AbstractEdge>()
+		{
 			@Override
-			public AbstractEdge createEdge(AbstractVertex childVertex, AbstractVertex parentVertex) {
+			public AbstractEdge createEdge(AbstractVertex childVertex, AbstractVertex parentVertex)
+			{
 				return new Edge(childVertex, parentVertex);
 			}
 		});
-		Map<AbstractVertex, Set<AbstractEdge>> vertexToAgent = new HashMap<AbstractVertex, Set<AbstractEdge>>();
-		for(AbstractEdge edge : graph.edgeSet()){
+
+		Map<AbstractVertex, Set<AbstractEdge>> vertexToAgent = new HashMap<>();
+		for(AbstractEdge edge : graph.edgeSet())
+		{
 			AbstractVertex agentVertex = null, otherVertex = null;
-			if(getAnnotationSafe(edge.getChildVertex(), "type").equals("Agent")){
+			if(getAnnotationSafe(edge.getChildVertex(), "type").equals("Agent"))
+			{
 				otherVertex = edge.getParentVertex();
 				agentVertex = edge.getChildVertex();
-			}else if(getAnnotationSafe(edge.getParentVertex(), "type").equals("Agent")){
+			}
+			else if(getAnnotationSafe(edge.getParentVertex(), "type").equals("Agent"))
+			{
 				otherVertex = edge.getChildVertex();
 				agentVertex = edge.getParentVertex();
 			}
-			if(agentVertex != null && otherVertex != null){
-				if(vertexToAgent.get(otherVertex) == null){
-					vertexToAgent.put(otherVertex, new HashSet<AbstractEdge>());
+			if(agentVertex != null && otherVertex != null)
+			{
+				if(vertexToAgent.get(otherVertex) == null)
+				{
+					vertexToAgent.put(otherVertex, new HashSet<>());
 				}
 				vertexToAgent.get(otherVertex).add(edge);
 				resultGraph.putVertex(agentVertex);
@@ -81,22 +93,29 @@ public class OnlyAgents extends AbstractTransformer{
 		
 		TransitiveClosure.INSTANCE.closeSimpleDirectedGraph(spadeGraph);
 				
-		for(AbstractEdge edge : spadeGraph.edgeSet()){
+		for(AbstractEdge edge : spadeGraph.edgeSet())
+		{
 			Set<AbstractEdge> sourceEdges = null, destinationEdges = null;
-			if((sourceEdges = vertexToAgent.get(edge.getChildVertex())) != null && (destinationEdges = vertexToAgent.get(edge.getParentVertex())) != null &&
-					sourceEdges.size() > 0 && destinationEdges.size() > 0){
-				for(AbstractEdge sourceEdge : sourceEdges){
-					AbstractVertex sourceAgent = getAnnotationSafe(sourceEdge.getChildVertex(), "type").equals("Agent") ? sourceEdge.getChildVertex() : sourceEdge.getParentVertex();
-					for(AbstractEdge destinationEdge : destinationEdges){
-						AbstractVertex destinationAgent = getAnnotationSafe(destinationEdge.getChildVertex(), "type").equals("Agent") ? destinationEdge.getChildVertex() : destinationEdge.getParentVertex();
+			if((sourceEdges = vertexToAgent.get(edge.getChildVertex())) != null
+					&& (destinationEdges = vertexToAgent.get(edge.getParentVertex())) != null &&
+					sourceEdges.size() > 0 && destinationEdges.size() > 0)
+			{
+				for(AbstractEdge sourceEdge : sourceEdges)
+				{
+					AbstractVertex sourceAgent = getAnnotationSafe(sourceEdge.getChildVertex(), "type").equals("Agent") ?
+							sourceEdge.getChildVertex() : sourceEdge.getParentVertex();
+					for(AbstractEdge destinationEdge : destinationEdges)
+					{
+						AbstractVertex destinationAgent = getAnnotationSafe(destinationEdge.getChildVertex(), "type").equals("Agent") ?
+								destinationEdge.getChildVertex() : destinationEdge.getParentVertex();
 						AbstractEdge newEdge = new Edge(sourceAgent, destinationAgent);
 						newEdge.addAnnotation("type", "ActedOnBehalfOf");
-						resultGraph.putEdge(newEdge); //have added all agents previously. so, not adding them here
+						//have added all agents previously. so, not adding them here
+						resultGraph.putEdge(newEdge);
 					}
 				}				
 			}
 		}
-		
 		return resultGraph;
 	}
 }

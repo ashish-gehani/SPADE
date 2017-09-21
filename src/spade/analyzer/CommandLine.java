@@ -1,5 +1,6 @@
 package spade.analyzer;
 
+import spade.client.QueryMetaData;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractQuery;
 import spade.core.Graph;
@@ -17,8 +18,10 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -196,8 +199,11 @@ public class CommandLine extends AbstractAnalyzer
                                     }
                                     if(USE_TRANSFORMER)
                                     {
-                                        result = iterateTransformers((Graph) result, line);
+                                        Map<String, Object> queryMetaDataMap = getQueryMetaData((Graph) result);
+                                        QueryMetaData queryMetaData = new QueryMetaData(queryMetaDataMap);
+                                        result = iterateTransformers((Graph) result, queryMetaData);
                                     }
+                                    // if result output is to be converted into dot file format
                                     if(EXPORT_RESULT)
                                     {
                                         result = ((Graph) result).exportGraph();
@@ -329,6 +335,23 @@ public class CommandLine extends AbstractAnalyzer
             {
                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query: \n" + query_line, ex);
             }
+        }
+
+        private Map<String, Object> getQueryMetaData(Graph result)
+        {
+            Map<String, Object> queryMetaData = new HashMap<>();
+            queryMetaData.put("storage", AbstractQuery.getCurrentStorage().getClass().getSimpleName());
+            queryMetaData.put("operation", functionName);
+            queryMetaData.put("rootVertex", result.getRootVertex());
+            queryMetaData.put("rootVertexHash", result.getRootVertex().bigHashCode());
+            queryMetaData.put("childVertex", result.getRootVertex());
+            queryMetaData.put("childVertexHash", result.getRootVertex().bigHashCode());
+            queryMetaData.put("parentVertex", result.getDestinationVertex());
+            queryMetaData.put("parentVertexHash", result.getDestinationVertex().bigHashCode());
+            queryMetaData.put("maxLength", maxLength);
+            queryMetaData.put("direction", direction);
+
+            return queryMetaData;
         }
     }
 }

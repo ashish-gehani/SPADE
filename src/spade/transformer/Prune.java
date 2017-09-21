@@ -19,7 +19,7 @@
  */
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.utility.CommonFunctions;
@@ -28,53 +28,61 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Prune extends AbstractTransformer{
+public class Prune extends AbstractTransformer
+{
 	
 	private static final Logger logger = Logger.getLogger(Prune.class.getName());
 	
-	private String vertexExpression;
+	private String startingHash;
 	
-	public boolean initialize(String arguments){
+	public boolean initialize(String arguments)
+	{
+		// startingHash can possibly replace vertexExpression in the new world?
 		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
-		if(argumentsMap.get("expression") == null || argumentsMap.get("expression").trim().isEmpty()){
-			logger.log(Level.SEVERE, "Must specify an expression for vertex selection");
+		if(argumentsMap.get("startingHash") == null || argumentsMap.get("startingHash").trim().isEmpty())
+		{
+			logger.log(Level.SEVERE, "Must specify a starting Hash for vertex selection");
 			return false;
 		}
-		vertexExpression = argumentsMap.get("expression");
+		startingHash = argumentsMap.get("startingHash");
 		return true;
 	}
 
 	@Override
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
-		
-		try{
-			
-			if(digQueryParams.getDepth() == null){
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+    {
+		try
+        {
+			if(queryMetaData.getMaxLength() == null)
+			{
 				throw new IllegalArgumentException("Depth cannot be null");
 			}
-			
-			if(digQueryParams.getDirection() == null){
+			if(queryMetaData.getDirection() == null)
+			{
 				throw new IllegalArgumentException("Direction cannot be null");
 			}
 			
-		}catch(Exception e){
+		}
+		catch(Exception e)
+        {
 			logger.log(Level.WARNING, "Missing arguments for the current query", e);
-			return graph;
+
+            return graph;
 		}
 		
 		Graph resultGraph = new Graph();
 		
-		Graph toRemoveGraph = graph.getLineage(this.vertexExpression, digQueryParams.getDepth(), digQueryParams.getDirection(), digQueryParams.getTerminatingExpression());
+		Graph toRemoveGraph = graph.getLineage(this.startingHash, queryMetaData.getDirection(), queryMetaData.getMaxLength());
 		
-		if(toRemoveGraph != null){
+		if(toRemoveGraph != null)
+		{
 			removeEdges(resultGraph, graph, toRemoveGraph);
-			return resultGraph;
-		}else{
+
+            return resultGraph;
+		}
+		else
+        {
 			return graph;
 		}
-		
-		
 	}
-	
-	
 }

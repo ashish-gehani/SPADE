@@ -19,23 +19,28 @@
  */
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
 
-public class LastName extends AbstractTransformer{
+public class LastName extends AbstractTransformer
+{
 
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		Graph resultGraph = new Graph();
-		for(AbstractEdge edge : graph.edgeSet()){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
 			String operation = getAnnotationSafe(edge, OPMConstants.EDGE_OPERATION);
-			if(OPMConstants.isMmapRenameLinkRead(operation) || OPMConstants.isMmapRenameLink(operation)){
+			if(OPMConstants.isMmapRenameLinkRead(operation) || OPMConstants.isMmapRenameLink(operation))
+			{
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null)
+			{
 				resultGraph.putVertex(newEdge.getChildVertex());
 				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
@@ -43,5 +48,4 @@ public class LastName extends AbstractTransformer{
 		}
 		return resultGraph;
 	}
-	
 }

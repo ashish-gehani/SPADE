@@ -19,18 +19,19 @@
  */
 package spade.core;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
+import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
 
-public abstract class AbstractTransformer {
-	
-	private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
-	private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
-	private static final String ID_STRING = Settings.getProperty("storage_identifier");
+
+public abstract class AbstractTransformer
+{
 		
 	public String arguments;
 	
@@ -42,71 +43,91 @@ public abstract class AbstractTransformer {
        	return true;
     }
 	
-	public abstract Graph putGraph(Graph graph, QueryParameters digQueryParams);
+	public abstract Graph putGraph(Graph graph, QueryMetaData digQueryParams);
 	
-	public static String getAnnotationSafe(AbstractVertex vertex, String annotation){
-		if(vertex != null){
+	public static String getAnnotationSafe(AbstractVertex vertex, String annotation)
+	{
+		if(vertex != null)
+		{
 			return getAnnotationSafe(vertex.getAnnotations(), annotation);
 		}
-		return "";
+
+			return "";
 	}
 	
-	public static String getAnnotationSafe(AbstractEdge edge, String annotation){
-		if(edge != null){
+	public static String getAnnotationSafe(AbstractEdge edge, String annotation)
+	{
+		if(edge != null)
+		{
 			return getAnnotationSafe(edge.getAnnotations(), annotation);
 		}
+
 		return "";
 	}
 	
-	public static String getAnnotationSafe(Map<String, String> annotations, String annotation){
-		if(annotations != null){
-			String value = null;
-			if((value = annotations.get(annotation)) != null){
+	public static String getAnnotationSafe(Map<String, String> annotations, String annotation)
+	{
+		if(annotations != null)
+		{
+			String value;
+			if((value = annotations.get(annotation)) != null)
+			{
 				return value;
 			}
 		}
+
 		return "";
 	}
 	
-	public static AbstractVertex createNewWithoutAnnotations(AbstractVertex vertex, String... annotations){
+	public static AbstractVertex createNewWithoutAnnotations(AbstractVertex vertex, String... annotations)
+	{
 		AbstractVertex newVertex = new Vertex();
 		newVertex.addAnnotations(vertex.getAnnotations());
-		if(annotations != null){
-			for(String annotation : annotations){
+		if(annotations != null)
+		{
+			for(String annotation : annotations)
+			{
 				newVertex.removeAnnotation(annotation);
 			}
 		}
-		newVertex.removeAnnotation(DST_VERTEX_ID);
-		newVertex.removeAnnotation(SRC_VERTEX_ID);
-		newVertex.removeAnnotation(ID_STRING);
+		newVertex.removeAnnotation(PARENT_VERTEX_KEY);
+		newVertex.removeAnnotation(CHILD_VERTEX_KEY);
+		newVertex.removeAnnotation(PRIMARY_KEY);
 		return newVertex;
 	}
 	
-	public static AbstractEdge createNewWithoutAnnotations(AbstractEdge edge, String... annotations){
-		AbstractVertex newSource = createNewWithoutAnnotations(edge.getChildVertex(), annotations);
-		AbstractVertex newDestination = createNewWithoutAnnotations(edge.getParentVertex(), annotations);
-		AbstractEdge newEdge = new Edge(newSource, newDestination);
+	public static AbstractEdge createNewWithoutAnnotations(AbstractEdge edge, String... annotations)
+	{
+		AbstractVertex newChild = createNewWithoutAnnotations(edge.getChildVertex(), annotations);
+		AbstractVertex newParent = createNewWithoutAnnotations(edge.getParentVertex(), annotations);
+		AbstractEdge newEdge = new Edge(newChild, newParent);
 		newEdge.addAnnotations(edge.getAnnotations());
-		if(annotations != null){
-			for(String annotation : annotations){
+		if(annotations != null)
+		{
+			for(String annotation : annotations)
+			{
 				newEdge.removeAnnotation(annotation);
 			}
 		}
-		newEdge.removeAnnotation(DST_VERTEX_ID);
-		newEdge.removeAnnotation(SRC_VERTEX_ID);
-		newEdge.removeAnnotation(ID_STRING);
+		newEdge.removeAnnotation(PARENT_VERTEX_KEY);
+		newEdge.removeAnnotation(CHILD_VERTEX_KEY);
+		newEdge.removeAnnotation(PRIMARY_KEY);
 		return newEdge;
 	}
 	
-	public static void removeEdges(Graph result, Graph removeFrom, Graph toRemove){
-		Set<AbstractEdge> toRemoveEdges = new HashSet<AbstractEdge>();
-		for(AbstractEdge edge : toRemove.edgeSet()){
+	public static void removeEdges(Graph result, Graph removeFrom, Graph toRemove)
+	{
+		Set<AbstractEdge> toRemoveEdges = new HashSet<>();
+		for(AbstractEdge edge : toRemove.edgeSet())
+		{
 			toRemoveEdges.add(createNewWithoutAnnotations(edge));
 		}
 		
-		for(AbstractEdge edge : removeFrom.edgeSet()){
+		for(AbstractEdge edge : removeFrom.edgeSet())
+		{
 			AbstractEdge strippedEdge = createNewWithoutAnnotations(edge);
-			if(toRemoveEdges.contains(strippedEdge)){
+			if(toRemoveEdges.contains(strippedEdge))
+			{
 				continue;
 			}
 			result.putVertex(strippedEdge.getChildVertex());
