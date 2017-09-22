@@ -151,9 +151,10 @@ public class PostgreSQL extends SQL
             int columnCount = metadata.getColumnCount();
             for(int i = 1; i <= columnCount; i++)
             {
-                vertexAnnotations.add(metadata.getColumnLabel(i));
+                String colName = metadata.getColumnLabel(i);
+                vertexColumnNames.add(colName);
+                vertexAnnotations.add(colName);
             }
-            vertexColumnNames.addAll(vertexAnnotations);
 
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
                     + EDGE_TABLE
@@ -172,9 +173,10 @@ public class PostgreSQL extends SQL
             columnCount = metadata.getColumnCount();
             for(int i = 1; i <= columnCount; i++)
             {
-                edgeAnnotations.add(metadata.getColumnLabel(i));
+                String colName = metadata.getColumnLabel(i);
+                edgeColumnNames.add(colName);
+                edgeAnnotations.add(colName);
             }
-            edgeColumnNames.addAll(edgeAnnotations);
 
             String createVertexHashIndex = "CREATE INDEX IF NOT EXISTS hash_index ON vertex USING hash(hash)";
             String createEdgeParentHashIndex = "CREATE INDEX IF NOT EXISTS parentVertexHash_index ON edge USING hash(parentVertexHash)";
@@ -228,6 +230,11 @@ public class PostgreSQL extends SQL
         try
         {
             dbConnection.commit();
+            if(bulkUpload)
+            {
+                flushBulkEdges(true);
+                flushBulkVertices(true);
+            }
             dbConnection.close();
             return true;
         }
@@ -322,7 +329,7 @@ public class PostgreSQL extends SQL
     {
         if(bulkUpload)
         {
-            processBulkUpload(incomingEdge);
+            processBulkEdges(incomingEdge);
             return true;
         }
         String edgeHash = incomingEdge.bigHashCode();
@@ -430,12 +437,12 @@ public class PostgreSQL extends SQL
         return true;
     }
 
-    private void processBulkUpload(AbstractEdge incomingEdge)
+    private void processBulkEdges(AbstractEdge incomingEdge)
     {
         Map<String, String> annotations = new HashMap<>(incomingEdge.getAnnotations());
         annotations.put(PRIMARY_KEY, incomingEdge.bigHashCode());
-        annotations.put(CHILD_VERTEX_KEY, incomingEdge.getChildVertex().bigHashCode());
-        annotations.put(PARENT_VERTEX_KEY, incomingEdge.getParentVertex().bigHashCode());
+        annotations.put(CHILD_VERTEX_KEY.toLowerCase(), incomingEdge.getChildVertex().bigHashCode());
+        annotations.put(PARENT_VERTEX_KEY.toLowerCase(), incomingEdge.getParentVertex().bigHashCode());
         edgeList.add(annotations);
         for(String annotationKey: annotations.keySet())
         {
@@ -446,13 +453,23 @@ public class PostgreSQL extends SQL
                 addColumn(EDGE_TABLE, lowerCasedAnnotationKey);
             }
         }
-        if(edgeCount > 0 && (edgeCount % GLOBAL_TX_SIZE) == 0)
+        flushBulkEdges(false);
+    }
+
+    private void flushBulkEdges(boolean forcedFlush)
+    {
+        if(( (edgeCount > 0) && (edgeCount % GLOBAL_TX_SIZE == 0) ) || forcedFlush)
         {
             String edgeFileName = "/tmp/bulk_edges.csv";
             try
             {
                 File file = new File(edgeFileName);
-                file.setWritable(true, false);
+                if(!(file.setWritable(true, false)
+                    && file.setReadable(true, false)))
+                {
+                    logger.log(Level.SEVERE, "Permission denied to read/write from edge buffer files!");
+                    return;
+                }
                 FileWriter fileWriter = new FileWriter(file);
 
                 CSVWriter writer = new CSVWriter(fileWriter);
@@ -474,10 +491,10 @@ public class PostgreSQL extends SQL
             }
 
             String copyTableString = "COPY "
-                                + EDGE_TABLE
-                                + " FROM '"
-                                + edgeFileName
-                                + "' CSV HEADER";
+                    + EDGE_TABLE
+                    + " FROM '"
+                    + edgeFileName
+                    + "' CSV HEADER";
             try
             {
                 Statement s = dbConnection.createStatement();
@@ -494,7 +511,7 @@ public class PostgreSQL extends SQL
         }
     }
 
-    private void processBulkUpload(AbstractVertex incomingVertex)
+    private void processBulkVertices(AbstractVertex incomingVertex)
     {
         Map<String, String> annotations = new HashMap<>(incomingVertex.getAnnotations());
         annotations.put(PRIMARY_KEY, incomingVertex.bigHashCode());
@@ -508,13 +525,23 @@ public class PostgreSQL extends SQL
                 addColumn(VERTEX_TABLE, lowerCasedAnnotationKey);
             }
         }
-        if(vertexCount > 0 && (vertexCount % GLOBAL_TX_SIZE) == 0)
+        flushBulkVertices(false);
+    }
+
+    private void flushBulkVertices(boolean forcedFlush)
+    {
+        if(( (vertexCount > 0) && (vertexCount % GLOBAL_TX_SIZE == 0) ) || forcedFlush)
         {
             String vertexFileName = "/tmp/bulk_vertices.csv";
             try
             {
                 File file = new File(vertexFileName);
-                file.setWritable(true ,false);
+                if(!(file.setWritable(true, false)
+                        && file.setReadable(true, false)))
+                {
+                    logger.log(Level.SEVERE, "Permission denied to read/write from vertex buffer files!");
+                    return;
+                }
                 FileWriter fileWriter = new FileWriter(file);
                 CSVWriter writer = new CSVWriter(fileWriter);
                 writer.writeNext(vertexColumnNames.toArray(new String[vertexColumnNames.size()]));
@@ -569,7 +596,7 @@ public class PostgreSQL extends SQL
     {
         if(bulkUpload)
         {
-            processBulkUpload(incomingVertex);
+            processBulkVertices(incomingVertex);
             return true;
         }
         String vertexHash = incomingVertex.bigHashCode();
