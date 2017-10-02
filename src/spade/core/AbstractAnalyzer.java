@@ -57,7 +57,7 @@ public abstract class AbstractAnalyzer
 
     public abstract boolean initialize();
 
-    public AbstractAnalyzer()
+    static
     {
         // load functionToClassMap here
         String file_name = "cfg/functionToClassMap";

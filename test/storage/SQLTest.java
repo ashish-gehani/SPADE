@@ -30,6 +30,7 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 import spade.query.scaffold.Scaffold;
+import spade.query.scaffold.ScaffoldFactory;
 import spade.storage.PostgreSQL;
 
 import java.sql.SQLException;
@@ -159,7 +160,7 @@ class SQLTest {
         if(!testSQLObject.initialize(connectionString))
             throw new SQLException();
 
-        Scaffold scaffold = new Scaffold();
+        Scaffold scaffold = ScaffoldFactory.createDefaultScaffold();
         scaffold.initialize("/tmp");
         AbstractStorage.setScaffold(scaffold);
         testSQLObject.putEdge(e1);

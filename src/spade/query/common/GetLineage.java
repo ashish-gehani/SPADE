@@ -5,34 +5,25 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.sql.postgresql.GetChildren;
-import spade.query.sql.postgresql.GetEdge;
-import spade.query.sql.postgresql.GetParents;
-import spade.query.sql.postgresql.GetVertex;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import java.net.NetworkInterface;
-
 import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.DIRECTION;
+import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
 import static spade.core.AbstractStorage.MAX_DEPTH;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
-import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 /**
  * @author raza
@@ -88,6 +79,10 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
                 startingVertex.setDepth(0);
+                for(AbstractVertex vertex: startingVertexSet)
+                {
+                    remainingVertices.add(vertex.bigHashCode());
+                }
                 remainingVertices.add(startingVertex.bigHashCode());
 //                remainingVertices.add(startingVertex.getAnnotation(PRIMARY_KEY));
                 result.setRootVertex(startingVertex);
@@ -113,6 +108,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                         params.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
                         neighbors = (Graph) getChildren.execute(params, limit);
                     }
+                    // for Carol's inconsistency check
                     for(AbstractVertex V: neighbors.vertexSet())
                 		V.setDepth(current_depth+1);
                     result.vertexSet().addAll(neighbors.vertexSet());

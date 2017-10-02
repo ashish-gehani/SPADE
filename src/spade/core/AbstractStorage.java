@@ -20,6 +20,7 @@
 package spade.core;
 
 import spade.query.scaffold.Scaffold;
+import spade.query.scaffold.ScaffoldFactory;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -122,7 +123,7 @@ public abstract class AbstractStorage
     {
         if(USE_SCAFFOLD)
         {
-            scaffold = new Scaffold();
+            scaffold = ScaffoldFactory.createDefaultScaffold();
             if(!scaffold.initialize(scaffoldPath))
             {
                 Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING, "Scaffold not set!");

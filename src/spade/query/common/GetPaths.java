@@ -7,6 +7,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
+import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 /**
