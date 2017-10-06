@@ -4,6 +4,13 @@
 set pass_cnt = 0
 set fail_cnt = 0
 
+#comment this out if you want to control
+#which tests you want to run.  Only those
+#without a png file will be run
+
+rm -f $1/*.png
+
+
 foreach file (`ls $PWD/$1/*.bin`)
   if (! -e $file".png") then
    echo "testing " $file
