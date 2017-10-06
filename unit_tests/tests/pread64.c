@@ -12,7 +12,7 @@ main() {
   pid_t pid;
   pid = getpid();
 
-  if ((file_descriptor = creat("test.output", S_IWUSR|S_IRUSR)) < 0) 
+  if ((file_descriptor = creat("/tmp/test.output", S_IWUSR|S_IRUSR)) < 0) 
     perror("creat() error");
   
   else {
@@ -22,7 +22,7 @@ main() {
       perror("close() error");
   }
 
-  if ((file_descriptor = open("test.output", O_RDONLY)) < 0)
+  if ((file_descriptor = open("/tmp/test.output", O_RDONLY)) < 0)
     perror("open() error");
   else {
     ret = pread64(file_descriptor, buf, ((sizeof(buf)-1)-off), off);
@@ -31,6 +31,6 @@ main() {
     if (close(file_descriptor)!= 0)
       perror("close() error");
   }
-  if (unlink("test.output")!= 0)
+  if (unlink("/tmp/test.output")!= 0)
     perror("unlink() error");
 }

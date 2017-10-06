@@ -1,21 +1,21 @@
-type=SYSCALL msg=audit(1507311537.557:14838550): arch=c000003e syscall=59 success=yes exit=0 a0=189e408 a1=189be68 a2=189cc08 a3=7ffdafc16010 items=2 ppid=12184 pid=12185 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/unit_tests/tests/linkat.bin" key=(null)
-type=EXECVE msg=audit(1507311537.557:14838550): argc=1 a0="/home/vinod/unit_tests/tests/linkat.bin"
-type=CWD msg=audit(1507311537.557:14838550):  cwd="/home/local"
-type=SYSCALL msg=audit(1507311537.557:14838573): arch=c000003e syscall=2 success=yes exit=3 a0=400884 a1=41 a2=180 a3=7ffc9542cbf0 items=2 ppid=12184 pid=12185 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/unit_tests/tests/linkat.bin" key=(null)
-type=CWD msg=audit(1507311537.557:14838573):  cwd="/home/local"
-type=PATH msg=audit(1507311537.557:14838573): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507311537.557:14838573): item=1 name="/tmp/a.txt" inode=9043976 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
-type=SYSCALL msg=audit(1507311537.557:14838574): arch=c000003e syscall=265 success=yes exit=0 a0=ffffffffffffff9c a1=7ffc9542ce40 a2=ffffffffffffff9c a3=4008a5 items=3 ppid=12184 pid=12185 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/unit_tests/tests/linkat.bin" key=(null)
-type=CWD msg=audit(1507311537.557:14838574):  cwd="/home/local"
-type=PATH msg=audit(1507311537.557:14838574): item=0 name="/proc/self/fd/3" inode=9043976 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=NORMAL
-type=PATH msg=audit(1507311537.557:14838574): item=1 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507311537.557:14838574): item=2 name="/tmp/linkat.out" inode=9043976 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
-type=SYSCALL msg=audit(1507311537.557:14838575): arch=c000003e syscall=87 success=yes exit=0 a0=4008a5 a1=7ffc9542ce40 a2=ffffffffffffff9c a3=7ffc9542cbf0 items=2 ppid=12184 pid=12185 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/unit_tests/tests/linkat.bin" key=(null)
-type=CWD msg=audit(1507311537.557:14838575):  cwd="/home/local"
-type=PATH msg=audit(1507311537.557:14838575): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507311537.557:14838575): item=1 name="/tmp/linkat.out" inode=9043976 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
-type=SYSCALL msg=audit(1507311537.557:14838576): arch=c000003e syscall=87 success=yes exit=0 a0=400884 a1=7ffc9542ce40 a2=ffffffffffffff9c a3=7ffc9542cbf0 items=2 ppid=12184 pid=12185 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/unit_tests/tests/linkat.bin" key=(null)
-type=CWD msg=audit(1507311537.557:14838576):  cwd="/home/local"
-type=PATH msg=audit(1507311537.557:14838576): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507311537.557:14838576): item=1 name="/tmp/a.txt" inode=9043976 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
-type=SYSCALL msg=audit(1507311537.557:14838577): arch=c000003e syscall=231 a0=0 a1=0 a2=0 a3=ffffffffffffff60 items=0 ppid=12184 pid=12185 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/unit_tests/tests/linkat.bin" key=(null)
+type=SYSCALL msg=audit(1507314711.305:14843805): arch=c000003e syscall=59 success=yes exit=0 a0=19ba988 a1=19b6ea8 a2=19b7c08 a3=7ffd9e3c87e0 items=2 ppid=14886 pid=14887 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/linkat.bin" key=(null)
+type=EXECVE msg=audit(1507314711.305:14843805): argc=1 a0="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/linkat.bin"
+type=CWD msg=audit(1507314711.305:14843805):  cwd="/home/local"
+type=SYSCALL msg=audit(1507314711.305:14843828): arch=c000003e syscall=2 success=yes exit=3 a0=400884 a1=41 a2=180 a3=7ffc6cea7860 items=2 ppid=14886 pid=14887 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/linkat.bin" key=(null)
+type=CWD msg=audit(1507314711.305:14843828):  cwd="/home/local"
+type=PATH msg=audit(1507314711.305:14843828): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314711.305:14843828): item=1 name="/tmp/a.txt" inode=9043980 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
+type=SYSCALL msg=audit(1507314711.305:14843829): arch=c000003e syscall=265 success=yes exit=0 a0=ffffffffffffff9c a1=7ffc6cea7ab0 a2=ffffffffffffff9c a3=4008a5 items=3 ppid=14886 pid=14887 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/linkat.bin" key=(null)
+type=CWD msg=audit(1507314711.305:14843829):  cwd="/home/local"
+type=PATH msg=audit(1507314711.305:14843829): item=0 name="/proc/self/fd/3" inode=9043980 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=NORMAL
+type=PATH msg=audit(1507314711.305:14843829): item=1 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314711.305:14843829): item=2 name="/tmp/linkat.out" inode=9043980 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
+type=SYSCALL msg=audit(1507314711.305:14843830): arch=c000003e syscall=87 success=yes exit=0 a0=4008a5 a1=7ffc6cea7ab0 a2=ffffffffffffff9c a3=7ffc6cea7860 items=2 ppid=14886 pid=14887 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/linkat.bin" key=(null)
+type=CWD msg=audit(1507314711.305:14843830):  cwd="/home/local"
+type=PATH msg=audit(1507314711.305:14843830): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314711.305:14843830): item=1 name="/tmp/linkat.out" inode=9043980 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
+type=SYSCALL msg=audit(1507314711.305:14843831): arch=c000003e syscall=87 success=yes exit=0 a0=400884 a1=7ffc6cea7ab0 a2=ffffffffffffff9c a3=7ffc6cea7860 items=2 ppid=14886 pid=14887 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/linkat.bin" key=(null)
+type=CWD msg=audit(1507314711.305:14843831):  cwd="/home/local"
+type=PATH msg=audit(1507314711.305:14843831): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314711.305:14843831): item=1 name="/tmp/a.txt" inode=9043980 dev=08:02 mode=0100600 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
+type=SYSCALL msg=audit(1507314711.309:14843832): arch=c000003e syscall=231 a0=0 a1=0 a2=0 a3=ffffffffffffff60 items=0 ppid=14886 pid=14887 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="linkat.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/linkat.bin" key=(null)

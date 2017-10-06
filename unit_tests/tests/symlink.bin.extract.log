@@ -1,13 +1,13 @@
-type=SYSCALL msg=audit(1507311323.344:14833509): arch=c000003e syscall=59 success=yes exit=0 a0=1a46408 a1=1a43e68 a2=1a44c08 a3=7ffcf825ccd0 items=2 ppid=8041 pid=8042 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/unit_tests/tests/symlink.bin" key=(null)
-type=EXECVE msg=audit(1507311323.344:14833509): argc=1 a0="/home/vinod/unit_tests/tests/symlink.bin"
-type=CWD msg=audit(1507311323.344:14833509):  cwd="/home/local"
-type=SYSCALL msg=audit(1507311323.344:14833532): arch=c000003e syscall=88 success=yes exit=0 a0=4006e6 a1=4006e4 a2=0 a3=7ffd3a393c60 items=3 ppid=8041 pid=8042 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/unit_tests/tests/symlink.bin" key=(null)
-type=CWD msg=audit(1507311323.344:14833532):  cwd="/home/local"
-type=PATH msg=audit(1507311323.344:14833532): item=0 name="/tmp" nametype=UNKNOWN
-type=PATH msg=audit(1507311323.344:14833532): item=1 name="/home/local" inode=16121858 dev=08:02 mode=040755 ouid=1000 ogid=1000 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507311323.344:14833532): item=2 name="a" inode=16126332 dev=08:02 mode=0120777 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
-type=SYSCALL msg=audit(1507311323.344:14833533): arch=c000003e syscall=87 success=yes exit=0 a0=4006e4 a1=4006e4 a2=0 a3=7ffd3a393c60 items=2 ppid=8041 pid=8042 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/unit_tests/tests/symlink.bin" key=(null)
-type=CWD msg=audit(1507311323.344:14833533):  cwd="/home/local"
-type=PATH msg=audit(1507311323.344:14833533): item=0 name="/home/local" inode=16121858 dev=08:02 mode=040755 ouid=1000 ogid=1000 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507311323.344:14833533): item=1 name="a" inode=16126332 dev=08:02 mode=0120777 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
-type=SYSCALL msg=audit(1507311323.344:14833534): arch=c000003e syscall=231 a0=0 a1=0 a2=0 a3=ffffffffffffff60 items=0 ppid=8041 pid=8042 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/unit_tests/tests/symlink.bin" key=(null)
+type=SYSCALL msg=audit(1507314892.302:14849001): arch=c000003e syscall=59 success=yes exit=0 a0=1ab0988 a1=1aacea8 a2=1aadc08 a3=7ffc52482770 items=2 ppid=16375 pid=16376 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/symlink.bin" key=(null)
+type=EXECVE msg=audit(1507314892.302:14849001): argc=1 a0="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/symlink.bin"
+type=CWD msg=audit(1507314892.302:14849001):  cwd="/home/local"
+type=SYSCALL msg=audit(1507314892.302:14849024): arch=c000003e syscall=88 success=yes exit=0 a0=4006e6 a1=4006e4 a2=0 a3=7ffd7dae04d0 items=3 ppid=16375 pid=16376 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/symlink.bin" key=(null)
+type=CWD msg=audit(1507314892.302:14849024):  cwd="/home/local"
+type=PATH msg=audit(1507314892.302:14849024): item=0 name="/tmp" nametype=UNKNOWN
+type=PATH msg=audit(1507314892.302:14849024): item=1 name="/home/local" inode=16121858 dev=08:02 mode=040755 ouid=1000 ogid=1000 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314892.302:14849024): item=2 name="a" inode=16126331 dev=08:02 mode=0120777 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
+type=SYSCALL msg=audit(1507314892.302:14849025): arch=c000003e syscall=87 success=yes exit=0 a0=4006e4 a1=4006e4 a2=0 a3=7ffd7dae04d0 items=2 ppid=16375 pid=16376 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/symlink.bin" key=(null)
+type=CWD msg=audit(1507314892.302:14849025):  cwd="/home/local"
+type=PATH msg=audit(1507314892.302:14849025): item=0 name="/home/local" inode=16121858 dev=08:02 mode=040755 ouid=1000 ogid=1000 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314892.302:14849025): item=1 name="a" inode=16126331 dev=08:02 mode=0120777 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
+type=SYSCALL msg=audit(1507314892.302:14849026): arch=c000003e syscall=231 a0=0 a1=0 a2=0 a3=ffffffffffffff60 items=0 ppid=16375 pid=16376 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="symlink.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/symlink.bin" key=(null)

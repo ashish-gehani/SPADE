@@ -1,18 +1,18 @@
-type=SYSCALL msg=audit(1507310995.549:14825478): arch=c000003e syscall=59 success=yes exit=0 a0=125e408 a1=125be68 a2=125cc08 a3=7ffc3478b880 items=2 ppid=1514 pid=1515 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/unit_tests/tests/rename.bin" key=(null)
-type=EXECVE msg=audit(1507310995.549:14825478): argc=1 a0="/home/vinod/unit_tests/tests/rename.bin"
-type=CWD msg=audit(1507310995.549:14825478):  cwd="/home/local"
-type=SYSCALL msg=audit(1507310995.553:14825501): arch=c000003e syscall=2 success=yes exit=3 a0=400764 a1=40 a2=1b4 a3=7ffd55d19070 items=2 ppid=1514 pid=1515 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/unit_tests/tests/rename.bin" key=(null)
-type=CWD msg=audit(1507310995.553:14825501):  cwd="/home/local"
-type=PATH msg=audit(1507310995.553:14825501): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507310995.553:14825501): item=1 name="/tmp/b.txt" inode=9043976 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
-type=SYSCALL msg=audit(1507310995.553:14825502): arch=c000003e syscall=82 success=yes exit=0 a0=400764 a1=400774 a2=1b4 a3=7ffd55d19070 items=4 ppid=1514 pid=1515 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/unit_tests/tests/rename.bin" key=(null)
-type=CWD msg=audit(1507310995.553:14825502):  cwd="/home/local"
-type=PATH msg=audit(1507310995.553:14825502): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507310995.553:14825502): item=1 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507310995.553:14825502): item=2 name="/tmp/b.txt" inode=9043976 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
-type=PATH msg=audit(1507310995.553:14825502): item=3 name="/tmp/a.txt" inode=9043976 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
-type=SYSCALL msg=audit(1507310995.553:14825503): arch=c000003e syscall=87 success=yes exit=0 a0=400774 a1=400774 a2=1b4 a3=7ffd55d19070 items=2 ppid=1514 pid=1515 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/unit_tests/tests/rename.bin" key=(null)
-type=CWD msg=audit(1507310995.553:14825503):  cwd="/home/local"
-type=PATH msg=audit(1507310995.553:14825503): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
-type=PATH msg=audit(1507310995.553:14825503): item=1 name="/tmp/a.txt" inode=9043976 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
-type=SYSCALL msg=audit(1507310995.553:14825504): arch=c000003e syscall=231 a0=0 a1=0 a2=0 a3=ffffffffffffff60 items=0 ppid=1514 pid=1515 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/unit_tests/tests/rename.bin" key=(null)
+type=SYSCALL msg=audit(1507314853.999:14847760): arch=c000003e syscall=59 success=yes exit=0 a0=1027988 a1=1023ea8 a2=1024c08 a3=7fff4233ecd0 items=2 ppid=16062 pid=16063 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/rename.bin" key=(null)
+type=EXECVE msg=audit(1507314853.999:14847760): argc=1 a0="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/rename.bin"
+type=CWD msg=audit(1507314853.999:14847760):  cwd="/home/local"
+type=SYSCALL msg=audit(1507314854.003:14847783): arch=c000003e syscall=2 success=yes exit=3 a0=400764 a1=40 a2=1b4 a3=7ffc06cf3a60 items=2 ppid=16062 pid=16063 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/rename.bin" key=(null)
+type=CWD msg=audit(1507314854.003:14847783):  cwd="/home/local"
+type=PATH msg=audit(1507314854.003:14847783): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314854.003:14847783): item=1 name="/tmp/b.txt" inode=9043980 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
+type=SYSCALL msg=audit(1507314854.003:14847784): arch=c000003e syscall=82 success=yes exit=0 a0=400764 a1=400774 a2=1b4 a3=7ffc06cf3a60 items=4 ppid=16062 pid=16063 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/rename.bin" key=(null)
+type=CWD msg=audit(1507314854.003:14847784):  cwd="/home/local"
+type=PATH msg=audit(1507314854.003:14847784): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314854.003:14847784): item=1 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314854.003:14847784): item=2 name="/tmp/b.txt" inode=9043980 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
+type=PATH msg=audit(1507314854.003:14847784): item=3 name="/tmp/a.txt" inode=9043980 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=CREATE
+type=SYSCALL msg=audit(1507314854.003:14847785): arch=c000003e syscall=87 success=yes exit=0 a0=400774 a1=400774 a2=1b4 a3=7ffc06cf3a60 items=2 ppid=16062 pid=16063 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/rename.bin" key=(null)
+type=CWD msg=audit(1507314854.003:14847785):  cwd="/home/local"
+type=PATH msg=audit(1507314854.003:14847785): item=0 name="/tmp/" inode=9043969 dev=08:02 mode=041777 ouid=0 ogid=0 rdev=00:00 nametype=PARENT
+type=PATH msg=audit(1507314854.003:14847785): item=1 name="/tmp/a.txt" inode=9043980 dev=08:02 mode=0100664 ouid=1000 ogid=1000 rdev=00:00 nametype=DELETE
+type=SYSCALL msg=audit(1507314854.003:14847786): arch=c000003e syscall=231 a0=0 a1=0 a2=0 a3=ffffffffffffff60 items=0 ppid=16062 pid=16063 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="rename.bin" exe="/home/vinod/SPADE-VINOD/SPADE/unit_tests/tests/rename.bin" key=(null)
