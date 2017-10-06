@@ -4,6 +4,10 @@ individual tests as "local" user.
 
 set SPADE_HOME in gen_audit.sh
 
+build the binaries
+cd tests
+./build.csh
+
 create master files:
 ./gen_master_cdm.csh tests
 
