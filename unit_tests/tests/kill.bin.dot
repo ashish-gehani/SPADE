@@ -1,8 +1,0 @@
-digraph spade2dot {
-graph [rankdir = "RL"];
-node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
-edge [fontname="Helvetica" fontsize="8"];
-"4537b0932b16c0d1a997bedb9b5c0fdc" [label="egid:1000\neuid:1000\ngid:1000\npid:10442\nppid:10441\nseen time:1507311446.326\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
-"3e71f3efee52a7f775a65041cc737352" [label="command line:/home/vinod/unit_tests/tests/kill.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:kill.bin\npid:10442\nppid:10441\nsource:syscall\nstart time:1507311446.326\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
-"3e71f3efee52a7f775a65041cc737352" -> "4537b0932b16c0d1a997bedb9b5c0fdc" [label="(event id:14836430\noperation:execve\nsource:syscall\ntime:1507311446.326\ntype:WasTriggeredBy)" color="blue" style="solid"];
-}
