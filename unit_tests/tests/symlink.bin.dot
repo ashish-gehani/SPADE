@@ -1,0 +1,15 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"4860c4db6e39e3f7cd20e6731682655d" [label="egid:1000\neuid:1000\ngid:1000\npid:8042\nppid:8041\nseen time:1507311323.344\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"ed625322d8827a794e524c4f81cd615c" [label="command line:/home/vinod/unit_tests/tests/symlink.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:symlink.bin\npid:8042\nppid:8041\nsource:syscall\nstart time:1507311323.344\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"ed625322d8827a794e524c4f81cd615c" -> "4860c4db6e39e3f7cd20e6731682655d" [label="(event id:14833509\noperation:execve\nsource:syscall\ntime:1507311323.344\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"b1ce315f4a8e0a17e760c4ec6372d1e3" [label="epoch:0\npath:/tmp\npermissions:0000\nsource:syscall\nsubtype:file\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"ed625322d8827a794e524c4f81cd615c" -> "b1ce315f4a8e0a17e760c4ec6372d1e3" [label="(event id:14833532\noperation:link (read)\nsource:syscall\ntime:1507311323.344\ntype:Used)" color="green" style="solid"];
+"5e0f1a806deb39c854cb2d62938477fc" [label="epoch:0\npath:/home/local/a\npermissions:0777\nsource:syscall\nsubtype:file\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"5e0f1a806deb39c854cb2d62938477fc" -> "ed625322d8827a794e524c4f81cd615c" [label="(event id:14833532\noperation:link (write)\nsource:syscall\ntime:1507311323.344\ntype:WasGeneratedBy)" color="red" style="solid"];
+"5e0f1a806deb39c854cb2d62938477fc" -> "b1ce315f4a8e0a17e760c4ec6372d1e3" [label="(event id:14833532\noperation:link\npid:8042\nsource:syscall\ntime:1507311323.344\ntype:WasDerivedFrom)" color="orange" style="solid"];
+"5e0f1a806deb39c854cb2d62938477fc" -> "ed625322d8827a794e524c4f81cd615c" [label="(event id:14833533\noperation:unlink\nsource:syscall\ntime:1507311323.344\ntype:WasGeneratedBy)" color="red" style="solid"];
+"ed625322d8827a794e524c4f81cd615c" -> "ed625322d8827a794e524c4f81cd615c" [label="(event id:14833534\noperation:exit\nsource:syscall\ntime:1507311323.344\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

@@ -1,0 +1,26 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"8f02d45842dd9aabc9924cc106df6e3c" [label="egid:1000\neuid:1000\ngid:1000\npid:26120\nppid:26119\nseen time:1507310592.108\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"35cf37ce85191ac02b36d0d6f0dcedac" [label="command line:/home/vinod/unit_tests/tests/accept.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:accept.bin\npid:26120\nppid:26119\nsource:syscall\nstart time:1507310592.108\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"35cf37ce85191ac02b36d0d6f0dcedac" -> "8f02d45842dd9aabc9924cc106df6e3c" [label="(event id:14816030\noperation:execve\nsource:syscall\ntime:1507310592.108\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"184c8f54cf4109212a109b8890b3c242" [label="command line:/home/vinod/unit_tests/tests/accept.bin\negid:1000\neuid:1000\ngid:1000\nname:accept.bin\npid:26121\nppid:26120\nsource:syscall\nstart time:1507310592.108\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"184c8f54cf4109212a109b8890b3c242" -> "35cf37ce85191ac02b36d0d6f0dcedac" [label="(event id:14816053\noperation:fork\nsource:syscall\ntime:1507310592.108\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"641c9c41e385a7b142c07e4d3bf12408" [label="memory address:7f44b7ec0000\nsize:1000\nsource:syscall\nsubtype:memory\ntgid:26120\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"641c9c41e385a7b142c07e4d3bf12408" -> "35cf37ce85191ac02b36d0d6f0dcedac" [label="(event id:14816055\noperation:mmap (write)\nprotection:3\nsource:syscall\ntime:1507310592.108\ntype:WasGeneratedBy)" color="red" style="solid"];
+"364eaf5b13c43541234c5c6a59ac51e5" [label="memory address:7f44b7ec0000\nsize:1000\nsource:syscall\nsubtype:memory\ntgid:26121\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"364eaf5b13c43541234c5c6a59ac51e5" -> "184c8f54cf4109212a109b8890b3c242" [label="(event id:14816058\noperation:mmap (write)\nprotection:3\nsource:syscall\ntime:1507310592.108\ntype:WasGeneratedBy)" color="red" style="solid"];
+"152767652d8e78712b34a53bca751242" [label="epoch:0\nlocal address:\nlocal port:\nprotocol:\nremote address:127.0.0.1\nremote port:7104\nsource:syscall\nsubtype:network socket\ntype:Artifact" shape="diamond" fillcolor="palegreen1"];
+"152767652d8e78712b34a53bca751242" -> "184c8f54cf4109212a109b8890b3c242" [label="(event id:14816066\noperation:connect\nsource:syscall\ntime:1507310594.108\ntype:WasGeneratedBy)" color="red" style="solid"];
+"964154328f26db04706f90fb602a0220" [label="epoch:0\nlocal address:127.0.0.1\nlocal port:7104\nprotocol:\nremote address:127.0.0.1\nremote port:36946\nsource:syscall\nsubtype:network socket\ntype:Artifact" shape="diamond" fillcolor="palegreen1"];
+"35cf37ce85191ac02b36d0d6f0dcedac" -> "964154328f26db04706f90fb602a0220" [label="(event id:14816067\noperation:accept\nsource:syscall\ntime:1507310592.108\ntype:Used)" color="green" style="solid"];
+"964154328f26db04706f90fb602a0220" -> "35cf37ce85191ac02b36d0d6f0dcedac" [label="(event id:14816068\noperation:send\nsize:13\nsource:syscall\ntime:1507310594.108\ntype:WasGeneratedBy)" color="red" style="solid"];
+"184c8f54cf4109212a109b8890b3c242" -> "152767652d8e78712b34a53bca751242" [label="(event id:14816069\noperation:recv\nsize:13\nsource:syscall\ntime:1507310594.108\ntype:Used)" color="green" style="solid"];
+"066b7915119a73faf47cc8a7b7bc69ca" [label="epoch:0\nfd:1\npid:26120\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"066b7915119a73faf47cc8a7b7bc69ca" -> "35cf37ce85191ac02b36d0d6f0dcedac" [label="(event id:14816070\noperation:write\nsize:25\nsource:syscall\ntime:1507310594.108\ntype:WasGeneratedBy)" color="red" style="solid"];
+"35cf37ce85191ac02b36d0d6f0dcedac" -> "35cf37ce85191ac02b36d0d6f0dcedac" [label="(event id:14816071\noperation:exit\nsource:syscall\ntime:1507310594.108\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"1c4fe29a8725f9381cc0e1c38930dc34" [label="epoch:0\nfd:1\npid:26121\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"1c4fe29a8725f9381cc0e1c38930dc34" -> "184c8f54cf4109212a109b8890b3c242" [label="(event id:14816072\noperation:write\nsize:50\nsource:syscall\ntime:1507310594.108\ntype:WasGeneratedBy)" color="red" style="solid"];
+"184c8f54cf4109212a109b8890b3c242" -> "184c8f54cf4109212a109b8890b3c242" [label="(event id:14816073\noperation:exit\nsource:syscall\ntime:1507310594.108\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

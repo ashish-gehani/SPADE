@@ -1,0 +1,15 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"1fdb654f19cad254a4c87e31418041d5" [label="egid:1000\neuid:1000\ngid:1000\npid:7608\nppid:7607\nseen time:1507311301.576\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"5b084981c5d7d0df5c6199b5a652ed4c" [label="command line:/home/vinod/unit_tests/tests/fchmod.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:fchmod.bin\npid:7608\nppid:7607\nsource:syscall\nstart time:1507311301.576\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"5b084981c5d7d0df5c6199b5a652ed4c" -> "1fdb654f19cad254a4c87e31418041d5" [label="(event id:14832991\noperation:execve\nsource:syscall\ntime:1507311301.576\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"4562c665e5d5ecea1eff6cecc5e172c4" [label="epoch:0\npath:/tmp/b.txt\npermissions:0000\nsource:syscall\nsubtype:file\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"4562c665e5d5ecea1eff6cecc5e172c4" -> "5b084981c5d7d0df5c6199b5a652ed4c" [label="(event id:14833014\nflags:O_RDONLY|O_CREAT\nmode:0\noperation:create\nsource:syscall\ntime:1507311301.576\ntype:WasGeneratedBy)" color="red" style="solid"];
+"d5126fb14611323df58b7f358e618c8b" [label="epoch:0\npath:/tmp/b.txt\npermissions:0664\nsource:syscall\nsubtype:file\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"d5126fb14611323df58b7f358e618c8b" -> "4562c665e5d5ecea1eff6cecc5e172c4" [label="(event id:14833015\noperation:update\npid:7608\nsource:syscall\ntime:1507311301.576\ntype:WasDerivedFrom)" color="orange" style="solid"];
+"d5126fb14611323df58b7f358e618c8b" -> "5b084981c5d7d0df5c6199b5a652ed4c" [label="(event id:14833015\nmode:0664\noperation:chmod\nsource:syscall\ntime:1507311301.576\ntype:WasGeneratedBy)" color="red" style="solid"];
+"d5126fb14611323df58b7f358e618c8b" -> "5b084981c5d7d0df5c6199b5a652ed4c" [label="(event id:14833016\noperation:unlink\nsource:syscall\ntime:1507311301.576\ntype:WasGeneratedBy)" color="red" style="solid"];
+"5b084981c5d7d0df5c6199b5a652ed4c" -> "5b084981c5d7d0df5c6199b5a652ed4c" [label="(event id:14833017\noperation:exit\nsource:syscall\ntime:1507311301.576\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

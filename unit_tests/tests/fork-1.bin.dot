@@ -1,0 +1,18 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"7a83a80b8b9ce1e2e6f17b83cd149c59" [label="egid:1000\neuid:1000\ngid:1000\npid:13054\nppid:13053\nseen time:1507311581.088\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"a9588ef78a44ac9b9773da2a83a4949a" [label="command line:/home/vinod/unit_tests/tests/fork-1.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:fork-1.bin\npid:13054\nppid:13053\nsource:syscall\nstart time:1507311581.088\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"a9588ef78a44ac9b9773da2a83a4949a" -> "7a83a80b8b9ce1e2e6f17b83cd149c59" [label="(event id:14839590\noperation:execve\nsource:syscall\ntime:1507311581.088\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"2193776e42ba24287f61aa3240f46779" [label="memory address:7f4fd87b5000\nsize:1000\nsource:syscall\nsubtype:memory\ntgid:13054\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"2193776e42ba24287f61aa3240f46779" -> "a9588ef78a44ac9b9773da2a83a4949a" [label="(event id:14839614\noperation:mmap (write)\nprotection:3\nsource:syscall\ntime:1507311581.088\ntype:WasGeneratedBy)" color="red" style="solid"];
+"af06d52ccc00d177482a507f46841bbf" [label="command line:/home/vinod/unit_tests/tests/fork-1.bin\negid:1000\neuid:1000\ngid:1000\nname:fork-1.bin\npid:13055\nppid:13054\nsource:syscall\nstart time:1507311581.088\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"af06d52ccc00d177482a507f46841bbf" -> "a9588ef78a44ac9b9773da2a83a4949a" [label="(event id:14839615\noperation:fork\nsource:syscall\ntime:1507311581.088\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"9d857cbe1b923c93b2f27b525148826d" [label="epoch:0\nfd:1\npid:13054\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"9d857cbe1b923c93b2f27b525148826d" -> "a9588ef78a44ac9b9773da2a83a4949a" [label="(event id:14839616\noperation:write\nsize:126\nsource:syscall\ntime:1507311581.088\ntype:WasGeneratedBy)" color="red" style="solid"];
+"a9588ef78a44ac9b9773da2a83a4949a" -> "a9588ef78a44ac9b9773da2a83a4949a" [label="(event id:14839617\noperation:exit\nsource:syscall\ntime:1507311581.088\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"2f40b50d278eea392602677a9e59df03" [label="epoch:0\nfd:1\npid:13055\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"2f40b50d278eea392602677a9e59df03" -> "af06d52ccc00d177482a507f46841bbf" [label="(event id:14839618\noperation:write\nsize:105\nsource:syscall\ntime:1507311581.088\ntype:WasGeneratedBy)" color="red" style="solid"];
+"af06d52ccc00d177482a507f46841bbf" -> "af06d52ccc00d177482a507f46841bbf" [label="(event id:14839619\noperation:exit\nsource:syscall\ntime:1507311581.088\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

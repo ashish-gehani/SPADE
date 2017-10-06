@@ -1,0 +1,4 @@
+type=SYSCALL msg=audit(1507311490.881:14837477): arch=c000003e syscall=59 success=yes exit=0 a0=b12408 a1=b0fe68 a2=b10c08 a3=7ffc8fcbb680 items=2 ppid=11313 pid=11314 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="mknodat.bin" exe="/home/vinod/unit_tests/tests/mknodat.bin" key=(null)
+type=EXECVE msg=audit(1507311490.881:14837477): argc=1 a0="/home/vinod/unit_tests/tests/mknodat.bin"
+type=CWD msg=audit(1507311490.881:14837477):  cwd="/home/local"
+type=SYSCALL msg=audit(1507311490.881:14837500): arch=c000003e syscall=231 a0=1 a1=0 a2=1 a3=ffffffffffffff60 items=0 ppid=11313 pid=11314 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="mknodat.bin" exe="/home/vinod/unit_tests/tests/mknodat.bin" key=(null)

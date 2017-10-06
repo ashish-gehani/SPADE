@@ -1,0 +1,5 @@
+type=SYSCALL msg=audit(1507311446.326:14836430): arch=c000003e syscall=59 success=yes exit=0 a0=267f408 a1=267ce68 a2=267dc08 a3=7ffceecede10 items=2 ppid=10441 pid=10442 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="kill.bin" exe="/home/vinod/unit_tests/tests/kill.bin" key=(null)
+type=EXECVE msg=audit(1507311446.326:14836430): argc=1 a0="/home/vinod/unit_tests/tests/kill.bin"
+type=CWD msg=audit(1507311446.326:14836430):  cwd="/home/local"
+type=SYSCALL msg=audit(1507311446.326:14836453): arch=c000003e syscall=62 success=yes exit=0 a0=28ca a1=9 a2=0 a3=7ffd35e6dbb0 items=0 ppid=10441 pid=10442 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=74 comm="kill.bin" exe="/home/vinod/unit_tests/tests/kill.bin" key=(null)
+type=OBJ_PID msg=audit(1507311446.326:14836453): opid=10442 oauid=1004 ouid=1000 oses=74 ocomm="kill.bin"

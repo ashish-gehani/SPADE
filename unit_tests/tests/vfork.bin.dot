@@ -1,0 +1,20 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"edc167b46abe8e28dc6cfd591b24d46f" [label="egid:1000\neuid:1000\ngid:1000\npid:11531\nppid:11530\nseen time:1507311501.733\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"651233c0a5191b0bf2e3430fcd21a88b" [label="command line:/home/vinod/unit_tests/tests/vfork.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:vfork.bin\npid:11531\nppid:11530\nsource:syscall\nstart time:1507311501.733\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"651233c0a5191b0bf2e3430fcd21a88b" -> "edc167b46abe8e28dc6cfd591b24d46f" [label="(event id:14837731\noperation:execve\nsource:syscall\ntime:1507311501.733\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"82597042e4b44b108d600a99867b442a" [label="egid:1000\neuid:1000\ngid:1000\nname:vfork.bin\npid:11532\nppid:11531\nseen time:1507311501.737\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"5ffb31a77f3e8e7c8bc6e7f5f2b47fc9" [label="memory address:7f73f363d000\nsize:1000\nsource:syscall\nsubtype:memory\ntgid:11532\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"5ffb31a77f3e8e7c8bc6e7f5f2b47fc9" -> "82597042e4b44b108d600a99867b442a" [label="(event id:14837755\noperation:mmap (write)\nprotection:3\nsource:syscall\ntime:1507311501.737\ntype:WasGeneratedBy)" color="red" style="solid"];
+"2db3881b0b92530a1c77b43e3d27cc5b" [label="epoch:0\nfd:1\npid:11532\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"2db3881b0b92530a1c77b43e3d27cc5b" -> "82597042e4b44b108d600a99867b442a" [label="(event id:14837768\noperation:write\nsize:42\nsource:syscall\ntime:1507311504.741\ntype:WasGeneratedBy)" color="red" style="solid"];
+"82597042e4b44b108d600a99867b442a" -> "82597042e4b44b108d600a99867b442a" [label="(event id:14837769\noperation:exit\nsource:syscall\ntime:1507311504.741\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"61f4dff653495062ee45a92a45cd158b" [label="command line:/home/vinod/unit_tests/tests/vfork.bin\negid:1000\neuid:1000\ngid:1000\nname:vfork.bin\npid:11532\nppid:11531\nsource:syscall\nstart time:1507311501.737\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"61f4dff653495062ee45a92a45cd158b" -> "651233c0a5191b0bf2e3430fcd21a88b" [label="(event id:14837770\noperation:fork\nsource:syscall\ntime:1507311501.737\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"466d276ee95d1e6917763d53957ec4e2" [label="epoch:0\nfd:1\npid:11531\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"466d276ee95d1e6917763d53957ec4e2" -> "651233c0a5191b0bf2e3430fcd21a88b" [label="(event id:14837772\noperation:write\nsize:14\nsource:syscall\ntime:1507311504.741\ntype:WasGeneratedBy)" color="red" style="solid"];
+"466d276ee95d1e6917763d53957ec4e2" -> "651233c0a5191b0bf2e3430fcd21a88b" [label="(event id:14837773\noperation:write\nsize:1\nsource:syscall\ntime:1507311504.741\ntype:WasGeneratedBy)" color="red" style="solid"];
+"651233c0a5191b0bf2e3430fcd21a88b" -> "651233c0a5191b0bf2e3430fcd21a88b" [label="(event id:14837774\noperation:exit\nsource:syscall\ntime:1507311504.741\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

@@ -1,0 +1,9 @@
+ftruncate -- missing third file version and ftruncate edge
+kill -- unsupported, only used for units
+linkat  -- weird link to java jar file
+mknod -- simpler tests (write, mknod, write) check to see if epoch increases
+mknodat -- simpler tests
+mprotect -- why no mmaps?
+recvmsg -- why no network artifact for send?
+symlinkat -- symlinkat ignored?
+vfork -- audit event reordering (write before fork)

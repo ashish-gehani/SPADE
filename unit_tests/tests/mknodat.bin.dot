@@ -1,0 +1,9 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"50a106367fedef07beed76f48052b9d5" [label="egid:1000\neuid:1000\ngid:1000\npid:11314\nppid:11313\nseen time:1507311490.881\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"0851bec9975d575b9736ca890f2637ba" [label="command line:/home/vinod/unit_tests/tests/mknodat.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:mknodat.bin\npid:11314\nppid:11313\nsource:syscall\nstart time:1507311490.881\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"0851bec9975d575b9736ca890f2637ba" -> "50a106367fedef07beed76f48052b9d5" [label="(event id:14837477\noperation:execve\nsource:syscall\ntime:1507311490.881\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"0851bec9975d575b9736ca890f2637ba" -> "0851bec9975d575b9736ca890f2637ba" [label="(event id:14837500\noperation:exit\nsource:syscall\ntime:1507311490.881\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

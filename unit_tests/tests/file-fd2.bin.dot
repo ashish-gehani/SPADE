@@ -1,0 +1,13 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"063994f6a12b431da0d467081183744c" [label="egid:1000\neuid:1000\ngid:1000\npid:17838\nppid:17837\nseen time:1507310148.531\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"75b411656a8fcaa2fa80b25114a89b12" [label="command line:/home/vinod/unit_tests/tests/file-fd2.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:file-fd2.bin\npid:17838\nppid:17837\nsource:syscall\nstart time:1507310148.531\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"75b411656a8fcaa2fa80b25114a89b12" -> "063994f6a12b431da0d467081183744c" [label="(event id:14805598\noperation:execve\nsource:syscall\ntime:1507310148.531\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"8ea9df2925e3988a9ff74143aa5a69e5" [label="epoch:0\nfd:1\npid:17838\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"8ea9df2925e3988a9ff74143aa5a69e5" -> "75b411656a8fcaa2fa80b25114a89b12" [label="(event id:14805621\noperation:write\nsize:33\nsource:syscall\ntime:1507310148.531\ntype:WasGeneratedBy)" color="red" style="solid"];
+"1f12066fef5393531c319fa7dedaccb9" [label="epoch:0\nfd:2\npid:17838\nsource:syscall\nsubtype:unknown\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"1f12066fef5393531c319fa7dedaccb9" -> "75b411656a8fcaa2fa80b25114a89b12" [label="(event id:14805622\noperation:write\nsize:35\nsource:syscall\ntime:1507310148.531\ntype:WasGeneratedBy)" color="red" style="solid"];
+"75b411656a8fcaa2fa80b25114a89b12" -> "75b411656a8fcaa2fa80b25114a89b12" [label="(event id:14805623\noperation:exit\nsource:syscall\ntime:1507310148.531\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

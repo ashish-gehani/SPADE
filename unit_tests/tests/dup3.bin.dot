@@ -1,0 +1,16 @@
+digraph spade2dot {
+graph [rankdir = "RL"];
+node [fontname="Helvetica" fontsize="8" style="filled" margin="0.0,0.0"];
+edge [fontname="Helvetica" fontsize="8"];
+"d0864384651097d8a9c6f7f33f694048" [label="egid:1000\neuid:1000\ngid:1000\npid:7825\nppid:7824\nseen time:1507311312.448\nsource:syscall\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"be415bc7f44ae30ddffdff626f021520" [label="command line:/home/vinod/unit_tests/tests/dup3.bin\ncwd:/home/local\negid:1000\neuid:1000\ngid:1000\nname:dup3.bin\npid:7825\nppid:7824\nsource:syscall\nstart time:1507311312.448\ntype:Process\nuid:1000\nunit:0" shape="box" fillcolor="lightsteelblue1"];
+"be415bc7f44ae30ddffdff626f021520" -> "d0864384651097d8a9c6f7f33f694048" [label="(event id:14833248\noperation:execve\nsource:syscall\ntime:1507311312.448\ntype:WasTriggeredBy)" color="blue" style="solid"];
+"94385b680fd4b69947aef23a8afe0282" [label="epoch:0\npath:/tmp/myfile.txt\npermissions:0664\nsource:syscall\nsubtype:file\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"94385b680fd4b69947aef23a8afe0282" -> "be415bc7f44ae30ddffdff626f021520" [label="(event id:14833271\nflags:O_WRONLY|O_CREAT\nmode:664\noperation:create\nsource:syscall\ntime:1507311312.448\ntype:WasGeneratedBy)" color="red" style="solid"];
+"b2b10428f27567d6a8463e04bfc32da6" [label="memory address:7fe9b9089000\nsize:1000\nsource:syscall\nsubtype:memory\ntgid:7825\ntype:Artifact" shape="ellipse" fillcolor="khaki1"];
+"b2b10428f27567d6a8463e04bfc32da6" -> "be415bc7f44ae30ddffdff626f021520" [label="(event id:14833274\noperation:mmap (write)\nprotection:3\nsource:syscall\ntime:1507311312.448\ntype:WasGeneratedBy)" color="red" style="solid"];
+"94385b680fd4b69947aef23a8afe0282" -> "be415bc7f44ae30ddffdff626f021520" [label="(event id:14833275\noperation:close\nsource:syscall\ntime:1507311312.448\ntype:WasGeneratedBy)" color="red" style="solid"];
+"94385b680fd4b69947aef23a8afe0282" -> "be415bc7f44ae30ddffdff626f021520" [label="(event id:14833276\noperation:unlink\nsource:syscall\ntime:1507311312.448\ntype:WasGeneratedBy)" color="red" style="solid"];
+"94385b680fd4b69947aef23a8afe0282" -> "be415bc7f44ae30ddffdff626f021520" [label="(event id:14833277\noperation:write\nsize:30\nsource:syscall\ntime:1507311312.448\ntype:WasGeneratedBy)" color="red" style="solid"];
+"be415bc7f44ae30ddffdff626f021520" -> "be415bc7f44ae30ddffdff626f021520" [label="(event id:14833278\noperation:exit\nsource:syscall\ntime:1507311312.448\ntype:WasTriggeredBy)" color="blue" style="solid"];
+}

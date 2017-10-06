@@ -1,0 +1,17 @@
+{"datum":{"com.bbn.tc.schema.avro.SrcSinkObject":{"baseObject":{"permission":null,"epoch":null,"properties":{"map":{}}},"type":"SRCSINK_SYSTEM_PROPERTY","fileDescriptor":null}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.Principal":{"type":"PRINCIPAL_LOCAL","userId":"1000","username":null,"groupIds":["1000","1000"],"properties":{"map":{"euid":"1000"}}}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":{"string":unit\_tests\/tests/dup.bin"},"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{"name":"dup.bin",}}}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":null,"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{,}}}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.Event":{"type":"EVENT_EXECUTE","predicateObject":{},"predicateObjectPath":null,"predicateObject2":null,"predicateObject2Path":null,"name":null,"parameters":null,"location":null,"size":null,"programPoint":null,"properties":{"map":{}}}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.SrcSinkObject":{"baseObject":{"permission":null,"epoch":{"int":0},"properties":{"map":{}}},"type":"SRCSINK_UNKNOWN","fileDescriptor":{"int":1}}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.Event":{"type":"EVENT_WRITE","predicateObject":{},"predicateObjectPath":null,"predicateObject2":null,"predicateObject2Path":null,"name":null,"parameters":null,"location":null,"size":{},"programPoint":null,"properties":{"map":{}}}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.Event":{"type":"EVENT_EXIT","predicateObject":{},"predicateObjectPath":null,"predicateObject2":null,"predicateObject2Path":null,"name":null,"parameters":null,"location":null,"size":null,"programPoint":null,"properties":{"map":{}}}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.SrcSinkObject":{"baseObject":{"permission":null,"epoch":null,"properties":{"map":{,"EVENT_EXIT":"1","EVENT_EXECUTE":"1","SrcSinkObject":"1","Principal":"1","SUBJECT_PROCESS":"2",\"EVENT_WRITE\"}}},"type":"SRCSINK_SYSTEM_PROPERTY","fileDescriptor":null}},"CDMVersion":"17","source":"SOURCE_LINUX_AUDIT_TRACE"}
