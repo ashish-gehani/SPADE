@@ -1,5 +1,9 @@
 #!/bin/bash
 
+TESTUSER="local"
+SPADE_HOME="/home/vinod/SPADE"
+
+
 _id=`id|cut -d"=" -f2 |cut -d"(" -f1`
 
 if [ $_id != 0 ]; then 
@@ -7,7 +11,7 @@ if [ $_id != 0 ]; then
   exit
 fi
 
-_uid=`su - local -c "id" |cut -d"=" -f2 |cut -d"(" -f1`
+_uid=`su - $TESTUSER -c "id" |cut -d"=" -f2 |cut -d"(" -f1`
 echo $_uid
 _tm=`date +%s`
 if [ -e /var/log/audit/audit.log ]; then
@@ -20,8 +24,8 @@ auditctl -D
 auditctl -a exit,always -F arch=b64 -F uid=$_uid -S exit -S exit_group -S kill
 auditctl -a exit,always -F arch=b64 -F success=1 -F uid=$_uid -S all
 sleep 2
-echo "su - local -c $1"
-su - local -c $1
+echo "su - $TESTUSER -c $1"
+su - $TESTUSER -c $1
 sleep 2
 auditctl -D
 mv /var/log/audit/audit.log $1".log"
@@ -50,7 +54,7 @@ head -$end $1".log" |tail -$cnt  >> $1".extract.log"
 
 
 # create spade config and run spade
-SPADE_HOME="/home/vinod/SPADE"
+
 
 cd $SPADE_HOME
 
