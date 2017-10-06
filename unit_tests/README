@@ -2,6 +2,10 @@ create "local" user.  The wrapper scripts should be run from
 the regular user account.  The scripts use sudo to invoke the
 individual tests as "local" user.  
 
+If you want to have a different name for the TESTUSER than local,
+change gen_audit.sh and set the value of "TESTUSER"
+
+
 set SPADE_HOME in gen_audit.sh
 
 build the binaries
