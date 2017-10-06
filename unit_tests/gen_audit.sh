@@ -50,7 +50,7 @@ head -$end $1".log" |tail -$cnt  >> $1".extract.log"
 
 
 # create spade config and run spade
-SPADE_HOME = "/home/vinod/SPADE"
+SPADE_HOME="/home/vinod/SPADE"
 
 cd $SPADE_HOME
 
