@@ -1,0 +1,16 @@
+printf
+getpid
+strcpy 
+sleep
+memset
+htons
+inet_addr
+main
+strcpy
+srand
+rand
+if (
+if(
+strtol
+exit
+perror
