@@ -43,7 +43,7 @@ public class CommandLine extends AbstractAnalyzer
         QUERY_BOOLEAN_OPERATORS_VALUE("AND|OR"),
         QUERY_LIMIT_KEY("result limit: "),
         QUERY_LIMIT_VALUE("LIMIT n"),
-        QUERY_FUNCTION_LIST_KEY("available functions:"),
+        QUERY_FUNCTION_LIST_KEY("functions:"),
         QUERY_FUNCTION_LIST_VALUE("GetVertex | GetEdge | GetChildren | GetParents | GetLineage | GetPaths"),
         QUERY_FUNCTION_ARGUMENTS_KEY("argument: "),
         QUERY_FUNCTION_ARGUMENTS_VALUE("<constraint_name> | (<constraint_name> <boolean_operator> <constraint_name>)+"),
@@ -325,11 +325,3 @@ public class CommandLine extends AbstractAnalyzer
         }
     }
 }
-
-
-
-
-
-
-
-
