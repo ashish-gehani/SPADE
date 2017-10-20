@@ -31,7 +31,7 @@ public class GetEdge extends Neo4j<Set<AbstractEdge>, Map<String, List<String>>>
                 List<String> values = entry.getValue();
                 query.append(EDGE_ALIAS).append(".");
                 query.append(colName);
-                query.append(values.get(ARITHMETIC_OPERATOR));
+                query.append(values.get(COMPARISON_OPERATOR));
                 query.append("'");
                 query.append(values.get(COL_VALUE));
                 query.append("'");

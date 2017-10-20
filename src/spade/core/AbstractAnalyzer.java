@@ -31,7 +31,7 @@ public abstract class AbstractAnalyzer
     protected boolean USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
     private static Map<String, List<String>> functionToClassMap;
     protected static boolean EXPORT_RESULT = false;
-    public static final String ARITHMETIC_OPERATORS = "=|>|<|>=|<=";
+    public static final String COMPARISON_OPERATORS = "=|>|<|>=|<=";
     public static final String BOOLEAN_OPERATORS = "AND|OR";
 
     /**

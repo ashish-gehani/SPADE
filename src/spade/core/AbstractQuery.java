@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 public abstract class AbstractQuery<R, P>
 {
     // indices of variables in parameter map of GetVertex and GetEdge
-    protected static final int ARITHMETIC_OPERATOR = 0;
+    protected static final int COMPARISON_OPERATOR = 0;
     public static final int COL_VALUE = 1;
     protected static final int BOOLEAN_OPERATOR = 2;
 

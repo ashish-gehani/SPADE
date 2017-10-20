@@ -49,9 +49,9 @@ public class CommandLine extends AbstractAnalyzer
         QUERY_FUNCTION_EXPRESSION_KEY("expression: "),
         QUERY_FUNCTION_EXPRESSION_VALUE("\t <constraint_name> [<boolean_operator> <constraint_name> ...]"),
         QUERY_CONSTRAINT_KEY("constraint creation: "),
-        QUERY_CONSTRAINT_VALUE("\t <constraint_name> = <key> <arithmetic_operator> <value>"),
-        QUERY_ARITHMETIC_OPERATORS_KEY("arithmetic operators: "),
-        QUERY_ARITHMETIC_OPERATORS_VALUE("\t = | > | < | >= | <="),
+        QUERY_CONSTRAINT_VALUE("\t <constraint_name>: <key> <comparison_operator> <value>"),
+        QUERY_COMPARISON_OPERATORS_KEY("comparison operators: "),
+        QUERY_COMPARISON_OPERATORS_VALUE("\t = | > | < | >= | <="),
         QUERY_BOOLEAN_OPERATORS_KEY("boolean operators: "),
         QUERY_BOOLEAN_OPERATORS_VALUE("\t AND | OR"),
         QUERY_DIRECTION_KEY("direction: "),
@@ -288,7 +288,7 @@ public class CommandLine extends AbstractAnalyzer
 
                 // Step2: get the argument expression(s), split by the boolean operators
                 // The format for one argument is:
-                // <key> ARITHMETIC_OPERATOR <value> [BOOLEAN_OPERATOR]
+                // <key> COMPARISON_OPERATOR <value> [BOOLEAN_OPERATOR]
                 Pattern constraints_pattern = Pattern.compile("((?i)(?<=(" + BOOLEAN_OPERATORS + "))|" +
                         "((?i)(?=(" + BOOLEAN_OPERATORS + "))))");
                 String[] expressions = constraints_pattern.split(constraints);
@@ -298,8 +298,8 @@ public class CommandLine extends AbstractAnalyzer
                 while(i < expressions.length)
                 {
                     String expression = expressions[i];
-                    Pattern expression_pattern = Pattern.compile("((?<=(" + ARITHMETIC_OPERATORS + "))|" +
-                            "(?=(" + ARITHMETIC_OPERATORS + ")))");
+                    Pattern expression_pattern = Pattern.compile("((?<=(" + COMPARISON_OPERATORS + "))|" +
+                            "(?=(" + COMPARISON_OPERATORS + ")))");
                     String[] operands = expression_pattern.split(expression);
                     String key = operands[0].trim();
                     String operator = operands[1].trim();

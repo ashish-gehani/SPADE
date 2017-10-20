@@ -37,7 +37,7 @@ public class GetEdge extends PostgreSQL<Set<AbstractEdge>, Map<String, List<Stri
                 query.append("\"");
                 query.append(colName);
                 query.append("\"");
-                query.append(values.get(ARITHMETIC_OPERATOR));
+                query.append(values.get(COMPARISON_OPERATOR));
                 query.append("'");
                 query.append(values.get(COL_VALUE));
                 query.append("'");
