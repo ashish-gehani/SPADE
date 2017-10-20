@@ -60,6 +60,8 @@ public class PostgreSQL extends SQL
     private int globalTxCount = 0;
     private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
     private Date lastFlushTime;
+    private long edgeBatches = 0;
+    private long vertexBatches = 0;
     private boolean bulkUpload = true;
     private List<Map<String, String>> edgeList = new ArrayList<>();
     private List<Map<String, String>> vertexList = new ArrayList<>();
@@ -236,13 +238,13 @@ public class PostgreSQL extends SQL
                 flushBulkVertices(true);
             }
             dbConnection.close();
-            return true;
         }
         catch (Exception ex)
         {
             logger.log(Level.SEVERE, null, ex);
             return false;
         }
+        return super.shutdown();
     }
 
     /**
@@ -453,6 +455,10 @@ public class PostgreSQL extends SQL
                 addColumn(EDGE_TABLE, lowerCasedAnnotationKey);
             }
         }
+        if(USE_SCAFFOLD)
+        {
+            insertScaffoldEntry(incomingEdge);
+        }
         flushBulkEdges(false);
     }
 
@@ -503,6 +509,14 @@ public class PostgreSQL extends SQL
                 globalTxCheckin(true);
                 edgeList.clear();
                 logger.log(Level.INFO, "Bulk uploaded " + GLOBAL_TX_SIZE + " edges to databases. Total edges: " + edgeCount);
+                edgeBatches++;
+                long currentTime = System.currentTimeMillis();
+                if((currentTime - lastReportedTime) >= reportEveryMs)
+                {
+                    lastReportedTime = currentTime;
+                    logger.log(Level.INFO, "edge batches flushed per " + reportingInterval + "sec: " + edgeBatches);
+                    edgeBatches = 0;
+                }
             }
             catch (Exception ex)
             {
@@ -574,6 +588,14 @@ public class PostgreSQL extends SQL
                 globalTxCheckin(true);
                 vertexList.clear();
                 logger.log(Level.INFO, "Bulk uploaded " + GLOBAL_TX_SIZE + " vertices to databases. Total vertices: " + vertexCount);
+                vertexBatches++;
+                long currentTime = System.currentTimeMillis();
+                if((currentTime - lastReportedTime) >= reportEveryMs)
+                {
+                    lastReportedTime = currentTime;
+                    logger.log(Level.INFO, "vertex batches flushed per " + reportingInterval + "sec: " + vertexBatches);
+                    vertexBatches = 0;
+                }
             }
             catch (Exception ex)
             {

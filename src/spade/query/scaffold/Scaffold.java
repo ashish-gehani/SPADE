@@ -42,9 +42,9 @@ public abstract class Scaffold
     protected abstract void globalTxCheckin(boolean forcedFlush);
 
     /**
-     * This method is invoked by the kernel to shut down the storage.
+     * This method is invoked by the AbstractStorage to shut down the storage.
      *
-     * @return True if the storage was shut down successfully.
+     * @return True if scaffold was shut down successfully.
      */
     public abstract boolean shutdown();
 

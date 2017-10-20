@@ -108,7 +108,10 @@ public abstract class SQL extends AbstractStorage
      * @return  returns true if the database connection is successfully closed.
      */
     @Override
-    public abstract boolean shutdown();
+    public boolean shutdown()
+    {
+        return super.shutdown();
+    }
 
     /**
      *  This function cleans the given column name for all characters

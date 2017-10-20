@@ -143,7 +143,7 @@ public class CommandLine
                         System.out.println("-------------------------------------------------");
                         System.out.println();
                     }
-                    else if(line.contains("="))
+                    else if(line.contains(":"))
                     {
                         // probably a constraint
                         createConstraint(line);
@@ -228,10 +228,9 @@ public class CommandLine
 
     private static void createConstraint(String line)
     {
-        Pattern pattern = Pattern.compile("((?<=(=))|(?=(=)))");
-        String[] tokens = pattern.split(line, 3);
+        String[] tokens = line.split(":");
         String constraint_name = tokens[0].trim();
-        String constraint_expression = tokens[2].trim();
+        String constraint_expression = tokens[1].trim();
         constraints.put(constraint_name, constraint_expression);
         System.out.println("Constraint '" + constraint_name + "' created.");
     }

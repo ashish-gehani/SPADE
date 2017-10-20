@@ -18,6 +18,10 @@ public class ScaffoldFactory
         {
             scaffold = new LevelDB();
         }
+        else if(scaffoldType.equals("InMemory"))
+        {
+            scaffold = new InMemory();
+        }
 
         return scaffold;
     }

@@ -15,6 +15,7 @@ import com.sleepycat.je.EnvironmentFailureException;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
+import org.apache.commons.lang.StringUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
@@ -24,6 +25,7 @@ import spade.query.sql.postgresql.PostgreSQL;
 import java.io.File;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -49,6 +51,13 @@ import static spade.query.sql.postgresql.PostgreSQL.VERTEX_TABLE;
  */
 public class BerkeleyDB extends Scaffold
 {
+    private static final int INITIAL_CACHE_CAPACITY = 500;
+    private static final int DEFAULT_ENTRY_SIZE = 200;
+    private Map<String, StringBuilder> childListCache = new HashMap<>(INITIAL_CACHE_CAPACITY);
+    private Map<String, StringBuilder> parentListCache = new HashMap<>(INITIAL_CACHE_CAPACITY);
+    private static final String LIST_SEPARATOR = "-";
+    private static final String HASH_SEPARATOR = ",";
+
     private static long serial_number = 1;
     private long start_time;
 
@@ -75,6 +84,11 @@ public class BerkeleyDB extends Scaffold
             i++;
         }
         cursor.close();
+    }
+
+    public BerkeleyDB()
+    {
+        GLOBAL_TX_SIZE = 1000;
     }
 
     /**
@@ -321,6 +335,128 @@ public class BerkeleyDB extends Scaffold
         return paths;
     }
 
+    public boolean flushBulkEntries(boolean forcedFlush)
+    {
+        try
+        {
+            if((globalTxCount % GLOBAL_TX_SIZE == 0) || forcedFlush)
+            {
+                Transaction transaction = scaffoldDbEnvironment.beginTransaction(null, null);
+                Set<String> hashList = new HashSet<>(childListCache.keySet());
+                hashList.addAll(parentListCache.keySet());
+                for(String hash: hashList)
+                {
+                    byte[] hashBytes = hash.getBytes("UTF-8");
+                    StringBuilder childCacheBuilder = childListCache.get(hash);
+                    String childCache = "";
+                    if(childCacheBuilder != null)
+                    {
+                        childCache = childCacheBuilder.toString();
+                    }
+                    StringBuilder parentCacheBuilder = parentListCache.get(hash);
+                    String parentCache = "";
+                    if(parentCacheBuilder != null)
+                    {
+                        parentCache = parentCacheBuilder.toString();
+                    }
+
+                    // DatabaseEntry for the key
+                    DatabaseEntry key = new DatabaseEntry(hashBytes);
+                    // DatabaseEntry for the data.
+                    DatabaseEntry data = new DatabaseEntry();
+                    // query database to get the key-value
+                    OperationStatus operationStatus = scaffoldDatabase.get(null, key, data, LockMode.DEFAULT);
+
+                    String newScaffoldEntry;
+                    if(operationStatus.equals(OperationStatus.NOTFOUND))
+                    {
+                        Set<String> childHashSet = new HashSet<>(Arrays.asList(childCache.split(HASH_SEPARATOR)));
+                        Set<String> parentHashSet = new HashSet<>(Arrays.asList(parentCache.split(HASH_SEPARATOR)));
+                        newScaffoldEntry = StringUtils.join(childHashSet, HASH_SEPARATOR) + LIST_SEPARATOR +
+                                StringUtils.join(parentHashSet, HASH_SEPARATOR);
+                    }
+                    else
+                    {
+                        String currentScaffoldEntry = new String(data.getData(), "UTF-8");
+                        String[] neighborHashList = currentScaffoldEntry.split(LIST_SEPARATOR, -1);
+                        String childrenHashList = neighborHashList[0];
+                        String parentHashList = neighborHashList[1];
+                        Set<String> cachedChildrenHashSet = new HashSet<>(Arrays.asList(childCache.split(HASH_SEPARATOR)));
+                        Set<String> cachedParentHashSet = new HashSet<>(Arrays.asList(parentCache.split(HASH_SEPARATOR)));
+
+                        Set<String> currentChildrenHashSet = new HashSet<>(Arrays.asList(childrenHashList.split(HASH_SEPARATOR)));
+                        Set<String> currentParentHashSet = new HashSet<>(Arrays.asList(parentHashList.split(HASH_SEPARATOR)));
+                        currentChildrenHashSet.addAll(cachedChildrenHashSet);
+                        currentParentHashSet.addAll(cachedParentHashSet);
+
+                        newScaffoldEntry = StringUtils.join(currentChildrenHashSet, HASH_SEPARATOR) + LIST_SEPARATOR +
+                                StringUtils.join(currentParentHashSet, HASH_SEPARATOR);
+                    }
+                    data = new DatabaseEntry(newScaffoldEntry.getBytes("UTF-8"));
+                    scaffoldDatabase.put(null, key, data);
+                }
+                transaction.commit();
+                childListCache.clear();
+                parentListCache.clear();
+            }
+        }
+        catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error bulk flushing cached entries to scaffold!", ex);
+            return false;
+        }
+
+        return true;
+    }
+
+    public boolean insertEntry1(AbstractEdge incomingEdge)
+    {
+        try
+        {
+            String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
+            String parentVertexHash = incomingEdge.getParentVertex().bigHashCode();
+            /*
+                processing child vertex
+             */
+            StringBuilder childList = childListCache.get(childVertexHash);
+            if(childList == null)
+            {
+                childList = new StringBuilder(DEFAULT_ENTRY_SIZE);
+                childList.append(parentVertexHash);
+                childListCache.put(childVertexHash, childList);
+            }
+            else
+            {
+                childList.append(HASH_SEPARATOR).append(parentVertexHash);
+            }
+
+            /*
+                processing parent vertex
+             */
+            StringBuilder parentList = parentListCache.get(parentVertexHash);
+            if(parentList == null)
+            {
+                parentList = new StringBuilder(DEFAULT_ENTRY_SIZE);
+                parentList.append(childVertexHash);
+                parentListCache.put(parentVertexHash, parentList);
+            }
+            else
+            {
+                parentList.append(HASH_SEPARATOR).append(childVertexHash);
+            }
+
+            // increment count
+            globalTxCount++;
+            flushBulkEntries(false);
+        }
+        catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error committing transactions!", ex);
+            return false;
+        }
+
+        return true;
+    }
 
     /**
      * This function inserts hashes of the end vertices of given edge

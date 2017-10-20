@@ -118,7 +118,7 @@ public abstract class AbstractStorage
      */
     public static Scaffold scaffold = null;
     public static boolean USE_SCAFFOLD = Boolean.parseBoolean(Settings.getProperty("use_scaffold"));
-    private static final String scaffoldPath = SPADE_ROOT + Settings.getProperty("scaffold_path");
+    public static final String scaffoldPath = SPADE_ROOT + Settings.getProperty("scaffold_path");
     static
     {
         if(USE_SCAFFOLD)
@@ -157,7 +157,15 @@ public abstract class AbstractStorage
      *
      * @return True if the storage was shut down successfully.
      */
-    public abstract boolean shutdown();
+    public boolean shutdown()
+    {
+        if(USE_SCAFFOLD)
+        {
+            scaffold.shutdown();
+        }
+
+        return true;
+    }
 
     /**
      * This method returns current edge count.
