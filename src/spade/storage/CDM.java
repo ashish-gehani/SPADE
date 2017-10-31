@@ -19,37 +19,6 @@
  */
 package spade.storage;
 
-import com.bbn.tc.schema.avro.AbstractObject;
-import com.bbn.tc.schema.avro.Event;
-import com.bbn.tc.schema.avro.EventType;
-import com.bbn.tc.schema.avro.FileObject;
-import com.bbn.tc.schema.avro.FileObjectType;
-import com.bbn.tc.schema.avro.InstrumentationSource;
-import com.bbn.tc.schema.avro.MemoryObject;
-import com.bbn.tc.schema.avro.NetFlowObject;
-import com.bbn.tc.schema.avro.Principal;
-import com.bbn.tc.schema.avro.PrincipalType;
-import com.bbn.tc.schema.avro.SHORT;
-import com.bbn.tc.schema.avro.SrcSinkObject;
-import com.bbn.tc.schema.avro.SrcSinkType;
-import com.bbn.tc.schema.avro.Subject;
-import com.bbn.tc.schema.avro.SubjectType;
-import com.bbn.tc.schema.avro.TCCDMDatum;
-import com.bbn.tc.schema.avro.UUID;
-import com.bbn.tc.schema.avro.UnitDependency;
-import com.bbn.tc.schema.avro.UnnamedPipeObject;
-import com.bbn.tc.schema.serialization.AvroConfig;
-import org.apache.avro.generic.GenericContainer;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
-import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
-import spade.vertex.prov.Agent;
-
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -62,6 +31,38 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.apache.avro.generic.GenericContainer;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.kafka.clients.producer.ProducerConfig;
+
+import com.bbn.tc.schema.avro.cdm18.AbstractObject;
+import com.bbn.tc.schema.avro.cdm18.Event;
+import com.bbn.tc.schema.avro.cdm18.EventType;
+import com.bbn.tc.schema.avro.cdm18.FileObject;
+import com.bbn.tc.schema.avro.cdm18.FileObjectType;
+import com.bbn.tc.schema.avro.cdm18.InstrumentationSource;
+import com.bbn.tc.schema.avro.cdm18.MemoryObject;
+import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
+import com.bbn.tc.schema.avro.cdm18.Principal;
+import com.bbn.tc.schema.avro.cdm18.PrincipalType;
+import com.bbn.tc.schema.avro.cdm18.SHORT;
+import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
+import com.bbn.tc.schema.avro.cdm18.SrcSinkType;
+import com.bbn.tc.schema.avro.cdm18.Subject;
+import com.bbn.tc.schema.avro.cdm18.SubjectType;
+import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm18.UUID;
+import com.bbn.tc.schema.avro.cdm18.UnitDependency;
+import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
+import com.bbn.tc.schema.serialization.AvroConfig;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.reporter.audit.OPMConstants;
+import spade.utility.CommonFunctions;
+import spade.vertex.prov.Agent;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -128,6 +129,8 @@ public class CDM extends Kafka {
 	 */
 	private Map<Set<TypeOperation>, EventType> rulesToEventType = 
 			new HashMap<Set<TypeOperation>, EventType>();
+	
+	private UUID hostUUID = null;
 	
 	/**
 	 * Rules from OPM edges types and operations to event types in CDM
@@ -291,9 +294,9 @@ public class CDM extends Kafka {
 				}
 
 				Event event = new Event(uuid, 
-						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, predicateObjectPath, 
-						predicateObject2UUID, predicateObject2Path, timestampNanos, null, null, 
-						location, size, null, properties);
+						sequence, eventType, threadId, hostUUID, subjectUUID, predicateObjectUUID, 
+						predicateObjectPath, predicateObject2UUID, predicateObject2Path, timestampNanos, 
+						null, null, location, size, null, properties);
 
 				publishRecords(Arrays.asList(buildTcCDMDatum(event, source)));
 
@@ -314,7 +317,7 @@ public class CDM extends Kafka {
 				// Agents cannot come from BEEP source. Added just in case.
 				InstrumentationSource principalSource = 
 						subjectSource.equals(InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)
-						? InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE : subjectSource;
+						? InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE : subjectSource;
 
 				List<GenericContainer> objectsToPublish = new ArrayList<GenericContainer>();
 
@@ -408,7 +411,7 @@ public class CDM extends Kafka {
 							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, process.getAnnotations(), properties);
 
 							Subject subject = new Subject(subjectUUID, subjectType, pid, 
-									pidSubjectUUID.get(ppid), principalUUID, startTime, 
+									pidSubjectUUID.get(ppid), hostUUID, principalUUID, startTime, 
 									unitId, iteration, count, cmdLine, null, null, null,
 									properties);
 
@@ -524,7 +527,7 @@ public class CDM extends Kafka {
 					Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
-					AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+					AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
 					tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
 							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
@@ -553,7 +556,7 @@ public class CDM extends Kafka {
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
 
-						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
 						tccdmObject = new MemoryObject(getUuid(vertex), baseObject, memoryAddress, null, null, size);
 
@@ -587,9 +590,10 @@ public class CDM extends Kafka {
 						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
-						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
-						tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, sourceFileDescriptor, sinkFileDescriptor);
+						tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, 
+								sourceFileDescriptor, sinkFileDescriptor, null, null); // TODO UUID for src and sink???
 					}
 					
 				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
@@ -605,7 +609,7 @@ public class CDM extends Kafka {
 						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
 
-						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
 						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
 								SrcSinkType.SRCSINK_UNKNOWN, fd);
@@ -650,7 +654,7 @@ public class CDM extends Kafka {
 		
 		SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
 
-		AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
+		AbstractObject baseObject = new AbstractObject(hostUUID, permissions, epoch, properties);
 		FileObject fileObject = new FileObject(uuid, baseObject, type, null, null, null, null, null);
 
 		return fileObject;
@@ -676,11 +680,11 @@ public class CDM extends Kafka {
 		}
 		properties.put(annotationName, 
 				String.valueOf(convertTimeToNanoseconds(null, String.valueOf(System.currentTimeMillis()), 0L)));
-		AbstractObject baseObject = new AbstractObject(null, null, properties);  
+		AbstractObject baseObject = new AbstractObject(hostUUID, null, null, properties);  
 		SrcSinkObject streamMarker = new SrcSinkObject(getUuid(properties), baseObject, 
 				SrcSinkType.SRCSINK_SYSTEM_PROPERTY, null);
 		
-		publishRecords(Arrays.asList(buildTcCDMDatum(streamMarker, InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE)));
+		publishRecords(Arrays.asList(buildTcCDMDatum(streamMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
 	}
 	
 	@Override
@@ -784,7 +788,7 @@ public class CDM extends Kafka {
 					return publishSubjectAndPrincipal(incomingVertex);
 				}else if(OPMConstants.ARTIFACT.equals(type)){
 					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(incomingVertex.getAnnotation(OPMConstants.SOURCE))){
-						// Ignore until CDM updating with refine edge. TODO
+						// Ignore until CDM updated with refine edge. TODO
 					}else{
 						return publishArtifact(incomingVertex);
 					}
@@ -1148,10 +1152,10 @@ public class CDM extends Kafka {
 	 * @return InstrumentationSource instance or null
 	 */
 	private InstrumentationSource getInstrumentationSource(String source){
-		if(OPMConstants.SOURCE_AUDIT_SYSCALL.equals(source)
-				|| OPMConstants.SOURCE_AUDIT_NETFILTER.equals(source)){
-			// TODO Use the 'netfilter' source value when added in CDM
-			return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
+		if(OPMConstants.SOURCE_AUDIT_SYSCALL.equals(source)){
+			return InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE;
+		}else if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(source)){
+			return InstrumentationSource.SOURCE_LINUX_NETFILTER_TRACE;
 		}else if(OPMConstants.SOURCE_PROCFS.equals(source)){	
 			return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
 		}else if(OPMConstants.SOURCE_BEEP.equals(source)){
