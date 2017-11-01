@@ -191,7 +191,7 @@ public class CommandLine extends AbstractAnalyzer
                                         remoteResolverThread.start();
                                         // wait for thread to complete to get the final graph
                                         remoteResolverThread.join();
-                                        // final graph is a set of unstitched graphs
+                                        // final graph is a set of un-stitched graphs
                                         Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
                                         clearRemoteResolutionRequired();
                                         // TODO: perform consistency check here - Carol

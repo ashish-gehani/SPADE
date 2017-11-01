@@ -61,7 +61,7 @@ public abstract class AbstractResolver implements Runnable
      */
     protected static Graph queryNetworkVertex(AbstractVertex networkVertex, int depth, String direction)
     {
-        Graph resultGraph = null;
+        Graph resultGraph;
         try
         {
             // Establish a connection to the remote host
@@ -94,7 +94,6 @@ public abstract class AbstractResolver implements Runnable
                     OPMConstants.SOURCE +
                     OPERATORS.EQUALS +
                     OPMConstants.SOURCE_AUDIT_NETFILTER +
-                    ", null" +
                     ")";
 
             remoteSocketOut.println(networkVertexQuery);
@@ -111,8 +110,6 @@ public abstract class AbstractResolver implements Runnable
                     PRIMARY_KEY +
                     OPERATORS.EQUALS +
                     targetVertexHash +
-                    ", " +
-                    DEFAULT_MAX_LIMIT +
                     ", " +
                     depth +
                     ", " +
