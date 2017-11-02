@@ -165,24 +165,34 @@ public class Audit extends AbstractReporter {
 			"INPUT -p udp -m state --state NEW -j AUDIT --type accept"
 			};
 	
-	private int matchedNetfilterSyscall = 0,
-			matchedSyscallNetfilter = 0;
+	private List<Artifact> networkArtifactsFromSyscalls = new ArrayList<Artifact>();
+	private List<Artifact> networkArtifactsFromNetfilter = new ArrayList<Artifact>();
 	
-	private List<Map<String, String>> networkAnnotationsFromSyscalls = 
-			new ArrayList<Map<String, String>>();
-	private List<Map<String, String>> networkAnnotationsFromNetfilter = 
-			new ArrayList<Map<String, String>>();
-	
-	private Map<String, String> getNetworkAnnotationsSeenInList(
-			List<Map<String, String>> list, String remoteAddress, String remotePort){
+	private Artifact removeNetworkArtifactSeenInList(
+			List<Artifact> list, String remoteAddress, String remotePort){
 		for(int a = 0; a < list.size(); a++){
-			Map<String, String> artifactAnnotation = list.get(a);
-			if(String.valueOf(artifactAnnotation.get(OPMConstants.ARTIFACT_REMOTE_ADDRESS)).equals(remoteAddress) &&
-					String.valueOf(artifactAnnotation.get(OPMConstants.ARTIFACT_REMOTE_PORT)).equals(remotePort)){
-				return artifactAnnotation;
+			Artifact artifact = list.get(a);
+			if(String.valueOf(artifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS)).equals(remoteAddress) &&
+					String.valueOf(artifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT)).equals(remotePort)){
+				list.remove(a);
+				return artifact;
 			}
 		}
 		return null;
+	}
+	
+	private void addNetworkArtifactToList(List<Artifact> list, Artifact artifact, String eventId){
+		list.add(artifact);
+	}
+	
+	private Artifact removeNetworkArtifactSeenInSyscall(
+			String remoteAddress, String remotePort){
+		return removeNetworkArtifactSeenInList(networkArtifactsFromSyscalls, remoteAddress, remotePort);
+	}
+	
+	private Artifact removeNetworkArtifactSeenInNetfilter(
+			String remoteAddress, String remotePort){
+		return removeNetworkArtifactSeenInList(networkArtifactsFromNetfilter, remoteAddress, remotePort);
 	}
 	
 	/********************** NETFILTER - END *************************/
@@ -223,8 +233,7 @@ public class Audit extends AbstractReporter {
 			KEEP_PATH_PERMISSIONS = true,
 			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 	private boolean ANONYMOUS_MMAP = true;
-	private boolean NETFILTER_RULES = false;
-	private boolean REFINE_NET = false;
+	private boolean NETFILTER_HANDLING = false;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -586,17 +595,9 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("netfilter");
 		if(isValidBoolean(argValue)){
-			NETFILTER_RULES = parseBoolean(argValue, NETFILTER_RULES);
+			NETFILTER_HANDLING = parseBoolean(argValue, NETFILTER_HANDLING);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'netfilter': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("refineNet");
-		if(isValidBoolean(argValue)){
-			REFINE_NET = parseBoolean(argValue, REFINE_NET);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'refineNet': " + argValue);
 			return false;
 		}
 		
@@ -722,7 +723,7 @@ public class Audit extends AbstractReporter {
 			if(!"none".equals(rulesType)){
 				removeAuditctlRules();
 			}
-			if(NETFILTER_RULES){
+			if(NETFILTER_HANDLING){
 				removeIptablesRules(iptablesRules);
 			}
 		}else{
@@ -903,7 +904,7 @@ public class Audit extends AbstractReporter {
 			}
 			
 			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
-			rulesType = argsMap.get("syscall");
+			rulesType = argsMap.get("rules");
 			if(rulesType != null && !rulesType.equals("none") && !rulesType.equals("all")){
 				logger.log(Level.SEVERE, "Invalid value for 'rules' argument: " + rulesType);
 				return false;
@@ -926,7 +927,7 @@ public class Audit extends AbstractReporter {
 		try{
 			
 			if(isLiveAudit){
-				if(NETFILTER_RULES){
+				if(NETFILTER_HANDLING){
 					if(!setIptablesRules(iptablesRules)){
 						return false;
 					}
@@ -1364,7 +1365,7 @@ public class Audit extends AbstractReporter {
 	private boolean executeAuditctlRule(String auditctlRule){
 		try{
 			List<String> auditctlOutput = Execute.getOutput(auditctlRule);
-			logger.log(Level.INFO, "configured audit rules: {0} with output: {1}", new Object[]{auditctlRule, auditctlOutput});
+			logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditctlRule, auditctlOutput});
 			if(Execute.containsOutputFromStderr(auditctlOutput)){
 				return false;
 			}else{
@@ -1620,48 +1621,46 @@ public class Audit extends AbstractReporter {
 			// Wait while the event reader thread is still running i.e. buffer being emptied
 		}
 		
-		// force print stats before exiting
-		printStats(true);
-		
+		if(NETFILTER_HANDLING){
+			// TODO add a buffer window size (outside of which we don't match) to empty the lists.
+			logger.log(Level.INFO, "{0} unmatched netfilter-syscall events", 
+					networkArtifactsFromNetfilter.size() + networkArtifactsFromSyscalls.size());
+		}
+				
 		return true;
 	}
 
-	private void printStats(boolean forcePrint){
-		if(reportingEnabled || forcePrint){
-			long currentTime = System.currentTimeMillis();
-			if(((currentTime - lastReportedTime) >= reportEveryMs) || forcePrint){
-				Runtime runtime = Runtime.getRuntime();
-				long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024*1024);   	
-				int internalBufferSize = getBuffer().size();
-				String statString = String.format("Internal buffer size: %d, JVM memory in use: %dMB", 
-						internalBufferSize, usedMemoryMB);
-				if(REFINE_NET){
-					String netfilterStat = String.format("Unmatched: "
-							+ "%d netfilter-syscall, "
-							+ "%d syscall-netfilter. "
-							+ "Matched: "
-							+ "%d netfilter-syscall, "
-							+ "%d syscall-netfilter.",
-							networkAnnotationsFromNetfilter.size(),
-							networkAnnotationsFromSyscalls.size(),
-							matchedNetfilterSyscall,
-							matchedSyscallNetfilter);
-					statString += ", " + netfilterStat;
-				}
-				logger.log(Level.INFO, statString);
-				lastReportedTime = currentTime;
-			}
-		}
+	private void printStats(){
+		Runtime runtime = Runtime.getRuntime();
+		long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024*1024);   	
+		long internalBufferSize = getBuffer().size();
+		logger.log(Level.INFO, "Internal buffer size: {0}, JVM memory in use: {1}MB", new Object[]{internalBufferSize, usedMemoryMB});
 	}
 
 	private void finishEvent(Map<String, String> eventData){
 
-		printStats(false);
+		if(reportingEnabled){
+			long currentTime = System.currentTimeMillis();
+			if((currentTime - lastReportedTime) >= reportEveryMs){
+				printStats();
+				lastReportedTime = currentTime;
+			}
+		}
 
 		if (eventData == null) {
 			logger.log(Level.WARNING, "Null event data read");
 			return;
 		}
+
+		/*if("NETFILTER_PKT".equals(eventBuffer.get(eventId).get("type"))){ //for events with no syscalls
+    		try{
+    			handleNetfilterPacketEvent(eventBuffer.get(eventId));
+    		}catch(Exception e){
+    			logger.log(Level.WARNING, "Error processing finish syscall event with event id '"+eventId+"'", e);
+    		}
+    	}else{ //for events with syscalls
+    		handleSyscallEvent(eventId);
+    	}*/
 
 		try{
 			String recordType = eventData.get(AuditEventReader.RECORD_TYPE_KEY);
@@ -1674,7 +1673,9 @@ public class Audit extends AbstractReporter {
 			}else if(AuditEventReader.RECORD_TYPE_DAEMON_START.equals(recordType)){
 				clearAllProcessState();
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_PKT.equals(recordType)){
-				handleNetfilterPacketEvent(eventData);
+				if(NETFILTER_HANDLING){
+					handleNetfilterPacketEvent(eventData);
+				}
 			}else{
 				handleSyscallEvent(eventData);
 			}
@@ -3586,91 +3587,76 @@ public class Audit extends AbstractReporter {
 
 		markNewEpochForArtifact(readPipeIdentifier);
 		markNewEpochForArtifact(writePipeIdentifier);
-	}
+	}    
+
 
 	private void handleNetfilterPacketEvent(Map<String, String> eventData){
 //      Refer to the following link for protocol numbers
 //    	http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-    	if(REFINE_NET){
-	    	String time = eventData.get(AuditEventReader.TIME);
-	    	String eventId = eventData.get(AuditEventReader.EVENT_ID);
-	    	String protocolNumber = eventData.get(AuditEventReader.PROTO);
-	    	String hook = eventData.get(AuditEventReader.HOOK);//hook=1 (input), hook=3 (output)
-	    	
-	    	String localAddress = null, localPort = null, remoteAddress = null, remotePort = null;
-	    	
-	    	if(AuditEventReader.HOOK_INPUT.equals(hook)){
-	    		localAddress = eventData.get(AuditEventReader.DADDR);
-	        	localPort = eventData.get(AuditEventReader.DPORT);
-	        	remoteAddress = eventData.get(AuditEventReader.SADDR);
-	        	remotePort = eventData.get(AuditEventReader.SPORT);
-	    	}else if(AuditEventReader.HOOK_OUTPUT.equals(hook)){
-	    		localAddress = eventData.get(AuditEventReader.SADDR);
-	        	localPort = eventData.get(AuditEventReader.SPORT);
-	        	remoteAddress = eventData.get(AuditEventReader.DADDR);
-	        	remotePort = eventData.get(AuditEventReader.DPORT);
-	    	}else{
-	    		logger.log(Level.INFO, "Unexpected hook value: " + hook);
-	    		return;
-	    	}
-	    	
-	    	String protocolName = OPMConstants.getProtocolName(CommonFunctions.parseInt(protocolNumber, -1));
-	    	
-	    	// Update this area if network annotations change. TODO in future
-	    	// epoch and version added from the syscall artifact
-	    	Map<String, String> annotationsFromNetfilter = new HashMap<String, String>();
-	    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_LOCAL_ADDRESS, localAddress);
-	    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_LOCAL_PORT, localPort);
-	    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_REMOTE_ADDRESS, remoteAddress);
-	    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort);
-	    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_PROTOCOL, protocolName);
-	    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_NETWORK_SOCKET);
-	    	annotationsFromNetfilter.put(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_NETFILTER);
-	
-	    	Map<String, String> annotationsFromSyscall = getNetworkAnnotationsSeenInList(
-	    			networkAnnotationsFromSyscalls, remoteAddress, remotePort);
-	    	if(annotationsFromSyscall != null){ //found
-	    		String localPortFromSyscall = annotationsFromSyscall.get(OPMConstants.ARTIFACT_LOCAL_PORT);
-	    		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
-	    			if(!localPortFromSyscall.equals(localPort)){
-	    				// different connection
-	    				annotationsFromNetfilter.put(OPMConstants.EDGE_TIME, time);
-	    				annotationsFromNetfilter.put(OPMConstants.EDGE_EVENT_ID, eventId);
-	    				networkAnnotationsFromNetfilter.add(annotationsFromNetfilter);
-	    				return;
-	    			}
-	    		}
-	    		// logic for deduplication deviates from the current one
-	    		// standardize this too and handling of netfilter in syscall functions. TODO
-	    		String epoch = annotationsFromSyscall.get(OPMConstants.ARTIFACT_EPOCH);
-	    		String version = annotationsFromSyscall.get(OPMConstants.ARTIFACT_VERSION);
-	    		if(epoch != null){
-	    			annotationsFromNetfilter.put(OPMConstants.ARTIFACT_EPOCH, epoch);
-	    		}
-	    		if(version != null){
-	    			annotationsFromNetfilter.put(OPMConstants.ARTIFACT_VERSION, version);
-	    		}
-	    		
-	    		Artifact artifactFromNetfilter = new Artifact();
-	    		artifactFromNetfilter.addAnnotations(annotationsFromNetfilter);
-	    		putVertex(artifactFromNetfilter); // add this only. syscall one already added.
-	    		
-	    		Artifact artifactFromSyscall = new Artifact();
-	    		artifactFromSyscall.addAnnotations(annotationsFromSyscall);
-	    		
-	    		WasDerivedFrom syscallToNetfilter = new WasDerivedFrom(artifactFromNetfilter, artifactFromSyscall);
-	    		putEdge(syscallToNetfilter, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
-	    		
-	    		// Found a match, and have consumed this. So, remove from the list.
-	    		networkAnnotationsFromSyscalls.remove(annotationsFromSyscall);
-	    		
-	    		matchedNetfilterSyscall++;
-	    		
-	    	}else{
-	    		annotationsFromNetfilter.put(OPMConstants.EDGE_EVENT_ID, eventId);
-	    		annotationsFromNetfilter.put(OPMConstants.EDGE_TIME, time);
-	    		networkAnnotationsFromNetfilter.add(annotationsFromNetfilter);
-	    	}
+    	
+    	String time = eventData.get(AuditEventReader.TIME);
+    	String eventId = eventData.get(AuditEventReader.EVENT_ID);
+    	String protocolNumber = eventData.get(AuditEventReader.PROTO);
+    	String hook = eventData.get(AuditEventReader.HOOK);//hook=1 (input), hook=3 (output)
+    	
+    	String localAddress = null, localPort = null, remoteAddress = null, remotePort = null;
+    	
+    	if(AuditEventReader.HOOK_INPUT.equals(hook)){
+    		localAddress = eventData.get(AuditEventReader.DADDR);
+        	localPort = eventData.get(AuditEventReader.DPORT);
+        	remoteAddress = eventData.get(AuditEventReader.SADDR);
+        	remotePort = eventData.get(AuditEventReader.SPORT);
+    	}else if(AuditEventReader.HOOK_OUTPUT.equals(hook)){
+    		localAddress = eventData.get(AuditEventReader.SADDR);
+        	localPort = eventData.get(AuditEventReader.SPORT);
+        	remoteAddress = eventData.get(AuditEventReader.DADDR);
+        	remotePort = eventData.get(AuditEventReader.DPORT);
+    	}else{
+    		logger.log(Level.INFO, "Unexpected hook value: " + hook);
+    		return;
+    	}
+    	
+    	String protocolName = OPMConstants.getProtocolName(CommonFunctions.parseInt(protocolNumber, -1));
+    	
+    	Artifact artifactFromNetfilter = new Artifact();
+    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS, localAddress);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT, localPort);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS, remoteAddress);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_PROTOCOL, protocolName);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_NETWORK_SOCKET);
+    	artifactFromNetfilter.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_NETFILTER);
+
+    	Artifact artifactFromSyscall = removeNetworkArtifactSeenInSyscall(remoteAddress, remotePort);
+    	if(artifactFromSyscall != null){
+    		String localPortFromSyscall = artifactFromSyscall.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
+    		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
+    			if(!localPortFromSyscall.equals(localPort)){
+    				// different connection
+    				artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
+    				artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
+    				addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
+    				return;
+    			}
+    		}
+    		// logic for deduplication deviates from the current one
+    		// standardize this too and handling of netfilter in syscall functions. TODO
+    		String epoch = artifactFromSyscall.getAnnotation(OPMConstants.ARTIFACT_EPOCH);
+    		String version = artifactFromSyscall.getAnnotation(OPMConstants.ARTIFACT_VERSION);
+    		if(epoch != null){
+    			artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_EPOCH, epoch);
+    		}
+    		if(version != null){
+    			artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_VERSION, version);
+    		}
+    		putVertex(artifactFromNetfilter);
+    		WasDerivedFrom syscallToNetfilter = new WasDerivedFrom(artifactFromNetfilter, artifactFromSyscall);
+    		putEdge(syscallToNetfilter, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
+    		
+    	}else{
+    		artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
+    		artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
+    		addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
     	}
     }
 		
@@ -3772,7 +3758,7 @@ public class Audit extends AbstractReporter {
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 			putEdge(wgb, getOperation(SYSCALL.CONNECT), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
-			putWasDerivedFromEdgeFromNetworkArtifacts(artifact);
+			putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, artifact);
 		}else{
 			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, SYSCALL.CONNECT);
 		}
@@ -3860,59 +3846,51 @@ public class Audit extends AbstractReporter {
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
-			putWasDerivedFromEdgeFromNetworkArtifacts(socket);
+			putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, socket);
 			
 		}else{
 			log(Level.INFO, "No artifact found for pid '"+pid+"' and fd '"+fd+"'", null, time, eventId, syscall);
 		}
 	}
 	
-	private void putWasDerivedFromEdgeFromNetworkArtifacts(Artifact syscallArtifact){
-		if(REFINE_NET){
+	private void putWasDerivedFromEdgeFromNetworkArtifacts(String time, String eventId, Artifact syscallArtifact){
+		if(NETFILTER_HANDLING){
 			if(syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_NETWORK_SOCKET)){
 				String remoteAddress = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
 				String remotePort = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
-				Map<String, String> netfilterAnnotations = getNetworkAnnotationsSeenInList(
-						networkAnnotationsFromNetfilter, remoteAddress, remotePort);
-				if(netfilterAnnotations != null){
+				Artifact netfilterArtifact = removeNetworkArtifactSeenInNetfilter(remoteAddress, remotePort);
+				if(netfilterArtifact != null){
+					
 					String localPortFromSyscall = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
 		    		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
-		    			if(!localPortFromSyscall.equals(netfilterAnnotations.get(OPMConstants.ARTIFACT_LOCAL_PORT))){
+		    			if(!localPortFromSyscall.equals(netfilterArtifact.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT))){
 		    				// different connection
 		    				// basically further pruning
-		    				networkAnnotationsFromSyscalls.add(syscallArtifact.getAnnotations());
+		    				addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
 		    				return;
 		    			}
 		    		}
 					
-		    		// remove the annotations map from netfilter because we are going to consume that.
-		    		// removing that here because the map is going to be updated below.
-		    		networkAnnotationsFromNetfilter.remove(netfilterAnnotations);
-		    		
 					// logic for deduplication deviates from the current one
 		    		// standardize this too and handling of netfilter in syscall functions. TODO
 		    		String epoch = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_EPOCH);
 		    		String version = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_VERSION);
 		    		if(epoch != null){
-		    			netfilterAnnotations.put(OPMConstants.ARTIFACT_EPOCH, epoch);
+		    			netfilterArtifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, epoch);
 		    		}
 		    		if(version != null){
-		    			netfilterAnnotations.put(OPMConstants.ARTIFACT_VERSION, version);
+		    			netfilterArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, version);
 		    		}
 		    		
-		    		String netfilterTime = netfilterAnnotations.remove(OPMConstants.EDGE_TIME); //remove
-		    		String netfilterEventId = netfilterAnnotations.remove(OPMConstants.EDGE_EVENT_ID); //remove
+		    		String netfilterTime = netfilterArtifact.removeAnnotation(OPMConstants.EDGE_TIME); //remove
+		    		String netfilterEventId = netfilterArtifact.removeAnnotation(OPMConstants.EDGE_EVENT_ID); //remove
 					
-		    		Artifact netfilterArtifact = new Artifact();
-		    		netfilterArtifact.addAnnotations(netfilterAnnotations);
 		    		putVertex(netfilterArtifact);
-
+		    		// TODO USE A COPY OF THE SYSCALL ARTIFACT AND NOT THIS ONE!!!!
 					WasDerivedFrom edge = new WasDerivedFrom(netfilterArtifact, syscallArtifact);
 					putEdge(edge, getOperation(SYSCALL.UPDATE), netfilterTime, netfilterEventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
-					
-					matchedSyscallNetfilter++;
 				}else{
-					networkAnnotationsFromSyscalls.add(syscallArtifact.getAnnotations());
+					addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
 				}
 			}
 		}
@@ -4046,7 +4024,7 @@ public class Audit extends AbstractReporter {
 			
 			//udp
 			if(isNetworkSaddr(saddr)){
-				putWasDerivedFromEdgeFromNetworkArtifacts(vertex);
+				putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, vertex);
 			}
 			
 		}        
@@ -4092,7 +4070,7 @@ public class Audit extends AbstractReporter {
 			
 			//udp
 			if(isNetworkSaddr(saddr)){
-				putWasDerivedFromEdgeFromNetworkArtifacts(vertex);
+				putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, vertex);
 			}
 		}
 	}
