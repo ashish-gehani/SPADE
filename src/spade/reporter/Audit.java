@@ -38,10 +38,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
@@ -225,6 +225,7 @@ public class Audit extends AbstractReporter {
 	private boolean ANONYMOUS_MMAP = true;
 	private boolean NETFILTER_RULES = false;
 	private boolean REFINE_NET = false;
+	private boolean EMIT_HOST_RECORD = false;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -235,9 +236,10 @@ public class Audit extends AbstractReporter {
 	
 	private final long PID_MSG_WAIT_TIMEOUT = 1 * 1000;
 	
-	private final String IPV4_NETWORK_SOCKET_SADDR_PREFIX = "02";
-	private final String IPV6_NETWORK_SOCKET_SADDR_PREFIX = "0A";
-	private final String UNIX_SOCKET_SADDR_PREFIX = "01";
+	private final String IPV4_NETLINK_SOCKET_SADDR_PREFIX = "10",
+			IPV4_NETWORK_SOCKET_SADDR_PREFIX = "02",
+			IPV6_NETWORK_SOCKET_SADDR_PREFIX = "0A",
+			UNIX_SOCKET_SADDR_PREFIX = "01";
 	
 	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
 	
@@ -310,39 +312,6 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		return true;
-	}
-	
-	/**
-	 * A convenience function to check if the given filepath exists or not.
-	 * 
-	 * Suppresses the exception.
-	 * 
-	 * @param filePath path of the file/dir to check for existence
-	 * @return true (if exists) / false (if doesn't exist)
-	 */
-	private boolean fileExists(String filePath){
-		try{
-			return new File(filePath).exists();
-		}catch(Exception e){
-			return false;
-		}
-	}
-	
-	/**
-	 * A convenience function to see if the given filepath can be created.
-	 * 
-	 * Not a permissions check. Just checks if the parent directory of the given
-	 * path exists or not.
-	 * 
-	 * @param filepath path of the file/dir to check
-	 * @return true (if parent dir exists)/ false(if parent dir doesn't exist)
-	 */
-	private boolean fileCanBeCreated(String filepath){
-		try{
-			return new File(filepath).getParentFile().exists();
-		}catch(Exception e){
-			return false;
-		}
 	}
 	
 	/**
@@ -600,6 +569,14 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
+		argValue = args.get("logHost");
+		if(isValidBoolean(argValue)){
+			EMIT_HOST_RECORD = parseBoolean(argValue, EMIT_HOST_RECORD);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'logHost': " + argValue);
+			return false;
+		}
+		
 		return true;
 	}
 	
@@ -646,7 +623,7 @@ public class Audit extends AbstractReporter {
 	 * @return true/false
 	 */
 	private boolean setupTempDirectory(String tempDirectoryPath){
-		if(fileExists(tempDirectoryPath)){
+		if(FileUtility.fileExists(tempDirectoryPath)){
 			return true;
 		}else{
 			try{
@@ -708,7 +685,7 @@ public class Audit extends AbstractReporter {
 			//name is the name of the file passed in as argument
 			//can only process 99 logs
 			for(int logCount = 1; logCount<=99; logCount++){
-				if(fileExists(inputAuditLogFilePath + "." + logCount)){
+				if(FileUtility.fileExists(inputAuditLogFilePath + "." + logCount)){
 					inputAuditLogFiles.addFirst(inputAuditLogFilePath + "." + logCount); 
 					//adding first so that they are added in the reverse order
 				}
@@ -726,7 +703,9 @@ public class Audit extends AbstractReporter {
 				removeIptablesRules(iptablesRules);
 			}
 		}else{
-			deleteFile(logListFile);
+			if(FileUtility.fileExists(logListFile)){
+				FileUtility.deleteFile(logListFile);
+			}
 		}
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			deleteCacheMaps();
@@ -754,7 +733,7 @@ public class Audit extends AbstractReporter {
 
 		// Get path of spadeAuditBridge binary from the config file
 		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");		
-		if(!fileExists(spadeAuditBridgeBinaryPath)){
+		if(!FileUtility.fileExists(spadeAuditBridgeBinaryPath)){
 			logger.log(Level.SEVERE, "Must specify a valid 'spadeAuditBridge' key in config");
 			return false;
 		}
@@ -770,7 +749,7 @@ public class Audit extends AbstractReporter {
 		// Check if the outputLog argument is valid or not
 		outputLogFilePath = argsMap.get("outputLog");
 		if(outputLogFilePath != null){
-			if(!fileCanBeCreated(outputLogFilePath)){
+			if(!FileUtility.fileCanBeCreated(outputLogFilePath)){
 				logger.log(Level.SEVERE, "Invalid path for 'outputLog' : " + outputLogFilePath);
 				return false;
 			}else{
@@ -808,7 +787,7 @@ public class Audit extends AbstractReporter {
 			
 			if(inputAuditLogFileArgument != null){
 			
-				if(!fileExists(inputAuditLogFileArgument)){
+				if(!FileUtility.fileExists(inputAuditLogFileArgument)){
 					logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
 										+ inputAuditLogFileArgument);
 					return false;
@@ -925,19 +904,6 @@ public class Audit extends AbstractReporter {
 		
 		try{
 			
-			if(isLiveAudit){
-				if(NETFILTER_RULES){
-					if(!setIptablesRules(iptablesRules)){
-						return false;
-					}
-				}
-				if(!setAuditControlRules(rulesType, spadeAuditBridgeBinaryName)){
-					removeIptablesRules(iptablesRules); // remove iptables rules too before exiting
-					// call doCleanup instead of manually doing this. TODO
-					return false;
-				}
-			}
-			
 			// Letting NPE to be thrown in case some object's initialization fails
 			java.lang.Process spadeAuditBridgeProcess = runSpadeAuditBridge(spadeAuditBridgeCommand);
 
@@ -969,6 +935,24 @@ public class Audit extends AbstractReporter {
 				throw new Exception("Process didn't start successfully");
 			}
 			
+			if(isLiveAudit){
+				// Ensuring that this record is emitted first because needed by CDM storage
+				if(EMIT_HOST_RECORD){
+					if(!emitHostRecord()){
+						return false;
+					}
+				}
+				if(NETFILTER_RULES){
+					if(!setIptablesRules(iptablesRules)){
+						return false;
+					}
+				}
+				if(!setAuditControlRules(rulesType, spadeAuditBridgeBinaryName)){
+					doCleanup(isLiveAudit, rulesType, logListFile); // remove iptables rules too before exiting
+					return false;
+				}
+			}
+			
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to start Audit", e);
 			doCleanup(isLiveAudit, rulesType, logListFile);
@@ -976,18 +960,6 @@ public class Audit extends AbstractReporter {
 		}
 		
 		return true;
-	}
-	
-	private boolean deleteFile(String filepath){
-		try{
-			
-			FileUtils.forceDelete(new File(filepath));
-			return true;
-			
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to delete file " + filepath, e);
-			return false;
-		}
 	}
 	
 	private AuditEventReader getAuditEventReader(String spadeAuditBridgeCommand, 
@@ -1383,6 +1355,27 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Failed to remove auditctl rules", e);
 		}
 	}
+	
+	private boolean emitHostRecord(){
+		Map<String, String> hostInfo = getHostInfo();
+		if(hostInfo != null){
+			String hostMsg = AuditEventReader.buildAuditUserMessageForHostInfo(hostInfo);
+			try{
+				List<String> lines = Execute.getOutput("auditctl -m " + hostMsg);
+				if(Execute.containsOutputFromStderr(lines)){
+					logger.log(Level.SEVERE, "Failed to emit host record. Output = {0}", lines);
+					return false;
+				}else{
+					return true;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to emit host record", e);
+				return false;
+			}
+		}else{
+			return false;
+		}
+	}
 
 	private void buildProcFSTree(){
 		if(PROCFS){
@@ -1675,12 +1668,47 @@ public class Audit extends AbstractReporter {
 				clearAllProcessState();
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_PKT.equals(recordType)){
 				handleNetfilterPacketEvent(eventData);
+			}else if(AuditEventReader.USER_MSG_SPADE_AUDIT_HOST_KEY.equals(recordType)){
+				handleHostData(eventData);
 			}else{
 				handleSyscallEvent(eventData);
 			}
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to process eventData: " + eventData, e);
 		}
+	}
+	
+	private void handleHostData(Map<String, String> eventData){
+		Artifact artifact = new Artifact();
+		String subtype = OPMConstants.SUBTYPE_HOST;
+		String hostName = eventData.get(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
+		String hostOS = eventData.get(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM);
+		String hostType = eventData.get(OPMConstants.ARTIFACT_HOST_TYPE);
+		String hostSerialNumber = eventData.get(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER);
+		
+		artifact.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, subtype);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, hostName);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, hostOS);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_TYPE, hostType);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, hostSerialNumber);
+		
+		Integer interfacesCount = CommonFunctions.parseInt(eventData.get(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT), null);
+		if(interfacesCount != null){
+			artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(interfacesCount));
+			for(int a = 0; a < interfacesCount; a++){
+				String interfaceNameKey = OPMConstants.buildHostNetworkInterfaceNameKey(a);
+				String interfaceMacAddressKey = OPMConstants.buildHostNetworkInterfaceMacAddressKey(a);
+				String interfaceIpAddressesKey = OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a);
+				String interfaceName = eventData.get(interfaceNameKey);
+				String interfaceMacAddress = eventData.get(interfaceMacAddressKey);
+				String interfaceIpAddresses = eventData.get(interfaceIpAddressesKey);
+				artifact.addAnnotation(interfaceNameKey, interfaceName);
+				artifact.addAnnotation(interfaceMacAddressKey, interfaceMacAddress);
+				artifact.addAnnotation(interfaceIpAddressesKey, interfaceIpAddresses);
+			}
+		}
+		
+		putVertex(artifact);
 	}
 	
 	/*
@@ -3779,7 +3807,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean isNetlinkSaddr(String saddr){
-		return saddr != null && saddr.startsWith("10");
+		return saddr != null && saddr.startsWith(IPV4_NETLINK_SOCKET_SADDR_PREFIX);
 	}
 	
 	private boolean isNetworkSaddr(String saddr){
@@ -5106,7 +5134,132 @@ public class Audit extends AbstractReporter {
 				process.getAnnotation(OPMConstants.AGENT_SGID), process.getAnnotation(OPMConstants.AGENT_FSGID), 
 				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count, null); // NULL seen time
 	}
-			
+	
+	/* SYSTEM INFO FUNCTIONS */
+	
+	private Map<String, String> getHostInfo(){
+		try{
+			String command = "uname -a";
+			List<String> lines = Execute.getOutput(command);
+			if(Execute.containsOutputFromStderr(lines)){
+				logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+				return null;
+			}else{
+				if(lines.size() != 1){
+					logger.log(Level.SEVERE, "Command \"{0}\" unexpected output: {1}", new Object[]{command, lines});
+					return null;
+				}else{
+					Execute.stripLineHeaders(lines);
+					Map<String, String> info = new TreeMap<>();
+					info.put(OPMConstants.ARTIFACT_HOST_TYPE, OPMConstants.ARTIFACT_HOST_TYPE_DESKTOP); // TODO how to get this?
+					String tokens[] = lines.get(0).split("\\s+");
+					info.put(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, tokens[1]);
+					info.put(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, tokens[3] + " - " + tokens[2]);
+					
+					command = "lshw";
+					lines = Execute.getOutput(command);
+					if(Execute.containsOutputFromStderr(lines)){
+						logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+						return null;
+					}else{
+						Execute.stripLineHeaders(lines);
+						String serialNumber = null;
+						for(String line : lines){
+							if(line != null){
+								line = line.trim();
+								if(line.startsWith("serial:")){
+									serialNumber = line.replace("serial:", "").trim();
+									break;
+								}
+							}
+						}
+						if(serialNumber == null){
+							logger.log(Level.SEVERE, 
+									"Missing serial number in command \"{0}\" output: \"{1}\"", 
+									new Object[]{command, lines});
+							return null;
+						}else{
+							info.put(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, serialNumber);
+							Map<String, String> interfacesInfo = getNetworkInterfacesInfo();
+							if(interfacesInfo == null){
+								return null;
+							}else{
+								info.putAll(interfacesInfo);
+								return info;
+							}
+						}
+					}
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to get host info", e);
+			return null;
+		}
+	}
+	
+	private Map<String, String> getNetworkInterfacesInfo(){
+		try{
+			String command = "ip -o link show";
+			List<String> lines = Execute.getOutput(command);
+			if(Execute.containsOutputFromStderr(lines)){
+				logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+				return null;
+			}else{
+				Execute.stripLineHeaders(lines);
+				Map<String, String> nameToMacAddress = new HashMap<>();
+				for(String line : lines){
+					if(line != null){
+						line = line.trim();
+						String tokens[] = line.split("\\s+");
+						String name = tokens[1].replace(":", "");
+						String macAddress = tokens[tokens.length - 3];
+						nameToMacAddress.put(name, macAddress);
+					}
+				}
+				command = "ip -o addr show";
+				lines = Execute.getOutput(command);
+				if(Execute.containsOutputFromStderr(lines)){
+					logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+					return null;
+				}else{
+					Execute.stripLineHeaders(lines);
+					Map<String, List<String>> nameToIpAddresses = new HashMap<>();
+					for(String line : lines){
+						if(line != null){
+							line = line.trim();
+							String tokens[] = line.split("\\s+");
+							String name = tokens[1];
+							String ipAddress = tokens[3];
+							if(nameToIpAddresses.get(name) == null){
+								nameToIpAddresses.put(name, new ArrayList<String>());
+							}
+							nameToIpAddresses.get(name).add(ipAddress);
+						}
+					}
+					Map<String, String> interfacesInfo = new TreeMap<>();
+					Set<String> interfaceNames = new HashSet<>();
+					interfaceNames.addAll(nameToMacAddress.keySet());
+					interfaceNames.addAll(nameToIpAddresses.keySet());
+					int interfacesCount = interfaceNames.size();
+					int a = 0;
+					for(String interfaceName : interfaceNames){
+						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceNameKey(a), interfaceName);
+						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceMacAddressKey(a), 
+								nameToMacAddress.get(interfaceName));
+						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a), 
+								OPMConstants.buildHostNetworkInterfaceIpAddressesValue(nameToIpAddresses.get(interfaceName)));
+						a++;
+					}
+					interfacesInfo.put(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(interfacesCount));
+					return interfacesInfo;
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to get network interfaces", e);
+			return null;
+		}
+	}
+	
 }
 
 /**

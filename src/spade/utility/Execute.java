@@ -31,8 +31,8 @@ public class Execute {
 	
 	private static Logger logger = Logger.getLogger(Execute.class.getName());
 	
-	private static final String PREFIX_STDOUT = "[STDOUT]",
-			PREFIX_STDERR = "[STDERR]";
+	private static final String PREFIX_STDOUT = "[STDOUT]\t",
+			PREFIX_STDERR = "[STDERR]\t";
 
 	public static List<String> getOutput(final String command) throws Exception{
 		
@@ -47,7 +47,7 @@ public class Execute {
 				try{
 					String line = null;
 					while((line = stdoutReader.readLine()) != null){
-						lines.add(PREFIX_STDOUT+"\t" + line);
+						lines.add(PREFIX_STDOUT + line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDOUT for command: " +command, e);
@@ -60,7 +60,7 @@ public class Execute {
 				try{
 					String line = null;
 					while((line = stderrReader.readLine()) != null){
-						lines.add(PREFIX_STDERR+"\t" + line);
+						lines.add(PREFIX_STDERR + line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDERR for command: " +command, e);
@@ -101,4 +101,29 @@ public class Execute {
 		return false;
 	}
 	
+	/**
+	 * Strips STDOUT and STDERR headers from the lines added by getOutput function
+	 * 
+	 * @param lines output of getOutput function
+	 */
+	public static void stripLineHeaders(List<String> lines){
+		if(lines != null){
+			int stderrPrefixLen = PREFIX_STDERR.length();
+			int stdoutPrefixLen = PREFIX_STDOUT.length();
+			List<String> strippedLines = new ArrayList<String>();
+			for(String line : lines){
+				if(line != null){
+					if(line.startsWith(PREFIX_STDERR)){
+						line = line.substring(stderrPrefixLen);
+					}else if(line.startsWith(PREFIX_STDOUT)){
+						line = line.substring(stdoutPrefixLen);
+					}
+				}
+				strippedLines.add(line);
+			}
+			lines.clear();
+			lines.addAll(strippedLines);
+		}
+	}
+
 }

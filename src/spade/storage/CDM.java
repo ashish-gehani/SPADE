@@ -42,7 +42,11 @@ import com.bbn.tc.schema.avro.cdm18.Event;
 import com.bbn.tc.schema.avro.cdm18.EventType;
 import com.bbn.tc.schema.avro.cdm18.FileObject;
 import com.bbn.tc.schema.avro.cdm18.FileObjectType;
+import com.bbn.tc.schema.avro.cdm18.Host;
+import com.bbn.tc.schema.avro.cdm18.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm18.HostType;
 import com.bbn.tc.schema.avro.cdm18.InstrumentationSource;
+import com.bbn.tc.schema.avro.cdm18.Interface;
 import com.bbn.tc.schema.avro.cdm18.MemoryObject;
 import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
 import com.bbn.tc.schema.avro.cdm18.Principal;
@@ -483,6 +487,45 @@ public class CDM extends Kafka {
 		}
 		return agentVertex;
 	}
+	
+	private boolean publishHost(AbstractVertex vertex){
+		if(vertex != null){
+			UUID uuid = getUuid(vertex);
+			String hostName = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
+			String serialNumber = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER);
+			HostIdentifier hostIdentifier = new HostIdentifier(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, serialNumber);
+			List<HostIdentifier> hostIdentifiers = Arrays.asList(hostIdentifier);
+			String operatingSystem = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM);
+			HostType hostType = HostType.HOST_DESKTOP; // TODO always DESKTOP in AUDIT for now.
+			List<Interface> interfaces = new ArrayList<Interface>();
+			String interfacesCountString = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT);
+			Integer interfacesCount = CommonFunctions.parseInt(interfacesCountString, null);
+			if(interfacesCount != null){
+				for(int a = 0; a < interfacesCount; a++){
+					String interfaceName = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceNameKey(a));
+					String interfaceMacAddress = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceMacAddressKey(a));
+					String interfaceIpAddresses = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a));
+					List<CharSequence> ipAddressesList = 
+							OPMConstants.parseHostNetworkInterfaceIpAddressesValue(interfaceIpAddresses);
+					Interface interfaze = new Interface(interfaceName, interfaceMacAddress, ipAddressesList);
+					interfaces.add(interfaze);
+				}
+			}
+			Host host = new Host(uuid, hostName, hostIdentifiers, operatingSystem, hostType, interfaces);
+			if(hostUUID == null){ // first object should always be host according to new logic.
+				hostUUID = uuid;
+				// publish the stream marker first and then publish the host object. TODO use startmarker and endmarker
+				publishStreamMarkerObject(true);
+			}
+			if(publishRecords(Arrays.asList(buildTcCDMDatum(host, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE))) > 0){
+				return true;
+			}else{
+				return false;
+			}
+		}else{
+			return false;
+		}
+	}
 
 	private boolean publishArtifact(AbstractVertex vertex) {
 		InstrumentationSource source = getInstrumentationSource(vertex.getAnnotation(OPMConstants.SOURCE));
@@ -761,7 +804,7 @@ public class CDM extends Kafka {
 
 		populateEventRules();
 
-		publishStreamMarkerObject(true);
+		//publishStreamMarkerObject(true);
 
 		return true;
 	}
@@ -775,7 +818,13 @@ public class CDM extends Kafka {
 	 */
 	@Override
 	public boolean putVertex(AbstractVertex incomingVertex) {
-		currentVerticesAndEdges.add(incomingVertex);
+		if(incomingVertex != null 
+				&& OPMConstants.SUBTYPE_HOST.equals(incomingVertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE))){
+			publishHost(incomingVertex);
+			// publish it right away and don't add it to the list as in the else condition
+		}else{
+			currentVerticesAndEdges.add(incomingVertex);
+		}
 		return true;
 	}
 	
@@ -993,7 +1042,9 @@ public class CDM extends Kafka {
 			pidSubjectUUID.clear();
 			publishedPrincipals.clear();
 
-			publishStreamMarkerObject(false);
+			if(hostUUID != null){
+				publishStreamMarkerObject(false);
+			}
 
 			return super.shutdown();
 		} catch (Exception exception) {

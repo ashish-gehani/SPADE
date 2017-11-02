@@ -42,6 +42,10 @@ import org.apache.commons.io.FileUtils;
 import com.bbn.tc.schema.avro.cdm18.AbstractObject;
 import com.bbn.tc.schema.avro.cdm18.Event;
 import com.bbn.tc.schema.avro.cdm18.FileObject;
+import com.bbn.tc.schema.avro.cdm18.Host;
+import com.bbn.tc.schema.avro.cdm18.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm18.HostType;
+import com.bbn.tc.schema.avro.cdm18.Interface;
 import com.bbn.tc.schema.avro.cdm18.MemoryObject;
 import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
 import com.bbn.tc.schema.avro.cdm18.Principal;
@@ -567,8 +571,35 @@ public class CDM extends AbstractReporter{
 						if(fileObject.getType() != null){
 							vertex.addAnnotation("cdm.type", String.valueOf(fileObject.getType()));
 						}
-					}else{
-						// unexpected
+					}else if(datumClass.equals(Host.class)){
+						Host hostObject = (Host)datum;
+						uuid = hostObject.getUuid();
+						CharSequence hostName = hostObject.getHostName();
+						CharSequence osDetails = hostObject.getOsDetails();
+						HostType hostType = hostObject.getHostType();
+						List<HostIdentifier> hostIdentifiers = hostObject.getHostIdentifiers();
+						List<Interface> interfaces = hostObject.getInterfaces();
+						vertex.addAnnotation("hostName", String.valueOf(hostName));
+						vertex.addAnnotation("osDetails", String.valueOf(osDetails));
+						vertex.addAnnotation("hostType", String.valueOf(hostType));
+						if(hostIdentifiers != null){
+							for(HostIdentifier hostIdentifier : hostIdentifiers){
+								if(hostIdentifier != null){
+									vertex.addAnnotation(String.valueOf(hostIdentifier.getIdType()), 
+											String.valueOf(hostIdentifier.getIdValue()));
+								}
+							}
+						}
+						if(interfaces != null){
+							for(Interface interfaze : interfaces){
+								if(interfaze != null){
+									vertex.addAnnotation("name", String.valueOf(interfaze.getName()));
+									vertex.addAnnotation("macAddress", String.valueOf(interfaze.getMacAddress()));
+									vertex.addAnnotation("ipAddresses", String.valueOf(interfaze.getIpAddresses()));
+								}
+							}
+						}
+						vertex.addAnnotation("cdm.type", "Host");
 					}
 					vertex.addAnnotations(getValuesFromArtifactAbstractObject(baseObject));
 				}

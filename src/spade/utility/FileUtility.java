@@ -1,17 +1,21 @@
 package spade.utility;
 
-import org.apache.commons.io.FileUtils;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
+
+import org.apache.commons.io.FileUtils;
 
 public class FileUtility {
 
+	private static final Logger logger = Logger.getLogger(FileUtility.class.getName());
+	
 	public static Pattern constructRegexFromFile(String filepath) throws Exception{
 		StringBuilder suffixes = new StringBuilder(), prefixes = new StringBuilder(), inlines = new StringBuilder();
 		StringBuilder currentString = new StringBuilder();
@@ -111,6 +115,33 @@ public class FileUtility {
 			}catch(Exception e){
 				return false;
 			}
+		}
+	}
+	
+	/**
+	 * A convenience function to see if the given filepath can be created.
+	 * 
+	 * Not a permissions check. Just checks if the parent directory of the given
+	 * path exists or not.
+	 * 
+	 * @param filepath path of the file/dir to check
+	 * @return true (if parent dir exists)/ false(if parent dir doesn't exist)
+	 */
+	public static boolean fileCanBeCreated(String filepath){
+		try{
+			return new File(filepath).getParentFile().exists();
+		}catch(Exception e){
+			return false;
+		}
+	}
+	
+	public static boolean deleteFile(String filepath){
+		try{
+			FileUtils.forceDelete(new File(filepath));
+			return true;
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to delete file " + filepath, e);
+			return false;
 		}
 	}
 	
