@@ -1,7 +1,7 @@
-package spade.query.sql.postgresql;
+package spade.query.postgresql;
 
 import org.apache.commons.collections.CollectionUtils;
-import spade.core.AbstractVertex;
+import spade.core.AbstractEdge;
 
 import java.util.List;
 import java.util.Map;
@@ -9,30 +9,31 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+
 /**
  * @author raza
  */
-public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<String>>>
+public class GetEdge extends PostgreSQL<Set<AbstractEdge>, Map<String, List<String>>>
 {
-    public GetVertex()
+    public GetEdge()
     {
         register();
     }
 
     @Override
-    public Set<AbstractVertex> execute(Map<String, List<String>> parameters, Integer limit)
+    public Set<AbstractEdge> execute(Map<String, List<String>> parameters, Integer limit)
     {
-        Set<AbstractVertex> vertexSet = null;
+        Set<AbstractEdge> edgeSet = null;
         StringBuilder query = new StringBuilder(100);
         try
         {
             query.append("SELECT * FROM ");
-            query.append(VERTEX_TABLE);
+            query.append(EDGE_TABLE);
             query.append(" WHERE ");
             for (Map.Entry<String, List<String>> entry : parameters.entrySet())
             {
-                String colName = entry.getKey();
                 List<String> values = entry.getValue();
+                String colName = entry.getKey();
                 query.append("\"");
                 query.append(colName);
                 query.append("\"");
@@ -49,16 +50,16 @@ public class GetVertex extends PostgreSQL<Set<AbstractVertex>, Map<String, List<
                 query.append(" LIMIT ").append(limit);
             query.append(";");
 
-            Logger.getLogger(GetVertex.class.getName()).log(Level.INFO, "Following query: " + query.toString());
-            vertexSet = prepareVertexSetFromSQLResult(query.toString());
-            if (!CollectionUtils.isEmpty(vertexSet))
-                return vertexSet;
+            Logger.getLogger(GetEdge.class.getName()).log(Level.INFO, "Following query: " + query.toString());
+            edgeSet = prepareEdgeSetFromSQLResult(query.toString());
+            if(!CollectionUtils.isEmpty(edgeSet))
+                return edgeSet;
         }
         catch (Exception ex)
         {
-            Logger.getLogger(GetVertex.class.getName()).log(Level.SEVERE, "Error creating vertex set from the following query: \n" + query.toString(), ex);
+            Logger.getLogger(GetEdge.class.getName()).log(Level.SEVERE, "Error creating edge set!", ex);
         }
 
-        return vertexSet;
+        return edgeSet;
     }
 }

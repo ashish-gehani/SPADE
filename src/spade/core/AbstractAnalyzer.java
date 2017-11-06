@@ -113,9 +113,9 @@ public abstract class AbstractAnalyzer
         {
             //TODO: create all query classes with abstractanalyzer beforehand
             if(functionName.equals("GetLineage") || functionName.equals("GetPaths"))
-                values = Arrays.asList("spade.query.common." + functionName, "spade.query.common.GetLineage");
+                values = Arrays.asList("spade.query.common." + functionName, "spade.core.Graph");
             else
-                values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
+                values = Arrays.asList("spade.query.postgresql." + functionName, "Object");
             functionToClassMap.put(functionName, values);
         }
         return values.get(0);
@@ -126,7 +126,7 @@ public abstract class AbstractAnalyzer
         List<String> values = functionToClassMap.get(functionName);
         if(values == null)
         {
-            values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
+            values = Arrays.asList("spade.query.postgresql." + functionName, "Object");
         }
 
         return values.get(1);

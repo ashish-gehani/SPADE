@@ -50,6 +50,7 @@ public abstract class AbstractStorage
     public static final String MAX_LENGTH = "maxLength";
     public static final String DIRECTION_ANCESTORS = "ancestors";
     public static final String DIRECTION_DESCENDANTS = "descendants";
+    public static final String DIRECTION_BOTH = "both";
     protected Logger logger;
 
     /**

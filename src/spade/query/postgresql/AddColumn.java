@@ -1,4 +1,4 @@
-package spade.query.sql.postgresql;
+package spade.query.postgresql;
 
 import spade.storage.PostgreSQL;
 
@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * @author raza
  */
-public class AddColumn extends spade.query.sql.postgresql.PostgreSQL<Boolean, Map<String, String>>
+public class AddColumn extends spade.query.postgresql.PostgreSQL<Boolean, Map<String, String>>
 {
 
     @Override

@@ -161,11 +161,11 @@ public class MySQL extends SQL
     protected boolean addColumn(String table_name, String column_name)
     {
         // If this column has already been added before for this table, then return
-        if ((table_name.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column_name.toLowerCase()))
+        if ((table_name.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column_name))
         {
             return true;
         }
-        else if ((table_name.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column_name.toLowerCase()))
+        else if ((table_name.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column_name))
         {
             return true;
         }
@@ -199,11 +199,11 @@ public class MySQL extends SQL
             {
                 if (table_name.equalsIgnoreCase(VERTEX_TABLE))
                 {
-                    vertexAnnotations.add(column_name.toLowerCase());
+                    vertexAnnotations.add(column_name);
                 }
                 else if (table_name.equalsIgnoreCase(EDGE_TABLE))
                 {
-                    edgeAnnotations.add(column_name.toLowerCase());
+                    edgeAnnotations.add(column_name);
                 }
                 return true;
             }

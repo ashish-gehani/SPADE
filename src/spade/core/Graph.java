@@ -185,7 +185,7 @@ public class Graph extends AbstractStorage implements Serializable
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            vertexIndexWriter.addDocument(doc);
+            // vertexIndexWriter.addDocument(doc);
             // vertexIndexWriter.commit();
 
             String hashCode = incomingVertex.bigHashCode();
@@ -234,8 +234,8 @@ public class Graph extends AbstractStorage implements Serializable
             doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
             doc.add(new Field(SRC_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getChildVertex()), Field.Store.YES, Field.Index.ANALYZED));
             doc.add(new Field(DST_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getParentVertex()), Field.Store.YES, Field.Index.ANALYZED));
-            edgeIndexWriter.addDocument(doc);
-            // edgeIndexWriter.commit();
+//            edgeIndexWriter.addDocument(doc);
+//            edgeIndexWriter.commit();
 
             String hashCode = incomingEdge.getChildVertex().bigHashCode() + incomingEdge.getParentVertex().bigHashCode();
             edgeIdentifiers.put(hashCode, incomingEdge);
@@ -388,7 +388,8 @@ public class Graph extends AbstractStorage implements Serializable
      * @param graph2 Input graph 2
      * @return The result graph
      */
-    public static Graph union(Graph graph1, Graph graph2) {
+    public static Graph union(Graph graph1, Graph graph2)
+    {
         Graph resultGraph = new Graph();
         Set<AbstractVertex> vertices = new HashSet<>();
         Set<AbstractEdge> edges = new HashSet<>();
@@ -398,14 +399,21 @@ public class Graph extends AbstractStorage implements Serializable
         edges.addAll(graph1.edgeSet());
         edges.addAll(graph2.edgeSet());
 
-        for (AbstractVertex vertex : vertices) {
+        for (AbstractVertex vertex : vertices)
+        {
             resultGraph.putVertex(vertex);
         }
-        for (AbstractEdge edge : edges) {
+        for (AbstractEdge edge : edges)
+        {
             resultGraph.putEdge(edge);
         }
 
+        // adding network maps
+        resultGraph.networkMap.putAll(graph1.networkMap());
+        resultGraph.networkMap.putAll(graph2.networkMap());
+
         resultGraph.commitIndex();
+
         return resultGraph;
     }
 

@@ -123,7 +123,8 @@ public abstract class SQL extends AbstractStorage
      */
     public static String sanitizeColumn(String column)
     {
-        column = column.replaceAll("[^a-zA-Z0-9]+", "");
+        //excludes everything except digits, alphabets and single spaces
+        column = column.replaceAll("[^a-zA-Z0-9 ]+", "");
         return column;
     }
 

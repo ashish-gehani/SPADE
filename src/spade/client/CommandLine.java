@@ -158,13 +158,19 @@ public class CommandLine
                         }
                         long start_time = System.currentTimeMillis();
                         clientOutputStream.println(query);
-                        String returnType = (String) clientInputStream.readObject();
-                        if(returnType.equalsIgnoreCase("error"))
+                        String returnTypeName = (String) clientInputStream.readObject();
+                        if(returnTypeName.equalsIgnoreCase("error"))
                         {
                             System.out.println("Error executing query request!");
                             continue;
                         }
-                        String resultString = (String) clientInputStream.readObject();
+                        Class<?> returnType = Class.forName(returnTypeName);
+                        Object result = clientInputStream.readObject();
+                        String resultString = "";
+                        if(returnType.isAssignableFrom(result.getClass()))
+                        {
+                            resultString = result.toString();
+                        }
                         long elapsed_time = System.currentTimeMillis() - start_time;
                         System.out.println("Time taken for query: " + elapsed_time + " ms");
                         if(RESULT_EXPORT_PATH != null)
@@ -180,12 +186,12 @@ public class CommandLine
                         {
                             System.out.println();
                             System.out.println("Result:");
-                            System.out.println("Return type: " + returnType);
+                            System.out.println("Return type: " + returnTypeName);
                             System.out.println("Result value: " + resultString);
                             System.out.println("------------------");
                         }
                     }
-                    else if(line.toLowerCase().contains("export"))
+                    else if(line.toLowerCase().startsWith("export"))
                     {
                         // save export path for next answer's dot file
                         parseExport(line);
@@ -218,6 +224,7 @@ public class CommandLine
             if(command.equalsIgnoreCase("export") && operator.equals(">"))
             {
                 RESULT_EXPORT_PATH = path;
+                System.out.println("Output export path set to '" + path + "' for next query.");
             }
         }
         catch(Exception ex)

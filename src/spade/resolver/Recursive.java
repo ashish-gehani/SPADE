@@ -3,6 +3,7 @@ package spade.resolver;
 import spade.core.AbstractResolver;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.reporter.audit.OPMConstants;
 
 import java.util.Map;
 import java.util.logging.Level;
@@ -27,8 +28,10 @@ public class Recursive extends AbstractResolver
             // Perform remote query on network vertices.
             for (Map.Entry<AbstractVertex, Integer> currentEntry : currentNetworkMap.entrySet())
             {
-                Graph remoteGraph;
                 AbstractVertex networkVertex = currentEntry.getKey();
+                if(!networkVertex.getAnnotation(OPMConstants.SOURCE).equals(OPMConstants.SOURCE_AUDIT_NETFILTER))
+                    continue;
+                Graph remoteGraph;
                 int currentDepth = currentEntry.getValue();
                 // Execute remote query
                 remoteGraph = queryNetworkVertex(networkVertex, depth - currentDepth, direction);

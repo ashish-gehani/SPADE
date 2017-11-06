@@ -20,7 +20,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.sql.postgresql.PostgreSQL;
+import spade.query.postgresql.PostgreSQL;
 
 import java.io.File;
 import java.io.Serializable;
@@ -42,8 +42,8 @@ import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
 import static spade.core.AbstractStorage.MAX_DEPTH;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
-import static spade.query.sql.postgresql.PostgreSQL.EDGE_TABLE;
-import static spade.query.sql.postgresql.PostgreSQL.VERTEX_TABLE;
+import static spade.query.postgresql.PostgreSQL.EDGE_TABLE;
+import static spade.query.postgresql.PostgreSQL.VERTEX_TABLE;
 
 
 /**

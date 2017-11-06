@@ -22,6 +22,8 @@ import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.DIRECTION;
 import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
+import static spade.core.AbstractStorage.DIRECTION_BOTH;
+import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
 import static spade.core.AbstractStorage.MAX_DEPTH;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 
@@ -30,6 +32,12 @@ import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
  */
 public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
 {
+    private AbstractQuery getVertex = null;
+    private AbstractQuery getEdge = null;
+    private AbstractQuery getChildren = null;
+    private AbstractQuery getParents = null;
+    private static final Logger logger = Logger.getLogger(GetLineage.class.getName());
+
     public GetLineage()
     {
         register();
@@ -38,36 +46,54 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {
-        //TODO: support both directions too
         try
         {
             Graph result = new Graph();
             String storage = currentStorage.getClass().getSimpleName().toLowerCase();
-            if(storage.contains("sql"))
-            {
-                storage = storage + ".postgresql";
-            }
             String class_prefix = "spade.query." + storage;
             String direction = parameters.get("direction").get(0);
             Integer maxDepth = Integer.parseInt(parameters.get("maxDepth").get(0));
             result.setMaxDepth(maxDepth);
-            AbstractQuery getVertex;
-            AbstractQuery getEdge;
-            AbstractQuery getChildren;
-            AbstractQuery getParents;
-            try
+
+            getVertex = (AbstractQuery) Class.forName(class_prefix + ".GetVertex").newInstance();
+            getEdge = (AbstractQuery) Class.forName(class_prefix + ".GetEdge").newInstance();
+            getChildren = (AbstractQuery) Class.forName(class_prefix + ".GetChildren").newInstance();
+            getParents = (AbstractQuery) Class.forName(class_prefix + ".GetParents").newInstance();
+
+            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
             {
-                getVertex = (AbstractQuery) Class.forName(class_prefix + ".GetVertex").newInstance();
-                getEdge =  (AbstractQuery) Class.forName(class_prefix + ".GetEdge").newInstance();
-                getChildren = (AbstractQuery) Class.forName(class_prefix + ".GetChildren").newInstance();
-                getParents = (AbstractQuery) Class.forName(class_prefix + ".GetParents").newInstance();
+                result = execute(parameters, maxDepth, direction, limit);
             }
-            catch(IllegalAccessException | InstantiationException | ClassNotFoundException ex)
+            else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
             {
-                Logger.getLogger(GetLineage.class.getName()).log(Level.SEVERE, "Unable to create classes for GetLineage!", ex);
-                return null;
+                result = execute(parameters, maxDepth, direction, limit);
+            }
+            else if(DIRECTION_BOTH.startsWith(direction.toLowerCase()))
+            {
+                direction = DIRECTION_ANCESTORS;
+                result = execute(parameters, maxDepth, direction, limit);
+                direction = DIRECTION_DESCENDANTS;
+                result = Graph.union(result, execute(parameters, maxDepth, direction, limit));
+            }
+            else
+            {
+                result = null;
             }
 
+            return result;
+        }
+        catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error executing GetLineage setup!", ex);
+            return null;
+        }
+    }
+
+    private Graph execute(Map<String, List<String>> parameters, int maxDepth, String direction, Integer limit)
+    {
+        Graph result = new Graph();
+        try
+        {
             Map<String, List<String>> vertexParams = new HashMap<>(parameters);
             vertexParams.remove(DIRECTION);
             vertexParams.remove(MAX_DEPTH);
@@ -78,20 +104,24 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             if(!CollectionUtils.isEmpty(startingVertexSet))
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
-                startingVertex.setDepth(0);
-                for(AbstractVertex vertex: startingVertexSet)
-                {
-                    remainingVertices.add(vertex.bigHashCode());
-                }
+                startingVertex.setDepth(current_depth);
+//                for(AbstractVertex vertex: startingVertexSet)
+//                {
+//                    remainingVertices.add(vertex.bigHashCode());
+//                }
                 remainingVertices.add(startingVertex.bigHashCode());
 //                remainingVertices.add(startingVertex.getAnnotation(PRIMARY_KEY));
+                result.putVertex(startingVertex);
                 result.setRootVertex(startingVertex);
             }
             else
+            {
                 return null;
+            }
 
             while(!remainingVertices.isEmpty() && current_depth < maxDepth)
             {
+                current_depth++;
                 visitedVertices.addAll(remainingVertices);
                 Set<String> currentSet = new HashSet<>();
                 for(String vertexHash: remainingVertices)
@@ -108,21 +138,20 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                         params.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexHash, null));
                         neighbors = (Graph) getChildren.execute(params, limit);
                     }
-                    // for Carol's inconsistency check
-                    for(AbstractVertex V: neighbors.vertexSet())
-                		V.setDepth(current_depth+1);
                     result.vertexSet().addAll(neighbors.vertexSet());
                     // empty right now. TODO: make getParents and getChildren return edges too
                     result.edgeSet().addAll(neighbors.edgeSet());
                     for(AbstractVertex vertex : neighbors.vertexSet())
                     {
+                        // for Carol's inconsistency check
+                        vertex.setDepth(current_depth+1);
                         String neighborHash = vertex.bigHashCode();
 //                        String neighborHash = vertex.getAnnotation(PRIMARY_KEY);
                         if(!visitedVertices.contains(neighborHash))
                         {
                             currentSet.add(neighborHash);
                         }
-                        if(vertex.isNetworkVertex())
+                        if(vertex.isCompleteNetworkVertex())
                         {
                             setRemoteResolutionRequired();
                             result.putNetworkVertex(vertex, current_depth);
@@ -144,7 +173,6 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                 }
                 remainingVertices.clear();
                 remainingVertices.addAll(currentSet);
-                current_depth++;
             }
             result.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
 
@@ -152,7 +180,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
         }
         catch(Exception ex)
         {
-            Logger.getLogger(GetLineage.class.getName()).log(Level.SEVERE, "Error executing GetLineage!", ex);
+            logger.log(Level.SEVERE, "Error executing GetLineage!", ex);
             return null;
         }
     }

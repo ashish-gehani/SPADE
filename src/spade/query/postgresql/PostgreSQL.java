@@ -1,12 +1,12 @@
-package spade.query.sql.postgresql;
+package spade.query.postgresql;
 
 import com.mysql.jdbc.StringUtils;
 import org.apache.commons.collections.CollectionUtils;
 import spade.core.AbstractEdge;
+import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Vertex;
-import spade.query.sql.SQL;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,7 +29,7 @@ import static spade.storage.SQL.stripDashes;
 /**
  * @author raza
  */
-public abstract class PostgreSQL<R, P> extends SQL<R, P>
+public abstract class PostgreSQL<R, P> extends AbstractQuery<R, P>
 {
     public static final String VERTEX_TABLE = "vertex";
     public static final String EDGE_TABLE = "edge";
@@ -117,7 +116,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
                 Map<String, List<String>> childMap = new HashMap<>();
                 // Note: implicit assumption that CHILD_VERTEX_KEY and PARENT_VERTEX_KEY are present in annotations
                 childMap.put(PRIMARY_KEY, new ArrayList<>(
-                        Arrays.asList(OPERATORS.EQUALS, annotations.get(CHILD_VERTEX_KEY.toLowerCase()), null)));
+                        Arrays.asList(OPERATORS.EQUALS, annotations.get(CHILD_VERTEX_KEY), null)));
                 Set<AbstractVertex> childVertexSet = getVertex.execute(childMap, null);
                 AbstractVertex childVertex;
                 if(!CollectionUtils.isEmpty(childVertexSet))
@@ -127,7 +126,7 @@ public abstract class PostgreSQL<R, P> extends SQL<R, P>
 
                 Map<String, List<String>> parentMap = new HashMap<>();
                 parentMap.put(PRIMARY_KEY, new ArrayList<>(
-                        Arrays.asList(OPERATORS.EQUALS, annotations.get(PARENT_VERTEX_KEY.toLowerCase()), null)));
+                        Arrays.asList(OPERATORS.EQUALS, annotations.get(PARENT_VERTEX_KEY), null)));
                 Set<AbstractVertex> parentVertexSet = getVertex.execute(parentMap, null);
                 AbstractVertex parentVertex;
                 if(!CollectionUtils.isEmpty(parentVertexSet))

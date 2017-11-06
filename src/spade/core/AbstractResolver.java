@@ -61,12 +61,12 @@ public abstract class AbstractResolver implements Runnable
      */
     protected static Graph queryNetworkVertex(AbstractVertex networkVertex, int depth, String direction)
     {
-        Graph resultGraph;
+        Graph resultGraph = null;
         try
         {
             // Establish a connection to the remote host
             String host = networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
-            int port = Integer.parseInt(Settings.getProperty("dig_query_port"));
+            int port = Integer.parseInt(Settings.getProperty("commandline_query_port"));
             SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(host, port);
 
             OutputStream outStream = remoteSocket.getOutputStream();
@@ -97,26 +97,45 @@ public abstract class AbstractResolver implements Runnable
                     ")";
 
             remoteSocketOut.println(networkVertexQuery);
+            String returnType = (String) graphInputStream.readObject();
             // Check whether the remote query server returned a vertex set in response
-            Set<AbstractVertex> vertexSet = (Set<AbstractVertex>) graphInputStream.readObject();
-            AbstractVertex targetVertex;
+            Set<AbstractVertex> vertexSet;
+            if(returnType.equals(Set.class.getName()))
+            {
+                vertexSet = (Set<AbstractVertex>) graphInputStream.readObject();
+            }
+            else
+            {
+                return null;
+            }
+            AbstractVertex targetNetworkVertex;
             if(!CollectionUtils.isEmpty(vertexSet))
-                targetVertex = vertexSet.iterator().next();
+                targetNetworkVertex = vertexSet.iterator().next();
             else
                 return null;
-            String targetVertexHash = targetVertex.getAnnotation(PRIMARY_KEY);
+            String targetNetworkVertexHash = targetNetworkVertex.bigHashCode();
 
             String lineageQuery = "GetLineage(" +
                     PRIMARY_KEY +
                     OPERATORS.EQUALS +
-                    targetVertexHash +
+                    targetNetworkVertexHash +
                     ", " +
                     depth +
                     ", " +
                     direction +
                     ")";
             remoteSocketOut.println(lineageQuery);
-            resultGraph = (Graph) graphInputStream.readObject();
+            returnType = (String) graphInputStream.readObject();
+            if(returnType.equals(Graph.class.getName()))
+            {
+                AbstractEdge localToRemoteEdge = new Edge(networkVertex, targetNetworkVertex);
+                localToRemoteEdge.addAnnotation("type", "WasDerivedFrom");
+                AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, networkVertex);
+                remoteToLocalEdge.addAnnotation("type", "WasDerivedFrom");
+                resultGraph = (Graph) graphInputStream.readObject();
+                resultGraph.putEdge(localToRemoteEdge);
+                resultGraph.putEdge(remoteToLocalEdge);
+            }
 
             remoteSocketOut.println("exit");
             remoteSocketOut.close();

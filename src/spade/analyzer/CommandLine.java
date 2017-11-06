@@ -8,7 +8,6 @@ import spade.core.Kernel;
 import spade.resolver.Recursive;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
@@ -73,6 +72,7 @@ public class CommandLine extends AbstractAnalyzer
     {
         QUERY_PORT = "commandline_query_port";
     }
+    private static final Logger logger = Logger.getLogger(CommandLine.class.getName());
 
     @Override
     public boolean initialize()
@@ -99,9 +99,20 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         // Do nothing. This is triggered on shutdown
                     }
-                    catch(NumberFormatException | IOException ex)
+                    catch(Exception ex)
                     {
-                        Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, null, ex);
+                        logger.log(Level.SEVERE, null, ex);
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            serverSocket.close();
+                        }
+                        catch(Exception ex)
+                        {
+                            logger.log(Level.SEVERE, "Unable to close server socket", ex);
+                        }
                     }
                 }
             };
@@ -111,7 +122,7 @@ public class CommandLine extends AbstractAnalyzer
         }
         else
         {
-            Logger.getLogger(CommandLine.class.getName()).log(Level.SEVERE, "Server Socket not initialized");
+            logger.log(Level.SEVERE, "Server Socket not initialized");
             return false;
         }
     }
@@ -164,7 +175,7 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         try
                         {
-                            parseQuery(line);
+                            parseQuery(line.trim());
                             AbstractQuery queryClass;
                             Class<?> returnType;
                             Object result;
@@ -185,8 +196,10 @@ public class CommandLine extends AbstractAnalyzer
                                 {
                                     if(isRemoteResolutionRequired())
                                     {
+                                        logger.log(Level.INFO, "Performing remote resolution.");
                                         //TODO: Could use a factory pattern here to get remote resolver
-                                        remoteResolver = new Recursive((Graph) result, functionName, 0, null);
+                                        remoteResolver = new Recursive((Graph) result, functionName,
+                                                        Integer.parseInt(maxLength), direction);
                                         Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
                                         remoteResolverThread.start();
                                         // wait for thread to complete to get the final graph
@@ -196,16 +209,24 @@ public class CommandLine extends AbstractAnalyzer
                                         clearRemoteResolutionRequired();
                                         // TODO: perform consistency check here - Carol
                                         // TODO: return the stitched graphs
+                                        for(Graph graph: finalGraphSet)
+                                        {
+                                            result = Graph.union((Graph)result, graph);
+                                        }
+                                        logger.log(Level.INFO, "Remote resolution completed.");
                                     }
                                     if(USE_TRANSFORMER)
                                     {
+                                        logger.log(Level.INFO, "Applying transformers on the final result.");
                                         Map<String, Object> queryMetaDataMap = getQueryMetaData((Graph) result);
                                         QueryMetaData queryMetaData = new QueryMetaData(queryMetaDataMap);
                                         result = iterateTransformers((Graph) result, queryMetaData);
+                                        logger.log(Level.INFO, "Transformers applied successfully.");
                                     }
                                     // if result output is to be converted into dot file format
                                     if(EXPORT_RESULT)
                                     {
+                                        returnType = String.class;
                                         result = ((Graph) result).exportGraph();
                                         EXPORT_RESULT = false;
                                     }
@@ -213,17 +234,17 @@ public class CommandLine extends AbstractAnalyzer
                             }
                             else
                             {
-                                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Return type null or mismatch!");
+                                logger.log(Level.SEVERE, "Return type null or mismatch!");
                             }
-                            queryOutputStream.writeObject(returnType.getSimpleName());
+                            queryOutputStream.writeObject(returnType.getName());
                             if(result != null)
                             {
 //                                String string = "Vertices: " + ((Graph) result).vertexSet().size();
 //                                string += ". Edges: " + ((Graph) result).edgeSet().size() + ".\n";
-//                                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.INFO, string);
+//                                logger.log(Level.INFO, string);
 //                                string += result.toString();
 //                                queryOutputStream.writeObject(string);
-                                queryOutputStream.writeObject(result.toString());
+                                queryOutputStream.writeObject(result);
                             }
                             else
                             {
@@ -233,7 +254,7 @@ public class CommandLine extends AbstractAnalyzer
                         }
                         catch(Exception ex)
                         {
-                            Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error executing query request!", ex);
+                            logger.log(Level.SEVERE, "Error executing query request!", ex);
                             queryOutputStream.writeObject("Error");
                         }
                     }
@@ -249,6 +270,17 @@ public class CommandLine extends AbstractAnalyzer
             catch(Exception ex)
             {
                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            finally
+            {
+                try
+                {
+                    querySocket.close();
+                }
+                catch(Exception ex)
+                {
+                    Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
 
@@ -289,8 +321,8 @@ public class CommandLine extends AbstractAnalyzer
                 // Step2: get the argument expression(s), split by the boolean operators
                 // The format for one argument is:
                 // <key> COMPARISON_OPERATOR <value> [BOOLEAN_OPERATOR]
-                Pattern constraints_pattern = Pattern.compile("((?i)(?<=(" + BOOLEAN_OPERATORS + "))|" +
-                        "((?i)(?=(" + BOOLEAN_OPERATORS + "))))");
+                Pattern constraints_pattern = Pattern.compile("((?i)(?<=(\\b" + BOOLEAN_OPERATORS + "\\b))|" +
+                        "((?=(\\b" + BOOLEAN_OPERATORS + "\\b))))");
                 String[] expressions = constraints_pattern.split(constraints);
 
                 // extract the key value pairs
@@ -316,8 +348,11 @@ public class CommandLine extends AbstractAnalyzer
                         String bool_operator = expressions[i].trim();
                         values.add(bool_operator);
                         i++;
-                    } else
+                    }
+                    else
+                    {
                         values.add(null);
+                    }
 
                     queryParameters.put(key, values);
                 }
@@ -325,7 +360,8 @@ public class CommandLine extends AbstractAnalyzer
                 {
                     queryParameters.put("direction", Collections.singletonList(direction));
                     queryParameters.put("maxDepth", Collections.singletonList(maxLength));
-                } else if(functionName.equals("GetPaths"))
+                }
+                else if(functionName.equals("GetPaths"))
                 {
                     queryParameters.put("direction", Collections.singletonList(direction));
                     queryParameters.put("maxLength", Collections.singletonList(maxLength));
