@@ -243,6 +243,7 @@ public class CommandLine extends AbstractAnalyzer
 //                                string += ". Edges: " + ((Graph) result).edgeSet().size() + ".\n";
 //                                logger.log(Level.INFO, string);
 //                                string += result.toString();
+//                                logger.log(Level.INFO, string);
 //                                queryOutputStream.writeObject(string);
                                 queryOutputStream.writeObject(result);
                             }
