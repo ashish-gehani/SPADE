@@ -20,24 +20,11 @@
 
 package spade.utility;
 
-import java.io.BufferedReader;
+import spade.filter.LLVMFilter;
+
 import java.io.BufferedWriter;
 import java.io.FileWriter;
-import java.io.FileReader;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasGeneratedBy;
-import spade.vertex.opm.Artifact;
-import spade.vertex.opm.Process;
-import spade.filter.LLVMFilter;
 
 public class FunctionMonitor extends LLVMFilter {
 

@@ -19,12 +19,13 @@
  */
 package spade.reporter;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *

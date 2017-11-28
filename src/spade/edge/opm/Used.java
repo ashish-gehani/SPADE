@@ -42,8 +42,8 @@ public class Used extends AbstractEdge {
      * @param usedArtifact Artifact vertex
      */
     public Used(Process actingProcess, Artifact usedArtifact) {
-        setSourceVertex(actingProcess);
-        setDestinationVertex(usedArtifact);
+        setChildVertex(actingProcess);
+        setParentVertex(usedArtifact);
         addAnnotation("type", "Used");
     }
 }

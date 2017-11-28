@@ -20,14 +20,14 @@
  
 package spade.filter;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.utility.FileUtility;
+
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class OPM2ProvTC extends OPM2Prov{
 

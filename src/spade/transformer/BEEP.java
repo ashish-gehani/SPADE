@@ -19,18 +19,17 @@
  */
 package spade.transformer;
 
+import org.apache.commons.io.FileUtils;
+import spade.client.QueryParameters;
+import spade.core.AbstractTransformer;
+import spade.core.Graph;
+import spade.core.Settings;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.io.FileUtils;
-
-import spade.client.QueryParameters;
-import spade.core.AbstractTransformer;
-import spade.core.Graph;
-import spade.core.Settings;
 
 public class BEEP extends AbstractTransformer {
 	

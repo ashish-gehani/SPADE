@@ -21,11 +21,11 @@
  */
 package spade.reporter.bitcoin;
 
-import java.util.ArrayList;
-import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
-import spade.reporter.bitcoin.Transaction;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
 
 public class Block {
     String hash; 

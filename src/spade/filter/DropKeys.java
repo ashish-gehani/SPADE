@@ -20,16 +20,16 @@
  */
 package spade.filter;
 
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.utility.CommonFunctions;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.utility.CommonFunctions;
 
 /**
  * A filter to drop annotations passed in arguments.
@@ -111,7 +111,7 @@ public class DropKeys extends AbstractFilter{
 
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
-		if(incomingEdge != null && incomingEdge.getSourceVertex() != null && incomingEdge.getDestinationVertex() != null){
+		if(incomingEdge != null && incomingEdge.getChildVertex() != null && incomingEdge.getParentVertex() != null){
 			AbstractEdge edgeCopy = createCopyWithoutKeys(incomingEdge, keysToDrop);
 			if(edgeCopy != null){
 				putInNextFilter(edgeCopy);
@@ -119,8 +119,8 @@ public class DropKeys extends AbstractFilter{
 		}else{
 			logger.log(Level.WARNING, "Invalid edge: {0}, source: {1}, destination: {2}", new Object[]{
 					incomingEdge, 
-					incomingEdge == null ? null : incomingEdge.getSourceVertex(),
-					incomingEdge == null ? null : incomingEdge.getDestinationVertex()
+					incomingEdge == null ? null : incomingEdge.getChildVertex(),
+					incomingEdge == null ? null : incomingEdge.getParentVertex()
 			});
 		}
 	}
@@ -154,16 +154,16 @@ public class DropKeys extends AbstractFilter{
 	 */
 	private AbstractEdge createCopyWithoutKeys(AbstractEdge edge, Set<String> dropAnnotations){
 		try{
-			AbstractVertex source = createCopyWithoutKeys(edge.getSourceVertex(), dropAnnotations);
-			AbstractVertex destination = createCopyWithoutKeys(edge.getDestinationVertex(), dropAnnotations);
+			AbstractVertex source = createCopyWithoutKeys(edge.getChildVertex(), dropAnnotations);
+			AbstractVertex destination = createCopyWithoutKeys(edge.getParentVertex(), dropAnnotations);
 			if(source == null){
 				throw new Exception("Failed to create copy of source vertex");
 			}
 			if(destination == null){
 				throw new Exception("Failed to create copy of destination vertex");
 			}
-			AbstractEdge edgeCopy = edge.getClass().getConstructor(edge.getSourceVertex().getClass(),
-					edge.getDestinationVertex().getClass()).newInstance(source, destination);
+			AbstractEdge edgeCopy = edge.getClass().getConstructor(edge.getChildVertex().getClass(),
+					edge.getParentVertex().getClass()).newInstance(source, destination);
 			edgeCopy.addAnnotations(edge.getAnnotations());
 			dropKeys(edgeCopy.getAnnotations(), dropAnnotations);
 			return edgeCopy;

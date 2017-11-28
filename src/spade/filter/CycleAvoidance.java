@@ -19,16 +19,17 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Vertex;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 public class CycleAvoidance extends AbstractFilter {
 
@@ -64,11 +65,11 @@ public class CycleAvoidance extends AbstractFilter {
     // 3) If B(j) exists and j<i, then create a new A' and add A'->B(i).
     @Override
     public void putEdge(AbstractEdge edge) {
-        AbstractVertex source = edge.getSourceVertex();
-        AbstractVertex destination = edge.getDestinationVertex();
+        AbstractVertex source = edge.getChildVertex();
+        AbstractVertex destination = edge.getParentVertex();
         AbstractEdge copyEdge = copyEdge(edge);
-        copyEdge.setSourceVertex(source);
-        copyEdge.setDestinationVertex(destination);
+        copyEdge.setChildVertex(source);
+        copyEdge.setParentVertex(destination);
 
         if (!ancestors.containsKey(source)) {
             HashSet<AbstractVertex> vertexAncestors = new HashSet<>();
@@ -90,7 +91,7 @@ public class CycleAvoidance extends AbstractFilter {
                     currentVersion++;
                     destination = copyVertex(destination);
                     destination.addAnnotation(versionAnnotation, Integer.toString(currentVersion));
-                    copyEdge.setDestinationVertex(destination);
+                    copyEdge.setParentVertex(destination);
                 }
                 break;
             }
@@ -116,7 +117,7 @@ public class CycleAvoidance extends AbstractFilter {
     }
 
     private AbstractEdge copyEdge(AbstractEdge edge) {
-        AbstractEdge copy = new Edge(edge.getSourceVertex(), edge.getDestinationVertex());
+        AbstractEdge copy = new Edge(edge.getChildVertex(), edge.getParentVertex());
         copy.getAnnotations().clear();
         copy.addAnnotations(edge.getAnnotations());
         return copy;

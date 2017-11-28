@@ -26,18 +26,14 @@ package spade.utility;
 
 import com.sun.akuma.CLibrary;
 import com.sun.akuma.Daemon;
-import com.sun.akuma.JavaVMArguments;
+
+import java.io.BufferedReader;
 import java.io.File;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.Path;
-import java.lang.Integer;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.BufferedReader;
-import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class Daemonizer {
     
@@ -150,7 +146,7 @@ public class Daemonizer {
 
             if (processRunning) {
                 // System.err.println("Sending SPADE (Process ID: " + pidfromfile + ") " + ((signum == 2)?"SIGINT":((signum == 9)?"SIGKILL":"SIGNUM "+signum)) );
-                if (signum == 2) {
+                if (signum == 15) {
                     System.err.println("SPADE daemon will stop after buffers clear.");
                 } else if (signum == 9) {
                     System.err.println("Stopping SPADE daemon immediately");
@@ -180,16 +176,16 @@ public class Daemonizer {
     public static void main(String[] arguments) {
         Daemonizer daemonizer = new Daemonizer();
         if (arguments.length == 0) {
-            System.out.println("args: start | stop | -h");
+            System.out.println("args: java-start | java-stop | java-kill | -h");
         }
         if (arguments.length == 1) {
-            if (arguments[0].equals("start")) {
+            if (arguments[0].equals("java-start")) {
                 daemonizer.start();
             } 
-            if(arguments[0].equals("stop")) {
-                daemonizer.stop(2); // SIGINT
+            if(arguments[0].equals("java-stop")) {
+                daemonizer.stop(15); // SIGTERM
             }
-            if(arguments[0].equals("kill")) {
+            if(arguments[0].equals("java-kill")) {
                 daemonizer.stop(9); // SIGKILL
             }
             if (arguments[0].equals("-h")) {

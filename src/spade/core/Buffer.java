@@ -62,8 +62,8 @@ public class Buffer {
      */
     public boolean putEdge(AbstractEdge incomingEdge) {
         if ((incomingEdge == null)
-                || (incomingEdge.getSourceVertex() == null)
-                || (incomingEdge.getDestinationVertex() == null)) {
+                || (incomingEdge.getChildVertex() == null)
+                || (incomingEdge.getParentVertex() == null)) {
             return false;
         } else {
             return queue.add(incomingEdge);

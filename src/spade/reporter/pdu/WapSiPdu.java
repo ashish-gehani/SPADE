@@ -1,7 +1,7 @@
 
 package spade.reporter.pdu;
 
-import java.util.*;
+import java.util.Date;
 
 //PduUtils Library - A Java library for generating GSM 3040 Protocol Data Units (PDUs)
 //

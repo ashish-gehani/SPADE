@@ -20,14 +20,6 @@
 
 package spade.filter;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.ArrayList;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -35,6 +27,15 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasGeneratedBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class LLVMFilter extends AbstractFilter {
 
@@ -126,8 +127,8 @@ public class LLVMFilter extends AbstractFilter {
     @Override
     public void putEdge(AbstractEdge incoming) {
         if (incoming instanceof Used) {
-            Artifact artifact = (Artifact) incoming.getDestinationVertex();
-            Process process = (Process) incoming.getSourceVertex();
+            Artifact artifact = (Artifact) incoming.getParentVertex();
+            Process process = (Process) incoming.getChildVertex();
             String ArgID = artifact.getAnnotation("ID");
             if (methodsToMonitor.contains(process.getAnnotation("FunctionName"))) {
                 if (artifacts.containsKey(ArgID)) // Every Artifact is used at most twice
@@ -146,8 +147,8 @@ public class LLVMFilter extends AbstractFilter {
             }
 
         } else if (incoming instanceof WasGeneratedBy) {
-            Process process = (Process) incoming.getDestinationVertex();
-            Artifact artifact = (Artifact) incoming.getSourceVertex();
+            Process process = (Process) incoming.getParentVertex();
+            Artifact artifact = (Artifact) incoming.getChildVertex();
             String ArgID = artifact.getAnnotation("ID");
             if (methodsToMonitor.contains(process.getAnnotation("FunctionName"))) {
                 if (artifacts.containsKey(ArgID)) {
@@ -164,8 +165,8 @@ public class LLVMFilter extends AbstractFilter {
             }
         } else // WasTriggeredBy
         {
-            AbstractVertex source = incoming.getSourceVertex();
-            AbstractVertex destination = incoming.getDestinationVertex();
+            AbstractVertex source = incoming.getChildVertex();
+            AbstractVertex destination = incoming.getParentVertex();
             if (methodsToMonitor.contains(source.getAnnotation("FunctionName"))) {
                 if (methodsToMonitor.contains(destination.getAnnotation("FunctionName"))) {
                     putInNextFilter(incoming);

@@ -19,55 +19,32 @@
  */
  package spade.reporter;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.Arrays;
-import javax.xml.bind.DatatypeConverter;
-import java.util.Calendar;
-import java.util.Date;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.io.IOException;
-import java.lang.ArrayIndexOutOfBoundsException;
-import java.io.InputStreamReader;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import org.json.JSONObject;
-import org.json.JSONArray;
-import org.json.JSONException;
-
 import spade.core.AbstractReporter;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
 import spade.core.Settings;
-import spade.reporter.pdu.Pdu;
-import spade.reporter.pdu.PduParser;
-import spade.vertex.prov.Activity;
-import spade.vertex.prov.Entity;
-import spade.vertex.prov.Agent;
-import spade.edge.prov.WasInformedBy;
 import spade.edge.prov.Used;
-import spade.edge.prov.WasGeneratedBy;
 import spade.edge.prov.WasAttributedTo;
-
+import spade.edge.prov.WasGeneratedBy;
+import spade.edge.prov.WasInformedBy;
+import spade.reporter.bitcoin.Block;
+import spade.reporter.bitcoin.Transaction;
 import spade.reporter.bitcoin.Vin;
 import spade.reporter.bitcoin.Vout;
-import spade.reporter.bitcoin.Transaction;
-import spade.reporter.bitcoin.Block;
 import spade.utility.BitcoinTools;
+import spade.vertex.prov.Activity;
+import spade.vertex.prov.Agent;
+import spade.vertex.prov.Entity;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 /**

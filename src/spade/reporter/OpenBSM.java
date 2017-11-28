@@ -19,6 +19,15 @@
  */
 package spade.reporter;
 
+import spade.core.AbstractReporter;
+import spade.core.Settings;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasDerivedFrom;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
+
 import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
@@ -30,14 +39,6 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import spade.core.AbstractReporter;
-import spade.core.Settings;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasDerivedFrom;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
-import spade.vertex.opm.Artifact;
-import spade.vertex.opm.Process;
 
 /**
  * The OpenBSM reporter.

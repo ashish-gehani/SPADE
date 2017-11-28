@@ -34,12 +34,11 @@ public class Edge extends AbstractEdge {
 	/**
      * Constructor taking only the source and destination vertices.
      *
-     * @param sourceVertex Source vertex
-     * @param destinationVertex Destination vertex
+     * @param childVertex Source vertex
+     * @param parentVertex Destination vertex
      */
-    public Edge(AbstractVertex sourceVertex, AbstractVertex destinationVertex) {
-        setSourceVertex(sourceVertex);
-        setDestinationVertex(destinationVertex);
-        addAnnotation("type", "Edge");
+    public Edge(AbstractVertex childVertex, AbstractVertex parentVertex) {
+        setChildVertex(childVertex);
+        setParentVertex(parentVertex);
     }
 }

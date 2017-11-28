@@ -19,7 +19,6 @@
  */
 package spade.filter;
 
-import java.util.Map;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -27,6 +26,8 @@ import spade.reporter.audit.OPMConstants;
 import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
+
+import java.util.Map;
 
 /**
  *
@@ -41,19 +42,19 @@ public class OPM2Prov extends AbstractFilter {
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex sourceVertex = createProvVertex(incomingEdge.getSourceVertex());
-        AbstractVertex destinationVertex = createProvVertex(incomingEdge.getDestinationVertex());
+        AbstractVertex childVertex = createProvVertex(incomingEdge.getChildVertex());
+        AbstractVertex parentVertex = createProvVertex(incomingEdge.getParentVertex());
         AbstractEdge newEdge = null;
         if (incomingEdge instanceof spade.edge.opm.Used) {
-            newEdge = new spade.edge.prov.Used((Activity) sourceVertex, (Entity) destinationVertex);
+            newEdge = new spade.edge.prov.Used((Activity) childVertex, (Entity) parentVertex);
         } else if (incomingEdge instanceof spade.edge.opm.WasControlledBy) {
-            newEdge = new spade.edge.prov.WasAssociatedWith((Activity) sourceVertex, (Agent) destinationVertex);
+            newEdge = new spade.edge.prov.WasAssociatedWith((Activity) childVertex, (Agent) parentVertex);
         } else if (incomingEdge instanceof spade.edge.opm.WasDerivedFrom) {
-            newEdge = new spade.edge.prov.WasDerivedFrom((Entity) sourceVertex, (Entity) destinationVertex);
+            newEdge = new spade.edge.prov.WasDerivedFrom((Entity) childVertex, (Entity) parentVertex);
         } else if (incomingEdge instanceof spade.edge.opm.WasGeneratedBy) {
-            newEdge = new spade.edge.prov.WasGeneratedBy((Entity) sourceVertex, (Activity) destinationVertex);
+            newEdge = new spade.edge.prov.WasGeneratedBy((Entity) childVertex, (Activity) parentVertex);
         } else if (incomingEdge instanceof spade.edge.opm.WasTriggeredBy) {
-            newEdge = new spade.edge.prov.WasInformedBy((Activity) sourceVertex, (Activity) destinationVertex);
+            newEdge = new spade.edge.prov.WasInformedBy((Activity) childVertex, (Activity) parentVertex);
         }
         for (Map.Entry<String, String> entry : incomingEdge.getAnnotations().entrySet()) {
         	if(entry.getKey().equals(OPMConstants.TYPE))

@@ -20,18 +20,18 @@
 
 package spade.transformer;
 
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
+
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class OnlyAddresses extends AbstractTransformer{
 	
@@ -59,18 +59,18 @@ public class OnlyAddresses extends AbstractTransformer{
 				
 		for(AbstractEdge edge : graph.edgeSet()){
 			if(getAnnotationSafe(edge, "type").equals("WasAttributedTo")){
-				paymentToAddresses.put(edge.getSourceVertex(), edge.getDestinationVertex());
-				resultGraph.putVertex(edge.getDestinationVertex()); //adding the Agent vertex to the final graph
+				paymentToAddresses.put(edge.getChildVertex(), edge.getParentVertex());
+				resultGraph.putVertex(edge.getParentVertex()); //adding the Agent vertex to the final graph
 			}else if(getAnnotationSafe(edge, "type").equals("Used")){ //list of edges for 'paid from' payment vertices
-				if(transactionsToPayments.get(edge.getSourceVertex()) == null){
-					transactionsToPayments.put(edge.getSourceVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
+				if(transactionsToPayments.get(edge.getChildVertex()) == null){
+					transactionsToPayments.put(edge.getChildVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
 				}
-				transactionsToPayments.get(edge.getSourceVertex()).getKey().add(edge);
+				transactionsToPayments.get(edge.getChildVertex()).getKey().add(edge);
 			}else if(getAnnotationSafe(edge, "type").equals("WasGeneratedBy")){ //list of edges for 'paid to' payment vertices
-				if(transactionsToPayments.get(edge.getDestinationVertex()) == null){
-					transactionsToPayments.put(edge.getDestinationVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
+				if(transactionsToPayments.get(edge.getParentVertex()) == null){
+					transactionsToPayments.put(edge.getParentVertex(), new SimpleEntry<List<AbstractEdge>, List<AbstractEdge>>(new ArrayList<AbstractEdge>(), new ArrayList<AbstractEdge>()));
 				}
-				transactionsToPayments.get(edge.getDestinationVertex()).getValue().add(edge);
+				transactionsToPayments.get(edge.getParentVertex()).getValue().add(edge);
 			}
 		}				
 		
@@ -81,10 +81,10 @@ public class OnlyAddresses extends AbstractTransformer{
 				List<AbstractEdge> paymentsOutEdges = allPayments.getValue(); //'paid to' payments
 				if(paymentsInEdges != null && paymentsInEdges.size() > 0 && paymentsOutEdges != null && paymentsOutEdges.size() > 0){
 					for(AbstractEdge paymentInEdge : paymentsInEdges){
-						AbstractVertex paymentInAddress = paymentToAddresses.get(paymentInEdge.getDestinationVertex());
+						AbstractVertex paymentInAddress = paymentToAddresses.get(paymentInEdge.getParentVertex());
 						if(paymentInAddress != null){
 							for(AbstractEdge paymentOutEdge : paymentsOutEdges){
-								AbstractVertex paymentOutAddress = paymentToAddresses.get(paymentOutEdge.getSourceVertex());
+								AbstractVertex paymentOutAddress = paymentToAddresses.get(paymentOutEdge.getChildVertex());
 								if(paymentOutAddress != null){
 									AbstractEdge edge = new Edge(paymentOutAddress, paymentInAddress);
 									edge.addAnnotation("type", "ActedOnBehalfOf");

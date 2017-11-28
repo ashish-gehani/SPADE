@@ -20,8 +20,8 @@
 package spade.core;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -40,9 +40,21 @@ public abstract class AbstractEdge implements Serializable {
 	/**
      * A map containing the annotations for this edge.
      */
-    protected Map<String, String> annotations = new HashMap<>();
-    private AbstractVertex sourceVertex;
-    private AbstractVertex destinationVertex;
+    protected Map<String, String> annotations = new TreeMap<>();
+    private AbstractVertex childVertex;
+    private AbstractVertex parentVertex;
+
+    /**
+     * Checks if edge is empty
+     *
+     * @return Returns true if edge contains no annotation,
+     * and both end points are empty
+     */
+    public final boolean isEmpty()
+    {
+        return annotations.size() == 0 && childVertex != null && parentVertex != null;
+    }
+
 
     /**
      * Returns the map containing the annotations for this edge.
@@ -118,8 +130,8 @@ public abstract class AbstractEdge implements Serializable {
      *
      * @return The source vertex attached to this edge.
      */
-    public final AbstractVertex getSourceVertex() {
-        return sourceVertex;
+    public final AbstractVertex getChildVertex() {
+        return childVertex;
     }
 
     /**
@@ -127,42 +139,61 @@ public abstract class AbstractEdge implements Serializable {
      *
      * @return The destination vertex attached to this edge.
      */
-    public final AbstractVertex getDestinationVertex() {
-        return destinationVertex;
+    public final AbstractVertex getParentVertex() {
+        return parentVertex;
     }
 
     /**
      * Sets the source vertex.
      *
-     * @param sourceVertex The vertex that is to be set as the source for this
+     * @param childVertex The vertex that is to be set as the source for this
      * edge.
      */
-    public final void setSourceVertex(AbstractVertex sourceVertex) {
-        this.sourceVertex = sourceVertex;
+    public final void setChildVertex(AbstractVertex childVertex) {
+        this.childVertex = childVertex;
     }
 
     /**
      * Sets the destination vertex.
      *
-     * @param destinationVertex The vertex that is to be set as the destination
+     * @param parentVertex The vertex that is to be set as the destination
      * for this edge.
      */
-    public final void setDestinationVertex(AbstractVertex destinationVertex) {
-        this.destinationVertex = destinationVertex;
+    public final void setParentVertex(AbstractVertex parentVertex) {
+        this.parentVertex = parentVertex;
+    }
+
+    /**
+     * Computes MD5 hash of annotations in the edge and its end point vertices.
+     *
+     @return A 128-bit hash digest.
+     */
+    public String bigHashCode()
+    {
+        return DigestUtils.md5Hex(this.toString());
+    }
+
+    /**
+     * Computes MD5 hash of annotations in the vertex.
+     *
+     @return A 128-bit hash digest.
+     */
+    public byte[] bigHashCodeBytes()
+    {
+        return DigestUtils.md5(this.toString());
     }
 
     @Override
-    public boolean equals(Object thatObject) {
-        if (this == thatObject) {
-            return true;
-        }
-        if (!(thatObject instanceof AbstractEdge)) {
-            return false;
-        }
-        AbstractEdge thatEdge = (AbstractEdge) thatObject;
-        return (this.annotations.equals(thatEdge.annotations)
-                && this.getSourceVertex().equals(thatEdge.getSourceVertex())
-                && this.getDestinationVertex().equals(thatEdge.getDestinationVertex()));
+    public boolean equals(Object o)
+    {
+        if(this == o) return true;
+        if(!(o instanceof AbstractEdge)) return false;
+
+        AbstractEdge that = (AbstractEdge) o;
+
+        if(!annotations.equals(that.annotations)) return false;
+        if(!childVertex.equals(that.childVertex)) return false;
+        return parentVertex.equals(that.parentVertex);
     }
 
     /**
@@ -173,40 +204,21 @@ public abstract class AbstractEdge implements Serializable {
      * @return An integer-valued hash code.
      */
     @Override
-    public int hashCode() {
-        final int seed1 = 5;
-        final int seed2 = 97;
-        int hashCode = seed1;
-        hashCode = seed2 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.sourceVertex != null ? this.sourceVertex.hashCode() : 0);
-        hashCode = seed2 * hashCode + (this.destinationVertex != null ? this.destinationVertex.hashCode() : 0);
-        return hashCode;
+    public int hashCode()
+    {
+        int result = annotations.hashCode();
+        result = 31 * result + childVertex.hashCode();
+        result = 31 * result + parentVertex.hashCode();
+        return result;
     }
-    
+
     @Override
-    public String toString() {
-        StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
-            result.append(currentEntry.getKey());
-            result.append(":");
-            result.append(currentEntry.getValue());
-            result.append("|");
-        }
-        return result.substring(0, result.length() - 1);
-    }
-    
-    /**
-     * Computes MD5 of the annotations in the edge and the vertices it is incident upon.
-     *
-     * This takes longer to compute than hashCode() but is more collision-resistant.
-     *
-     @return A 128-bit hash value.
-     */
-    public byte[] bigHashCode() {
-        StringBuilder annotations = new StringBuilder();
-        annotations.append(this.sourceVertex != null ? this.sourceVertex.toString() : "");
-        annotations.append(this.toString());
-        annotations.append(this.destinationVertex != null ? this.destinationVertex.toString() : "");
-        return DigestUtils.md5(annotations.toString());
+    public String toString()
+    {
+        return "AbstractEdge{" +
+                "annotations=" + annotations +
+                ", childVertex=" + childVertex +
+                ", parentVertex=" + parentVertex +
+                '}';
     }
 }
