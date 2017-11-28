@@ -1,13 +1,13 @@
 
 package spade.reporter.pdu;
 
+import spade.reporter.pdu.MsIsdn.Type;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
-
-import spade.reporter.pdu.MsIsdn.Type;
 
 //import org.smslib.message.MsIsdn;
 //import org.smslib.message.MsIsdn.Type;

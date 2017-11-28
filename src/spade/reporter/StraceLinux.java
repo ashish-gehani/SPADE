@@ -19,11 +19,18 @@
  */
 package spade.reporter;
 
+import spade.core.AbstractReporter;
+import spade.edge.opm.Used;
+import spade.edge.opm.WasDerivedFrom;
+import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
+import spade.vertex.opm.Artifact;
+import spade.vertex.opm.Process;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,18 +42,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.Arrays;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import spade.core.AbstractReporter;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasDerivedFrom;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
-import spade.reporter.pdu.Pdu;
-import spade.reporter.pdu.PduParser;
-import spade.vertex.opm.Artifact;
-import spade.vertex.opm.Process;
 
 /**
  *

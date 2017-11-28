@@ -21,19 +21,12 @@ package spade.reporter;
 
 import com.restfb.Connection;
 import com.restfb.DefaultFacebookClient;
-import com.restfb.exception.FacebookException;
 import com.restfb.FacebookClient;
 import com.restfb.types.Comment;
 import com.restfb.types.NamedFacebookType;
-import com.restfb.types.Post;
 import com.restfb.types.Photo;
+import com.restfb.types.Post;
 import com.restfb.types.User;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
-import java.util.logging.Level;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
@@ -42,6 +35,13 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 // The RestFB library uses a Graph API access token to get data from Facebook.
 // More information about RestFB can be found at http://restfb.com/

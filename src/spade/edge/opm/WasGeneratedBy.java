@@ -42,8 +42,8 @@ public class WasGeneratedBy extends AbstractEdge {
      * @param actingProcess Process vertex
      */
     public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess) {
-        setSourceVertex(generatedArtifact);
-        setDestinationVertex(actingProcess);
+        setChildVertex(generatedArtifact);
+        setParentVertex(actingProcess);
         addAnnotation("type", "WasGeneratedBy");
     }
 }

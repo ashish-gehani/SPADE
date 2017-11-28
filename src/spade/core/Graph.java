@@ -19,25 +19,6 @@
  */
 package spade.core;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.document.Document;
@@ -52,7 +33,6 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
-
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasDerivedFrom;
@@ -62,36 +42,55 @@ import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Serializable;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * This class is used to represent query responses using sets for edges and
  * vertices.
  *
  * @author Dawood Tariq
  */
-public class Graph extends AbstractStorage implements Serializable {
+public class Graph extends AbstractStorage implements Serializable
+{
 	
     private static final Logger logger = Logger.getLogger(Graph.class.getName());
     private static final int MAX_QUERY_HITS = 1000;
     private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
     private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
     private static final String ID_STRING = Settings.getProperty("storage_identifier");
-    private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
-    private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
 
     private static final Pattern nodePattern = Pattern.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
     private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
-    private static final Pattern longPattern = Pattern.compile("^[-+]?[0-9]+$");
-    private static final Pattern doublePattern = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$");
 
     private transient Analyzer analyzer = new KeywordAnalyzer();
     private transient QueryParser queryParser = new QueryParser(Version.LUCENE_35, null, analyzer);
     private Set<AbstractVertex> vertexSet = new LinkedHashSet<>();
-    private Map<Integer, AbstractVertex> vertexIdentifiers = new HashMap<>();
-    private Map<AbstractVertex, Integer> reverseVertexIdentifiers = new HashMap<>();
+    private Map<String, AbstractVertex> vertexIdentifiers = new HashMap<>();
+    private Map<AbstractVertex, String> reverseVertexIdentifiers = new HashMap<>();
     private Set<AbstractEdge> edgeSet = new LinkedHashSet<>();
-    private Map<Integer, AbstractEdge> edgeIdentifiers = new HashMap<>();
-    private Map<AbstractEdge, Integer> reverseEdgeIdentifiers = new HashMap<>();
+    private Map<String, AbstractEdge> edgeIdentifiers = new HashMap<>();
+    private Map<AbstractEdge, String> reverseEdgeIdentifiers = new HashMap<>();
     private Map<AbstractVertex, Integer> networkMap = new HashMap<>();
     private int serial_number = 1;
     /**
@@ -103,6 +102,15 @@ public class Graph extends AbstractStorage implements Serializable {
     private Directory edgeIndex;
     private transient IndexWriter vertexIndexWriter;
     private transient IndexWriter edgeIndexWriter;
+
+    /**
+     * Fields for Consistency check
+     */
+    private String hostName;
+    private String computeTime;
+    private int maxDepth;
+    private AbstractVertex rootVertex;
+    private String signature;
     
     public void mergeThreads() {
 
@@ -123,21 +131,15 @@ public class Graph extends AbstractStorage implements Serializable {
             logger.log(Level.SEVERE, null, exception);
         }
     }
-    
-    public AbstractVertex getVertex(int id) {
-        return vertexIdentifiers.get(id);
+
+    public String getHash(AbstractVertex vertex)
+    {
+        return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : null;
     }
 
-    public AbstractEdge getEdge(int id) {
-        return edgeIdentifiers.get(id);
-    }
-
-    public int getId(AbstractVertex vertex) {
-        return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : -1;
-    }
-
-    public int getId(AbstractEdge edge) {
-        return (reverseEdgeIdentifiers.containsKey(edge)) ? reverseEdgeIdentifiers.get(edge) : -1;
+    public String getHash(AbstractEdge edge)
+    {
+        return (reverseEdgeIdentifiers.containsKey(edge)) ? reverseEdgeIdentifiers.get(edge) : null;
     }
 
     /**
@@ -152,58 +154,73 @@ public class Graph extends AbstractStorage implements Serializable {
     }
 
     /**
-     * Add a vertex to the graph object. The vertex is sent to the transformers
-     * before it is finally committed.
+     * This function inserts the given vertex into the underlying storage(s) and
+     * updates the cache(s) accordingly.
      *
-     * @param inputVertex The vertex to be added
-     * @return
+     * @param incomingVertex vertex to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the vertex is already present in the storage.
      */
     @Override
-    public boolean putVertex(AbstractVertex inputVertex) {
-        if (reverseVertexIdentifiers.containsKey(inputVertex)) {
+    public boolean putVertex(AbstractVertex incomingVertex)
+    {
+        if (reverseVertexIdentifiers.containsKey(incomingVertex))
+        {
             return false;
         }
         // Add vertex to Lucene index
-        try {
+        try
+        {
             Document doc = new Document();
-            for (Map.Entry<String, String> currentEntry : inputVertex.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
             vertexIndexWriter.addDocument(doc);
             // vertexIndexWriter.commit();
 
-            vertexIdentifiers.put(serial_number, inputVertex);
-            reverseVertexIdentifiers.put(inputVertex, serial_number);
-            vertexSet.add(inputVertex);
+            String hashCode = incomingVertex.bigHashCode();
+            vertexIdentifiers.put(hashCode, incomingVertex);
+            reverseVertexIdentifiers.put(incomingVertex, hashCode);
+            vertexSet.add(incomingVertex);
             serial_number++;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
         }
         return true;
     }
 
+    @Override
+    public Object executeQuery(String query) {
+        return null;
+    }
+
     /**
-     * Add an edge to the graph object. The edge is sent to the transformers
-     * before it is finally committed.
+     * This function inserts the given edge into the underlying storage(s) and
+     * updates the cache(s) accordingly.
      *
-     * @param inputEdge The edge to be added
-     * @return
+     * @param incomingEdge edge to insert into the storage
+     * @return returns true if the insertion is successful. Insertion is considered
+     * not successful if the edge is already present in the storage.
      */
     @Override
-    public boolean putEdge(AbstractEdge inputEdge) {
-        if (reverseEdgeIdentifiers.containsKey(inputEdge)) {
+    public boolean putEdge(AbstractEdge incomingEdge)
+    {
+        if (reverseEdgeIdentifiers.containsKey(incomingEdge))
+        {
             return false;
         }
         // Add edge to Lucene index
-        try {
+        try
+        {
             Document doc = new Document();
-            for (Map.Entry<String, String> currentEntry : inputEdge.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
                 if (key.equals(ID_STRING)) {
@@ -212,16 +229,19 @@ public class Graph extends AbstractStorage implements Serializable {
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(SRC_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getSourceVertex())), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(DST_VERTEX_ID, Integer.toString(reverseVertexIdentifiers.get(inputEdge.getDestinationVertex())), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(SRC_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getChildVertex()), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(DST_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getParentVertex()), Field.Store.YES, Field.Index.ANALYZED));
             edgeIndexWriter.addDocument(doc);
             // edgeIndexWriter.commit();
 
-            edgeIdentifiers.put(serial_number, inputEdge);
-            reverseEdgeIdentifiers.put(inputEdge, serial_number);
-            edgeSet.add(inputEdge);
+            String hashCode = incomingEdge.getChildVertex().bigHashCode() + incomingEdge.getParentVertex().bigHashCode();
+            edgeIdentifiers.put(hashCode, incomingEdge);
+            reverseEdgeIdentifiers.put(incomingEdge, hashCode);
+            edgeSet.add(incomingEdge);
             serial_number++;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
         }
         return true;
@@ -471,25 +491,25 @@ public class Graph extends AbstractStorage implements Serializable {
                 graph.putVertex(vertex);
                 vertexMap.put(key, vertex);
             } else if (edgeMatcher.find()) {
-                String srckey = edgeMatcher.group(1);
+                String childkey = edgeMatcher.group(1);
                 String dstkey = edgeMatcher.group(2);
                 String label = edgeMatcher.group(3);
                 String color = edgeMatcher.group(4);
                 AbstractEdge edge;
-                AbstractVertex srcVertex = vertexMap.get(srckey);
-                AbstractVertex dstVertex = vertexMap.get(dstkey);
+                AbstractVertex childVertex = vertexMap.get(childkey);
+                AbstractVertex parentVertex = vertexMap.get(dstkey);
                 if (color.equals("green")) {
-                    edge = new Used((Process) srcVertex, (Artifact) dstVertex);
+                    edge = new Used((Process) childVertex, (Artifact) parentVertex);
                 } else if (color.equals("red")) {
-                    edge = new WasGeneratedBy((Artifact) srcVertex, (Process) dstVertex);
+                    edge = new WasGeneratedBy((Artifact) childVertex, (Process) parentVertex);
                 } else if (color.equals("blue")) {
-                    edge = new WasTriggeredBy((Process) srcVertex, (Process) dstVertex);
+                    edge = new WasTriggeredBy((Process) childVertex, (Process) parentVertex);
                 } else if (color.equals("purple")) {
-                    edge = new WasControlledBy((Process) srcVertex, (Agent) dstVertex);
+                    edge = new WasControlledBy((Process) childVertex, (Agent) parentVertex);
                 } else if (color.equals("orange")) {
-                    edge = new WasDerivedFrom((Artifact) srcVertex, (Artifact) dstVertex);
+                    edge = new WasDerivedFrom((Artifact) childVertex, (Artifact) parentVertex);
                 } else {
-                    edge = new Edge(srcVertex, dstVertex);
+                    edge = new Edge(childVertex, parentVertex);
                 }
                 if ((label != null) && (label.length() > 2)) {
                     label = label.substring(1, label.length() - 1);
@@ -508,110 +528,163 @@ public class Graph extends AbstractStorage implements Serializable {
         }
     }
 
+    public String exportGraph()
+    {
+        if (vertexSet.isEmpty())
+        {
+            return null;
+        }
+        StringBuilder outputString = new StringBuilder(500);
+        try
+        {
+            outputString.append("digraph spade2dot {\n" + "graph [rankdir = \"RL\"];\n" + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
+                    + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
+
+            for (AbstractVertex vertex : vertexSet)
+            {
+                outputString.append(exportVertex(vertex));
+            }
+            for (AbstractEdge edge : edgeSet)
+            {
+                outputString.append(exportEdge(edge));
+            }
+
+            outputString.append("}\n");
+        }
+        catch (Exception exception)
+        {
+            logger.log(Level.SEVERE, null, exception);
+        }
+
+        return outputString.toString();
+    }
+
     /**
      * This method is used to export the graph to a DOT file which is useful for
      * visualization.
      *
      * @param path The path to export the file to.
      */
-    public void exportGraph(String path) {
-        if ((path == null) || vertexSet.isEmpty()) {
+    public void exportGraph(String path)
+    {
+        if ((path == null) || vertexSet.isEmpty())
+        {
             return;
         }
-        try {
-            FileWriter writer = new FileWriter(path, false);
-            writer.write("digraph spade2dot {\n" + "graph [rankdir = \"RL\"];\n" + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
-                    + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
-            writer.flush();
-
-            for (AbstractVertex vertex : vertexSet) {
-                exportVertex(vertex, writer);
+        try
+        {
+            String outputString = this.exportGraph();
+            if(outputString != null)
+            {
+                FileWriter writer = new FileWriter(path, false);
+                writer.write(outputString);
+                writer.flush();
+                writer.close();
             }
-            for (AbstractEdge edge : edgeSet) {
-                exportEdge(edge, writer);
-            }
-
-            writer.write("}\n");
-            writer.flush();
-            writer.close();
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
         }
     }
 
-    private void exportVertex(AbstractVertex vertex, FileWriter writer) {
-        try {
+    private String exportVertex(AbstractVertex vertex)
+    {
+        try
+        {
             StringBuilder annotationString = new StringBuilder();
-            for (Map.Entry<String, String> currentEntry : vertex.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : vertex.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\")).append("\\n");
             }
             String vertexString = annotationString.substring(0, annotationString.length() - 2);
             String shape = "box";
             String color = "white";
             String type = vertex.getAnnotation("type");
-            if (type.equalsIgnoreCase("Agent")) {
+            if (type.equalsIgnoreCase("Agent"))
+            {
                 shape = "octagon";
                 color = "rosybrown1";
-            } else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity")) {
+            }
+            else if (type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity"))
+            {
                 shape = "box";
                 color = "lightsteelblue1";
-            } else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity")) {
+            }
+            else if (type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity"))
+            {
                 shape = "ellipse";
                 color = "khaki1";
                 String subtype = vertex.getAnnotation("subtype");
-                if ("network".equalsIgnoreCase(subtype)) {
+                if ("network".equalsIgnoreCase(subtype))
+                {
                     shape = "diamond";
                     color = "palegreen1";
                 }
             }
 
-            String key = Integer.toString(reverseVertexIdentifiers.get(vertex));
-            writer.write("\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n");
-        } catch (Exception exception) {
+            String key = vertex.bigHashCode();
+            String outputString = "\"" + key + "\" [label=\"" + vertexString.replace("\"", "'") + "\" shape=\"" + shape + "\" fillcolor=\"" + color + "\"];\n";
+            return outputString;
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
+            return null;
         }
     }
 
-    private void exportEdge(AbstractEdge edge, FileWriter writer) {
-        try {
+    private String exportEdge(AbstractEdge edge)
+    {
+        try
+        {
             StringBuilder annotationString = new StringBuilder();
-            for (Map.Entry<String, String> currentEntry : edge.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : edge.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\")).append("\\n");
             }
             String color = "black";
             String type = edge.getAnnotation("type");
-            if (type.equalsIgnoreCase("Used")) {
+            if (type.equalsIgnoreCase("Used"))
+            {
                 color = "green";
-            } else if (type.equalsIgnoreCase("WasGeneratedBy")) {
+            }
+            else if (type.equalsIgnoreCase("WasGeneratedBy"))
+            {
                 color = "red";
-            } else if (type.equalsIgnoreCase("WasTriggeredBy")) {
+            }
+            else if (type.equalsIgnoreCase("WasTriggeredBy"))
+            {
                 color = "blue";
-            } else if (type.equalsIgnoreCase("WasControlledBy")) {
+            }
+            else if (type.equalsIgnoreCase("WasControlledBy"))
+            {
                 color = "purple";
-            } else if (type.equalsIgnoreCase("WasDerivedFrom")) {
+            }
+            else if (type.equalsIgnoreCase("WasDerivedFrom"))
+            {
                 color = "orange";
             }
             String style = "solid";
-            if (edge.getAnnotation("success") != null && edge.getAnnotation("success").equals("false")) {
+            if (edge.getAnnotation("success") != null && edge.getAnnotation("success").equals("false"))
+            {
                 style = "dashed";
             }
 
             String edgeString = "(" + annotationString.substring(0, annotationString.length() - 2) + ")";
-            String srckey = Integer.toString(reverseVertexIdentifiers.get(edge.getSourceVertex()));
-            String dstkey = Integer.toString(reverseVertexIdentifiers.get(edge.getDestinationVertex()));
-            writer.write("\"" + srckey + "\" -> \"" + dstkey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n");
-        } catch (Exception exception) {
+            String childKey = edge.getChildVertex().bigHashCode();
+            String parentKey = edge.getParentVertex().bigHashCode();
+            String outputString = "\"" + childKey + "\" -> \"" + parentKey + "\" [label=\"" + edgeString.replace("\"", "'") + "\" color=\"" + color + "\" style=\"" + style + "\"];\n";
+            return outputString;
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
+            return null;
         }
     }
 
@@ -647,229 +720,222 @@ public class Graph extends AbstractStorage implements Serializable {
         }
     }
 
+    /**
+     * This function queries the underlying storage and retrieves the edge
+     * matching the given criteria.
+     *
+     * @param childVertexHash      hash of the source vertex.
+     * @param parentVertexHash hash of the destination vertex.
+     * @return returns edge object matching the given vertices OR NULL.
+     */
     @Override
-    public Graph getVertices(String expression) {
-        try {
-            IndexReader reader = IndexReader.open(vertexIndex);
-            IndexSearcher searcher = new IndexSearcher(reader);
-            ScoreDoc[] hits = searcher.search(queryParser.parse(expression), MAX_QUERY_HITS).scoreDocs;
+    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
+    {
+        String jointHash = childVertexHash + parentVertexHash;
+        return (edgeIdentifiers.containsKey(jointHash)) ? edgeIdentifiers.get(jointHash) : null;
+    }
 
-            Graph resultGraph = new Graph();
-            for (int i = 0; i < hits.length; ++i) {
-                int docId = hits[i].doc;
-                Document foundDoc = searcher.doc(docId);
-                int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-                resultGraph.putVertex(vertexIdentifiers.get(vertex_identifier));
+    public AbstractEdge getEdge(String edgeHash)
+    {
+        return (edgeIdentifiers.containsKey(edgeHash)) ? edgeIdentifiers.get(edgeHash) : null;
+    }
+
+    /**
+     * This function queries the underlying storage and retrieves the vertex
+     * matching the given criteria.
+     *
+     * @param vertexHash hash of the vertex to find.
+     * @return returns vertex object matching the given hash OR NULL.
+     */
+    @Override
+    public AbstractVertex getVertex(String vertexHash)
+    {
+        return (vertexIdentifiers.containsKey(vertexHash)) ? vertexIdentifiers.get(vertexHash) : null;
+    }
+
+
+    /**
+     * This function finds the children of a given vertex.
+     * A child is defined as a vertex which is the source of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param parentVertexHash hash of the given vertex
+     * @return returns graph object containing children of the given vertex OR NULL.
+     */
+    @Override
+    public Graph getChildren(String parentVertexHash)
+    {
+        Graph result = new Graph();
+        for(Map.Entry<String, AbstractEdge> entry: edgeIdentifiers.entrySet())
+        {
+            AbstractEdge edge = entry.getValue();
+            AbstractVertex parentVertex = edge.getParentVertex();
+            if(parentVertex.bigHashCode().equals(parentVertexHash))
+            {
+                result.putVertex(parentVertex);
+                result.putVertex(edge.getChildVertex());
+                result.putEdge(edge);
             }
-
-            searcher.close();
-            reader.close();
-            resultGraph.commitIndex();
-            return resultGraph;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return null;
         }
+
+        return result;
     }
 
+    /**
+     * This function finds the parents of a given vertex.
+     * A parent is defined as a vertex which is the destination of a
+     * direct edge between itself and the given vertex.
+     *
+     * @param childVertexHash hash of the given vertex
+     * @return returns graph object containing parents of the given vertex OR NULL.
+     */
     @Override
-    public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
-        Graph a = getLineage(srcVertexExpression, maxLength, DIRECTION_ANCESTORS, null);
-        Graph d = getLineage(dstVertexExpression, maxLength, DIRECTION_DESCENDANTS, null);
-        return Graph.intersection(a, d);
-    }
-
-    @Override
-    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
-        return getPaths(ID_STRING + ":" + srcVertexId, ID_STRING + ":" + dstVertexId, maxLength);
-    }
-
-    @Override
-    public Graph getLineage(String vertexExpression, int depth, String direction, String terminatingExpression) {
-        try {
-            if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
-                Graph ancestor = getLineage(vertexExpression, depth, DIRECTION_ANCESTORS, terminatingExpression);
-                Graph descendant = getLineage(vertexExpression, depth, DIRECTION_DESCENDANTS, terminatingExpression);
-                Graph result = Graph.union(ancestor, descendant);
-                return result;
-            } else if (!DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()) && !DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                return null;
+    public Graph getParents(String childVertexHash)
+    {
+        Graph result = new Graph();
+        for(Map.Entry<String, AbstractEdge> entry: edgeIdentifiers.entrySet())
+        {
+            AbstractEdge edge = entry.getValue();
+            AbstractVertex childVertex = edge.getChildVertex();
+            if(childVertex.bigHashCode().equals(childVertexHash))
+            {
+                result.putVertex(childVertex);
+                result.putVertex(edge.getParentVertex());
+                result.putEdge(edge);
             }
-
-            Graph resultGraph = new Graph();
-
-            IndexReader vertexReader = IndexReader.open(vertexIndex);
-            IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-            Set<Integer> terminatingSet = new HashSet<>();
-            if ((terminatingExpression != null) && (!terminatingExpression.trim().equalsIgnoreCase("null"))) {
-                ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(terminatingExpression), MAX_QUERY_HITS).scoreDocs;
-                for (int i = 0; i < hits.length; ++i) {
-                    int docId = hits[i].doc;
-                    Document foundDoc = vertexSearcher.doc(docId);
-                    int id = Integer.parseInt(foundDoc.get(ID_STRING));
-                    terminatingSet.add(id);
-                }
-            }
-            Set<Integer> processedVertices = new HashSet<>();
-            ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(vertexExpression), MAX_QUERY_HITS).scoreDocs;
-            for (int i = 0; i < hits.length; ++i) {
-                int docId = hits[i].doc;
-                Document foundDoc = vertexSearcher.doc(docId);
-                int vertex_identifier = Integer.parseInt(foundDoc.get(ID_STRING));
-                resultGraph.putVertex(vertexIdentifiers.get(vertex_identifier));
-                processedVertices.add(vertex_identifier);
-            }
-            vertexSearcher.close();
-            vertexReader.close();
-
-            Set<Integer> doneVertices = new HashSet<>();
-            doneVertices.addAll(processedVertices);
-
-            IndexReader edgeReader = IndexReader.open(edgeIndex);
-            IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
-            for (int i = 0; i <= depth; i++) {
-                Set<Integer> tempProcessedVertices = new HashSet<>();
-                for (int currentVertexId : processedVertices) {
-                    String queryString = null;
-                    if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                        queryString = SRC_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                        queryString = DST_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    }
-
-                    hits = edgeSearcher.search(queryParser.parse(queryString), MAX_QUERY_HITS).scoreDocs;
-                    for (int j = 0; j < hits.length; ++j) {
-                        int docId = hits[j].doc;
-                        Document foundDoc = edgeSearcher.doc(docId);
-                        int edgeId = Integer.parseInt(foundDoc.get(ID_STRING));
-                        AbstractEdge tempEdge = edgeIdentifiers.get(edgeId);
-                        int otherVertexId = 0;
-                        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getDestinationVertex());
-                        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getSourceVertex());
-                        }
-                        if (!terminatingSet.contains(otherVertexId)) {
-                            resultGraph.putVertex(vertexIdentifiers.get(otherVertexId));
-                            resultGraph.putEdge(tempEdge);
-                            if (doneVertices.add(otherVertexId)) {
-                                tempProcessedVertices.add(otherVertexId);
-                            }
-                        }
-                    }
-                }
-                if (tempProcessedVertices.isEmpty()) {
-                    break;
-                }
-                processedVertices = tempProcessedVertices;
-            }
-
-            edgeSearcher.close();
-            edgeReader.close();
-            resultGraph.commitIndex();
-            return resultGraph;
-        } catch (IOException | ParseException | NumberFormatException exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return null;
         }
+
+        return result;
     }
 
     @Override
-    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
-        return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
-    }
-
-    @Override
-    public Graph getPaths(Graph srcGraph, Graph dstGraph, int maxLength) {
-        Graph a = getLineage(srcGraph, maxLength, DIRECTION_ANCESTORS, null);
-        Graph d = getLineage(dstGraph, maxLength, DIRECTION_DESCENDANTS, null);
-        return Graph.intersection(a, d);
-    }
-
-    @Override
-    public Graph getLineage(Graph srcGraph, int depth, String direction, String terminatingExpression) {
-        try {
-            if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
-                Graph ancestor = getLineage(srcGraph, depth, DIRECTION_ANCESTORS, terminatingExpression);
-                Graph descendant = getLineage(srcGraph, depth, DIRECTION_DESCENDANTS, terminatingExpression);
-                Graph result = Graph.union(ancestor, descendant);
-                return result;
-            } else if (!DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()) && !DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                return null;
-            }
-
-            Graph resultGraph = new Graph();
-
-            IndexReader vertexReader = IndexReader.open(vertexIndex);
-            IndexSearcher vertexSearcher = new IndexSearcher(vertexReader);
-            Set<Integer> terminatingSet = new HashSet<>();
-            if ((terminatingExpression != null) && (!terminatingExpression.trim().equalsIgnoreCase("null"))) {
-                ScoreDoc[] hits = vertexSearcher.search(queryParser.parse(terminatingExpression), MAX_QUERY_HITS).scoreDocs;
-                for (int i = 0; i < hits.length; ++i) {
-                    int docId = hits[i].doc;
-                    Document foundDoc = vertexSearcher.doc(docId);
-                    int id = Integer.parseInt(foundDoc.get(ID_STRING));
-                    terminatingSet.add(id);
+    public Graph getLineage(String hash, String direction, int maxDepth)
+    {
+        Graph result = new Graph();
+        int current_depth = 0;
+        Set<String> remainingVertices = new HashSet<>();
+        AbstractVertex startingVertex = getVertex(hash);
+        remainingVertices.add(startingVertex.bigHashCode());
+        startingVertex.setDepth(0);
+        result.setRootVertex(startingVertex);
+        result.setMaxDepth(maxDepth);
+        Set<String> visitedVertices = new HashSet<>();
+        while(!remainingVertices.isEmpty() && current_depth < maxDepth)
+        {
+            visitedVertices.addAll(remainingVertices);
+            Set<String> currentSet = new HashSet<>();
+            for(String vertexHash: remainingVertices)
+            {
+                Graph neighbors = null;
+                if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+                {
+                    neighbors = getParents(vertexHash);
                 }
-            }
-            vertexSearcher.close();
-            vertexReader.close();
-
-            Set<Integer> processedVertices = new HashSet<>();
-            for (AbstractVertex vertex : srcGraph.vertexSet()) {
-                resultGraph.putVertex(vertex);
-                processedVertices.add(reverseVertexIdentifiers.get(vertex));
-            }
-
-            Set<Integer> doneVertices = new HashSet<>();
-            doneVertices.addAll(processedVertices);
-
-            IndexReader edgeReader = IndexReader.open(edgeIndex);
-            IndexSearcher edgeSearcher = new IndexSearcher(edgeReader);
-            for (int i = 0; i <= depth; i++) {
-                Set<Integer> tempProcessedVertices = new HashSet<>();
-                for (int currentVertexId : processedVertices) {
-                    String queryString = null;
-                    if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                        queryString = SRC_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                        queryString = DST_VERTEX_ID + ":\"" + currentVertexId + "\"";
-                    }
-
-                    ScoreDoc[] hits = edgeSearcher.search(queryParser.parse(queryString), MAX_QUERY_HITS).scoreDocs;
-                    for (int j = 0; j < hits.length; ++j) {
-                        int docId = hits[j].doc;
-                        Document foundDoc = edgeSearcher.doc(docId);
-                        int edgeId = Integer.parseInt(foundDoc.get(ID_STRING));
-                        AbstractEdge tempEdge = edgeIdentifiers.get(edgeId);
-                        int otherVertexId = 0;
-                        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getDestinationVertex());
-                        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-                            otherVertexId = reverseVertexIdentifiers.get(tempEdge.getSourceVertex());
-                        }
-                        if (!terminatingSet.contains(otherVertexId)) {
-                            resultGraph.putVertex(vertexIdentifiers.get(otherVertexId));
-                            resultGraph.putEdge(tempEdge);
-                            if (doneVertices.add(otherVertexId)) {
-                                tempProcessedVertices.add(otherVertexId);
-                            }
+                else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+                {
+                    neighbors = getChildren(vertexHash);
+                }
+                if(neighbors != null)
+                {
+                	for(AbstractVertex V: neighbors.vertexSet())
+                		V.setDepth(current_depth+1);
+                    result.vertexSet().addAll(neighbors.vertexSet());
+                    result.edgeSet().addAll(neighbors.edgeSet());
+                    for(AbstractVertex vertex: neighbors.vertexSet())
+                    {
+                        String hashCode = vertex.bigHashCode();
+                        if(!visitedVertices.contains(hashCode))
+                        {
+                            currentSet.add(hashCode);
                         }
                     }
                 }
-                if (tempProcessedVertices.isEmpty()) {
-                    break;
-                }
-                processedVertices = tempProcessedVertices;
             }
-
-            edgeSearcher.close();
-            edgeReader.close();
-            resultGraph.commitIndex();
-            return resultGraph;
-        } catch (IOException | ParseException | NumberFormatException exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return null;
+            remainingVertices.clear();
+            remainingVertices.addAll(currentSet);
+            current_depth++;
         }
+        result.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
+
+        return result;
+    }
+
+    /*
+    * Dummy methods created to make things compile.
+    * TODO: remove them and fix issues at usage points
+    * */
+    public Graph getPaths(int child, int dst) {return null; }
+
+    public Graph getPaths(String child, String dst) {return null; }
+
+    public Graph getPaths(Graph child, Graph dst) {return null; }
+
+    public Graph getLineage(int child, String dst) {return null; }
+
+    public Graph getLineage(String child, String dst) {return null; }
+
+    public Graph getLineage(Graph child, String dst) {return null; }
+
+    public Graph getLineage(String vertexExpression, Integer depth, String direction, String terminatingExpression) {return null; }
+
+    public AbstractVertex getVertex(int id) {return null; }
+
+    public String getHostName()
+    {
+        return hostName;
+    }
+
+    public void setHostName(String hostName)
+    {
+        this.hostName = hostName;
+    }
+
+    public String getComputeTime()
+    {
+        return computeTime;
+    }
+
+    public void setComputeTime(String computeTime)
+    {
+        this.computeTime = computeTime;
+    }
+
+    public int getMaxDepth()
+    {
+        return maxDepth;
+    }
+
+    public void setMaxDepth(int maxDepth)
+    {
+        this.maxDepth = maxDepth;
+    }
+
+    public AbstractVertex getRootVertex()
+    {
+        return rootVertex;
+    }
+
+    public void setRootVertex(AbstractVertex rootVertex)
+    {
+        this.rootVertex = rootVertex;
+    }
+
+    public String getSignature()
+    {
+        return signature;
+    }
+
+    public void setSignature(String signature)
+    {
+        this.signature = signature;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "Graph{" +
+                "vertexSet=" + vertexSet +
+                ", edgeSet=" + edgeSet +
+                '}';
     }
 }

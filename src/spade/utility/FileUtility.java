@@ -1,5 +1,7 @@
 package spade.utility;
 
+import org.apache.commons.io.FileUtils;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -7,8 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-
-import org.apache.commons.io.FileUtils;
 
 public class FileUtility {
 
@@ -100,6 +100,27 @@ public class FileUtility {
 			}
 		}		
 		return map;
+	}
+	
+	public static boolean fileExists(String filepath){
+		if(filepath == null){
+			return false;
+		}else{
+			try{
+				return new File(filepath).exists();
+			}catch(Exception e){
+				return false;
+			}
+		}
+	}
+	
+	public static boolean mkdirs(String dirPath){
+		try{
+			FileUtils.forceMkdir(new File(dirPath));
+			return true;
+		}catch(Exception e){
+			return false;
+		}
 	}
 	
 	//test

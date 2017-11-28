@@ -19,6 +19,13 @@
  */
 package spade.client;
 
+import spade.core.Settings;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -28,12 +35,6 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManagerFactory;
-import spade.core.Settings;
 
 public class BatchTool {
 

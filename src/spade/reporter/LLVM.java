@@ -19,17 +19,6 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Stack;
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -38,6 +27,18 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Stack;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class LLVM extends AbstractReporter {
 
@@ -55,7 +56,7 @@ public class LLVM extends AbstractReporter {
         /*
         * argument can be 'forcedremoval=true' (default) or 'forcedremoval=false'
         * if forcedremoval is specified as false, on removal of the reporter, reporter won't 
-        * shutdown unless the socket buffer from where instrumented programs sends in 
+        * shutdown unless the socket buffer from where instrumented programs sends in
         * provenance data is empitited.
         * if forcedremoval is true, it will discard this buffer and proceed to shutdown
         */

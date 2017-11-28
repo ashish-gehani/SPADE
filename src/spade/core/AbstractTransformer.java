@@ -19,11 +19,12 @@
  */
 package spade.core;
 
+import spade.client.QueryParameters;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import spade.client.QueryParameters;
 
 public abstract class AbstractTransformer {
 	
@@ -82,8 +83,8 @@ public abstract class AbstractTransformer {
 	}
 	
 	public static AbstractEdge createNewWithoutAnnotations(AbstractEdge edge, String... annotations){
-		AbstractVertex newSource = createNewWithoutAnnotations(edge.getSourceVertex(), annotations);
-		AbstractVertex newDestination = createNewWithoutAnnotations(edge.getDestinationVertex(), annotations);
+		AbstractVertex newSource = createNewWithoutAnnotations(edge.getChildVertex(), annotations);
+		AbstractVertex newDestination = createNewWithoutAnnotations(edge.getParentVertex(), annotations);
 		AbstractEdge newEdge = new Edge(newSource, newDestination);
 		newEdge.addAnnotations(edge.getAnnotations());
 		if(annotations != null){
@@ -108,8 +109,8 @@ public abstract class AbstractTransformer {
 			if(toRemoveEdges.contains(strippedEdge)){
 				continue;
 			}
-			result.putVertex(strippedEdge.getSourceVertex());
-			result.putVertex(strippedEdge.getDestinationVertex());
+			result.putVertex(strippedEdge.getChildVertex());
+			result.putVertex(strippedEdge.getParentVertex());
 			result.putEdge(strippedEdge);
 		}
 	}
