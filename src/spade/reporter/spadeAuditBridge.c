@@ -60,12 +60,14 @@ int *thread_create_time;
 // UBSI Unit analysis
 #include <assert.h>
 #include "uthash.h"
-#define UENTRY 0xffffff9c
-#define UEXIT 0xffffff9b
-#define MREAD1 0xffffff38
-#define MREAD2 0xffffff37
-#define MWRITE1 0xfffffed4
-#define MWRITE2 0xfffffed3
+#define UENTRY1 0xffffff9c // -100
+#define UENTRY2 0xffffff9a // -102
+#define UEXIT1 0xffffff9b  // -101
+#define UEXIT2 0xffffff99  // -103
+#define MREAD1 0xffffff38  // -200
+#define MREAD2 0xffffff37  // -201
+#define MWRITE1 0xfffffed4 // -300
+#define MWRITE2 0xfffffed3 // -301
 
 typedef int bool;
 #define true 1
@@ -74,7 +76,7 @@ typedef int bool;
 typedef struct thread_unit_t {
 		int tid;
 		int threadtime; // thread start time in second.
-		int loopid; // loopid. in the output, we call this unitid.
+		long int loopid; // loopid. in the output, we call this unitid.
 		int iteration;
 		double timestamp; // loop start time. Not iteration start.
 		int count; // if two or more loops starts at the same timestamp. We use count to distinguish them.
@@ -107,6 +109,7 @@ typedef struct unit_table_t {
 		int pid; // process id.  (main thread id)
 		thread_unit_t cur_unit;
 		bool valid; // is valid unit?
+		long int tmp_loopid;
 		long int r_addr;
 		long int w_addr;
 		link_unit_t *link_unit;
@@ -126,7 +129,7 @@ typedef struct event_buf_t {
 // Equality check is done using only tid, unitid, and iteration
 typedef struct iteration_count_t{
 	int tid;
-	int unitid;
+	long int unitid;
 	int iteration;
 	int count;
 } iteration_count_t;
@@ -609,7 +612,7 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 		
 		rc = printf("%s", buf);
 		if(print_unit) {
-				rc += printf(" unit=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d) "
+				rc += printf(" unit=(pid=%d thread_time=%d.000 unitid=%ld iteration=%d time=%.3lf count=%d) "
 							,ut->cur_unit.tid, ut->thread.time, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
@@ -853,7 +856,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
-						sprintf(tmp, "type=UBSI_DEP dep=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d), "
+						sprintf(tmp, "type=UBSI_DEP dep=(pid=%d thread_time=%d.000 unitid=%ld iteration=%d time=%.3lf count=%d), "
 								,lt->id.tid, lt->id.threadtime, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
 						emit_log(ut, tmp, true, true);
 				}
