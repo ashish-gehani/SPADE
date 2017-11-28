@@ -59,6 +59,8 @@ public class AuditEventReader {
 			ARG3 = "a3",
 			COMM = "comm",
 			CWD = "cwd",
+			DADDR = "daddr",
+			DPORT = "dport",
 			EGID = "egid",
 			EUID = "euid",
 			EVENT_ID = "eventid",
@@ -71,6 +73,9 @@ public class AuditEventReader {
 			FSGID = "fsgid",
 			FSUID = "fsuid",
 			GID = "gid",
+			HOOK = "hook",
+			HOOK_INPUT = "1",
+			HOOK_OUTPUT = "3",
 			ITEMS = "items",
 			MODE_PREFIX = "mode",
 			NAMETYPE_CREATE = "CREATE",
@@ -81,6 +86,8 @@ public class AuditEventReader {
 			NAMETYPE_UNKNOWN = "UNKNOWN",
 			PATH_PREFIX = "path",
 			PID = "pid",
+			PPID = "ppid",
+			PROTO = "proto",
 			RECORD_TYPE_CWD = "CWD",
 			RECORD_TYPE_DAEMON_START = "DAEMON_START",
 			RECORD_TYPE_EOE = "EOE",
@@ -100,6 +107,7 @@ public class AuditEventReader {
 			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
 			SGID = "sgid",
+			SPORT = "sport",
 			SUCCESS = "success",
 			SUCCESS_NO = "no",
 			SUCCESS_YES = "yes",
@@ -108,6 +116,7 @@ public class AuditEventReader {
 			TIME = "time",
 			UID = "uid",
 			UNIT_PID = "unit_pid",
+			UNIT_THREAD_START_TIME = "unit_thread_start_time",
 			UNIT_UNITID = "unit_unitid",
 			UNIT_ITERATION = "unit_iteration",
 			UNIT_TIME = "unit_time",
@@ -125,7 +134,8 @@ public class AuditEventReader {
 	// Group 3: iteration
 	// Group 4: time
 	// Group 5: count
-	private final Pattern pattern_unit = Pattern.compile("\\(pid=(\\d+) unitid=(\\d+) iteration=(\\d+) time=(\\d+\\.\\d+) count=(\\d+)\\)");
+	private final Pattern pattern_unit = 
+			Pattern.compile("\\(pid=(\\d+) thread_time=(\\d+\\.\\d+) unitid=(\\d+) iteration=(\\d+) time=(\\d+\\.\\d+) count=(\\d+)\\)");
 	
 	// Group 1: key
 	// Group 2: value
@@ -495,13 +505,15 @@ public class AuditEventReader {
 		Matcher matcher2 = pattern_unit.matcher(line);
 		while(matcher2.find()){
 			String pid = matcher2.group(1);
-			String unitid = matcher2.group(2);
-			String iteration = matcher2.group(3);
-			String time = matcher2.group(4);
-			String count = matcher2.group(5);
+			String thread_start_time = matcher2.group(2);
+			String unitid = matcher2.group(3);
+			String iteration = matcher2.group(4);
+			String time = matcher2.group(5);
+			String count = matcher2.group(6);
 			
 			Map<String, String> unitKeyValues = new HashMap<String, String>();
 			unitKeyValues.put(UNIT_PID, pid);
+			unitKeyValues.put(UNIT_THREAD_START_TIME, thread_start_time);
 			unitKeyValues.put(UNIT_UNITID, unitid);
 			unitKeyValues.put(UNIT_ITERATION, iteration);
 			unitKeyValues.put(UNIT_TIME, time);
@@ -601,6 +613,11 @@ public class AuditEventReader {
 	
 				if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
+					if(messageData.contains(COMM + "=") && !messageData.contains(COMM + "=\"")
+							&& !"(null)".equals(eventData.get(COMM))){ // comm has a hex encoded value
+						// decode and replace value
+						eventData.put(COMM, parseHexStringToUTF8(eventData.get(COMM)));
+					}
 					eventData.put(TIME, time);
 					auditRecordKeyValues.putAll(eventData);
 				} else if (type.equals(RECORD_TYPE_CWD)) {
@@ -663,6 +680,9 @@ public class AuditEventReader {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
 					}
 				} else if(type.equals(RECORD_TYPE_NETFILTER_PKT)){
+					auditRecordKeyValues.put(TIME, time); // add time
+					auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_PKT); // type
+					// rest of the keys as is below
 					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
 					while (key_value_matcher.find()) {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));

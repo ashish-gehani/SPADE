@@ -19,6 +19,14 @@
  */
 package spade.transformer;
 
+import org.apache.commons.io.FileUtils;
+import spade.client.QueryParameters;
+import spade.core.AbstractEdge;
+import spade.core.AbstractTransformer;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Settings;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,15 +38,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.io.FileUtils;
-
-import spade.client.QueryParameters;
-import spade.core.AbstractEdge;
-import spade.core.AbstractTransformer;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-import spade.core.Settings;
 
 public class Aggregation extends AbstractTransformer{
 
@@ -129,24 +128,24 @@ public class Aggregation extends AbstractTransformer{
 				}
 			}
 			
-			AbstractVertex sourceVertex = newEdge.getSourceVertex();
-			AbstractVertex destinationVertex = newEdge.getDestinationVertex();
+			AbstractVertex childVertex = newEdge.getChildVertex();
+			AbstractVertex parentVertex = newEdge.getParentVertex();
 			
-			if(oldNewVertices.get(sourceVertex) == null){
-				AbstractVertex newSourceVertex = getVertexWithUpdatedAnnotations(sourceVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(sourceVertex));
-				oldNewVertices.put(sourceVertex, newSourceVertex);
+			if(oldNewVertices.get(childVertex) == null){
+				AbstractVertex newChildVertex = getVertexWithUpdatedAnnotations(childVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(childVertex));
+				oldNewVertices.put(childVertex, newChildVertex);
 			}
-			newEdge.setSourceVertex(oldNewVertices.get(sourceVertex));
+			newEdge.setChildVertex(oldNewVertices.get(childVertex));
 						
-			if(oldNewVertices.get(destinationVertex) == null){
-				AbstractVertex newDestinationVertex = getVertexWithUpdatedAnnotations(destinationVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(destinationVertex));
-				oldNewVertices.put(destinationVertex, newDestinationVertex);
+			if(oldNewVertices.get(parentVertex) == null){
+				AbstractVertex newParentVertex = getVertexWithUpdatedAnnotations(parentVertex, annotationsToRemove, annotationAggregationFunction, vertexAnnotationSet.get(parentVertex));
+				oldNewVertices.put(parentVertex, newParentVertex);
 			}
-			newEdge.setDestinationVertex(oldNewVertices.get(destinationVertex));
+			newEdge.setParentVertex(oldNewVertices.get(parentVertex));
 			
 			
-			resultGraph.putVertex(newEdge.getSourceVertex());
-			resultGraph.putVertex(newEdge.getDestinationVertex());
+			resultGraph.putVertex(newEdge.getChildVertex());
+			resultGraph.putVertex(newEdge.getParentVertex());
 			resultGraph.putEdge(newEdge);
 		}
 		

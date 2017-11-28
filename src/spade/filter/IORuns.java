@@ -19,17 +19,18 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasGeneratedBy;
 import spade.vertex.opm.Artifact;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
 
 public class IORuns extends AbstractFilter {
 
@@ -55,10 +56,10 @@ public class IORuns extends AbstractFilter {
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
-        if ((incomingEdge instanceof Used) && (incomingEdge.getDestinationVertex().getAnnotation(artifactKey) != null)) {
+        if ((incomingEdge instanceof Used) && (incomingEdge.getParentVertex().getAnnotation(artifactKey) != null)) {
             Used usedEdge = (Used) incomingEdge;
-            String fileVertexHash = usedEdge.getDestinationVertex().getAnnotation(artifactKey);
-            String processVertexHash = Integer.toString(usedEdge.getSourceVertex().hashCode());
+            String fileVertexHash = usedEdge.getParentVertex().getAnnotation(artifactKey);
+            String processVertexHash = Integer.toString(usedEdge.getChildVertex().hashCode());
             if (!reads.containsKey(fileVertexHash)) {
                 HashSet<String> tempSet = new HashSet<>();
                 tempSet.add(processVertexHash);
@@ -66,23 +67,23 @@ public class IORuns extends AbstractFilter {
             } else {
                 HashSet<String> tempSet = reads.get(fileVertexHash);
                 if (tempSet.contains(processVertexHash)) {
-                    vertexBuffer.remove(usedEdge.getDestinationVertex());
+                    vertexBuffer.remove(usedEdge.getParentVertex());
                     return;
                 } else {
                     tempSet.add(processVertexHash);
                 }
             }
-            vertexBuffer.remove(usedEdge.getDestinationVertex());
-            putInNextFilter(usedEdge.getDestinationVertex());
+            vertexBuffer.remove(usedEdge.getParentVertex());
+            putInNextFilter(usedEdge.getParentVertex());
             putInNextFilter(usedEdge);
             if (writes.containsKey(fileVertexHash)) {
                 HashSet<String> tempSet = writes.get(fileVertexHash);
                 tempSet.remove(processVertexHash);
             }
-        } else if ((incomingEdge instanceof WasGeneratedBy) && (incomingEdge.getSourceVertex().getAnnotation(artifactKey) != null)) {
+        } else if ((incomingEdge instanceof WasGeneratedBy) && (incomingEdge.getChildVertex().getAnnotation(artifactKey) != null)) {
             WasGeneratedBy wgb = (WasGeneratedBy) incomingEdge;
-            String fileVertexHash = wgb.getSourceVertex().getAnnotation(artifactKey);
-            String processVertexHash = Integer.toString(wgb.getDestinationVertex().hashCode());
+            String fileVertexHash = wgb.getChildVertex().getAnnotation(artifactKey);
+            String processVertexHash = Integer.toString(wgb.getParentVertex().hashCode());
             if (!writes.containsKey(fileVertexHash)) {
                 HashSet<String> tempSet = new HashSet<>();
                 tempSet.add(processVertexHash);
@@ -90,14 +91,14 @@ public class IORuns extends AbstractFilter {
             } else {
                 HashSet<String> tempSet = writes.get(fileVertexHash);
                 if (tempSet.contains(processVertexHash)) {
-                    vertexBuffer.remove(wgb.getSourceVertex());
+                    vertexBuffer.remove(wgb.getChildVertex());
                     return;
                 } else {
                     tempSet.add(processVertexHash);
                 }
             }
-            vertexBuffer.remove(wgb.getSourceVertex());
-            putInNextFilter(wgb.getSourceVertex());
+            vertexBuffer.remove(wgb.getChildVertex());
+            putInNextFilter(wgb.getChildVertex());
             putInNextFilter(wgb);
             if (reads.containsKey(fileVertexHash)) {
                 HashSet<String> tempSet = reads.get(fileVertexHash);

@@ -19,13 +19,14 @@
  */
 package spade.filter;
 
-import java.util.HashSet;
-import java.util.Set;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractSketch;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class FinalCommitFilter extends AbstractFilter {
 

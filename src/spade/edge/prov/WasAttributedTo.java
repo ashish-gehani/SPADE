@@ -20,8 +20,8 @@
 package spade.edge.prov;
 
 import spade.core.AbstractEdge;
-import spade.vertex.prov.Entity;
 import spade.vertex.prov.Agent;
+import spade.vertex.prov.Entity;
 
 /**
  * WasAttributedTo edge based on the PROV model.
@@ -42,8 +42,8 @@ public class WasAttributedTo extends AbstractEdge {
      * @param agent Agent
      */
     public WasAttributedTo(Entity entity, Agent agent) {
-        setSourceVertex(entity);
-        setDestinationVertex(agent);
+        setChildVertex(entity);
+        setParentVertex(agent);
         addAnnotation("type", "WasAttributedTo");
     }
 }

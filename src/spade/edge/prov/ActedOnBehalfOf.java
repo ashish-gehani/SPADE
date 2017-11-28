@@ -41,8 +41,8 @@ public class ActedOnBehalfOf extends AbstractEdge {
      * @param agent Agent
      */
     public ActedOnBehalfOf(Agent sourceAgent, Agent destinationAgent) {
-        setSourceVertex(sourceAgent);
-        setDestinationVertex(destinationAgent);
+        setChildVertex(sourceAgent);
+        setParentVertex(destinationAgent);
         addAnnotation("type", "ActedOnBehalfOf");
     }
 }

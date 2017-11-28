@@ -348,12 +348,12 @@ public class PduParser
 		parseUserData(pdu);
 	}
 	
-	
+
 	public static void main(String[] args) throws Exception   
     {   
         // load a file for testing   
 //        TestFileReader tfr = new TestFileReader();   
-//        tfr.init("java/org/ajwcc/pduUtils/testData/testPdus.txt");   
+//        tfr.init("java/org/ajwcc/pduUtils/testData/testPdus.txt");
         String currentLine = "0001000a81016681859200000539590c1b03";
         currentLine = "07911326040000F0040B911346610089F60000208062917314080CC8F71D14969741F977FD07";
         currentLine = "000100048155450000130a6a794e074d9b5350b33c9f87cfe59002";

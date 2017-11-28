@@ -19,14 +19,6 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -45,6 +37,14 @@ import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 import spade.vertex.prov.Activity;
 import spade.vertex.prov.Entity;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Pipe reporter for Linux.

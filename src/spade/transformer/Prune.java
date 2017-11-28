@@ -19,14 +19,14 @@
  */
 package spade.transformer;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.utility.CommonFunctions;
+
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Prune extends AbstractTransformer{
 	
