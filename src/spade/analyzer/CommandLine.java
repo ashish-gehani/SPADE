@@ -208,6 +208,13 @@ public class CommandLine extends AbstractAnalyzer
                                         Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
                                         clearRemoteResolutionRequired();
                                         // TODO: perform consistency check here - Carol
+                                        inconsistencyDetector.setResponseGraph(finalGraphSet);
+                                        int inconsistencyCount = inconsistencyDetector.findInconsistency();
+                                        logger.log(Level.WARNING, "inconsistencyCount: " + inconsistencyCount);
+                                        if(inconsistencyCount == 0)
+                                        {
+                                            inconsistencyDetector.update();
+                                        }
                                         // TODO: return the stitched graphs
                                         for(Graph graph: finalGraphSet)
                                         {

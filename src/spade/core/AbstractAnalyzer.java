@@ -1,6 +1,7 @@
 package spade.core;
 
 import spade.client.QueryMetaData;
+import spade.utility.InconsistencyDetector;
 
 import javax.net.ssl.SSLServerSocket;
 import java.io.File;
@@ -33,6 +34,7 @@ public abstract class AbstractAnalyzer
     protected static boolean EXPORT_RESULT = false;
     public static final String COMPARISON_OPERATORS = "=|>|<|>=|<=";
     public static final String BOOLEAN_OPERATORS = "AND|OR";
+    protected static final InconsistencyDetector inconsistencyDetector = new InconsistencyDetector();
 
     /**
      * remoteResolutionRequired is used by query module to signal the Analyzer
