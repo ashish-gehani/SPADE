@@ -179,7 +179,9 @@ public class DescriptorManager {
 	 * @param pid process id
 	 * @param fd file descriptor number
 	 */
-	public void addUnknownDescriptor(String pid, String fd){
-		addDescriptor(pid, fd, new UnknownIdentifier(pid, fd), null);
+	public ArtifactIdentifier addUnknownDescriptor(String pid, String fd){
+		ArtifactIdentifier unknown = new UnknownIdentifier(pid, fd);
+		addDescriptor(pid, fd, unknown, null);
+		return unknown;
 	}
 }

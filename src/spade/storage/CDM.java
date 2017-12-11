@@ -19,6 +19,24 @@
  */
 package spade.storage;
 
+import java.nio.ByteBuffer;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.apache.avro.generic.GenericContainer;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.kafka.clients.producer.ProducerConfig;
+
 import com.bbn.tc.schema.avro.AbstractObject;
 import com.bbn.tc.schema.avro.Event;
 import com.bbn.tc.schema.avro.EventType;
@@ -39,29 +57,13 @@ import com.bbn.tc.schema.avro.UUID;
 import com.bbn.tc.schema.avro.UnitDependency;
 import com.bbn.tc.schema.avro.UnnamedPipeObject;
 import com.bbn.tc.schema.serialization.AvroConfig;
-import org.apache.avro.generic.GenericContainer;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.kafka.clients.producer.ProducerConfig;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
+import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.vertex.prov.Agent;
-
-import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -514,7 +516,7 @@ public class CDM extends Kafka {
 					String destAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
 					String destPort = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
 					String protocolName = vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL); //can be null
-					Integer protocol = OPMConstants.getProtocolNumber(protocolName);
+					Integer protocol = Audit.getProtocolNumber(protocolName);
 
 					srcAddress = srcAddress == null ? "" : srcAddress;
 					destAddress = destAddress == null ? "" : destAddress;
