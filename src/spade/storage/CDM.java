@@ -547,16 +547,7 @@ public class CDM extends Kafka {
 				Object tccdmObject = null;
 
 				String artifactType = vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
-				if(OPMConstants.SUBTYPE_FILE.equals(artifactType)){
-
-					tccdmObject = createFileObject(getUuid(vertex), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
-							FileObjectType.FILE_OBJECT_FILE);
-
-				}else if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
+				if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
 
 					String srcAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS);
 					String srcPort = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
@@ -579,15 +570,6 @@ public class CDM extends Kafka {
 							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
 							destAddress, CommonFunctions.parseInt(destPort, 0), protocol, null);
 
-				}else if(OPMConstants.SUBTYPE_UNIX_SOCKET.equals(artifactType)){
-					
-					tccdmObject = createFileObject(getUuid(vertex), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
-							FileObjectType.FILE_OBJECT_UNIX_SOCKET);
-					
 				}else if(OPMConstants.SUBTYPE_MEMORY_ADDRESS.equals(artifactType)){
 
 					try{
@@ -615,13 +597,6 @@ public class CDM extends Kafka {
 						logger.log(Level.SEVERE, null, e);
 						return false;
 					}
-
-				}else if(OPMConstants.SUBTYPE_NAMED_PIPE.equals(artifactType)){
-
-					tccdmObject = createFileObject(getUuid(vertex), vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
-							FileObjectType.FILE_OBJECT_NAMED_PIPE);
 
 				}else if(OPMConstants.SUBTYPE_UNNAMED_PIPE.equals(artifactType)){
 
@@ -661,11 +636,33 @@ public class CDM extends Kafka {
 								SrcSinkType.SRCSINK_UNKNOWN, fd);
 					}
 
+				}else if(artifactType != null){
+					FileObjectType fileObjectType = null;
+					switch (artifactType) {
+						case OPMConstants.SUBTYPE_FILE: fileObjectType = FileObjectType.FILE_OBJECT_FILE; break;
+						case OPMConstants.SUBTYPE_DIRECTORY: fileObjectType = FileObjectType.FILE_OBJECT_DIR; break;
+						case OPMConstants.SUBTYPE_BLOCK_DEVICE: fileObjectType = FileObjectType.FILE_OBJECT_BLOCK; break;
+						case OPMConstants.SUBTYPE_CHARACTER_DEVICE: fileObjectType = FileObjectType.FILE_OBJECT_CHAR; break;
+						case OPMConstants.SUBTYPE_LINK: fileObjectType = FileObjectType.FILE_OBJECT_LINK; break;
+						case OPMConstants.SUBTYPE_UNIX_SOCKET: fileObjectType = FileObjectType.FILE_OBJECT_UNIX_SOCKET; break;
+						case OPMConstants.SUBTYPE_NAMED_PIPE: fileObjectType = FileObjectType.FILE_OBJECT_NAMED_PIPE; break;
+						default: break;
+					}
+					if(fileObjectType != null){
+						tccdmObject = createFileObject(getUuid(vertex), 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
+								epoch, 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+								fileObjectType);
+					}else{
+						logger.log(Level.WARNING, "Unexpected artifact subtype {0}", new Object[]{vertex});
+						return false;
+					}
 				}else{
-					logger.log(Level.WARNING, "Unexpected artifact subtype {0}", new Object[]{vertex});
+					logger.log(Level.WARNING, "NULL artifact subtype {0}", new Object[]{vertex});
 					return false;
 				}
-
 				if(tccdmObject != null){
 					return publishRecords(Arrays.asList(buildTcCDMDatum(tccdmObject, source))) > 0;
 				}else{

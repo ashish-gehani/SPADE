@@ -109,6 +109,10 @@ public class OPMConstants {
 
 			// Allowed subtype annotation values
 			SUBTYPE_FILE = "file",
+			SUBTYPE_DIRECTORY = "directory",
+			SUBTYPE_BLOCK_DEVICE = "block device",
+			SUBTYPE_CHARACTER_DEVICE = "character device",
+			SUBTYPE_LINK = "link",
 			SUBTYPE_MEMORY_ADDRESS = "memory",
 			SUBTYPE_NAMED_PIPE = "named pipe",
 			SUBTYPE_NETWORK_SOCKET = "network socket",
