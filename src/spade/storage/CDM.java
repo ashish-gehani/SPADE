@@ -34,10 +34,10 @@ import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
 import com.bbn.tc.schema.avro.cdm18.AbstractObject;
+import com.bbn.tc.schema.avro.cdm18.EndMarker;
 import com.bbn.tc.schema.avro.cdm18.Event;
 import com.bbn.tc.schema.avro.cdm18.EventType;
 import com.bbn.tc.schema.avro.cdm18.FileObject;
@@ -54,9 +54,11 @@ import com.bbn.tc.schema.avro.cdm18.PrincipalType;
 import com.bbn.tc.schema.avro.cdm18.SHORT;
 import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
 import com.bbn.tc.schema.avro.cdm18.SrcSinkType;
+import com.bbn.tc.schema.avro.cdm18.StartMarker;
 import com.bbn.tc.schema.avro.cdm18.Subject;
 import com.bbn.tc.schema.avro.cdm18.SubjectType;
 import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm18.TimeMarker;
 import com.bbn.tc.schema.avro.cdm18.UUID;
 import com.bbn.tc.schema.avro.cdm18.UnitDependency;
 import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
@@ -135,6 +137,8 @@ public class CDM extends Kafka {
 			new HashMap<Set<TypeOperation>, EventType>();
 	
 	private UUID hostUUID = null;
+	
+	private int sessionNumber = 0; // default zero
 	
 	/**
 	 * Rules from OPM edges types and operations to event types in CDM
@@ -463,7 +467,7 @@ public class CDM extends Kafka {
 					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_FSGID));
 				}
 				Principal principal = new Principal(uuid, PrincipalType.PRINCIPAL_LOCAL, 
-						userId, null, groupIds, properties);
+						hostUUID, userId, null, groupIds, properties);
 				return principal;
 			}else{
 				logger.log(Level.WARNING, "Missing 'uid' in agent vertex");
@@ -505,6 +509,7 @@ public class CDM extends Kafka {
 					String interfaceName = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceNameKey(a));
 					String interfaceMacAddress = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceMacAddressKey(a));
 					String interfaceIpAddresses = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a));
+					interfaceIpAddresses = interfaceIpAddresses == null ? "" : interfaceIpAddresses; 
 					List<CharSequence> ipAddressesList = 
 							OPMConstants.parseHostNetworkInterfaceIpAddressesValue(interfaceIpAddresses);
 					Interface interfaze = new Interface(interfaceName, interfaceMacAddress, ipAddressesList);
@@ -512,10 +517,8 @@ public class CDM extends Kafka {
 				}
 			}
 			Host host = new Host(uuid, hostName, hostIdentifiers, operatingSystem, hostType, interfaces);
-			if(hostUUID == null){ // first object should always be host according to new logic.
-				hostUUID = uuid;
-				// publish the stream marker first and then publish the host object. TODO use startmarker and endmarker
-				publishStreamMarkerObject(true);
+			if(this.hostUUID == null){ // first object should always be host according to new logic.
+				this.hostUUID = uuid;
 			}
 			if(publishRecords(Arrays.asList(buildTcCDMDatum(host, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE))) > 0){
 				return true;
@@ -713,21 +716,24 @@ public class CDM extends Kafka {
 	 * @return SrcSinkObject instance
 	 */
 	private void publishStreamMarkerObject(boolean isStart){
-		String annotationName = isStart ? "start time" : "end time";
-
-		Map<CharSequence, CharSequence> properties = new HashMap<>();
-		if(!isStart){
-			for(Map.Entry<String, Long> entry : stats.entrySet()){
-				properties.put(entry.getKey(), String.valueOf(entry.getValue()));
+		long currentTimeNanos = System.currentTimeMillis() * 1000 * 1000; // millis to nanos
+		TimeMarker timeMarker = new TimeMarker(currentTimeNanos);
+		Object sessionMarker = null;
+		if(isStart){
+			sessionMarker = new StartMarker(this.sessionNumber);
+		}else{
+			// manually add the time marker for end and the session end marker count
+			incrementStatsCount(timeMarker.getClass().getSimpleName());
+			incrementStatsCount(EndMarker.class.getSimpleName());
+			Map<CharSequence, CharSequence> recordCounts = new HashMap<>();
+			for(Map.Entry<String, Long> entry : this.stats.entrySet()){
+				recordCounts.put(entry.getKey(), String.valueOf(entry.getValue()));
 			}
+			sessionMarker = new EndMarker(this.sessionNumber, recordCounts);
 		}
-		properties.put(annotationName, 
-				String.valueOf(convertTimeToNanoseconds(null, String.valueOf(System.currentTimeMillis()), 0L)));
-		AbstractObject baseObject = new AbstractObject(hostUUID, null, null, properties);  
-		SrcSinkObject streamMarker = new SrcSinkObject(getUuid(properties), baseObject, 
-				SrcSinkType.SRCSINK_SYSTEM_PROPERTY, null);
-		
-		publishRecords(Arrays.asList(buildTcCDMDatum(streamMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
+		// First publish time marker and then publish session start/end marker
+		publishRecords(Arrays.asList(buildTcCDMDatum(timeMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
+		publishRecords(Arrays.asList(buildTcCDMDatum(sessionMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
 	}
 	
 	@Override
@@ -792,21 +798,30 @@ public class CDM extends Kafka {
 
 	@Override
 	public boolean initialize(String arguments) {
-		boolean initResult = super.initialize(arguments);
-		if(!initResult){
-			return false;
-		}// else continue
-
 		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
 		if("false".equals(argumentsMap.get("hexUUIDs"))){
 			hexUUIDs = false;
 		}
-
-		populateEventRules();
-
-		//publishStreamMarkerObject(true);
-
-		return true;
+		
+		String sessionNumberString = argumentsMap.get("session");
+		if(sessionNumberString != null){
+			Integer sessionNumber = CommonFunctions.parseInt(sessionNumberString, null);
+			if(sessionNumber == null){
+				logger.log(Level.SEVERE, "'session' must be an 'int': " + sessionNumberString);
+				return false;
+			}else{
+				this.sessionNumber = sessionNumber;
+			}
+		}
+		
+		boolean initResult = super.initialize(arguments);
+		if(!initResult){
+			return false;
+		}else{
+			populateEventRules();
+			publishStreamMarkerObject(true);
+			return true;
+		}
 	}
 
 	/**
@@ -1042,9 +1057,7 @@ public class CDM extends Kafka {
 			pidSubjectUUID.clear();
 			publishedPrincipals.clear();
 
-			if(hostUUID != null){
-				publishStreamMarkerObject(false);
-			}
+			publishStreamMarkerObject(false);
 
 			return super.shutdown();
 		} catch (Exception exception) {
@@ -1219,13 +1232,13 @@ public class CDM extends Kafka {
 	}
 
 	/**
-	 * Converts the given time (in milliseconds) to nanoseconds
+	 * Converts the given time (in seconds) to nanoseconds
 	 * 
 	 * If failed to convert the given time for any reason then the default value is
 	 * returned.
 	 * 
 	 * @param eventId id of the event
-	 * @param time timestamp in milliseconds
+	 * @param time timestamp in seconds
 	 * @param defaultValue default value
 	 * @return the time in nanoseconds
 	 */
@@ -1404,20 +1417,6 @@ public class CDM extends Kafka {
 			return new UUID(edgeHash);
 		}
 		return null;
-	}
-
-	/**
-	 * Returns the MD5 hash of the result of the object's toString function
-	 * 
-	 * @param object object to hash
-	 * @return UUID
-	 */
-	private UUID getUuid(Object object){
-		byte[] hash = DigestUtils.md5(String.valueOf(object));
-		if(hexUUIDs){
-			hash = String.valueOf(Hex.encodeHex(hash, true)).getBytes();
-		}
-		return new UUID(hash);
 	}
 	
 	/**

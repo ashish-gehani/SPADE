@@ -96,6 +96,10 @@
         "doc" : "The type of the principal, local by default",
         "default" : "PRINCIPAL_LOCAL"
       }, {
+        "name" : "hostId",
+        "type" : "UUID",
+        "doc" : "Host where principal exists"
+      }, {
         "name" : "userId",
         "type" : "string",
         "doc" : "The operating system identifier associated with the user"

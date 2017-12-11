@@ -54,6 +54,7 @@ import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
 import com.bbn.tc.schema.avro.cdm18.SrcSinkType;
 import com.bbn.tc.schema.avro.cdm18.Subject;
 import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm18.TimeMarker;
 import com.bbn.tc.schema.avro.cdm18.UUID;
 import com.bbn.tc.schema.avro.cdm18.UnitDependency;
 import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
@@ -541,18 +542,13 @@ public class CDM extends AbstractReporter{
 						vertex.addAnnotation("cdm.type", "NetFlowObject");
 					}else if(datumClass.equals(SrcSinkObject.class)){
 						SrcSinkObject srcSinkObject = (SrcSinkObject)datum;
-						if(srcSinkObject.getType() != null &&
-								srcSinkObject.getType().equals(SrcSinkType.SRCSINK_SYSTEM_PROPERTY)){
-							// stream marker
-						}else{
-							// unknown
-							uuid = srcSinkObject.getUuid();
-							baseObject = srcSinkObject.getBaseObject();
-							if(srcSinkObject.getFileDescriptor() != null){
-								vertex.addAnnotation("fileDescriptor", String.valueOf(srcSinkObject.getFileDescriptor()));
-							}
-							vertex.addAnnotation("cdm.type", "SrcSinkObject");
+						// unknown
+						uuid = srcSinkObject.getUuid();
+						baseObject = srcSinkObject.getBaseObject();
+						if(srcSinkObject.getFileDescriptor() != null){
+							vertex.addAnnotation("fileDescriptor", String.valueOf(srcSinkObject.getFileDescriptor()));
 						}
+						vertex.addAnnotation("cdm.type", "SrcSinkObject");
 					}else if(datumClass.equals(UnnamedPipeObject.class)){
 						UnnamedPipeObject unnamedPipeObject = (UnnamedPipeObject)datum;
 						uuid = unnamedPipeObject.getUuid();

@@ -898,6 +898,7 @@ public class Audit extends AbstractReporter {
 		// Initialize cache data structures
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			if(!initCacheMaps(configMap)){
+				doCleanup(isLiveAudit, rulesType, logListFile); // remove iptables rules too before exiting
 				return false;
 			}
 		}
@@ -939,11 +940,13 @@ public class Audit extends AbstractReporter {
 				// Ensuring that this record is emitted first because needed by CDM storage
 				if(EMIT_HOST_RECORD){
 					if(!emitHostRecord()){
+						doCleanup(isLiveAudit, rulesType, logListFile); // remove iptables rules too before exiting
 						return false;
 					}
 				}
 				if(NETFILTER_RULES){
 					if(!setIptablesRules(iptablesRules)){
+						doCleanup(isLiveAudit, rulesType, logListFile); // remove iptables rules too before exiting
 						return false;
 					}
 				}
