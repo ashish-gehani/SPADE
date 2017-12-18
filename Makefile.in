@@ -114,14 +114,16 @@ lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
  
 # Build the LinuxAudit reporter.
-build-linuxaudit: build/spade/reporter/Audit.class lib/spadeAuditBridge
+build-linuxaudit: build/spade/reporter/Audit.class lib/spadeAuditBridge kernel-module
 	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
 	@echo '----->        	sudo chown root lib/spadeAuditBridge'
 	@echo '----->        	sudo chmod ug+s lib/spadeAuditBridge'
 	@echo ''
 lib/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
 	gcc -o lib/spadeAuditBridge src/spade/reporter/spadeAuditBridge.c
- 
+kernel-module:
+	$(MAKE) -f lib/km/Makefile
+
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/libLinuxFUSE.h lib/libLinuxFUSE.so
 	@echo ''
@@ -233,6 +235,7 @@ clean:
 	@rm -rf cfg/ssl
 	@rm -rf log
 	@rm -rf tmp
+	@$(MAKE) -f lib/km/Makefile clean
  
 DESTDIR = @prefix@
 install:
