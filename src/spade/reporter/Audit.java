@@ -243,6 +243,7 @@ public class Audit extends AbstractReporter {
 	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
 	
 	private final String kernelModulePath = "lib/km/netio.ko";
+	private final String kernelModuleControllerPath = "lib/km/netio_controller.ko";
 	
 	private static final String PROTOCOL_NAME_UDP = "udp",
 			PROTOCOL_NAME_TCP = "tcp";
@@ -782,7 +783,7 @@ public class Audit extends AbstractReporter {
 				removeIptablesRules(iptablesRules);
 			}
 			if(ADD_KM){
-				removeNetworkKernelModule(kernelModulePath);
+				removeNetworkKernelModule(kernelModuleControllerPath);
 			}
 		}else{
 			deleteFile(logListFile);
@@ -995,7 +996,8 @@ public class Audit extends AbstractReporter {
 					String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
 					List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
 					if(ADD_KM){
-						success = addNetworkKernelModule(kernelModulePath, uid, pidsToIgnore, USE_SOCK_SEND_RCV);
+						success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
+								uid, pidsToIgnore, USE_SOCK_SEND_RCV);
 					}
 					if(success){
 						if(NETFILTER_RULES){
@@ -1217,66 +1219,150 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
-	private boolean addNetworkKernelModule(String kernelModulePath, String uid, List<String> ignorePids,
-			boolean interceptSendRecv){
+	private Boolean kernelModuleExists(String kernelModuleName){
+		try{
+			List<String> lines = Execute.getOutput("lsmod");
+			if(Execute.containsOutputFromStderr(lines)){
+				logger.log(Level.SEVERE, "Error checking if module '"+kernelModuleName+"' exists: " + lines);
+				return null;
+			}else{
+				for(String line : lines){
+					String[] tokens = line.split("\\s+");
+					// using first token because Execute class prepends a token to every line
+					if(tokens[1].equals(kernelModuleName)){
+						return true;
+					}
+				}
+				return false;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to check if module '"+kernelModuleName+"' exists", e);
+			return null;
+		}
+	}
+	
+	private String getKernelModuleName(String kernelModulePath){
+		if(kernelModulePath != null){
+			try{
+				String tokens[] = kernelModulePath.split("/");
+				String name = tokens[tokens.length - 1];
+				tokens = name.split("\\.");
+				name = tokens[0];
+				return name;
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to get module name for: "+ kernelModulePath, e);
+				return null;
+			}
+		}else{
+			return null;
+		}
+	}
+	
+	private boolean addKernelModule(String command){
+		try{
+			List<String> lines = Execute.getOutput(command);
+			if(Execute.containsOutputFromStderr(lines)){
+				logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command);
+				return false;
+			}else{
+				logger.log(Level.INFO, "Kernel module added with command: " + command);
+				return true;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command, e);
+			return false;
+		}
+	}
+	
+	private boolean addNetworkKernelModule(String kernelModulePath, String kernelModuleControllerPath, 
+			String uid, List<String> ignorePids, boolean interceptSendRecv){
 		if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()){
 			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}", new Object[]{uid, ignorePids});
 			return false;
 		}else{
-			String command = null;
-			try{
-				if(fileExists(kernelModulePath)){
-					StringBuffer pids = new StringBuffer();
-					ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
-					pids.deleteCharAt(pids.length() - 1);// delete trailing comma
-					
-					command = String.format("insmod %s uids_ignore=\"%s\" syscall_success=\"1\" "
-							+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\"", kernelModulePath, uid, pids, pids,
-							interceptSendRecv ? "1" : "0");
-					
-					List<String> lines = Execute.getOutput(command);
-					if(Execute.containsOutputFromStderr(lines)){
-						logger.log(Level.SEVERE, "Failed to execute command: {0}. Error = {1}.", new Object[]{
-								command, lines
-						});
-						return false;
-					}else{
-						logger.log(Level.INFO, "Successfully added kernel module. Command = " + command);
-						return true;
-					}
-				}else{
-					logger.log(Level.SEVERE, "No kernel module file at path: " + kernelModulePath);
-					return false;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to execute command: "+command, e);
+			if(!fileExists(kernelModulePath)){
+				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModulePath);
 				return false;
+			}else if(!fileExists(kernelModuleControllerPath)){
+				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModuleControllerPath);
+				return false;
+			}else{ // both exist
+				String kernelModuleName = getKernelModuleName(kernelModulePath);
+				if(kernelModuleName != null){
+					String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
+					if(kernelModuleControllerName != null){
+						Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
+						if(kernelModuleControllerExists != null){
+							if(kernelModuleControllerExists){
+								logger.log(Level.SEVERE, "Kernel module controller '"+kernelModuleControllerPath+"' "
+										+ "already exists.");
+								return false;
+							}else{
+								Boolean kernelModuleExists = kernelModuleExists(kernelModuleName);
+								if(kernelModuleExists != null){
+									if(kernelModuleExists == false){
+										// add the main kernel module
+										String kernelModuleAddCommand = "insmod " + kernelModulePath;
+										if(!addKernelModule(kernelModuleAddCommand)){
+											return false;
+										}
+									}
+									// add the controller kernel module
+									StringBuffer pids = new StringBuffer();
+									ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
+									pids.deleteCharAt(pids.length() - 1);// delete trailing comma
+									
+									String kernelModuleControllerAddCommand = 
+											String.format("insmod %s uids_ignore=\"%s\" syscall_success=\"1\" "
+											+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\"", 
+											kernelModuleControllerPath, uid, pids, pids,
+											interceptSendRecv ? "1" : "0");
+									
+									if(!addKernelModule(kernelModuleControllerAddCommand)){
+										return false;
+									}else{
+										return true;
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 		}
+		return false;
 	}
 	
-	private boolean removeNetworkKernelModule(String pathToKernelModule){
-		try{
-			File moduleFile = new File(pathToKernelModule);
-			if(moduleFile.exists()){
-				String moduleName = moduleFile.getName();
-				String command = "rmmod " + moduleName;
-				List<String> lines = Execute.getOutput(command);
-				if(Execute.containsOutputFromStderr(lines)){
-					logger.log(Level.SEVERE, "Failed to remove kernel module. Error = {0}", new Object[]{lines});
-					return false;
-				}else{
-					logger.log(Level.INFO, "Successfully removed kernel module");
-					return true;
+	private boolean removeNetworkKernelModule(String kernelModuleControllerPath){
+		if(fileExists(kernelModuleControllerPath)){
+			String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
+			if(kernelModuleControllerName != null){
+				Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
+				if(kernelModuleControllerExists != null){
+					if(kernelModuleControllerExists){
+						// remove
+						String command = "rmmod " + kernelModuleControllerName;
+						try{
+							List<String> lines = Execute.getOutput(command);
+							if(Execute.containsOutputFromStderr(lines)){
+								logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command);
+								return false;
+							}else{
+								logger.log(Level.INFO, "Successfully removed kernel module with command: " + command);
+								return true;
+							}
+						}catch(Exception e){
+							logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command, e);
+							return false;
+						}
+					}
 				}
-			}else{
-				logger.log(Level.SEVERE, "No kernel module at path: " + pathToKernelModule);
-				return false;
 			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to remove kernel module", e);
+		}else{
+			logger.log(Level.WARNING, "No module at path: " + kernelModuleControllerPath);
 			return false;
 		}
+		return false;
 	}
 	
 	private boolean setAuditControlRules(String rulesType, String uid, List<String> ignorePids, boolean kmAdded){
