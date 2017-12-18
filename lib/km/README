@@ -30,9 +30,13 @@ USAGE:
 			a) '0' for NOT intercepting the above-mentioned syscalls
 			b) '1' for intercepting the above-mentioned syscalls
 
-ADD MODULE:
+ADD MODULE (directly):
 	+ Example command to ADD the module directly (make sure that all processes with 'pidof' below are running):
 		insmod lib/km/netio.ko uids_ignore="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
+
+ADD MODULE (through LIVE Audit reporter):
+	+ Example control client command:
+		add reporter Audit netIO=true addKm=true handleKmRecords=true
 
 REMOVE MODULE:
 	+ Example command to REMOVE the module directly:
