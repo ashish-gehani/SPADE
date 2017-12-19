@@ -38,10 +38,21 @@ static int pids_ignore_len = 0;
 static int ppids_ignore_len = 0;
 static int uids_ignore_len = 0;
 
+/* 
+ * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
+ * Don't need to synchronize 'stop' variable modification because it can only be set by a kernel module and only one
+ * kernel module is calling this function at the moment. Also, only one instance of a kernel module can be added at a time
+ * hence ensuring no concurrent updates.
+ */
 static volatile int stop = 1;
 
 unsigned long syscall_table_address = 0;
 
+// The return type for all system calls used is 'long' below even though some return 'int' according to API.
+// Using 'long' because linux 64-bit kernel code uses a 'long' return value for all system calls. 
+// Error example: If 'int' used below for 'connect' system according to API then when negative value returned it gets
+// casted to a shorter datatype (i.e. 'int') and incorrect return value is gotten. Hence the application using the 
+// 'connect' syscall fails.
 asmlinkage long (*original_bind)(int, const struct sockaddr*, int);
 asmlinkage long (*original_connect)(int, const struct sockaddr*, int);
 asmlinkage long (*original_accept)(int, struct sockaddr*, unsigned int*);
@@ -250,22 +261,11 @@ static void log_to_audit(int syscallNumber, int fd, const struct sockaddr* remad
 		char* remote_hex_ptr = NULL;
 		struct socket *sock;
 		struct sockaddr_storage locaddress;
-		struct file* file;
 		int err = 0;
 		unsigned char comm_hex[(strlen(current->comm) * 2) + 1];
 		
-		// sock = sockfd_lookup_light(fd, &err);
-		// Getting socket from fd directly. TODO
-		
-		// DOUBLE-CHECK - start
-		struct files_struct* files = current->files;
-		rcu_read_lock();
-		file = files->fdt->fd[fd];
-		if(file){
-			sock = sock_from_file(file, &err);
-		}
-		rcu_read_unlock();
-		// DOUBLE-CHECK - end
+		// This call places a lock on the fd which prevents it from being released. Releasing the lock using sockfd_put call.
+		sock = sockfd_lookup(fd, &err);
 		
 		if(sock){
 			family = sock->ops->family;
@@ -279,13 +279,15 @@ static void log_to_audit(int syscallNumber, int fd, const struct sockaddr* remad
 				err = sock->ops->getname(sock, (struct sockaddr *)&locaddress, &locsize, 0);
 				if(!err){
 					if(!(locsize < 0 || locsize >= _K_SS_MAXSIZE)){
-						// abstract unix socket check. TODO
+						// abstract unix socket check needed?. TODO
 						local_hex_ptr = (char*)kmalloc((locsize*2)+1, GFP_KERNEL);
 						local_hex_ptr = (char*)memset(local_hex_ptr, 0, (locsize*2)+1);
 						to_hex(local_hex_ptr, (void *)&locaddress, locsize);
 					}
 				}
 			}
+			// Must free the reference to the fd after use otherwise lock won't be released.
+			sockfd_put(sock);
 		}
 		
 		to_hex(&comm_hex[0], (void *)(&(current->comm)), strlen(current->comm));
@@ -536,7 +538,6 @@ static int __init onload(void) {
 		if (syscall_table_address != 0){
 			unsigned long* syscall_table = (unsigned long*)syscall_table_address;
 			write_cr0 (read_cr0 () & (~ 0x10000));
-			
 			original_bind = (void *)syscall_table[__NR_bind];
 			syscall_table[__NR_bind] = (unsigned long)&new_bind;
 			original_connect = (void *)syscall_table[__NR_connect];
@@ -557,29 +558,6 @@ static int __init onload(void) {
 			syscall_table[__NR_recvmsg] = (unsigned long)&new_recvmsg;
 			original_recvmmsg = (void *)syscall_table[__NR_recvmmsg];
 			syscall_table[__NR_recvmmsg] = (unsigned long)&new_recvmmsg;
-			
-			/*
-			printk(KERN_EMERG "kernel symbol Syscall table address: %p\n", syscall_table);
-			printk(KERN_EMERG "bind: original -> %p, new -> %p\n", original_bind, new_bind);
-			printk(KERN_EMERG "connect: original -> %p, new -> %p\n", original_connect, new_connect);
-			printk(KERN_EMERG "accept: original -> %p, new -> %p\n", original_accept, new_accept);
-			printk(KERN_EMERG "accept4: original -> %p, new -> %p\n", original_accept4, new_accept4);
-			if(net_io == 1){
-				printk(KERN_EMERG "sendto: original -> %p, new -> %p\n", original_sendto, new_sendto);
-				printk(KERN_EMERG "sendmsg: original -> %p, new -> %p\n", original_sendmsg, new_sendmsg);
-				printk(KERN_EMERG "sendmmsg: original -> %p, new -> %p\n", original_sendmmsg, new_sendmmsg);
-				printk(KERN_EMERG "recvfrom: original -> %p, new -> %p\n", original_recvfrom, new_recvfrom);
-				printk(KERN_EMERG "recvmsg: original -> %p, new -> %p\n", original_recvmsg, new_recvmsg);
-				printk(KERN_EMERG "recvmmsg: original -> %p, new -> %p\n", original_recvmmsg, new_recvmmsg);
-			}
-			printk(KERN_EMERG "print_array: %p\n", print_array);
-			printk(KERN_EMERG "to_hex: %p\n", to_hex);
-			printk(KERN_EMERG "exists_in_array: %p\n", exists_in_array);
-			printk(KERN_EMERG "log_syscall: %p\n", log_syscall);
-			printk(KERN_EMERG "find_sys_call_table: %p\n", find_sys_call_table);
-			printk(KERN_EMERG "log_to_audit: %p\n", log_to_audit);
-			*/
-			
 			write_cr0 (read_cr0 () | 0x10000);
 			printk(KERN_EMERG "[+] onload: sys_call_table hooked\n");
 			success = 0;
@@ -598,7 +576,6 @@ static void __exit onunload(void) {
     if (syscall_table_address != 0) {
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
         write_cr0 (read_cr0 () & (~ 0x10000));
-        
 		syscall_table[__NR_bind] = (unsigned long)original_bind;
 		syscall_table[__NR_connect] = (unsigned long)original_connect;
 		syscall_table[__NR_accept] = (unsigned long)original_accept;
@@ -609,7 +586,6 @@ static void __exit onunload(void) {
 		syscall_table[__NR_recvfrom] = (unsigned long)original_recvfrom;
 		syscall_table[__NR_recvmsg] = (unsigned long)original_recvmsg;
 		syscall_table[__NR_recvmmsg] = (unsigned long)original_recvmmsg;
-		
         write_cr0 (read_cr0 () | 0x10000);
         printk(KERN_EMERG "[+] onunload: sys_call_table unhooked\n");
     } else {
