@@ -4673,6 +4673,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private AddressPort parseNetworkSaddr(String saddr){
+		// TODO the address = 0.0.0.0 and 127.0.0.1 issue! Rename or not?
 		String address = null, port = null;
 		if (isIPv4Saddr(saddr)) {
 			port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
@@ -4725,6 +4726,9 @@ public class Audit extends AbstractReporter {
 			}
 		}
 
+		// TODO handle unnamed unix socket. Need a new identifier to contain the tgid like for memory identifier.
+		// Unnamed unix socket created through socketpair.
+		// TODO need to handle socketpair syscall for that too.
 		if(path != null && !path.isEmpty()){
 			return new UnixSocketIdentifier(path);
 		}else{
