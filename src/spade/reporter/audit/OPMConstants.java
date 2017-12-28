@@ -87,8 +87,6 @@ public class OPMConstants {
 			ARTIFACT_PERMISSIONS = "permissions", 
 			ARTIFACT_PID = PROCESS_PID,
 			ARTIFACT_PROTOCOL = "protocol",
-			ARTIFACT_PROTOCOL_NAME_UDP = "udp",
-			ARTIFACT_PROTOCOL_NAME_TCP = "tcp",
 			ARTIFACT_READ_FD = "read fd",
 			ARTIFACT_SIZE = "size",
 			ARTIFACT_LOCAL_ADDRESS = "local address",
@@ -131,7 +129,6 @@ public class OPMConstants {
 			OPERATION_EXIT = "exit",
 			OPERATION_FCNTL = "fcntl",
 			OPERATION_FORK = "fork",
-			OPERATION_KILL = "kill",
 			OPERATION_LINK = "link",
 			OPERATION_LOAD = "load",
 			OPERATION_MKNOD = "mknod",
@@ -152,11 +149,7 @@ public class OPMConstants {
 			OPERATION_UNLINK = "unlink",
 			OPERATION_UPDATE = "update",
 			OPERATION_WRITE = "write";
-	
-	private static final int 
-			ARTIFACT_PROTOCOL_NUMBER_UDP = 17,
-			ARTIFACT_PROTOCOL_NUMBER_TCP = 6;
-	
+		
 	private static final Logger logger = Logger.getLogger(OPMConstants.class.getName());
 	
 	// A map from syscall to operation for easy lookup
@@ -176,7 +169,6 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_EXIT, SYSCALL.EXIT, SYSCALL.EXIT_GROUP);
 		addSyscallsToOperations(OPERATION_FCNTL, SYSCALL.FCNTL);
 		addSyscallsToOperations(OPERATION_FORK, SYSCALL.FORK, SYSCALL.VFORK);
-		addSyscallsToOperations(OPERATION_KILL, SYSCALL.KILL);
 		addSyscallsToOperations(OPERATION_LINK, SYSCALL.LINK, SYSCALL.LINKAT, SYSCALL.SYMLINK, SYSCALL.SYMLINKAT);
 		addSyscallsToOperations(OPERATION_LOAD, SYSCALL.LOAD);
 		addSyscallsToOperations(OPERATION_MKNOD, SYSCALL.MKNOD, SYSCALL.MKNODAT);
@@ -386,27 +378,7 @@ public class OPMConstants {
 						|| operations.contains(OPERATION_SEND)
 						|| isMmapRenameLinkWrite(operation));
 	}
-	
-	public static String getProtocolName(int protocolNumber){
-		if(ARTIFACT_PROTOCOL_NUMBER_TCP == protocolNumber){
-			return ARTIFACT_PROTOCOL_NAME_TCP;
-		}else if(ARTIFACT_PROTOCOL_NUMBER_UDP == protocolNumber){
-			return ARTIFACT_PROTOCOL_NAME_UDP;
-		}else{
-			return null;
-		}
-	}
-	
-	public static Integer getProtocolNumber(String protocolName){
-		if(ARTIFACT_PROTOCOL_NAME_TCP.equals(protocolName)){
-			return ARTIFACT_PROTOCOL_NUMBER_TCP;
-		}else if(ARTIFACT_PROTOCOL_NAME_UDP.equals(protocolName)){
-			return ARTIFACT_PROTOCOL_NUMBER_UDP;
-		}else{
-			return null;
-		}
-	}
-	
+		
 	public static boolean isNetworkArtifact(AbstractVertex vertex){
 		if(vertex != null){
 			return SUBTYPE_NETWORK_SOCKET.equals(vertex.getAnnotation(ARTIFACT_SUBTYPE));

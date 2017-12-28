@@ -41,8 +41,7 @@ public enum SYSCALL {
 	SYMLINK, SYMLINKAT, LINK, LINKAT, 
 	UNLINK, UNLINKAT,		
 	RENAME, RENAMEAT,
-	UNKNOWN, // Used for edges between processes where system call wasn't known (not an actual system call) 
-	KILL, 
+	UNKNOWN, // Used for edges between processes where system call wasn't known (not an actual system call)
 	DUP, DUP2, DUP3, 
 	EXIT, EXIT_GROUP, 
 	PIPE, PIPE2, 
@@ -83,7 +82,6 @@ public enum SYSCALL {
 			case 72:	return FCNTL;
 			case 58:	return FORK;
 			case 77:	return FTRUNCATE;
-			case 62:	return KILL;
 			case 86:	return LINK;
 			case 265:	return LINKAT;
 			case 133:	return MKNOD;
@@ -157,7 +155,6 @@ public enum SYSCALL {
 			case 94: return FCHMOD;
 			case 120: return CLONE;
 			case 125: return MPROTECT;
-			case 129: return KILL;
 			case 145: return READV;
 			case 146: return WRITEV;			
 			case 180: return PREAD;

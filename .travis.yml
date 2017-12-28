@@ -4,7 +4,7 @@ jdk:
   - oraclejdk8
 before_install: 
   - sudo apt-get update
-  - sudo apt-get install libaudit-dev auditd libfuse-dev fuse pkg-config uthash-dev
+  - sudo apt-get install libaudit-dev auditd libfuse-dev fuse pkg-config uthash-dev linux-headers-`uname -r`
 script: 
   - ./configure;
   - make

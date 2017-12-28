@@ -104,6 +104,7 @@ public class AuditEventReader {
 			RECORD_TYPE_UBSI_EXIT = "UBSI_EXIT",
 			RECORD_TYPE_UBSI_DEP = "UBSI_DEP",
 			RECORD_TYPE_UNKNOWN_PREFIX = "UNKNOWN[",
+			RECORD_TYPE_USER = "USER",
 			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
 			SGID = "sgid",
@@ -121,7 +122,14 @@ public class AuditEventReader {
 			UNIT_ITERATION = "unit_iteration",
 			UNIT_TIME = "unit_time",
 			UNIT_COUNT = "unit_count",
-			UNIT_DEPS_COUNT = "unit_deps_count";
+			UNIT_DEPS_COUNT = "unit_deps_count",
+			
+			KMODULE_RECORD_TYPE = "netio_module_record",
+			KMODULE_DATA_KEY = "netio_intercepted",
+			KMODULE_FD = "fd",
+			KMODULE_SOCKTYPE = "sock_type",
+			KMODULE_LOCAL_SADDR = "local_saddr",
+			KMODULE_REMOTE_SADDR = "remote_saddr";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -611,7 +619,18 @@ public class AuditEventReader {
 				auditRecordKeyValues.put(EVENT_ID, eventId);
 				auditRecordKeyValues.put(RECORD_TYPE_KEY, type);
 	
-				if (type.equals(RECORD_TYPE_SYSCALL)) {
+				if(type.equals(RECORD_TYPE_USER)){
+					int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
+					if(indexOfData != -1){
+						String data = messageData.substring(indexOfData + KMODULE_DATA_KEY.length() + 1);
+						data = data.substring(1, data.length() - 1);// remove quotes
+						Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
+						eventData.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
+						eventData.put(COMM, parseHexStringToUTF8(eventData.get(COMM)));
+						eventData.put(TIME, time);
+						auditRecordKeyValues.putAll(eventData);
+					}
+				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
 					if(messageData.contains(COMM + "=") && !messageData.contains(COMM + "=\"")
 							&& !"(null)".equals(eventData.get(COMM))){ // comm has a hex encoded value
@@ -741,5 +760,4 @@ public class AuditEventReader {
 		CharBuffer cb = cs.decode(bytes);
 		return cb.toString();
 	}
-	
 }

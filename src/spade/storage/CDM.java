@@ -60,6 +60,7 @@ import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
+import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.vertex.prov.Agent;
@@ -518,7 +519,7 @@ public class CDM extends Kafka {
 					String destAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
 					String destPort = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
 					String protocolName = vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL); //can be null
-					Integer protocol = OPMConstants.getProtocolNumber(protocolName);
+					Integer protocol = Audit.getProtocolNumber(protocolName);
 
 					srcAddress = srcAddress == null ? "" : srcAddress;
 					destAddress = destAddress == null ? "" : destAddress;

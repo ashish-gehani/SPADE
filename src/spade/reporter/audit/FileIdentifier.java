@@ -29,5 +29,4 @@ public class FileIdentifier extends IdentifierWithPath{
 	public String getSubtype(){
 		return OPMConstants.SUBTYPE_FILE;
 	}
-	
 }
