@@ -110,7 +110,7 @@ public class CDM extends Kafka {
 	/**
 	 * Flag whose value is set from arguments to decide whether to output hashcode and hex or raw bytes
 	 */
-	private boolean hexUUIDs = true;
+	private boolean hexUUIDs = false;
 	/**
 	 * A map used to keep track of:
 	 * 1) To keep track of parent subject UUIDs, equivalent to ppid
@@ -158,6 +158,9 @@ public class CDM extends Kafka {
 						EventType.EVENT_EXECUTE);
 		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UPDATE)), 
 						EventType.EVENT_CHANGE_PRINCIPAL);
 		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)), 
@@ -794,10 +797,19 @@ public class CDM extends Kafka {
 	}
 
 	@Override
-	public boolean initialize(String arguments) {
+	public boolean initialize(String arguments){
 		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
-		if("false".equals(argumentsMap.get("hexUUIDs"))){
-			hexUUIDs = false;
+		String hexUUIDsArgValue = argumentsMap.get("hexUUIDs");
+		if(hexUUIDsArgValue != null){
+			hexUUIDsArgValue = hexUUIDsArgValue.trim();
+			if("false".equals(hexUUIDsArgValue)){
+				hexUUIDs = false;
+			}else if("true".equals(hexUUIDsArgValue)){
+				hexUUIDs = true;
+			}else{
+				logger.log(Level.SEVERE, "Invalid 'hexUUIDs' value: " + hexUUIDsArgValue + ". Only 'true' or 'false'");
+				return false;
+			}
 		}
 		
 		String sessionNumberString = argumentsMap.get("session");
@@ -926,30 +938,72 @@ public class CDM extends Kafka {
 		 * writing the subject uuid for a pid set by a process vertex later on.
 		 * 
 		 */
-		List<AbstractEdge> edges = new ArrayList<AbstractEdge>();
-		List<AbstractVertex> verticesBeforeAndBetweenEdges = new ArrayList<AbstractVertex>();
-		List<AbstractVertex> verticesAfterTheLastEdge = new ArrayList<AbstractVertex>();
+		// Create a copy to be safe
+		List<Object> objectsCopy = new ArrayList<Object>(objects);
 		
-		List<AbstractVertex> vertexListRef = verticesAfterTheLastEdge;
-		
-		for(int a = objects.size() - 1 ; a>=0; a--){
-			Object object = objects.get(a);
+		/*
+		 * Handling the case where each event can now contain process agent update events
+		 * with the same time and event id. 
+		 * Iterating through the list and processing them first one by one (i.e. as each 
+		 * edge for process update is encountered). 
+		 * Then the rest of the list is processed (excluding the already processed one)
+		 * 
+		 * Note: Relies on NO mixing of vertices. Meaning that all vertices for an edge are seen
+		 * before than edge and there is no edge between a vertex and the corresponding edge.
+		 * 
+		 * Example: P1, P2, P2->P1, P4, P4->P2 (is correct), and P1, P2, P4, P2->P1, P4->P2 (is wrong)
+		 */
+		int lastProcessUpdateEdgeIndex = 0;
+		List<AbstractVertex> currentProcessUpdateVertices = new ArrayList<AbstractVertex>();
+		for(int a = 0; a < objectsCopy.size(); a++){
+			Object object = objectsCopy.get(a);
 			if(object instanceof AbstractVertex){
-				vertexListRef.add((AbstractVertex)object);
+				currentProcessUpdateVertices.add((AbstractVertex)object);
 			}else if(object instanceof AbstractEdge){
-				vertexListRef = verticesBeforeAndBetweenEdges;
-				edges.add((AbstractEdge)object);
+				AbstractEdge edge = (AbstractEdge)object;
+				if(edge.type().equals(OPMConstants.WAS_TRIGGERED_BY)
+						&& OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					for(AbstractVertex vertex : currentProcessUpdateVertices){
+						publishVertex(vertex);
+					}
+					processEdgesWrapper(Arrays.asList(edge));
+					currentProcessUpdateVertices.clear();
+					lastProcessUpdateEdgeIndex = a+1;
+				}
 			}else{
 				logger.log(Level.WARNING, "Unexpected object type in: " + objects);
 			}
 		}
 		
-		for(AbstractVertex vertex : verticesBeforeAndBetweenEdges){
-			publishVertex(vertex);
-		}
-		processEdgesWrapper(edges);
-		for(AbstractVertex vertex : verticesAfterTheLastEdge){
-			publishVertex(vertex);
+		// process the rest if there are any remaining vertices and edges
+		if(objectsCopy.size() > lastProcessUpdateEdgeIndex){
+			objectsCopy = objectsCopy.subList(lastProcessUpdateEdgeIndex, objectsCopy.size());
+			
+			List<AbstractEdge> edges = new ArrayList<AbstractEdge>();
+			List<AbstractVertex> verticesBeforeAndBetweenEdges = new ArrayList<AbstractVertex>();
+			List<AbstractVertex> verticesAfterTheLastEdge = new ArrayList<AbstractVertex>();
+			
+			List<AbstractVertex> vertexListRef = verticesAfterTheLastEdge;
+			
+			for(int a = objectsCopy.size() - 1 ; a>=0; a--){
+				Object object = objectsCopy.get(a);
+				if(object instanceof AbstractVertex){
+					vertexListRef.add((AbstractVertex)object);
+				}else if(object instanceof AbstractEdge){
+					vertexListRef = verticesBeforeAndBetweenEdges;
+					edges.add((AbstractEdge)object);
+				}else{
+					logger.log(Level.WARNING, "Unexpected object type in: " + objects);
+				}
+			}
+			
+			for(AbstractVertex vertex : verticesBeforeAndBetweenEdges){
+				publishVertex(vertex);
+			}
+			processEdgesWrapper(edges);
+			for(AbstractVertex vertex : verticesAfterTheLastEdge){
+				publishVertex(vertex);
+			}
 		}
 	}
 	
@@ -966,7 +1020,9 @@ public class CDM extends Kafka {
 				|| (edgesContainTypeOperation(edges, 
 						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))
 				|| (edgesContainTypeOperation(edges, 
-						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)))){
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)))
+				|| (edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UPDATE)))){
 			processIndividually = true;
 		}else if(edgesContainTypeOperation(edges,
 				new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE))){
@@ -1113,7 +1169,8 @@ public class CDM extends Kafka {
 						// C would get the pid for A' instead of A as it's parentProcessUUID
 						// Not doing this for UNIT vertices
 						if((OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
-								|| OPMConstants.OPERATION_SETGID.equals(edgeOperation))
+								|| OPMConstants.OPERATION_SETGID.equals(edgeOperation)
+								|| OPMConstants.OPERATION_UPDATE.equals(edgeOperation))
 								&& actedUpon1.getAnnotation(OPMConstants.PROCESS_ITERATION) == null){
 							// The acted upon vertex is the new containing process for the pid. 
 							// Excluding units from coming in here
