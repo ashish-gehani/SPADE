@@ -748,15 +748,24 @@ public class CDM extends Kafka {
 	}
 
 	@Override
-	public boolean initialize(String arguments) {
+	public boolean initialize(String arguments){
+		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+		String hexUUIDsArgValue = argumentsMap.get("hexUUIDs");
+		if(hexUUIDsArgValue != null){
+			hexUUIDsArgValue = hexUUIDsArgValue.trim();
+			if("false".equals(hexUUIDsArgValue)){
+				hexUUIDs = false;
+			}else if("true".equals(hexUUIDsArgValue)){
+				hexUUIDs = true;
+			}else{
+				logger.log(Level.SEVERE, "Invalid 'hexUUIDs' value: " + hexUUIDsArgValue + ". Only 'true' or 'false'");
+				return false;
+			}
+		}
+		
 		boolean initResult = super.initialize(arguments);
 		if(!initResult){
 			return false;
-		}// else continue
-
-		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
-		if("false".equals(argumentsMap.get("hexUUIDs"))){
-			hexUUIDs = false;
 		}
 
 		populateEventRules();
