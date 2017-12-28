@@ -200,26 +200,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	protected void setProcessUnitState(ProcessUnitState state){
 		String pid = state.getProcess().pid;
-		String startTime = state.getProcess().startTime;
-		
-		/*
-		 * TODO
-		 * TODO
-		 * TODO
-		 * 
-		 * Rounding off the start time to seconds to match with the current spadeAuditBridge code.
-		 * 
-		 * Rounding off will be removed after the updated unit-dev branch merged.
-		 * 
-		 */
-		
-		if(startTime != null){
-			Double startTimeDouble = CommonFunctions.parseDouble(startTime, null);
-			if(startTimeDouble != null){
-				startTime = startTimeDouble.longValue() + ".000";
-			}
-		}
-		
+		String startTime = state.getProcess().startTime;		
 		ProcessKey key = new ProcessKey(pid, startTime);
 		processUnitStates.put(key, state);
 		active.put(pid, key);
@@ -248,24 +229,6 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @return process unit state
 	 */
 	private ProcessUnitState getProcessUnitState(String pid, String startTime){
-		/*
-		 * TODO
-		 * TODO
-		 * TODO
-		 * 
-		 * Rounding off the start time to seconds to match with the current spadeAuditBridge code.
-		 * 
-		 * Rounding off will be removed after the updated unit-dev branch merged.
-		 * 
-		 */
-		
-		if(startTime != null){
-			Double startTimeDouble = CommonFunctions.parseDouble(startTime, null);
-			if(startTimeDouble != null){
-				startTime = startTimeDouble.longValue() + ".000";
-			}
-		}
-		
 		ProcessKey key = new ProcessKey(pid, startTime);
 		return processUnitStates.get(key);
 	}
