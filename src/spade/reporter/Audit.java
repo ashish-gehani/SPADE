@@ -3110,8 +3110,8 @@ public class Audit extends AbstractReporter {
 		processManager.setFd(pid, fd0, readPipeIdentifier, true);
 		processManager.setFd(pid, fd1, writePipeIdentifier, false);
 
+		// Both identifiers are identical so only need to increment epoch for one of them.
 		markNewEpochForArtifact(readPipeIdentifier);
-		markNewEpochForArtifact(writePipeIdentifier);
 	}
 	
 	public static Integer getProtocolNumber(String protocolName){
