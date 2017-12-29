@@ -24,20 +24,19 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.codehaus.jackson.map.ObjectMapper;
-import org.json.JSONObject;
 
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
@@ -105,7 +104,6 @@ public class AuditEventReader {
 			RECORD_TYPE_UBSI_EXIT = "UBSI_EXIT",
 			RECORD_TYPE_UBSI_DEP = "UBSI_DEP",
 			RECORD_TYPE_UNKNOWN_PREFIX = "UNKNOWN[",
-			RECORD_TYPE_USER = "USER",
 			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
 			SGID = "sgid",
@@ -123,14 +121,7 @@ public class AuditEventReader {
 			UNIT_ITERATION = "unit_iteration",
 			UNIT_TIME = "unit_time",
 			UNIT_COUNT = "unit_count",
-			UNIT_DEPS_COUNT = "unit_deps_count",
-			USER_MSG_SPADE_AUDIT_HOST_KEY = "spade_host_msg",
-			KMODULE_RECORD_TYPE = "netio_module_record",
-			KMODULE_DATA_KEY = "netio_intercepted",
-			KMODULE_FD = "fd",
-			KMODULE_SOCKTYPE = "sock_type",
-			KMODULE_LOCAL_SADDR = "local_saddr",
-			KMODULE_REMOTE_SADDR = "remote_saddr";
+			UNIT_DEPS_COUNT = "unit_deps_count";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -271,7 +262,6 @@ public class AuditEventReader {
 				if(rotateAfterRecordCount > 0 && recordsWrittenToOutputLog >= rotateAfterRecordCount){
 					recordsWrittenToOutputLog = 0;
 					currentOutputLogFileCount++;
-					outputLogWriter.flush();
 					outputLogWriter.close();
 					outputLogWriter = new PrintWriter(outputLogFile + "." + currentOutputLogFileCount);
 				}
@@ -621,33 +611,12 @@ public class AuditEventReader {
 				auditRecordKeyValues.put(EVENT_ID, eventId);
 				auditRecordKeyValues.put(RECORD_TYPE_KEY, type);
 	
-				if(type.equals(RECORD_TYPE_USER)){
-					int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
-					if(indexOfData != -1){
-						String data = messageData.substring(indexOfData + KMODULE_DATA_KEY.length() + 1);
-						data = data.substring(1, data.length() - 1);// remove quotes
-						Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
-						eventData.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
-						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
-						eventData.put(TIME, time);
-						auditRecordKeyValues.putAll(eventData);
-					}else{
-						if(line.contains(USER_MSG_SPADE_AUDIT_HOST_KEY)){
-							 Map<String, String> hostInfo = parseAuditUserMessageWithHostInfo(line);
-							 if(hostInfo == null){
-								 logger.log(Level.WARNING, "Failed to parse host record: " + line);
-							 }else{
-								 auditRecordKeyValues.putAll(hostInfo);
-								 auditRecordKeyValues.put(RECORD_TYPE_KEY, USER_MSG_SPADE_AUDIT_HOST_KEY);
-							 }
-						 }
-					}
-				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
+				if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
 					if(messageData.contains(COMM + "=") && !messageData.contains(COMM + "=\"")
 							&& !"(null)".equals(eventData.get(COMM))){ // comm has a hex encoded value
 						// decode and replace value
-						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+						eventData.put(COMM, parseHexStringToUTF8(eventData.get(COMM)));
 					}
 					eventData.put(TIME, time);
 					auditRecordKeyValues.putAll(eventData);
@@ -660,7 +629,7 @@ public class AuditEventReader {
 							cwd = cwd.substring(1, cwd.length()-1);
 						}else{ //is in hex format
 							try{
-								cwd = CommonFunctions.decodeHex(cwd);
+								cwd = parseHexStringToUTF8(cwd);
 							}catch(Exception e){
 								//failed to parse
 							}
@@ -681,7 +650,7 @@ public class AuditEventReader {
 							!messageData.contains(" name=(null)")){ 
 						//is a hex path if the value of the key name doesn't start with double quotes
 						try{
-							name = CommonFunctions.decodeHex(name);
+							name = parseHexStringToUTF8(name);
 						}catch(Exception e){
 							//failed to parse
 						}
@@ -723,8 +692,13 @@ public class AuditEventReader {
 					while (key_value_matcher.find()) {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
 					}
+				} else if(type.equals(RECORD_TYPE_PROCTITLE)){
+					//record type not being handled at the moment. 
 				} else{
-					             
+					//            	if(!seenTypesOfUnsupportedRecords.contains(type)){
+					//            		seenTypesOfUnsupportedRecords.add(type);
+					//            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
+					//            	}                
 				}
 	
 			} else {
@@ -735,43 +709,37 @@ public class AuditEventReader {
 		return auditRecordKeyValues;
 	}
 	
-	public static String buildAuditUserMessageForHostInfo(Map<String, String> hostInfo){
-		if(hostInfo == null){
+	/**
+	 * Converts hex string as UTF-8
+	 * 
+	 * @param hexString string to parse
+	 * @return parsed string
+	 */
+	private String parseHexStringToUTF8(String hexString){
+		if(hexString == null){
 			return null;
-		}else{
-			JSONObject jsonObject = new JSONObject(hostInfo);
-			String jsonObjectString = jsonObject.toString();
-			String jsonObjectStringHex = CommonFunctions.encodeHex(jsonObjectString);
-			return USER_MSG_SPADE_AUDIT_HOST_KEY+":[" + jsonObjectStringHex + "]";
 		}
-	}
-	
-	public static Map<String, String> parseAuditUserMessageWithHostInfo(String record){
-		if(record == null){
-			return null;
-		}else{
-			int msgStartIndex = record.indexOf(USER_MSG_SPADE_AUDIT_HOST_KEY+":");
-			if(msgStartIndex < 0){
-				return null;
-			}else{
-				int valueStartIndex = record.indexOf('[', msgStartIndex);
-				int valueEndIndex = record.indexOf(']', valueStartIndex+1);
-				if(valueStartIndex > -1 && valueEndIndex > -1){
-					String jsonObjectStringHex = record.substring(valueStartIndex+1, valueEndIndex);
-					String jsonObjectString = CommonFunctions.decodeHex(jsonObjectStringHex);
-					try{
-						Map<String, String> map = 
-								(TreeMap<String, String>)new ObjectMapper().readValue(jsonObjectString, TreeMap.class);
-						return map;
-					}catch(Exception e){
-						return null;
-					}
-				}else{
-					return null;
-				}
+
+		//find the null char i.e. the end of the string
+		for(int a = 0; a<=hexString.length()-2; a+=2){
+			String hexByte = hexString.substring(a,a+2);
+			Integer intByte = Integer.parseInt(hexByte, 16);
+			char c = (char)(intByte.intValue());
+			if(c == 0){ //null char
+				hexString = hexString.substring(0, a);
+				break;
 			}
 		}
+
+		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
+		for(int a = 0; a<=hexString.length()-2; a+=2){
+			bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
+
+		}
+		bytes.rewind();
+		Charset cs = Charset.forName("UTF-8");
+		CharBuffer cb = cs.decode(bytes);
+		return cb.toString();
 	}
-	
 	
 }

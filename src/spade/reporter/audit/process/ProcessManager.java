@@ -34,11 +34,7 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.ArtifactIdentifier;
 import spade.reporter.audit.AuditEventReader;
-import spade.reporter.audit.BlockDeviceIdentifier;
-import spade.reporter.audit.CharacterDeviceIdentifier;
-import spade.reporter.audit.DirectoryIdentifier;
 import spade.reporter.audit.FileIdentifier;
-import spade.reporter.audit.LinkIdentifier;
 import spade.reporter.audit.NamedPipeIdentifier;
 import spade.reporter.audit.NetworkSocketIdentifier;
 import spade.reporter.audit.OPMConstants;
@@ -752,42 +748,20 @@ public abstract class ProcessManager extends ProcessStateManager{
 							}else{ //named pipe
 								fds.put(fdString, new NamedPipeIdentifier(path));
 							}	    						
-						}else if("ipv4".equals(type) && line.contains("(ESTABLISHED)")){
+						}else if("ipv4".equals(type) || "ipv6".equals(type)){
 							String protocol = String.valueOf(tokens[8]).toLowerCase();
 							//example of this token = 10.0.2.15:35859->172.231.72.152:443 (ESTABLISHED)
 							String[] srchostport = tokens[9].split("->")[0].split(":");
 							String[] dsthostport = tokens[9].split("->")[1].split("\\s+")[0].split(":");
-							fds.put(fdString, new NetworkSocketIdentifier(srchostport[0], srchostport[1], 
-									dsthostport[0], dsthostport[1], protocol));
-						}else if("ipv6".equals(type) && line.contains("(ESTABLISHED)")){
-							String protocol = String.valueOf(tokens[8]).toLowerCase();
-							//example of this token = [::1]:48644->[::1]:631 (ESTABLISHED)
-							String src = tokens[9].split("->")[0];
-							String dst = tokens[9].split("->")[1].split("\\s+")[0];
-							String srcaddr = src.substring(0, src.lastIndexOf(':')).replace("[", "").replace("]", "");
-							String srcport = src.substring(src.lastIndexOf(':') + 1);
-							String dstaddr = dst.substring(0, dst.lastIndexOf(':')).replace("[", "").replace("]", "");
-							String dstport = dst.substring(dst.lastIndexOf(':') + 1);
-							fds.put(fdString, new NetworkSocketIdentifier(srcaddr, srcport, 
-									dstaddr, dstport, protocol));
-						}else if(type != null){
-							ArtifactIdentifier identifier = null;
+							fds.put(fdString, new NetworkSocketIdentifier(srchostport[0], srchostport[1], dsthostport[0], 
+									dsthostport[1], protocol));
+						}else if("reg".equals(type) || "chr".equals(type)){
 							String path = tokens[9];
-							switch (type) {
-								case "unix": 
-									if(!"socket".equals(path)){ // abstract socket and don't know the name
-										identifier = new UnixSocketIdentifier(path);
-									}
-									break;
-								case "blk": identifier = new BlockDeviceIdentifier(path); break;
-								case "chr": identifier = new CharacterDeviceIdentifier(path); break;
-								case "dir": identifier = new DirectoryIdentifier(path); break;
-								case "link": identifier = new LinkIdentifier(path); break;
-								case "reg": identifier = new FileIdentifier(path); break;
-								default: break;
-							}
-							if(identifier != null){
-								fds.put(fdString, identifier);
+							fds.put(fdString, new FileIdentifier(path));  						
+						}else if("unix".equals(type)){
+							String path = tokens[9];
+							if(!path.equals("socket")){
+								fds.put(fdString, new UnixSocketIdentifier(path));
 							}
 						}
 					}

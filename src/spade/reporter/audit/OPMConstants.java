@@ -87,6 +87,8 @@ public class OPMConstants {
 			ARTIFACT_PERMISSIONS = "permissions", 
 			ARTIFACT_PID = PROCESS_PID,
 			ARTIFACT_PROTOCOL = "protocol",
+			ARTIFACT_PROTOCOL_NAME_UDP = "udp",
+			ARTIFACT_PROTOCOL_NAME_TCP = "tcp",
 			ARTIFACT_READ_FD = "read fd",
 			ARTIFACT_SIZE = "size",
 			ARTIFACT_LOCAL_ADDRESS = "local address",
@@ -95,29 +97,15 @@ public class OPMConstants {
 			ARTIFACT_TGID = "tgid",
 			ARTIFACT_VERSION = "version",
 			ARTIFACT_WRITE_FD = "write fd",
-			ARTIFACT_HOST_TYPE = "host type",
-			ARTIFACT_HOST_TYPE_DESKTOP = "desktop",
-			ARTIFACT_HOST_NETWORK_NAME = "host name",
-			ARTIFACT_HOST_OPERATING_SYSTEM = "host operating system",
-			ARTIFACT_HOST_SERIAL_NUMBER = "serial number",
-			ARTIFACT_HOST_INTERFACES_COUNT = "interface count",
-			ARTIFACT_HOST_INTERFACE_NAME_PREFIX = "interface name",
-			ARTIFACT_HOST_INTERFACE_MAC_ADDRESS_PREFIX = "interface mac address",
-			ARTIFACT_HOST_INTERFACE_IP_ADDRESSES_PREFIX = "interface ip addresses",
 
 			// Allowed subtype annotation values
 			SUBTYPE_FILE = "file",
-			SUBTYPE_DIRECTORY = "directory",
-			SUBTYPE_BLOCK_DEVICE = "block device",
-			SUBTYPE_CHARACTER_DEVICE = "character device",
-			SUBTYPE_LINK = "link",
 			SUBTYPE_MEMORY_ADDRESS = "memory",
 			SUBTYPE_NAMED_PIPE = "named pipe",
 			SUBTYPE_NETWORK_SOCKET = "network socket",
 			SUBTYPE_UNIX_SOCKET = "unix socket",
 			SUBTYPE_UNKNOWN = "unknown",
 			SUBTYPE_UNNAMED_PIPE = "unnamed pipe",
-			SUBTYPE_HOST = "host",
 			
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",
@@ -143,6 +131,7 @@ public class OPMConstants {
 			OPERATION_EXIT = "exit",
 			OPERATION_FCNTL = "fcntl",
 			OPERATION_FORK = "fork",
+			OPERATION_KILL = "kill",
 			OPERATION_LINK = "link",
 			OPERATION_LOAD = "load",
 			OPERATION_MKNOD = "mknod",
@@ -163,7 +152,11 @@ public class OPMConstants {
 			OPERATION_UNLINK = "unlink",
 			OPERATION_UPDATE = "update",
 			OPERATION_WRITE = "write";
-		
+	
+	private static final int 
+			ARTIFACT_PROTOCOL_NUMBER_UDP = 17,
+			ARTIFACT_PROTOCOL_NUMBER_TCP = 6;
+	
 	private static final Logger logger = Logger.getLogger(OPMConstants.class.getName());
 	
 	// A map from syscall to operation for easy lookup
@@ -183,6 +176,7 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_EXIT, SYSCALL.EXIT, SYSCALL.EXIT_GROUP);
 		addSyscallsToOperations(OPERATION_FCNTL, SYSCALL.FCNTL);
 		addSyscallsToOperations(OPERATION_FORK, SYSCALL.FORK, SYSCALL.VFORK);
+		addSyscallsToOperations(OPERATION_KILL, SYSCALL.KILL);
 		addSyscallsToOperations(OPERATION_LINK, SYSCALL.LINK, SYSCALL.LINKAT, SYSCALL.SYMLINK, SYSCALL.SYMLINKAT);
 		addSyscallsToOperations(OPERATION_LOAD, SYSCALL.LOAD);
 		addSyscallsToOperations(OPERATION_MKNOD, SYSCALL.MKNOD, SYSCALL.MKNODAT);
@@ -392,7 +386,27 @@ public class OPMConstants {
 						|| operations.contains(OPERATION_SEND)
 						|| isMmapRenameLinkWrite(operation));
 	}
-		
+	
+	public static String getProtocolName(int protocolNumber){
+		if(ARTIFACT_PROTOCOL_NUMBER_TCP == protocolNumber){
+			return ARTIFACT_PROTOCOL_NAME_TCP;
+		}else if(ARTIFACT_PROTOCOL_NUMBER_UDP == protocolNumber){
+			return ARTIFACT_PROTOCOL_NAME_UDP;
+		}else{
+			return null;
+		}
+	}
+	
+	public static Integer getProtocolNumber(String protocolName){
+		if(ARTIFACT_PROTOCOL_NAME_TCP.equals(protocolName)){
+			return ARTIFACT_PROTOCOL_NUMBER_TCP;
+		}else if(ARTIFACT_PROTOCOL_NAME_UDP.equals(protocolName)){
+			return ARTIFACT_PROTOCOL_NUMBER_UDP;
+		}else{
+			return null;
+		}
+	}
+	
 	public static boolean isNetworkArtifact(AbstractVertex vertex){
 		if(vertex != null){
 			return SUBTYPE_NETWORK_SOCKET.equals(vertex.getAnnotation(ARTIFACT_SUBTYPE));
@@ -407,42 +421,4 @@ public class OPMConstants {
 		}
 		return false;
 	}
-	
-	public static String buildHostNetworkInterfaceNameKey(int i){
-		return ARTIFACT_HOST_INTERFACE_NAME_PREFIX + " " + i;
-	}
-	
-	public static String buildHostNetworkInterfaceMacAddressKey(int i){
-		return ARTIFACT_HOST_INTERFACE_MAC_ADDRESS_PREFIX + " " + i;
-	}
-	
-	public static String buildHostNetworkInterfaceIpAddressesKey(int i){
-		return ARTIFACT_HOST_INTERFACE_IP_ADDRESSES_PREFIX + " " + i;
-	}
-	
-	public static String buildHostNetworkInterfaceIpAddressesValue(List<String> ipAddresses){
-		if(ipAddresses != null){
-			StringBuilder ipAddressesString = new StringBuilder();
-			for(String ipAddress : ipAddresses){
-				ipAddressesString.append(ipAddress).append(",");
-			}
-			if(ipAddressesString.length() > 0){
-				ipAddressesString.deleteCharAt(ipAddressesString.length()-1);
-			}
-			return ipAddressesString.toString();
-		}else{
-			return null;
-		}
-	}
-	
-	public static List<CharSequence> parseHostNetworkInterfaceIpAddressesValue(String ipAddresses){
-		if(ipAddresses != null){
-			String tokens[] = ipAddresses.split(",");
-			return Arrays.asList(tokens);
-		}else{
-			return null;
-		}
-	}
-	
-	
 }
