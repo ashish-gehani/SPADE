@@ -3019,8 +3019,8 @@ public class Audit extends AbstractReporter {
 		processManager.setFd(pid, fd0, readPipeIdentifier, true);
 		processManager.setFd(pid, fd1, writePipeIdentifier, false);
 
+		// Increment epoch only on one of the identifiers because both are same in artifact properties.
 		markNewEpochForArtifact(readPipeIdentifier);
-		markNewEpochForArtifact(writePipeIdentifier);
 	}
 
 	private void handleNetfilterPacketEvent(Map<String, String> eventData){
