@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.codec.binary.Hex;
+
 public class CommonFunctions {
 
 	// Group 1: key
@@ -137,5 +139,34 @@ public class CommonFunctions {
     	}else{
     		return str.trim().isEmpty();
     	}
+    }
+    
+    /**
+     * Decodes the hex string. Null if failed.
+     * 
+     * @param hexString string in hex format
+     * @return converted ascii string
+     */
+    public static String decodeHex(String hexString){
+		if(hexString == null){
+			return null;
+		}else{
+			try{
+				return new String(Hex.decodeHex(hexString.toCharArray()));
+			}catch(Exception e){
+				// ignore
+				return null;
+			}
+		}
+	}
+    
+    /**
+     * Create hex string from ascii
+     * 
+     * @param string
+     * @return converted hex string
+     */
+    public static String encodeHex(String string){
+    	return Hex.encodeHexString(String.valueOf(string).getBytes());
     }
 }

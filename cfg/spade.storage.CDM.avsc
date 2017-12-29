@@ -1,14 +1,14 @@
 {
   "type" : "record",
   "name" : "TCCDMDatum",
-  "namespace" : "com.bbn.tc.schema.avro",
+  "namespace" : "com.bbn.tc.schema.avro.cdm18",
   "doc" : "* A record representing either a vertex or an edge. This is the top level record that allows\n     * us to easily mix the vertices and edges defined above on the wire.",
   "fields" : [ {
     "name" : "datum",
     "type" : [ {
       "type" : "record",
-      "name" : "Principal",
-      "doc" : "* A principal is a local user\n     * TODO: extend to include remote principals\n     * TODO: what happens when the user information changes (are we tracking versions?)\n     * TODO: Authentication mechanisms: are TA1s providing that information and how?",
+      "name" : "Host",
+      "doc" : "* Hosts represent a host/machine/node in a network.",
       "fields" : [ {
         "name" : "uuid",
         "type" : {
@@ -16,6 +16,74 @@
           "name" : "UUID",
           "size" : 16
         },
+        "doc" : "universally unique identifier for the host"
+      }, {
+        "name" : "hostName",
+        "type" : "string",
+        "doc" : "hostname or machine name"
+      }, {
+        "name" : "hostIdentifiers",
+        "type" : {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "HostIdentifier",
+            "doc" : "Host identifier, such as serial number, IMEI number",
+            "fields" : [ {
+              "name" : "idType",
+              "type" : "string"
+            }, {
+              "name" : "idValue",
+              "type" : "string"
+            } ]
+          }
+        },
+        "doc" : "list of identifiers, such as serial number, IMEI number"
+      }, {
+        "name" : "osDetails",
+        "type" : "string",
+        "doc" : "OS level details revealed by tools such as uname -a"
+      }, {
+        "name" : "hostType",
+        "type" : {
+          "type" : "enum",
+          "name" : "HostType",
+          "doc" : "* HostType enumerates the host roles or device types",
+          "symbols" : [ "HOST_MOBILE", "HOST_SERVER", "HOST_DESKTOP" ]
+        },
+        "doc" : "host's role or device type, such as mobile, server, desktop"
+      }, {
+        "name" : "interfaces",
+        "type" : {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "Interface",
+            "doc" : "Interface name and addresses",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string"
+            }, {
+              "name" : "macAddress",
+              "type" : "string"
+            }, {
+              "name" : "ipAddresses",
+              "type" : {
+                "type" : "array",
+                "items" : "string"
+              }
+            } ]
+          }
+        },
+        "doc" : "names and addresses of network interfaces"
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "Principal",
+      "doc" : "* A principal is a local user\n     * TODO: extend to include remote principals\n     * TODO: what happens when the user information changes (are we tracking versions?)\n     * TODO: Authentication mechanisms: are TA1s providing that information and how?",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
         "doc" : "A unique id for the principal"
       }, {
         "name" : "type",
@@ -27,6 +95,10 @@
         },
         "doc" : "The type of the principal, local by default",
         "default" : "PRINCIPAL_LOCAL"
+      }, {
+        "name" : "hostId",
+        "type" : "UUID",
+        "doc" : "Host where principal exists"
       }, {
         "name" : "userId",
         "type" : "string",
@@ -50,7 +122,8 @@
           "values" : "string"
         } ],
         "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
-        "default" : null
+        "default" : null,
+        "order" : "ignore"
       } ]
     }, {
       "type" : "record",
@@ -63,7 +136,12 @@
       }, {
         "name" : "flowObject",
         "type" : [ "null", "UUID" ],
-        "doc" : "* The UUID of the source or sink object associated with this\n         * tag. (Optional)\n         *\n         * This attribute is optional because if the\n         * ProvenanceTagNode is simply joining two existing\n         * provenances (e.g., when two values are added together), there\n         * is no flow object associated with that definition.\n         *"
+        "doc" : "* The UUID of the source or sink object associated with this\n         * tag. (Optional)\n         *\n         * This attribute is optional because if the\n         * ProvenanceTagNode is simply joining two existing\n         * provenances (e.g., when two values are added together), there\n         * is no flow object associated with that definition.\n         *",
+        "default" : null
+      }, {
+        "name" : "hostId",
+        "type" : "UUID",
+        "doc" : "Host on which the src/sink action is occuring"
       }, {
         "name" : "subject",
         "type" : "UUID",
@@ -127,7 +205,8 @@
           "values" : "string"
         } ],
         "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
-        "default" : null
+        "default" : null,
+        "order" : "ignore"
       } ]
     }, {
       "type" : "record",
@@ -153,8 +232,12 @@
       }, {
         "name" : "parentSubject",
         "type" : [ "null", "UUID" ],
-        "doc" : "* parent subject's UUID. For a process, this is a parent\n         * process. For a thread, this is the process that created the\n         * thread. Only optional because in some cases the parent not\n         * be known; null value indicates that the parent is unknown.",
+        "doc" : "* parent subject's UUID. For a process, this is a parent\n         * process. For a thread, this is the process that created the\n         * thread. Only optional because in some cases the parent may not\n         * be known; null value indicates that the parent is unknown.",
         "default" : null
+      }, {
+        "name" : "hostId",
+        "type" : "UUID",
+        "doc" : "Host where subject is executing"
       }, {
         "name" : "localPrincipal",
         "type" : "UUID",
@@ -171,7 +254,7 @@
       }, {
         "name" : "iteration",
         "type" : [ "null", "int" ],
-        "doc" : "iteration and count are used for distinguishing individual “units” of execution (Optional)",
+        "doc" : "iteration and count are used for distinguishing individual \"units\" of execution (Optional)",
         "default" : null
       }, {
         "name" : "count",
@@ -215,7 +298,8 @@
           "values" : "string"
         } ],
         "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
-        "default" : null
+        "default" : null,
+        "order" : "ignore"
       } ]
     }, {
       "type" : "record",
@@ -232,6 +316,10 @@
           "name" : "AbstractObject",
           "doc" : "*  Objects, in general, represent data sources and sinks which\n     *  could include sockets, files, memory, and any data in general\n     *  that can be an input and/or output to an event.  This record\n     *  is intended to be abstract i.e., one should not instantiate an\n     *  Object but rather instantiate one of its sub types (ie,\n     *  encapsulating records) FileObject, UnnamedPipeObject,\n     *  RegistryKeyObject, NetFlowObject, MemoryObject, or\n     *  SrcSinkObject.",
           "fields" : [ {
+            "name" : "hostId",
+            "type" : "UUID",
+            "doc" : "Host where object exists"
+          }, {
             "name" : "permission",
             "type" : [ "null", {
               "type" : "fixed",
@@ -252,7 +340,8 @@
               "values" : "string"
             } ],
             "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
-            "default" : null
+            "default" : null,
+            "order" : "ignore"
           } ]
         },
         "doc" : "The base object attributes"
@@ -262,7 +351,7 @@
           "type" : "enum",
           "name" : "FileObjectType",
           "doc" : "* These types enumerate the types of FileObjects",
-          "symbols" : [ "FILE_OBJECT_FILE", "FILE_OBJECT_DIR", "FILE_OBJECT_NAMED_PIPE", "FILE_OBJECT_UNIX_SOCKET", "FILE_OBJECT_PEFILE" ]
+          "symbols" : [ "FILE_OBJECT_BLOCK", "FILE_OBJECT_CHAR", "FILE_OBJECT_DIR", "FILE_OBJECT_FILE", "FILE_OBJECT_LINK", "FILE_OBJECT_NAMED_PIPE", "FILE_OBJECT_PEFILE", "FILE_OBJECT_UNIX_SOCKET" ]
         },
         "doc" : "The type of FileObject"
       }, {
@@ -326,11 +415,21 @@
         "doc" : "The base object attributes"
       }, {
         "name" : "sourceFileDescriptor",
-        "type" : "int",
-        "doc" : "File descriptors for reading and writing."
+        "type" : [ "null", "int" ],
+        "doc" : "* Although file descriptor and UUID src/sink pairs are\n         * individually optional, at least one pair MUST be used.",
+        "default" : null
       }, {
         "name" : "sinkFileDescriptor",
-        "type" : "int"
+        "type" : [ "null", "int" ],
+        "default" : null
+      }, {
+        "name" : "sourceUUID",
+        "type" : [ "null", "UUID" ],
+        "default" : null
+      }, {
+        "name" : "sinkUUID",
+        "type" : [ "null", "UUID" ],
+        "default" : null
       } ]
     }, {
       "type" : "record",
@@ -374,7 +473,7 @@
               "type" : "enum",
               "name" : "ValueDataType",
               "doc" : "* A value data type is one of the primitive data types. A string is treated as a char array",
-              "symbols" : [ "VALUE_DATA_TYPE_BYTE", "VALUE_DATA_TYPE_BOOL", "VALUE_DATA_TYPE_CHAR", "VALUE_DATA_TYPE_SHORT", "VALUE_DATA_TYPE_INT", "VALUE_DATA_TYPE_FLOAT", "VALUE_DATA_TYPE_LONG", "VALUE_DATA_TYPE_DOUBLE", "VALUE_DATA_TYPE_COMPLEX" ]
+              "symbols" : [ "VALUE_DATA_TYPE_BYTE", "VALUE_DATA_TYPE_BOOL", "VALUE_DATA_TYPE_CHAR", "VALUE_DATA_TYPE_SHORT", "VALUE_DATA_TYPE_INT", "VALUE_DATA_TYPE_FLOAT", "VALUE_DATA_TYPE_LONG", "VALUE_DATA_TYPE_DOUBLE", "VALUE_DATA_TYPE_POINTER32", "VALUE_DATA_TYPE_POINTER64", "VALUE_DATA_TYPE_COMPLEX" ]
             },
             "doc" : "The actual datatype of the value elements, e.g., int, double, byte, etc. (Optional)\n         *  Strings are treated as char[] so type=CHAR\n         *  String[] is a COMPLEX value whose components are the string values (each modeled as a char[])\n         *  Complex composite objects comprising of primitive values use the COMPLEX type"
           }, {
@@ -396,6 +495,39 @@
             "name" : "valueBytes",
             "type" : [ "null", "bytes" ],
             "doc" : "* The actual bytes of the value in Big Endian format, e.g.,\n         * an int is converted to a 4 byte buffer (Optional)\n         *\n         * Strings are represented as an array of UTF32_BE encoded\n         * characters (i.e., 4 bytes per char)",
+            "default" : null
+          }, {
+            "name" : "provenance",
+            "type" : [ "null", {
+              "type" : "array",
+              "items" : {
+                "type" : "record",
+                "name" : "ProvenanceAssertion",
+                "doc" : "* An assertion about the provenance of information",
+                "fields" : [ {
+                  "name" : "asserter",
+                  "type" : "UUID",
+                  "doc" : "Which Subject is making this assertion?"
+                }, {
+                  "name" : "sources",
+                  "type" : [ "null", {
+                    "type" : "array",
+                    "items" : "UUID"
+                  } ],
+                  "doc" : "Object(s) that this Value's data came from.",
+                  "default" : null
+                }, {
+                  "name" : "provenance",
+                  "type" : [ "null", {
+                    "type" : "array",
+                    "items" : "ProvenanceAssertion"
+                  } ],
+                  "doc" : "* Further provenance assertions within this assertion.\n\t * For example, to describe a situation in which X asserts that\n\t * Y asserts that Z asserts that V came from {p,q}:\n\t *\n\t * ```\n\t * Event {\n\t *   subject = X,\n\t *   parameters = [\n\t *     Value (V) {\n\t *       provenance = [\n\t *         ProvenanceAssertion {\n\t *           asserter = UUID of X,\n\t *           sources = [ UUID of p, UUID of q ],\n\t *           provenance = [\n\t *             ProvenanceAssertion {\n\t *               asserter = UUID of Y,\n\t *               provenance = [\n\t *                 ProvenanceAssertion {\n\t *                   asserter = UUID of Z,\n\t *                 },\n\t *               ],\n\t *             },\n\t *           ],\n\t *         },\n\t *       ],\n\t *     },\n\t *   ],\n\t * }\n\t * ```\n\t * Z should have a provenance assertion\n\t * e.g.,\n         * \"X asserts that Y asserts that Z comes from {p,q}\".",
+                  "default" : null
+                } ]
+              }
+            } ],
+            "doc" : "* Assertions about the provenance of this value\n         * (e.g., the file that data is claimed to come from).\n         *\n         * This is a direct assertion about provenance for systems that don't\n         * use tags to track data flows.",
             "default" : null
           }, {
             "name" : "tag",
@@ -434,6 +566,43 @@
         "type" : [ "null", "long" ],
         "doc" : "The entry size in bytes (Optional)",
         "default" : null
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "PacketSocketObject",
+      "doc" : "* Represents a packet socket. Instantiates an AbstractObject.",
+      "fields" : [ {
+        "name" : "uuid",
+        "type" : "UUID",
+        "doc" : "Universally unique identifier for the object"
+      }, {
+        "name" : "baseObject",
+        "type" : "AbstractObject",
+        "doc" : "The base object attributes"
+      }, {
+        "name" : "proto",
+        "type" : "SHORT",
+        "doc" : "Physical-layer protocol"
+      }, {
+        "name" : "ifIndex",
+        "type" : "int",
+        "doc" : "Interface number"
+      }, {
+        "name" : "haType",
+        "type" : "SHORT",
+        "doc" : "ARP hardware type"
+      }, {
+        "name" : "pktType",
+        "type" : {
+          "type" : "fixed",
+          "name" : "BYTE",
+          "size" : 1
+        },
+        "doc" : "Packet type"
+      }, {
+        "name" : "addr",
+        "type" : "bytes",
+        "doc" : "Physical-layer address"
       } ]
     }, {
       "type" : "record",
@@ -542,30 +711,36 @@
         "doc" : "A universally unique identifier for the event"
       }, {
         "name" : "sequence",
-        "type" : "long",
-        "doc" : "A logical sequence number for ordering events relative to each other within a subject's execution context",
-        "default" : 0
+        "type" : [ "null", "long" ],
+        "doc" : "* A logical sequence number for ordering events relative to\n         * each other within a subject's execution context\n         *\n         * This attribute is only optional for inferred events, such\n         * as an object's attribute change that was observed without\n         * an explicit event or system call.",
+        "default" : null
       }, {
         "name" : "type",
         "type" : {
           "type" : "enum",
           "name" : "EventType",
           "doc" : "* EventType enumerates the most common system calls. Since there\n     * are hundreds of possible system calls, enumerating all of them\n     * and managing the list across OS versions is a\n     * challenge. EVENT_OTHER is the catch all for events not enumerated here. Any events\n     * that are expected to be of importance, should be included in this list.",
-          "symbols" : [ "EVENT_ACCEPT", "EVENT_BIND", "EVENT_BLIND", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_DUP", "EVENT_EXECUTE", "EVENT_FNCTL", "EVENT_FORK", "EVENT_LINK", "EVENT_LSEEK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MODIFY_PROCESS", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_OTHER", "EVENT_READ", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_SENDTO", "EVENT_SENDMSG", "EVENT_SHM", "EVENT_SIGNAL", "EVENT_TRUNCATE", "EVENT_UNIT", "EVENT_UNLINK", "EVENT_UPDATE", "EVENT_WAIT", "EVENT_WRITE", "EVENT_EXIT", "EVENT_LOADLIBRARY", "EVENT_BOOT", "EVENT_LOGCLEAR", "EVENT_MOUNT", "EVENT_STARTSERVICE", "EVENT_LOGIN", "EVENT_LOGOUT" ]
+          "symbols" : [ "EVENT_ACCEPT", "EVENT_ADD_OBJECT_ATTRIBUTE", "EVENT_BIND", "EVENT_BLIND", "EVENT_BOOT", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_DUP", "EVENT_EXECUTE", "EVENT_EXIT", "EVENT_FLOWS_TO", "EVENT_FCNTL", "EVENT_FORK", "EVENT_LINK", "EVENT_LOADLIBRARY", "EVENT_LOGCLEAR", "EVENT_LOGIN", "EVENT_LOGOUT", "EVENT_LSEEK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MODIFY_PROCESS", "EVENT_MOUNT", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_OTHER", "EVENT_READ", "EVENT_READ_SOCKET_PARAMS", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_SENDTO", "EVENT_SENDMSG", "EVENT_SERVICEINSTALL", "EVENT_SHM", "EVENT_SIGNAL", "EVENT_STARTSERVICE", "EVENT_TRUNCATE", "EVENT_UMOUNT", "EVENT_UNIT", "EVENT_UNLINK", "EVENT_UPDATE", "EVENT_WAIT", "EVENT_WRITE", "EVENT_WRITE_SOCKET_PARAMS" ]
         },
         "doc" : "The type of the event"
       }, {
         "name" : "threadId",
-        "type" : "int",
-        "doc" : "The thread id to which this event belongs"
+        "type" : [ "null", "int" ],
+        "doc" : "* The thread id to which this event belongs.  Required for\n         * all events, except the EVENT_ADD_OBJECT_ATTRIBUTE and\n         * EVENT_FLOWS_TO event.",
+        "default" : null
+      }, {
+        "name" : "hostId",
+        "type" : "UUID",
+        "doc" : "Host where event occurred"
       }, {
         "name" : "subject",
-        "type" : "UUID",
-        "doc" : "UUID of Subject that generated this event"
+        "type" : [ "null", "UUID" ],
+        "doc" : "* UUID of Subject that generated this event.  The subject is\n         * required for all events, except the\n         * EVENT_ADD_OBJECT_ATTRIBUTE and EVENT_FLOWS_TO event.",
+        "default" : null
       }, {
         "name" : "predicateObject",
         "type" : [ "null", "UUID" ],
-        "doc" : "* UUID of Object/Subject this event acts on. For events that\n         * have two arguments, this attribute contains the first\n         * argument. This attribute is optional because it may not be\n         * relevant for some events.",
+        "doc" : "* UUID of Object/Subject this event acts on. For events that\n         * have two arguments, this attribute contains the first\n         * argument (following the argument order in the underlying\n         * system call). This attribute is optional because it may not\n         * be relevant for some events.",
         "default" : null
       }, {
         "name" : "predicateObjectPath",
@@ -575,7 +750,7 @@
       }, {
         "name" : "predicateObject2",
         "type" : [ "null", "UUID" ],
-        "doc" : "Optional UUID of Object/Subject for events that take two\n         *  arguments (e.g., link, rename, etc). This attribute contains the second argument.",
+        "doc" : "* Optional UUID of Object/Subject for events that take two\n         * arguments (e.g., link, rename, etc). This attribute\n         * contains the second argument (following the argument order\n         * in the underlying system call).",
         "default" : null
       }, {
         "name" : "predicateObject2Path",
@@ -585,7 +760,7 @@
       }, {
         "name" : "timestampNanos",
         "type" : "long",
-        "doc" : "* The time at which the event occurred. Timestamps allow\n         * reasoning about order of events on a host when the same\n         * clock is used. A timestamp stores the number of nanoseconds\n         * from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * TODO: When different clocks are used on a host or across\n         * hosts, we need to also define a clock source"
+        "doc" : "* The time at which the event occurred. Timestamps allow\n         * reasoning about order of events on a host when the same\n         * clock is used. A timestamp stores the number of nanoseconds\n         * from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * TODO: When different clocks are used on a host or across\n         * hosts, we need to also define a clock source\n         *\n         * NOTE: When an object update is inferred without an explicit\n         * system call event, TA1s may not have an accurate timestamp\n         * of when the object was updated. In that case, the timestamp\n         * used in the update event is the same as the timestamp used\n         * in the next system call event that uses the updated object."
       }, {
         "name" : "name",
         "type" : [ "null", "string" ],
@@ -621,7 +796,8 @@
           "values" : "string"
         } ],
         "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
-        "default" : null
+        "default" : null,
+        "order" : "ignore"
       } ]
     }, {
       "type" : "record",
@@ -643,18 +819,44 @@
         "type" : "long",
         "doc" : "Timestamp in nanoseconds"
       } ]
+    }, {
+      "type" : "record",
+      "name" : "StartMarker",
+      "doc" : "* StartMarker records delineate system (re)starts in a data stream.",
+      "fields" : [ {
+        "name" : "sessionNumber",
+        "type" : "int",
+        "doc" : "sequence number that monotonically increases each time the system is started"
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "EndMarker",
+      "doc" : "* EndMarker records marks the end of a data stream.",
+      "fields" : [ {
+        "name" : "sessionNumber",
+        "type" : "int",
+        "doc" : "session number in the corresponding StartMarker"
+      }, {
+        "name" : "recordCounts",
+        "type" : {
+          "type" : "map",
+          "values" : "string"
+        },
+        "doc" : "* Reports countc of each record type that has been published\n         * since the the start of the data stream.",
+        "order" : "ignore"
+      } ]
     } ]
   }, {
     "name" : "CDMVersion",
     "type" : "string",
-    "default" : "17"
+    "default" : "18"
   }, {
     "name" : "source",
     "type" : {
       "type" : "enum",
       "name" : "InstrumentationSource",
       "doc" : "* InstrumentationSource identifies the source reporting provenance information.",
-      "symbols" : [ "SOURCE_ANDROID_JAVA_CLEARSCOPE", "SOURCE_ANDROID_NATIVE_CLEARSCOPE", "SOURCE_FREEBSD_OPENBSM_TRACE", "SOURCE_FREEBSD_DTRACE_CADETS", "SOURCE_FREEBSD_TESLA_CADETS", "SOURCE_FREEBSD_LOOM_CADETS", "SOURCE_FREEBSD_MACIF_CADETS", "SOURCE_LINUX_AUDIT_TRACE", "SOURCE_LINUX_PROC_TRACE", "SOURCE_LINUX_BEEP_TRACE", "SOURCE_LINUX_THEIA", "SOURCE_WINDOWS_DIFT_FAROS", "SOURCE_WINDOWS_PSA_FAROS", "SOURCE_WINDOWS_FIVEDIRECTIONS" ]
+      "symbols" : [ "SOURCE_ANDROID_JAVA_CLEARSCOPE", "SOURCE_ANDROID_NATIVE_CLEARSCOPE", "SOURCE_FREEBSD_OPENBSM_TRACE", "SOURCE_FREEBSD_DTRACE_CADETS", "SOURCE_FREEBSD_TESLA_CADETS", "SOURCE_FREEBSD_LOOM_CADETS", "SOURCE_FREEBSD_MACIF_CADETS", "SOURCE_LINUX_SYSCALL_TRACE", "SOURCE_LINUX_NETFILTER_TRACE", "SOURCE_LINUX_PROC_TRACE", "SOURCE_LINUX_BEEP_TRACE", "SOURCE_LINUX_THEIA", "SOURCE_WINDOWS_DIFT_FAROS", "SOURCE_WINDOWS_PSA_FAROS", "SOURCE_WINDOWS_FIVEDIRECTIONS", "SOURCE_WINDOWS_MARPLE" ]
     },
     "doc" : "What source generated this record?"
   } ]

@@ -36,6 +36,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -52,8 +53,12 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.reporter.audit.ArtifactIdentifier;
 import spade.reporter.audit.ArtifactProperties;
 import spade.reporter.audit.AuditEventReader;
+import spade.reporter.audit.BlockDeviceIdentifier;
+import spade.reporter.audit.CharacterDeviceIdentifier;
+import spade.reporter.audit.DirectoryIdentifier;
 import spade.reporter.audit.FileIdentifier;
 import spade.reporter.audit.IdentifierWithPath;
+import spade.reporter.audit.LinkIdentifier;
 import spade.reporter.audit.MemoryIdentifier;
 import spade.reporter.audit.NamedPipeIdentifier;
 import spade.reporter.audit.NetworkSocketIdentifier;
@@ -204,6 +209,7 @@ public class Audit extends AbstractReporter {
 	private boolean ADD_KM = false;
 	private String HANDLE_KM_RECORDS_KEY = "handleKmRecords";
 	private boolean HANDLE_KM_RECORDS = false;
+	private boolean EMIT_HOST_RECORD = false;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -224,7 +230,7 @@ public class Audit extends AbstractReporter {
 	private final String IPV4_NETWORK_SOCKET_SADDR_PREFIX = "02";
 	private final String IPV6_NETWORK_SOCKET_SADDR_PREFIX = "0A";
 	private final String UNIX_SOCKET_SADDR_PREFIX = "01";
-	private final String NETLINK_SOCKET_SADDR_PREFIX = "01";
+	private final String NETLINK_SOCKET_SADDR_PREFIX = "10";
 	
 	private boolean isNetlinkSaddr(String saddr){
 		return saddr != null && saddr.startsWith(NETLINK_SOCKET_SADDR_PREFIX);
@@ -311,39 +317,6 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		return true;
-	}
-	
-	/**
-	 * A convenience function to check if the given filepath exists or not.
-	 * 
-	 * Suppresses the exception.
-	 * 
-	 * @param filePath path of the file/dir to check for existence
-	 * @return true (if exists) / false (if doesn't exist)
-	 */
-	private boolean fileExists(String filePath){
-		try{
-			return new File(filePath).exists();
-		}catch(Exception e){
-			return false;
-		}
-	}
-	
-	/**
-	 * A convenience function to see if the given filepath can be created.
-	 * 
-	 * Not a permissions check. Just checks if the parent directory of the given
-	 * path exists or not.
-	 * 
-	 * @param filepath path of the file/dir to check
-	 * @return true (if parent dir exists)/ false(if parent dir doesn't exist)
-	 */
-	private boolean fileCanBeCreated(String filepath){
-		try{
-			return new File(filepath).getParentFile().exists();
-		}catch(Exception e){
-			return false;
-		}
 	}
 	
 	/**
@@ -601,6 +574,14 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
+		argValue = args.get("logHost");
+		if(isValidBoolean(argValue)){
+			EMIT_HOST_RECORD = parseBoolean(argValue, EMIT_HOST_RECORD);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'logHost': " + argValue);
+			return false;
+		}
+		
 		argValue = args.get(ADD_KM_KEY);
 		if(isValidBoolean(argValue)){
 			ADD_KM = parseBoolean(argValue, ADD_KM);
@@ -644,7 +625,7 @@ public class Audit extends AbstractReporter {
 	 * @return true/false
 	 */
 	private boolean setupTempDirectory(String tempDirectoryPath){
-		if(fileExists(tempDirectoryPath)){
+		if(FileUtility.fileExists(tempDirectoryPath)){
 			return true;
 		}else{
 			try{
@@ -706,7 +687,7 @@ public class Audit extends AbstractReporter {
 			//name is the name of the file passed in as argument
 			//can only process 99 logs
 			for(int logCount = 1; logCount<=99; logCount++){
-				if(fileExists(inputAuditLogFilePath + "." + logCount)){
+				if(FileUtility.fileExists(inputAuditLogFilePath + "." + logCount)){
 					inputAuditLogFiles.addFirst(inputAuditLogFilePath + "." + logCount); 
 					//adding first so that they are added in the reverse order
 				}
@@ -727,7 +708,9 @@ public class Audit extends AbstractReporter {
 				removeNetworkKernelModule(kernelModuleControllerPath);
 			}
 		}else{
-			deleteFile(logListFile);
+			if(FileUtility.fileExists(logListFile)){
+				FileUtility.deleteFile(logListFile);
+			}
 		}
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			deleteCacheMaps();
@@ -754,7 +737,7 @@ public class Audit extends AbstractReporter {
 
 		// Get path of spadeAuditBridge binary from the config file
 		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");		
-		if(!fileExists(spadeAuditBridgeBinaryPath)){
+		if(!FileUtility.fileExists(spadeAuditBridgeBinaryPath)){
 			logger.log(Level.SEVERE, "Must specify a valid 'spadeAuditBridge' key in config");
 			return false;
 		}
@@ -776,7 +759,7 @@ public class Audit extends AbstractReporter {
 		// Check if the outputLog argument is valid or not
 		outputLogFilePath = argsMap.get("outputLog");
 		if(outputLogFilePath != null){
-			if(!fileCanBeCreated(outputLogFilePath)){
+			if(!FileUtility.fileCanBeCreated(outputLogFilePath)){
 				logger.log(Level.SEVERE, "Invalid path for 'outputLog' : " + outputLogFilePath);
 				return false;
 			}else{
@@ -814,7 +797,7 @@ public class Audit extends AbstractReporter {
 			
 			if(inputAuditLogFileArgument != null){
 			
-				if(!fileExists(inputAuditLogFileArgument)){
+				if(!FileUtility.fileExists(inputAuditLogFileArgument)){
 					logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
 										+ inputAuditLogFileArgument);
 					return false;
@@ -922,45 +905,31 @@ public class Audit extends AbstractReporter {
 			
 		}
 		
+		// used to identify failure and do cleanup.
+		boolean success = true;
+		
 		// Initialize cache data structures
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			if(!initCacheMaps(configMap)){
-				return false;
+				success = false;
 			}
 		}
 		
-		boolean success = true;
-		
-		try{
-			
+		if(success){
 			if(isLiveAudit){
 				// if live audit and no km but handling records then error
 				if(!ADD_KM && HANDLE_KM_RECORDS){
 					logger.log(Level.SEVERE, "Can't handle kernel module data with kernel module added");
 					success = false;
-				}else{
-					String uid = getOwnUid();
-					String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
-					List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
-					if(ADD_KM){
-						success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
-								uid, pidsToIgnore, USE_SOCK_SEND_RCV);
-					}
-					if(success){
-						if(NETFILTER_RULES){
-							success = setIptablesRules(iptablesRules);
-						}
-						if(success){
-							success = setAuditControlRules(rulesType, uid, pidsToIgnore, ADD_KM);
-						}
-					}
 				}
 			}
-			
-			if(success){
-				// Letting NPE to be thrown in case some object's initialization fails
+		}
+		
+		if(success){
+			try{
+				
 				java.lang.Process spadeAuditBridgeProcess = runSpadeAuditBridge(spadeAuditBridgeCommand);
-	
+				
 				Thread errorReaderThread = getErrorStreamReaderForProcess(spadeAuditBridgeBinaryName, 
 						spadeAuditBridgeProcess.getErrorStream());
 				errorReaderThread.start();
@@ -969,46 +938,68 @@ public class Audit extends AbstractReporter {
 						spadeAuditBridgeProcess.getInputStream(), outputLogFilePath,
 						recordsToRotateOutputLogAfter);
 				
-				if(auditEventReader == null){
-					logger.log(Level.SEVERE, "Null audit event reader");
-					success = false;
-				}else{
+				Thread auditEventReaderThread = getAuditEventReaderThread(spadeAuditBridgeBinaryName, 
+						auditEventReader, 
+						isLiveAudit, rulesType, logListFile);
+				auditEventReaderThread.start();
 				
-					Thread auditEventReaderThread = getAuditEventReaderThread(spadeAuditBridgeBinaryName, 
-							auditEventReader, 
-							isLiveAudit, rulesType, logListFile);
-					auditEventReaderThread.start();
-					
-					try{ Thread.sleep(PID_MSG_WAIT_TIMEOUT); }catch(Exception e){}
-					
-					if(spadeAuditBridgeProcessPid == null){
-						// still didn't get the pid that means the process didn't start successfully
-						logger.log(Level.SEVERE, "Process didn't start successfully");
+				try{ Thread.sleep(PID_MSG_WAIT_TIMEOUT); }catch(Exception e){}
+				
+				if(spadeAuditBridgeProcessPid == null){
+					// still didn't get the pid that means the process didn't start successfully
+					logger.log(Level.SEVERE, "Process didn't start successfully");
+					success = false;
+				}
+				
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to start Audit", e);
+				success = false;
+			}
+		}
+		
+		if(success){
+			if(isLiveAudit){
+				// Ensuring that this record is emitted first because needed by CDM storage
+				if(EMIT_HOST_RECORD){
+					if(!emitHostRecord()){
 						success = false;
 					}
 				}
+				
+				if(success){
+					if(ADD_KM || NETFILTER_RULES || rulesType == null || rulesType.equals("all")){
+						String uid = getOwnUid();
+						if(uid != null){
+							String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
+							List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
+							if(pidsToIgnore != null){
+								if(ADD_KM){
+									success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
+											uid, pidsToIgnore, USE_SOCK_SEND_RCV);
+								}
+								if(success){
+									if(NETFILTER_RULES){
+										success = setIptablesRules(iptablesRules);
+									}
+									if(success){
+										success = setAuditControlRules(rulesType, uid, pidsToIgnore, ADD_KM);
+									}
+								}
+							}else{
+								success = false;
+							}
+						}else{
+							success = false;
+						}
+					}
+				}
 			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to start Audit", e);
-			success = false;
 		}
 		
 		if(success){
 			return true;
 		}else{
 			doCleanup(rulesType, logListFile);
-			return false;
-		}
-	}
-	
-	private boolean deleteFile(String filepath){
-		try{
-			
-			FileUtils.forceDelete(new File(filepath));
-			return true;
-			
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to delete file " + filepath, e);
 			return false;
 		}
 	}
@@ -1229,10 +1220,10 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}", new Object[]{uid, ignorePids});
 			return false;
 		}else{
-			if(!fileExists(kernelModulePath)){
+			if(!FileUtility.fileExists(kernelModulePath)){
 				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModulePath);
 				return false;
-			}else if(!fileExists(kernelModuleControllerPath)){
+			}else if(!FileUtility.fileExists(kernelModuleControllerPath)){
 				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModuleControllerPath);
 				return false;
 			}else{ // both exist
@@ -1283,7 +1274,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean removeNetworkKernelModule(String kernelModuleControllerPath){
-		if(fileExists(kernelModuleControllerPath)){
+		if(FileUtility.fileExists(kernelModuleControllerPath)){
 			String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
 			if(kernelModuleControllerName != null){
 				Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
@@ -1392,7 +1383,7 @@ public class Audit extends AbstractReporter {
 					if (USE_READ_WRITE) {
 						auditRuleWithSuccess += "-S read -S readv -S pread -S preadv -S write -S writev -S pwrite -S pwritev ";
 					}
-					if(!kmAdded){ // since km not added we don't need to log these syscalls TODO handlekmdrecordstoo?
+					if(!kmAdded){ // since km not added we don't need to log these syscalls
 						if (USE_SOCK_SEND_RCV) {
 							auditRuleWithSuccess += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
 						}
@@ -1568,6 +1559,27 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 	}
+	
+	private boolean emitHostRecord(){
+		Map<String, String> hostInfo = getHostInfo();
+		if(hostInfo != null){
+			String hostMsg = AuditEventReader.buildAuditUserMessageForHostInfo(hostInfo);
+			try{
+				List<String> lines = Execute.getOutput("auditctl -m " + hostMsg);
+				if(Execute.containsOutputFromStderr(lines)){
+					logger.log(Level.SEVERE, "Failed to emit host record. Output = {0}", lines);
+					return false;
+				}else{
+					return true;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to emit host record", e);
+				return false;
+			}
+		}else{
+			return false;
+		}
+	}
 
 	private boolean initCacheMaps(Map<String, String> configMap){
 		try{
@@ -1636,27 +1648,24 @@ public class Audit extends AbstractReporter {
 		return true;
 	}
 
-	private List<String> listOfPidsToIgnore(String ignoreProcesses) {
-
-		//    	ignoreProcesses argument is a string of process names separated by blank space
-
-		List<String> pids = new ArrayList<String>();
-		try {
+	private List<String> listOfPidsToIgnore(String ignoreProcesses){
+//		ignoreProcesses argument is a string of process names separated by blank space
+		try{
+			List<String> pids = new ArrayList<String>();
 			if(ignoreProcesses != null && !ignoreProcesses.trim().isEmpty()){
-				//	            Using pidof command now to get all pids of the mentioned processes
+				// Using pidof command now to get all pids of the mentioned processes
 				java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
-				//	            pidof returns pids of given processes as a string separated by a blank space
+				// pidof returns pids of given processes as a string separated by a blank space
 				BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
 				String pidline = pidReader.readLine();
-				//	            added all returned from pidof command
+				// added all returned from pidof command
 				pids.addAll(Arrays.asList(pidline.split("\\s+")));
 				pidReader.close();
 			}
-
 			return pids;
-		} catch (IOException e) {
-			logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + pids, e);
-			return new ArrayList<String>();
+		}catch(IOException e){
+			logger.log(Level.WARNING, "Error building list of processes to ignore: " + ignoreProcesses, e);
+			return null;
 		}
 	}
 
@@ -1757,12 +1766,47 @@ public class Audit extends AbstractReporter {
 				if(HANDLE_KM_RECORDS){
 					handleKernelModuleEvent(eventData);
 				}
+			}else if(AuditEventReader.USER_MSG_SPADE_AUDIT_HOST_KEY.equals(recordType)){
+				handleHostData(eventData);
 			}else{
 				handleSyscallEvent(eventData);
 			}
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to process eventData: " + eventData, e);
 		}
+	}
+	
+	private void handleHostData(Map<String, String> eventData){
+		Artifact artifact = new Artifact();
+		String subtype = OPMConstants.SUBTYPE_HOST;
+		String hostName = eventData.get(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
+		String hostOS = eventData.get(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM);
+		String hostType = eventData.get(OPMConstants.ARTIFACT_HOST_TYPE);
+		String hostSerialNumber = eventData.get(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER);
+		
+		artifact.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, subtype);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, hostName);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, hostOS);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_TYPE, hostType);
+		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, hostSerialNumber);
+		
+		Integer interfacesCount = CommonFunctions.parseInt(eventData.get(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT), null);
+		if(interfacesCount != null){
+			artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(interfacesCount));
+			for(int a = 0; a < interfacesCount; a++){
+				String interfaceNameKey = OPMConstants.buildHostNetworkInterfaceNameKey(a);
+				String interfaceMacAddressKey = OPMConstants.buildHostNetworkInterfaceMacAddressKey(a);
+				String interfaceIpAddressesKey = OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a);
+				String interfaceName = eventData.get(interfaceNameKey);
+				String interfaceMacAddress = eventData.get(interfaceMacAddressKey);
+				String interfaceIpAddresses = eventData.get(interfaceIpAddressesKey);
+				artifact.addAnnotation(interfaceNameKey, interfaceName);
+				artifact.addAnnotation(interfaceMacAddressKey, interfaceMacAddress);
+				artifact.addAnnotation(interfaceIpAddressesKey, interfaceIpAddresses);
+			}
+		}
+		
+		putVertex(artifact);
 	}
 	
 	private void handleKernelModuleEvent(Map<String, String> eventData){
@@ -1855,8 +1899,10 @@ public class Audit extends AbstractReporter {
 			
 			SYSCALL syscall = getSyscall(syscallNum);
 			
-			if(syscall == null || syscall == SYSCALL.UNSUPPORTED){
+			if(syscall == null){
 				log(Level.WARNING, "Invalid syscall: " + syscallNum, null, time, eventId, null);
+				return;
+			}else if(syscall == SYSCALL.UNSUPPORTED){
 				return;
 			}
 
@@ -1937,7 +1983,7 @@ public class Audit extends AbstractReporter {
 				processManager.handleForkVforkClone(eventData, syscall);
 				break;
 			case EXECVE:
-				handleExecve(eventData);
+				handleExecve(eventData, syscall);
 				break;
 			case OPEN:
 				handleOpen(eventData, syscall);
@@ -1949,7 +1995,7 @@ public class Audit extends AbstractReporter {
 				handleCreat(eventData);
 				break;
 			case OPENAT:
-				handleOpenat(eventData);
+				handleOpenat(eventData, syscall);
 				break;
 			case MKNODAT:
 				handleMknodat(eventData);
@@ -2077,7 +2123,8 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 
-			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+					time, eventId, syscall);
 
 			Process process = processManager.handleProcessFromSyscall(eventData);
 			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);
@@ -2134,7 +2181,6 @@ public class Audit extends AbstractReporter {
 		// exit(), and exit_group() receives the following message(s):
 		// - SYSCALL
 		// - EOE
-
 		if(CONTROL){
 			// Only draw edge if CONTROL is true
 			processManager.handleExit(eventData, syscall);
@@ -2235,7 +2281,7 @@ public class Audit extends AbstractReporter {
 		putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 	}
 
-	private void handleExecve(Map<String, String> eventData) {
+	private void handleExecve(Map<String, String> eventData, SYSCALL syscall) {
 		// execve() receives the following message(s):
 		// - SYSCALL
 		// - EXECVE
@@ -2249,8 +2295,8 @@ public class Audit extends AbstractReporter {
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String cwd = eventData.get(AuditEventReader.CWD);
 		String pid = eventData.get(AuditEventReader.PID);
-		
-		Process process = processManager.handleExecve(eventData, SYSCALL.EXECVE);
+
+		Process process = processManager.handleExecve(eventData, syscall);
 
 		//add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
 		
@@ -2258,10 +2304,11 @@ public class Audit extends AbstractReporter {
 		for(PathRecord loadPathRecord : loadPathRecords){
 			String path = constructAbsolutePath(loadPathRecord.getPath(), cwd, pid);
 			if(path == null){
-				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, SYSCALL.EXECVE);
+				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 				continue;
 			}        	
-			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType());
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType(),
+					time, eventId, syscall);
 			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
 			Used usedEdge = new Used(process, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
@@ -2305,7 +2352,7 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private void handleOpenat(Map<String, String> eventData){
+	private void handleOpenat(Map<String, String> eventData, SYSCALL syscall){
 		//openat() receives the following message(s):
 		// - SYSCALL
 		// - CWD
@@ -2319,7 +2366,7 @@ public class Audit extends AbstractReporter {
 		PathRecord pathRecord = getPathWithCreateOrNormalNametype(eventData);
 		
 		if(pathRecord == null){
-			log(Level.INFO, "Missing PATH record", null, time, eventId, SYSCALL.OPENAT);
+			log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 			return;
 		}
 		
@@ -2334,11 +2381,11 @@ public class Audit extends AbstractReporter {
 				String dirFdString = String.valueOf(dirFd);
 				//if null of if not file then cannot process it
 				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, dirFdString);
-				if(artifactIdentifier == null || !FileIdentifier.class.equals(artifactIdentifier.getClass())){
-					log(Level.INFO, "Artifact not of type file '" + artifactIdentifier + "'", null, time, eventId, SYSCALL.OPENAT);
+				if(artifactIdentifier == null || !(artifactIdentifier instanceof IdentifierWithPath)){
+					log(Level.INFO, "Expected 'dir' type fd: '" + artifactIdentifier + "'", null, time, eventId, syscall);
 					return;
 				}else{ //is file
-					String dirPath = ((FileIdentifier) artifactIdentifier).getPath();
+					String dirPath = ((IdentifierWithPath)artifactIdentifier).getPath();
 					eventData.put(AuditEventReader.CWD, dirPath); //replace cwd with dirPath to make eventData compatible with open
 				}
 			}
@@ -2350,7 +2397,7 @@ public class Audit extends AbstractReporter {
 		eventData.put(AuditEventReader.ARG1, eventData.get(AuditEventReader.ARG2)); //moved flags to second like in open
 		eventData.put(AuditEventReader.ARG2, eventData.get(AuditEventReader.ARG3)); //moved mode to third like in open
 
-		handleOpen(eventData, SYSCALL.OPENAT);
+		handleOpen(eventData, syscall);
 	}
 
 	private void handleOpen(Map<String, String> eventData, SYSCALL syscall) {
@@ -2396,27 +2443,18 @@ public class Audit extends AbstractReporter {
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
 
-		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+				time, eventId, syscall);
 
 		AbstractEdge edge = null;
 
 		if(isCreate){
-
-			if(!FileIdentifier.class.equals(artifactIdentifier.getClass())){
-				artifactIdentifier = new FileIdentifier(path); //can only create a file using open
-			}
 
 			//set new epoch
 			markNewEpochForArtifact(artifactIdentifier);
 
 			syscall = SYSCALL.CREATE;
 
-		}
-
-		if((!FileIdentifier.class.equals(artifactIdentifier.getClass()) && 
-				!artifactIdentifier.getClass().equals(NamedPipeIdentifier.class))){ //not a file and not a named pipe
-			//make it a file identifier
-			artifactIdentifier = new FileIdentifier(path);
 		}
 
 		boolean openedForRead = false;
@@ -2545,7 +2583,8 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(), 
+					time, eventId, syscall);
 			permissions = pathRecord.getPermissions();
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get(AuditEventReader.ARG0);
@@ -2556,16 +2595,10 @@ public class Audit extends AbstractReporter {
 		}
 
 		if(artifactIdentifier != null){
-			if(FileIdentifier.class.equals(artifactIdentifier.getClass()) 
-					|| UnknownIdentifier.class.equals(artifactIdentifier.getClass())){
-				Process process = processManager.handleProcessFromSyscall(eventData);
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
-				WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
-				putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-			}else{
-				log(Level.INFO, "Unexpected artifact type '"+artifactIdentifier+
-						"'. Can only be file or unknown", null, time, eventId, syscall);
-			}
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
+			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
+			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}else{
 			log(Level.INFO, "Failed to find artifact identifier from the event data", null, time, eventId, syscall);
 		}
@@ -2806,8 +2839,8 @@ public class Audit extends AbstractReporter {
 				if(artifactIdentifier == null){
 					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.MKNODAT);
 					return;
-				}else if(artifactIdentifier.getClass().equals(FileIdentifier.class)){
-					String directoryPath = ((FileIdentifier)artifactIdentifier).getPath();
+				}else if(artifactIdentifier instanceof IdentifierWithPath){
+					String directoryPath = ((IdentifierWithPath)artifactIdentifier).getPath();
 					//update cwd to directoryPath and call handleMknod. the file created path is always relative in this syscall
 					eventData.put(AuditEventReader.CWD, directoryPath);
 				}else{
@@ -2851,7 +2884,8 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+				time, eventId, syscall);
 
 		if(artifactIdentifier == null){
 			log(Level.INFO, "Unsupported mode for mknod '"+modeString+"'", null, time, eventId, syscall);
@@ -2937,9 +2971,9 @@ public class Audit extends AbstractReporter {
 		}
 
 		ArtifactIdentifier srcArtifactIdentifier = getArtifactIdentifierFromPathMode(srcPath, 
-				PathRecord.parsePathType(srcPathMode));
+				PathRecord.parsePathType(srcPathMode), time, eventId, syscall);
 		ArtifactIdentifier dstArtifactIdentifier = getArtifactIdentifierFromPathMode(dstPath, 
-				PathRecord.parsePathType(dstPathMode));
+				PathRecord.parsePathType(dstPathMode), time, eventId, syscall);
 		
 		if(srcArtifactIdentifier == null || dstArtifactIdentifier == null){
 			logger.log(Level.WARNING, "Missing path objects. Failed to "
@@ -2974,18 +3008,20 @@ public class Audit extends AbstractReporter {
 	 * @param pathType mode value for the path in the audit log
 	 * @return ArtifactIdentifier subclass or null
 	 */
-	private ArtifactIdentifier getArtifactIdentifierFromPathMode(String path, int pathType){
-		if((pathType & S_IFMT) == S_IFREG || (pathType & S_IFMT) == S_IFDIR 
-				|| (pathType & S_IFMT) == S_IFCHR || (pathType & S_IFMT) == S_IFBLK
-				|| (pathType & S_IFMT) == S_IFLNK){
-			return new FileIdentifier(path);
-		}else if((pathType & S_IFMT) == S_IFIFO){
-			return new NamedPipeIdentifier(path);
-		}else if((pathType & S_IFMT) == S_IFSOCK){
-			return new UnixSocketIdentifier(path);
-		}else{
-			logger.log(Level.INFO, "Unknown file type in mode: {0} for path: {1}. Using 'file' type", new Object[]{pathType, path});
-			return new FileIdentifier(path);
+	private ArtifactIdentifier getArtifactIdentifierFromPathMode(String path, int pathType, 
+			String time, String eventId, SYSCALL syscall){
+		int type = pathType & S_IFMT;
+		switch(type){
+			case S_IFREG: return new FileIdentifier(path);
+			case S_IFDIR: return new DirectoryIdentifier(path);
+			case S_IFCHR: return new CharacterDeviceIdentifier(path);
+			case S_IFBLK: return new BlockDeviceIdentifier(path);
+			case S_IFLNK: return new LinkIdentifier(path);
+			case S_IFIFO: return new NamedPipeIdentifier(path);
+			case S_IFSOCK: return new UnixSocketIdentifier(path);
+			default:
+				log(Level.INFO, "Unknown file type: "+pathType+". Defaulted to 'File'", null, time, eventId, syscall);
+				return new FileIdentifier(path);
 		}
 	}
 
@@ -3015,7 +3051,8 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing PATH or CWD records", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+					time, eventId, syscall);
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		} else if (syscall == SYSCALL.FCHMOD) {
 			String fd = eventData.get(AuditEventReader.ARG0);
@@ -3037,7 +3074,8 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Failed to create path", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+					time, eventId, syscall);
 			modeArgument = eventData.get(AuditEventReader.ARG2);
 		}else{
 			log(Level.INFO, "Unexpected syscall '"+syscall+"' in CHMOD handler", null, time, eventId, syscall);
@@ -3050,7 +3088,6 @@ public class Audit extends AbstractReporter {
 		}
 		
 		Process process = processManager.handleProcessFromSyscall(eventData);
-		
 		String mode = new BigInteger(modeArgument).toString(8);
 		mode = PathRecord.parsePermissions(mode);
 		Artifact vertex = putArtifact(eventData, artifactIdentifier, mode, true);
@@ -3747,7 +3784,6 @@ public class Audit extends AbstractReporter {
 	 * @return
 	 */
 	private String constructPathSpecial(String path, String fdString, String cwd, String pid, String time, String eventId, SYSCALL syscall){
-
 		if(path == null){
 			log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 			return null;
@@ -3772,13 +3808,13 @@ public class Audit extends AbstractReporter {
 					if(artifactIdentifier == null){
 						log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 						return null;
-					}else if(!FileIdentifier.class.equals(artifactIdentifier.getClass())){
+					}else if(!(artifactIdentifier instanceof IdentifierWithPath)){
 						log(Level.INFO, "FD with number '"+fd+"' for pid '"+pid+"' must be of type file but is '"+artifactIdentifier.getClass()+"'", null, time, eventId, syscall);
 						return null;
 					}else{
-						path = constructAbsolutePath(path, ((FileIdentifier)artifactIdentifier).getPath(), pid);
+						path = constructAbsolutePath(path, ((IdentifierWithPath)artifactIdentifier).getPath(), pid);
 						if(path == null){
-							log(Level.INFO, "Invalid path ("+((FileIdentifier)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
+							log(Level.INFO, "Invalid path ("+((IdentifierWithPath)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
 							return null;
 						}else{
 							return path;
@@ -3852,7 +3888,11 @@ public class Audit extends AbstractReporter {
 		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
 		if(updateVersion){
 			if(VERSION_ARTIFACTS == null){
-				if(FileIdentifier.class.equals(artifactIdentifierClass)){
+				if(FileIdentifier.class.equals(artifactIdentifierClass)
+						|| DirectoryIdentifier.class.equals(artifactIdentifierClass)
+						|| BlockDeviceIdentifier.class.equals(artifactIdentifierClass)
+						|| CharacterDeviceIdentifier.class.equals(artifactIdentifierClass)
+						|| LinkIdentifier.class.equals(artifactIdentifierClass)){
 					updateVersion = VERSION_FILES;
 				}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
 					updateVersion = VERSION_MEMORYS;
@@ -3877,9 +3917,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		// Special case: if /dev prefix path then don't version
-		if(FileIdentifier.class.equals(artifactIdentifierClass)
-				|| NamedPipeIdentifier.class.equals(artifactIdentifierClass)
-				|| UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
+		if(artifactIdentifier instanceof IdentifierWithPath){
 			String path = artifact.getAnnotation(OPMConstants.ARTIFACT_PATH);
 			if(path != null){
 				if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
@@ -4033,7 +4071,7 @@ public class Audit extends AbstractReporter {
 	 * @param eventId event id of the new version of the artifact creation
 	 * @param pid pid of the process which did the update
 	 */
-	private void putVersionPermissionsUpdateEdge(Artifact newArtifact, 
+	private void putVersionPermissionsUpdateEdge(Artifact newArtifact, // TODO only for files
 			String time, String eventId, String pid,
 			long previousVersion, String previousPermissions){
 		Artifact oldArtifact = new Artifact();
@@ -4213,7 +4251,132 @@ public class Audit extends AbstractReporter {
 			return pathRecords.get(0);
 		}
 	}
-			
+	
+	/* SYSTEM INFO FUNCTIONS */
+	
+	private Map<String, String> getHostInfo(){
+		try{
+			String command = "uname -a";
+			List<String> lines = Execute.getOutput(command);
+			if(Execute.containsOutputFromStderr(lines)){
+				logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+				return null;
+			}else{
+				if(lines.size() != 1){
+					logger.log(Level.SEVERE, "Command \"{0}\" unexpected output: {1}", new Object[]{command, lines});
+					return null;
+				}else{
+					Execute.stripLineHeaders(lines);
+					Map<String, String> info = new TreeMap<>();
+					info.put(OPMConstants.ARTIFACT_HOST_TYPE, OPMConstants.ARTIFACT_HOST_TYPE_DESKTOP); // TODO how to get this?
+					String tokens[] = lines.get(0).split("\\s+");
+					info.put(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, tokens[1]);
+					info.put(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, tokens[3] + " - " + tokens[2]);
+					
+					command = "lshw";
+					lines = Execute.getOutput(command);
+					if(Execute.containsOutputFromStderr(lines)){
+						logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+						return null;
+					}else{
+						Execute.stripLineHeaders(lines);
+						String serialNumber = null;
+						for(String line : lines){
+							if(line != null){
+								line = line.trim();
+								if(line.startsWith("serial:")){
+									serialNumber = line.replace("serial:", "").trim();
+									break;
+								}
+							}
+						}
+						if(serialNumber == null){
+							logger.log(Level.SEVERE, 
+									"Missing serial number in command \"{0}\" output: \"{1}\"", 
+									new Object[]{command, lines});
+							return null;
+						}else{
+							info.put(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, serialNumber);
+							Map<String, String> interfacesInfo = getNetworkInterfacesInfo();
+							if(interfacesInfo == null){
+								return null;
+							}else{
+								info.putAll(interfacesInfo);
+								return info;
+							}
+						}
+					}
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to get host info", e);
+			return null;
+		}
+	}
+	
+	private Map<String, String> getNetworkInterfacesInfo(){
+		try{
+			String command = "ip -o link show";
+			List<String> lines = Execute.getOutput(command);
+			if(Execute.containsOutputFromStderr(lines)){
+				logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+				return null;
+			}else{
+				Execute.stripLineHeaders(lines);
+				Map<String, String> nameToMacAddress = new HashMap<>();
+				for(String line : lines){
+					if(line != null){
+						line = line.trim();
+						String tokens[] = line.split("\\s+");
+						String name = tokens[1].replace(":", "");
+						String macAddress = tokens[tokens.length - 3];
+						nameToMacAddress.put(name, macAddress);
+					}
+				}
+				command = "ip -o addr show";
+				lines = Execute.getOutput(command);
+				if(Execute.containsOutputFromStderr(lines)){
+					logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
+					return null;
+				}else{
+					Execute.stripLineHeaders(lines);
+					Map<String, List<String>> nameToIpAddresses = new HashMap<>();
+					for(String line : lines){
+						if(line != null){
+							line = line.trim();
+							String tokens[] = line.split("\\s+");
+							String name = tokens[1];
+							String ipAddress = tokens[3];
+							if(nameToIpAddresses.get(name) == null){
+								nameToIpAddresses.put(name, new ArrayList<String>());
+							}
+							nameToIpAddresses.get(name).add(ipAddress);
+						}
+					}
+					Map<String, String> interfacesInfo = new TreeMap<>();
+					Set<String> interfaceNames = new HashSet<>();
+					interfaceNames.addAll(nameToMacAddress.keySet());
+					interfaceNames.addAll(nameToIpAddresses.keySet());
+					int interfacesCount = interfaceNames.size();
+					int a = 0;
+					for(String interfaceName : interfaceNames){
+						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceNameKey(a), interfaceName);
+						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceMacAddressKey(a), 
+								nameToMacAddress.get(interfaceName));
+						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a), 
+								OPMConstants.buildHostNetworkInterfaceIpAddressesValue(nameToIpAddresses.get(interfaceName)));
+						a++;
+					}
+					interfacesInfo.put(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(interfacesCount));
+					return interfacesInfo;
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to get network interfaces", e);
+			return null;
+		}
+	}
+	
 }
 
 class AddressPort{

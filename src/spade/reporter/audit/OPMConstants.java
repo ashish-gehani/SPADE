@@ -95,15 +95,29 @@ public class OPMConstants {
 			ARTIFACT_TGID = "tgid",
 			ARTIFACT_VERSION = "version",
 			ARTIFACT_WRITE_FD = "write fd",
+			ARTIFACT_HOST_TYPE = "host type",
+			ARTIFACT_HOST_TYPE_DESKTOP = "desktop",
+			ARTIFACT_HOST_NETWORK_NAME = "host name",
+			ARTIFACT_HOST_OPERATING_SYSTEM = "host operating system",
+			ARTIFACT_HOST_SERIAL_NUMBER = "serial number",
+			ARTIFACT_HOST_INTERFACES_COUNT = "interface count",
+			ARTIFACT_HOST_INTERFACE_NAME_PREFIX = "interface name",
+			ARTIFACT_HOST_INTERFACE_MAC_ADDRESS_PREFIX = "interface mac address",
+			ARTIFACT_HOST_INTERFACE_IP_ADDRESSES_PREFIX = "interface ip addresses",
 
 			// Allowed subtype annotation values
 			SUBTYPE_FILE = "file",
+			SUBTYPE_DIRECTORY = "directory",
+			SUBTYPE_BLOCK_DEVICE = "block device",
+			SUBTYPE_CHARACTER_DEVICE = "character device",
+			SUBTYPE_LINK = "link",
 			SUBTYPE_MEMORY_ADDRESS = "memory",
 			SUBTYPE_NAMED_PIPE = "named pipe",
 			SUBTYPE_NETWORK_SOCKET = "network socket",
 			SUBTYPE_UNIX_SOCKET = "unix socket",
 			SUBTYPE_UNKNOWN = "unknown",
 			SUBTYPE_UNNAMED_PIPE = "unnamed pipe",
+			SUBTYPE_HOST = "host",
 			
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",
@@ -393,4 +407,42 @@ public class OPMConstants {
 		}
 		return false;
 	}
+	
+	public static String buildHostNetworkInterfaceNameKey(int i){
+		return ARTIFACT_HOST_INTERFACE_NAME_PREFIX + " " + i;
+	}
+	
+	public static String buildHostNetworkInterfaceMacAddressKey(int i){
+		return ARTIFACT_HOST_INTERFACE_MAC_ADDRESS_PREFIX + " " + i;
+	}
+	
+	public static String buildHostNetworkInterfaceIpAddressesKey(int i){
+		return ARTIFACT_HOST_INTERFACE_IP_ADDRESSES_PREFIX + " " + i;
+	}
+	
+	public static String buildHostNetworkInterfaceIpAddressesValue(List<String> ipAddresses){
+		if(ipAddresses != null){
+			StringBuilder ipAddressesString = new StringBuilder();
+			for(String ipAddress : ipAddresses){
+				ipAddressesString.append(ipAddress).append(",");
+			}
+			if(ipAddressesString.length() > 0){
+				ipAddressesString.deleteCharAt(ipAddressesString.length()-1);
+			}
+			return ipAddressesString.toString();
+		}else{
+			return null;
+		}
+	}
+	
+	public static List<CharSequence> parseHostNetworkInterfaceIpAddressesValue(String ipAddresses){
+		if(ipAddresses != null){
+			String tokens[] = ipAddresses.split(",");
+			return Arrays.asList(tokens);
+		}else{
+			return null;
+		}
+	}
+	
+	
 }
