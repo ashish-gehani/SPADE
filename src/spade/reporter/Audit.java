@@ -205,11 +205,11 @@ public class Audit extends AbstractReporter {
 	private boolean ANONYMOUS_MMAP = true;
 	private boolean NETFILTER_RULES = false;
 	private boolean REFINE_NET = false;
-	private String ADD_KM_KEY = "addKm";
-	private boolean ADD_KM = false;
-	private String HANDLE_KM_RECORDS_KEY = "handleKmRecords";
+	private String ADD_KM_KEY = "localEndpoints";
+	private boolean ADD_KM = true;
+	private String HANDLE_KM_RECORDS_KEY = "handleLocalEndpoints";
 	private boolean HANDLE_KM_RECORDS = false;
-	private boolean EMIT_HOST_RECORD = false;
+	private boolean EMIT_HOST_RECORD = true;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -222,8 +222,8 @@ public class Audit extends AbstractReporter {
 	
 	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
 	
-	private final String kernelModulePath = "lib/km/netio.ko";
-	private final String kernelModuleControllerPath = "lib/km/netio_controller.ko";
+	private final String kernelModulePath = "lib/kernel-modules/netio.ko";
+	private final String kernelModuleControllerPath = "lib/kernel-modules/netio_controller.ko";
 	
 	private static final String PROTOCOL_NAME_UDP = "udp",
 			PROTOCOL_NAME_TCP = "tcp";
@@ -574,11 +574,11 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		argValue = args.get("logHost");
+		argValue = args.get("hostInfo");
 		if(isValidBoolean(argValue)){
 			EMIT_HOST_RECORD = parseBoolean(argValue, EMIT_HOST_RECORD);
 		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'logHost': " + argValue);
+			logger.log(Level.SEVERE, "Invalid flag value for 'hostInfo': " + argValue);
 			return false;
 		}
 		
@@ -590,12 +590,16 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		argValue = args.get(HANDLE_KM_RECORDS_KEY);
-		if(isValidBoolean(argValue)){
-			HANDLE_KM_RECORDS = parseBoolean(argValue, HANDLE_KM_RECORDS);
+		if(!ADD_KM){
+			argValue = args.get(HANDLE_KM_RECORDS_KEY);
+			if(isValidBoolean(argValue)){
+				HANDLE_KM_RECORDS = parseBoolean(argValue, HANDLE_KM_RECORDS);
+			}else{
+				logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KM_RECORDS_KEY+"': " + argValue);
+				return false;
+			}
 		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KM_RECORDS_KEY+"': " + argValue);
-			return false;
+			HANDLE_KM_RECORDS = true;
 		}
 		
 		if((ADD_KM && NETFILTER_RULES) // both can't be true
@@ -610,6 +614,14 @@ public class Audit extends AbstractReporter {
 				logger.log(Level.SEVERE, "Must handle kernel module data if kernel module added.");
 				return false;
 			}else{
+				// Logging only relevant flags now for debugging
+				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
+						+ "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
+						new Object[]{"fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS, 
+								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
+								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
+								"refineNet", REFINE_NET, "hostInfo", EMIT_HOST_RECORD, ADD_KM_KEY, ADD_KM, 
+								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS});
 				return true;
 			}
 		}
@@ -999,6 +1011,10 @@ public class Audit extends AbstractReporter {
 		if(success){
 			return true;
 		}else{
+			// The spadeAuditBridge might have started
+			if(spadeAuditBridgeProcessPid != null){
+				sendSignalToPid(spadeAuditBridgeProcessPid, "2");
+			}
 			doCleanup(rulesType, logListFile);
 			return false;
 		}
