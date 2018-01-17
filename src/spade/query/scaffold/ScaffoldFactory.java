@@ -22,12 +22,16 @@ public class ScaffoldFactory
         {
             scaffold = new InMemory();
         }
+        else if(scaffoldType.equals("Redis"))
+        {
+            scaffold = new Redis();
+        }
 
         return scaffold;
     }
 
     public static Scaffold createDefaultScaffold()
     {
-        return new BerkeleyDB();
+        return new Redis();
     }
 }

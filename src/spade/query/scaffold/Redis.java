@@ -28,13 +28,10 @@ public class Redis extends Scaffold
         try
         {
             childScaffold = new Jedis("localhost");
-            childScaffold.configSet("dir", "/space/spade/tc/SPADE_v3/db/child");
-            childScaffold.configSet("maxmemory", "2GB" );
-            childScaffold.configSet("maxmemory-policy", "allkeys-lfu" );
-
             parentScaffold = new Jedis("localhost");
-            childScaffold.configSet("dir", "/space/spade/tc/SPADE_v3/db/parent");
-            childScaffold.configSet("maxmemory", "2GB" );
+
+            childScaffold.configSet("dir", "/space/spade/tc/SPADE_v3/db/scaffold/");
+            childScaffold.configSet("maxmemory", "5GB" );
             childScaffold.configSet("maxmemory-policy", "allkeys-lfu" );
 
             logger.log(Level.INFO, "Scaffold initialized successfully!");
