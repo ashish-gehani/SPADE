@@ -2,12 +2,15 @@ package spade.analyzer;
 
 import spade.client.QueryMetaData;
 import spade.core.AbstractAnalyzer;
+import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
+import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Kernel;
 import spade.resolver.Recursive;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
@@ -18,9 +21,11 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -252,6 +257,8 @@ public class CommandLine extends AbstractAnalyzer
 //                                string += result.toString();
 //                                logger.log(Level.INFO, string);
 //                                queryOutputStream.writeObject(string);
+                                if(functionName.equals("GetLineage"))
+                                    modifyResult((Graph) result);
                                 queryOutputStream.writeObject(result);
                             }
                             else
@@ -289,6 +296,56 @@ public class CommandLine extends AbstractAnalyzer
                 {
                     Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
                 }
+            }
+        }
+
+        private void modifyResult(Graph result)
+        {
+            try
+            {
+                Properties props = new Properties();
+                props.load(new FileInputStream("modifications.txt"));
+                int vertices = Integer.parseInt(props.getProperty("vertices"));
+                int edges = Integer.parseInt(props.getProperty("edges"));
+
+                int removedVerticesCount = 0;
+                String removedVertices = "";
+                List<AbstractVertex> verticesToRemove = new ArrayList<>();
+                for(AbstractVertex vertex: result.vertexSet())
+                {
+                    if(removedVerticesCount >= vertices)
+                        break;
+                    removedVertices =  removedVertices + vertex.bigHashCode() + ", ";
+                    verticesToRemove.add(vertex);
+                    removedVerticesCount++;
+                }
+                logger.log(Level.INFO, "removedVertices: " + removedVertices);
+                for(int i = 0; i < verticesToRemove.size(); i++)
+                {
+                    result.vertexSet().remove(verticesToRemove.get(i));
+                }
+
+                int removedEdgesCount = 0;
+                String removedEdges = "";
+                List<AbstractEdge> edgesToRemove = new ArrayList<>();
+                for(AbstractEdge edge: result.edgeSet())
+                {
+                    if(removedEdgesCount >= edges)
+                        break;
+                    removedEdges = removedEdges + edge.bigHashCode() + ", ";
+                    edgesToRemove.add(edge);
+                    removedEdgesCount++;
+                }
+                logger.log(Level.INFO, "removedEdges: " + removedEdges);
+                for(int i = 0; i < edgesToRemove.size(); i++)
+                {
+                    result.edgeSet().remove(edgesToRemove.get(i));
+                }
+
+            }
+            catch(Exception ex)
+            {
+                logger.log(Level.SEVERE, "Error modifying graph result!", ex);
             }
         }
 
