@@ -68,7 +68,8 @@ help:
 .SECONDEXPANSION:
  
 build: | prepare-dirs
-build: build-java $$(OS_BUILD) lib/spade.jar
+# Generating host file after all the code has been built
+build: build-java $$(OS_BUILD) lib/spade.jar gen-audit-host-file
 build-java: core clients utilities storages filters query analyzers sketches transformers reporters
  
 .SUFFIXES : .class .java
@@ -112,6 +113,9 @@ transformers:
  
 lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
+	
+gen-audit-host-file:
+	./bin/host -o cfg/spade.reporter.Audit.host
  
 # Build the LinuxAudit reporter.
 build-linuxaudit: build/spade/reporter/Audit.class lib/spadeAuditBridge audit-kernel-module

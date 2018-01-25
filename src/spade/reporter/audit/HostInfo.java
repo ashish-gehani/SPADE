@@ -147,7 +147,8 @@ public class HostInfo{
 		 * @return serial number / NULL (in case of error)
 		 */
 		private static String readSerialNumber(){
-			String command = "lshw";
+			// Only get system class information. 'serial:' keyword otherwise matched incorrectly to other classes.
+			String command = "lshw -C system";
 			try{
 				Execute.Output output = Execute.getOutput(command);
 				if(output.exitValueIndicatesError()){
