@@ -36,7 +36,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -57,6 +56,8 @@ import spade.reporter.audit.BlockDeviceIdentifier;
 import spade.reporter.audit.CharacterDeviceIdentifier;
 import spade.reporter.audit.DirectoryIdentifier;
 import spade.reporter.audit.FileIdentifier;
+import spade.reporter.audit.HostInfo;
+import spade.reporter.audit.HostInfo.Host;
 import spade.reporter.audit.IdentifierWithPath;
 import spade.reporter.audit.LinkIdentifier;
 import spade.reporter.audit.MemoryIdentifier;
@@ -934,6 +935,16 @@ public class Audit extends AbstractReporter {
 					logger.log(Level.SEVERE, "Can't handle kernel module data with kernel module added");
 					success = false;
 				}
+			}else{ // log playback. Output the host artifact here because it ALWAYS needs to be the first object.
+				// Generating it here ensures that no other object has been published since spadeAuditBridge hasn't
+				// been started yet.
+				String hostFilePath = configMap.get("hostFile");
+				HostInfo.Host host = HostInfo.ReadFromFile.read(hostFilePath);
+				if(host == null){
+					success = false;
+				}else{
+					emitHostArtifact(host);
+				}
 			}
 		}
 		
@@ -1145,30 +1156,29 @@ public class Audit extends AbstractReporter {
 		try{
 			for(String iptablesRule : iptablesRules){
 				String executeCommand = "iptables -I " + iptablesRule;
-				List<String> lines = Execute.getOutput(executeCommand);
-				if(Execute.containsOutputFromStderr(lines)){
-					throw new Exception(String.valueOf(lines));
+				Execute.Output output = Execute.getOutput(executeCommand);
+				output.log();
+				if(output.exitValueIndicatesError()){
+					return false;
 				}
 			}
-			logger.log(Level.INFO, "Configured iptables rules: {0}", Arrays.asList(iptablesRules));
 			return true;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to set iptable rules", e);
-			removeIptablesRules(iptablesRules);
 			return false;
 		}
 	}
 	
 	private boolean removeIptablesRules(String [] iptablesRules){
 		try{
+			boolean allRemoved = true;
 			for(String iptablesRule : iptablesRules){
 				String executeCommand = "iptables -D " + iptablesRule;
-				List<String> lines = Execute.getOutput(executeCommand);
-				if(Execute.containsOutputFromStderr(lines)){
-					throw new Exception(String.valueOf(lines));
-				}
+				Execute.Output output = Execute.getOutput(executeCommand);
+				output.log();
+				allRemoved = allRemoved || !output.exitValueIndicatesError();
 			}
-			return true;
+			return allRemoved;
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to remove iptables rule(s). Remove manually.", e);
 			return false;
@@ -1177,15 +1187,15 @@ public class Audit extends AbstractReporter {
 	
 	private Boolean kernelModuleExists(String kernelModuleName){
 		try{
-			List<String> lines = Execute.getOutput("lsmod");
-			if(Execute.containsOutputFromStderr(lines)){
-				logger.log(Level.SEVERE, "Error checking if module '"+kernelModuleName+"' exists: " + lines);
+			Execute.Output output = Execute.getOutput("lsmod");
+			if(output.exitValueIndicatesError()){
+				output.log();
 				return null;
 			}else{
-				for(String line : lines){
+				List<String> stdOutLines = output.getStdOut();
+				for(String line : stdOutLines){
 					String[] tokens = line.split("\\s+");
-					// using first token because Execute class prepends a token to every line
-					if(tokens[1].equals(kernelModuleName)){
+					if(tokens[0].equals(kernelModuleName)){
 						return true;
 					}
 				}
@@ -1216,14 +1226,9 @@ public class Audit extends AbstractReporter {
 	
 	private boolean addKernelModule(String command){
 		try{
-			List<String> lines = Execute.getOutput(command);
-			if(Execute.containsOutputFromStderr(lines)){
-				logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command);
-				return false;
-			}else{
-				logger.log(Level.INFO, "Kernel module added with command: " + command);
-				return true;
-			}
+			Execute.Output output = Execute.getOutput(command);
+			output.log();
+			return !output.exitValueIndicatesError();
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command, e);
 			return false;
@@ -1299,14 +1304,9 @@ public class Audit extends AbstractReporter {
 						// remove
 						String command = "rmmod " + kernelModuleControllerName;
 						try{
-							List<String> lines = Execute.getOutput(command);
-							if(Execute.containsOutputFromStderr(lines)){
-								logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command);
-								return false;
-							}else{
-								logger.log(Level.INFO, "Successfully removed kernel module with command: " + command);
-								return true;
-							}
+							Execute.Output output = Execute.getOutput(command);
+							output.log();
+							return !output.exitValueIndicatesError();
 						}catch(Exception e){
 							logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command, e);
 							return false;
@@ -1547,54 +1547,43 @@ public class Audit extends AbstractReporter {
 
 	private boolean executeAuditctlRule(String auditctlRule){
 		try{
-			List<String> auditctlOutput = Execute.getOutput(auditctlRule);
-			logger.log(Level.INFO, "configured audit rules: {0} with output: {1}", new Object[]{auditctlRule, auditctlOutput});
-			if(Execute.containsOutputFromStderr(auditctlOutput)){
-				return false;
-			}else{
-				return true;
-			}
+			Execute.Output output = Execute.getOutput(auditctlRule);
+			output.log();
+			return !output.exitValueIndicatesError();
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to add auditctl rule = " + auditctlRule, e);
+			logger.log(Level.SEVERE, "Failed to set audit rule: " + auditctlRule, e);
 			return false;
 		}
 	}
 
 	private boolean removeAuditctlRules(){
 		try{
-			List<String> lines = Execute.getOutput("auditctl -D");
-			if(Execute.containsOutputFromStderr(lines)){
-				logger.log(Level.WARNING, "Failed to remove existing audit rules. Error: " + lines);
-				return false;
-			}else{
-				logger.log(Level.INFO, "auditctl -D... output = " + lines);
-				return true;
-			}
+			Execute.Output output = Execute.getOutput("auditctl -D");
+			output.log();
+			return !output.exitValueIndicatesError();
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to remove auditctl rules", e);
+			logger.log(Level.SEVERE, "Failed to remove audit rules", e);
 			return false;
 		}
 	}
 	
 	private boolean emitHostRecord(){
-		Map<String, String> hostInfo = getHostInfo();
-		if(hostInfo != null){
-			String hostMsg = AuditEventReader.buildAuditUserMessageForHostInfo(hostInfo);
-			try{
-				List<String> lines = Execute.getOutput("auditctl -m " + hostMsg);
-				if(Execute.containsOutputFromStderr(lines)){
-					logger.log(Level.SEVERE, "Failed to emit host record. Output = {0}", lines);
-					return false;
-				}else{
-					return true;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to emit host record", e);
-				return false;
-			}
+		HostInfo.Host host = HostInfo.ReadFromOperatingSystem.read();
+		if(host != null){
+			return HostInfo.WriteToAuditLog.write(host);
 		}else{
 			return false;
 		}
+	}
+	
+	private void emitHostArtifact(Host host){
+		Map<String, String> hostAnnotations = host.getAnnotationsMap();
+		
+		Artifact hostArtifact = new Artifact();
+		hostArtifact.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_HOST);
+		hostArtifact.addAnnotations(hostAnnotations);
+		
+		putVertex(hostArtifact);
 	}
 
 	private boolean initCacheMaps(Map<String, String> configMap){
@@ -1686,22 +1675,36 @@ public class Audit extends AbstractReporter {
 	}
 
 	private String getOwnUid(){
+		String command = "id -u";
 		try{
 			String uid = null;
-			List<String> outputLines = Execute.getOutput("id -u");
-			for(String outputLine : outputLines){
-				if(outputLine != null){
-					if(outputLine.contains("[STDOUT]")){
-						uid = outputLine.replace("[STDOUT]", "").trim(); 
-					}else if(outputLine.contains("[STDERR]")){
-						logger.log(Level.SEVERE, "Failed to get user id of JVM. Output = " + outputLines);
+			Execute.Output output = Execute.getOutput(command);
+			if(output.exitValueIndicatesError()){
+				logger.log(Level.SEVERE, "Failed to get user id of JVM. Command: {0}. Error: {1}.",
+						new Object[]{command, output.getStdErr()});
+				return null;
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				if(stdOutLines.size() == 0){
+					logger.log(Level.SEVERE, "No uid in output for command: {0}. Output: {1}.", new Object[]{
+							command, stdOutLines
+					});
+					return null;
+				}else{
+					String uidLine = stdOutLines.get(0);
+					if(uidLine == null || (uidLine = uidLine.trim()).isEmpty()){
+						logger.log(Level.SEVERE, "NULL/Empty uid for command: {0}. Output: {1}.", new Object[]{
+								command, stdOutLines
+						});
 						return null;
+					}else{
+						uid = uidLine;
 					}
 				}
+				return uid;
 			}
-			return uid;
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to get user id of JVM", e);
+			logger.log(Level.SEVERE, "Failed to get user id of JVM using command: " + command, e);
 			return null;
 		}
 	}
@@ -1792,37 +1795,20 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
-	private void handleHostData(Map<String, String> eventData){
-		Artifact artifact = new Artifact();
-		String subtype = OPMConstants.SUBTYPE_HOST;
-		String hostName = eventData.get(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
-		String hostOS = eventData.get(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM);
-		String hostType = eventData.get(OPMConstants.ARTIFACT_HOST_TYPE);
-		String hostSerialNumber = eventData.get(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER);
-		
-		artifact.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, subtype);
-		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, hostName);
-		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, hostOS);
-		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_TYPE, hostType);
-		artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, hostSerialNumber);
-		
-		Integer interfacesCount = CommonFunctions.parseInt(eventData.get(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT), null);
-		if(interfacesCount != null){
-			artifact.addAnnotation(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(interfacesCount));
-			for(int a = 0; a < interfacesCount; a++){
-				String interfaceNameKey = OPMConstants.buildHostNetworkInterfaceNameKey(a);
-				String interfaceMacAddressKey = OPMConstants.buildHostNetworkInterfaceMacAddressKey(a);
-				String interfaceIpAddressesKey = OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a);
-				String interfaceName = eventData.get(interfaceNameKey);
-				String interfaceMacAddress = eventData.get(interfaceMacAddressKey);
-				String interfaceIpAddresses = eventData.get(interfaceIpAddressesKey);
-				artifact.addAnnotation(interfaceNameKey, interfaceName);
-				artifact.addAnnotation(interfaceMacAddressKey, interfaceMacAddress);
-				artifact.addAnnotation(interfaceIpAddressesKey, interfaceIpAddresses);
+	private boolean handleHostData(Map<String, String> eventData){
+		String msgData = eventData.get(AuditEventReader.USER_MSG_SPADE_AUDIT_HOST_KEY);
+		try{
+			Host host = HostInfo.ReadFromAuditLog.read(msgData);
+			if(host != null){
+				emitHostArtifact(host);
+				return true;
+			}else{
+				return false;
 			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to handle host audit record", e);
+			return false;
 		}
-		
-		putVertex(artifact);
 	}
 	
 	private void handleKernelModuleEvent(Map<String, String> eventData){
@@ -4265,131 +4251,6 @@ public class Audit extends AbstractReporter {
 			return null;
 		}else{
 			return pathRecords.get(0);
-		}
-	}
-	
-	/* SYSTEM INFO FUNCTIONS */
-	
-	private Map<String, String> getHostInfo(){
-		try{
-			String command = "uname -a";
-			List<String> lines = Execute.getOutput(command);
-			if(Execute.containsOutputFromStderr(lines)){
-				logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
-				return null;
-			}else{
-				if(lines.size() != 1){
-					logger.log(Level.SEVERE, "Command \"{0}\" unexpected output: {1}", new Object[]{command, lines});
-					return null;
-				}else{
-					Execute.stripLineHeaders(lines);
-					Map<String, String> info = new TreeMap<>();
-					info.put(OPMConstants.ARTIFACT_HOST_TYPE, OPMConstants.ARTIFACT_HOST_TYPE_DESKTOP); // TODO how to get this?
-					String tokens[] = lines.get(0).split("\\s+");
-					info.put(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, tokens[1]);
-					info.put(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, tokens[3] + " - " + tokens[2]);
-					
-					command = "lshw";
-					lines = Execute.getOutput(command);
-					if(Execute.containsOutputFromStderr(lines)){
-						logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
-						return null;
-					}else{
-						Execute.stripLineHeaders(lines);
-						String serialNumber = null;
-						for(String line : lines){
-							if(line != null){
-								line = line.trim();
-								if(line.startsWith("serial:")){
-									serialNumber = line.replace("serial:", "").trim();
-									break;
-								}
-							}
-						}
-						if(serialNumber == null){
-							logger.log(Level.SEVERE, 
-									"Missing serial number in command \"{0}\" output: \"{1}\"", 
-									new Object[]{command, lines});
-							return null;
-						}else{
-							info.put(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, serialNumber);
-							Map<String, String> interfacesInfo = getNetworkInterfacesInfo();
-							if(interfacesInfo == null){
-								return null;
-							}else{
-								info.putAll(interfacesInfo);
-								return info;
-							}
-						}
-					}
-				}
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to get host info", e);
-			return null;
-		}
-	}
-	
-	private Map<String, String> getNetworkInterfacesInfo(){
-		try{
-			String command = "ip -o link show";
-			List<String> lines = Execute.getOutput(command);
-			if(Execute.containsOutputFromStderr(lines)){
-				logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
-				return null;
-			}else{
-				Execute.stripLineHeaders(lines);
-				Map<String, String> nameToMacAddress = new HashMap<>();
-				for(String line : lines){
-					if(line != null){
-						line = line.trim();
-						String tokens[] = line.split("\\s+");
-						String name = tokens[1].replace(":", "");
-						String macAddress = tokens[tokens.length - 3];
-						nameToMacAddress.put(name, macAddress);
-					}
-				}
-				command = "ip -o addr show";
-				lines = Execute.getOutput(command);
-				if(Execute.containsOutputFromStderr(lines)){
-					logger.log(Level.SEVERE, "Command \"{0}\" failed with: {1}", new Object[]{command, lines});
-					return null;
-				}else{
-					Execute.stripLineHeaders(lines);
-					Map<String, List<String>> nameToIpAddresses = new HashMap<>();
-					for(String line : lines){
-						if(line != null){
-							line = line.trim();
-							String tokens[] = line.split("\\s+");
-							String name = tokens[1];
-							String ipAddress = tokens[3];
-							if(nameToIpAddresses.get(name) == null){
-								nameToIpAddresses.put(name, new ArrayList<String>());
-							}
-							nameToIpAddresses.get(name).add(ipAddress);
-						}
-					}
-					Map<String, String> interfacesInfo = new TreeMap<>();
-					Set<String> interfaceNames = new HashSet<>();
-					interfaceNames.addAll(nameToMacAddress.keySet());
-					interfaceNames.addAll(nameToIpAddresses.keySet());
-					int interfacesCount = interfaceNames.size();
-					int a = 0;
-					for(String interfaceName : interfaceNames){
-						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceNameKey(a), interfaceName);
-						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceMacAddressKey(a), 
-								nameToMacAddress.get(interfaceName));
-						interfacesInfo.put(OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a), 
-								OPMConstants.buildHostNetworkInterfaceIpAddressesValue(nameToIpAddresses.get(interfaceName)));
-						a++;
-					}
-					interfacesInfo.put(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(interfacesCount));
-					return interfacesInfo;
-				}
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to get network interfaces", e);
-			return null;
 		}
 	}
 	

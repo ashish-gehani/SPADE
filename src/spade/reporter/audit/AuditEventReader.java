@@ -30,14 +30,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.codehaus.jackson.map.ObjectMapper;
-import org.json.JSONObject;
 
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
@@ -155,7 +151,7 @@ public class AuditEventReader {
 	// Group 3: time
 	// Group 4: recordid
 	private final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
-
+	
 	// Group 1: cwd
 	//cwd is either a quoted string or an unquoted string in which case it is in hex format
 	private final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
@@ -633,14 +629,9 @@ public class AuditEventReader {
 						auditRecordKeyValues.putAll(eventData);
 					}else{
 						if(line.contains(USER_MSG_SPADE_AUDIT_HOST_KEY)){
-							 Map<String, String> hostInfo = parseAuditUserMessageWithHostInfo(line);
-							 if(hostInfo == null){
-								 logger.log(Level.WARNING, "Failed to parse host record: " + line);
-							 }else{
-								 auditRecordKeyValues.putAll(hostInfo);
-								 auditRecordKeyValues.put(RECORD_TYPE_KEY, USER_MSG_SPADE_AUDIT_HOST_KEY);
-							 }
-						 }
+							auditRecordKeyValues.put(USER_MSG_SPADE_AUDIT_HOST_KEY, messageData);
+							auditRecordKeyValues.put(RECORD_TYPE_KEY, USER_MSG_SPADE_AUDIT_HOST_KEY);
+						}
 					}
 				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
@@ -734,44 +725,4 @@ public class AuditEventReader {
 
 		return auditRecordKeyValues;
 	}
-	
-	public static String buildAuditUserMessageForHostInfo(Map<String, String> hostInfo){
-		if(hostInfo == null){
-			return null;
-		}else{
-			JSONObject jsonObject = new JSONObject(hostInfo);
-			String jsonObjectString = jsonObject.toString();
-			String jsonObjectStringHex = CommonFunctions.encodeHex(jsonObjectString);
-			return USER_MSG_SPADE_AUDIT_HOST_KEY+":[" + jsonObjectStringHex + "]";
-		}
-	}
-	
-	public static Map<String, String> parseAuditUserMessageWithHostInfo(String record){
-		if(record == null){
-			return null;
-		}else{
-			int msgStartIndex = record.indexOf(USER_MSG_SPADE_AUDIT_HOST_KEY+":");
-			if(msgStartIndex < 0){
-				return null;
-			}else{
-				int valueStartIndex = record.indexOf('[', msgStartIndex);
-				int valueEndIndex = record.indexOf(']', valueStartIndex+1);
-				if(valueStartIndex > -1 && valueEndIndex > -1){
-					String jsonObjectStringHex = record.substring(valueStartIndex+1, valueEndIndex);
-					String jsonObjectString = CommonFunctions.decodeHex(jsonObjectStringHex);
-					try{
-						Map<String, String> map = 
-								(TreeMap<String, String>)new ObjectMapper().readValue(jsonObjectString, TreeMap.class);
-						return map;
-					}catch(Exception e){
-						return null;
-					}
-				}else{
-					return null;
-				}
-			}
-		}
-	}
-	
-	
 }

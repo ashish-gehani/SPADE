@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+#  --------------------------------------------------------------------------------
+#  SPADE - Support for Provenance Auditing in Distributed Environments.
+#  Copyright (C) 2015 SRI International
+
+#  This program is free software: you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation, either version 3 of the
+#  License, or (at your option) any later version.
+
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  General Public License for more details.
+
+#  You should have received a copy of the GNU General Public License
+#  along with this program. If not, see <http://www.gnu.org/licenses/>.
+#  --------------------------------------------------------------------------------
+
+print_help(){
+	echo "host (-o | -p) <filepath>"
+	echo ""
+	echo "'host -o <filepath>' : Reads the current host info and writes to the specified file"
+	echo "'host -p <filepath>' : Prints the host info in the specified file (to verify that it is written correctly)"
+	echo "'host help' : Prints this message"
+}
+
+SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
+CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
+JAVALIBPATH="$SPADE_ROOT/lib/"
+JVMARGS="-Xms128M"
+
+pushd "${SPADE_ROOT}" > /dev/null
+
+if [ $# -ne 2 ] ; then
+	print_help
+else
+	if [ $1 = "-o" ] || [ $1 = "-p" ] ; then
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.reporter.audit.HostInfo "$@"
+	else
+		print_help
+	fi
+
+fi
+
+popd > /dev/null

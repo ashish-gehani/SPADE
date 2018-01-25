@@ -726,21 +726,24 @@ public abstract class ProcessManager extends ProcessStateManager{
 	private Map<String, ArtifactIdentifier> getFileDescriptors(String pid){
 		try{
 			//LSOF args -> n = no DNS resolution, P = no port user-friendly naming, p = pid of process
-			List<String> lines = Execute.getOutput("lsof -nPp " + pid);
-			if(lines != null && lines.size() > 1 && !Execute.containsOutputFromStderr(lines)){
+			Execute.Output output = Execute.getOutput("lsof -nPp " + pid);
+			if(!output.exitValueIndicatesError()){
+				List<String> stdOutLines = output.getStdOut();
+				stdOutLines.remove(0); //remove the heading line
+				
 				Map<String, ArtifactIdentifier> fds = new HashMap<String, ArtifactIdentifier>();
 				Map<String, String> inodefd0 = new HashMap<String, String>();
-				lines.remove(0); //remove the heading line
-				for(String line : lines){
-					String tokens[] = line.split("\\s+");
+				
+				for(String stdOutLine : stdOutLines){
+					String tokens[] = stdOutLine.split("\\s+");
 					if(tokens.length >= 10){
-						String type = tokens[5].toLowerCase().trim();
+						String type = tokens[4].toLowerCase().trim();
 						// fd ends with r(read), w(write), u(read and write), W (lock)
-						String fdString = tokens[4].trim().replaceAll("[^0-9]", ""); 
+						String fdString = tokens[3].trim().replaceAll("[^0-9]", ""); 
 						if("fifo".equals(type)){
-							String path = tokens[9];
+							String path = tokens[8];
 							if("pipe".equals(path)){ //unnamed pipe
-								String inode = tokens[8];
+								String inode = tokens[7];
 								if(inodefd0.get(inode) == null){
 									inodefd0.put(inode, fdString);
 								}else{
@@ -752,27 +755,27 @@ public abstract class ProcessManager extends ProcessStateManager{
 							}else{ //named pipe
 								fds.put(fdString, new NamedPipeIdentifier(path));
 							}	    						
-						}else if("ipv4".equals(type) && line.contains("(ESTABLISHED)")){
-							String protocol = String.valueOf(tokens[8]).toLowerCase();
+						}else if("ipv4".equals(type) && stdOutLine.contains("(ESTABLISHED)")){
+							String protocol = String.valueOf(tokens[7]).toLowerCase();
 							//example of this token = 10.0.2.15:35859->172.231.72.152:443 (ESTABLISHED)
-							String[] srchostport = tokens[9].split("->")[0].split(":");
-							String[] dsthostport = tokens[9].split("->")[1].split("\\s+")[0].split(":");
+							String[] srchostport = tokens[8].split("->")[0].split(":");
+							String[] dsthostport = tokens[8].split("->")[1].split(":");
 							fds.put(fdString, new NetworkSocketIdentifier(srchostport[0], srchostport[1], 
 									dsthostport[0], dsthostport[1], protocol));
-						}else if("ipv6".equals(type) && line.contains("(ESTABLISHED)")){
+						}else if("ipv6".equals(type) && stdOutLine.contains("(ESTABLISHED)")){
 							String protocol = String.valueOf(tokens[8]).toLowerCase();
 							//example of this token = [::1]:48644->[::1]:631 (ESTABLISHED)
 							String src = tokens[9].split("->")[0];
-							String dst = tokens[9].split("->")[1].split("\\s+")[0];
-							String srcaddr = src.substring(0, src.lastIndexOf(':')).replace("[", "").replace("]", "");
-							String srcport = src.substring(src.lastIndexOf(':') + 1);
-							String dstaddr = dst.substring(0, dst.lastIndexOf(':')).replace("[", "").replace("]", "");
-							String dstport = dst.substring(dst.lastIndexOf(':') + 1);
-							fds.put(fdString, new NetworkSocketIdentifier(srcaddr, srcport, 
-									dstaddr, dstport, protocol));
+							String dst = tokens[9].split("->")[1];
+							String srcaddr = src.split("\\]:")[0].substring(1);
+							String srcport = src.split("\\]:")[1];
+							String dstaddr = dst.split("\\]:")[0].substring(1);
+							String dstport = dst.split("\\]:")[1];
+							fds.put(fdString, new NetworkSocketIdentifier(srcaddr, srcport, dstaddr, dstport, 
+									protocol));
 						}else if(type != null){
 							ArtifactIdentifier identifier = null;
-							String path = tokens[9];
+							String path = tokens[8];
 							switch (type) {
 								case "unix": 
 									if(!"socket".equals(path)){ // abstract socket and don't know the name
@@ -794,7 +797,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 				}
 				return fds;
 			}else{
-				logger.log(Level.WARNING, "Failed to read file descriptors for pid: " + pid + ". Output = " + lines);
+				output.log();
 			}
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to read file descriptors for pid: " + pid, e);
