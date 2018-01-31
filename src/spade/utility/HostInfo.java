@@ -18,7 +18,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.utility;
 
 import java.io.File;
 import java.io.PrintWriter;
@@ -40,9 +40,9 @@ import java.util.logging.Logger;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.json.JSONObject;
 
-import spade.utility.CommonFunctions;
-import spade.utility.Execute;
-import spade.utility.FileUtility;
+import spade.reporter.audit.AuditEventReader;
+import spade.reporter.audit.OPMConstants;
+import spade.reporter.audit.VertexIdentifier;
 
 /**
  * Class/Subclasses to manage host information for Audit reporter.

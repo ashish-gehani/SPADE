@@ -115,7 +115,7 @@ lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
 	
 gen-audit-host-file:
-	./bin/host -o cfg/spade.reporter.Audit.host
+	./bin/hostInfo -o cfg/spade.reporter.Audit.host
  
 # Build the LinuxAudit reporter.
 build-linuxaudit: build/spade/reporter/Audit.class lib/spadeAuditBridge audit-kernel-module

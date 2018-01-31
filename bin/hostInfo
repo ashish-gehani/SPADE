@@ -19,11 +19,11 @@
 #  --------------------------------------------------------------------------------
 
 print_help(){
-	echo "host (-o | -p) <filepath>"
+	echo "hostInfo (-o | -p) <filepath>"
 	echo ""
-	echo "'host -o <filepath>' : Reads the current host info and writes to the specified file"
-	echo "'host -p <filepath>' : Prints the host info in the specified file (to verify that it is written correctly)"
-	echo "'host help' : Prints this message"
+	echo "'hostInfo -o <filepath>' : Reads the current host info and writes to the specified file"
+	echo "'hostInfo -p <filepath>' : Prints the host info in the specified file (to verify that it is written correctly)"
+	echo "'hostInfo help' : Prints this message"
 }
 
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
@@ -37,7 +37,7 @@ if [ $# -ne 2 ] ; then
 	print_help
 else
 	if [ $1 = "-o" ] || [ $1 = "-p" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.reporter.audit.HostInfo "$@"
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.HostInfo "$@"
 	else
 		print_help
 	fi

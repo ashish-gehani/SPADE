@@ -56,8 +56,6 @@ import spade.reporter.audit.BlockDeviceIdentifier;
 import spade.reporter.audit.CharacterDeviceIdentifier;
 import spade.reporter.audit.DirectoryIdentifier;
 import spade.reporter.audit.FileIdentifier;
-import spade.reporter.audit.HostInfo;
-import spade.reporter.audit.HostInfo.Host;
 import spade.reporter.audit.IdentifierWithPath;
 import spade.reporter.audit.LinkIdentifier;
 import spade.reporter.audit.MemoryIdentifier;
@@ -77,6 +75,8 @@ import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.utility.Hasher;
+import spade.utility.HostInfo;
+import spade.utility.HostInfo.Host;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
