@@ -614,7 +614,7 @@ public class HostInfo{
 	 * @param filePath file to write to
 	 * @return true/false
 	 */
-	private static boolean generateCurrentHostFile(String filePath){
+	public static boolean generateCurrentHostFile(String filePath){
 		try{
 			Host currentHost = HostInfo.ReadFromOperatingSystem.readSafe();
 			if(currentHost != null){

@@ -627,11 +627,6 @@ public class AuditEventReader {
 						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
 						eventData.put(TIME, time);
 						auditRecordKeyValues.putAll(eventData);
-					}else{
-						if(line.contains(USER_MSG_SPADE_AUDIT_HOST_KEY)){
-							auditRecordKeyValues.put(USER_MSG_SPADE_AUDIT_HOST_KEY, messageData);
-							auditRecordKeyValues.put(RECORD_TYPE_KEY, USER_MSG_SPADE_AUDIT_HOST_KEY);
-						}
 					}
 				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);

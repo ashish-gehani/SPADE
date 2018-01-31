@@ -75,8 +75,6 @@ import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.utility.Hasher;
-import spade.utility.HostInfo;
-import spade.utility.HostInfo.Host;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -210,7 +208,6 @@ public class Audit extends AbstractReporter {
 	private boolean ADD_KM = true;
 	private String HANDLE_KM_RECORDS_KEY = "handleLocalEndpoints";
 	private boolean HANDLE_KM_RECORDS = false;
-	private boolean EMIT_HOST_RECORD = true;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -574,15 +571,7 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for 'refineNet': " + argValue);
 			return false;
 		}
-		
-		argValue = args.get("hostInfo");
-		if(isValidBoolean(argValue)){
-			EMIT_HOST_RECORD = parseBoolean(argValue, EMIT_HOST_RECORD);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'hostInfo': " + argValue);
-			return false;
-		}
-		
+				
 		argValue = args.get(ADD_KM_KEY);
 		if(isValidBoolean(argValue)){
 			ADD_KM = parseBoolean(argValue, ADD_KM);
@@ -617,11 +606,11 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-						+ "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
+						+ "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}",
 						new Object[]{"fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS, 
 								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
 								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
-								"refineNet", REFINE_NET, "hostInfo", EMIT_HOST_RECORD, ADD_KM_KEY, ADD_KM, 
+								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS});
 				return true;
 			}
@@ -935,16 +924,6 @@ public class Audit extends AbstractReporter {
 					logger.log(Level.SEVERE, "Can't handle kernel module data with kernel module added");
 					success = false;
 				}
-			}else{ // log playback. Output the host artifact here because it ALWAYS needs to be the first object.
-				// Generating it here ensures that no other object has been published since spadeAuditBridge hasn't
-				// been started yet.
-				String hostFilePath = configMap.get("hostFile");
-				HostInfo.Host host = HostInfo.ReadFromFile.readSafe(hostFilePath);
-				if(host == null){
-					success = false;
-				}else{
-					emitHostArtifact(host);
-				}
 			}
 		}
 		
@@ -982,12 +961,6 @@ public class Audit extends AbstractReporter {
 		
 		if(success){
 			if(isLiveAudit){
-				// Ensuring that this record is emitted first because needed by CDM storage
-				if(EMIT_HOST_RECORD){
-					if(!emitHostRecord()){
-						success = false;
-					}
-				}
 				
 				if(success){
 					if(ADD_KM || NETFILTER_RULES || rulesType == null || rulesType.equals("all")){
@@ -1566,25 +1539,6 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 	}
-	
-	private boolean emitHostRecord(){
-		HostInfo.Host host = HostInfo.ReadFromOperatingSystem.readSafe();
-		if(host != null){
-			return HostInfo.WriteToAuditLog.write(host);
-		}else{
-			return false;
-		}
-	}
-	
-	private void emitHostArtifact(Host host){
-		Map<String, String> hostAnnotations = host.getAnnotationsMap();
-		
-		Artifact hostArtifact = new Artifact();
-		hostArtifact.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_HOST);
-		hostArtifact.addAnnotations(hostAnnotations);
-		
-		putVertex(hostArtifact);
-	}
 
 	private boolean initCacheMaps(Map<String, String> configMap){
 		try{
@@ -1785,29 +1739,11 @@ public class Audit extends AbstractReporter {
 				if(HANDLE_KM_RECORDS){
 					handleKernelModuleEvent(eventData);
 				}
-			}else if(AuditEventReader.USER_MSG_SPADE_AUDIT_HOST_KEY.equals(recordType)){
-				handleHostData(eventData);
 			}else{
 				handleSyscallEvent(eventData);
 			}
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to process eventData: " + eventData, e);
-		}
-	}
-	
-	private boolean handleHostData(Map<String, String> eventData){
-		String msgData = eventData.get(AuditEventReader.USER_MSG_SPADE_AUDIT_HOST_KEY);
-		try{
-			Host host = HostInfo.ReadFromAuditLog.read(msgData);
-			if(host != null){
-				emitHostArtifact(host);
-				return true;
-			}else{
-				return false;
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to handle host audit record", e);
-			return false;
 		}
 	}
 	

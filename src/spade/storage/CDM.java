@@ -66,9 +66,13 @@ import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
+import spade.core.Settings;
 import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
+import spade.utility.FileUtility;
+import spade.utility.HostInfo;
+import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Agent;
 
 /**
@@ -112,6 +116,14 @@ public class CDM extends Kafka {
 	 * Flag whose value is set from arguments to decide whether to output hashcode and hex or raw bytes
 	 */
 	private boolean hexUUIDs = false;
+	
+	/**
+	 * Flag to tell whether to get host info from OS or not.
+	 * If true then host info gotten from OS, host info saved to output file for class HostInfo and this host info
+	 * published.
+	 * If false then host info read from output file for class HostInfo and published.
+	 */
+	private boolean createHostConfig = true;
 	/**
 	 * A map used to keep track of:
 	 * 1) To keep track of parent subject UUIDs, equivalent to ppid
@@ -521,9 +533,6 @@ public class CDM extends Kafka {
 				}
 			}
 			Host host = new Host(uuid, hostName, hostIdentifiers, operatingSystem, hostType, interfaces);
-			if(this.hostUUID == null){ // first object should always be host according to new logic.
-				this.hostUUID = uuid;
-			}
 			if(publishRecords(Arrays.asList(buildTcCDMDatum(host, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE))) > 0){
 				return true;
 			}else{
@@ -824,13 +833,68 @@ public class CDM extends Kafka {
 			}
 		}
 		
+		String createHostConfigArgValue = argumentsMap.get("createHostConfig");
+		if(createHostConfigArgValue != null){
+			createHostConfigArgValue = createHostConfigArgValue.trim();
+			if("false".equals(createHostConfigArgValue)){
+				createHostConfig = false;
+			}else if("true".equals(createHostConfigArgValue)){
+				createHostConfig = true;
+			}else{
+				logger.log(Level.SEVERE, "Invalid 'createHostConfig' value: " + createHostConfigArgValue + ". Only 'true' or 'false'");
+				return false;
+			}
+		}
+		
 		boolean initResult = super.initialize(arguments);
 		if(!initResult){
 			return false;
 		}else{
-			populateEventRules();
-			publishStreamMarkerObject(true);
+			AbstractVertex hostVertex = createHostVertex();
+			if(hostVertex == null){
+				return false;
+			}else{
+				populateEventRules();
+				publishStreamMarkerObject(true);
+				publishHost(hostVertex);
+				this.hostUUID = getUuid(hostVertex);
+			}
 			return true;
+		}
+	}
+	
+	private AbstractVertex createHostVertex(){
+		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+		Map<String, String> configMap = null;
+		try{
+			configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read config file: "+ configFilePath, e);
+			return null;
+		}
+		
+		String hostFileKey = "hostFile";
+		String hostFilePath = configMap.get(hostFileKey);
+		
+		if(hostFilePath == null || (hostFilePath = hostFilePath.trim()).isEmpty()){
+			logger.log(Level.SEVERE, "Missing/Empty '"+hostFileKey+"' value in config");
+			return null;
+		}else{
+			if(createHostConfig){
+				if(!HostInfo.generateCurrentHostFile(hostFilePath)){
+					// Failed to write the host file.
+					return null;
+				}
+			}
+			if(FileUtility.fileExists(hostFilePath)){
+				HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
+				AbstractVertex hostVertex = new Artifact();
+				hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
+				return hostVertex;
+			}else{
+				logger.log(Level.SEVERE, "Missing host file at path: " + hostFilePath);
+				return null;
+			}
 		}
 	}
 
@@ -843,13 +907,7 @@ public class CDM extends Kafka {
 	 */
 	@Override
 	public boolean putVertex(AbstractVertex incomingVertex) {
-		if(incomingVertex != null 
-				&& OPMConstants.SUBTYPE_HOST.equals(incomingVertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE))){
-			publishHost(incomingVertex);
-			// publish it right away and don't add it to the list as in the else condition
-		}else{
-			currentVerticesAndEdges.add(incomingVertex);
-		}
+		currentVerticesAndEdges.add(incomingVertex);
 		return true;
 	}
 	
