@@ -119,6 +119,24 @@ public class FileUtility {
 	}
 	
 	/**
+	 * Responsibility of the user to call this on a file which can fit in memory easily.
+	 * 
+	 * @param filepath path of the file (regular file)
+	 * @return null (on error) else the lines
+	 */
+	public static List<String> readLines(String filepath){
+		if(filepath == null){
+			return null;
+		}else{
+			try{
+				return FileUtils.readLines(new File(filepath));
+			}catch(Exception e){
+				return null;
+			}
+		}
+	}
+	
+	/**
 	 * A convenience function to see if the given filepath can be created.
 	 * 
 	 * Not a permissions check. Just checks if the parent directory of the given
