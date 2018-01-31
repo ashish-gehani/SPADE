@@ -939,7 +939,7 @@ public class Audit extends AbstractReporter {
 				// Generating it here ensures that no other object has been published since spadeAuditBridge hasn't
 				// been started yet.
 				String hostFilePath = configMap.get("hostFile");
-				HostInfo.Host host = HostInfo.ReadFromFile.read(hostFilePath);
+				HostInfo.Host host = HostInfo.ReadFromFile.readSafe(hostFilePath);
 				if(host == null){
 					success = false;
 				}else{
@@ -1568,7 +1568,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean emitHostRecord(){
-		HostInfo.Host host = HostInfo.ReadFromOperatingSystem.read();
+		HostInfo.Host host = HostInfo.ReadFromOperatingSystem.readSafe();
 		if(host != null){
 			return HostInfo.WriteToAuditLog.write(host);
 		}else{

@@ -58,7 +58,7 @@ public class HostInfo{
 	public static class ReadFromOperatingSystem{
 		
 		/**
-		 * Creates an instance of Host class by gather information required from different
+		 * Creates an instance of Host class by gathering information required from different
 		 * utilities.
 		 * 
 		 * @return Host class instance / NULL (if an error occurs)
@@ -82,6 +82,37 @@ public class HostInfo{
 				}
 			}
 			return null;
+		}
+		
+		/**
+		 * Creates an instance of Host class by gathering information required from different
+		 * utilities. If any of the host information is not found then returns incomplete
+		 * Host object instead of null.
+		 * 
+		 * @return Host class instance
+		 */
+		public static Host readSafe(){
+			String hostName = "", operatingSystem = "";
+			String unameLine = readUnameOutput();
+			if(unameLine != null){
+				String unameTokens[] = unameLine.split("\\s+");
+				if(unameTokens.length > 1){
+					hostName = unameTokens[1] == null ? "" : unameTokens[1];
+				}
+				if(unameTokens.length > 3){
+					operatingSystem = unameTokens[3] == null ? "" : unameTokens[3];
+				}
+			}
+			List<Interface> interfaces = readInterfaces();
+			interfaces = interfaces == null ? new ArrayList<Interface>() : interfaces;
+			
+			Host host = new Host();
+			host.serialNumber = unNullify(readSerialNumberFromDbusFile());
+			host.hostType = OPMConstants.ARTIFACT_HOST_TYPE_DESKTOP;
+			host.hostName = hostName;
+			host.operationSystem = operatingSystem;
+			host.interfaces = interfaces;
+			return host;
 		}
 		
 		/**
@@ -109,7 +140,7 @@ public class HostInfo{
 					}
 					
 					Interface interfaceResult = new Interface();
-					interfaceResult.name = networkInterface.getName();
+					interfaceResult.name = unNullify(networkInterface.getName());
 					interfaceResult.macAddress = parseBytesToMacAddress(networkInterface.getHardwareAddress());
 					
 					List<String> ips = new ArrayList<String>();
@@ -244,7 +275,7 @@ public class HostInfo{
 		 * @return mac address as string
 		 */
 		private static String parseBytesToMacAddress(byte[] bytes){
-			if(bytes == null){
+			if(bytes == null || bytes.length < 6){
 				return "";
 			}else{
 				return parseByteToHex(bytes[0]) + ":" + parseByteToHex(bytes[1]) + ":" + parseByteToHex(bytes[2])
@@ -259,7 +290,7 @@ public class HostInfo{
 		 * @return ipv4 address as string
 		 */
 		private static String parseBytesToIpv4(byte[] bytes){
-			if(bytes == null){
+			if(bytes == null || bytes.length < 4){
 				return "";
 			}else{
 				return parseByteToInt(bytes[0]) + "." + parseByteToInt(bytes[1]) + "." + parseByteToInt(bytes[2]) + "."
@@ -274,7 +305,7 @@ public class HostInfo{
 		 * @return ipv6 address as string
 		 */
 		private static String parseBytesToIpv6(byte[] bytes){
-			if(bytes == null){
+			if(bytes == null || bytes.length < 16){
 				return "";
 			}else{
 				return parseByteToHex(bytes[0]) + parseByteToHex(bytes[1]) + ":"
@@ -309,6 +340,28 @@ public class HostInfo{
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to read host from file: " + filePath, e);
 				return null;
+			}
+		}
+		
+		/**
+		 * Reads the given file which should DOESN'T have to contain all the keys required by the host object
+		 * 
+		 * NOTE: Any changes to read format should be updated accordingly in the WriteToFile class
+		 * 
+		 * @param filePath path of the file which contains host information
+		 * @return Host class instance
+		 */
+		public static Host readSafe(String filePath){
+			Map<String, String> map = null;
+			try{
+				map = FileUtility.readConfigFileAsKeyValueMap(filePath, "=");
+			}catch(Exception e){
+				// ignore exception because we don't care. Can't return null.
+			}
+			if(map == null){
+				return new Host();
+			}else{
+				return Host.mapToHost(map);
 			}
 		}
 		
@@ -496,18 +549,22 @@ public class HostInfo{
 		
 		private static Map<String, String> hostToMap(Host host){
 			Map<String, String> map = new HashMap<String, String>();
-			map.put(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, host.hostName);
-			map.put(OPMConstants.ARTIFACT_HOST_TYPE, host.hostType);
-			map.put(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, host.serialNumber);
-			map.put(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, host.operationSystem);
-			map.put(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(host.interfaces.size()));
+			map.put(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, unNullify(host.hostName));
+			map.put(OPMConstants.ARTIFACT_HOST_TYPE, unNullify(host.hostType));
+			map.put(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, unNullify(host.serialNumber));
+			map.put(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM, unNullify(host.operationSystem));
+			int interfacesCount = 0;
+			if(host.interfaces != null){
+				interfacesCount = host.interfaces.size();
+			}
+			map.put(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT, String.valueOf(interfacesCount));
 			for(int a = 0; a<host.interfaces.size(); a++){
 				String interfaceNameKey = OPMConstants.buildHostNetworkInterfaceNameKey(a);
 				String interfaceMacAddressKey = OPMConstants.buildHostNetworkInterfaceMacAddressKey(a);
 				String interfaceIpAddressKey = OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a);
 				Interface i = host.interfaces.get(a);
-				map.put(interfaceNameKey, i.name);
-				map.put(interfaceMacAddressKey, i.macAddress);
+				map.put(interfaceNameKey, unNullify(i.name));
+				map.put(interfaceMacAddressKey, unNullify(i.macAddress));
 				String ipString = listToString(i.ips);
 				map.put(interfaceIpAddressKey, ipString);
 			}
@@ -520,7 +577,7 @@ public class HostInfo{
 			host.hostType = unNullify(map.get(OPMConstants.ARTIFACT_HOST_TYPE));
 			host.serialNumber = unNullify(map.get(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER));
 			host.operationSystem = unNullify(map.get(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM));
-			Integer a = Integer.parseInt(unNullify(map.get(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT)));
+			Integer a = CommonFunctions.parseInt(unNullify(map.get(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT)), 0);
 			for(int b = 0; b < a; b++){
 				String interfaceNameKey = OPMConstants.buildHostNetworkInterfaceNameKey(b);
 				String interfaceMacAddressKey = OPMConstants.buildHostNetworkInterfaceMacAddressKey(b);
@@ -559,7 +616,7 @@ public class HostInfo{
 	 */
 	private static boolean generateCurrentHostFile(String filePath){
 		try{
-			Host currentHost = HostInfo.ReadFromOperatingSystem.read();
+			Host currentHost = HostInfo.ReadFromOperatingSystem.readSafe();
 			if(currentHost != null){
 				return HostInfo.WriteToFile.write(currentHost, filePath);
 			}
@@ -577,7 +634,7 @@ public class HostInfo{
 	 */
 	private static boolean printHostFile(String filePath){
 		try{
-			Host host = HostInfo.ReadFromFile.read(filePath);
+			Host host = HostInfo.ReadFromFile.readSafe(filePath);
 			if(host != null){
 				System.out.println(host);
 				return true;
