@@ -39,9 +39,9 @@ USAGE:
 
 ADD MODULES (directly):
 	+ Example command to ADD the 'netio' module directly:
-		insmod lib/km/netio.ko
+		insmod lib/kernel-modules/netio.ko
 	+ Example command to ADD the 'netio_controller' module directly (make sure that all processes with 'pidof' below are running):
-		insmod lib/km/netio_controller.ko uids_ignore="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
+		insmod lib/kernel-modules/netio_controller.ko uids_ignore="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
 
 ADD MODULES (through LIVE Audit reporter):
 	+ Example control client command:
