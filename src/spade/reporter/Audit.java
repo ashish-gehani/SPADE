@@ -205,9 +205,9 @@ public class Audit extends AbstractReporter {
 	private boolean NETFILTER_RULES = false;
 	private boolean REFINE_NET = false;
 	private String ADD_KM_KEY = "localEndpoints";
-	private boolean ADD_KM = true;
+	private boolean ADD_KM; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	private String HANDLE_KM_RECORDS_KEY = "handleLocalEndpoints";
-	private boolean HANDLE_KM_RECORDS = false;
+	private boolean HANDLE_KM_RECORDS; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -571,7 +571,20 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for 'refineNet': " + argValue);
 			return false;
 		}
-				
+		
+		// Setting default values here instead of where variables are defined because default values for KM vars depend
+		// on whether the data is live or playback.
+		boolean logPlayback = argsSpecifyLogPlayback(args);
+		if(logPlayback){
+			// default values
+			ADD_KM = false;
+			HANDLE_KM_RECORDS = false;
+		}else{ // live audit
+			ADD_KM = true;
+			HANDLE_KM_RECORDS = true;
+		}
+		
+		// Parsing the values for the KM vars after the default values have be set appropriately (see above)
 		argValue = args.get(ADD_KM_KEY);
 		if(isValidBoolean(argValue)){
 			ADD_KM = parseBoolean(argValue, ADD_KM);
@@ -580,16 +593,12 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		if(!ADD_KM){
-			argValue = args.get(HANDLE_KM_RECORDS_KEY);
-			if(isValidBoolean(argValue)){
-				HANDLE_KM_RECORDS = parseBoolean(argValue, HANDLE_KM_RECORDS);
-			}else{
-				logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KM_RECORDS_KEY+"': " + argValue);
-				return false;
-			}
+		argValue = args.get(HANDLE_KM_RECORDS_KEY);
+		if(isValidBoolean(argValue)){
+			HANDLE_KM_RECORDS = parseBoolean(argValue, HANDLE_KM_RECORDS);
 		}else{
-			HANDLE_KM_RECORDS = true;
+			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KM_RECORDS_KEY+"': " + argValue);
+			return false;
 		}
 		
 		if((ADD_KM && NETFILTER_RULES) // both can't be true
@@ -719,6 +728,10 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
+	private boolean argsSpecifyLogPlayback(Map<String, String> args){
+		return args.containsKey("inputDir") || args.containsKey("inputLog");
+	}
+	
 	@Override
 	public boolean launch(String arguments) {
 		String spadeAuditBridgeBinaryName = null;
@@ -782,7 +795,7 @@ public class Audit extends AbstractReporter {
 
 		String inputLogDirectoryArgument = argsMap.get("inputDir");
 		String inputAuditLogFileArgument = argsMap.get("inputLog");
-		if(inputAuditLogFileArgument != null || inputLogDirectoryArgument != null){
+		if(argsSpecifyLogPlayback(argsMap)){
 			// is log playback
 			isLiveAudit = false;
 			
@@ -921,7 +934,7 @@ public class Audit extends AbstractReporter {
 			if(isLiveAudit){
 				// if live audit and no km but handling records then error
 				if(!ADD_KM && HANDLE_KM_RECORDS){
-					logger.log(Level.SEVERE, "Can't handle kernel module data with kernel module added");
+					logger.log(Level.SEVERE, "Can't handle kernel module data without kernel module added for Live Audit");
 					success = false;
 				}
 			}
