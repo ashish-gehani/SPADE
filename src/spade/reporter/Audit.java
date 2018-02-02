@@ -580,8 +580,8 @@ public class Audit extends AbstractReporter {
 			ADD_KM = false;
 			HANDLE_KM_RECORDS = false;
 		}else{ // live audit
-			ADD_KM = true;
-			HANDLE_KM_RECORDS = true;
+			ADD_KM = false;
+			HANDLE_KM_RECORDS = false;
 		}
 		
 		// Parsing the values for the KM vars after the default values have be set appropriately (see above)
