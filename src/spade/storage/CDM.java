@@ -123,7 +123,7 @@ public class CDM extends Kafka {
 	/**
 	 * List of currently unprocessed edges i.e. all edges for an event haven't been received
 	 */
-	private List<AbstractEdge> currentEventEdges = new ArrayList<AbstractEdge>();
+	private List<Object> currentVerticesAndEdges = new ArrayList<Object>();
 	/**
 	 * A map from the Set of edges needed for each event to complete.
 	 */
@@ -766,6 +766,11 @@ public class CDM extends Kafka {
 	 */
 	@Override
 	public boolean putVertex(AbstractVertex incomingVertex) {
+		currentVerticesAndEdges.add(incomingVertex);
+		return true;
+	}
+	
+	private boolean publishVertex(AbstractVertex incomingVertex) {
 		try{
 			if(incomingVertex != null){
 				String type = incomingVertex.type();
@@ -813,13 +818,13 @@ public class CDM extends Kafka {
 	
 					// handles the first edge case also
 					if(lastTimeEventId.equals(newEdgeTimeEventId)){
-						currentEventEdges.add(edge);
+						currentVerticesAndEdges.add(edge);
 					}else{
 						// new time,eventid so flush the current edges and move to the next
-						processEdgesWrapper(currentEventEdges);
+						publishVerticesAndEdges(currentVerticesAndEdges);
 						lastTimeEventId = newEdgeTimeEventId;
-						currentEventEdges.clear();
-						currentEventEdges.add(edge);
+						currentVerticesAndEdges.clear();
+						currentVerticesAndEdges.add(edge);
 					}
 	
 					return true;
@@ -833,6 +838,44 @@ public class CDM extends Kafka {
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
 			return false;
+		}
+	}
+	
+	private void publishVerticesAndEdges(List<Object> objects){
+		/*
+		 * First process the vertices before the edges for this event
+		 * Then process the edges
+		 * Then process the vertices after the edges
+		 * 
+		 * Doing this to make sure that state set by a process vertex after an edge
+		 * isn't overwritten by an edge. Specifically the case of setuid/setgid over-
+		 * writing the subject uuid for a pid set by a process vertex later on.
+		 * 
+		 */
+		List<AbstractEdge> edges = new ArrayList<AbstractEdge>();
+		List<AbstractVertex> verticesBeforeAndBetweenEdges = new ArrayList<AbstractVertex>();
+		List<AbstractVertex> verticesAfterTheLastEdge = new ArrayList<AbstractVertex>();
+		
+		List<AbstractVertex> vertexListRef = verticesAfterTheLastEdge;
+		
+		for(int a = objects.size() - 1 ; a>=0; a--){
+			Object object = objects.get(a);
+			if(object instanceof AbstractVertex){
+				vertexListRef.add((AbstractVertex)object);
+			}else if(object instanceof AbstractEdge){
+				vertexListRef = verticesBeforeAndBetweenEdges;
+				edges.add((AbstractEdge)object);
+			}else{
+				logger.log(Level.WARNING, "Unexpected object type in: " + objects);
+			}
+		}
+		
+		for(AbstractVertex vertex : verticesBeforeAndBetweenEdges){
+			publishVertex(vertex);
+		}
+		processEdgesWrapper(edges);
+		for(AbstractVertex vertex : verticesAfterTheLastEdge){
+			publishVertex(vertex);
 		}
 	}
 	
@@ -924,8 +967,8 @@ public class CDM extends Kafka {
 		try {
 
 			// Flush buffer
-			processEdgesWrapper(currentEventEdges);
-			currentEventEdges.clear();
+			publishVerticesAndEdges(currentVerticesAndEdges);
+			currentVerticesAndEdges.clear();
 			pidSubjectUUID.clear();
 			publishedPrincipals.clear();
 
