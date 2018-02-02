@@ -63,6 +63,13 @@ public class Kafka extends AbstractStorage{
     
     private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass()); //depending on the instance get the correct config file
   	
+    public boolean writeDataToServer(Map<String, String> args){
+    	String kafkaServer = args.get(SERVER_KEY),
+        		kafkaProducerID = args.get(PRODUCER_ID_KEY),
+        		kafkaTopic = args.get(TOPIC_KEY);
+    	return (kafkaServer != null || kafkaProducerID != null || kafkaTopic != null) || args.get(OUTPUT_FILE_KEY) == null;
+    }
+    
 	@Override
 	public boolean initialize(String arguments) {
 		/*
@@ -106,14 +113,14 @@ public class Kafka extends AbstractStorage{
             	
             } 
             
-            String kafkaServer = passedArguments.get(SERVER_KEY),
-            		kafkaProducerID = passedArguments.get(PRODUCER_ID_KEY),
-            		schemaFilename = passedArguments.get(SCHEMA_FILE_KEY),
-            		kafkaTopic = passedArguments.get(TOPIC_KEY);
-            
             //either when server info passed or when server info not passed and output file info not passed either
-            if((kafkaServer != null || kafkaProducerID != null || kafkaTopic != null) || passedArguments.get(OUTPUT_FILE_KEY) == null) {
-           	            
+            if(writeDataToServer(passedArguments)) {
+           	    
+            	String kafkaServer = passedArguments.get(SERVER_KEY),
+                		kafkaProducerID = passedArguments.get(PRODUCER_ID_KEY),
+                		schemaFilename = passedArguments.get(SCHEMA_FILE_KEY),
+                		kafkaTopic = passedArguments.get(TOPIC_KEY);
+            	
 	            kafkaServer = kafkaServer == null ? kafkaServer : kafkaServer.trim().isEmpty() ? null : kafkaServer;
 	            kafkaProducerID = kafkaProducerID == null ? kafkaProducerID : kafkaProducerID.trim().isEmpty() ? null : kafkaProducerID;
 	            schemaFilename = schemaFilename == null ? schemaFilename : schemaFilename.trim().isEmpty() ? null : schemaFilename;
