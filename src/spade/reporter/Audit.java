@@ -615,8 +615,8 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-						+ "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}",
-						new Object[]{"fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS, 
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
+						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS,
 								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
 								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
@@ -1339,11 +1339,8 @@ public class Audit extends AbstractReporter {
 				List<String> auditRules = new ArrayList<String>();
 
 				if("all".equals(rulesType)){
-					if(kmAdded){
-						logger.log(Level.SEVERE, "Incompatible flags. Can't log 'all' syscalls and add kernel module too");
-						return false;
-					}
-					String specialSyscallsRule = "auditctl -a exit,always ";
+
+                    String specialSyscallsRule = "auditctl -a exit,always ";
 					String allSyscallsAuditRule = "auditctl -a exit,always ";
 
 					allSyscallsAuditRule += archField;
