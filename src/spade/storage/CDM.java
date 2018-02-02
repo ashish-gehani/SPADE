@@ -19,24 +19,6 @@
  */
 package spade.storage;
 
-import java.nio.ByteBuffer;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.apache.avro.generic.GenericContainer;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.kafka.clients.producer.ProducerConfig;
-
 import com.bbn.tc.schema.avro.AbstractObject;
 import com.bbn.tc.schema.avro.Event;
 import com.bbn.tc.schema.avro.EventType;
@@ -57,12 +39,29 @@ import com.bbn.tc.schema.avro.UUID;
 import com.bbn.tc.schema.avro.UnitDependency;
 import com.bbn.tc.schema.avro.UnnamedPipeObject;
 import com.bbn.tc.schema.serialization.AvroConfig;
-
+import org.apache.avro.generic.GenericContainer;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.vertex.prov.Agent;
+
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -285,6 +284,12 @@ public class CDM extends Kafka {
 					}
 				}
 
+				if(eventType.equals(EventType.EVENT_CLOSE) ||
+						eventType.equals(EventType.EVENT_OPEN)){
+					// Used or WasGeneratedBy
+					properties.put(OPMConstants.OPM, edge.type());
+				}
+
 				Event event = new Event(uuid, 
 						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, predicateObjectPath, 
 						predicateObject2UUID, predicateObject2Path, timestampNanos, null, null, 
@@ -466,7 +471,7 @@ public class CDM extends Kafka {
 	// Argument must be of type process and must be ensured by the caller
 	private AbstractVertex getAgentFromProcess(AbstractVertex process){
 		AbstractVertex agentVertex = new Agent();
-		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT); //Always /dev/audit unless changed in Audit.java
+		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_SYSCALL);
 		for(String agentAnnotation : agentAnnotations){
 			String agentAnnotationValue = process.getAnnotation(agentAnnotation);
 			if(agentAnnotation != null){ // some are optional so check for null
@@ -778,7 +783,11 @@ public class CDM extends Kafka {
 				if(isProcessVertex(incomingVertex)){
 					return publishSubjectAndPrincipal(incomingVertex);
 				}else if(OPMConstants.ARTIFACT.equals(type)){
-					return publishArtifact(incomingVertex);
+					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(incomingVertex.getAnnotation(OPMConstants.SOURCE))){
+						// Ignore until CDM updating with refine edge. TODO
+					}else{
+						return publishArtifact(incomingVertex);
+					}
 				}else{
 					logger.log(Level.WARNING, "Unexpected vertex type {0}", new Object[]{type});
 				}
@@ -904,12 +913,20 @@ public class CDM extends Kafka {
 			AbstractVertex actingVertex = null;
 			for(AbstractEdge edge : edges){
 				if(OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(edge.getAnnotation(OPMConstants.SOURCE))){
+						// Means that this is the new edge: netfilter network -> WDF -> syscall network
+						// TODO update this when this event option added in CDM
+						// Ignoring the edge for now
+						// This edge comes from a netfilter event and has a unique time:eventid combo
+						// Only this (one) edge for this event
+						return;
+					}
 					updateEdge = edge;
 				}
 				if(OPMConstants.USED.equals(edge.getAnnotation(OPMConstants.TYPE))){
-					actingVertex = edge.getSourceVertex();
+					actingVertex = edge.getChildVertex();
 				}else if(OPMConstants.WAS_GENERATED_BY.equals(edge.getAnnotation(OPMConstants.TYPE))){
-					actingVertex = edge.getDestinationVertex();
+					actingVertex = edge.getParentVertex();
 				}
 			}
 			
@@ -918,7 +935,7 @@ public class CDM extends Kafka {
 				return;
 			}else{
 				publishEvent(EventType.EVENT_UPDATE, updateEdge, actingVertex, 
-						updateEdge.getDestinationVertex(), updateEdge.getSourceVertex());
+						updateEdge.getParentVertex(), updateEdge.getChildVertex());
 				
 				// Remove the update edge and process the rest of the edges
 				List<AbstractEdge> edgesCopy = new ArrayList<AbstractEdge>(edges);
@@ -939,8 +956,8 @@ public class CDM extends Kafka {
 				AbstractEdge edge = edgesCopy.get(a);
 				if(edge.getAnnotation(OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UNIT_DEPENDENCY)
 						&& edge.getAnnotation(OPMConstants.TYPE).equals(OPMConstants.WAS_TRIGGERED_BY)){
-					AbstractVertex acting = edge.getDestinationVertex();
-					AbstractVertex dependent = edge.getSourceVertex();
+					AbstractVertex acting = edge.getParentVertex();
+					AbstractVertex dependent = edge.getChildVertex();
 					UnitDependency unitDependency = new UnitDependency(getUuid(acting), getUuid(dependent));
 					publishRecords(Arrays.asList(buildTcCDMDatum(unitDependency, InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)));
 					edgesCopy.remove(a);
@@ -1022,8 +1039,8 @@ public class CDM extends Kafka {
 
 					if(OPMConstants.WAS_TRIGGERED_BY.equals(edgeType)){
 
-						actingVertex = edgeForEvent.getDestinationVertex();
-						actedUpon1 = edgeForEvent.getSourceVertex();
+						actingVertex = edgeForEvent.getParentVertex();
+						actedUpon1 = edgeForEvent.getChildVertex();
 
 						// Handling the case where a process A setuids and becomes A'
 						// and then A' setuid's to become A. If this is not done then 
@@ -1040,13 +1057,13 @@ public class CDM extends Kafka {
 						
 					}else if(OPMConstants.WAS_GENERATED_BY.equals(edgeType)){// 'mmap (write)' here too in case of MAP_ANONYMOUS
 
-						actingVertex = edgeForEvent.getDestinationVertex();
-						actedUpon1 = edgeForEvent.getSourceVertex();
+						actingVertex = edgeForEvent.getParentVertex();
+						actedUpon1 = edgeForEvent.getChildVertex();
 
 					}else if(OPMConstants.USED.equals(edgeType)){
 
-						actingVertex = edgeForEvent.getSourceVertex();
-						actedUpon1 = edgeForEvent.getDestinationVertex();
+						actingVertex = edgeForEvent.getChildVertex();
+						actedUpon1 = edgeForEvent.getParentVertex();
 
 					}else{
 						logger.log(Level.WARNING, "Unexpected edge type {0}", new Object[]{edgeType});
@@ -1072,9 +1089,9 @@ public class CDM extends Kafka {
 						}
 
 						edgeForEvent = twoArtifactsEdge;
-						actedUpon1 = twoArtifactsEdge.getDestinationVertex();
-						actedUpon2 = twoArtifactsEdge.getSourceVertex();
-						actingVertex = edgeWithProcess.getDestinationVertex();
+						actedUpon1 = twoArtifactsEdge.getParentVertex();
+						actedUpon2 = twoArtifactsEdge.getChildVertex();
+						actingVertex = edgeWithProcess.getParentVertex();
 					}else{
 						logger.log(Level.WARNING, "Failed to process event with edges {0}", new Object[]{edges});
 					}
@@ -1127,11 +1144,13 @@ public class CDM extends Kafka {
 	 * Returns the CDM object for the source annotation
 	 * Null if none matched
 	 * 
-	 * @param source allowed values: '/dev/audit', '/proc', 'beep'
+	 * @param source allowed values listed in OPMConstants class
 	 * @return InstrumentationSource instance or null
 	 */
 	private InstrumentationSource getInstrumentationSource(String source){
-		if(OPMConstants.SOURCE_AUDIT.equals(source)){
+		if(OPMConstants.SOURCE_AUDIT_SYSCALL.equals(source)
+				|| OPMConstants.SOURCE_AUDIT_NETFILTER.equals(source)){
+			// TODO Use the 'netfilter' source value when added in CDM
 			return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
 		}else if(OPMConstants.SOURCE_PROCFS.equals(source)){	
 			return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
@@ -1299,7 +1318,8 @@ public class CDM extends Kafka {
 	 */
 	private UUID getUuid(AbstractVertex vertex){
 		if(vertex != null){
-			byte[] vertexHash = vertex.bigHashCode();
+			byte[] vertexHash = new byte[0];
+			vertexHash = vertex.bigHashCodeBytes();
 			if(hexUUIDs){
 				vertexHash = String.valueOf(Hex.encodeHex(vertexHash, true)).getBytes();
 			}
@@ -1321,7 +1341,8 @@ public class CDM extends Kafka {
 	 */
 	private UUID getUuid(AbstractEdge edge){
 		if(edge != null){
-			byte[] edgeHash = edge.bigHashCode();
+			byte[] edgeHash = new byte[0];
+			edgeHash = edge.bigHashCodeBytes();
 			if(hexUUIDs){
 				edgeHash = String.valueOf(Hex.encodeHex(edgeHash, true)).getBytes();
 			}
@@ -1364,7 +1385,6 @@ public class CDM extends Kafka {
 			return cdmPermissions;
 		}
 	}
-	
 }
 
 /**

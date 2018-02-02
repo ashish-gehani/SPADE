@@ -273,16 +273,16 @@ public class MatrixFilter implements Serializable {
      * Adds an object to the Bloom filter. The output from the object's
      * toString() method is used as input to the hash functions.
      *
-     * @param destinationVertex is an element to register in the Bloom filter.
-     * @param sourceVertex
+     * @param parentVertex is an element to register in the Bloom filter.
+     * @param childVertex
      */
-    public void add(AbstractVertex destinationVertex, AbstractVertex sourceVertex) {
+    public void add(AbstractVertex parentVertex, AbstractVertex childVertex) {
         long hash;
-        String valString = sketchString(destinationVertex);
+        String valString = sketchString(parentVertex);
         for (int x = 0; x < k; x++) {
             hash = createHash(valString + Integer.toString(x));
             hash = hash % (long) filterSetSize;
-            filterSet.get(Math.abs((int) hash)).add(sourceVertex);
+            filterSet.get(Math.abs((int) hash)).add(childVertex);
         }
         numberOfAddedElements++;
     }

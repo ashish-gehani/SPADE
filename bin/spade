@@ -25,51 +25,95 @@ print_help ()
 {
 	echo "spade start | stop | debug | control | dig | help"
 	echo ""
-	echo "'spade start' : Starts the SPADE daemon"
-	echo "'spade stop' : Stop the SPADE daemon after buffers empty"
-	echo "'spade kill' : Stop the SPADE daemon immediately"
+	echo "'spade start' : Starts SPADE"
+	echo "'spade stop' : Stops SPADE after buffers empty"
+	echo "'spade kill' : Stops SPADE immediately"
+	echo "'spade java-start' : Starts SPADE daemon (java-based)"
+	echo "'spade java-stop' : Stops SPADE daemon after buffers empty (java-based)"
+	echo "'spade java-kill' : Stops SPADE daemon immediately (java-based)"
 	echo "'spade debug' : Starts the SPADE daemon, logs to standard out"
 	echo "'spade control' : Starts an interactive SPADE controller"
-	echo "'spade dig' : Starts an interactive SPADE query client"
+	echo "'spade query' : Starts an interactive command line SPADE query client"
 	echo "'spade help' : Prints this message"
 }
 
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-FORMATTER="-Djava.util.logging.SimpleFormatter.format=%1\$tY-%1\$tm-%1\$td %1\$tH:%1\$tM:%1\$tS %4\$s %2\$s %5\$s%6\$s%n"
 CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 JAVALIBPATH="$SPADE_ROOT/lib/"
-JVMARGS="-server -Xms8G -Xmx16G"
-JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
-MOREJVMARGS=""
+JVMARGS="-server -Xms128M -Xmx512M"
+JVMARGSDEBUG="-server -Xms128M -Xmx128M -XX:+UseConcMarkSweepGC"
 
 pushd "${SPADE_ROOT}" > /dev/null
 
 if [ $# -eq 0 ] ; then
 	print_help
 else
-    if [ -n "$SPADE_LOG" ] ; then
-	    LOGGING="-Dspade.log=$SPADE_LOG"
-	fi
-
-	if [ -n "$LOGMGR_FLUSH" ]; then
-		MOREJVMARGS="-Dspade.utility.LogManager.flush=true $JVMARGS"
-	fi
-
-	JVMARGS="$MOREJVMARGS $JVMARGS"
-	JVMARGSDEBUG="$MOREJVMARGS $JVMARGSDEBUG"
-
-	if [ $1 = "start" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" $LOGGING spade.utility.Daemonizer "$@"
-	elif [ $1 = "stop" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
-        elif [ $1 = "kill" ] ; then
-                java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS "$FORMATTER" spade.utility.Daemonizer "$@"
-	elif [ $1 = "dig" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Query
+	spadePidFilePath=spade.pid
+	if [ $1 = "java-start" ] || [ $1 = "java-stop" ] || [ $1 = "java-kill" ] ; then
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
+	elif [ $1 = "query" ] ; then
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.CommandLine
 	elif [ $1 = "control" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" "$FORMATTER" spade.client.Control
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Control
 	elif [ $1 = "debug" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG "$FORMATTER" spade.core.Kernel
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
+	elif [ $1 = "start" ] ; then
+		running=0
+		if [ -f "$spadePidFilePath" ] ; then
+			existingSpadePid=`cat $spadePidFilePath`
+			if [ -n "$existingSpadePid" ] ; then
+				if ps -p "$existingSpadePid" 2>&1 > /dev/null ; then
+					running=1
+				fi 
+			fi
+		fi
+		if [ "$running" -eq 0 ] ; then
+			nohup java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.core.Kernel 2>&1 > /dev/null &
+			spadePid=$!
+			if ps -p "$spadePid" 2>&1 > /dev/null ; then
+				echo -n $spadePid > $spadePidFilePath
+				echo "Running SPADE with PID = $spadePid"
+			else
+				echo "Failed to start SPADE"
+			fi
+		else
+			echo "SPADE is already running with PID $existingSpadePid"
+		fi
+	elif [ $1 = "stop" ] || [ $1 = "kill" ] ; then
+		killSignal=
+		successMsg=
+		failureMsg=
+		if [ $1 = "stop" ] ; then
+			successMsg="SPADE will stop after buffers clear"
+			failureMsg="SPADE process could not be stopped"
+			killSignal=15
+		else
+			# force kill
+			successMsg="Stopping SPADE immediately"
+			failureMsg="SPADE process could not be killed"
+			killSignal=9
+		fi
+		if [ -f "$spadePidFilePath" ] ; then
+			existingSpadePid=`cat $spadePidFilePath`
+			if [ -n "$existingSpadePid" ] ; then
+				if ps -p "$existingSpadePid" 2>&1 > /dev/null ; then
+					kill -$killSignal $existingSpadePid
+					killResult=$?
+					if [ "$killResult" -eq 0 ] ; then
+						echo $successMsg
+					else
+						echo $failureMsg
+					fi
+				else
+					echo "SPADE is not running, but PID file exists"
+				fi
+			else
+				echo "PID file exists, but empty no pid present"
+			fi
+		else
+			echo "PID file does not exist"
+		fi
+
 	else
 		print_help
 	fi
@@ -77,7 +121,3 @@ else
 fi
 
 popd > /dev/null
-
-# Local Variables:
-# tab-width: 4
-# End:

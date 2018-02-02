@@ -20,16 +20,16 @@
 
 package spade.transformer;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Prov2OPM extends AbstractTransformer{
 
@@ -55,16 +55,16 @@ public class Prov2OPM extends AbstractTransformer{
 		Graph resultGraph = new Graph();
 		
 		for(AbstractEdge edge : graph.edgeSet()){
-			if(edge != null && edge.getSourceVertex() != null && edge.getDestinationVertex() != null){
+			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 				String edgeType = getAnnotationSafe(edge, "type");
-				String srcType = getAnnotationSafe(edge.getSourceVertex(), "type");
-				String dstType = getAnnotationSafe(edge.getDestinationVertex(), "type");
+				String srcType = getAnnotationSafe(edge.getChildVertex(), "type");
+				String dstType = getAnnotationSafe(edge.getParentVertex(), "type");
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 				newEdge.addAnnotation("type", getOPMEdgeTypeEquivalentToProvEdgeType(edgeType));
-				newEdge.getSourceVertex().addAnnotation("type", getOPMVertexTypeEquivalentToProvVertexType(srcType));
-				newEdge.getDestinationVertex().addAnnotation("type", getOPMVertexTypeEquivalentToProvVertexType(dstType));
-				resultGraph.putVertex(newEdge.getSourceVertex());
-				resultGraph.putVertex(newEdge.getDestinationVertex());
+				newEdge.getChildVertex().addAnnotation("type", getOPMVertexTypeEquivalentToProvVertexType(srcType));
+				newEdge.getParentVertex().addAnnotation("type", getOPMVertexTypeEquivalentToProvVertexType(dstType));
+				resultGraph.putVertex(newEdge.getChildVertex());
+				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}

@@ -19,9 +19,11 @@
  */
 package spade.core;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -40,7 +42,30 @@ public abstract class AbstractVertex implements Serializable {
 	/**
      * A map containing the annotations for this vertex.
      */
-    protected Map<String, String> annotations = new HashMap<>();
+    protected Map<String, String> annotations = new TreeMap<>();
+
+    /**
+     * An integer indicating the depth of the vertex in the graph
+     */
+    private int depth;
+
+    public int getDepth() {
+		return depth;
+	}
+
+	public void setDepth(int depth) {
+		this.depth = depth;
+	}
+
+	/**
+     * Checks if vertex is empty
+     *
+     * @return Returns true if vertex contains no annotation
+     */
+    public final boolean isEmpty()
+    {
+        return annotations.size() == 0;
+    }
 
     /**
      * Returns the map containing the annotations for this vertex.
@@ -107,16 +132,46 @@ public abstract class AbstractVertex implements Serializable {
         return annotations.get("type");
     }
 
+    /**
+     * Computes MD5 hash of annotations in the vertex.
+     *
+     @return A 128-bit hash digest.
+     */
+    public String bigHashCode()
+    {
+        return DigestUtils.md5Hex(this.toString());
+    }
+
+
+    /**
+     * Computes MD5 hash of annotations in the vertex
+     * @return 16 element byte array of the digest.
+     */
+    public byte[] bigHashCodeBytes()
+    {
+        return DigestUtils.md5(this.toString());
+    }
+
     @Override
-    public boolean equals(Object thatObject) {
-        if (this == thatObject) {
+    public boolean equals(Object obj)
+    {
+        if(this == obj) return true;
+        if(!(obj instanceof AbstractVertex)) return false;
+
+        AbstractVertex vertex = (AbstractVertex) obj;
+
+        return annotations.equals(vertex.annotations);
+    }
+
+    public boolean isNetworkVertex()
+    {
+        String subtype = this.getAnnotation("subtype");
+        if(subtype != null && subtype.equalsIgnoreCase("network"))
+        {
             return true;
         }
-        if (!(thatObject instanceof AbstractVertex)) {
-            return false;
-        }
-        AbstractVertex thatVertex = (AbstractVertex) thatObject;
-        return (this.annotations.equals(thatVertex.annotations));
+
+        return false;
     }
 
     /**
@@ -136,26 +191,10 @@ public abstract class AbstractVertex implements Serializable {
     }
 
     @Override
-    public String toString() {
-        StringBuilder result = new StringBuilder();
-        for (Map.Entry<String, String> currentEntry : annotations.entrySet()) {
-            result.append(currentEntry.getKey());
-            result.append(":");
-            result.append(currentEntry.getValue());
-            result.append("|");
-        }
-        return result.substring(0, result.length() - 1);
-    }
-    
-    /**
-     * Computes MD5 of the annotations in the vertex.
-     *
-     * This takes longer to compute than hashCode() but is more collision-resistant.
-     *
-     @return A 128-bit hash value.
-     */
-    public byte[] bigHashCode() {
-        
-        return DigestUtils.md5(this.toString());
+    public String toString()
+    {
+        return "AbstractVertex{" +
+                "annotations=" + annotations +
+                '}';
     }
 }

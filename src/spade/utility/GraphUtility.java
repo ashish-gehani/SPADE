@@ -19,18 +19,18 @@
  */
 package spade.utility;
 
+import jline.ConsoleReader;
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.filter.FinalCommitFilter;
+
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-
-import jline.ConsoleReader;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.core.AbstractEdge;
-import spade.core.Graph;
-import spade.filter.FinalCommitFilter;
+import java.util.regex.Pattern;
 
 public class GraphUtility {
 

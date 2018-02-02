@@ -21,13 +21,13 @@
  */
 package spade.reporter.bitcoin;
 
-import java.util.ArrayList;
-import java.util.logging.Level;
-import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
-
+import org.json.JSONObject;
 import spade.reporter.Bitcoin;
+
+import java.util.ArrayList;
+import java.util.logging.Level;
 
 public class Transaction {
     String id;

@@ -20,10 +20,6 @@
 
 package spade.transformer;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import spade.client.QueryParameters;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
@@ -32,6 +28,10 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
+
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TemporalTraversal extends AbstractTransformer{
 	
@@ -70,7 +70,7 @@ public class TemporalTraversal extends AbstractTransformer{
 			Double maxValue = Double.MIN_VALUE;
 			for(AbstractEdge edge : graph.edgeSet()){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-				if(newEdge.getSourceVertex().equals(queriedVertex) || newEdge.getDestinationVertex().equals(queriedVertex)){
+				if(newEdge.getChildVertex().equals(queriedVertex) || newEdge.getParentVertex().equals(queriedVertex)){
 					try{
 						Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
 						if(value > maxValue){
@@ -94,8 +94,8 @@ public class TemporalTraversal extends AbstractTransformer{
 					logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
 				}
 				if(add){
-					resultGraph.putVertex(newEdge.getSourceVertex());
-					resultGraph.putVertex(newEdge.getDestinationVertex());
+					resultGraph.putVertex(newEdge.getChildVertex());
+					resultGraph.putVertex(newEdge.getParentVertex());
 					resultGraph.putEdge(newEdge);
 				}
 			}
@@ -103,7 +103,7 @@ public class TemporalTraversal extends AbstractTransformer{
 			Double minValue = Double.MAX_VALUE;
 			for(AbstractEdge edge : graph.edgeSet()){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-				if(newEdge.getSourceVertex().equals(queriedVertex) || newEdge.getDestinationVertex().equals(queriedVertex)){
+				if(newEdge.getChildVertex().equals(queriedVertex) || newEdge.getParentVertex().equals(queriedVertex)){
 					try{
 						Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
 						if(value < minValue){
@@ -127,8 +127,8 @@ public class TemporalTraversal extends AbstractTransformer{
 					logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
 				}
 				if(add){
-					resultGraph.putVertex(newEdge.getSourceVertex());
-					resultGraph.putVertex(newEdge.getDestinationVertex());
+					resultGraph.putVertex(newEdge.getChildVertex());
+					resultGraph.putVertex(newEdge.getParentVertex());
 					resultGraph.putEdge(newEdge);
 				}
 			}
