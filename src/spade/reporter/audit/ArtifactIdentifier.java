@@ -28,7 +28,7 @@ import java.util.Map;
  * Used to build annotations specific to an artifact and the subtype of the artifact.
  * 
  */
-public abstract class ArtifactIdentifier {
+public abstract class ArtifactIdentifier implements VertexIdentifier{
 	
 	/**
 	 * Used to tell whether the artifact was opened for reading or writing
@@ -58,13 +58,6 @@ public abstract class ArtifactIdentifier {
 	public void setOpenedForRead(Boolean openedForRead){
 		this.openedForRead = openedForRead;
 	}
-	
-	/**
-	 * Returns the annotations to add to the OPM Artifact
-	 * 
-	 * @return map of annotations
-	 */
-	public abstract Map<String, String> getAnnotationsMap();
 	
 	/**
 	 * Returns subtype of the artifact
