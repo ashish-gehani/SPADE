@@ -34,7 +34,9 @@ import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.config.SslConfigs;
 
 import com.bbn.tc.schema.avro.cdm18.AbstractObject;
 import com.bbn.tc.schema.avro.cdm18.EndMarker;
@@ -152,6 +154,9 @@ public class CDM extends Kafka {
 	private UUID hostUUID = null;
 	
 	private int sessionNumber = 0; // default zero
+	
+	private boolean useSsl = true;
+	private String securityProtocol, trustStoreLocation, trustStorePassword, keyStoreLocation, keyStorePassword, keyPassword;
 	
 	/**
 	 * Rules from OPM edges types and operations to event types in CDM
@@ -803,6 +808,14 @@ public class CDM extends Kafka {
 				com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer.class);
 		properties.put(AvroConfig.SCHEMA_WRITER_FILE, schemaFilename);
 		properties.put(AvroConfig.SCHEMA_SERDE_IS_SPECIFIC, true);
+		if(useSsl){
+			properties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
+			properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, trustStoreLocation);
+			properties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, trustStorePassword);
+			properties.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keyStoreLocation);
+			properties.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, keyStorePassword);
+			properties.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, keyPassword);
+		}
 		return properties;
 	}
 
@@ -842,6 +855,50 @@ public class CDM extends Kafka {
 				createHostConfig = true;
 			}else{
 				logger.log(Level.SEVERE, "Invalid 'createHostConfig' value: " + createHostConfigArgValue + ". Only 'true' or 'false'");
+				return false;
+			}
+		}
+		
+		// Populate the ssl configs before calling parent's initialize because of ssl properties.
+		String sslArgValue = argumentsMap.get("ssl");
+		if(sslArgValue != null){
+			if("false".equals(sslArgValue)){
+				useSsl = false;
+			}else if("true".equals(sslArgValue)){
+				useSsl = true;
+			}else{
+				logger.log(Level.SEVERE, "Invalid 'ssl' value: " + useSsl + ". Only 'true' or 'false'");
+				return false;
+			}
+		}
+		
+		// Only do the following checks in case of server
+		if(useSsl && writeDataToServer(argumentsMap)){
+			String configFile = Settings.getDefaultConfigFilePath(this.getClass());
+			try{
+				Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFile, "=");
+				securityProtocol = configMap.get("SecurityProtocol");
+				trustStoreLocation = configMap.get("TrustStoreLocation");
+				trustStorePassword = configMap.get("TrustStorePassword");
+				keyStoreLocation = configMap.get("KeyStoreLocation");
+				keyStorePassword = configMap.get("KeyStorePassword");
+				keyPassword = configMap.get("KeyPassword");
+				if(securityProtocol == null || trustStoreLocation == null || trustStorePassword == null || keyStoreLocation == null
+						|| keyStorePassword == null || keyPassword == null){
+					logger.log(Level.SEVERE, "In config file the following keys must be defined: 'SecurityProtocol', 'TrustStoreLocation', "
+							+ "'TrustStorePassword', 'KeyStoreLocation', 'KeyStorePassword', 'KeyPassword'");
+					return false;
+				}
+				if(!FileUtility.fileExists(trustStoreLocation)){
+					logger.log(Level.SEVERE, "Invalid location for trust store 'TrustStoreLocation': " + trustStoreLocation);
+					return false;
+				}
+				if(!FileUtility.fileExists(keyStoreLocation)){
+					logger.log(Level.SEVERE, "Invalid location for key store 'KeyStoreLocation': " + keyStoreLocation);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to read config file: " + configFile);
 				return false;
 			}
 		}
