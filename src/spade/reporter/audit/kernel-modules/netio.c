@@ -327,7 +327,17 @@ asmlinkage long new_bind(int fd, const struct sockaddr* remaddress, int remsize)
 		}else{
 			success = 0;
 		}
-		log_to_audit(syscallNumber, fd, remaddress, remsize, retval, success);
+		if(remaddress != NULL){
+			struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+			if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
+				log_to_audit(syscallNumber, fd, remaddress_copy, remsize, retval, success);
+			}else{
+				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+			}
+			kfree(remaddress_copy);
+		}else{
+			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+		}
 	}
 	return retval;
 }
@@ -342,7 +352,17 @@ asmlinkage long new_connect(int fd, const struct sockaddr* remaddress, int remsi
 		}else{
 			success = 0;
 		}
-		log_to_audit(syscallNumber, fd, remaddress, remsize, retval, success);
+		if(remaddress != NULL){
+			struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+			if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
+				log_to_audit(syscallNumber, fd, remaddress_copy, remsize, retval, success);
+			}else{
+				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+			}
+			kfree(remaddress_copy);
+		}else{
+			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+		}
 	}
 	return retval;
 }
@@ -358,9 +378,21 @@ asmlinkage long new_accept(int fd, struct sockaddr* remaddress, unsigned int* so
 			success = 0;
 		}
 		if(socklen != NULL){
-			log_to_audit(syscallNumber, fd, remaddress, *socklen, retval, success);
+			unsigned int* socklen_copy = (unsigned int*)kmalloc(sizeof(unsigned int), GFP_KERNEL);
+			if(copy_from_user(socklen_copy, socklen, sizeof(unsigned int)) == 0){
+				struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+				if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
+					log_to_audit(syscallNumber, fd, remaddress_copy, *socklen_copy, retval, success);
+				}else{
+					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+				}
+				kfree(remaddress_copy);
+			}else{
+				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+			}
+			kfree(socklen_copy);
 		}else{
-			log_to_audit(syscallNumber, fd, remaddress, 0, retval, success);
+			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 		}
 	}
 	return retval;
@@ -377,9 +409,21 @@ asmlinkage long new_accept4(int fd, struct sockaddr* remaddress, unsigned int* s
 			success = 0;
 		}
 		if(socklen != NULL){
-			log_to_audit(syscallNumber, fd, remaddress, *socklen, retval, success);
+			unsigned int* socklen_copy = (unsigned int*)kmalloc(sizeof(unsigned int), GFP_KERNEL);
+			if(copy_from_user(socklen_copy, socklen, sizeof(unsigned int)) == 0){
+				struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+				if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
+					log_to_audit(syscallNumber, fd, remaddress_copy, *socklen_copy, retval, success);
+				}else{
+					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+				}
+				kfree(remaddress_copy);
+			}else{
+				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+			}
+			kfree(socklen_copy);
 		}else{
-			log_to_audit(syscallNumber, fd, remaddress, 0, retval, success);
+			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 		}
 	}
 	return retval;
@@ -397,11 +441,23 @@ asmlinkage long new_recvmsg (int fd, struct msghdr* msgheader, int flags){
 				success = 0;
 			}
 			if(msgheader != NULL){
-				if(msgheader->msg_name != NULL){
-					log_to_audit(syscallNumber, fd, msgheader->msg_name, msgheader->msg_namelen, retval, success);
+				struct msghdr* msgheader_copy = (struct msghdr*)kmalloc(sizeof(struct msghdr), GFP_KERNEL);
+				if(copy_from_user(msgheader_copy, msgheader, sizeof(struct msghdr)) == 0){
+					if(msgheader_copy->msg_name != NULL){
+						struct sockaddr* msg_name_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+						if(copy_from_user(msg_name_copy, msgheader_copy->msg_name, sizeof(struct sockaddr)) == 0){
+							log_to_audit(syscallNumber, fd, msg_name_copy, msgheader_copy->msg_namelen, retval, success);
+						}else{
+							log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+						}
+						kfree(msg_name_copy);
+					}else{
+						log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+					}
 				}else{
 					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 				}
+				kfree(msgheader_copy);
 			}else{
 				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 			}
@@ -422,11 +478,23 @@ asmlinkage long new_sendmsg (int fd, const struct msghdr* msgheader, int flags){
 				success = 0;
 			}
 			if(msgheader != NULL){
-				if(msgheader->msg_name != NULL){
-					log_to_audit(syscallNumber, fd, msgheader->msg_name, msgheader->msg_namelen, retval, success);
+				struct msghdr* msgheader_copy = (struct msghdr*)kmalloc(sizeof(struct msghdr), GFP_KERNEL);
+				if(copy_from_user(msgheader_copy, msgheader, sizeof(struct msghdr)) == 0){
+					if(msgheader_copy->msg_name != NULL){
+						struct sockaddr* msg_name_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+						if(copy_from_user(msg_name_copy, msgheader_copy->msg_name, sizeof(struct sockaddr)) == 0){
+							log_to_audit(syscallNumber, fd, msg_name_copy, msgheader_copy->msg_namelen, retval, success);
+						}else{
+							log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+						}
+						kfree(msg_name_copy);
+					}else{
+						log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+					}
 				}else{
-					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
 				}
+				kfree(msgheader_copy);
 			}else{
 				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 			}
@@ -447,9 +515,21 @@ asmlinkage long new_recvfrom (int fd, void* msg, size_t msgsize, int flags, stru
 				success = 0;
 			}
 			if(remsize != NULL){
-				log_to_audit(syscallNumber, fd, remaddress, *remsize, retval, success);
+				unsigned int* remsize_copy = (unsigned int*)kmalloc(sizeof(unsigned int), GFP_KERNEL);
+				if(copy_from_user(remsize_copy, remsize, sizeof(unsigned int)) == 0){
+					struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+					if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
+						log_to_audit(syscallNumber, fd, remaddress_copy, *remsize_copy, retval, success);
+					}else{
+						log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+					}
+					kfree(remaddress_copy);
+				}else{
+					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+				}
+				kfree(remsize_copy);
 			}else{
-				log_to_audit(syscallNumber, fd, remaddress, 0, retval, success);
+				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 			}
 		}
 	}
@@ -467,12 +547,23 @@ asmlinkage long new_sendto (int fd, const void* msg, size_t msgsize, int flags, 
 			}else{
 				success = 0;
 			}
-			log_to_audit(syscallNumber, fd, remaddress, remsize, retval, success);
+			if(remaddress != NULL){
+				struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
+				if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
+					log_to_audit(syscallNumber, fd, remaddress_copy, remsize, retval, success);
+				}else{
+					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+				}
+				kfree(remaddress_copy);
+			}else{
+				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+			}
 		}
 	}
     return retval;
 }
 
+// Not being logged yet
 asmlinkage long new_sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags){
 	long retval = original_sendmmsg(sockfd, msgvec, vlen, flags);
 	if(stop == 0){
@@ -501,6 +592,7 @@ asmlinkage long new_sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 	return retval;
 }
 
+// Not being logged yet
 asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags, struct timespec* timeout){
 	long retval = original_recvmmsg(sockfd, msgvec, vlen, flags, timeout);
 	if(stop == 0){
@@ -550,14 +642,14 @@ static int __init onload(void) {
 			syscall_table[__NR_sendto] = (unsigned long)&new_sendto;
 			original_sendmsg = (void *)syscall_table[__NR_sendmsg];
 			syscall_table[__NR_sendmsg] = (unsigned long)&new_sendmsg;
-			original_sendmmsg = (void *)syscall_table[__NR_sendmmsg];
-			syscall_table[__NR_sendmmsg] = (unsigned long)&new_sendmmsg;
+			//original_sendmmsg = (void *)syscall_table[__NR_sendmmsg];
+			//syscall_table[__NR_sendmmsg] = (unsigned long)&new_sendmmsg;
 			original_recvfrom = (void *)syscall_table[__NR_recvfrom];
 			syscall_table[__NR_recvfrom] = (unsigned long)&new_recvfrom;
 			original_recvmsg = (void *)syscall_table[__NR_recvmsg];
 			syscall_table[__NR_recvmsg] = (unsigned long)&new_recvmsg;
-			original_recvmmsg = (void *)syscall_table[__NR_recvmmsg];
-			syscall_table[__NR_recvmmsg] = (unsigned long)&new_recvmmsg;
+			//original_recvmmsg = (void *)syscall_table[__NR_recvmmsg];
+			//syscall_table[__NR_recvmmsg] = (unsigned long)&new_recvmmsg;
 			write_cr0 (read_cr0 () | 0x10000);
 			printk(KERN_EMERG "[+] onload: sys_call_table hooked\n");
 			success = 0;
@@ -582,10 +674,10 @@ static void __exit onunload(void) {
 		syscall_table[__NR_accept4] = (unsigned long)original_accept4;
 		syscall_table[__NR_sendto] = (unsigned long)original_sendto;
 		syscall_table[__NR_sendmsg] = (unsigned long)original_sendmsg;
-		syscall_table[__NR_sendmmsg] = (unsigned long)original_sendmmsg;
+		//syscall_table[__NR_sendmmsg] = (unsigned long)original_sendmmsg;
 		syscall_table[__NR_recvfrom] = (unsigned long)original_recvfrom;
 		syscall_table[__NR_recvmsg] = (unsigned long)original_recvmsg;
-		syscall_table[__NR_recvmmsg] = (unsigned long)original_recvmmsg;
+		//syscall_table[__NR_recvmmsg] = (unsigned long)original_recvmmsg;
         write_cr0 (read_cr0 () | 0x10000);
         printk(KERN_EMERG "[+] onunload: sys_call_table unhooked\n");
     } else {
