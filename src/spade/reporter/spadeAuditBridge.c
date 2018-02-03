@@ -608,11 +608,9 @@ void get_time_and_eventid(char *buf, double *time, long *eventId)
 
 }
 
-double get_timestamp(char *buf)
-{
+double get_timestamp_double(char *buf){
 		char *ptr;
 		double time;
-
 		ptr = strstr(buf, "(");
 		if(ptr == NULL) return 0;
 
@@ -621,12 +619,33 @@ double get_timestamp(char *buf)
 		return time;
 }
 
+void get_timestamp(char *buf, int* seconds, int* millis)
+{
+		char *ptr;
+// record format: 'type=X msg=audit(123.456:890): ...' OR 'type=X msg=ubsi(123.456:890): ...'
+		ptr = strstr(buf, "(");
+		if(ptr == NULL){
+			*seconds = -1;
+			*millis = -1;
+		}else{
+			sscanf(ptr+1, "%d", seconds);
+			
+			ptr = strstr(buf, ".");
+			if(ptr == NULL){
+				*seconds = -1;
+				*millis = -1;
+			}else{
+				sscanf(ptr+1, "%d", millis);
+			}
+		}
+}
+
 // Reads timestamp from audit record and then sets the seconds and milliseconds to the thread_time struct ref passed
 void set_thread_time(char *buf, thread_time_t* thread_time)
 {
-		double time = get_timestamp(buf);
-		thread_time->seconds = (int)time;
-		thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
+		get_timestamp(buf, &thread_time->seconds, &thread_time->milliseconds);
+		//thread_time->seconds = (int)time;
+		//thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
 }
 
 long get_eventid(char* buf){
@@ -721,7 +740,7 @@ void loop_exit(unit_table_t *unit, char *buf)
 		long eventId;
 
 		get_time_and_eventid(buf, &time, &eventId);
-		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld): pid=%d", time, eventId, unit->cur_unit.tid);
+		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld): ", time, eventId, unit->cur_unit.tid);
 		//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 		emit_log(unit, tmp, false, true);
 		unit->valid = false;
@@ -734,7 +753,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		double time;
 		long eventid;
 
-		time = get_timestamp(buf);
+		time = get_timestamp_double(buf);
 		eventid = get_eventid(buf);
 
 		if(last_time == -1){
