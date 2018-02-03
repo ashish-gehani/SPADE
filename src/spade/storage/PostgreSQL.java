@@ -490,6 +490,7 @@ public class PostgreSQL extends SQL
             try
             {
                 File file = new File(edgeFileName);
+                file.createNewFile();
                 if(!(file.setWritable(true, false)
                     && file.setReadable(true, false)))
                 {
@@ -569,6 +570,7 @@ public class PostgreSQL extends SQL
             try
             {
                 File file = new File(vertexFileName);
+                file.createNewFile();
                 if(!(file.setWritable(true, false)
                         && file.setReadable(true, false)))
                 {

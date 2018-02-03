@@ -21,8 +21,8 @@ public abstract class Scaffold
     protected static final String CHILDREN = "children";
     protected String directoryPath;
 
-    public int GLOBAL_TX_SIZE = 1000;
-    protected int globalTxCount = 0;
+    public static int GLOBAL_TX_SIZE = 1000;
+    protected static int globalTxCount = 0;
     protected int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
     protected Date lastFlushTime;
 
