@@ -550,14 +550,9 @@ public class AuditEventReader {
 				// Add all the units key values
 				auditRecordKeyValues.putAll(unitsKeyValues.get(0));
 			}
-			
-			Long UBSIEntryEventId = getEventId(line);
-			String UBSIEntryTime = getEventTime(line);
-			
+						
 			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_ENTRY);
-			auditRecordKeyValues.put(TIME, UBSIEntryTime);
-			auditRecordKeyValues.put(EVENT_ID, String.valueOf(UBSIEntryEventId));
-			
+						
 			isUBSIEvent = true;
 			
 		}else if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_EXIT)){
@@ -595,6 +590,12 @@ public class AuditEventReader {
 		}
 		
 		if(isUBSIEvent){
+			
+			Long UBSIEntryEventId = getEventId(line);
+			String UBSIEntryTime = getEventTime(line);
+			
+			auditRecordKeyValues.put(TIME, UBSIEntryTime);
+			auditRecordKeyValues.put(EVENT_ID, String.valueOf(UBSIEntryEventId));
 			
 			String msgData = line.substring(line.indexOf(" ppid="));
 			auditRecordKeyValues.putAll(CommonFunctions.parseKeyValPairs(msgData));
