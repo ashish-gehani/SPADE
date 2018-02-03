@@ -26,12 +26,16 @@ public class ScaffoldFactory
         {
             scaffold = new Redis();
         }
+        else if(scaffoldType.equals("PostgreSQL"))
+        {
+            scaffold = new PostgreSQL();
+        }
 
         return scaffold;
     }
 
     public static Scaffold createDefaultScaffold()
     {
-        return new Redis();
+        return new PostgreSQL();
     }
 }
