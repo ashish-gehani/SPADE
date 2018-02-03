@@ -594,11 +594,23 @@ bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 		return false;
 }
 
-double get_timestamp(char *buf)
+void get_time_and_eventid(char *buf, double *time, long *eventId)
 {
+		// Expected string format -> "type=<TYPE> msg=audit(<TIME>:<EVENTID>): ...."
+		char *ptr;
+
+		ptr = strstr(buf, "(");
+		if(ptr == NULL) return;
+
+		sscanf(ptr+1, "%lf:%ld", time, eventId);
+
+		return;
+
+}
+
+double get_timestamp_double(char *buf){
 		char *ptr;
 		double time;
-
 		ptr = strstr(buf, "(");
 		if(ptr == NULL) return 0;
 
@@ -607,12 +619,33 @@ double get_timestamp(char *buf)
 		return time;
 }
 
+void get_timestamp(char *buf, int* seconds, int* millis)
+{
+		char *ptr;
+// record format: 'type=X msg=audit(123.456:890): ...' OR 'type=X msg=ubsi(123.456:890): ...'
+		ptr = strstr(buf, "(");
+		if(ptr == NULL){
+			*seconds = -1;
+			*millis = -1;
+		}else{
+			sscanf(ptr+1, "%d", seconds);
+			
+			ptr = strstr(buf, ".");
+			if(ptr == NULL){
+				*seconds = -1;
+				*millis = -1;
+			}else{
+				sscanf(ptr+1, "%d", millis);
+			}
+		}
+}
+
 // Reads timestamp from audit record and then sets the seconds and milliseconds to the thread_time struct ref passed
 void set_thread_time(char *buf, thread_time_t* thread_time)
 {
-		double time = get_timestamp(buf);
-		thread_time->seconds = (int)time;
-		thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
+		get_timestamp(buf, &thread_time->seconds, &thread_time->milliseconds);
+		//thread_time->seconds = (int)time;
+		//thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
 }
 
 long get_eventid(char* buf){
@@ -700,11 +733,15 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		}
 }
 
-void loop_exit(unit_table_t *unit)
+void loop_exit(unit_table_t *unit, char *buf)
 {
 		char tmp[10240];
+		double time;
+		long eventId;
 
-		sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
+		get_time_and_eventid(buf, &time, &eventId);
+		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld): ", time, eventId, unit->cur_unit.tid);
+		//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 		emit_log(unit, tmp, false, true);
 		unit->valid = false;
 }
@@ -716,7 +753,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		double time;
 		long eventid;
 
-		time = get_timestamp(buf);
+		time = get_timestamp_double(buf);
 		eventid = get_eventid(buf);
 
 		if(last_time == -1){
@@ -742,7 +779,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
 		
-		sprintf(tmp, "type=UBSI_ENTRY msg=(%.3f:%ld): ", time, eventid);
+		sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
 		emit_log(unit, tmp, true, true);
 }
 
@@ -865,6 +902,8 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 		int pid = ut->pid;
 		unit_table_t *pt;
 		char tmp[2048];
+		double time;
+		long eventId;
 
 		if(pid == ut->thread.tid) pt = ut;
 		else {
@@ -894,8 +933,10 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
-						sprintf(tmp, "type=UBSI_DEP dep=(pid=%d thread_time=%d.%d unitid=%d iteration=%d time=%.3lf count=%d), "
-								,lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
+
+						get_time_and_eventid(buf, &time, &eventId);
+						sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%d unitid=%d iteration=%d time=%.3lf count=%d), "
+								,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
 						emit_log(ut, tmp, true, true);
 				}
 		}
@@ -982,7 +1023,7 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 						if(isNewUnit == false)
 						{
 								unit_end(ut, a1);
-								loop_exit(ut);
+								loop_exit(ut, buf);
 						}
 						break;
 				case MREAD1:
