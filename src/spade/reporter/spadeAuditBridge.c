@@ -740,7 +740,7 @@ void loop_exit(unit_table_t *unit, char *buf)
 		long eventId;
 
 		get_time_and_eventid(buf, &time, &eventId);
-		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld): ", time, eventId, unit->cur_unit.tid);
+		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld): ", time, eventId);
 		//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 		emit_log(unit, tmp, false, true);
 		unit->valid = false;
