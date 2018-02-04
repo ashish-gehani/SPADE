@@ -1340,13 +1340,22 @@ public class Audit extends AbstractReporter {
 
 				if("all".equals(rulesType)){
 
+					String netIONeverSyscallsRule = null;
+					if(kmAdded){
+						netIONeverSyscallsRule = "auditctl -a exit,never ";
+						netIONeverSyscallsRule += archField;
+						netIONeverSyscallsRule += "-S socket -S bind -S accept -S accept4 -S connect ";
+						netIONeverSyscallsRule += "-S sendmsg -S sendto -S recvmsg -S recvfrom -S sendmmsg -S recvmmsg ";
+					}
+					
                     String specialSyscallsRule = "auditctl -a exit,always ";
 					String allSyscallsAuditRule = "auditctl -a exit,always ";
 
 					allSyscallsAuditRule += archField;
 					specialSyscallsRule += archField;
-
+					
 					allSyscallsAuditRule += "-S all ";
+					// The connect syscall rule won't be matched even if module added because the 'never' rule is before this one
 					specialSyscallsRule += "-S exit -S exit_group -S kill -S connect ";
 
 					allSyscallsAuditRule += uidField;
@@ -1360,6 +1369,10 @@ public class Audit extends AbstractReporter {
 					auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
 
 					String fieldsForAuditRule = buildPidFieldsForAuditRule(ignorePids.subList(0, loopFieldsForMainRuleTill));
+					// THE NEVER RULE SHOULD ALWAYS BE THE FIRST IF IT IS INITIALIZED
+					if(kmAdded && netIONeverSyscallsRule != null){
+						auditRules.add(netIONeverSyscallsRule);
+					}
 					auditRules.add(specialSyscallsRule + fieldsForAuditRule);
 					auditRules.add(allSyscallsAuditRule + fieldsForAuditRule);
 
@@ -1426,6 +1439,7 @@ public class Audit extends AbstractReporter {
 					return false;
 				}
 
+				// Execute in provided order!
 				for(String auditRule : auditRules){
 					if(!executeAuditctlRule(auditRule)){
 						removeAuditctlRules();
