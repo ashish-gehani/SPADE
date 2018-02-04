@@ -3242,6 +3242,12 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
+	private void logInvalidSaddr(String saddr, String time, String eventId, SYSCALL syscall){
+		if(!"0100".equals(saddr)){ // if not empty path
+			log(Level.INFO, "Failed to parse saddr: " + saddr, null, time, eventId, syscall);
+		}
+	}
+	
 	// needed for marking epoch for unix socket
 	private void handleBindKernelModule(Map<String, String> eventData, String time, String eventId, SYSCALL syscall,
 			String pid, String exit, String sockFd, int sockType, String localSaddr, String remoteSaddr){
@@ -3252,7 +3258,7 @@ public class Audit extends AbstractReporter {
 			if(identifier == null){
 				putBind(pid, sockFd, identifier);
 			}else{
-				log(Level.INFO, "Failed to parse saddr: " + remoteSaddr, null, time, eventId, syscall);
+				logInvalidSaddr(remoteSaddr, time, eventId, syscall);
 			}
 		}else{
 			// nothing needed in case of network because we get all info from other syscalls if kernel module
@@ -3284,7 +3290,7 @@ public class Audit extends AbstractReporter {
 			}
 			
 			if(identifier == null){
-				log(Level.INFO, "Failed to parse saddr: " + saddr, null, time, eventId, syscall);
+				logInvalidSaddr(saddr, time, eventId, syscall);
 			}else{
 				putBind(pid, sockFd, identifier);
 			}
@@ -3345,7 +3351,7 @@ public class Audit extends AbstractReporter {
 		}else{ // is unix socket
 			identifier = parseUnixSaddr(remoteSaddr); // address in remote unlike accept
 			if(identifier == null){
-				log(Level.INFO, "Failed to parse saddr: " + localSaddr, null, time, eventId, syscall);
+				logInvalidSaddr(localSaddr, time, eventId, syscall);
 			}
 		}
 		if(identifier != null){
@@ -3392,7 +3398,7 @@ public class Audit extends AbstractReporter {
 			}
 			
 			if(identifier == null){
-				log(Level.INFO, "Failed to parse saddr: " + saddr, null, time, eventId, syscall);
+				logInvalidSaddr(saddr, time, eventId, syscall);
 			}else{
 				putConnect(syscall, time, eventId, pid, sockFd, identifier, eventData);
 			}
@@ -3431,7 +3437,7 @@ public class Audit extends AbstractReporter {
 		}else{ // is unix socket
 			identifier = parseUnixSaddr(localSaddr);
 			if(identifier == null){
-				log(Level.INFO, "Failed to parse saddr: " + localSaddr, null, time, eventId, syscall);
+				logInvalidSaddr(localSaddr, time, eventId, syscall);
 			}
 		}
 		if(identifier != null){
@@ -3482,7 +3488,7 @@ public class Audit extends AbstractReporter {
 			}
 			
 			if(identifier == null){
-				log(Level.INFO, "Failed to parse saddr: " + saddr, null, time, eventId, syscall);
+				logInvalidSaddr(saddr, time, eventId, syscall);
 			}else{
 				putAccept(syscall, time, eventId, pid, fd, identifier, eventData);
 			}
@@ -3584,7 +3590,7 @@ public class Audit extends AbstractReporter {
 		}else{ // is unix socket
 			identifier = parseUnixSaddr(localSaddr);
 			if(identifier == null){
-				log(Level.INFO, "Failed to parse saddr: " + localSaddr, null, time, eventId, syscall);
+				logInvalidSaddr(localSaddr, time, eventId, syscall);
 			}
 		}
 		putIO(eventData, time, eventId, syscall, pid, sockFd, identifier, bytes, null, isRecv);
@@ -4070,27 +4076,35 @@ public class Audit extends AbstractReporter {
 	
 	private AddressPort parseNetworkSaddr(String saddr){
 		// TODO the address = 0.0.0.0 and 127.0.0.1 issue! Rename or not?
-		String address = null, port = null;
-		if (isIPv4Saddr(saddr)) {
-			port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-			int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-			int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-			int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-			int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-			address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-		}else if(isIPv6Saddr(saddr)){
-			port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-			int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
-			int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
-			int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
-			int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
-			address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
+		try{
+			String address = null, port = null;
+			if (isIPv4Saddr(saddr) && saddr.length() >= 17){
+				port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+				int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+				int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+				int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+				int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+				address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+			}else if(isIPv6Saddr(saddr) && saddr.length() >= 49){
+				port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+				String hextet1 = saddr.substring(16, 20);
+				String hextet2 = saddr.substring(20, 24);
+				String hextet3 = saddr.substring(24, 28);
+				String hextet4 = saddr.substring(28, 32);
+				String hextet5 = saddr.substring(32, 36);
+				String hextet6 = saddr.substring(36, 40);
+				String hextet7 = saddr.substring(40, 44);
+				String hextet8 = saddr.substring(44, 48);
+				address = String.format("%s:%s:%s:%s:%s:%s:%s:%s", hextet1, hextet2, hextet3, hextet4,
+						hextet5, hextet6, hextet7, hextet8);
+			}
+			if(address != null && port != null){
+				return new AddressPort(address, port);
+			}
+		}catch(Exception e){
+			// Logged by the caller
 		}
-		if(address != null && port != null){
-			return new AddressPort(address, port);
-		}else{
-			return null;
-		}
+		return null;
 	}
 	
 	private UnixSocketIdentifier parseUnixSaddr(String saddr){

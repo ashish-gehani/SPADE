@@ -53,18 +53,23 @@ unsigned long syscall_table_address = 0;
 // Error example: If 'int' used below for 'connect' system according to API then when negative value returned it gets
 // casted to a shorter datatype (i.e. 'int') and incorrect return value is gotten. Hence the application using the 
 // 'connect' syscall fails.
-asmlinkage long (*original_bind)(int, const struct sockaddr*, int);
-asmlinkage long (*original_connect)(int, const struct sockaddr*, int);
-asmlinkage long (*original_accept)(int, struct sockaddr*, unsigned int*);
-asmlinkage long (*original_accept4)(int, struct sockaddr*, unsigned int*, int);
-asmlinkage long (*original_sendto)(int, const void*, size_t, int, const struct sockaddr*, unsigned int);
+asmlinkage long (*original_bind)(int, const struct sockaddr*, uint32_t);
+asmlinkage long (*original_connect)(int, const struct sockaddr*, uint32_t);
+asmlinkage long (*original_accept)(int, struct sockaddr*, uint32_t*);
+asmlinkage long (*original_accept4)(int, struct sockaddr*, uint32_t*, int);
+asmlinkage long (*original_sendto)(int, const void*, size_t, int, const struct sockaddr*, uint32_t);
 asmlinkage long (*original_sendmsg)(int, const struct msghdr*, int);
 asmlinkage long (*original_sendmmsg)(int, struct mmsghdr*, unsigned int, unsigned int);
-asmlinkage long (*original_recvfrom)(int, void*, size_t, int, struct sockaddr*, unsigned int*);
+asmlinkage long (*original_recvfrom)(int, void*, size_t, int, struct sockaddr*, uint32_t*);
 asmlinkage long (*original_recvmsg)(int, struct msghdr*, int);
 asmlinkage long (*original_recvmmsg)(int, struct mmsghdr*, unsigned int, unsigned int, struct timespec*);
 
-static void to_hex(unsigned char *dst, const unsigned char *buf, size_t len);
+static int is_sockaddr_size_valid(uint32_t size);
+static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
+static void sockaddr_to_hex(unsigned char* dst, int dst_len, unsigned char* addr, uint32_t addr_size);
+static int copy_msghdr_from_user(struct msghdr *dst, const struct msghdr __user *src);
+static int copy_sockaddr_from_user(struct sockaddr_storage *dst, const struct sockaddr __user *src, uint32_t src_size);
+static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src);
 static void print_array(const char*, int[], int);
 static int exists_in_array(int, int[], int);
 static int log_syscall(int, int, int, int);
@@ -244,153 +249,162 @@ static int find_sys_call_table (char *kern_ver) {
     return 0;
 }
 
-static void to_hex(unsigned char *dst, const unsigned char *buf, size_t len){
-	int i;
-	for (i = 0; i < len; i++){
-		*dst++ = hex_asc_upper[((buf[i]) & 0xf0) >> 4];
-		*dst++ = hex_asc_upper[((buf[i]) & 0x0f)];
-	}
-	*dst = '\0';
+static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src){
+	return copy_from_user(dst, src, sizeof(uint32_t));
 }
 
-static void log_to_audit(int syscallNumber, int fd, const struct sockaddr* remaddress, unsigned int remsize, long exit, int success){
-	if(log_syscall((int)(current->pid), (int)(current->real_parent->pid), (int)(current->real_cred->uid.val), success) > 0){
-		int sockType = -1;
-		int family = -1;
-		char* local_hex_ptr = NULL;
-		char* remote_hex_ptr = NULL;
-		struct socket *sock;
-		struct sockaddr_storage locaddress;
+// 0 = bad, 1 = good
+static int is_sockaddr_size_valid(uint32_t size){
+	if(size > 0 && size <= _K_SS_MAXSIZE){
+		return 1;
+	}else{
+		return 0;
+	}
+}
+
+// Follows copy_from_user return value rules. 0 is good, other is bad.
+static int copy_sockaddr_from_user(struct sockaddr_storage *dst, const struct sockaddr __user *src, uint32_t src_size){
+	if(is_sockaddr_size_valid(src_size) == 0){
+		return -1; // error
+	}
+	return copy_from_user(dst, src, src_size);
+}
+
+static int copy_msghdr_from_user(struct msghdr *dst, const struct msghdr __user *src){
+	return copy_from_user(dst, src, sizeof(struct msghdr));
+}
+
+// dst should be large enough and caller should ensure that.
+static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len){
+	int i;
+	memset(dst, 0, dst_len);
+	for (i = 0; i < src_len; i++){
+		*dst++ = hex_asc_upper[((src[i]) & 0xf0) >> 4];
+		*dst++ = hex_asc_upper[((src[i]) & 0x0f)];
+	}
+	*dst = 0; // NULL char
+}
+
+// dst should be large enough and caller should ensure that.
+static void sockaddr_to_hex(unsigned char* dst, int dst_len, unsigned char* addr, uint32_t addr_size){
+	if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1){
+		to_hex(dst, dst_len, addr, addr_size);
+	}else{
+		// Make dst null string
+		*dst = 0;
+	}
+}
+
+static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* addr, uint32_t addr_size,
+		long exit, int success){
+	struct task_struct* current_task = current;
+	if(log_syscall((int)(current_task->pid), (int)(current_task->real_parent->pid),
+			(int)(current_task->real_cred->uid.val), success) > 0){
+
+		struct socket *fd_sock;
+		int fd_sock_type = -1;
+		int fd_sock_family = -1;
+		struct sockaddr_storage fd_addr;
+		int fd_addr_size = 0;
 		int err = 0;
-		unsigned char comm_hex[(strlen(current->comm) * 2) + 1];
+
+		int max_hex_sockaddr_size = (_K_SS_MAXSIZE * 2) + 1; // +1 for NULL char
+		unsigned char hex_fd_addr[max_hex_sockaddr_size];
+		unsigned char hex_addr[max_hex_sockaddr_size];
+
+		char* task_command = current_task->comm;
+		int task_command_len = strlen(task_command);
+		int hex_task_command_len = (task_command_len * 2) + 1; // +1 for NULL
+		unsigned char hex_task_command[hex_task_command_len];
+		// get command
+		to_hex(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
+		// get addr passed in
+		sockaddr_to_hex(&hex_addr[0], max_hex_sockaddr_size, (unsigned char *)addr, addr_size);
+
+		// This call places a lock on the fd which prevents it from being released.
+		// Releasing the lock using sockfd_put call.
+		fd_sock = sockfd_lookup(fd, &err);
 		
-		// This call places a lock on the fd which prevents it from being released. Releasing the lock using sockfd_put call.
-		sock = sockfd_lookup(fd, &err);
-		
-		if(sock){
-			family = sock->ops->family;
-			sockType = sock->type;
-			if((family != AF_UNIX && family != AF_LOCAL && family != PF_UNIX && family != PF_LOCAL && 
-				family != AF_INET && family != AF_INET6 && family != PF_INET && family != PF_INET6) && // only unix, and inet
-					(sockType != SOCK_STREAM && sockType != SOCK_DGRAM)){ // only stream, and dgram
+		if(fd_sock != NULL){
+			fd_sock_family = fd_sock->ops->family;
+			fd_sock_type = fd_sock->type;
+			if((fd_sock_family != AF_UNIX && fd_sock_family != AF_LOCAL && fd_sock_family != PF_UNIX
+					&& fd_sock_family != PF_LOCAL && fd_sock_family != AF_INET && fd_sock_family != AF_INET6
+					&& fd_sock_family != PF_INET && fd_sock_family != PF_INET6) && // only unix, and inet
+					(fd_sock_type != SOCK_STREAM && fd_sock_type != SOCK_DGRAM)){ // only stream, and dgram
 				return;
 			}else{
-				int locsize = sizeof(locaddress);
-				err = sock->ops->getname(sock, (struct sockaddr *)&locaddress, &locsize, 0);
-				if(!err){
-					if(!(locsize < 0 || locsize >= _K_SS_MAXSIZE)){
-						// abstract unix socket check needed?. TODO
-						local_hex_ptr = (char*)kmalloc((locsize*2)+1, GFP_KERNEL);
-						local_hex_ptr = (char*)memset(local_hex_ptr, 0, (locsize*2)+1);
-						to_hex(local_hex_ptr, (void *)&locaddress, locsize);
-					}
+				err = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, &fd_addr_size, 0);
+				if(err == 0){
+					sockaddr_to_hex(&hex_fd_addr[0], max_hex_sockaddr_size, (unsigned char*)&fd_addr, fd_addr_size);
 				}
 			}
 			// Must free the reference to the fd after use otherwise lock won't be released.
-			sockfd_put(sock);
+			sockfd_put(fd_sock);
 		}
-		
-		to_hex(&comm_hex[0], (void *)(&(current->comm)), strlen(current->comm));
-		
-		if(!(remaddress == NULL || remsize < 0 || remsize >= _K_SS_MAXSIZE)){
-			remote_hex_ptr = (char*)kmalloc((remsize*2)+1, GFP_KERNEL);
-			remote_hex_ptr = (char*)memset(remote_hex_ptr, 0, (remsize*2)+1);
-			to_hex(remote_hex_ptr, (void *)remaddress, remsize);
-		}
-		
-		// TODO other info needed to be logged?
+
+		// TODO other info needs to be logged?
 		audit_log(NULL, GFP_KERNEL, AUDIT_USER, 
 			"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u \
-gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s\"", 
-			syscallNumber, exit, success, fd, current->pid, current->real_parent->pid,
-			current->real_cred->uid.val, current->real_cred->euid.val, current->real_cred->suid.val, current->real_cred->fsuid.val,
-			current->real_cred->gid.val, current->real_cred->egid.val, current->real_cred->sgid.val, current->real_cred->fsgid.val,
-			&comm_hex[0], sockType, local_hex_ptr, remote_hex_ptr);
-			
-		if(remote_hex_ptr != NULL){
-			kfree(remote_hex_ptr);	
-		}
-		
-		if(local_hex_ptr != NULL){
-			kfree(local_hex_ptr);
-		}
+gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s\"",
+			syscallNumber, exit, success, fd, current_task->pid, current_task->real_parent->pid,
+			current_task->real_cred->uid.val, current_task->real_cred->euid.val, current_task->real_cred->suid.val,
+			current_task->real_cred->fsuid.val, current_task->real_cred->gid.val, current_task->real_cred->egid.val,
+			current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val,
+			hex_task_command, fd_sock_type, hex_fd_addr, hex_addr);
 	}
 }
 
-asmlinkage long new_bind(int fd, const struct sockaddr* remaddress, int remsize){
-	long retval = original_bind(fd, remaddress, remsize);
+asmlinkage long new_bind(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
+	long retval = original_bind(fd, addr, addr_size);
 	if(stop == 0){
+		struct sockaddr_storage k_addr;
 		int syscallNumber = __NR_bind;
-		int success;
-		if(retval == 0){
-			success = 1;
+		int success = retval == 0 ? 1 : 0;
+
+		// Order of conditions matters!
+		if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1
+				&& copy_sockaddr_from_user(&k_addr, addr, addr_size) == 0){
+			log_to_audit(syscallNumber, fd, &k_addr, addr_size, retval, success);
 		}else{
-			success = 0;
-		}
-		if(remaddress != NULL){
-			struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-			if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
-				log_to_audit(syscallNumber, fd, remaddress_copy, remsize, retval, success);
-			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
-			}
-			kfree(remaddress_copy);
-		}else{
-			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 		}
 	}
 	return retval;
 }
 
-asmlinkage long new_connect(int fd, const struct sockaddr* remaddress, int remsize){
-	long retval = original_connect(fd, remaddress, remsize);
+asmlinkage long new_connect(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
+	long retval = original_connect(fd, addr, addr_size);
 	if(stop == 0){
+		struct sockaddr_storage k_addr;
 		int syscallNumber = __NR_connect;
-		int success;
-		if(retval >= 0 || retval == -EINPROGRESS){ // check EINPROGRESS
-			success = 1;
+		int success = (retval >= 0 || retval == -EINPROGRESS) ? 1 : 0;
+
+		// Order of conditions matters!
+		if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1
+				&& copy_sockaddr_from_user(&k_addr, addr, addr_size) == 0){
+			log_to_audit(syscallNumber, fd, &k_addr, addr_size, retval, success);
 		}else{
-			success = 0;
-		}
-		if(remaddress != NULL){
-			struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-			if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
-				log_to_audit(syscallNumber, fd, remaddress_copy, remsize, retval, success);
-			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-			}
-			kfree(remaddress_copy);
-		}else{
-			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
+			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 		}
 	}
 	return retval;
 }
 
-asmlinkage long new_accept(int fd, struct sockaddr* remaddress, unsigned int* socklen){
-	long retval = original_accept(fd, remaddress, socklen);
+asmlinkage long new_accept(int fd, struct sockaddr __user *addr, uint32_t __user *addr_size){
+	long retval = original_accept(fd, addr, addr_size);
 	if(stop == 0){
+		uint32_t k_addr_size;
+		struct sockaddr_storage k_addr;
 		int syscallNumber = __NR_accept;
-		int success;
-		if(retval >= 0){
-			success = 1;
-		}else{
-			success = 0;
-		}
-		if(socklen != NULL){
-			unsigned int* socklen_copy = (unsigned int*)kmalloc(sizeof(unsigned int), GFP_KERNEL);
-			if(copy_from_user(socklen_copy, socklen, sizeof(unsigned int)) == 0){
-				struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-				if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
-					log_to_audit(syscallNumber, fd, remaddress_copy, *socklen_copy, retval, success);
-				}else{
-					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-				}
-				kfree(remaddress_copy);
-			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-			}
-			kfree(socklen_copy);
+		int success = retval >= 0 ? 1 : 0;
+
+		// Order of conditions matters!
+		if(addr != NULL && addr_size != NULL
+				&& copy_uint32_t_from_user(&k_addr_size, addr_size) == 0
+				&& is_sockaddr_size_valid(k_addr_size) == 1
+				&& copy_sockaddr_from_user(&k_addr, addr, k_addr_size) == 0){
+			log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, retval, success);
 		}else{
 			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 		}
@@ -398,30 +412,20 @@ asmlinkage long new_accept(int fd, struct sockaddr* remaddress, unsigned int* so
 	return retval;
 }
 
-asmlinkage long new_accept4(int fd, struct sockaddr* remaddress, unsigned int* socklen, int flags){
-	long retval = original_accept4(fd, remaddress, socklen, flags);
+asmlinkage long new_accept4(int fd, struct sockaddr __user *addr, uint32_t __user *addr_size, int flags){
+	long retval = original_accept4(fd, addr, addr_size, flags);
 	if(stop == 0){
+		uint32_t k_addr_size;
+		struct sockaddr_storage k_addr;
 		int syscallNumber = __NR_accept4;
-		int success;
-		if(retval >= 0){
-			success = 1;
-		}else{
-			success = 0;
-		}
-		if(socklen != NULL){
-			unsigned int* socklen_copy = (unsigned int*)kmalloc(sizeof(unsigned int), GFP_KERNEL);
-			if(copy_from_user(socklen_copy, socklen, sizeof(unsigned int)) == 0){
-				struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-				if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
-					log_to_audit(syscallNumber, fd, remaddress_copy, *socklen_copy, retval, success);
-				}else{
-					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
-				}
-				kfree(remaddress_copy);
-			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
-			}
-			kfree(socklen_copy);
+		int success = retval >= 0 ? 1 : 0;
+
+		// Order of conditions matters!
+		if(addr != NULL && addr_size != NULL
+				&& copy_uint32_t_from_user(&k_addr_size, addr_size) == 0
+				&& is_sockaddr_size_valid(k_addr_size) == 1
+				&& copy_sockaddr_from_user(&k_addr, addr, k_addr_size) == 0){
+			log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, retval, success);
 		}else{
 			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 		}
@@ -429,35 +433,22 @@ asmlinkage long new_accept4(int fd, struct sockaddr* remaddress, unsigned int* s
 	return retval;
 }
 
-asmlinkage long new_recvmsg (int fd, struct msghdr* msgheader, int flags){
+asmlinkage long new_recvmsg (int fd, struct msghdr __user *msgheader, int flags){
 	long retval = original_recvmsg(fd, msgheader, flags);
 	if(stop == 0){
 		if(net_io == 1){
+			struct msghdr k_msgheader;
+			struct sockaddr_storage k_addr;
 			int syscallNumber = __NR_recvmsg;
-			int success;
-			if(retval >= 0){
-				success = 1;
-			}else{
-				success = 0;
-			}
-			if(msgheader != NULL){
-				struct msghdr* msgheader_copy = (struct msghdr*)kmalloc(sizeof(struct msghdr), GFP_KERNEL);
-				if(copy_from_user(msgheader_copy, msgheader, sizeof(struct msghdr)) == 0){
-					if(msgheader_copy->msg_name != NULL){
-						struct sockaddr* msg_name_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-						if(copy_from_user(msg_name_copy, msgheader_copy->msg_name, sizeof(struct sockaddr)) == 0){
-							log_to_audit(syscallNumber, fd, msg_name_copy, msgheader_copy->msg_namelen, retval, success);
-						}else{
-							log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-						}
-						kfree(msg_name_copy);
-					}else{
-						log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
-					}
-				}else{
-					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
-				}
-				kfree(msgheader_copy);
+			int success = retval >= 0 ? 1 : 0;
+
+			// Order of conditions matters!
+			if(msgheader != NULL
+					&& copy_msghdr_from_user(&k_msgheader, msgheader) == 0
+					&& k_msgheader.msg_name != NULL
+					&& is_sockaddr_size_valid(k_msgheader.msg_namelen) == 1
+					&& copy_sockaddr_from_user(&k_addr, k_msgheader.msg_name, k_msgheader.msg_namelen) == 0){
+				log_to_audit(syscallNumber, fd, &k_addr, k_msgheader.msg_namelen, retval, success);
 			}else{
 				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 			}
@@ -466,35 +457,22 @@ asmlinkage long new_recvmsg (int fd, struct msghdr* msgheader, int flags){
 	return retval;
 }
 
-asmlinkage long new_sendmsg (int fd, const struct msghdr* msgheader, int flags){
+asmlinkage long new_sendmsg (int fd, const struct msghdr __user *msgheader, int flags){
 	long retval = original_sendmsg(fd, msgheader, flags);
 	if(stop == 0){
 		if(net_io == 1){
+			struct msghdr k_msgheader;
+			struct sockaddr_storage k_addr;
 			int syscallNumber = __NR_sendmsg;
-			int success;
-			if(retval >= 0){
-				success = 1;
-			}else{
-				success = 0;
-			}
-			if(msgheader != NULL){
-				struct msghdr* msgheader_copy = (struct msghdr*)kmalloc(sizeof(struct msghdr), GFP_KERNEL);
-				if(copy_from_user(msgheader_copy, msgheader, sizeof(struct msghdr)) == 0){
-					if(msgheader_copy->msg_name != NULL){
-						struct sockaddr* msg_name_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-						if(copy_from_user(msg_name_copy, msgheader_copy->msg_name, sizeof(struct sockaddr)) == 0){
-							log_to_audit(syscallNumber, fd, msg_name_copy, msgheader_copy->msg_namelen, retval, success);
-						}else{
-							log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-						}
-						kfree(msg_name_copy);
-					}else{
-						log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
-					}
-				}else{
-					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-				}
-				kfree(msgheader_copy);
+			int success = retval >= 0 ? 1 : 0;
+
+			// Order of conditions matters!
+			if(msgheader != NULL
+					&& copy_msghdr_from_user(&k_msgheader, msgheader) == 0
+					&& k_msgheader.msg_name != NULL
+					&& is_sockaddr_size_valid(k_msgheader.msg_namelen) == 1
+					&& copy_sockaddr_from_user(&k_addr, k_msgheader.msg_name, k_msgheader.msg_namelen) == 0){
+				log_to_audit(syscallNumber, fd, &k_addr, k_msgheader.msg_namelen, retval, success);
 			}else{
 				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 			}
@@ -503,31 +481,22 @@ asmlinkage long new_sendmsg (int fd, const struct msghdr* msgheader, int flags){
 	return retval;
 }
 
-asmlinkage long new_recvfrom (int fd, void* msg, size_t msgsize, int flags, struct sockaddr* remaddress, unsigned int* remsize) {
-	long retval = original_recvfrom(fd, msg, msgsize, flags, remaddress, remsize);
+asmlinkage long new_recvfrom (int fd, void* msg, size_t msgsize, int flags, struct sockaddr __user *addr,
+		uint32_t __user *addr_size) {
+	long retval = original_recvfrom(fd, msg, msgsize, flags, addr, addr_size);
 	if(stop == 0){
 		if(net_io == 1){
+			uint32_t k_addr_size;
+			struct sockaddr_storage k_addr;
 			int syscallNumber = __NR_recvfrom;
-			int success;
-			if(retval >= 0){
-				success = 1;
-			}else{
-				success = 0;
-			}
-			if(remsize != NULL){
-				unsigned int* remsize_copy = (unsigned int*)kmalloc(sizeof(unsigned int), GFP_KERNEL);
-				if(copy_from_user(remsize_copy, remsize, sizeof(unsigned int)) == 0){
-					struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-					if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
-						log_to_audit(syscallNumber, fd, remaddress_copy, *remsize_copy, retval, success);
-					}else{
-						log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-					}
-					kfree(remaddress_copy);
-				}else{
-					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);	
-				}
-				kfree(remsize_copy);
+			int success = retval >= 0 ? 1 : 0;
+
+			// Order of conditions matters!
+			if(addr != NULL && addr_size != NULL
+					&& copy_uint32_t_from_user(&k_addr_size, addr_size) == 0
+					&& is_sockaddr_size_valid(k_addr_size) == 1
+					&& copy_sockaddr_from_user(&k_addr, addr, k_addr_size) == 0){
+				log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, retval, success);
 			}else{
 				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 			}
@@ -536,25 +505,19 @@ asmlinkage long new_recvfrom (int fd, void* msg, size_t msgsize, int flags, stru
 	return retval;
 }
 
-asmlinkage long new_sendto (int fd, const void* msg, size_t msgsize, int flags, const struct sockaddr* remaddress, unsigned int remsize) {
-	long retval = original_sendto(fd, msg, msgsize, flags, remaddress, remsize);
+asmlinkage long new_sendto(int fd, const void* msg, size_t msgsize, int flags, const struct sockaddr* __user addr,
+		uint32_t addr_size) {
+	long retval = original_sendto(fd, msg, msgsize, flags, addr, addr_size);
 	if(stop == 0){
 		if(net_io == 1){
+			struct sockaddr_storage k_addr;
 			int syscallNumber = __NR_sendto;
-			int success;
-			if(retval >= 0){
-				success = 1;
-			}else{
-				success = 0;
-			}
-			if(remaddress != NULL){
-				struct sockaddr* remaddress_copy = (struct sockaddr*)kmalloc(sizeof(struct sockaddr), GFP_KERNEL);
-				if(copy_from_user(remaddress_copy, remaddress, sizeof(struct sockaddr)) == 0){
-					log_to_audit(syscallNumber, fd, remaddress_copy, remsize, retval, success);
-				}else{
-					log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
-				}
-				kfree(remaddress_copy);
+			int success = retval >= 0 ? 1 : 0;
+
+			// Order of conditions matters!
+			if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1
+					&& copy_sockaddr_from_user(&k_addr, addr, addr_size) == 0){
+				log_to_audit(syscallNumber, fd, &k_addr, addr_size, retval, success);
 			}else{
 				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
 			}
@@ -566,6 +529,7 @@ asmlinkage long new_sendto (int fd, const void* msg, size_t msgsize, int flags, 
 // Not being logged yet
 asmlinkage long new_sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags){
 	long retval = original_sendmmsg(sockfd, msgvec, vlen, flags);
+	/*
 	if(stop == 0){
 		if(net_io == 1){
 			int syscallNumber = __NR_sendmmsg;
@@ -575,6 +539,7 @@ asmlinkage long new_sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 			}else{
 				success = 0;	
 			}
+
 			if(msgvec != NULL){
 				int i = 0;
 				for(; i < vlen; i++){
@@ -589,12 +554,14 @@ asmlinkage long new_sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 			}
 		}
 	}
+	*/
 	return retval;
 }
 
 // Not being logged yet
 asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags, struct timespec* timeout){
 	long retval = original_recvmmsg(sockfd, msgvec, vlen, flags, timeout);
+	/*
 	if(stop == 0){
 		if(net_io == 1){
 			int syscallNumber = __NR_recvmmsg;
@@ -604,6 +571,7 @@ asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 			}else{
 				success = 0;	
 			}
+
 			if(msgvec != NULL){
 				int i = 0;
 				for(; i < vlen; i++){
@@ -618,6 +586,7 @@ asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 			}
 		}
 	}
+	*/
 	return retval;
 }
 
