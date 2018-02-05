@@ -1208,28 +1208,30 @@ int UBSI_buffer(const char *buf)
 						if(strstr(event, "type=EOE") == NULL && strstr(event, "type=UNKNOWN[") == NULL && strstr(event, "type=PROCTILE") == NULL) {
 								ptr = strstr(event, ":");
 								if(ptr == NULL) {
-										id = 0;
+										id = -1; // to indicate error. it is set back to zero once it gets out of the if condition.
 										printf("ERROR: cannot parse event id.\n");
 								} else {
 										id = strtol(ptr+1, NULL, 10);
 										if(next_event_id == 0) next_event_id = id;
 								}
-								HASH_FIND_INT(event_buf, &id, eb);
-								if(eb == NULL) {
-										eb = (event_buf_t*) malloc(sizeof(event_buf_t));
-										eb->id = id;
-										//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
-										eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
-										eb->event_byte = event_byte;
-										strncpy(eb->event, event, event_byte+1);
-										HASH_ADD_INT(event_buf, id, eb);
-										if(next_event_id > id) {
-												next_event_id = id;
-										}
-								} else {
-										eb->event = (char*) realloc(eb->event, sizeof(char) * (eb->event_byte+event_byte+1));
-										strncpy(eb->event+eb->event_byte, event, event_byte+1);
-										eb->event_byte += event_byte;
+								if(id != -1){
+									HASH_FIND_INT(event_buf, &id, eb);
+									if(eb == NULL) {
+											eb = (event_buf_t*) malloc(sizeof(event_buf_t));
+											eb->id = id;
+											//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
+											eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
+											eb->event_byte = event_byte;
+											strncpy(eb->event, event, event_byte+1);
+											HASH_ADD_INT(event_buf, id, eb);
+											if(next_event_id > id) {
+													next_event_id = id;
+											}
+									} else {
+											eb->event = (char*) realloc(eb->event, sizeof(char) * (eb->event_byte+event_byte+1));
+											strncpy(eb->event+eb->event_byte, event, event_byte+1);
+											eb->event_byte += event_byte;
+									}
 								}
 						}
 						event_start = cursor+1;
