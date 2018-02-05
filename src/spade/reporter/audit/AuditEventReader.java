@@ -200,13 +200,20 @@ public class AuditEventReader {
 	private boolean EOF = false;
 	
 	/**
+	 * Flag to tell the reader how to behave in case of unexpected data format.
+	 * if true then throw an exception.
+	 * if false then do best effort to continue.
+	 */
+	private boolean failfast;
+	
+	/**
 	 * Create instance of the class that reads from the given stream
 	 * 
 	 * @param streamId An identifier to read the audit logs from
 	 * @param streamToReadFrom The stream to read from
 	 * @throws Exception IllegalArgumentException or IOException
 	 */
-	public AuditEventReader(String streamId, InputStream streamToReadFrom) throws Exception{
+	public AuditEventReader(String streamId, InputStream streamToReadFrom, boolean failfast) throws Exception{
 		if(streamId == null){
 			throw new IllegalArgumentException("Stream ID cannot be NULL");
 		}
@@ -216,6 +223,8 @@ public class AuditEventReader {
 
 		stream = new BufferedReader(new InputStreamReader(streamToReadFrom));
 
+		this.failfast = failfast;
+		
 		setGlobalsFromConfig();
 	}
 
@@ -321,7 +330,9 @@ public class AuditEventReader {
 		try{
 			int firstIndexOfOpeningBracket = line.indexOf('(');
 			int firstIndexOfColon = line.indexOf(':');
-			return line.substring(firstIndexOfOpeningBracket+1, firstIndexOfColon);
+			String timeStr = line.substring(firstIndexOfOpeningBracket+1, firstIndexOfColon);
+			Double.parseDouble(timeStr); // if valid double then continues
+			return timeStr;
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to get time from line: " + line, e);
 			return null;
@@ -381,6 +392,17 @@ public class AuditEventReader {
 				String line = null;
 				
 				while((line = stream.readLine()) != null){
+					Long eventId = getEventId(line);
+					String eventTime = getEventTime(line);
+					
+					if(eventId == null || eventTime == null){
+						if(failfast){
+							throw new Exception("Invalid time '"+eventTime+"' or event-id '"+eventId+"' in record: " + line);
+						}else{
+							continue;
+						}
+					}
+					
 					writeToOutputLog(line);
 					if(reportingEnabled){
 						recordCount++;
@@ -399,26 +421,21 @@ public class AuditEventReader {
 						
 						if(UBSIRecord == null){
 							
-							Long eventId = getEventId(line);
-							if(eventId == null){
-								continue; // Shouldn't be null
+							if(currentEventId.equals(-1L)){
+								currentEventId = eventId;
+								currentEventRecords.add(line); //add the next event record
+								continue;
 							}else{
-								if(currentEventId.equals(-1L)){
+								if(!currentEventId.equals(eventId)){// event id changed hence publish the things in buffer
 									currentEventId = eventId;
+									Set<String> records = new HashSet<String>(currentEventRecords);
+									currentEventRecords.clear();
 									currentEventRecords.add(line); //add the next event record
+									eventData = getEventMap(records);
+									break;
+								}else{ //if they are equal
+									currentEventRecords.add(line);
 									continue;
-								}else{
-									if(!currentEventId.equals(eventId)){// event id changed hence publish the things in buffer
-										currentEventId = eventId;
-										Set<String> records = new HashSet<String>(currentEventRecords);
-										currentEventRecords.clear();
-										currentEventRecords.add(line); //add the next event record
-										eventData = getEventMap(records);
-										break;
-									}else{ //if they are equal
-										currentEventRecords.add(line);
-										continue;
-									}
 								}
 							}
 							

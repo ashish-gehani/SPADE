@@ -175,6 +175,7 @@ public class Audit extends AbstractReporter {
 	private Boolean ARCH_32BIT = true;
 	
 	// These are the default values
+	private boolean FAIL_FAST = true;
 	private boolean USE_READ_WRITE = false;
 	private boolean USE_SOCK_SEND_RCV = false;
 	private boolean CREATE_BEEP_UNITS = false;
@@ -365,7 +366,15 @@ public class Audit extends AbstractReporter {
 	 * @return true if all flags had valid values / false if any of the flags had a non-boolean value
 	 */
 	private boolean initFlagsFromArguments(Map<String, String> args){
-		String argValue = args.get("fileIO");
+		String argValue = args.get("failfast");
+		if(isValidBoolean(argValue)){
+			FAIL_FAST = parseBoolean(argValue, FAIL_FAST);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'failfast': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("fileIO");
 		if(isValidBoolean(argValue)){
 			USE_READ_WRITE = parseBoolean(argValue, USE_READ_WRITE);
 		}else{
@@ -1031,7 +1040,7 @@ public class Audit extends AbstractReporter {
 		try{
 			// Create the audit event reader using the STDOUT of the spadeAuditBridge process
 			AuditEventReader auditEventReader = new AuditEventReader(spadeAuditBridgeCommand, 
-					stdoutStream);
+					stdoutStream, FAIL_FAST);
 			if(outputLogFilePath != null){
 				auditEventReader.setOutputLog(outputLogFilePath, recordsToRotateOutputLogAfter);
 			}
