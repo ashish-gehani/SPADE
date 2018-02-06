@@ -242,8 +242,6 @@ clean:
 	@rm -rf log
 	@rm -rf tmp
 	@rm -rf lib/kernel-modules
-	@if lsmod | grep -q "netio_controller"; then rmmod netio_controller; fi
-	@if lsmod | grep -q "netio"; then rmmod netio; fi
  
 DESTDIR = @prefix@
 install:
