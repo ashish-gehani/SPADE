@@ -3642,7 +3642,21 @@ public class Audit extends AbstractReporter {
 		boolean isNetwork = isNetworkSaddr(localSaddr) || isNetworkSaddr(remoteSaddr);
 		ArtifactIdentifier identifier = null;
 		if(isNetwork){
-			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+			NetworkSocketIdentifier recordIdentifier =
+					constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+			ArtifactIdentifier fdIdentifier = processManager.getFd(pid, sockFd);
+			if(fdIdentifier instanceof NetworkSocketIdentifier){
+				NetworkSocketIdentifier fdNetworkIdentifier = (NetworkSocketIdentifier)fdIdentifier;
+				if(CommonFunctions.isNullOrEmpty(fdNetworkIdentifier.getRemoteHost())){
+					// Connection based IO
+					identifier = recordIdentifier;
+				}else{
+					// Non-connection based IO
+					identifier = fdNetworkIdentifier;
+				}
+			}else{
+				identifier = recordIdentifier;
+			}
 		}else{ // is unix socket
 			identifier = parseUnixSaddr(localSaddr);
 			if(identifier == null){
