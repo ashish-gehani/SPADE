@@ -320,6 +320,8 @@ public class CDM extends Kafka {
 						eventType.equals(EventType.EVENT_OPEN)){
 					// Used or WasGeneratedBy
 					properties.put(OPMConstants.OPM, edge.type());
+				}else if(eventType.equals(EventType.EVENT_CHANGE_PRINCIPAL)){
+					properties.put(OPMConstants.EDGE_OPERATION, edge.getAnnotation(OPMConstants.EDGE_OPERATION));
 				}
 
 				Event event = new Event(uuid, 
