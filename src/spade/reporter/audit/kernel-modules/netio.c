@@ -30,13 +30,14 @@ MODULE_LICENSE("GPL");
 
 static int syscall_success = -1;
 static int net_io = 0;
+static int ignore_uids = 1;
 static int pids_ignore[MAX_FIELDS];
 static int ppids_ignore[MAX_FIELDS];
-static int uids_ignore[MAX_FIELDS];
+static int uids[MAX_FIELDS];
 
 static int pids_ignore_len = 0;
 static int ppids_ignore_len = 0;
-static int uids_ignore_len = 0;
+static int uids_len = 0;
 
 /* 
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
@@ -78,7 +79,7 @@ static void copy_array(int* dst, int* src, int len);
 static void netio_logging_start(int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
-									int uids_ignore_length, int uids_ignore_list[]);
+									int uids_len, int uids[], int ignore_uids);
 static void netio_logging_stop(void);
 
 static void copy_array(int* dst, int* src, int len){
@@ -128,8 +129,15 @@ static int log_syscall(int pid, int ppid, int uid, int success){
 			return -1; //failed so don't log	
 		}
 	}
-	if(exists_in_array(uid, uids_ignore, uids_ignore_len) > 0){
-		return -1;
+	
+	if(ignore_uids == 1){
+		if(exists_in_array(uid, uids, uids_len) > 0){
+			return -1;
+		}
+	}else{ // ignore_uids = 0 i.e. capture the uid in the list
+		if(exists_in_array(uid, uids, uids_len) <= 0){
+			return -1;
+		}
 	}
 	
 	if(exists_in_array(pid, pids_ignore, pids_ignore_len) > 0){
@@ -657,27 +665,35 @@ static void __exit onunload(void) {
 static void netio_logging_start(int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
-									int uids_ignore_length, int uids_ignore_list[]){
+									int uids_length, int uids_list[], int ignore_uids_flag){
 	int oldStopValue = stop;
 	
 	net_io = net_io_flag;
 	syscall_success = syscall_success_flag;
+	ignore_uids = ignore_uids_flag;
 	pids_ignore_len = pids_ignore_length;
 	ppids_ignore_len = ppids_ignore_length;
-	uids_ignore_len = uids_ignore_length;
+	uids_len = uids_length;
 	
 	copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
 	copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
-	copy_array(&uids_ignore[0], &uids_ignore_list[0], uids_ignore_len);
+	copy_array(&uids[0], &uids_list[0], uids_len);
 	
 	stop = 0;
 	
 	printk(KERN_EMERG "[start] Stop value: %d -> %d\n", oldStopValue, stop);
 	printk(KERN_EMERG "syscall_success flag value: %d\n", syscall_success);
 	printk(KERN_EMERG "net_io flag value: %d\n", net_io);
+	printk(KERN_EMERG "ignore_uids flag value: %d\n", ignore_uids);
 	print_array("pids_ignore", pids_ignore, pids_ignore_len);
 	print_array("ppids_ignore", ppids_ignore, ppids_ignore_len);
-	print_array("uids_ignore", uids_ignore, uids_ignore_len);
+	print_array("uids", uids, uids_len);
+	
+	if(ignore_uids == 1){
+		printk(KERN_EMERG "[netio] Mode = ignoring given uids\n");	
+	}else{
+		printk(KERN_EMERG "[netio] Mode = capturing given uids only\n");		
+	}
 }
 
 static void netio_logging_stop(void){

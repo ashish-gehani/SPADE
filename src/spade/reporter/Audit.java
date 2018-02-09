@@ -77,6 +77,7 @@ import spade.utility.FileUtility;
 import spade.utility.Hasher;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
+import tdb.cmdline.CmdSub.Exec;
 
 /**
  * @author Dawood Tariq, Sharjeel Ahmed Qureshi
@@ -992,21 +993,30 @@ public class Audit extends AbstractReporter {
 				
 				if(success){
 					if(ADD_KM || NETFILTER_RULES || rulesType == null || rulesType.equals("all")){
-						String uid = getOwnUid();
+						String uid = null;
+						boolean ignoreUid; // if true then exclude the user else only include the given user
+						String argsUsername = argsMap.get("user");
+						if(argsUsername == null){
+							ignoreUid = true;
+							uid = getOwnUid();
+						}else{
+							ignoreUid = false;
+							uid = checkIfValidUsername(argsUsername);
+						}
 						if(uid != null){
 							String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
 							List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
 							if(pidsToIgnore != null){
 								if(ADD_KM){
 									success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
-											uid, pidsToIgnore, USE_SOCK_SEND_RCV);
+											uid, ignoreUid, pidsToIgnore, USE_SOCK_SEND_RCV);
 								}
 								if(success){
 									if(NETFILTER_RULES){
 										success = setIptablesRules(iptablesRules);
 									}
 									if(success){
-										success = setAuditControlRules(rulesType, uid, pidsToIgnore, ADD_KM);
+										success = setAuditControlRules(rulesType, uid, ignoreUid, pidsToIgnore, ADD_KM);
 									}
 								}
 							}else{
@@ -1237,7 +1247,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean addNetworkKernelModule(String kernelModulePath, String kernelModuleControllerPath, 
-			String uid, List<String> ignorePids, boolean interceptSendRecv){
+			String uid, boolean ignoreUid, List<String> ignorePids, boolean interceptSendRecv){
 		if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()){
 			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}", new Object[]{uid, ignorePids});
 			return false;
@@ -1274,11 +1284,14 @@ public class Audit extends AbstractReporter {
 									ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
 									pids.deleteCharAt(pids.length() - 1);// delete trailing comma
 									
+									String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
+									
 									String kernelModuleControllerAddCommand = 
-											String.format("insmod %s uids_ignore=\"%s\" syscall_success=\"1\" "
-											+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\"", 
+											String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
+											+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
+											+ "ignore_uids=\"%s\"", 
 											kernelModuleControllerPath, uid, pids, pids,
-											interceptSendRecv ? "1" : "0");
+											interceptSendRecv ? "1" : "0", ignoreUidsArg);
 									
 									if(!addKernelModule(kernelModuleControllerAddCommand)){
 										return false;
@@ -1322,7 +1335,7 @@ public class Audit extends AbstractReporter {
 		return false;
 	}
 	
-	private boolean setAuditControlRules(String rulesType, String uid, List<String> ignorePids, boolean kmAdded){
+	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, boolean kmAdded){
 		try {
 
 			if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()){
@@ -1347,9 +1360,13 @@ public class Audit extends AbstractReporter {
 				}else{
 					archField = "-F arch=b64 ";
 				}
-
-				// Find uid to use in rules
-				String uidField = "-F uid!=" + uid + " ";
+				
+				String uidField = null;
+				if(ignoreUid){ // ignore the given uid
+					uidField = "-F uid!=" + uid + " ";
+				}else{ // only capture the given uid
+					uidField = "-F uid=" + uid + " ";
+				}
 
 				List<String> auditRules = new ArrayList<String>();
 
@@ -1667,6 +1684,37 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
+	// Returns the uid if valid username
+	private String checkIfValidUsername(String name){
+		String command = "id -u " + name;
+		try{
+			Execute.Output output = Execute.getOutput(command);
+			if(output.exitValueIndicatesError()){
+				logger.log(Level.SEVERE, "Invalid username provided. Command: {0}. Error: {1}", 
+						new Object[]{command, output.getStdErr()});
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				if(stdOutLines.size() == 0){
+					logger.log(Level.SEVERE, "No uid in output for command: {0}. Output: {1}.", new Object[]{
+							command, stdOutLines
+					});
+				}else{
+					String uidLine = stdOutLines.get(0);
+					if(uidLine == null || (uidLine = uidLine.trim()).isEmpty()){
+						logger.log(Level.SEVERE, "NULL/Empty uid for command: {0}. Output: {1}.", new Object[]{
+								command, stdOutLines
+						});
+					}else{
+						return uidLine;
+					}
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to execute command: " + command, e);
+		}
+		return null;
+	}
+	
 	private String getOwnUid(){
 		String command = "id -u";
 		try{
