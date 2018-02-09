@@ -25,7 +25,8 @@ USAGE:
 	+ Must add 'netio' kernel module first and then the 'netio_controller' module.
 	+ 'netio' module takes no arguments
 	+ 'netio_controller' module takes the following arguments:
-		1) 'uids_ignore' list. The uids to ignore the intercepted system calls from.
+		0) 'ignore_uids'. If it is '1' then uids in 'uids' list are ignored else captured.
+		1) 'uids' list. The uids to ignore OR capture the intercepted system calls from.
 		2) 'pids_ignore' list. The pids to ignore the intercepted system calls from.
 		3) 'ppids_ignore' list. The ppids to ignore the intercepted system calls from.
 		4) 'syscall_success' flag. The success of the syscalls to intercept. Values:
@@ -41,7 +42,11 @@ ADD MODULES (directly):
 	+ Example command to ADD the 'netio' module directly:
 		insmod lib/kernel-modules/netio.ko
 	+ Example command to ADD the 'netio_controller' module directly (make sure that all processes with 'pidof' below are running):
-		insmod lib/kernel-modules/netio_controller.ko uids_ignore="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
+		[To ignore given uids]
+		insmod lib/kernel-modules/netio_controller.ko uids="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
+		OR
+		[To capture only given uids]
+		insmod lib/kernel-modules/netio_controller.ko ignore_uids="0" uids="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
 
 ADD MODULES (through LIVE Audit reporter):
 	+ Example control client command:
