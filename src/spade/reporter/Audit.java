@@ -77,7 +77,6 @@ import spade.utility.FileUtility;
 import spade.utility.Hasher;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
-import tdb.cmdline.CmdSub.Exec;
 
 /**
  * @author Dawood Tariq, Sharjeel Ahmed Qureshi
@@ -3359,7 +3358,7 @@ public class Audit extends AbstractReporter {
 		if(!isNetwork){
 			// is unix
 			ArtifactIdentifier identifier = parseUnixSaddr(localSaddr); // local or remote. any is fine.
-			if(identifier == null){
+			if(identifier != null){
 				putBind(pid, sockFd, identifier);
 			}else{
 				logInvalidSaddr(remoteSaddr, time, eventId, syscall);
