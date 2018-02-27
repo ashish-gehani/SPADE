@@ -51,10 +51,8 @@ import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
 import com.bbn.tc.schema.avro.cdm18.Principal;
 import com.bbn.tc.schema.avro.cdm18.SHORT;
 import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
-import com.bbn.tc.schema.avro.cdm18.SrcSinkType;
 import com.bbn.tc.schema.avro.cdm18.Subject;
 import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
-import com.bbn.tc.schema.avro.cdm18.TimeMarker;
 import com.bbn.tc.schema.avro.cdm18.UUID;
 import com.bbn.tc.schema.avro.cdm18.UnitDependency;
 import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
@@ -330,13 +328,34 @@ public class CDM extends AbstractReporter{
 		}
 		edgeKeyValues.putAll(getValuesFromPropertiesMap(event.getProperties()));
 		
-		String opmValue = null;
+		String opmValue = null, operationValue = null;
 		
 		UUID src1Uuid = null, dst1Uuid = null, // process to/from primary
 				src2Uuid = null, dst2Uuid = null, //process to/from secondary
 				src3Uuid = null, dst3Uuid = null; //primary to/from secondary
 		
 		switch (event.getType()) {
+			case EVENT_OTHER:
+				operationValue = edgeKeyValues.get(OPMConstants.EDGE_OPERATION);
+				if(OPMConstants.OPERATION_TEE.equals(operationValue) 
+						|| OPMConstants.OPERATION_SPLICE.equals(operationValue)){
+					src1Uuid = event.getSubject();
+					dst1Uuid = event.getPredicateObject();
+					
+					src2Uuid = event.getPredicateObject2();
+					dst2Uuid = event.getSubject();
+					
+					src3Uuid = event.getPredicateObject2();
+					dst3Uuid = event.getPredicateObject();
+				}else if(OPMConstants.OPERATION_VMSPLICE.equals(operationValue)){
+					src1Uuid = event.getPredicateObject();
+					dst1Uuid = event.getSubject();
+				}else if(OPMConstants.OPERATION_INIT_MODULE.equals(operationValue)
+						|| OPMConstants.OPERATION_FINIT_MODULE.equals(operationValue)){
+					src1Uuid = event.getSubject();
+					dst1Uuid = event.getPredicateObject();
+				}
+				break;
 			case EVENT_OPEN:
 			case EVENT_CLOSE:
 				opmValue = edgeKeyValues.get(OPMConstants.OPM);

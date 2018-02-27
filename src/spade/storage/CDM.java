@@ -242,6 +242,26 @@ public class CDM extends Kafka {
 						OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE))), 
 						EventType.EVENT_MMAP);
 		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_TEE),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_TEE, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_TEE, OPMConstants.OPERATION_READ))),
+						EventType.EVENT_OTHER); // tee
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_SPLICE),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_SPLICE, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_SPLICE, OPMConstants.OPERATION_READ))),
+						EventType.EVENT_OTHER); // splice
+		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_VMSPLICE)),
+						EventType.EVENT_OTHER); // vmsplice
+		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_INIT_MODULE)), 
+						EventType.EVENT_OTHER); // init_module
+		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_FINIT_MODULE)), 
+						EventType.EVENT_OTHER); // finit_module
+		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_MMAP),
 						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
 								OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE)),
@@ -322,6 +342,15 @@ public class CDM extends Kafka {
 					properties.put(OPMConstants.OPM, edge.type());
 				}else if(eventType.equals(EventType.EVENT_CHANGE_PRINCIPAL)){
 					properties.put(OPMConstants.EDGE_OPERATION, edge.getAnnotation(OPMConstants.EDGE_OPERATION));
+				}
+				
+				String eventOperation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
+				if(OPMConstants.OPERATION_INIT_MODULE.equals(eventOperation) // init_module
+						|| OPMConstants.OPERATION_FINIT_MODULE.equals(eventOperation) // finit_module
+						|| OPMConstants.OPERATION_VMSPLICE.equals(eventOperation) // vmsplice only
+						|| OPMConstants.OPERATION_TEE.equals(eventOperation) // tee
+						|| OPMConstants.OPERATION_SPLICE.equals(eventOperation)){ // splice
+					properties.put(OPMConstants.EDGE_OPERATION, eventOperation);
 				}
 
 				Event event = new Event(uuid, 
@@ -773,7 +802,14 @@ public class CDM extends Kafka {
 							}else if(cdmObject.getClass().equals(Event.class)){
 								EventType eventType = ((Event)cdmObject).getType();
 								if(eventType != null){
-									incrementStatsCount(eventType.name());
+									String keyName = eventType.name();
+									if(eventType.equals(EventType.EVENT_OTHER)){
+										CharSequence keyNameCharSeq = ((Event)cdmObject).getProperties().get(OPMConstants.EDGE_OPERATION);
+										if(keyNameCharSeq != null){
+											keyName = String.valueOf(keyNameCharSeq);
+										}
+									}
+									incrementStatsCount(keyName);
 								}
 							}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
 								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
@@ -1318,7 +1354,7 @@ public class CDM extends Kafka {
 				AbstractEdge edgeWithProcess = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_GENERATED_BY);
 
 				if(edges.size() == 2 || edges.size() == 3){
-					// mmap(2 or 3 edges), rename(3), link(3)
+					// mmap(2 or 3 edges), rename(3), link(3), tee(3), splice(3)
 					if(twoArtifactsEdge != null && edgeWithProcess != null){
 
 						// Add the protection to the WDF edge from the WGB edge (only for mmap)

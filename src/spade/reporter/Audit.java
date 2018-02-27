@@ -1454,6 +1454,8 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S chmod -S fchmod -S fchmodat ";
 					auditRuleWithSuccess += "-S pipe -S pipe2 ";
 					auditRuleWithSuccess += "-S truncate -S ftruncate ";
+					auditRuleWithSuccess += "-S init_module -S finit_module ";
+					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
 					int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(auditRuleWithSuccess, ignorePids);
@@ -1980,6 +1982,17 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case TEE:
+			case SPLICE:
+				handleTeeSplice(eventData, syscall);
+				break;
+			case VMSPLICE:
+				handleVmsplice(eventData, syscall);
+				break;
+			case INIT_MODULE:
+			case FINIT_MODULE:
+				handleInitModule(eventData, syscall);
+				break;
 			case FCNTL:
 				handleFcntl(eventData, syscall);
 				break;
@@ -2670,6 +2683,113 @@ public class Audit extends AbstractReporter {
 				artifactIdentifier = addUnknownFd(pid, fd);
 			}
 			processManager.setFd(pid, newFD, artifactIdentifier);
+		}
+	}
+	
+	private void handleVmsplice(Map<String, String> eventData, SYSCALL syscall){
+		// vmsplice() receives the following messages:
+		// - SYSCALL
+		// - EOE
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		
+		String fdOut = eventData.get(AuditEventReader.ARG0);
+		String bytes = eventData.get(AuditEventReader.EXIT);
+		
+		if(!"0".equals(bytes)){		
+			ArtifactIdentifier fdOutIdentifier = processManager.getFd(pid, fdOut);
+			fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
+			
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+	
+			WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
+			processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
+			putEdge(processToWrittenArtifact, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+		}
+	}
+	
+	private void putTeeSplice(Map<String, String> eventData, SYSCALL syscall,
+			String time, String eventId, String fdIn, String fdOut, String pid, String bytes){
+		ArtifactIdentifier fdInIdentifier = processManager.getFd(pid, fdIn);
+		ArtifactIdentifier fdOutIdentifier = processManager.getFd(pid, fdOut);
+
+		// Use unknown if missing fds
+		fdInIdentifier = fdInIdentifier == null ? addUnknownFd(pid, fdIn) : fdInIdentifier;
+		fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
+
+		Process process = processManager.handleProcessFromSyscall(eventData);
+		Artifact fdInArtifact = putArtifact(eventData, fdInIdentifier, null, false);
+		Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+
+		Used processToReadArtifact = new Used(process, fdInArtifact);
+		processToReadArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
+		putEdge(processToReadArtifact, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
+		
+		WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
+		processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
+		putEdge(processToWrittenArtifact, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);
+		
+		WasDerivedFrom writtenToReadArtifact = new WasDerivedFrom(fdOutArtifact, fdInArtifact);
+		writtenToReadArtifact.addAnnotation(OPMConstants.EDGE_PID, pid);
+		putEdge(writtenToReadArtifact, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+	}
+	
+	private void handleTeeSplice(Map<String, String> eventData, SYSCALL syscall){
+		// tee(), and splice() receive the following messages:
+		// - SYSCALL
+		// - EOE
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+
+		String fdIn = eventData.get(AuditEventReader.ARG0), fdOut = null;
+		String bytes = eventData.get(AuditEventReader.EXIT);
+		
+		if(syscall == SYSCALL.TEE){
+			fdOut = eventData.get(AuditEventReader.ARG1);
+		}else if(syscall == SYSCALL.SPLICE){
+			fdOut = eventData.get(AuditEventReader.ARG2);
+		}else{
+			log(Level.WARNING, "Unexpected syscall: " + syscall, null, time, eventId, syscall);
+			return;
+		}
+		
+		// If fd out set and bytes transferred is not zero
+		if(fdOut != null && !"0".equals(bytes)){
+			putTeeSplice(eventData, syscall, time, eventId, fdIn, fdOut, pid, bytes);
+		}
+	}
+
+	private void handleInitModule(Map<String, String> eventData, SYSCALL syscall){
+		// init_module(), and finit_module receive the following messages:
+		// - SYSCALL
+		// - PATH [OPTIONAL] why? not the path of the kernel module
+		// - EOE
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		
+		ArtifactIdentifier moduleIdentifier = null;
+		if(syscall == SYSCALL.INIT_MODULE){
+			String memoryAddress = new BigInteger(eventData.get(AuditEventReader.ARG0)).toString(16); //convert to hexadecimal
+			String memorySize = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16); //convert to hexadecimal
+			String tgid = processManager.getMemoryTgid(pid);
+			moduleIdentifier = new MemoryIdentifier(tgid, memoryAddress, memorySize);
+		}else if(syscall == SYSCALL.FINIT_MODULE){
+			String fd = eventData.get(AuditEventReader.ARG0);
+			moduleIdentifier = processManager.getFd(pid, fd);
+			moduleIdentifier = moduleIdentifier == null ? addUnknownFd(pid, fd) : moduleIdentifier;
+		}else{
+			log(Level.WARNING, "Unexpected syscall in (f)init_module handler", null, time, eventId, syscall);
+		}
+		
+		if(moduleIdentifier != null){
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact module = putArtifact(eventData, moduleIdentifier, null, false);
+			Used loadedModule = new Used(process, module);
+			putEdge(loadedModule, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 	}
 	
@@ -4101,9 +4221,11 @@ public class Audit extends AbstractReporter {
 					if(!updated.get(OPMConstants.ARTIFACT_EPOCH)){	
 						if((KEEP_VERSIONS && updated.get(OPMConstants.ARTIFACT_VERSION) && added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
 								|| (KEEP_PATH_PERMISSIONS && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) && added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
-							putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
-									eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
-									version - 1, previousPermissions);
+							if(artifactIdentifier instanceof FileIdentifier){
+								putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
+										eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
+										version - 1, previousPermissions);
+							}
 						}
 					}
 				}
@@ -4142,7 +4264,7 @@ public class Audit extends AbstractReporter {
 	 * @param eventId event id of the new version of the artifact creation
 	 * @param pid pid of the process which did the update
 	 */
-	private void putVersionPermissionsUpdateEdge(Artifact newArtifact, // TODO only for files
+	private void putVersionPermissionsUpdateEdge(Artifact newArtifact,
 			String time, String eventId, String pid,
 			long previousVersion, String previousPermissions){
 		Artifact oldArtifact = new Artifact();
