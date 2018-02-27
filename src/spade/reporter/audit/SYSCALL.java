@@ -45,6 +45,8 @@ public enum SYSCALL {
 	DUP, DUP2, DUP3, 
 	EXIT, EXIT_GROUP, 
 	PIPE, PIPE2, 
+	TEE, SPLICE, VMSPLICE,
+	INIT_MODULE, FINIT_MODULE,
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
 	public static SYSCALL getSyscall(int syscallNum, int arch){
@@ -62,7 +64,11 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch (syscallNum) {
-			
+			case 175:	return INIT_MODULE;
+			case 313:	return FINIT_MODULE;
+			case 276:	return TEE;
+			case 275:	return SPLICE;
+			case 278:	return VMSPLICE;
 			case 43:	return ACCEPT;
 			case 288:	return ACCEPT4;
 			case 49:	return BIND;
@@ -132,6 +138,11 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/i386/syscallent.h
 		switch (syscallNum) {
+			case 128: return INIT_MODULE;
+			case 350: return FINIT_MODULE;
+			case 315: return TEE;
+			case 313: return SPLICE;
+			case 316: return VMSPLICE;
 			case 1: return EXIT;
 			case 2: return FORK;
 			case 3: return READ;
