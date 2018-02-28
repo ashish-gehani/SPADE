@@ -21,7 +21,6 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -37,11 +36,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
@@ -50,14 +47,11 @@ import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.edge.opm.Used;
-import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.ArtifactIdentifier;
 import spade.reporter.audit.ArtifactProperties;
 import spade.reporter.audit.AuditEventReader;
-import spade.reporter.audit.DescriptorManager;
 import spade.reporter.audit.FileIdentifier;
 import spade.reporter.audit.IdentifierWithPath;
 import spade.reporter.audit.MemoryIdentifier;
@@ -68,22 +62,19 @@ import spade.reporter.audit.SYSCALL;
 import spade.reporter.audit.UnixSocketIdentifier;
 import spade.reporter.audit.UnknownIdentifier;
 import spade.reporter.audit.UnnamedPipeIdentifier;
+import spade.reporter.audit.process.ProcessManager;
+import spade.reporter.audit.process.ProcessWithAgentManager;
+import spade.reporter.audit.process.ProcessWithoutAgentManager;
 import spade.utility.BerkeleyDB;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.utility.Hasher;
-import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
 /**
- *
- * IMPORTANT NOTE: To output OPM objects just once, use putProcess and putArtifact functions 
- * because they take care of that using internal data structures but more importantly those functions
- * contains the logic on how to create processes and artifacts which MUST be kept consistent across a run.
- *
  * @author Dawood Tariq, Sharjeel Ahmed Qureshi
  */
 public class Audit extends AbstractReporter {
@@ -92,13 +83,6 @@ public class Audit extends AbstractReporter {
 
 	/********************** LINUX CONSTANTS - START *************************/
 	
-	//  Following constant values are taken from:
-	//  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
-	//  AND  
-	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
-	private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100,
-			CLONE_FILES = 0x00000400;
-
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/stat.h#L14
 	private final int S_IFIFO = 0010000, S_IFREG = 0100000, S_IFSOCK = 0140000,
@@ -129,19 +113,8 @@ public class Audit extends AbstractReporter {
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
-	// Process map based on <pid, stack of vertices> pairs
-	private final Map<String, LinkedList<Process>> processUnitStack = new HashMap<String, LinkedList<Process>>();
-	// A set to keep track of agents seen before for deduplication
-	private final Set<String> agentHashes = new HashSet<String>();
-	// A map to keep track of pid to agent edges drawn already
-	private Map<String, Set<String>> pidToAgentEdgeHashes = new HashMap<String, Set<String>>();
-	// File descriptor manager
-	private final DescriptorManager descriptors = new DescriptorManager();
-	//pid to set of process hashes seen so far. Used to check if a process vertex has been added to internal buffer before or not
-	private Map<String, Set<String>> pidToProcessHashes = new HashMap<String, Set<String>>();
-	//A map to keep track of thread group ids for pids in case of clone where memory is being shared. 
-	//Pid->Tgid. NOTE: only to be used for memory artifacts
-	private final Map<String, String> pidToTgidForMemoryArtifactsOnly = new HashMap<String, String>();
+	
+	private ProcessManager processManager;
 
 	/********************** PROCESS STATE - END *************************/
 	
@@ -196,6 +169,7 @@ public class Audit extends AbstractReporter {
 	private Boolean ARCH_32BIT = true;
 	
 	// These are the default values
+	private boolean FAIL_FAST = true;
 	private boolean USE_READ_WRITE = false;
 	private boolean USE_SOCK_SEND_RCV = false;
 	private boolean CREATE_BEEP_UNITS = false;
@@ -392,7 +366,15 @@ public class Audit extends AbstractReporter {
 	 * @return true if all flags had valid values / false if any of the flags had a non-boolean value
 	 */
 	private boolean initFlagsFromArguments(Map<String, String> args){
-		String argValue = args.get("fileIO");
+		String argValue = args.get("failfast");
+		if(isValidBoolean(argValue)){
+			FAIL_FAST = parseBoolean(argValue, FAIL_FAST);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'failfast': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("fileIO");
 		if(isValidBoolean(argValue)){
 			USE_READ_WRITE = parseBoolean(argValue, USE_READ_WRITE);
 		}else{
@@ -604,39 +586,6 @@ public class Audit extends AbstractReporter {
 	}
 	
 	/**
-	 * Get the system boottime from /proc/stat
-	 * 
-	 * Returns null if failed to get it.
-	 * @return Boot time as Long (can be null)
-	 */
-	private Long getBootTime(){
-		// Get system boot time from /proc/stat. This is later used to determine
-		// the start time for processes.
-		BufferedReader boottimeReader = null;
-		try {
-			boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
-			String line;
-			while ((line = boottimeReader.readLine()) != null) {
-				StringTokenizer st = new StringTokenizer(line);
-				if (st.nextToken().equals("btime")) {
-					return Long.parseLong(st.nextToken()) * 1000;
-				}
-			}
-		} catch (IOException | NumberFormatException e) {
-			logger.log(Level.WARNING, "Error reading boot time information from /proc/", e);
-		}finally{
-			if(boottimeReader != null){
-				try{
-					boottimeReader.close();
-				}catch(Exception e){
-					// ignore
-				}
-			}
-		}
-		return null;
-	}
-	
-	/**
 	 * Tries to setup the temp directory at the given path.
 	 * 
 	 * Returns true if it already exists or gets created successfully. 
@@ -765,6 +714,12 @@ public class Audit extends AbstractReporter {
 		// Init boolean flags from the arguments
 		if(!initFlagsFromArguments(argsMap)){
 			return false;
+		}
+		
+		if(AGENTS){
+			processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+		}else{
+			processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
 		}
 		
 		// Check if the outputLog argument is valid or not
@@ -998,7 +953,7 @@ public class Audit extends AbstractReporter {
 		try{
 			// Create the audit event reader using the STDOUT of the spadeAuditBridge process
 			AuditEventReader auditEventReader = new AuditEventReader(spadeAuditBridgeCommand, 
-					stdoutStream);
+					stdoutStream, FAIL_FAST);
 			if(outputLogFilePath != null){
 				auditEventReader.setOutputLog(outputLogFilePath, recordsToRotateOutputLogAfter);
 			}
@@ -1068,7 +1023,9 @@ public class Audit extends AbstractReporter {
 				eventReaderThreadRunning = true;
 				
 				if(isLiveAudit){
-					buildProcFSTree();
+					if(PROCFS){
+						processManager.putProcessesFromProcFs();
+					}
 				}
 				
 				try{
@@ -1384,52 +1341,6 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private void buildProcFSTree(){
-		if(PROCFS){
-			
-			Long boottime = getBootTime();
-			if(boottime == null){
-				logger.log(Level.SEVERE, "Failed to build process information from /proc");
-			}else{
-			
-				// Build the process tree using the directories under /proc/.
-				// Directories which have a numeric name represent processes.
-				String path = "/proc";
-				java.io.File directory = new java.io.File(path);
-				java.io.File[] listOfFiles = directory.listFiles();
-				for (int i = 0; i < listOfFiles.length; i++) {
-					if (listOfFiles[i].isDirectory()) {
-	
-						String currentPID = listOfFiles[i].getName();
-						try {
-							// Parse the current directory name to make sure it is
-							// numeric. If not, ignore and continue.
-							Integer.parseInt(currentPID);
-							Process processVertex = createProcessFromProcFS(currentPID, boottime); //create
-							addProcess(currentPID, processVertex);//add to memory
-							if(!processVertexHasBeenPutBefore(processVertex)){
-								putVertex(processVertex);//add to internal buffer
-							}
-							Process parentVertex = getProcess(processVertex.getAnnotation(OPMConstants.PROCESS_PPID));
-							if (parentVertex != null) {
-								WasTriggeredBy childToParent = new WasTriggeredBy(processVertex, parentVertex);
-								putEdge(childToParent, getOperation(SYSCALL.UNKNOWN), "0", null, OPMConstants.SOURCE_PROCFS);
-							}
-	
-							// Get existing file descriptors for this process
-							Map<String, ArtifactIdentifier> fds = getFileDescriptors(currentPID);
-							if (fds != null) {
-								descriptors.addDescriptors(currentPID, fds);
-							}
-						} catch (Exception e) {
-							// Continue
-						}
-					}
-				}
-			}
-		}
-	}
-
 	private boolean initCacheMaps(Map<String, String> configMap){
 		try{
 			long currentTime = System.currentTimeMillis(); 
@@ -1542,70 +1453,6 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private Map<String, ArtifactIdentifier> getFileDescriptors(String pid){
-
-		if(isLiveAudit == false  // the audit log is being read from a file.
-				|| !PROCFS){ // the flag to read from procfs is false
-			return null;
-		}
-
-		Map<String, ArtifactIdentifier> fds = new HashMap<String, ArtifactIdentifier>();
-
-		Map<String, String> inodefd0 = new HashMap<String, String>();
-
-		try{
-			//LSOF args -> n = no DNS resolution, P = no port user-friendly naming, p = pid of process
-			List<String> lines = Execute.getOutput("lsof -nPp " + pid);
-			if(lines != null && lines.size() > 1){
-				lines.remove(0); //remove the heading line
-				for(String line : lines){
-					String tokens[] = line.split("\\s+");
-					if(tokens.length >= 9){
-						String type = tokens[4].toLowerCase().trim();
-						String fd = tokens[3].trim();
-						fd = fd.replaceAll("[^0-9]", ""); //ends with r(read), w(write), u(read and write), W (lock)
-						if(CommonFunctions.parseInt(fd, null) != null){
-							if("fifo".equals(type)){
-								String path = tokens[8];
-								if("pipe".equals(path)){ //unnamed pipe
-									String inode = tokens[7];
-									if(inodefd0.get(inode) == null){
-										inodefd0.put(inode, fd);
-									}else{
-										ArtifactIdentifier pipeInfo = new UnnamedPipeIdentifier(pid, fd, inodefd0.get(inode));
-										fds.put(fd, pipeInfo);
-										fds.put(inodefd0.get(inode), pipeInfo);
-										inodefd0.remove(inode);
-									}
-								}else{ //named pipe
-									fds.put(fd, new NamedPipeIdentifier(path));
-								}	    						
-							}else if("ipv4".equals(type) || "ipv6".equals(type)){
-								String protocol = String.valueOf(tokens[7]).toLowerCase();
-								//example of this token = 10.0.2.15:35859->172.231.72.152:443 (ESTABLISHED)
-								String[] srchostport = tokens[8].split("->")[0].split(":");
-								String[] dsthostport = tokens[8].split("->")[1].split("\\s+")[0].split(":");
-								fds.put(fd, new NetworkSocketIdentifier(srchostport[0], srchostport[1], dsthostport[0], dsthostport[1], protocol));
-							}else if("reg".equals(type) || "chr".equals(type)){
-								String path = tokens[8];
-								fds.put(fd, new FileIdentifier(path));  						
-							}else if("unix".equals(type)){
-								String path = tokens[8];
-								if(!path.equals("socket")){
-									fds.put(fd, new UnixSocketIdentifier(path));
-								}
-							}
-						}
-					}
-				}
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to get file descriptors for pid " + pid, e);
-		}
-
-		return fds;
-	}
-
 	@Override
 	public boolean shutdown() {
 		
@@ -1666,13 +1513,13 @@ public class Audit extends AbstractReporter {
 		try{
 			String recordType = eventData.get(AuditEventReader.RECORD_TYPE_KEY);
 			if(AuditEventReader.RECORD_TYPE_UBSI_ENTRY.equals(recordType)){
-				handleUnitEntry(eventData);
+				processManager.handleUnitEntry(eventData);
 			}else if(AuditEventReader.RECORD_TYPE_UBSI_EXIT.equals(recordType)){
-				handleUnitExit(eventData);
+				processManager.handleUnitExit(eventData);
 			}else if(AuditEventReader.RECORD_TYPE_UBSI_DEP.equals(recordType)){
-				handleUnitDependencies(eventData);
+				processManager.handleUnitDependency(eventData);
 			}else if(AuditEventReader.RECORD_TYPE_DAEMON_START.equals(recordType)){
-				clearAllProcessState();
+				//processManager.daemonStart(); TODO Not being used until figured out how to handle it.
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_PKT.equals(recordType)){
 				handleNetfilterPacketEvent(eventData);
 			}else{
@@ -1681,147 +1528,6 @@ public class Audit extends AbstractReporter {
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to process eventData: " + eventData, e);
 		}
-	}
-	
-	/*
-	 * Cases:
-	 * 
-	 * 1) Containing process could be null
-	 * 2) The reported unit could not have been sent (if yes then need to send the edge too)
-	 * 3) Any of the dependent unit could not have been sent (if yes then need to send the edge too)
-	 * 
-	 */
-	private void handleUnitDependencies(Map<String, String> eventData){
-		String time = "0"; // no time and event id
-		String eventId = "0"; // no time and event id
-		Integer unitDependencyCount = CommonFunctions.parseInt(eventData.get(AuditEventReader.UNIT_DEPS_COUNT), 0);
-		// Assumption that this dependent unit has been sent before along with the unit on which they are dependent on
-		
-		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
-		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
-		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
-		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
-		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
-		String unitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME);
-		
-		Process containingProcessMainUnit = getContainingProcessVertex(unitPid);
-		
-		if(containingProcessMainUnit == null){
-			// Haven't seen this pid before
-			// Create the process from the information in eventData
-			Map<String, String> newEventData = new HashMap<String, String>(eventData);
-			newEventData.put(AuditEventReader.PID, unitPid);
-			containingProcessMainUnit = putProcess(newEventData, time, eventId);
-		}
-		
-		// Must have seen the unit entry of this unit and would have added this unit then to the buffer
-		Process actingUnit = createBEEPCopyOfProcess(containingProcessMainUnit, 
-				unitTime, unitId, unitIteration, unitCount);
-		
-		if(!processVertexHasBeenPutBefore(actingUnit)){
-			// A unit can do entry only once
-			putVertex(actingUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
-			
-			// If this vertex wasn't seen before then that means DAEMON_START happened and blew away the state
-			// Set this the current active unit
-			popCurrentIterationIfAny(unitPid); // just to be safe
-			processUnitStack.get(unitPid).addLast(actingUnit);
-			WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(actingUnit, containingProcessMainUnit);
-			putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), unitTime, "0", OPMConstants.SOURCE_BEEP);
-		}
-		
-		for(int a = 0; a<unitDependencyCount; a++){
-			String dependentUnitPid = eventData.get(AuditEventReader.UNIT_PID+a);
-			String dependentUnitId = eventData.get(AuditEventReader.UNIT_UNITID+a);
-			String dependentUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+a);
-			String dependentUnitTime = eventData.get(AuditEventReader.UNIT_TIME+a);
-			String dependentUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+a);
-			String dependentUnitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME+a);
-			
-			Process containingProcessDependentUnit = getContainingProcessVertex(dependentUnitPid);
-			
-			if(containingProcessDependentUnit == null){
-				logger.log(Level.WARNING, "Saw dependent unit whose process wasn't seen or has exited: " 
-								+ eventData);
-			}else{
-				// Must have seen this unit before so not adding it again
-				Process dependentUnit = createBEEPCopyOfProcess(containingProcessDependentUnit, 
-						dependentUnitTime, dependentUnitId, dependentUnitIteration, dependentUnitCount);
-				
-				if(!processVertexHasBeenPutBefore(dependentUnit)){
-					// A unit can do entry only once
-					putVertex(dependentUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
-					
-					WasTriggeredBy unitToContainingProcessDep = new WasTriggeredBy(dependentUnit, containingProcessDependentUnit);
-					putEdge(unitToContainingProcessDep, getOperation(SYSCALL.UNIT), dependentUnitTime, "0", OPMConstants.SOURCE_BEEP);
-				}
-				
-				// List contains the dependent units and the reported unit is the unit on which they are dependent
-				WasTriggeredBy dependencyEdge = new WasTriggeredBy(actingUnit, dependentUnit);
-				// TODO use operation directly?
-				putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_BEEP);
-			}
-		}
-	}
-	
-	// assumption: no nested loops
-	private void handleUnitExit(Map<String, String> eventData){
-		String pid = eventData.get(AuditEventReader.PID);
-		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){
-			Process containingProcess = processUnitStack.get(pid).removeFirst();
-			processUnitStack.get(pid).clear();
-			processUnitStack.get(pid).addFirst(containingProcess);
-		}
-	}
-	
-	private void popCurrentIterationIfAny(String pid){
-		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){
-			processUnitStack.get(pid).removeLast();
-		}
-	}
-	
-	private void handleUnitEntry(Map<String, String> eventData){
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-//		String pid = eventData.get(AuditEventReader.PID);
-		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
-		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
-		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
-		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
-		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
-		String unitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME);
-		
-		Process containingProcess = getContainingProcessVertex(unitPid);
-		
-		if(containingProcess == null){
-			// Haven't seen this pid before
-			// Create the process from the information in eventData
-			Map<String, String> newEventData = new HashMap<String, String>(eventData);
-			newEventData.put(AuditEventReader.PID, unitPid);
-			containingProcess = putProcess(newEventData, time, eventId);
-		}
-		
-		// pop the current iteration if any before adding the new one
-		// no nested loops at the moment
-		popCurrentIterationIfAny(unitPid);
-		
-		putUnitAndEdge(containingProcess, unitPid, time, eventId, 
-				unitId, unitIteration, unitTime, unitCount);
-	}
-
-	// Adds only if not seen before
-	private Process putUnitAndEdge(Process containingProcess, String pid, String eventTime, String eventId, 
-			String unitId, String iteration, String startTime, String count){
-		// Add this new unit on the stack
-		Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId, iteration, count);
-		processUnitStack.get(pid).addLast(newUnit);
-		if(!processVertexHasBeenPutBefore(newUnit)){
-			// A unit can do entry only once
-			putVertex(newUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
-		}
-		WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(newUnit, containingProcess);
-		putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), eventTime, eventId, OPMConstants.SOURCE_BEEP);
-		return newUnit;
 	}
 	
 	/**
@@ -2014,7 +1720,7 @@ public class Audit extends AbstractReporter {
 		String saddr = eventData.get(AuditEventReader.SADDR);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);		
+		ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);		
 
 		// In case of UDP sockets there won't be a connect/accept and instead in 
 		// reads/writes/sends/recvs a saddr value is sent.
@@ -2263,11 +1969,19 @@ public class Audit extends AbstractReporter {
 
 			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 
-			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);    	
-			Process process = putProcess(eventData, time, eventId);    	
+			Process process = processManager.handleProcessFromSyscall(eventData);			
+			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false); 	
 			WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
+	}
+	
+	private UnknownIdentifier addUnknownFd(String pid, String fd){
+		UnknownIdentifier unknown = new UnknownIdentifier(pid, fd);
+		unknown.setOpenedForRead(null);
+		markNewEpochForArtifact(unknown);
+		processManager.setFd(pid, fd, unknown);
+		return unknown;
 	}
 	
 	private void handleFcntl(Map<String, String> eventData, SYSCALL syscall){
@@ -2293,14 +2007,15 @@ public class Audit extends AbstractReporter {
 			handleDup(eventData, syscall);
 		}else if(cmd == F_SETFL){
 			if((flags & O_APPEND) == O_APPEND){
-				ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
 				if(artifactIdentifier == null){
-					descriptors.addUnknownDescriptor(pid, fd);
-					artifactIdentifier = descriptors.getDescriptor(pid, fd);
+					artifactIdentifier = addUnknownFd(pid, fd);
 				}
 				// Made file descriptor 'appendable', so set open for read to false so 
 				// that the edge on close is a WGB edge and not a Used edge
-				artifactIdentifier.setOpenedForRead(false);
+				if(artifactIdentifier.wasOpenedForRead() != null){
+					artifactIdentifier.setOpenedForRead(false);
+				}
 			}
 		}
 	}
@@ -2309,25 +2024,14 @@ public class Audit extends AbstractReporter {
 		// exit(), and exit_group() receives the following message(s):
 		// - SYSCALL
 		// - EOE
-
-		String pid = eventData.get(AuditEventReader.PID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-
 		if(CONTROL){
-			// Can be a unit. Not synthetically drawing the edge on the containing process and instead
-			// on the process/unit which called it.
-			Process process = putProcess(eventData, time, eventId); //put Process vertex if it didn't exist before
-			WasTriggeredBy exitEdge = new WasTriggeredBy(process, process);
-			putEdge(exitEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+			// Only draw edge if CONTROL is true
+			processManager.handleExit(eventData, syscall);
+		}else{
+			// Else remove the state only and not draw any edge
+			String pid = eventData.get(AuditEventReader.PID);
+			processManager.removeProcessUnitState(pid);
 		}
-
-		// NOT clearing process state here.
-		// Because in case of units we might see a dependent unit after the process has exited.
-		// We need the process (synthetic) annotations to create exactly the same one
-		// Clearing process state in fork and clone calls. Because that is the only way the same
-		// pid can be reassigned.
-		
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -2356,12 +2060,9 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
-		
-		String tgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null ?
-				pid : pidToTgidForMemoryArtifactsOnly.get(pid);
-		ArtifactIdentifier memoryArtifactIdentifier = 
-				new MemoryIdentifier(tgid, address, length);
+		Process process = processManager.handleProcessFromSyscall(eventData);		
+		String tgid = processManager.getMemoryTgid(pid);
+		ArtifactIdentifier memoryArtifactIdentifier = new MemoryIdentifier(tgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, null, true);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
@@ -2378,12 +2079,10 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 	
-			ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
 	
 			if(artifactIdentifier == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
-				artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
 	
 			Artifact artifact = putArtifact(eventData, artifactIdentifier, null, false);
@@ -2414,100 +2113,22 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16);
 		String protection = new BigInteger(eventData.get(AuditEventReader.ARG2)).toString(16);
 
-		String tgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null 
-				? pid 
-				: pidToTgidForMemoryArtifactsOnly.get(pid);
+		String tgid = processManager.getMemoryTgid(pid);
 		
-		ArtifactIdentifier memoryInfo = 
-				new MemoryIdentifier(tgid, address, length);
+		ArtifactIdentifier memoryInfo = new MemoryIdentifier(tgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, null, true);
 
-		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
-
+		Process process = processManager.handleProcessFromSyscall(eventData);
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
 		edge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-	}
-	
-	private void clearAllProcessState(){
-		Set<String> pids = new HashSet<String>();
-		pids.addAll(processUnitStack.keySet());
-		for(String pid : pids){
-			clearProcessState(pid);
-		}
-	}
-	
-	private void clearProcessState(String pid){
-		processUnitStack.remove(pid); // Remove all process and beep unit vertices of the process
-		descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
-		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
-		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
-		pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
 	}
 
 	private void handleForkClone(Map<String, String> eventData, SYSCALL syscall) {
 		// fork() and clone() receive the following message(s):
 		// - SYSCALL
 		// - EOE
-
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String oldPID = eventData.get(AuditEventReader.PID);
-		String newPID = eventData.get(AuditEventReader.EXIT);
-
-		// Clearing process state of the newPID which might have existed before
-		clearProcessState(newPID);
-
-		Long flags = CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), 0L);
-		if(syscall == SYSCALL.CLONE){
-			//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
-			if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
-				syscall = SYSCALL.VFORK;
-			}else if((flags & SIGCHLD) == SIGCHLD){ //is fork
-				syscall = SYSCALL.FORK;
-			}
-			//otherwise it is just clone
-		}        
-
-		Process oldProcess = putProcess(eventData, time, eventId); //will create if doesn't exist
-
-		// Whenever any new annotation is added to a Process which doesn't come from audit log then update the following ones. TODO
-		Map<String, String> newEventData = new HashMap<String, String>();
-		newEventData.putAll(eventData);
-		newEventData.put(OPMConstants.PROCESS_PID, newPID);
-		newEventData.put(OPMConstants.PROCESS_PPID, oldPID);
-		newEventData.put(OPMConstants.PROCESS_COMMAND_LINE, oldProcess.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE));
-		newEventData.put(OPMConstants.PROCESS_CWD, eventData.get(AuditEventReader.CWD));
-		newEventData.put(OPMConstants.PROCESS_START_TIME, time);
-
-		boolean RECREATE_AND_REPLACE = true; //true because a new process with the same pid might be being created. pids are recycled.
-
-		Process newProcess = putProcess(newEventData, RECREATE_AND_REPLACE, time, eventId);
-
-		WasTriggeredBy forkCloneEdge = new WasTriggeredBy(newProcess, oldProcess);
-		putEdge(forkCloneEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-
-		if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){
-			// Gets a copy of the parent's file descriptor table
-			descriptors.copyDescriptors(oldPID, newPID);
-		}else if(syscall == SYSCALL.CLONE){
-			if((flags & CLONE_FILES) == CLONE_FILES){
-				// Share the same file descriptor table
-				descriptors.linkDescriptors(oldPID, newPID);
-			}else{
-				// Gets a copy of the parent's file descriptor table
-				descriptors.copyDescriptors(oldPID, newPID);
-			}
-		}
-		
-		// If memory space being shared then only use tgid for memory artifacts
-		if((flags & CLONE_VM) == CLONE_VM){
-			if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
-				pidToTgidForMemoryArtifactsOnly.put(newPID, oldPID);
-			}else{
-				pidToTgidForMemoryArtifactsOnly.put(newPID, pidToTgidForMemoryArtifactsOnly.get(oldPID));
-			}
-		}
+		processManager.handleForkVforkClone(eventData, syscall);
 	}
 
 	private void handleExecve(Map<String, String> eventData) {
@@ -2520,63 +2141,15 @@ public class Audit extends AbstractReporter {
 		// - PATH
 		// - EOE
 
-		/*
-		 * Steps:
-		 * 0) check and get if the vertex with the pid exists already
-		 * 1) create the new vertex with the commandline which also replaces the vertex with the same pid
-		 * 2) if the vertex gotten in step 0 is null then it means that we missed that vertex
-		 * and cannot know what it uids and gids were. So, not trying to repair that vertex and not going
-		 * to put the edge from the child to the parent.
-		 * 3) add the Used edges from the newly created vertex in step 1 to the libraries used when execve
-		 *  was done
-		 */
-
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
 		String time = eventData.get(AuditEventReader.TIME);
-
-		// + Getting existing process vertex before recreating and replacing the vertex with the same pid
-		// + Try to get it. if doesn't exist then don't add it because it's user or group identifiers might have been different
-		// + Ignoring the last comment and creating a new one with the information that we have so that CDM storage
-		// can add load edges ( execve event is a must for drawing load edges in CDM storage )
-		Process oldProcess = getProcess(pid); 
-		if(oldProcess == null){
-			// tempEventData has all the annotations that we can safely know about the process that called execve
-			Map<String, String> tempEventData = new HashMap<String, String>();
-			tempEventData.putAll(eventData);
-			tempEventData.remove(AuditEventReader.COMM);
-			tempEventData.remove(AuditEventReader.CWD);
-			oldProcess = putProcess(tempEventData, time, eventId);
-		}
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String cwd = eventData.get(AuditEventReader.CWD);
+		String pid = eventData.get(AuditEventReader.PID);
 		
-		String commandline = null;
-		if(eventData.get(AuditEventReader.EXECVE_ARGC) != null){
-			Long argc = CommonFunctions.parseLong(eventData.get(AuditEventReader.EXECVE_ARGC), 0L);
-			commandline = "";
-			for(int i = 0; i < argc; i++){
-				commandline += eventData.get(AuditEventReader.EXECVE_PREFIX + "a" + i) + " ";
-			}
-			commandline = commandline.trim();
-		}else{
-			commandline = "[Record Missing]";
-		}
-
-		eventData.put(OPMConstants.PROCESS_COMMAND_LINE, commandline);
-		eventData.put(OPMConstants.PROCESS_START_TIME, time);
-
-		boolean RECREATE_AND_REPLACE = true; //true because a process vertex with the same pid created in execve
-		//this call would clear all the units for the pid because the process is doing execve, replacing itself.
-		Process newProcess = putProcess(eventData, RECREATE_AND_REPLACE, time, eventId);
-
-		if(oldProcess != null){
-			WasTriggeredBy execveEdge = new WasTriggeredBy(newProcess, oldProcess);
-			putEdge(execveEdge, getOperation(SYSCALL.EXECVE), time, eventId, AUDIT_SYSCALL_SOURCE);
-		}else{
-			log(Level.INFO, "Unable to create edge because process with pid '"+pid+"' missing", null, time, eventId, SYSCALL.EXECVE);
-		}
+		Process process = processManager.handleExecve(eventData, SYSCALL.EXECVE);
 
 		//add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
-		String cwd = eventData.get(AuditEventReader.CWD);
+		
 		List<PathRecord> loadPathRecords = getPathsWithNametype(eventData, AuditEventReader.NAMETYPE_NORMAL);
 		for(PathRecord loadPathRecord : loadPathRecords){
 			String path = constructAbsolutePath(loadPathRecord.getPath(), cwd, pid);
@@ -2586,13 +2159,9 @@ public class Audit extends AbstractReporter {
 			}        	
 			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType());
 			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
-			Used usedEdge = new Used(newProcess, usedArtifact);
+			Used usedEdge = new Used(process, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
-
-		descriptors.unlinkDescriptors(pid);
-		
-		pidToTgidForMemoryArtifactsOnly.remove(pid);
 	}
 
 	private void handleCreat(Map<String, String> eventData){
@@ -2660,7 +2229,7 @@ public class Audit extends AbstractReporter {
 				String pid = eventData.get(AuditEventReader.PID);
 				String dirFdString = String.valueOf(dirFd);
 				//if null of if not file then cannot process it
-				ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, dirFdString);
+				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, dirFdString);
 				if(artifactIdentifier == null || !FileIdentifier.class.equals(artifactIdentifier.getClass())){
 					log(Level.INFO, "Artifact not of type file '" + artifactIdentifier + "'", null, time, eventId, SYSCALL.OPENAT);
 					return;
@@ -2721,7 +2290,7 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		Process process = putProcess(eventData, time, eventId);
+		Process process = processManager.handleProcessFromSyscall(eventData);
 
 		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 
@@ -2794,7 +2363,7 @@ public class Audit extends AbstractReporter {
 				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsArgs);
 			}
 			//everything happened successfully. add it to descriptors
-			descriptors.addDescriptor(pid, fd, artifactIdentifier, openedForRead);
+			processManager.setFd(pid, fd, artifactIdentifier, openedForRead);
 
 			putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -2806,13 +2375,14 @@ public class Audit extends AbstractReporter {
 		// - EOE
 		String pid = eventData.get(AuditEventReader.PID);
 		String fd = String.valueOf(CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
-		ArtifactIdentifier closedArtifactIdentifier = descriptors.removeDescriptor(pid, fd);
+		ArtifactIdentifier closedArtifactIdentifier = processManager.removeFd(pid, fd);
 		
 		if(CONTROL){
+			SYSCALL syscall = SYSCALL.CLOSE;
 			String time = eventData.get(AuditEventReader.TIME);
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
 			if(closedArtifactIdentifier != null){
-				Process process = putProcess(eventData, time, eventId);
+				Process process = processManager.handleProcessFromSyscall(eventData);
 				Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, null, false);
 				AbstractEdge edge = null;
 				Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
@@ -2824,7 +2394,7 @@ public class Audit extends AbstractReporter {
 					edge = new WasGeneratedBy(artifact, process);
 				}	   
 				if(edge != null){
-					putEdge(edge, getOperation(SYSCALL.CLOSE), time, eventId, AUDIT_SYSCALL_SOURCE);
+					putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 				}
 				//after everything done increment epoch is udp socket
 				if(closedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class) &&
@@ -2834,7 +2404,7 @@ public class Audit extends AbstractReporter {
 					markNewEpochForArtifact(closedArtifactIdentifier);
 				}
 			}else{
-				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.CLOSE);
+				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 			}
 		}
 
@@ -2856,15 +2426,13 @@ public class Audit extends AbstractReporter {
 		if(syscall == SYSCALL.PREAD || syscall == SYSCALL.PREADV){
 			offset = eventData.get(AuditEventReader.ARG3);
 		}
-		
-		Process process = putProcess(eventData, time, eventId);
 
-		if(descriptors.getDescriptor(pid, fd) == null){
-			descriptors.addUnknownDescriptor(pid, fd);
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+		ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
+		if(artifactIdentifier == null){
+			artifactIdentifier = addUnknownFd(pid, fd);
 		}
 
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+		Process process = processManager.handleProcessFromSyscall(eventData);
 		Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
 		Used used = new Used(process, vertex);
 		used.addAnnotation(OPMConstants.EDGE_SIZE, bytesRead);
@@ -2890,16 +2458,13 @@ public class Audit extends AbstractReporter {
 			offset = eventData.get(AuditEventReader.ARG3);
 		}
 
-		Process process = putProcess(eventData, time, eventId);
-		
-		if(descriptors.getDescriptor(pid, fd) == null){
-			descriptors.addUnknownDescriptor(pid, fd);
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+		ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
+		if(artifactIdentifier == null){
+			artifactIdentifier = addUnknownFd(pid, fd);
 		}
 
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
-
 		if(artifactIdentifier != null){
+			Process process = processManager.handleProcessFromSyscall(eventData);
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesWritten);
@@ -2917,7 +2482,6 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
 
 		ArtifactIdentifier artifactIdentifier = null;
 		String permissions = null;
@@ -2939,17 +2503,17 @@ public class Audit extends AbstractReporter {
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get(AuditEventReader.ARG0);
 
-			if(descriptors.getDescriptor(pid, fd) == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+			artifactIdentifier = processManager.getFd(pid, fd);
+			
+			if(artifactIdentifier == null){
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
-
-			artifactIdentifier = descriptors.getDescriptor(pid, fd);
 		}
 
 		if(artifactIdentifier != null){
 			if(FileIdentifier.class.equals(artifactIdentifier.getClass()) 
 					|| UnknownIdentifier.class.equals(artifactIdentifier.getClass())){
+				Process process = processManager.handleProcessFromSyscall(eventData);
 				Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
 				WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 				putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
@@ -2972,11 +2536,11 @@ public class Audit extends AbstractReporter {
 		String newFD = eventData.get(AuditEventReader.EXIT); //new fd returned in all: dup, dup2, dup3
 
 		if(!fd.equals(newFD)){ //if both fds same then it succeeds in case of dup2 and it does nothing so do nothing here too
-			if(descriptors.getDescriptor(pid, fd) == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
+			if(artifactIdentifier == null){
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
-			descriptors.duplicateDescriptor(pid, fd, newFD);
+			processManager.setFd(pid, newFD, artifactIdentifier);
 		}
 	}
 	
@@ -2986,124 +2550,7 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - EOE
 		
-		if(SIMPLIFY){
-			if(syscall == SYSCALL.SETRESUID 
-					|| syscall == SYSCALL.SETRESGID
-					|| syscall == SYSCALL.SETFSUID
-					|| syscall == SYSCALL.SETFSGID){
-				return;
-			}
-		}
-		
-		String pid = eventData.get(AuditEventReader.PID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		Process containingProcess = getContainingProcessVertex(pid);
-		
-		if(containingProcess == null){
-			// Just add this (new) vertex since we don't have the old one
-			putProcess(eventData, time, eventId);
-		}else{
-			// Annotations to update
-			Map<String, String> annotationsToUpdate = new HashMap<String, String>();
-			annotationsToUpdate.put(OPMConstants.AGENT_UID, eventData.get(AuditEventReader.UID));
-			annotationsToUpdate.put(OPMConstants.AGENT_SUID, eventData.get(AuditEventReader.SUID));
-			annotationsToUpdate.put(OPMConstants.AGENT_EUID, eventData.get(AuditEventReader.EUID));
-			annotationsToUpdate.put(OPMConstants.AGENT_FSUID, eventData.get(AuditEventReader.FSUID));
-			annotationsToUpdate.put(OPMConstants.AGENT_GID, eventData.get(AuditEventReader.GID));
-			annotationsToUpdate.put(OPMConstants.AGENT_SGID, eventData.get(AuditEventReader.SGID));
-			annotationsToUpdate.put(OPMConstants.AGENT_EGID, eventData.get(AuditEventReader.EGID));
-			annotationsToUpdate.put(OPMConstants.AGENT_FSGID, eventData.get(AuditEventReader.FSGID));
-			
-			handleSetuidAndSetgidContainingProcess(time, eventId, syscall, 
-					containingProcess, annotationsToUpdate);
-		}
-		
-	}
-	
-	private void handleSetuidAndSetgidContainingProcess(String time, String eventId, SYSCALL syscall, 
-			Process containingProcess, Map<String, String> annotationsToUpdate){
-		// Always the CONTAINING process!
-		if(AGENTS){
-			
-			String pid = containingProcess.getAnnotation(OPMConstants.PROCESS_PID);
-			
-			Agent agent = new Agent();
-			agent.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-			agent.addAnnotation(OPMConstants.AGENT_UID, annotationsToUpdate.get(OPMConstants.AGENT_UID));
-			agent.addAnnotation(OPMConstants.AGENT_EUID, annotationsToUpdate.get(OPMConstants.AGENT_EUID));
-			agent.addAnnotation(OPMConstants.AGENT_GID, annotationsToUpdate.get(OPMConstants.AGENT_GID));
-			agent.addAnnotation(OPMConstants.AGENT_EGID, annotationsToUpdate.get(OPMConstants.AGENT_EGID));
-			if(!SIMPLIFY){
-				agent.addAnnotation(OPMConstants.AGENT_SUID, annotationsToUpdate.get(OPMConstants.AGENT_SUID));
-				agent.addAnnotation(OPMConstants.AGENT_FSUID, annotationsToUpdate.get(OPMConstants.AGENT_FSUID));
-				agent.addAnnotation(OPMConstants.AGENT_SGID, annotationsToUpdate.get(OPMConstants.AGENT_SGID));
-				agent.addAnnotation(OPMConstants.AGENT_FSGID, annotationsToUpdate.get(OPMConstants.AGENT_FSGID));
-			}
-			String agentHash = agent.bigHashCode();
-			if(!agentHashes.contains(agentHash)){
-				agentHashes.add(agentHash);
-				putVertex(agent);
-			}
-			if(pidToAgentEdgeHashes.get(pid) == null){
-				pidToAgentEdgeHashes.put(pid, new HashSet<String>());
-			}
-			WasControlledBy wasControlledBy = new WasControlledBy(containingProcess, agent);
-			wasControlledBy.addAnnotation(OPMConstants.EDGE_OPERATION, getOperation(syscall));
-			wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
-			wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
-			wasControlledBy.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-			
-			String edgeHash = wasControlledBy.bigHashCode();
-			if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
-				pidToAgentEdgeHashes.get(pid).add(edgeHash);
-				putEdge(wasControlledBy);
-			}
-			
-		}else{
-		
-			String pid = containingProcess.getAnnotation(OPMConstants.PROCESS_PID);
-			
-			// oldProcessUnitStack has only active iterations. 
-			// Should be only one active one since nested loops haven't been instrumented yet in BEEP.
-			// but taking care of nested loops still anyway. 
-			// IMPORTANT: Getting this here first because putProcess call on newContainingProcess would discard it
-			LinkedList<Process> oldProcessUnitStack = new LinkedList<Process>(processUnitStack.get(pid));
-
-			Map<String, String> oldContainingProcessAnnotations = containingProcess.getAnnotations();
-			Map<String, String> newContainingProcessAnnotations = 
-					updateKeyValuesInMap(oldContainingProcessAnnotations, annotationsToUpdate);
-			boolean RECREATE_AND_REPLACE = true; //has to be true since already an entry for the same pid exists
-			Process newContainingProcess = putProcess(newContainingProcessAnnotations, RECREATE_AND_REPLACE, time, eventId);
-
-			WasTriggeredBy newProcessToOldProcess = new WasTriggeredBy(newContainingProcess, containingProcess);
-			putEdge(newProcessToOldProcess, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-
-			//Get the new process unit stack now in which the new units would be added. 
-			//New because putProcess above has replaced the old one
-			LinkedList<Process> newProcessUnitStack = processUnitStack.get(pid);
-
-			if(oldProcessUnitStack != null){ // Means that there are units
-				//recreating the rest of the stack manually because existing iteration and count annotations need to be preserved
-				for(int a = 1; a<oldProcessUnitStack.size(); a++){ //start from 1 because 0 is the containing process
-					Process oldProcessUnit = oldProcessUnitStack.get(a);
-					Map<String, String> oldProcessUnitAnnotations = oldProcessUnit.getAnnotations();
-					Map<String, String> newProcessUnitAnnotations = 
-							updateKeyValuesInMap(oldProcessUnitAnnotations, annotationsToUpdate);
-					Process newProcessUnit = createProcessVertex(newProcessUnitAnnotations); //create process unit
-					newProcessUnitStack.addLast(newProcessUnit); //add to memory
-					if(!processVertexHasBeenPutBefore(newProcessUnit)){
-						putVertex(newProcessUnit);//add to internal buffer
-					}	
-					//drawing an edge from newProcessUnit to currentProcessUnit with operation based on current syscall
-					WasTriggeredBy newUnitToOldUnit = new WasTriggeredBy(newProcessUnit, oldProcessUnit);
-					putEdge(newUnitToOldUnit, getOperation(syscall), time, eventId, OPMConstants.SOURCE_BEEP);
-					//drawing an edge from newProcessUnit to newContainingProcess with operation unit to keep things consistent
-					WasTriggeredBy newUnitToNewProcess = new WasTriggeredBy(newProcessUnit, newContainingProcess);
-					putEdge(newUnitToNewProcess, getOperation(SYSCALL.UNIT), time, eventId, OPMConstants.SOURCE_BEEP);
-				}
-			}
-		}
+		processManager.handleSetuidSetgid(eventData, syscall);
 	}
 	
 	/**
@@ -3310,7 +2757,7 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier artifactIdentifier = null;
 
 			if(fdLong != AT_FDCWD){
-				artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				artifactIdentifier = processManager.getFd(pid, fd);
 				if(artifactIdentifier == null){
 					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.MKNODAT);
 					return;
@@ -3444,8 +2891,6 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		Process process = putProcess(eventData, time, eventId);
-
 		ArtifactIdentifier srcArtifactIdentifier = getArtifactIdentifierFromPathMode(srcPath, 
 				PathRecord.parsePathType(srcPathMode));
 		ArtifactIdentifier dstArtifactIdentifier = getArtifactIdentifierFromPathMode(dstPath, 
@@ -3456,6 +2901,8 @@ public class Audit extends AbstractReporter {
 					+ "process syscall {0} for event id {1}", new Object[]{syscall, eventId});
 			return;
 		}
+		
+		Process process = processManager.handleProcessFromSyscall(eventData);
 
 		//destination is new so mark epoch
 		markNewEpochForArtifact(dstArtifactIdentifier);
@@ -3506,7 +2953,6 @@ public class Audit extends AbstractReporter {
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String time = eventData.get(AuditEventReader.TIME);
 		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
 		String modeArgument = null;
 		// if syscall is chmod, then path is <path0> relative to <cwd>
 		// if syscall is fchmod, look up file descriptor which is <a0>
@@ -3527,15 +2973,11 @@ public class Audit extends AbstractReporter {
 			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		} else if (syscall == SYSCALL.FCHMOD) {
-
 			String fd = eventData.get(AuditEventReader.ARG0);
-
-			if(descriptors.getDescriptor(pid, fd) == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+			artifactIdentifier = processManager.getFd(pid, fd);
+			if(artifactIdentifier == null){
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
-
-			artifactIdentifier = descriptors.getDescriptor(pid, fd);
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		}else if(syscall == SYSCALL.FCHMODAT){
 			PathRecord pathRecord = getFirstPathWithNametype(eventData, AuditEventReader.NAMETYPE_NORMAL);
@@ -3562,6 +3004,8 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
+		Process process = processManager.handleProcessFromSyscall(eventData);
+		
 		String mode = new BigInteger(modeArgument).toString(8);
 		mode = PathRecord.parsePermissions(mode);
 		Artifact vertex = putArtifact(eventData, artifactIdentifier, mode, true);
@@ -3581,11 +3025,11 @@ public class Audit extends AbstractReporter {
 		String fd1 = eventData.get(AuditEventReader.FD1);
 		ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
 		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
-		descriptors.addDescriptor(pid, fd0, readPipeIdentifier, true);
-		descriptors.addDescriptor(pid, fd1, writePipeIdentifier, false);
+		processManager.setFd(pid, fd0, readPipeIdentifier, true);
+		processManager.setFd(pid, fd1, writePipeIdentifier, false);
 
+		// Increment epoch only on one of the identifiers because both are same in artifact properties.
 		markNewEpochForArtifact(readPipeIdentifier);
-		markNewEpochForArtifact(writePipeIdentifier);
 	}
 
 	private void handleNetfilterPacketEvent(Map<String, String> eventData){
@@ -3688,7 +3132,7 @@ public class Audit extends AbstractReporter {
 			
 			NetworkSocketIdentifier identifierForProtocol = new NetworkSocketIdentifier(null, null, null, null, protocolName);
 			
-			descriptors.addDescriptor(pid, sockFd, identifierForProtocol, false);
+			processManager.setFd(pid, sockFd, identifierForProtocol, false);
 			
 		}
 		
@@ -3717,11 +3161,11 @@ public class Audit extends AbstractReporter {
 			// Epoch to be incremented only in case of unix sockets and not network sockets
 			if(UnixSocketIdentifier.class.equals(artifactIdentifier.getClass())){
 				// Setting wasOpenedForRead argument to false because can be written to
-				descriptors.addDescriptor(pid, sockFd, artifactIdentifier, false);
+				processManager.setFd(pid, sockFd, artifactIdentifier, false);
 				markNewEpochForArtifact(artifactIdentifier);
 			}else{
 				// Setting wasOpenedForRead argument to null so that when bound fd closed, no edge is drawn.
-				descriptors.addDescriptor(pid, sockFd, artifactIdentifier, null);
+				processManager.setFd(pid, sockFd, artifactIdentifier, null);
 			}
 		}else{
 			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, syscall);
@@ -3733,7 +3177,7 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - SADDR
 		// - EOE
-		
+		SYSCALL syscall = SYSCALL.CONNECT;
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String time = eventData.get(AuditEventReader.TIME);
 		String pid = eventData.get(AuditEventReader.PID);
@@ -3743,7 +3187,7 @@ public class Audit extends AbstractReporter {
 		Integer exit = CommonFunctions.parseInt(eventData.get(AuditEventReader.EXIT), null);
 		if(exit == null){
 			log(Level.WARNING, "Failed to parse exit value: " + eventData.get(AuditEventReader.EXIT), 
-					null, time, eventId, SYSCALL.CONNECT);
+					null, time, eventId, syscall);
 			return;
 		}else{ // not null
 			// only handling if success is 0 or success is EINPROGRESS
@@ -3757,11 +3201,11 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		ArtifactIdentifier parsedArtifactIdentifier = parseSaddr(saddr, pid, sockFd, time, eventId, SYSCALL.CONNECT);
+		ArtifactIdentifier parsedArtifactIdentifier = parseSaddr(saddr, pid, sockFd, time, eventId, syscall);
 		if (parsedArtifactIdentifier != null) {
-			Process process = putProcess(eventData, time, eventId);
+			Process process = processManager.handleProcessFromSyscall(eventData);
 			// update file descriptor table
-			descriptors.addDescriptor(pid, sockFd, parsedArtifactIdentifier, false);
+			processManager.setFd(pid, sockFd, parsedArtifactIdentifier, false);
 			
 			// Incrementing epoch only for network sockets
 			if(!UnixSocketIdentifier.class.equals(parsedArtifactIdentifier.getClass())){
@@ -3770,11 +3214,11 @@ public class Audit extends AbstractReporter {
 
 			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
-			putEdge(wgb, getOperation(SYSCALL.CONNECT), time, eventId, AUDIT_SYSCALL_SOURCE);
+			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
 			putWasDerivedFromEdgeFromNetworkArtifacts(artifact);
 		}else{
-			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, SYSCALL.CONNECT);
+			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, syscall);
 		}
 	}
 	
@@ -3803,7 +3247,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		// Previously bound address to the socketFD. Can either be unix socket or tcp socket
-		ArtifactIdentifier boundArtifactIdentifier = descriptors.getDescriptor(pid, sockFd); 
+		ArtifactIdentifier boundArtifactIdentifier = processManager.getFd(pid, sockFd); 
 		// New address for the new fd.
 		// Can only be tcp socket because udp doesn't do this syscall and in case of unix sockets
 		// the saddr field always has an empty unix socket path
@@ -3812,10 +3256,10 @@ public class Audit extends AbstractReporter {
 		if(boundArtifactIdentifier != null){
 			// If bound artifact is a unix socket then just use that because parsed artifact is useless
 			if(boundArtifactIdentifier.getClass().equals(UnixSocketIdentifier.class)){
-				descriptors.addDescriptor(pid, fd, boundArtifactIdentifier, false);
+				processManager.setFd(pid, fd, boundArtifactIdentifier, false);
 			}else if(boundArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
 				if(acceptedArtifactIdentifier == null){
-					descriptors.addDescriptor(pid, fd, boundArtifactIdentifier, false);
+					processManager.setFd(pid, fd, boundArtifactIdentifier, false);
 				}else{
 					if(acceptedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
 						// both are network
@@ -3825,7 +3269,7 @@ public class Audit extends AbstractReporter {
 								boundNetworkSocket.getLocalHost(), boundNetworkSocket.getLocalPort(), 
 								acceptedNetworkSocket.getRemoteHost(), acceptedNetworkSocket.getRemotePort(), 
 								boundNetworkSocket.getProtocol());
-						descriptors.addDescriptor(pid, fd, combined, false);
+						processManager.setFd(pid, fd, combined, false);
 					}else{
 						log(Level.WARNING, "Mismatched bound and accepted artifacts", null, time, eventId, syscall);
 						return;
@@ -3837,7 +3281,7 @@ public class Audit extends AbstractReporter {
 			// The only case that we can handle is if the parsed saddr is a network one
 			if(acceptedArtifactIdentifier != null &&
 					acceptedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
-				descriptors.addDescriptor(pid, fd, acceptedArtifactIdentifier, false);
+				processManager.setFd(pid, fd, acceptedArtifactIdentifier, false);
 			}else{
 				log(Level.WARNING, "Missing bound and parsed artifacts", null, time, eventId, syscall);
 				return;
@@ -3847,9 +3291,9 @@ public class Audit extends AbstractReporter {
 		//if reached this point then can process the accept event 
 
 		// Get the descriptor added above. If none added then null.
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+		ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
 		if (artifactIdentifier != null) {
-			Process process = putProcess(eventData, time, eventId);
+			Process process = processManager.handleProcessFromSyscall(eventData);
 			
 			// Increment epoch only if not unix socket i.e. network socket
 			if(!UnixSocketIdentifier.class.equals(artifactIdentifier.getClass())){
@@ -3923,13 +3367,13 @@ public class Audit extends AbstractReporter {
 		
 		if(saddr != null){
 			ArtifactIdentifier newOne = parseSaddr(saddr, pid, fd, time, eventId, syscall);
-			ArtifactIdentifier existing = descriptors.getDescriptor(pid, fd);
+			ArtifactIdentifier existing = processManager.getFd(pid, fd);
 			
 			if(newOne != null && newOne.getClass().equals(UnixSocketIdentifier.class)){
 				
 				if(existing == null || !existing.getClass().equals(UnixSocketIdentifier.class)){
 					//if null or not unix then add/replace with the new one
-					descriptors.addDescriptor(pid, fd, newOne, false);
+					processManager.setFd(pid, fd, newOne, false);
 					//epoch?
 				}else{ // not null and is unix socket
 					
@@ -3938,7 +3382,7 @@ public class Audit extends AbstractReporter {
 					
 					if(!String.valueOf(existingUnix.getPath()).equals(newOneUnix.getPath())){
 						// replace if path different
-						descriptors.addDescriptor(pid, fd, newOne, false);
+						processManager.setFd(pid, fd, newOne, false);
 					}else{
 						//path same then do nothing
 					}
@@ -3949,8 +3393,7 @@ public class Audit extends AbstractReporter {
 				// non-connection based
 				// increment epoch always if not unknown
 				if(newOne == null && existing == null){
-					descriptors.addUnknownDescriptor(pid, fd);
-					markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+					addUnknownFd(pid, fd);
 				}else if(newOne == null && existing != null){
 					// dont need to add it again
 				}else if(newOne != null && existing == null){
@@ -3959,7 +3402,7 @@ public class Audit extends AbstractReporter {
 							newOneNetwork.getLocalHost(), newOneNetwork.getLocalPort(), 
 							newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
 							OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP);
-					descriptors.addDescriptor(pid, fd, artifactIdentifier, false);
+					processManager.setFd(pid, fd, artifactIdentifier, false);
 				}else{ // newone and existing both are non null
 					
 					if(newOne.getClass().equals(NetworkSocketIdentifier.class) &&
@@ -3972,7 +3415,7 @@ public class Audit extends AbstractReporter {
 								newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
 								existingNetwork.getProtocol());
 						
-						descriptors.addDescriptor(pid, fd, artifactIdentifier, false);
+						processManager.setFd(pid, fd, artifactIdentifier, false);
 					}else if(!newOne.getClass().equals(NetworkSocketIdentifier.class) &&
 							existing.getClass().equals(NetworkSocketIdentifier.class)){
 						// keep the existing
@@ -3983,24 +3426,19 @@ public class Audit extends AbstractReporter {
 								newOneNetwork.getLocalHost(), newOneNetwork.getLocalPort(), 
 								newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
 								OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP);
-						descriptors.addDescriptor(pid, fd, artifactIdentifier, false);
+						processManager.setFd(pid, fd, artifactIdentifier, false);
 					}else{
 						// both Non-network. add the unknown
-						descriptors.addUnknownDescriptor(pid, fd);
-						markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+						addUnknownFd(pid, fd);
 					}
-					
 				}
 			}
-			
 		}
 		
 		// base case. if none then add unknown
-		ArtifactIdentifier added = descriptors.getDescriptor(pid, fd);
+		ArtifactIdentifier added = processManager.getFd(pid, fd);
 		if(added == null){
-			descriptors.addUnknownDescriptor(pid, fd);
-			added = descriptors.getDescriptor(pid, fd);
-			markNewEpochForArtifact(added);
+			added = addUnknownFd(pid, fd);
 		}
 		
 		return added;
@@ -4013,8 +3451,6 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
-
 		String fd = eventData.get(AuditEventReader.ARG0);
 		String bytesSent = eventData.get(AuditEventReader.EXIT);
 		String saddr = eventData.get(AuditEventReader.SADDR);
@@ -4039,6 +3475,7 @@ public class Audit extends AbstractReporter {
 				markNewEpochForArtifact(artifactIdentifier);
 			}
 			
+			Process process = processManager.handleProcessFromSyscall(eventData);
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesSent);
@@ -4059,8 +3496,6 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
-
 		String fd = eventData.get(AuditEventReader.ARG0);
 		String bytesReceived = eventData.get(AuditEventReader.EXIT);
 		String saddr = eventData.get(AuditEventReader.SADDR);
@@ -4085,6 +3520,7 @@ public class Audit extends AbstractReporter {
 				markNewEpochForArtifact(artifactIdentifier);
 			}
 			
+			Process process = processManager.handleProcessFromSyscall(eventData);
 			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
 			Used used = new Used(process, vertex);
 			used.addAnnotation(OPMConstants.EDGE_SIZE, bytesReceived);
@@ -4107,7 +3543,7 @@ public class Audit extends AbstractReporter {
 	 * @param eventId id of the audit event
 	 * @param syscall system call of the audit event
 	 */
-	private void log(Level level, String msg, Exception exception, String time, String eventId, SYSCALL syscall){
+	public void log(Level level, String msg, Exception exception, String time, String eventId, SYSCALL syscall){
 		String msgPrefix = "";
 		if(eventId != null && syscall != null){
 			msgPrefix = "[Time:EventID="+time+":"+eventId+", SYSCALL="+syscall+"] ";
@@ -4134,7 +3570,7 @@ public class Audit extends AbstractReporter {
 	 * @param eventId event id in the audit log which generated this edge
 	 * @param source source of the edge
 	 */
-	private void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
+	public void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
 		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 			if(!UNIX_SOCKETS && 
 					(isUnixSocketArtifact(edge.getChildVertex()) ||
@@ -4207,7 +3643,7 @@ public class Audit extends AbstractReporter {
 						return path;
 					}
 				}else{
-					ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, String.valueOf(fd));
+					ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, String.valueOf(fd));
 					if(artifactIdentifier == null){
 						log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 						return null;
@@ -4520,24 +3956,6 @@ public class Audit extends AbstractReporter {
 			}
 		}
 	}
-
-	/**
-	 * Convenience function to get a new map with the existing key-values and given key-values replaced. 
-	 * 
-	 * @param keyValues existing key-values
-	 * @param newKeyValues key-values to update or replace
-	 * @return a new map with existing and updated key-values
-	 */    
-	private Map<String, String> updateKeyValuesInMap(Map<String, String> keyValues, Map<String, String> newKeyValues){
-		Map<String, String> result = new HashMap<String, String>();
-		if(keyValues != null){
-			result.putAll(keyValues);
-		}
-		if(newKeyValues != null){
-			result.putAll(newKeyValues);
-		}
-		return result;
-	}
 	
 	/**
 	 * Returns either NetworkSocketIdentifier or UnixSocketIdentifier depending on the type in saddr.
@@ -4617,7 +4035,7 @@ public class Audit extends AbstractReporter {
 				if(address != null && port != null){
 					
 					String protocolName = null;
-					ArtifactIdentifier identifierWithProtocolName = descriptors.getDescriptor(pid, sockFd);
+					ArtifactIdentifier identifierWithProtocolName = processManager.getFd(pid, sockFd);
 					if(identifierWithProtocolName != null){
 						if(identifierWithProtocolName.getClass().equals(NetworkSocketIdentifier.class)){
 							protocolName = ((NetworkSocketIdentifier)identifierWithProtocolName).getProtocol();
@@ -4651,7 +4069,7 @@ public class Audit extends AbstractReporter {
 	 * @param syscall system call to get operation for
 	 * @return operation corresponding to the syscall
 	 */
-	private String getOperation(SYSCALL primary){
+	public String getOperation(SYSCALL primary){
 		return getOperation(primary, null);
 	}
 	
@@ -4710,401 +4128,6 @@ public class Audit extends AbstractReporter {
 		}else{
 			return pathRecords.get(0);
 		}
-	}
-	
-	//////////////////////////////////////// Process and Unit management code below
-
-	/**
-	 * The eventData is used to get the pid and then get the process vertex if it already exists.
-	 * If the vertex didn't exist then it creates the new one and returns that. The new vertex is created
-	 * using the information in the eventData. The putVertex function is also called on the vertex if
-	 * it was created in this function and the new vertex is also added to the internal process map.
-	 * 
-	 * @param eventData key value pairs to use to create vertex from. This is in most cases all the key values
-	 * gotten in a syscall audit record. But additional information can also be added to this to be used by 
-	 * createProcessVertex function.
-	 * @return the vertex with the pid in the eventData map
-	 */
-	private Process putProcess(Map<String, String> eventData, String time, String eventId){
-		return putProcess(eventData, false, time, eventId);
-	}
-
-
-	/**
-	 * See {@link #putProcess(Map) putProcess}
-	 * 
-	 * @param annotations key value pairs to use to create vertex from. This is in most cases all the key values
-	 * gotten in a syscall audit record. But additional information can also be added to this to be used by 
-	 * createProcessVertex function.
-	 * @param recreateAndReplace if true, it would create a new vertex using information in the eventData and 
-	 * replace the existing one if there is one. If false, it would recreate the vertex. 
-	 * @return
-	 */
-	private Process putProcess(Map<String, String> annotations, boolean recreateAndReplace, String time, String eventId){
-		if(annotations != null){
-			String pid = annotations.get(OPMConstants.PROCESS_PID);
-			Process process = getProcess(pid);
-			if(process == null || recreateAndReplace){
-				process = createProcessVertex(annotations);
-				addProcess(pid, process);
-
-				if(!processVertexHasBeenPutBefore(process)){
-					putVertex(process);
-				}	 
-				if(AGENTS){
-					Agent agent = new Agent();
-					agent.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-					agent.addAnnotation(OPMConstants.AGENT_UID, annotations.get(OPMConstants.AGENT_UID));
-					agent.addAnnotation(OPMConstants.AGENT_EUID, annotations.get(OPMConstants.AGENT_EUID));
-					agent.addAnnotation(OPMConstants.AGENT_GID, annotations.get(OPMConstants.AGENT_GID));
-					agent.addAnnotation(OPMConstants.AGENT_EGID, annotations.get(OPMConstants.AGENT_EGID));
-					if(!SIMPLIFY){
-						agent.addAnnotation(OPMConstants.AGENT_SUID, annotations.get(OPMConstants.AGENT_SUID));
-						agent.addAnnotation(OPMConstants.AGENT_FSUID, annotations.get(OPMConstants.AGENT_FSUID));
-						agent.addAnnotation(OPMConstants.AGENT_SGID, annotations.get(OPMConstants.AGENT_SGID));
-						agent.addAnnotation(OPMConstants.AGENT_FSGID, annotations.get(OPMConstants.AGENT_FSGID));
-					}
-					String agentHash = agent.bigHashCode();
-					if(!agentHashes.contains(agentHash)){
-						agentHashes.add(agentHash);
-						putVertex(agent);
-					}
-					if(pidToAgentEdgeHashes.get(pid) == null){
-						pidToAgentEdgeHashes.put(pid, new HashSet<String>());
-					}
-					
-					WasControlledBy wasControlledBy = new WasControlledBy(process, agent);
-					wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
-					wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
-					wasControlledBy.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-					
-					String edgeHash = wasControlledBy.bigHashCode();
-					if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
-						pidToAgentEdgeHashes.get(pid).add(edgeHash);
-						putEdge(wasControlledBy);
-					}
-				}
-			}
-			return process;
-		}
-		return null;
-	}
-
-	/**
-	 * Checks if the hash of the process vertex exists in the map {@link #pidToProcessHashes pidToProcessHashes}
-	 * 
-	 * If it didn't exist then it returns false but it does add it
-	 * 
-	 * True if it exists
-	 * False if it doesn't exist
-	 * 
-	 * @param process process vertex to check
-	 * @return true/false
-	 */
-	private boolean processVertexHasBeenPutBefore(Process process){
-		String pid = process.getAnnotation(OPMConstants.PROCESS_PID);
-		
-		String hashString = DigestUtils.sha256Hex(process.toString());
-		
-		if(pidToProcessHashes.get(pid) == null){
-			pidToProcessHashes.put(pid, new HashSet<String>());
-		}
-		if(pidToProcessHashes.get(pid).contains(hashString)){
-			return true;
-		}else{
-			pidToProcessHashes.get(pid).add(hashString); //add it
-			return false;
-		}
-	}
-
-	/**
-	 * A convenience wrapper of 
-	 * {@link #createProcessVertex(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String) createProcessVertex}.
-	 * 
-	 * Takes out the values for keys required by the above referenced function and calls it
-	 * 
-	 * Note: Values NOT in eventData when received from audit log -> commandline, cwd, SOURCE, start time, unit, iteration, and count.
-	 * So, put them manually in the map before calling this function.
-	 * 
-	 * @param annotations a key value map that usually contains the key values gotten in the audit syscall record
-	 * @return returns a Process instance with the passed in annotations
-	 */    
-	private Process createProcessVertex(Map<String, String> annotations){
-		//TODO have you added new annotations? if yes then update the annotation copying code in fork and clone handler
-		if(annotations == null){
-			return null;
-		}
-		return createProcessVertex(annotations.get(OPMConstants.PROCESS_PID), annotations.get(OPMConstants.PROCESS_PPID), 
-				//if data from audit log then 'name' is 'comm' otherwise audit annotation key is 'name'
-				annotations.get(OPMConstants.PROCESS_NAME) == null ? annotations.get(AuditEventReader.COMM) : 
-					annotations.get(OPMConstants.PROCESS_NAME), 
-						annotations.get(OPMConstants.PROCESS_COMMAND_LINE),
-						annotations.get(OPMConstants.PROCESS_CWD), annotations.get(OPMConstants.AGENT_UID), 
-						annotations.get(OPMConstants.AGENT_EUID), annotations.get(OPMConstants.AGENT_SUID), 
-						annotations.get(OPMConstants.AGENT_FSUID), annotations.get(OPMConstants.AGENT_GID), 
-						annotations.get(OPMConstants.AGENT_EGID), annotations.get(OPMConstants.AGENT_SGID), 
-						annotations.get(OPMConstants.AGENT_FSGID), annotations.get(OPMConstants.SOURCE), 
-						annotations.get(OPMConstants.PROCESS_START_TIME), annotations.get(OPMConstants.PROCESS_UNIT), 
-						annotations.get(OPMConstants.PROCESS_ITERATION), annotations.get(OPMConstants.PROCESS_COUNT),
-						//if data from audit log then 'seen time' is 'time' otherwise audit annotation key is 'seen time'
-						annotations.get(OPMConstants.PROCESS_SEEN_TIME) == null ?
-								annotations.get(AuditEventReader.TIME) :
-									annotations.get(OPMConstants.PROCESS_SEEN_TIME));
-	}
-
-	/**
-	 * The function to be used always to create a Process vertex. Don't use 'new Process()' invocation directly under any circumstances.
-	 * 
-	 * The function applies some rules on various annotations based on global variables. Always use this function to keep things consistent.
-	 * 
-	 * @param pid pid of the process
-	 * @param ppid parent's pid of the process
-	 * @param name name or 'comm' of the process as in Audit log syscall record
-	 * @param commandline gotten through execve syscall event only or when copied from an existing one [Optional]
-	 * @param cwd current working directory of the process [Optional]
-	 * @param uid user id of the process
-	 * @param euid effective user id of the process
-	 * @param suid saved user id of the process
-	 * @param fsuid file system user id of the process
-	 * @param gid group id of the process
-	 * @param egid effective group id of the process
-	 * @param sgid saved group id of the process
-	 * @param fsgid file system group id of the process
-	 * @param source source of the process information
-	 * @param startTime time at which the process was created [Optional]
-	 * @param unit id of the unit loop. [Optional]
-	 * @param iteration iteration of the unit loop. [Optional]
-	 * @param count count of a unit with all other annotation values same. [Optional]
-	 * @param seenTime time at which the process was seen. Only used if no start time.
-	 * @return returns a Process instance with the passed in annotations.
-	 */
-	private Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
-			String uid, String euid, String suid, String fsuid, 
-			String gid, String egid, String sgid, String fsgid,
-			String source, String startTime, String unit, String iteration, String count,
-			String seenTime){
-		
-		Process process = new Process();
-		process.addAnnotation(OPMConstants.PROCESS_PID, pid);
-		process.addAnnotation(OPMConstants.PROCESS_PPID, ppid);
-		
-		if(name != null){
-			process.addAnnotation(OPMConstants.PROCESS_NAME, name);
-		}
-		
-		if(source == null){
-			process.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-		}else{
-			process.addAnnotation(OPMConstants.SOURCE, source);
-		}
-
-		//optional annotations below:
-
-		if(commandline != null){
-			process.addAnnotation(OPMConstants.PROCESS_COMMAND_LINE, commandline);
-		}
-		if(cwd != null){
-			process.addAnnotation(OPMConstants.PROCESS_CWD, cwd);
-		}
-
-		Map<String, String> agentAnnotations = new HashMap<String, String>();
-		agentAnnotations.put(OPMConstants.AGENT_UID, uid);
-		agentAnnotations.put(OPMConstants.AGENT_EUID, euid);
-		agentAnnotations.put(OPMConstants.AGENT_GID, gid);
-		agentAnnotations.put(OPMConstants.AGENT_EGID, egid);
-		
-		if(!SIMPLIFY){
-			agentAnnotations.put(OPMConstants.AGENT_SUID, suid);
-			agentAnnotations.put(OPMConstants.AGENT_FSUID, fsuid);
-
-			agentAnnotations.put(OPMConstants.AGENT_SGID, sgid);
-			agentAnnotations.put(OPMConstants.AGENT_FSGID, fsgid);
-		}
-		
-		if(!AGENTS){
-			process.addAnnotations(agentAnnotations);
-		}
-
-		// If there is a start time then use that.
-		// If no start time then use seen time. 
-		// If none then use nothing
-		if(startTime != null){
-			process.addAnnotation(OPMConstants.PROCESS_START_TIME, startTime);
-		}else{
-			if(seenTime != null){
-				process.addAnnotation(OPMConstants.PROCESS_SEEN_TIME, seenTime);
-			}
-		}
-
-		if(CREATE_BEEP_UNITS){
-			if(unit == null){
-				process.addAnnotation(OPMConstants.PROCESS_UNIT, "0"); // 0 indicates containing process
-			}else{
-				process.addAnnotation(OPMConstants.PROCESS_UNIT, unit);
-				// The iteration and count annotations are only for units and not the containing process
-				if(iteration != null){
-					process.addAnnotation(OPMConstants.PROCESS_ITERATION, iteration);
-				}
-				if(count != null){
-					process.addAnnotation(OPMConstants.PROCESS_COUNT, count);
-				}
-			}
-		}
-
-		return process;
-	}
-
-	/**
-	 * Creates a process object by reading from the /proc FS. Calls the
-	 * {@link #createProcessVertex(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String)}
-	 * internally to create the process vertex.
-	 * 
-	 * @param pid pid of the process to look for in the /proc FS
-	 * @return a Process object populated using /proc FS
-	 */
-	private Process createProcessFromProcFS(String pid, long boottime) {
-		// Check if this pid exists in the /proc/ filesystem
-		if ((new java.io.File("/proc/" + pid).exists())) {
-			// The process vertex is created using the proc filesystem.
-			try {
-				// order of keys in the status file changed. So, now looping through the file to get the necessary ones
-				int keysGottenCount = 0; //used to stop reading the file once all the required keys have been gotten
-				String line = null, nameline = null, ppidline = null, uidline = null, gidline = null;
-				BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
-				while ((line = procReader.readLine()) != null && keysGottenCount < 4) {
-					String tokens[] = line.split(":");
-					String key = tokens[0].trim().toLowerCase();
-					switch (key) {
-					case "name":
-						nameline = line;
-						keysGottenCount++;
-						break;
-					case "ppid":
-						ppidline = line;
-						keysGottenCount++;
-						break;
-					case "uid":
-						uidline = line;
-						keysGottenCount++;
-						break;
-					case "gid":
-						gidline = line;
-						keysGottenCount++;
-						break;
-					default:
-						break;
-					}
-				}
-				procReader.close();
-
-				BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
-				String statline = statReader.readLine();
-				statReader.close();
-
-				BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
-				String cmdline = cmdlineReader.readLine();
-				cmdlineReader.close();
-
-				String stats[] = statline.split("\\s+");
-				long elapsedtime = Long.parseLong(stats[21]) * 10;
-				long startTime = boottime + elapsedtime;
-				//                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(startTime));
-				//                String stime = Long.toString(startTime);
-				//
-				String name = nameline.split("name:")[1].trim();
-				String ppid = ppidline.split("\\s+")[1];
-				cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
-
-				// see for order of uid, euid, suid, fsiud: http://man7.org/linux/man-pages/man5/proc.5.html
-				String gidTokens[] = gidline.split("\\s+");
-				String uidTokens[] = uidline.split("\\s+");
-
-				Process newProcess = createProcessVertex(pid, ppid, name, null, null, 
-						uidTokens[1], uidTokens[2], uidTokens[3], uidTokens[4], 
-						gidTokens[1], gidTokens[2], gidTokens[3], gidTokens[4], 
-						OPMConstants.SOURCE_PROCFS, Long.toString(startTime), 
-						CREATE_BEEP_UNITS ? "0" : null, null, null, null);
-
-				// newProcess.addAnnotation("starttime_unix", stime);
-				// newProcess.addAnnotation("starttime_simple", stime_readable);
-				// newProcess.addAnnotation("commandline", cmdline);
-				return newProcess;
-			} catch (IOException | NumberFormatException e) {
-				logger.log(Level.WARNING, "Unable to create process vertex for pid " + pid + " from /proc/", e);
-				return null;
-			}
-		} else {
-			return null;
-		}
-	}
-
-	/**
-	 * Returns the main process i.e. at the zeroth index in the process stack for the pid, if any.
-	 * 
-	 * @param pid pid of the process
-	 * @return the main process with unit id 0. null if none found.
-	 */
-	private Process getContainingProcessVertex(String pid){
-		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 0){
-			return processUnitStack.get(pid).getFirst();
-		}
-		return null;
-	}
-
-	/**
-	 * This function resets the stack for a pid used to keep the main containing process for a pid
-	 * and all the units for that pid. It clears the stack. Only call this when it is intended to clear 
-	 * all the state related to a process, state being the units and the existing process. Example, execve.
-	 *
-	 * @param pid pid of the process to return
-	 * @param process the process to add against the pid
-	 */
-	private void addProcess(String pid, Process process){ 
-		if(pid == null || process == null){
-			logger.log(Level.WARNING, "Failed to add process vertex in addProcess function because pid or process passed is null. Pid {0}, Process {1}", new Object[]{pid, String.valueOf(process)});
-		}else{
-			processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
-			processUnitStack.get(pid).addFirst(process);
-		}
-	}
-
-	/**
-	 * Checks the internal process hashmap and returns the process vertex. 
-	 * The process hashmap must have at least one vertex for that pid to return with not null.
-	 * The function returns the process vertex whichever is on top of the stack using a peek i.e.
-	 * can be a unit iteration
-	 * 
-	 * @param pid pid of the process to return
-	 * @return process process with the given pid or null (if none found)
-	 */
-	private Process getProcess(String pid){
-		if(processUnitStack.get(pid) != null && !processUnitStack.get(pid).isEmpty()){
-			Process process = processUnitStack.get(pid).peekLast();
-			return process;
-		}
-		return null;
-	}
-
-	/**
-	 * Creates a copy of the given process with the source annotation being 'beep'  
-	 * 
-	 * @param process process to create a copy of
-	 * @param startTime start time of the unit
-	 * @param unitId id of the unit
-	 * @return a copy with the copied and the updated annotations as in the process argument
-	 */
-	private Process createBEEPCopyOfProcess(Process process, String startTime, String unitId, String iteration, String count){
-		if(process == null){
-			return null;
-		}
-		return createProcessVertex(process.getAnnotation(OPMConstants.PROCESS_PID), 
-				process.getAnnotation(OPMConstants.PROCESS_PPID), process.getAnnotation(OPMConstants.PROCESS_NAME), 
-				process.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE), process.getAnnotation(OPMConstants.PROCESS_CWD), 
-				process.getAnnotation(OPMConstants.AGENT_UID), process.getAnnotation(OPMConstants.AGENT_EUID), 
-				process.getAnnotation(OPMConstants.AGENT_SUID), process.getAnnotation(OPMConstants.AGENT_FSUID), 
-				process.getAnnotation(OPMConstants.AGENT_GID), process.getAnnotation(OPMConstants.AGENT_EGID), 
-				process.getAnnotation(OPMConstants.AGENT_SGID), process.getAnnotation(OPMConstants.AGENT_FSGID), 
-				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count, null); // NULL seen time
 	}
 			
 }
