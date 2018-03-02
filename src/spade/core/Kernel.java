@@ -78,7 +78,7 @@ public class Kernel
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
+    public static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
 
     /**
      * Path to log files including the prefix.
@@ -88,7 +88,7 @@ public class Kernel
     /**
      * Path to configuration files.
      */
-     private static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
+     public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
