@@ -1006,16 +1006,31 @@ public class Audit extends AbstractReporter {
 							String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
 							List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
 							if(pidsToIgnore != null){
+								List<String> ppidsToIgnore = new ArrayList<String>(pidsToIgnore); // same as pids
+								List<String> pidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreProcesses");
+								List<String> ppidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreParentProcesses");
+								if(pidsToIgnoreFromConfig != null){ // optional
+									pidsToIgnore.addAll(pidsToIgnoreFromConfig);
+									logger.log(Level.INFO, "Ignoring pids from config {0} for processes with names: {1}",
+											new Object[]{pidsToIgnoreFromConfig, configMap.get("ignoreProcesses")});
+								}
+								if(ppidsToIgnoreFromConfig != null){ // optional
+									ppidsToIgnore.addAll(ppidsToIgnoreFromConfig);
+									logger.log(Level.INFO, "Ignoring ppids from config {0} for processes with names: {1}",
+											new Object[]{ppidsToIgnoreFromConfig, configMap.get("ignoreParentProcesses")});
+								}
+								
 								if(ADD_KM){
 									success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
-											uid, ignoreUid, pidsToIgnore, USE_SOCK_SEND_RCV);
+											uid, ignoreUid, pidsToIgnore, ppidsToIgnore, USE_SOCK_SEND_RCV);
 								}
 								if(success){
 									if(NETFILTER_RULES){
 										success = setIptablesRules(iptablesRules);
 									}
 									if(success){
-										success = setAuditControlRules(rulesType, uid, ignoreUid, pidsToIgnore, ADD_KM);
+										success = setAuditControlRules(rulesType, uid, ignoreUid, pidsToIgnore, 
+												ppidsToIgnore, ADD_KM);
 									}
 								}
 							}else{
@@ -1039,6 +1054,23 @@ public class Audit extends AbstractReporter {
 			doCleanup(rulesType, logListFile);
 			return false;
 		}
+	}
+	
+	private List<String> getPidsFromConfig(Map<String, String> configMap, String processNamesKey){
+		if(configMap != null && processNamesKey != null){
+			String processNames = configMap.get(processNamesKey);
+			if(processNames != null){
+				processNames = processNames.trim();
+				if(!processNames.isEmpty()){
+					// The value is comma-separated. Replacing ',' with ' ' because that is the format
+					// expected by the 'pidof' command.
+					processNames = processNames.replace(',', ' ');
+					List<String> pids = listOfPidsToIgnore(processNames); // Can return null;
+					return pids;
+				}
+			}
+		}
+		return null;
 	}
 	
 	private AuditEventReader getAuditEventReader(String spadeAuditBridgeCommand, 
@@ -1246,9 +1278,10 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean addNetworkKernelModule(String kernelModulePath, String kernelModuleControllerPath, 
-			String uid, boolean ignoreUid, List<String> ignorePids, boolean interceptSendRecv){
-		if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()){
-			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}", new Object[]{uid, ignorePids});
+			String uid, boolean ignoreUid, List<String> ignorePids, List<String> ignorePpids, boolean interceptSendRecv){
+		if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()
+				|| ignorePpids == null || ignorePpids.isEmpty()){
+			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids, ignorePpids});
 			return false;
 		}else{
 			if(!FileUtility.fileExists(kernelModulePath)){
@@ -1283,13 +1316,17 @@ public class Audit extends AbstractReporter {
 									ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
 									pids.deleteCharAt(pids.length() - 1);// delete trailing comma
 									
+									StringBuffer ppids = new StringBuffer();
+									ignorePpids.forEach(ignorePpid -> {ppids.append(ignorePpid).append(",");});
+									ppids.deleteCharAt(ppids.length() - 1);// delete trailing comma
+									
 									String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
 									
 									String kernelModuleControllerAddCommand = 
 											String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
 											+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
 											+ "ignore_uids=\"%s\"", 
-											kernelModuleControllerPath, uid, pids, pids,
+											kernelModuleControllerPath, uid, pids, ppids,
 											interceptSendRecv ? "1" : "0", ignoreUidsArg);
 									
 									if(!addKernelModule(kernelModuleControllerAddCommand)){
@@ -1334,11 +1371,14 @@ public class Audit extends AbstractReporter {
 		return false;
 	}
 	
-	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, boolean kmAdded){
+	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, 
+			List<String> ignorePpids, boolean kmAdded){
 		try {
 
-			if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()){
-				logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}", new Object[]{uid, ignorePids});
+			if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()
+					|| ignorePpids == null || ignorePpids.isEmpty()){
+				logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids,
+						ignorePpids});
 				return false;
 			}
 			
@@ -1367,6 +1407,14 @@ public class Audit extends AbstractReporter {
 					uidField = "-F uid=" + uid + " ";
 				}
 
+				StringBuffer pidFields = new StringBuffer();
+				ignorePids.forEach(ignorePid -> {pidFields.append("-F pid!=").append(ignorePid).append(" ");});
+				
+				StringBuffer ppidFields = new StringBuffer();
+				ignorePpids.forEach(ignorePpid -> {ppidFields.append("-F ppid!=").append(ignorePpid).append(" ");});
+				
+				String pidAndPpidFields = pidFields.toString() + ppidFields.toString();
+				
 				List<String> auditRules = new ArrayList<String>();
 
 				if("all".equals(rulesType)){
@@ -1394,18 +1442,12 @@ public class Audit extends AbstractReporter {
 
 					allSyscallsAuditRule += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 					
-					int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(allSyscallsAuditRule, ignorePids);
-
-					List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(ignorePids.subList(loopFieldsForMainRuleTill, ignorePids.size()));
-					auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
-
-					String fieldsForAuditRule = buildPidFieldsForAuditRule(ignorePids.subList(0, loopFieldsForMainRuleTill));
 					// THE NEVER RULE SHOULD ALWAYS BE THE FIRST IF IT IS INITIALIZED
 					if(kmAdded && netIONeverSyscallsRule != null){
 						auditRules.add(netIONeverSyscallsRule);
 					}
-					auditRules.add(specialSyscallsRule + fieldsForAuditRule);
-					auditRules.add(allSyscallsAuditRule + fieldsForAuditRule);
+					auditRules.add(specialSyscallsRule + pidAndPpidFields);
+					auditRules.add(allSyscallsAuditRule + pidAndPpidFields);
 
 				}else if(rulesType == null){
 
@@ -1458,14 +1500,8 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
-					int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(auditRuleWithSuccess, ignorePids);
-
-					List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(ignorePids.subList(loopFieldsForMainRuleTill, ignorePids.size()));
-					auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
-
-					String fieldsForAuditRule = buildPidFieldsForAuditRule(ignorePids.subList(0, loopFieldsForMainRuleTill));
-					auditRules.add(auditRuleWithoutSuccess + fieldsForAuditRule);
-					auditRules.add(auditRuleWithSuccess + fieldsForAuditRule);
+					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
+					auditRules.add(auditRuleWithSuccess + pidAndPpidFields);
 
 				}else{
 					logger.log(Level.SEVERE, "Invalid rules arguments: " + rulesType);
@@ -1487,62 +1523,6 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-	}
-	
-	/**
-	 * Returns auditctl rules where a list=exit, action=never, field is either 'pid' or 'ppid' for each pid in the list
-	 * 
-	 * Example: auditctl -a exit,never -F pid=x, auditctl -a exit,never -F ppid=x
-	 * 
-	 * @param pidsToIgnore list of pids to build rules for
-	 * @return list of build rules
-	 */
-	private List<String> buildAuditRulesForExtraPids(List<String> pidsToIgnore){
-		List<String> rules = new ArrayList<String>();
-		for(String pidToIgnore : pidsToIgnore){
-			String pidIgnoreAuditRule = "auditctl -a exit,never -F pid="+pidToIgnore;
-			String ppidIgnoreAuditRule = "auditctl -a exit,never -F ppid="+pidToIgnore;
-			rules.add(pidIgnoreAuditRule);
-			rules.add(ppidIgnoreAuditRule);
-		}
-		return rules;
-	}
-
-	/**
-	 * Build pid fields portion of the auditctl rule given the list of pids
-	 * 
-	 * @param pidsToIgnore list of pids to ignore
-	 * @return pid fields portion of the auditctl rule
-	 */
-	private String buildPidFieldsForAuditRule(List<String> pidsToIgnore){
-		String pidFields = " ";
-		for(String pidToIgnore : pidsToIgnore){
-			pidFields += "-F pid!=" + pidToIgnore + " -F ppid!=" + pidToIgnore + " "; 
-		}
-		return pidFields;
-	}
-
-	/**
-	 * Given the audit rule finds out how many pids can be fit into that rule
-	 * 
-	 * NOTE: all -F flags in the rule must be already present
-	 * 
-	 * @param ruleSoFar rule with -F flags
-	 * @param pidsToIgnore list of pids to ignore
-	 * @return the count of -F fields that can be added in the rule
-	 */
-	private int getAvailableFieldsCountInAuditRule(String ruleSoFar, List<String> pidsToIgnore){
-		int maxFieldsAllowed = 64; //max allowed by auditctl command
-		//split the pre-formed rule on -F to find out the number of fields already present
-		int existingFieldsCount = ruleSoFar.split(" -F ").length - 1; 
-
-		//find out the pids & ppids that can be added to the main rule from the list of pids. divided by two to account for pid and ppid fields for the same pid
-		int fieldsForAuditRuleCount = (maxFieldsAllowed - existingFieldsCount)/2; 
-
-		//handling the case if the main rule can accommodate all pids in the list of pids to ignore 
-		int loopFieldsForMainRuleTill = Math.min(fieldsForAuditRuleCount, pidsToIgnore.size());
-
-		return loopFieldsForMainRuleTill;
 	}
 
 	private void deleteCacheMaps(){
