@@ -105,15 +105,15 @@ public class PostgreSQL extends Scaffold
 
             dbStatement.close();
             globalTxCheckin(true);
+
+            return true;
+
         }
         catch (Exception ex)
         {
             logger.log(Level.SEVERE, "Unable to initialize scaffold successfully!", ex);
             return false;
         }
-
-        logger.log(Level.INFO, "Scaffold initialized successfully");
-        return true;
     }
 
     @Override
@@ -315,7 +315,7 @@ public class PostgreSQL extends Scaffold
                 childrenFile.getParentFile().mkdirs();
                 childrenFile.createNewFile();
                 if(!(childrenFile.setWritable(true, false)
-                    && childrenFile.setReadable(true, false)))
+                        && childrenFile.setReadable(true, false)))
                 {
                     logger.log(Level.SEVERE, "Permission denied to read/write from scaffold children cache files!");
                     return false;
