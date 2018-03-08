@@ -24,9 +24,6 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -104,6 +101,7 @@ public class AuditEventReader {
 			RECORD_TYPE_UBSI_EXIT = "UBSI_EXIT",
 			RECORD_TYPE_UBSI_DEP = "UBSI_DEP",
 			RECORD_TYPE_UNKNOWN_PREFIX = "UNKNOWN[",
+			RECORD_TYPE_USER = "USER",
 			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
 			SGID = "sgid",
@@ -121,7 +119,14 @@ public class AuditEventReader {
 			UNIT_ITERATION = "unit_iteration",
 			UNIT_TIME = "unit_time",
 			UNIT_COUNT = "unit_count",
-			UNIT_DEPS_COUNT = "unit_deps_count";
+			UNIT_DEPS_COUNT = "unit_deps_count",
+			USER_MSG_SPADE_AUDIT_HOST_KEY = "spade_host_msg",
+			KMODULE_RECORD_TYPE = "netio_module_record",
+			KMODULE_DATA_KEY = "netio_intercepted",
+			KMODULE_FD = "fd",
+			KMODULE_SOCKTYPE = "sock_type",
+			KMODULE_LOCAL_SADDR = "local_saddr",
+			KMODULE_REMOTE_SADDR = "remote_saddr";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -146,7 +151,7 @@ public class AuditEventReader {
 	// Group 3: time
 	// Group 4: recordid
 	private final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
-
+	
 	// Group 1: cwd
 	//cwd is either a quoted string or an unquoted string in which case it is in hex format
 	private final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
@@ -195,13 +200,20 @@ public class AuditEventReader {
 	private boolean EOF = false;
 	
 	/**
+	 * Flag to tell the reader how to behave in case of unexpected data format.
+	 * if true then throw an exception.
+	 * if false then do best effort to continue.
+	 */
+	private boolean failfast;
+	
+	/**
 	 * Create instance of the class that reads from the given stream
 	 * 
 	 * @param streamId An identifier to read the audit logs from
 	 * @param streamToReadFrom The stream to read from
 	 * @throws Exception IllegalArgumentException or IOException
 	 */
-	public AuditEventReader(String streamId, InputStream streamToReadFrom) throws Exception{
+	public AuditEventReader(String streamId, InputStream streamToReadFrom, boolean failfast) throws Exception{
 		if(streamId == null){
 			throw new IllegalArgumentException("Stream ID cannot be NULL");
 		}
@@ -211,6 +223,8 @@ public class AuditEventReader {
 
 		stream = new BufferedReader(new InputStreamReader(streamToReadFrom));
 
+		this.failfast = failfast;
+		
 		setGlobalsFromConfig();
 	}
 
@@ -262,6 +276,7 @@ public class AuditEventReader {
 				if(rotateAfterRecordCount > 0 && recordsWrittenToOutputLog >= rotateAfterRecordCount){
 					recordsWrittenToOutputLog = 0;
 					currentOutputLogFileCount++;
+					outputLogWriter.flush();
 					outputLogWriter.close();
 					outputLogWriter = new PrintWriter(outputLogFile + "." + currentOutputLogFileCount);
 				}
@@ -315,7 +330,9 @@ public class AuditEventReader {
 		try{
 			int firstIndexOfOpeningBracket = line.indexOf('(');
 			int firstIndexOfColon = line.indexOf(':');
-			return line.substring(firstIndexOfOpeningBracket+1, firstIndexOfColon);
+			String timeStr = line.substring(firstIndexOfOpeningBracket+1, firstIndexOfColon);
+			Double.parseDouble(timeStr); // if valid double then continues
+			return timeStr;
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to get time from line: " + line, e);
 			return null;
@@ -375,6 +392,17 @@ public class AuditEventReader {
 				String line = null;
 				
 				while((line = stream.readLine()) != null){
+					Long eventId = getEventId(line);
+					String eventTime = getEventTime(line);
+					
+					if(eventId == null || eventTime == null){
+						if(failfast){
+							throw new Exception("Invalid time '"+eventTime+"' or event-id '"+eventId+"' in record: " + line);
+						}else{
+							continue;
+						}
+					}
+					
 					writeToOutputLog(line);
 					if(reportingEnabled){
 						recordCount++;
@@ -393,26 +421,21 @@ public class AuditEventReader {
 						
 						if(UBSIRecord == null){
 							
-							Long eventId = getEventId(line);
-							if(eventId == null){
-								continue; // Shouldn't be null
+							if(currentEventId.equals(-1L)){
+								currentEventId = eventId;
+								currentEventRecords.add(line); //add the next event record
+								continue;
 							}else{
-								if(currentEventId.equals(-1L)){
+								if(!currentEventId.equals(eventId)){// event id changed hence publish the things in buffer
 									currentEventId = eventId;
+									Set<String> records = new HashSet<String>(currentEventRecords);
+									currentEventRecords.clear();
 									currentEventRecords.add(line); //add the next event record
+									eventData = getEventMap(records);
+									break;
+								}else{ //if they are equal
+									currentEventRecords.add(line);
 									continue;
-								}else{
-									if(!currentEventId.equals(eventId)){// event id changed hence publish the things in buffer
-										currentEventId = eventId;
-										Set<String> records = new HashSet<String>(currentEventRecords);
-										currentEventRecords.clear();
-										currentEventRecords.add(line); //add the next event record
-										eventData = getEventMap(records);
-										break;
-									}else{ //if they are equal
-										currentEventRecords.add(line);
-										continue;
-									}
 								}
 							}
 							
@@ -550,14 +573,9 @@ public class AuditEventReader {
 				// Add all the units key values
 				auditRecordKeyValues.putAll(unitsKeyValues.get(0));
 			}
-			
-			Long UBSIEntryEventId = getEventId(line);
-			String UBSIEntryTime = getEventTime(line);
-			
+						
 			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_ENTRY);
-			auditRecordKeyValues.put(TIME, UBSIEntryTime);
-			auditRecordKeyValues.put(EVENT_ID, String.valueOf(UBSIEntryEventId));
-			
+						
 			isUBSIEvent = true;
 			
 		}else if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_EXIT)){
@@ -596,6 +614,12 @@ public class AuditEventReader {
 		
 		if(isUBSIEvent){
 			
+			Long UBSIEntryEventId = getEventId(line);
+			String UBSIEntryTime = getEventTime(line);
+			
+			auditRecordKeyValues.put(TIME, UBSIEntryTime);
+			auditRecordKeyValues.put(EVENT_ID, String.valueOf(UBSIEntryEventId));
+			
 			String msgData = line.substring(line.indexOf(" ppid="));
 			auditRecordKeyValues.putAll(CommonFunctions.parseKeyValPairs(msgData));
 			
@@ -611,12 +635,23 @@ public class AuditEventReader {
 				auditRecordKeyValues.put(EVENT_ID, eventId);
 				auditRecordKeyValues.put(RECORD_TYPE_KEY, type);
 	
-				if (type.equals(RECORD_TYPE_SYSCALL)) {
+				if(type.equals(RECORD_TYPE_USER)){
+					int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
+					if(indexOfData != -1){
+						String data = messageData.substring(indexOfData + KMODULE_DATA_KEY.length() + 1);
+						data = data.substring(1, data.length() - 1);// remove quotes
+						Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
+						eventData.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
+						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+						eventData.put(TIME, time);
+						auditRecordKeyValues.putAll(eventData);
+					}
+				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
 					if(messageData.contains(COMM + "=") && !messageData.contains(COMM + "=\"")
 							&& !"(null)".equals(eventData.get(COMM))){ // comm has a hex encoded value
 						// decode and replace value
-						eventData.put(COMM, parseHexStringToUTF8(eventData.get(COMM)));
+						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
 					}
 					eventData.put(TIME, time);
 					auditRecordKeyValues.putAll(eventData);
@@ -629,7 +664,7 @@ public class AuditEventReader {
 							cwd = cwd.substring(1, cwd.length()-1);
 						}else{ //is in hex format
 							try{
-								cwd = parseHexStringToUTF8(cwd);
+								cwd = CommonFunctions.decodeHex(cwd);
 							}catch(Exception e){
 								//failed to parse
 							}
@@ -650,7 +685,7 @@ public class AuditEventReader {
 							!messageData.contains(" name=(null)")){ 
 						//is a hex path if the value of the key name doesn't start with double quotes
 						try{
-							name = parseHexStringToUTF8(name);
+							name = CommonFunctions.decodeHex(name);
 						}catch(Exception e){
 							//failed to parse
 						}
@@ -692,13 +727,8 @@ public class AuditEventReader {
 					while (key_value_matcher.find()) {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
 					}
-				} else if(type.equals(RECORD_TYPE_PROCTITLE)){
-					//record type not being handled at the moment. 
 				} else{
-					//            	if(!seenTypesOfUnsupportedRecords.contains(type)){
-					//            		seenTypesOfUnsupportedRecords.add(type);
-					//            		logger.log(Level.WARNING, "Unknown type {0} for message: {1}. Won't output to log a message for this type again.", new Object[]{type, line});
-					//            	}                
+					             
 				}
 	
 			} else {
@@ -708,38 +738,4 @@ public class AuditEventReader {
 
 		return auditRecordKeyValues;
 	}
-	
-	/**
-	 * Converts hex string as UTF-8
-	 * 
-	 * @param hexString string to parse
-	 * @return parsed string
-	 */
-	private String parseHexStringToUTF8(String hexString){
-		if(hexString == null){
-			return null;
-		}
-
-		//find the null char i.e. the end of the string
-		for(int a = 0; a<=hexString.length()-2; a+=2){
-			String hexByte = hexString.substring(a,a+2);
-			Integer intByte = Integer.parseInt(hexByte, 16);
-			char c = (char)(intByte.intValue());
-			if(c == 0){ //null char
-				hexString = hexString.substring(0, a);
-				break;
-			}
-		}
-
-		ByteBuffer bytes = ByteBuffer.allocate(hexString.length()/2);
-		for(int a = 0; a<=hexString.length()-2; a+=2){
-			bytes.put((byte)Integer.parseInt(hexString.substring(a, a+2), 16));
-
-		}
-		bytes.rewind();
-		Charset cs = Charset.forName("UTF-8");
-		CharBuffer cb = cs.decode(bytes);
-		return cb.toString();
-	}
-	
 }

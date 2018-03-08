@@ -58,4 +58,8 @@ public class Settings
     public static String getDefaultConfigFilePath(Class<?> forClass){
         return "cfg/" + forClass.getName() + ".config";
     }
+    
+    public static String getDefaultOutputFilePath(Class<?> forClass){
+    	return "cfg/" + forClass.getName() + ".out";
+    }
 }

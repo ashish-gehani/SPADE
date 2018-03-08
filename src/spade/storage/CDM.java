@@ -19,37 +19,6 @@
  */
 package spade.storage;
 
-import com.bbn.tc.schema.avro.AbstractObject;
-import com.bbn.tc.schema.avro.Event;
-import com.bbn.tc.schema.avro.EventType;
-import com.bbn.tc.schema.avro.FileObject;
-import com.bbn.tc.schema.avro.FileObjectType;
-import com.bbn.tc.schema.avro.InstrumentationSource;
-import com.bbn.tc.schema.avro.MemoryObject;
-import com.bbn.tc.schema.avro.NetFlowObject;
-import com.bbn.tc.schema.avro.Principal;
-import com.bbn.tc.schema.avro.PrincipalType;
-import com.bbn.tc.schema.avro.SHORT;
-import com.bbn.tc.schema.avro.SrcSinkObject;
-import com.bbn.tc.schema.avro.SrcSinkType;
-import com.bbn.tc.schema.avro.Subject;
-import com.bbn.tc.schema.avro.SubjectType;
-import com.bbn.tc.schema.avro.TCCDMDatum;
-import com.bbn.tc.schema.avro.UUID;
-import com.bbn.tc.schema.avro.UnitDependency;
-import com.bbn.tc.schema.avro.UnnamedPipeObject;
-import com.bbn.tc.schema.serialization.AvroConfig;
-import org.apache.avro.generic.GenericContainer;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
-import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
-import spade.vertex.prov.Agent;
-
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -62,6 +31,51 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.apache.avro.generic.GenericContainer;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.config.SslConfigs;
+
+import com.bbn.tc.schema.avro.cdm18.AbstractObject;
+import com.bbn.tc.schema.avro.cdm18.EndMarker;
+import com.bbn.tc.schema.avro.cdm18.Event;
+import com.bbn.tc.schema.avro.cdm18.EventType;
+import com.bbn.tc.schema.avro.cdm18.FileObject;
+import com.bbn.tc.schema.avro.cdm18.FileObjectType;
+import com.bbn.tc.schema.avro.cdm18.Host;
+import com.bbn.tc.schema.avro.cdm18.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm18.HostType;
+import com.bbn.tc.schema.avro.cdm18.InstrumentationSource;
+import com.bbn.tc.schema.avro.cdm18.Interface;
+import com.bbn.tc.schema.avro.cdm18.MemoryObject;
+import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
+import com.bbn.tc.schema.avro.cdm18.Principal;
+import com.bbn.tc.schema.avro.cdm18.PrincipalType;
+import com.bbn.tc.schema.avro.cdm18.SHORT;
+import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
+import com.bbn.tc.schema.avro.cdm18.SrcSinkType;
+import com.bbn.tc.schema.avro.cdm18.StartMarker;
+import com.bbn.tc.schema.avro.cdm18.Subject;
+import com.bbn.tc.schema.avro.cdm18.SubjectType;
+import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm18.TimeMarker;
+import com.bbn.tc.schema.avro.cdm18.UUID;
+import com.bbn.tc.schema.avro.cdm18.UnitDependency;
+import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
+import com.bbn.tc.schema.serialization.AvroConfig;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Settings;
+import spade.reporter.Audit;
+import spade.reporter.audit.OPMConstants;
+import spade.utility.CommonFunctions;
+import spade.utility.FileUtility;
+import spade.utility.HostInfo;
+import spade.vertex.opm.Artifact;
+import spade.vertex.prov.Agent;
 
 /**
  * A storage implementation that serializes and sends to kafka.
@@ -103,7 +117,15 @@ public class CDM extends Kafka {
 	/**
 	 * Flag whose value is set from arguments to decide whether to output hashcode and hex or raw bytes
 	 */
-	private boolean hexUUIDs = true;
+	private boolean hexUUIDs = false;
+	
+	/**
+	 * Flag to tell whether to get host info from OS or not.
+	 * If true then host info gotten from OS, host info saved to output file for class HostInfo and this host info
+	 * published.
+	 * If false then host info read from output file for class HostInfo and published.
+	 */
+	private boolean createHostConfig = true;
 	/**
 	 * A map used to keep track of:
 	 * 1) To keep track of parent subject UUIDs, equivalent to ppid
@@ -129,6 +151,13 @@ public class CDM extends Kafka {
 	private Map<Set<TypeOperation>, EventType> rulesToEventType = 
 			new HashMap<Set<TypeOperation>, EventType>();
 	
+	private UUID hostUUID = null;
+	
+	private int sessionNumber = 0; // default zero
+	
+	private boolean useSsl = true;
+	private String securityProtocol, trustStoreLocation, trustStorePassword, keyStoreLocation, keyStorePassword, keyPassword;
+	
 	/**
 	 * Rules from OPM edges types and operations to event types in CDM
 	 */
@@ -147,6 +176,9 @@ public class CDM extends Kafka {
 						EventType.EVENT_EXECUTE);
 		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)), 
+						EventType.EVENT_CHANGE_PRINCIPAL);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UPDATE)), 
 						EventType.EVENT_CHANGE_PRINCIPAL);
 		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)), 
@@ -209,6 +241,26 @@ public class CDM extends Kafka {
 				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
 						OPMConstants.buildOperation(OPMConstants.OPERATION_MMAP, OPMConstants.OPERATION_WRITE))), 
 						EventType.EVENT_MMAP);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_TEE),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_TEE, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_TEE, OPMConstants.OPERATION_READ))),
+						EventType.EVENT_OTHER); // tee
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_SPLICE),
+						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_SPLICE, OPMConstants.OPERATION_WRITE)),
+						new TypeOperation(OPMConstants.USED, 
+								OPMConstants.buildOperation(OPMConstants.OPERATION_SPLICE, OPMConstants.OPERATION_READ))),
+						EventType.EVENT_OTHER); // splice
+		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_VMSPLICE)),
+						EventType.EVENT_OTHER); // vmsplice
+		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_INIT_MODULE)), 
+						EventType.EVENT_OTHER); // init_module
+		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_FINIT_MODULE)), 
+						EventType.EVENT_OTHER); // finit_module
 		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_MMAP),
 						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
@@ -288,12 +340,23 @@ public class CDM extends Kafka {
 						eventType.equals(EventType.EVENT_OPEN)){
 					// Used or WasGeneratedBy
 					properties.put(OPMConstants.OPM, edge.type());
+				}else if(eventType.equals(EventType.EVENT_CHANGE_PRINCIPAL)){
+					properties.put(OPMConstants.EDGE_OPERATION, edge.getAnnotation(OPMConstants.EDGE_OPERATION));
+				}
+				
+				String eventOperation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
+				if(OPMConstants.OPERATION_INIT_MODULE.equals(eventOperation) // init_module
+						|| OPMConstants.OPERATION_FINIT_MODULE.equals(eventOperation) // finit_module
+						|| OPMConstants.OPERATION_VMSPLICE.equals(eventOperation) // vmsplice only
+						|| OPMConstants.OPERATION_TEE.equals(eventOperation) // tee
+						|| OPMConstants.OPERATION_SPLICE.equals(eventOperation)){ // splice
+					properties.put(OPMConstants.EDGE_OPERATION, eventOperation);
 				}
 
 				Event event = new Event(uuid, 
-						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, predicateObjectPath, 
-						predicateObject2UUID, predicateObject2Path, timestampNanos, null, null, 
-						location, size, null, properties);
+						sequence, eventType, threadId, hostUUID, subjectUUID, predicateObjectUUID, 
+						predicateObjectPath, predicateObject2UUID, predicateObject2Path, timestampNanos, 
+						null, null, location, size, null, properties);
 
 				publishRecords(Arrays.asList(buildTcCDMDatum(event, source)));
 
@@ -314,7 +377,7 @@ public class CDM extends Kafka {
 				// Agents cannot come from BEEP source. Added just in case.
 				InstrumentationSource principalSource = 
 						subjectSource.equals(InstrumentationSource.SOURCE_LINUX_BEEP_TRACE)
-						? InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE : subjectSource;
+						? InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE : subjectSource;
 
 				List<GenericContainer> objectsToPublish = new ArrayList<GenericContainer>();
 
@@ -408,7 +471,7 @@ public class CDM extends Kafka {
 							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, process.getAnnotations(), properties);
 
 							Subject subject = new Subject(subjectUUID, subjectType, pid, 
-									pidSubjectUUID.get(ppid), principalUUID, startTime, 
+									pidSubjectUUID.get(ppid), hostUUID, principalUUID, startTime, 
 									unitId, iteration, count, cmdLine, null, null, null,
 									properties);
 
@@ -456,7 +519,7 @@ public class CDM extends Kafka {
 					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_FSGID));
 				}
 				Principal principal = new Principal(uuid, PrincipalType.PRINCIPAL_LOCAL, 
-						userId, null, groupIds, properties);
+						hostUUID, userId, null, groupIds, properties);
 				return principal;
 			}else{
 				logger.log(Level.WARNING, "Missing 'uid' in agent vertex");
@@ -480,6 +543,41 @@ public class CDM extends Kafka {
 		}
 		return agentVertex;
 	}
+	
+	private boolean publishHost(AbstractVertex vertex){
+		if(vertex != null){
+			UUID uuid = getUuid(vertex);
+			String hostName = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
+			String serialNumber = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER);
+			HostIdentifier hostIdentifier = new HostIdentifier(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, serialNumber);
+			List<HostIdentifier> hostIdentifiers = Arrays.asList(hostIdentifier);
+			String operatingSystem = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM);
+			HostType hostType = HostType.HOST_DESKTOP; // TODO always DESKTOP in AUDIT for now.
+			List<Interface> interfaces = new ArrayList<Interface>();
+			String interfacesCountString = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT);
+			Integer interfacesCount = CommonFunctions.parseInt(interfacesCountString, null);
+			if(interfacesCount != null){
+				for(int a = 0; a < interfacesCount; a++){
+					String interfaceName = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceNameKey(a));
+					String interfaceMacAddress = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceMacAddressKey(a));
+					String interfaceIpAddresses = vertex.getAnnotation(OPMConstants.buildHostNetworkInterfaceIpAddressesKey(a));
+					interfaceIpAddresses = interfaceIpAddresses == null ? "" : interfaceIpAddresses; 
+					List<CharSequence> ipAddressesList = 
+							OPMConstants.parseHostNetworkInterfaceIpAddressesValue(interfaceIpAddresses);
+					Interface interfaze = new Interface(interfaceName, interfaceMacAddress, ipAddressesList);
+					interfaces.add(interfaze);
+				}
+			}
+			Host host = new Host(uuid, hostName, hostIdentifiers, operatingSystem, hostType, interfaces);
+			if(publishRecords(Arrays.asList(buildTcCDMDatum(host, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE))) > 0){
+				return true;
+			}else{
+				return false;
+			}
+		}else{
+			return false;
+		}
+	}
 
 	private boolean publishArtifact(AbstractVertex vertex) {
 		InstrumentationSource source = getInstrumentationSource(vertex.getAnnotation(OPMConstants.SOURCE));
@@ -498,23 +596,14 @@ public class CDM extends Kafka {
 				Object tccdmObject = null;
 
 				String artifactType = vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
-				if(OPMConstants.SUBTYPE_FILE.equals(artifactType)){
-
-					tccdmObject = createFileObject(getUuid(vertex), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
-							FileObjectType.FILE_OBJECT_FILE);
-
-				}else if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
+				if(OPMConstants.SUBTYPE_NETWORK_SOCKET.equals(artifactType)){
 
 					String srcAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS);
 					String srcPort = vertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
 					String destAddress = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
 					String destPort = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
 					String protocolName = vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL); //can be null
-					Integer protocol = OPMConstants.getProtocolNumber(protocolName);
+					Integer protocol = Audit.getProtocolNumber(protocolName);
 
 					srcAddress = srcAddress == null ? "" : srcAddress;
 					destAddress = destAddress == null ? "" : destAddress;
@@ -524,21 +613,12 @@ public class CDM extends Kafka {
 					Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
-					AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+					AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
 					tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
 							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
 							destAddress, CommonFunctions.parseInt(destPort, 0), protocol, null);
 
-				}else if(OPMConstants.SUBTYPE_UNIX_SOCKET.equals(artifactType)){
-					
-					tccdmObject = createFileObject(getUuid(vertex), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
-							epoch, 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
-							FileObjectType.FILE_OBJECT_UNIX_SOCKET);
-					
 				}else if(OPMConstants.SUBTYPE_MEMORY_ADDRESS.equals(artifactType)){
 
 					try{
@@ -553,7 +633,7 @@ public class CDM extends Kafka {
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
 
-						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
 						tccdmObject = new MemoryObject(getUuid(vertex), baseObject, memoryAddress, null, null, size);
 
@@ -566,13 +646,6 @@ public class CDM extends Kafka {
 						logger.log(Level.SEVERE, null, e);
 						return false;
 					}
-
-				}else if(OPMConstants.SUBTYPE_NAMED_PIPE.equals(artifactType)){
-
-					tccdmObject = createFileObject(getUuid(vertex), vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), epoch, 
-							vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
-							FileObjectType.FILE_OBJECT_NAMED_PIPE);
 
 				}else if(OPMConstants.SUBTYPE_UNNAMED_PIPE.equals(artifactType)){
 
@@ -587,9 +660,10 @@ public class CDM extends Kafka {
 						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
-						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
-						tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, sourceFileDescriptor, sinkFileDescriptor);
+						tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, 
+								sourceFileDescriptor, sinkFileDescriptor, null, null); // TODO UUID for src and sink???
 					}
 					
 				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
@@ -605,17 +679,39 @@ public class CDM extends Kafka {
 						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
 
-						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
 						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
 								SrcSinkType.SRCSINK_UNKNOWN, fd);
 					}
 
+				}else if(artifactType != null){
+					FileObjectType fileObjectType = null;
+					switch (artifactType) {
+						case OPMConstants.SUBTYPE_FILE: fileObjectType = FileObjectType.FILE_OBJECT_FILE; break;
+						case OPMConstants.SUBTYPE_DIRECTORY: fileObjectType = FileObjectType.FILE_OBJECT_DIR; break;
+						case OPMConstants.SUBTYPE_BLOCK_DEVICE: fileObjectType = FileObjectType.FILE_OBJECT_BLOCK; break;
+						case OPMConstants.SUBTYPE_CHARACTER_DEVICE: fileObjectType = FileObjectType.FILE_OBJECT_CHAR; break;
+						case OPMConstants.SUBTYPE_LINK: fileObjectType = FileObjectType.FILE_OBJECT_LINK; break;
+						case OPMConstants.SUBTYPE_UNIX_SOCKET: fileObjectType = FileObjectType.FILE_OBJECT_UNIX_SOCKET; break;
+						case OPMConstants.SUBTYPE_NAMED_PIPE: fileObjectType = FileObjectType.FILE_OBJECT_NAMED_PIPE; break;
+						default: break;
+					}
+					if(fileObjectType != null){
+						tccdmObject = createFileObject(getUuid(vertex), 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_PATH), 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_VERSION), 
+								epoch, 
+								vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS), 
+								fileObjectType);
+					}else{
+						logger.log(Level.WARNING, "Unexpected artifact subtype {0}", new Object[]{vertex});
+						return false;
+					}
 				}else{
-					logger.log(Level.WARNING, "Unexpected artifact subtype {0}", new Object[]{vertex});
+					logger.log(Level.WARNING, "NULL artifact subtype {0}", new Object[]{vertex});
 					return false;
 				}
-
 				if(tccdmObject != null){
 					return publishRecords(Arrays.asList(buildTcCDMDatum(tccdmObject, source))) > 0;
 				}else{
@@ -650,7 +746,7 @@ public class CDM extends Kafka {
 		
 		SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
 
-		AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
+		AbstractObject baseObject = new AbstractObject(hostUUID, permissions, epoch, properties);
 		FileObject fileObject = new FileObject(uuid, baseObject, type, null, null, null, null, null);
 
 		return fileObject;
@@ -666,21 +762,24 @@ public class CDM extends Kafka {
 	 * @return SrcSinkObject instance
 	 */
 	private void publishStreamMarkerObject(boolean isStart){
-		String annotationName = isStart ? "start time" : "end time";
-
-		Map<CharSequence, CharSequence> properties = new HashMap<>();
-		if(!isStart){
-			for(Map.Entry<String, Long> entry : stats.entrySet()){
-				properties.put(entry.getKey(), String.valueOf(entry.getValue()));
+		long currentTimeNanos = System.currentTimeMillis() * 1000 * 1000; // millis to nanos
+		TimeMarker timeMarker = new TimeMarker(currentTimeNanos);
+		Object sessionMarker = null;
+		if(isStart){
+			sessionMarker = new StartMarker(this.sessionNumber);
+		}else{
+			// manually add the time marker for end and the session end marker count
+			incrementStatsCount(timeMarker.getClass().getSimpleName());
+			incrementStatsCount(EndMarker.class.getSimpleName());
+			Map<CharSequence, CharSequence> recordCounts = new HashMap<>();
+			for(Map.Entry<String, Long> entry : this.stats.entrySet()){
+				recordCounts.put(entry.getKey(), String.valueOf(entry.getValue()));
 			}
+			sessionMarker = new EndMarker(this.sessionNumber, recordCounts);
 		}
-		properties.put(annotationName, 
-				String.valueOf(convertTimeToNanoseconds(null, String.valueOf(System.currentTimeMillis()), 0L)));
-		AbstractObject baseObject = new AbstractObject(null, null, properties);  
-		SrcSinkObject streamMarker = new SrcSinkObject(getUuid(properties), baseObject, 
-				SrcSinkType.SRCSINK_SYSTEM_PROPERTY, null);
-		
-		publishRecords(Arrays.asList(buildTcCDMDatum(streamMarker, InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE)));
+		// First publish time marker and then publish session start/end marker
+		publishRecords(Arrays.asList(buildTcCDMDatum(timeMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
+		publishRecords(Arrays.asList(buildTcCDMDatum(sessionMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
 	}
 	
 	@Override
@@ -703,7 +802,14 @@ public class CDM extends Kafka {
 							}else if(cdmObject.getClass().equals(Event.class)){
 								EventType eventType = ((Event)cdmObject).getType();
 								if(eventType != null){
-									incrementStatsCount(eventType.name());
+									String keyName = eventType.name();
+									if(eventType.equals(EventType.EVENT_OTHER)){
+										CharSequence keyNameCharSeq = ((Event)cdmObject).getProperties().get(OPMConstants.EDGE_OPERATION);
+										if(keyNameCharSeq != null){
+											keyName = String.valueOf(keyNameCharSeq);
+										}
+									}
+									incrementStatsCount(keyName);
 								}
 							}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
 								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
@@ -740,26 +846,151 @@ public class CDM extends Kafka {
 				com.bbn.tc.schema.serialization.kafka.KafkaAvroGenericSerializer.class);
 		properties.put(AvroConfig.SCHEMA_WRITER_FILE, schemaFilename);
 		properties.put(AvroConfig.SCHEMA_SERDE_IS_SPECIFIC, true);
+		if(useSsl){
+			properties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
+			properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, trustStoreLocation);
+			properties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, trustStorePassword);
+			properties.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keyStoreLocation);
+			properties.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, keyStorePassword);
+			properties.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, keyPassword);
+		}
 		return properties;
 	}
 
 	@Override
-	public boolean initialize(String arguments) {
+	public boolean initialize(String arguments){
+		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+		String hexUUIDsArgValue = argumentsMap.get("hexUUIDs");
+		if(hexUUIDsArgValue != null){
+			hexUUIDsArgValue = hexUUIDsArgValue.trim();
+			if("false".equals(hexUUIDsArgValue)){
+				hexUUIDs = false;
+			}else if("true".equals(hexUUIDsArgValue)){
+				hexUUIDs = true;
+			}else{
+				logger.log(Level.SEVERE, "Invalid 'hexUUIDs' value: " + hexUUIDsArgValue + ". Only 'true' or 'false'");
+				return false;
+			}
+		}
+		
+		String sessionNumberString = argumentsMap.get("session");
+		if(sessionNumberString != null){
+			Integer sessionNumber = CommonFunctions.parseInt(sessionNumberString, null);
+			if(sessionNumber == null){
+				logger.log(Level.SEVERE, "'session' must be an 'int': " + sessionNumberString);
+				return false;
+			}else{
+				this.sessionNumber = sessionNumber;
+			}
+		}
+		
+		String createHostConfigArgValue = argumentsMap.get("createHostConfig");
+		if(createHostConfigArgValue != null){
+			createHostConfigArgValue = createHostConfigArgValue.trim();
+			if("false".equals(createHostConfigArgValue)){
+				createHostConfig = false;
+			}else if("true".equals(createHostConfigArgValue)){
+				createHostConfig = true;
+			}else{
+				logger.log(Level.SEVERE, "Invalid 'createHostConfig' value: " + createHostConfigArgValue + ". Only 'true' or 'false'");
+				return false;
+			}
+		}
+		
+		// Populate the ssl configs before calling parent's initialize because of ssl properties.
+		String sslArgValue = argumentsMap.get("ssl");
+		if(sslArgValue != null){
+			if("false".equals(sslArgValue)){
+				useSsl = false;
+			}else if("true".equals(sslArgValue)){
+				useSsl = true;
+			}else{
+				logger.log(Level.SEVERE, "Invalid 'ssl' value: " + useSsl + ". Only 'true' or 'false'");
+				return false;
+			}
+		}
+		
+		// Only do the following checks in case of server
+		if(useSsl && writeDataToServer(argumentsMap)){
+			String configFile = Settings.getDefaultConfigFilePath(this.getClass());
+			try{
+				Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFile, "=");
+				securityProtocol = configMap.get("SecurityProtocol");
+				trustStoreLocation = configMap.get("TrustStoreLocation");
+				trustStorePassword = configMap.get("TrustStorePassword");
+				keyStoreLocation = configMap.get("KeyStoreLocation");
+				keyStorePassword = configMap.get("KeyStorePassword");
+				keyPassword = configMap.get("KeyPassword");
+				if(securityProtocol == null || trustStoreLocation == null || trustStorePassword == null || keyStoreLocation == null
+						|| keyStorePassword == null || keyPassword == null){
+					logger.log(Level.SEVERE, "In config file the following keys must be defined: 'SecurityProtocol', 'TrustStoreLocation', "
+							+ "'TrustStorePassword', 'KeyStoreLocation', 'KeyStorePassword', 'KeyPassword'");
+					return false;
+				}
+				if(!FileUtility.fileExists(trustStoreLocation)){
+					logger.log(Level.SEVERE, "Invalid location for trust store 'TrustStoreLocation': " + trustStoreLocation);
+					return false;
+				}
+				if(!FileUtility.fileExists(keyStoreLocation)){
+					logger.log(Level.SEVERE, "Invalid location for key store 'KeyStoreLocation': " + keyStoreLocation);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to read config file: " + configFile);
+				return false;
+			}
+		}
+		
 		boolean initResult = super.initialize(arguments);
 		if(!initResult){
 			return false;
-		}// else continue
-
-		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
-		if("false".equals(argumentsMap.get("hexUUIDs"))){
-			hexUUIDs = false;
+		}else{
+			AbstractVertex hostVertex = createHostVertex();
+			if(hostVertex == null){
+				return false;
+			}else{
+				populateEventRules();
+				publishStreamMarkerObject(true);
+				publishHost(hostVertex);
+				this.hostUUID = getUuid(hostVertex);
+			}
+			return true;
 		}
-
-		populateEventRules();
-
-		publishStreamMarkerObject(true);
-
-		return true;
+	}
+	
+	private AbstractVertex createHostVertex(){
+		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+		Map<String, String> configMap = null;
+		try{
+			configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read config file: "+ configFilePath, e);
+			return null;
+		}
+		
+		String hostFileKey = "hostFile";
+		String hostFilePath = configMap.get(hostFileKey);
+		
+		if(hostFilePath == null || (hostFilePath = hostFilePath.trim()).isEmpty()){
+			logger.log(Level.SEVERE, "Missing/Empty '"+hostFileKey+"' value in config");
+			return null;
+		}else{
+			if(createHostConfig){
+				if(!HostInfo.generateCurrentHostFile(hostFilePath)){
+					// Failed to write the host file.
+					return null;
+				}
+			}
+			if(FileUtility.fileExists(hostFilePath)){
+				HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
+				AbstractVertex hostVertex = new Artifact();
+				hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
+				return hostVertex;
+			}else{
+				logger.log(Level.SEVERE, "Missing host file at path: " + hostFilePath);
+				return null;
+			}
+		}
 	}
 
 	/**
@@ -784,7 +1015,7 @@ public class CDM extends Kafka {
 					return publishSubjectAndPrincipal(incomingVertex);
 				}else if(OPMConstants.ARTIFACT.equals(type)){
 					if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(incomingVertex.getAnnotation(OPMConstants.SOURCE))){
-						// Ignore until CDM updating with refine edge. TODO
+						// Ignore until CDM updated with refine edge. TODO
 					}else{
 						return publishArtifact(incomingVertex);
 					}
@@ -861,30 +1092,72 @@ public class CDM extends Kafka {
 		 * writing the subject uuid for a pid set by a process vertex later on.
 		 * 
 		 */
-		List<AbstractEdge> edges = new ArrayList<AbstractEdge>();
-		List<AbstractVertex> verticesBeforeAndBetweenEdges = new ArrayList<AbstractVertex>();
-		List<AbstractVertex> verticesAfterTheLastEdge = new ArrayList<AbstractVertex>();
+		// Create a copy to be safe
+		List<Object> objectsCopy = new ArrayList<Object>(objects);
 		
-		List<AbstractVertex> vertexListRef = verticesAfterTheLastEdge;
-		
-		for(int a = objects.size() - 1 ; a>=0; a--){
-			Object object = objects.get(a);
+		/*
+		 * Handling the case where each event can now contain process agent update events
+		 * with the same time and event id. 
+		 * Iterating through the list and processing them first one by one (i.e. as each 
+		 * edge for process update is encountered). 
+		 * Then the rest of the list is processed (excluding the already processed one)
+		 * 
+		 * Note: Relies on NO mixing of vertices. Meaning that all vertices for an edge are seen
+		 * before than edge and there is no edge between a vertex and the corresponding edge.
+		 * 
+		 * Example: P1, P2, P2->P1, P4, P4->P2 (is correct), and P1, P2, P4, P2->P1, P4->P2 (is wrong)
+		 */
+		int lastProcessUpdateEdgeIndex = 0;
+		List<AbstractVertex> currentProcessUpdateVertices = new ArrayList<AbstractVertex>();
+		for(int a = 0; a < objectsCopy.size(); a++){
+			Object object = objectsCopy.get(a);
 			if(object instanceof AbstractVertex){
-				vertexListRef.add((AbstractVertex)object);
+				currentProcessUpdateVertices.add((AbstractVertex)object);
 			}else if(object instanceof AbstractEdge){
-				vertexListRef = verticesBeforeAndBetweenEdges;
-				edges.add((AbstractEdge)object);
+				AbstractEdge edge = (AbstractEdge)object;
+				if(edge.type().equals(OPMConstants.WAS_TRIGGERED_BY)
+						&& OPMConstants.OPERATION_UPDATE.equals(edge.getAnnotation(OPMConstants.EDGE_OPERATION))){
+					for(AbstractVertex vertex : currentProcessUpdateVertices){
+						publishVertex(vertex);
+					}
+					processEdgesWrapper(Arrays.asList(edge));
+					currentProcessUpdateVertices.clear();
+					lastProcessUpdateEdgeIndex = a+1;
+				}
 			}else{
 				logger.log(Level.WARNING, "Unexpected object type in: " + objects);
 			}
 		}
 		
-		for(AbstractVertex vertex : verticesBeforeAndBetweenEdges){
-			publishVertex(vertex);
-		}
-		processEdgesWrapper(edges);
-		for(AbstractVertex vertex : verticesAfterTheLastEdge){
-			publishVertex(vertex);
+		// process the rest if there are any remaining vertices and edges
+		if(objectsCopy.size() > lastProcessUpdateEdgeIndex){
+			objectsCopy = objectsCopy.subList(lastProcessUpdateEdgeIndex, objectsCopy.size());
+			
+			List<AbstractEdge> edges = new ArrayList<AbstractEdge>();
+			List<AbstractVertex> verticesBeforeAndBetweenEdges = new ArrayList<AbstractVertex>();
+			List<AbstractVertex> verticesAfterTheLastEdge = new ArrayList<AbstractVertex>();
+			
+			List<AbstractVertex> vertexListRef = verticesAfterTheLastEdge;
+			
+			for(int a = objectsCopy.size() - 1 ; a>=0; a--){
+				Object object = objectsCopy.get(a);
+				if(object instanceof AbstractVertex){
+					vertexListRef.add((AbstractVertex)object);
+				}else if(object instanceof AbstractEdge){
+					vertexListRef = verticesBeforeAndBetweenEdges;
+					edges.add((AbstractEdge)object);
+				}else{
+					logger.log(Level.WARNING, "Unexpected object type in: " + objects);
+				}
+			}
+			
+			for(AbstractVertex vertex : verticesBeforeAndBetweenEdges){
+				publishVertex(vertex);
+			}
+			processEdgesWrapper(edges);
+			for(AbstractVertex vertex : verticesAfterTheLastEdge){
+				publishVertex(vertex);
+			}
 		}
 	}
 	
@@ -901,7 +1174,9 @@ public class CDM extends Kafka {
 				|| (edgesContainTypeOperation(edges, 
 						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETUID)))
 				|| (edgesContainTypeOperation(edges, 
-						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)))){
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_SETGID)))
+				|| (edgesContainTypeOperation(edges, 
+						new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_UPDATE)))){
 			processIndividually = true;
 		}else if(edgesContainTypeOperation(edges,
 				new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_UPDATE))){
@@ -1048,7 +1323,8 @@ public class CDM extends Kafka {
 						// C would get the pid for A' instead of A as it's parentProcessUUID
 						// Not doing this for UNIT vertices
 						if((OPMConstants.OPERATION_SETUID.equals(edgeOperation) 
-								|| OPMConstants.OPERATION_SETGID.equals(edgeOperation))
+								|| OPMConstants.OPERATION_SETGID.equals(edgeOperation)
+								|| OPMConstants.OPERATION_UPDATE.equals(edgeOperation))
 								&& actedUpon1.getAnnotation(OPMConstants.PROCESS_ITERATION) == null){
 							// The acted upon vertex is the new containing process for the pid. 
 							// Excluding units from coming in here
@@ -1078,7 +1354,7 @@ public class CDM extends Kafka {
 				AbstractEdge edgeWithProcess = getFirstMatchedEdge(edges, OPMConstants.TYPE, OPMConstants.WAS_GENERATED_BY);
 
 				if(edges.size() == 2 || edges.size() == 3){
-					// mmap(2 or 3 edges), rename(3), link(3)
+					// mmap(2 or 3 edges), rename(3), link(3), tee(3), splice(3)
 					if(twoArtifactsEdge != null && edgeWithProcess != null){
 
 						// Add the protection to the WDF edge from the WGB edge (only for mmap)
@@ -1148,10 +1424,10 @@ public class CDM extends Kafka {
 	 * @return InstrumentationSource instance or null
 	 */
 	private InstrumentationSource getInstrumentationSource(String source){
-		if(OPMConstants.SOURCE_AUDIT_SYSCALL.equals(source)
-				|| OPMConstants.SOURCE_AUDIT_NETFILTER.equals(source)){
-			// TODO Use the 'netfilter' source value when added in CDM
-			return InstrumentationSource.SOURCE_LINUX_AUDIT_TRACE;
+		if(OPMConstants.SOURCE_AUDIT_SYSCALL.equals(source)){
+			return InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE;
+		}else if(OPMConstants.SOURCE_AUDIT_NETFILTER.equals(source)){
+			return InstrumentationSource.SOURCE_LINUX_NETFILTER_TRACE;
 		}else if(OPMConstants.SOURCE_PROCFS.equals(source)){	
 			return InstrumentationSource.SOURCE_LINUX_PROC_TRACE;
 		}else if(OPMConstants.SOURCE_BEEP.equals(source)){
@@ -1164,13 +1440,13 @@ public class CDM extends Kafka {
 	}
 
 	/**
-	 * Converts the given time (in milliseconds) to nanoseconds
+	 * Converts the given time (in seconds) to nanoseconds
 	 * 
 	 * If failed to convert the given time for any reason then the default value is
 	 * returned.
 	 * 
 	 * @param eventId id of the event
-	 * @param time timestamp in milliseconds
+	 * @param time timestamp in seconds
 	 * @param defaultValue default value
 	 * @return the time in nanoseconds
 	 */
@@ -1349,20 +1625,6 @@ public class CDM extends Kafka {
 			return new UUID(edgeHash);
 		}
 		return null;
-	}
-
-	/**
-	 * Returns the MD5 hash of the result of the object's toString function
-	 * 
-	 * @param object object to hash
-	 * @return UUID
-	 */
-	private UUID getUuid(Object object){
-		byte[] hash = DigestUtils.md5(String.valueOf(object));
-		if(hexUUIDs){
-			hash = String.valueOf(Hex.encodeHex(hash, true)).getBytes();
-		}
-		return new UUID(hash);
 	}
 	
 	/**

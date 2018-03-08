@@ -1,0 +1,67 @@
++++ Kernel modules to intercept and log 'bind', 'connect', 'accept', 'accept4',
+'sendto', 'sendmsg', 'sendmmsg', 'recvfrom', 'recvmsg', and 'recvmmsg' syscalls.
+
+**** Code derived from: https://gitlab.tnichols.org/tyler/syscall_table_hooks/tree/master ***
+
+*** IMPORTANT: DON'T try these modules on a critical machine ***
+*** IMPORTANT: DON'T try these modules on a critical machine ***
+*** IMPORTANT: DON'T try these modules on a critical machine ***
+
+DIRECTORY CONTENTS:
+	+ Two kernel modules:
+		1) 'netio.c': Used to intercept and log the above mentioned system calls
+		2) 'netio_controller.c': Used to pause/resume the 'netio' module, and pass arguments to it.
+
+REQUIREMENTS: 
+	+ Must install linux headers. Command for ubuntu: 
+		sudo apt-get install linux-headers-`uname -r`
+	+ To be able to add/remove kernel module from Audit reporter run the following commands:
+		sudo chmod ug+s `which insmod`
+		sudo chmod ug+s `which rmmod`
+		OR
+		sudo chmod ug+s /bin/kmod ('insmod', and 'rmmod' use '/bin/kmod')
+	
+USAGE:
+	+ Must add 'netio' kernel module first and then the 'netio_controller' module.
+	+ 'netio' module takes no arguments
+	+ 'netio_controller' module takes the following arguments:
+		0) 'ignore_uids'. If it is '1' then uids in 'uids' list are ignored else captured.
+		1) 'uids' list. The uids to ignore OR capture the intercepted system calls from.
+		2) 'pids_ignore' list. The pids to ignore the intercepted system calls from.
+		3) 'ppids_ignore' list. The ppids to ignore the intercepted system calls from.
+		4) 'syscall_success' flag. The success of the syscalls to intercept. Values:
+			a) '0' for only failed ones
+			b) '1' for only successful ones
+			c) '-1' for all
+		5) 'net_io' flag. To toggle on/off intercepting 'sendto', 'sendmsg', 'sendmmsg', 
+		   'recvfrom', 'recvmsg', and 'recvmmsg' syscalls.
+			a) '0' for NOT intercepting the above-mentioned syscalls
+			b) '1' for intercepting the above-mentioned syscalls
+
+ADD MODULES (directly):
+	+ Example command to ADD the 'netio' module directly:
+		insmod lib/kernel-modules/netio.ko
+	+ Example command to ADD the 'netio_controller' module directly (make sure that all processes with 'pidof' below are running):
+		[To ignore given uids]
+		insmod lib/kernel-modules/netio_controller.ko uids="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
+		OR
+		[To capture only given uids]
+		insmod lib/kernel-modules/netio_controller.ko ignore_uids="0" uids="`id -u`" pids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" ppids_ignore="`pidof audispd`,`pidof auditd`,`pidof kauditd`" syscall_success="1" net_io="1"
+
+ADD MODULES (through LIVE Audit reporter):
+	+ Example control client command:
+		add reporter Audit netIO=true addKm=true handleKmRecords=true
+		# The above command adds the 'netio' module (if not added already), and then adds the 'netio_controller' module with the proper arguments.
+		# When Audit reporter is removed then only the 'netio_controller' module is removed and that pauses the logging in the 'netio' module.
+
+REMOVE MODULES (directly):
+	+ Example command to REMOVE modules directly (in order):
+		rmmod netio_controller
+		rmmod netio
+
+ISSUES:
+1) A kernel OOPS thrown ALWAYS when kernel module removed from Audit reporter but haven't seen it happen when removed directly
+   from terminal. Error seen with the format: "BUG: unable to handle kernel paging request at <memory address>". The SPADE control
+   client crashes while the SPADE server runs fine. The Audit reporter and the kernel module are removed successfully though.
+   Looking into this. *** UPDATE *** No kernel OOPS thrown through the Audit reporter now since never removing the 'netio' module
+   and instead controlling (i.e. pause/resume) the 'netio' module through 'netio_controller' module.

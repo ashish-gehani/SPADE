@@ -27,27 +27,28 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Execute {
+/**
+ * Convenience class for executing a given command.
+ */
+public class Execute{
 	
 	private static Logger logger = Logger.getLogger(Execute.class.getName());
 	
-	private static final String PREFIX_STDOUT = "[STDOUT]",
-			PREFIX_STDERR = "[STDERR]";
-
-	public static List<String> getOutput(final String command) throws Exception{
+	public static Output getOutput(final String command) throws Exception{
+		
+		final Output output = new Output(command);
 		
 		Process process = Runtime.getRuntime().exec(command);
 		
 		final BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 		final BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-		final List<String> lines = new ArrayList<String>();
 		
 		Thread stdoutThread = new Thread(new Runnable(){
 			public void run(){
 				try{
 					String line = null;
 					while((line = stdoutReader.readLine()) != null){
-						lines.add(PREFIX_STDOUT+"\t" + line);
+						output.stdOut.add(line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDOUT for command: " +command, e);
@@ -60,7 +61,7 @@ public class Execute {
 				try{
 					String line = null;
 					while((line = stderrReader.readLine()) != null){
-						lines.add(PREFIX_STDERR+"\t" + line);
+						output.stdErr.add(line);
 					}
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Error reading STDERR for command: " +command, e);
@@ -79,26 +80,57 @@ public class Execute {
 		stderrReader.close();
 		stdoutReader.close();
 		
-		return lines;
+		output.exitValue = process.exitValue();
+		
+		return output;
 	}
 	
 	/**
-	 * Used to tell if the output of a command gotten from Execute.getOutput function has errors or not
-	 * 
-	 * @param outputLines output lines received from Execute.getOutput
-	 * @return true if errors exist, otherwise false
+	 * Class that contains the output of the executed command.
 	 */
-	public static boolean containsOutputFromStderr(List<String> lines){
-		if(lines != null){
-			for(String line : lines){
-				if(line != null){
-					if(line.startsWith(PREFIX_STDERR)){
-						return true;
-					}
-				}
+	public static class Output{
+		/**
+		 * Execute command
+		 */
+		private String command;
+		/**
+		 * Exit value of the process as returned by the JVM Process class.
+		 */
+		private int exitValue;
+		/**
+		 * Standard out and standard error lines
+		 */
+		private List<String> stdOut = new ArrayList<String>(), 
+				stdErr = new ArrayList<String>();
+		
+		private Output(String command){
+			this.command = command;
+		}
+		/**
+		 * Not necessary that a negative value indicates error.
+		 * Needs to be checked for every command that the following condition is true.
+		 * 
+		 * Note: Can't also use size of standard error because it can contain warnings
+		 * @return true (if exitValue >= 0) else false
+		 */
+		public boolean exitValueIndicatesError(){
+			return exitValue < 0;
+		}
+		public List<String> getStdOut(){
+			return stdOut;
+		}
+		public List<String> getStdErr(){
+			return stdErr;
+		}
+		public void log(){
+			if(exitValueIndicatesError()){
+				logger.log(Level.SEVERE, "Command \"{0}\" failed with error: {1}.", new Object[]{
+						command, getStdErr()});
+			}else{
+				logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
+						command, getStdOut()
+				});
 			}
 		}
-		return false;
 	}
-	
 }
