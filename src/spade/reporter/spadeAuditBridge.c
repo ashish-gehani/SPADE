@@ -55,7 +55,6 @@ char filePath[256];
 char dirPath[256];
 char dirTimeBuf[256];
 time_t dirTime = 0;
-int *thread_create_time;
 
 // UBSI Unit analysis
 #include <assert.h>
@@ -71,9 +70,16 @@ typedef int bool;
 #define true 1
 #define false 0
 
+// A struct to keep time as reported in audit log. Upto milliseconds.
+// Doing it this way because double and long values don't seem to work with uthash in the structs where needed
+typedef struct thread_time_t{
+	int seconds;
+	int milliseconds;
+} thread_time_t;
+
 typedef struct thread_unit_t {
 		int tid;
-		int threadtime; // thread start time in second.
+		thread_time_t thread_time; // thread create time. seconds and milliseconds.
 		int loopid; // loopid. in the output, we call this unitid.
 		int iteration;
 		double timestamp; // loop start time. Not iteration start.
@@ -98,7 +104,7 @@ typedef struct mem_unit_t {
 
 typedef struct thread_t {
 		int tid; // pid in auditlog which is actually thread_id.
-		int time; // thread creation time in second. uthash_t cannot handle double (or long) in a key structure.
+		thread_time_t thread_time; // thread create time. seconds and milliseconds.
 } thread_t;
 
 typedef struct unit_table_t {
@@ -140,6 +146,11 @@ iteration_count_t current_time_iterations[iteration_count_buffer_size];
 // To keep track of whenever the timestamp changes on audit records
 double last_time = -1;
 
+// A list of thread start times for each pid seen being created
+thread_time_t *thread_create_time;
+// A flag to indicate that only a single file is to be processed with 'F' flag
+bool singleFile = FALSE;
+
 unit_table_t *unit_table;
 event_buf_t *event_buf;
 
@@ -159,6 +170,7 @@ void print_usage(char** argv) {
 		printf("  -s, --socket              socket name\n");
 		printf("  -w, --wait-for-end        continue processing till the end of the log is reached\n");
 		printf("  -f, --files               a filename that has a list of log files to process\n");  
+		printf("  -F, --file				single file to process\n");  
 		printf("  -d, --dir                 a directory name that contains log files\n");
 		printf("  -t, --time                timestamp. Only handle log files modified after the timestamp. \n");
 		printf("                            This option is only valid with -d option. (format: YYYY-MM-DD:HH:MM:SS,\n");
@@ -174,17 +186,18 @@ int command_line_option(int argc, char **argv)
 
 		struct option   long_opt[] =
 		{
-				{"help",          no_argument,       NULL, 'h'},
-				{"unit",          no_argument,       NULL, 'u'},
-				{"socket",        required_argument, NULL, 's'},
-				{"files",  required_argument,							NULL, 'f'},
-				{"dir",  required_argument,							NULL, 'd'},
-				{"time",  required_argument,							NULL, 't'},
-				{"wait-for-end",  no_argument,							NULL, 'w'},
-				{NULL,            0,                 NULL, 0  }
+				{"help",			no_argument,		NULL, 'h'},
+				{"unit",			no_argument,		NULL, 'u'},
+				{"socket",			required_argument,	NULL, 's'},
+				{"files",			required_argument,	NULL, 'f'},
+				{"file",			required_argument,	NULL, 'F'},
+				{"dir",				required_argument,	NULL, 'd'},
+				{"time",			required_argument,	NULL, 't'},
+				{"wait-for-end",	no_argument,		NULL, 'w'},
+				{NULL,				0,					NULL,	0}
 		};
 
-		while((c = getopt_long(argc, argv, "hus:f:d:t:w", long_opt, NULL)) != -1)
+		while((c = getopt_long(argc, argv, "hus:F:f:d:t:w", long_opt, NULL)) != -1)
 		{
 				switch(c)
 				{
@@ -196,7 +209,11 @@ int command_line_option(int argc, char **argv)
 								strncpy(filePath, optarg, 256);
 								fileRead = TRUE;
 								break;
-
+						case 'F':
+								strncpy(filePath, optarg, 256);
+								fileRead = TRUE;
+								singleFile = TRUE;
+								break;
 						case 'd':
 								strncpy(dirPath, optarg, 256);
 								dirRead = TRUE;
@@ -296,6 +313,23 @@ void read_log(FILE *fp, char* filepath)
 
 void read_file_path()
 {
+	// If 'F' flag was passed
+	if(singleFile == TRUE){
+		
+		FILE *log_fp;
+		fprintf(stderr, "reading a log file: %s", filePath);
+		
+		log_fp = fopen(filePath, "r");
+		if(log_fp == NULL) {
+				fprintf(stderr, "file open error: %s", filePath);
+		}
+
+		read_log(log_fp, filePath);
+		fclose(log_fp);
+		UBSI_buffer_flush();
+		
+	}else{ // If 'f' flag was passed
+	
 		FILE *fp = fopen(filePath, "r");
 		FILE *log_fp;
 		char tmp[1024];
@@ -323,6 +357,7 @@ void read_file_path()
 
 		UBSI_buffer_flush();
 		fclose(fp);
+	}
 }
 
 ino_t find_next_file(time_t time, ino_t cur_inode)
@@ -484,9 +519,10 @@ int main(int argc, char *argv[]) {
 
 		max_pid = get_max_pid() + 1;
 		max_pid = max_pid*2;
-		thread_create_time = (int*) malloc(sizeof(int)*max_pid);
+		thread_create_time = (thread_time_t*) malloc(sizeof(thread_time_t)*max_pid);
 		for(i = 0; i < max_pid; i++) {
-				thread_create_time[i] = 0;
+				thread_create_time[i].seconds = 0;
+				thread_create_time[i].milliseconds = 0;
 		}
 
 		if(socketRead) socket_read(programName);
@@ -548,7 +584,8 @@ void reset_current_time_iteration_counts(){
 bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 {
 		if(u1.tid == u2.tid && 
-				 u1.threadtime == u2.threadtime &&
+				 u1.thread_time.seconds == u2.thread_time.seconds &&
+				 u1.thread_time.milliseconds == u2.thread_time.milliseconds &&
 					u1.loopid == u2.loopid &&
 					u1.iteration == u2.iteration &&
 					u1.timestamp == u2.timestamp &&
@@ -557,30 +594,58 @@ bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 		return false;
 }
 
-int get_timestamp_int(char *buf)
+void get_time_and_eventid(char *buf, double *time, long *eventId)
 {
+		// Expected string format -> "type=<TYPE> msg=audit(<TIME>:<EVENTID>): ...."
 		char *ptr;
-		int time;
 
 		ptr = strstr(buf, "(");
-		if(ptr == NULL) return 0;
+		if(ptr == NULL) return;
 
-		sscanf(ptr+1, "%d", &time);
+		sscanf(ptr+1, "%lf:%ld", time, eventId);
 
-		return time;
+		return;
+
 }
 
-double get_timestamp(char *buf)
-{
+double get_timestamp_double(char *buf){
 		char *ptr;
 		double time;
-
 		ptr = strstr(buf, "(");
 		if(ptr == NULL) return 0;
 
 		sscanf(ptr+1, "%lf", &time);
 
 		return time;
+}
+
+void get_timestamp(char *buf, int* seconds, int* millis)
+{
+		char *ptr;
+// record format: 'type=X msg=audit(123.456:890): ...' OR 'type=X msg=ubsi(123.456:890): ...'
+		ptr = strstr(buf, "(");
+		if(ptr == NULL){
+			*seconds = -1;
+			*millis = -1;
+		}else{
+			sscanf(ptr+1, "%d", seconds);
+			
+			ptr = strstr(buf, ".");
+			if(ptr == NULL){
+				*seconds = -1;
+				*millis = -1;
+			}else{
+				sscanf(ptr+1, "%d", millis);
+			}
+		}
+}
+
+// Reads timestamp from audit record and then sets the seconds and milliseconds to the thread_time struct ref passed
+void set_thread_time(char *buf, thread_time_t* thread_time)
+{
+		get_timestamp(buf, &thread_time->seconds, &thread_time->milliseconds);
+		//thread_time->seconds = (int)time;
+		//thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
 }
 
 long get_eventid(char* buf){
@@ -609,8 +674,8 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 		
 		rc = printf("%s", buf);
 		if(print_unit) {
-				rc += printf(" unit=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d) "
-							,ut->cur_unit.tid, ut->thread.time, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
+				rc += printf(" unit=(pid=%d thread_time=%d.%d unitid=%d iteration=%d time=%.3lf count=%d) "
+							,ut->cur_unit.tid, ut->thread.thread_time.seconds, ut->thread.thread_time.milliseconds, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
 		if(print_proc) {
@@ -668,11 +733,16 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		}
 }
 
-void loop_exit(unit_table_t *unit)
+void loop_exit(unit_table_t *unit, char *buf)
 {
 		char tmp[10240];
+		double time;
+		long eventId;
 
-		sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
+		get_time_and_eventid(buf, &time, &eventId);
+		// Adding extra space at the end of UBSI_EXIT string below because last character is overwritten with NULL char
+		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
+		//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 		emit_log(unit, tmp, false, true);
 		unit->valid = false;
 }
@@ -684,7 +754,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		double time;
 		long eventid;
 
-		time = get_timestamp(buf);
+		time = get_timestamp_double(buf);
 		eventid = get_eventid(buf);
 
 		if(last_time == -1){
@@ -710,7 +780,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
 		
-		sprintf(tmp, "type=UBSI_ENTRY msg=(%.3f:%ld): ", time, eventid);
+		sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
 		emit_log(unit, tmp, true, true);
 }
 
@@ -761,7 +831,10 @@ void proc_group_end(unit_table_t *unit)
 		unit_table_t *pt;
 
 		if(pid != unit->thread.tid) {
-				thread_t th;  th.tid = pid; th.time = thread_create_time[pid];
+				thread_t th;  
+				th.tid = pid; 
+				th.thread_time.seconds = thread_create_time[pid].seconds;
+				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				proc_end(pt);
@@ -800,7 +873,10 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 		unit_table_t *pt;
 		if(pid == ut->thread.tid) pt = ut;
 		else {
-				thread_t th;  th.tid = pid; th.time = thread_create_time[pid];
+				thread_t th;  
+				th.tid = pid; 
+				th.thread_time.seconds = thread_create_time[pid].seconds;
+				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
@@ -827,10 +903,15 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 		int pid = ut->pid;
 		unit_table_t *pt;
 		char tmp[2048];
+		double time;
+		long eventId;
 
 		if(pid == ut->thread.tid) pt = ut;
 		else {
-				thread_t th;  th.tid = pid; th.time = thread_create_time[pid];
+				thread_t th;  
+				th.tid = pid; 
+				th.thread_time.seconds = thread_create_time[pid].seconds;
+				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
@@ -853,8 +934,10 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
-						sprintf(tmp, "type=UBSI_DEP dep=(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d), "
-								,lt->id.tid, lt->id.threadtime, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
+
+						get_time_and_eventid(buf, &time, &eventId);
+						sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%d unitid=%d iteration=%d time=%.3lf count=%d), "
+								,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
 						emit_log(ut, tmp, true, true);
 				}
 		}
@@ -866,12 +949,14 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut = malloc(sizeof(struct unit_table_t));
 		//ut->tid = tid;
 		ut->thread.tid = tid;
-		ut->thread.time = thread_create_time[tid];
+		ut->thread.thread_time.seconds = thread_create_time[tid].seconds;
+		ut->thread.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		ut->pid = pid;
 		ut->valid = valid;
 
 		ut->cur_unit.tid = tid;
-		ut->cur_unit.threadtime = thread_create_time[tid];
+		ut->cur_unit.thread_time.seconds = thread_create_time[tid].seconds;
+		ut->cur_unit.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		ut->cur_unit.loopid = 0;
 		ut->cur_unit.iteration = 0;
 		ut->cur_unit.timestamp = 0;
@@ -890,7 +975,10 @@ void set_pid(int tid, int pid)
 		struct unit_table_t *ut;
 		int ppid;
 
-		thread_t th; th.tid = pid; th.time = thread_create_time[pid];
+		thread_t th; 
+		th.tid = pid; 
+		th.thread_time.seconds = thread_create_time[pid].seconds;
+		th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* looking for parent thread's pid */
 		//HASH_FIND_INT(unit_table, &pid, ut);  /* looking for parent thread's pid */
 
@@ -899,7 +987,9 @@ void set_pid(int tid, int pid)
 
 		ut = NULL;
 
-		th.tid = tid; th.time = thread_create_time[tid];
+		th.tid = tid; 
+		th.thread_time.seconds = thread_create_time[tid].seconds;
+		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* id already in the hash? */
 		//HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
@@ -913,7 +1003,10 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 {
 		int isNewUnit = 0;
 		struct unit_table_t *ut;
-		thread_t th;  th.tid = tid; th.time = thread_create_time[tid];
+		thread_t th;
+		th.tid = tid; 
+		th.thread_time.seconds = thread_create_time[tid].seconds;
+		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
 		//HASH_FIND_INT(unit_table, &tid, ut);
 
@@ -931,7 +1024,7 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 						if(isNewUnit == false)
 						{
 								unit_end(ut, a1);
-								loop_exit(ut);
+								loop_exit(ut, buf);
 						}
 						break;
 				case MREAD1:
@@ -962,7 +1055,10 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 
 		struct unit_table_t *ut;
 
-		thread_t th;  th.tid = tid; th.time = thread_create_time[tid];
+		thread_t th;  
+		th.tid = tid; 
+		th.thread_time.seconds = thread_create_time[tid].seconds;
+		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
 		//HASH_FIND_INT(unit_table, &tid, ut);
 
@@ -979,7 +1075,7 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				ptr = strstr(buf, " exit=");
 				ret = strtol(ptr+6, NULL, 10);
 
-				thread_create_time[ret] = get_timestamp_int(buf); /* set thread_create_time */
+				set_thread_time(buf, &thread_create_time[ret]); /* set thread_create_time */
 				if(a2 > 0) { // thread_creat event
 						set_pid(ret, tid);
 				}
@@ -1112,28 +1208,30 @@ int UBSI_buffer(const char *buf)
 						if(strstr(event, "type=EOE") == NULL && strstr(event, "type=UNKNOWN[") == NULL && strstr(event, "type=PROCTILE") == NULL) {
 								ptr = strstr(event, ":");
 								if(ptr == NULL) {
-										id = 0;
+										id = -1; // to indicate error. it is set back to zero once it gets out of the if condition.
 										printf("ERROR: cannot parse event id.\n");
 								} else {
 										id = strtol(ptr+1, NULL, 10);
 										if(next_event_id == 0) next_event_id = id;
 								}
-								HASH_FIND_INT(event_buf, &id, eb);
-								if(eb == NULL) {
-										eb = (event_buf_t*) malloc(sizeof(event_buf_t));
-										eb->id = id;
-										//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
-										eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
-										eb->event_byte = event_byte;
-										strncpy(eb->event, event, event_byte+1);
-										HASH_ADD_INT(event_buf, id, eb);
-										if(next_event_id > id) {
-												next_event_id = id;
-										}
-								} else {
-										eb->event = (char*) realloc(eb->event, sizeof(char) * (eb->event_byte+event_byte+1));
-										strncpy(eb->event+eb->event_byte, event, event_byte+1);
-										eb->event_byte += event_byte;
+								if(id != -1){
+									HASH_FIND_INT(event_buf, &id, eb);
+									if(eb == NULL) {
+											eb = (event_buf_t*) malloc(sizeof(event_buf_t));
+											eb->id = id;
+											//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
+											eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
+											eb->event_byte = event_byte;
+											strncpy(eb->event, event, event_byte+1);
+											HASH_ADD_INT(event_buf, id, eb);
+											if(next_event_id > id) {
+													next_event_id = id;
+											}
+									} else {
+											eb->event = (char*) realloc(eb->event, sizeof(char) * (eb->event_byte+event_byte+1));
+											strncpy(eb->event+eb->event_byte, event, event_byte+1);
+											eb->event_byte += event_byte;
+									}
 								}
 						}
 						event_start = cursor+1;

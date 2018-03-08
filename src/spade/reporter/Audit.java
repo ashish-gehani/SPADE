@@ -21,7 +21,6 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -37,11 +36,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
@@ -50,16 +47,17 @@ import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.edge.opm.Used;
-import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.ArtifactIdentifier;
 import spade.reporter.audit.ArtifactProperties;
 import spade.reporter.audit.AuditEventReader;
-import spade.reporter.audit.DescriptorManager;
+import spade.reporter.audit.BlockDeviceIdentifier;
+import spade.reporter.audit.CharacterDeviceIdentifier;
+import spade.reporter.audit.DirectoryIdentifier;
 import spade.reporter.audit.FileIdentifier;
 import spade.reporter.audit.IdentifierWithPath;
+import spade.reporter.audit.LinkIdentifier;
 import spade.reporter.audit.MemoryIdentifier;
 import spade.reporter.audit.NamedPipeIdentifier;
 import spade.reporter.audit.NetworkSocketIdentifier;
@@ -68,22 +66,19 @@ import spade.reporter.audit.SYSCALL;
 import spade.reporter.audit.UnixSocketIdentifier;
 import spade.reporter.audit.UnknownIdentifier;
 import spade.reporter.audit.UnnamedPipeIdentifier;
+import spade.reporter.audit.process.ProcessManager;
+import spade.reporter.audit.process.ProcessWithAgentManager;
+import spade.reporter.audit.process.ProcessWithoutAgentManager;
 import spade.utility.BerkeleyDB;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.utility.Hasher;
-import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
 /**
- *
- * IMPORTANT NOTE: To output OPM objects just once, use putProcess and putArtifact functions 
- * because they take care of that using internal data structures but more importantly those functions
- * contains the logic on how to create processes and artifacts which MUST be kept consistent across a run.
- *
  * @author Dawood Tariq, Sharjeel Ahmed Qureshi
  */
 public class Audit extends AbstractReporter {
@@ -92,13 +87,6 @@ public class Audit extends AbstractReporter {
 
 	/********************** LINUX CONSTANTS - START *************************/
 	
-	//  Following constant values are taken from:
-	//  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
-	//  AND  
-	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
-	private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100,
-			CLONE_FILES = 0x00000400;
-
 	//  Following constant values are taken from:
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/stat.h#L14
 	private final int S_IFIFO = 0010000, S_IFREG = 0100000, S_IFSOCK = 0140000,
@@ -126,22 +114,13 @@ public class Audit extends AbstractReporter {
 	private final int F_DUPFD_CLOEXEC = F_LINUX_SPECIFIC_BASE + 6;
 	// Source of following: http://elixir.free-electrons.com/linux/latest/source/include/uapi/asm-generic/errno.h#L97
 	private final int EINPROGRESS = -115;
+	// Source: http://elixir.free-electrons.com/linux/latest/source/include/linux/net.h#L65
+	private final int SOCK_STREAM = 1, SOCK_DGRAM = 2;
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
-	// Process map based on <pid, stack of vertices> pairs
-	private final Map<String, LinkedList<Process>> processUnitStack = new HashMap<String, LinkedList<Process>>();
-	// A set to keep track of agents seen before for deduplication
-	private final Set<String> agentHashes = new HashSet<String>();
-	// A map to keep track of pid to agent edges drawn already
-	private Map<String, Set<String>> pidToAgentEdgeHashes = new HashMap<String, Set<String>>();
-	// File descriptor manager
-	private final DescriptorManager descriptors = new DescriptorManager();
-	//pid to set of process hashes seen so far. Used to check if a process vertex has been added to internal buffer before or not
-	private Map<String, Set<String>> pidToProcessHashes = new HashMap<String, Set<String>>();
-	//A map to keep track of thread group ids for pids in case of clone where memory is being shared. 
-	//Pid->Tgid. NOTE: only to be used for memory artifacts
-	private final Map<String, String> pidToTgidForMemoryArtifactsOnly = new HashMap<String, String>();
+	
+	private ProcessManager processManager;
 
 	/********************** PROCESS STATE - END *************************/
 	
@@ -165,34 +144,24 @@ public class Audit extends AbstractReporter {
 			"INPUT -p udp -m state --state NEW -j AUDIT --type accept"
 			};
 	
-	private List<Artifact> networkArtifactsFromSyscalls = new ArrayList<Artifact>();
-	private List<Artifact> networkArtifactsFromNetfilter = new ArrayList<Artifact>();
+	private int matchedNetfilterSyscall = 0,
+			matchedSyscallNetfilter = 0;
 	
-	private Artifact removeNetworkArtifactSeenInList(
-			List<Artifact> list, String remoteAddress, String remotePort){
+	private List<Map<String, String>> networkAnnotationsFromSyscalls = 
+			new ArrayList<Map<String, String>>();
+	private List<Map<String, String>> networkAnnotationsFromNetfilter = 
+			new ArrayList<Map<String, String>>();
+	
+	private Map<String, String> getNetworkAnnotationsSeenInList(
+			List<Map<String, String>> list, String remoteAddress, String remotePort){
 		for(int a = 0; a < list.size(); a++){
-			Artifact artifact = list.get(a);
-			if(String.valueOf(artifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS)).equals(remoteAddress) &&
-					String.valueOf(artifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT)).equals(remotePort)){
-				list.remove(a);
-				return artifact;
+			Map<String, String> artifactAnnotation = list.get(a);
+			if(String.valueOf(artifactAnnotation.get(OPMConstants.ARTIFACT_REMOTE_ADDRESS)).equals(remoteAddress) &&
+					String.valueOf(artifactAnnotation.get(OPMConstants.ARTIFACT_REMOTE_PORT)).equals(remotePort)){
+				return artifactAnnotation;
 			}
 		}
 		return null;
-	}
-	
-	private void addNetworkArtifactToList(List<Artifact> list, Artifact artifact, String eventId){
-		list.add(artifact);
-	}
-	
-	private Artifact removeNetworkArtifactSeenInSyscall(
-			String remoteAddress, String remotePort){
-		return removeNetworkArtifactSeenInList(networkArtifactsFromSyscalls, remoteAddress, remotePort);
-	}
-	
-	private Artifact removeNetworkArtifactSeenInNetfilter(
-			String remoteAddress, String remotePort){
-		return removeNetworkArtifactSeenInList(networkArtifactsFromNetfilter, remoteAddress, remotePort);
 	}
 	
 	/********************** NETFILTER - END *************************/
@@ -206,6 +175,7 @@ public class Audit extends AbstractReporter {
 	private Boolean ARCH_32BIT = true;
 	
 	// These are the default values
+	private boolean FAIL_FAST = true;
 	private boolean USE_READ_WRITE = false;
 	private boolean USE_SOCK_SEND_RCV = false;
 	private boolean CREATE_BEEP_UNITS = false;
@@ -233,7 +203,13 @@ public class Audit extends AbstractReporter {
 			KEEP_PATH_PERMISSIONS = true,
 			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 	private boolean ANONYMOUS_MMAP = true;
-	private boolean NETFILTER_HANDLING = false;
+	private boolean NETFILTER_RULES = false;
+	private boolean REFINE_NET = false;
+	private String ADD_KM_KEY = "localEndpoints";
+	private boolean ADD_KM; // Default value set where flags are being initialized from arguments (unlike the variables above).
+	private String HANDLE_KM_RECORDS_KEY = "handleLocalEndpoints";
+	// Handle the flag below with care!
+	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private String spadeAuditBridgeProcessPid = null;
@@ -244,11 +220,33 @@ public class Audit extends AbstractReporter {
 	
 	private final long PID_MSG_WAIT_TIMEOUT = 1 * 1000;
 	
+	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
+	
+	private final String kernelModulePath = "lib/kernel-modules/netio.ko";
+	private final String kernelModuleControllerPath = "lib/kernel-modules/netio_controller.ko";
+	
+	private static final String PROTOCOL_NAME_UDP = "udp",
+			PROTOCOL_NAME_TCP = "tcp";
 	private final String IPV4_NETWORK_SOCKET_SADDR_PREFIX = "02";
 	private final String IPV6_NETWORK_SOCKET_SADDR_PREFIX = "0A";
 	private final String UNIX_SOCKET_SADDR_PREFIX = "01";
+	private final String NETLINK_SOCKET_SADDR_PREFIX = "10";
 	
-	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
+	private boolean isNetlinkSaddr(String saddr){
+		return saddr != null && saddr.startsWith(NETLINK_SOCKET_SADDR_PREFIX);
+	}
+	private boolean isUnixSaddr(String saddr){
+		return saddr != null && saddr.startsWith(UNIX_SOCKET_SADDR_PREFIX);
+	}
+	private boolean isNetworkSaddr(String saddr){
+		return saddr != null && (isIPv4Saddr(saddr) || isIPv6Saddr(saddr));
+	}
+	private boolean isIPv4Saddr(String saddr){
+		return saddr != null && saddr.startsWith(IPV4_NETWORK_SOCKET_SADDR_PREFIX);
+	}
+	private boolean isIPv6Saddr(String saddr){
+		return saddr != null && saddr.startsWith(IPV6_NETWORK_SOCKET_SADDR_PREFIX);
+	}
 	
 	/**
 	 * Returns a map which contains all the keys and values defined 
@@ -322,39 +320,6 @@ public class Audit extends AbstractReporter {
 	}
 	
 	/**
-	 * A convenience function to check if the given filepath exists or not.
-	 * 
-	 * Suppresses the exception.
-	 * 
-	 * @param filePath path of the file/dir to check for existence
-	 * @return true (if exists) / false (if doesn't exist)
-	 */
-	private boolean fileExists(String filePath){
-		try{
-			return new File(filePath).exists();
-		}catch(Exception e){
-			return false;
-		}
-	}
-	
-	/**
-	 * A convenience function to see if the given filepath can be created.
-	 * 
-	 * Not a permissions check. Just checks if the parent directory of the given
-	 * path exists or not.
-	 * 
-	 * @param filepath path of the file/dir to check
-	 * @return true (if parent dir exists)/ false(if parent dir doesn't exist)
-	 */
-	private boolean fileCanBeCreated(String filepath){
-		try{
-			return new File(filepath).getParentFile().exists();
-		}catch(Exception e){
-			return false;
-		}
-	}
-	
-	/**
 	 * Returns true if the argument is null, true, false, 1, 0, yes or no.
 	 * Else returns false.
 	 * 
@@ -401,7 +366,15 @@ public class Audit extends AbstractReporter {
 	 * @return true if all flags had valid values / false if any of the flags had a non-boolean value
 	 */
 	private boolean initFlagsFromArguments(Map<String, String> args){
-		String argValue = args.get("fileIO");
+		String argValue = args.get("failfast");
+		if(isValidBoolean(argValue)){
+			FAIL_FAST = parseBoolean(argValue, FAIL_FAST);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'failfast': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("fileIO");
 		if(isValidBoolean(argValue)){
 			USE_READ_WRITE = parseBoolean(argValue, USE_READ_WRITE);
 		}else{
@@ -595,46 +568,77 @@ public class Audit extends AbstractReporter {
 		
 		argValue = args.get("netfilter");
 		if(isValidBoolean(argValue)){
-			NETFILTER_HANDLING = parseBoolean(argValue, NETFILTER_HANDLING);
+			NETFILTER_RULES = parseBoolean(argValue, NETFILTER_RULES);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'netfilter': " + argValue);
 			return false;
 		}
 		
-		return true;
-	}
-	
-	/**
-	 * Get the system boottime from /proc/stat
-	 * 
-	 * Returns null if failed to get it.
-	 * @return Boot time as Long (can be null)
-	 */
-	private Long getBootTime(){
-		// Get system boot time from /proc/stat. This is later used to determine
-		// the start time for processes.
-		BufferedReader boottimeReader = null;
-		try {
-			boottimeReader = new BufferedReader(new FileReader("/proc/stat"));
-			String line;
-			while ((line = boottimeReader.readLine()) != null) {
-				StringTokenizer st = new StringTokenizer(line);
-				if (st.nextToken().equals("btime")) {
-					return Long.parseLong(st.nextToken()) * 1000;
-				}
+		argValue = args.get("refineNet");
+		if(isValidBoolean(argValue)){
+			REFINE_NET = parseBoolean(argValue, REFINE_NET);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'refineNet': " + argValue);
+			return false;
+		}
+		
+		// Setting default values here instead of where variables are defined because default values for KM vars depend
+		// on whether the data is live or playback.
+		boolean logPlayback = argsSpecifyLogPlayback(args);
+		String addKmArgValue = args.get(ADD_KM_KEY);
+		String handleKmArgValue = args.get(HANDLE_KM_RECORDS_KEY);
+		if(logPlayback){ // Can't use isLiveAudit flag because not set yet.
+			// default values
+			ADD_KM = false; // Doesn't matter for log playback so always false.
+			if("true".equals(handleKmArgValue)){
+				HANDLE_KM_RECORDS = true;
+			}else if("false".equals(handleKmArgValue)){
+				HANDLE_KM_RECORDS = false;
+			}else if(handleKmArgValue == null){
+				HANDLE_KM_RECORDS = null; // To be decided by the first network related record
+			}else{
+				logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KM_RECORDS_KEY+"': " + argValue);
+				return false;
 			}
-		} catch (IOException | NumberFormatException e) {
-			logger.log(Level.WARNING, "Error reading boot time information from /proc/", e);
-		}finally{
-			if(boottimeReader != null){
-				try{
-					boottimeReader.close();
-				}catch(Exception e){
-					// ignore
-				}
+		}else{ // live audit
+			// Default values
+			ADD_KM = false;
+			
+			// Parsing the values for the KM vars after the default values have be set appropriately (see above)
+			if(isValidBoolean(addKmArgValue)){
+				ADD_KM = parseBoolean(addKmArgValue, ADD_KM);
+			}else{
+				logger.log(Level.SEVERE, "Invalid flag value for '"+ADD_KM_KEY+"': " + addKmArgValue);
+				return false;
+			}
+			
+			// If added modules then also must handle. If not added then cannot handle.
+			HANDLE_KM_RECORDS = ADD_KM;
+		}
+		
+		if((ADD_KM && NETFILTER_RULES) // both can't be true
+				|| ((HANDLE_KM_RECORDS != null && HANDLE_KM_RECORDS) && REFINE_NET)){ // both can't be true
+			logger.log(Level.SEVERE, "Incompatible flags value (Can only handle data from either module or iptables): "
+					+ "netfilter={0}, refineNet={1}, {2}={3}, {4}={5}", 
+					new Object[]{NETFILTER_RULES, REFINE_NET, ADD_KM_KEY,
+							ADD_KM, HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS});
+			return false;
+		}else{
+			if(ADD_KM && (HANDLE_KM_RECORDS != null && !HANDLE_KM_RECORDS)){
+				logger.log(Level.SEVERE, "Must handle kernel module data if kernel module added.");
+				return false;
+			}else{
+				// Logging only relevant flags now for debugging
+				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
+						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS,
+								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
+								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
+								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
+								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS});
+				return true;
 			}
 		}
-		return null;
 	}
 	
 	/**
@@ -647,7 +651,7 @@ public class Audit extends AbstractReporter {
 	 * @return true/false
 	 */
 	private boolean setupTempDirectory(String tempDirectoryPath){
-		if(fileExists(tempDirectoryPath)){
+		if(FileUtility.fileExists(tempDirectoryPath)){
 			return true;
 		}else{
 			try{
@@ -709,7 +713,7 @@ public class Audit extends AbstractReporter {
 			//name is the name of the file passed in as argument
 			//can only process 99 logs
 			for(int logCount = 1; logCount<=99; logCount++){
-				if(fileExists(inputAuditLogFilePath + "." + logCount)){
+				if(FileUtility.fileExists(inputAuditLogFilePath + "." + logCount)){
 					inputAuditLogFiles.addFirst(inputAuditLogFilePath + "." + logCount); 
 					//adding first so that they are added in the reverse order
 				}
@@ -718,25 +722,33 @@ public class Audit extends AbstractReporter {
 		return inputAuditLogFiles;
 	}
 	
-	private void doCleanup(boolean isLiveAudit, String rulesType, String logListFile){
+	private void doCleanup(String rulesType, String logListFile){
 		if(isLiveAudit){
 			if(!"none".equals(rulesType)){
 				removeAuditctlRules();
 			}
-			if(NETFILTER_HANDLING){
+			if(NETFILTER_RULES){
 				removeIptablesRules(iptablesRules);
 			}
+			if(ADD_KM){
+				removeNetworkKernelModule(kernelModuleControllerPath);
+			}
 		}else{
-			deleteFile(logListFile);
+			if(FileUtility.fileExists(logListFile)){
+				FileUtility.deleteFile(logListFile);
+			}
 		}
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			deleteCacheMaps();
 		}
 	}
 	
+	private boolean argsSpecifyLogPlayback(Map<String, String> args){
+		return args.containsKey("inputDir") || args.containsKey("inputLog");
+	}
+	
 	@Override
 	public boolean launch(String arguments) {
-
 		String spadeAuditBridgeBinaryName = null;
 		String spadeAuditBridgeBinaryPath = null;
 		String outputLogFilePath = null;
@@ -755,7 +767,7 @@ public class Audit extends AbstractReporter {
 
 		// Get path of spadeAuditBridge binary from the config file
 		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");		
-		if(!fileExists(spadeAuditBridgeBinaryPath)){
+		if(!FileUtility.fileExists(spadeAuditBridgeBinaryPath)){
 			logger.log(Level.SEVERE, "Must specify a valid 'spadeAuditBridge' key in config");
 			return false;
 		}
@@ -768,10 +780,16 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
+		if(AGENTS){
+			processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+		}else{
+			processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+		}
+		
 		// Check if the outputLog argument is valid or not
 		outputLogFilePath = argsMap.get("outputLog");
 		if(outputLogFilePath != null){
-			if(!fileCanBeCreated(outputLogFilePath)){
+			if(!FileUtility.fileCanBeCreated(outputLogFilePath)){
 				logger.log(Level.SEVERE, "Invalid path for 'outputLog' : " + outputLogFilePath);
 				return false;
 			}else{
@@ -792,7 +810,7 @@ public class Audit extends AbstractReporter {
 
 		String inputLogDirectoryArgument = argsMap.get("inputDir");
 		String inputAuditLogFileArgument = argsMap.get("inputLog");
-		if(inputAuditLogFileArgument != null || inputLogDirectoryArgument != null){
+		if(argsSpecifyLogPlayback(argsMap)){
 			// is log playback
 			isLiveAudit = false;
 			
@@ -809,7 +827,7 @@ public class Audit extends AbstractReporter {
 			
 			if(inputAuditLogFileArgument != null){
 			
-				if(!fileExists(inputAuditLogFileArgument)){
+				if(!FileUtility.fileExists(inputAuditLogFileArgument)){
 					logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
 										+ inputAuditLogFileArgument);
 					return false;
@@ -904,7 +922,7 @@ public class Audit extends AbstractReporter {
 			}
 			
 			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
-			rulesType = argsMap.get("rules");
+			rulesType = argsMap.get("syscall");
 			if(rulesType != null && !rulesType.equals("none") && !rulesType.equals("all")){
 				logger.log(Level.SEVERE, "Invalid value for 'rules' argument: " + rulesType);
 				return false;
@@ -917,78 +935,142 @@ public class Audit extends AbstractReporter {
 			
 		}
 		
+		// used to identify failure and do cleanup.
+		boolean success = true;
+		
 		// Initialize cache data structures
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			if(!initCacheMaps(configMap)){
-				return false;
+				success = false;
 			}
 		}
 		
-		try{
-			
+		if(success){
 			if(isLiveAudit){
-				if(NETFILTER_HANDLING){
-					if(!setIptablesRules(iptablesRules)){
-						return false;
+				// if live audit and no km but handling records then error
+				if(!ADD_KM && HANDLE_KM_RECORDS){ // in case of live audit HANDLE_KM_RECORDS will never be null
+					logger.log(Level.SEVERE, "Can't handle kernel module data without kernel module added for Live Audit");
+					success = false;
+				}
+			}
+		}
+		
+		if(success){
+			try{
+				
+				java.lang.Process spadeAuditBridgeProcess = runSpadeAuditBridge(spadeAuditBridgeCommand);
+				
+				Thread errorReaderThread = getErrorStreamReaderForProcess(spadeAuditBridgeBinaryName, 
+						spadeAuditBridgeProcess.getErrorStream());
+				errorReaderThread.start();
+				
+				AuditEventReader auditEventReader = getAuditEventReader(spadeAuditBridgeCommand,
+						spadeAuditBridgeProcess.getInputStream(), outputLogFilePath,
+						recordsToRotateOutputLogAfter);
+				
+				Thread auditEventReaderThread = getAuditEventReaderThread(spadeAuditBridgeBinaryName, 
+						auditEventReader, 
+						isLiveAudit, rulesType, logListFile);
+				auditEventReaderThread.start();
+				
+				try{ Thread.sleep(PID_MSG_WAIT_TIMEOUT); }catch(Exception e){}
+				
+				if(spadeAuditBridgeProcessPid == null){
+					// still didn't get the pid that means the process didn't start successfully
+					logger.log(Level.SEVERE, "Process didn't start successfully");
+					success = false;
+				}
+				
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to start Audit", e);
+				success = false;
+			}
+		}
+		
+		if(success){
+			if(isLiveAudit){
+				
+				if(success){
+					if(ADD_KM || NETFILTER_RULES || rulesType == null || rulesType.equals("all")){
+						String uid = null;
+						boolean ignoreUid; // if true then exclude the user else only include the given user
+						String argsUsername = argsMap.get("user");
+						if(argsUsername == null){
+							ignoreUid = true;
+							uid = getOwnUid();
+						}else{
+							ignoreUid = false;
+							uid = checkIfValidUsername(argsUsername);
+						}
+						if(uid != null){
+							String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
+							List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
+							if(pidsToIgnore != null){
+								List<String> ppidsToIgnore = new ArrayList<String>(pidsToIgnore); // same as pids
+								List<String> pidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreProcesses");
+								List<String> ppidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreParentProcesses");
+								if(pidsToIgnoreFromConfig != null){ // optional
+									pidsToIgnore.addAll(pidsToIgnoreFromConfig);
+									logger.log(Level.INFO, "Ignoring pids from config {0} for processes with names: {1}",
+											new Object[]{pidsToIgnoreFromConfig, configMap.get("ignoreProcesses")});
+								}
+								if(ppidsToIgnoreFromConfig != null){ // optional
+									ppidsToIgnore.addAll(ppidsToIgnoreFromConfig);
+									logger.log(Level.INFO, "Ignoring ppids from config {0} for processes with names: {1}",
+											new Object[]{ppidsToIgnoreFromConfig, configMap.get("ignoreParentProcesses")});
+								}
+								
+								if(ADD_KM){
+									success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
+											uid, ignoreUid, pidsToIgnore, ppidsToIgnore, USE_SOCK_SEND_RCV);
+								}
+								if(success){
+									if(NETFILTER_RULES){
+										success = setIptablesRules(iptablesRules);
+									}
+									if(success){
+										success = setAuditControlRules(rulesType, uid, ignoreUid, pidsToIgnore, 
+												ppidsToIgnore, ADD_KM);
+									}
+								}
+							}else{
+								success = false;
+							}
+						}else{
+							success = false;
+						}
 					}
 				}
-				if(!setAuditControlRules(rulesType, spadeAuditBridgeBinaryName)){
-					removeIptablesRules(iptablesRules); // remove iptables rules too before exiting
-					// call doCleanup instead of manually doing this. TODO
-					return false;
-				}
 			}
-			
-			// Letting NPE to be thrown in case some object's initialization fails
-			java.lang.Process spadeAuditBridgeProcess = runSpadeAuditBridge(spadeAuditBridgeCommand);
-
-			Thread errorReaderThread = getErrorStreamReaderForProcess(spadeAuditBridgeBinaryName, 
-					spadeAuditBridgeProcess.getErrorStream());
-			errorReaderThread.start();
-			
-			AuditEventReader auditEventReader = getAuditEventReader(spadeAuditBridgeCommand,
-					spadeAuditBridgeProcess.getInputStream(), outputLogFilePath,
-					recordsToRotateOutputLogAfter);
-			
-			if(auditEventReader == null){
-				throw new Exception("Null audit event reader");
-			}
-			
-			Thread auditEventReaderThread = getAuditEventReaderThread(spadeAuditBridgeBinaryName, 
-					auditEventReader, 
-					isLiveAudit, rulesType, logListFile);
-			auditEventReaderThread.start();
-			
-			try{
-				Thread.sleep(PID_MSG_WAIT_TIMEOUT);
-			}catch(Exception e){
-				// ignore
-			}
-			
-			if(spadeAuditBridgeProcessPid == null){
-				// still didn't get the pid that means the process didn't start successfully
-				throw new Exception("Process didn't start successfully");
-			}
-			
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to start Audit", e);
-			doCleanup(isLiveAudit, rulesType, logListFile);
-			return false;
 		}
 		
-		return true;
-	}
-	
-	private boolean deleteFile(String filepath){
-		try{
-			
-			FileUtils.forceDelete(new File(filepath));
+		if(success){
 			return true;
-			
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to delete file " + filepath, e);
+		}else{
+			// The spadeAuditBridge might have started
+			if(spadeAuditBridgeProcessPid != null){
+				sendSignalToPid(spadeAuditBridgeProcessPid, "2");
+			}
+			doCleanup(rulesType, logListFile);
 			return false;
 		}
+	}
+	
+	private List<String> getPidsFromConfig(Map<String, String> configMap, String processNamesKey){
+		if(configMap != null && processNamesKey != null){
+			String processNames = configMap.get(processNamesKey);
+			if(processNames != null){
+				processNames = processNames.trim();
+				if(!processNames.isEmpty()){
+					// The value is comma-separated. Replacing ',' with ' ' because that is the format
+					// expected by the 'pidof' command.
+					processNames = processNames.replace(',', ' ');
+					List<String> pids = listOfPidsToIgnore(processNames); // Can return null;
+					return pids;
+				}
+			}
+		}
+		return null;
 	}
 	
 	private AuditEventReader getAuditEventReader(String spadeAuditBridgeCommand, 
@@ -999,7 +1081,7 @@ public class Audit extends AbstractReporter {
 		try{
 			// Create the audit event reader using the STDOUT of the spadeAuditBridge process
 			AuditEventReader auditEventReader = new AuditEventReader(spadeAuditBridgeCommand, 
-					stdoutStream);
+					stdoutStream, FAIL_FAST);
 			if(outputLogFilePath != null){
 				auditEventReader.setOutputLog(outputLogFilePath, recordsToRotateOutputLogAfter);
 			}
@@ -1069,7 +1151,9 @@ public class Audit extends AbstractReporter {
 				eventReaderThreadRunning = true;
 				
 				if(isLiveAudit){
-					buildProcFSTree();
+					if(PROCFS){
+						processManager.putProcessesFromProcFs();
+					}
 				}
 				
 				try{
@@ -1091,7 +1175,7 @@ public class Audit extends AbstractReporter {
 				
 				// Sent a signal to the process in shutdown to stop reading.
 				// That's why here.
-				doCleanup(isLiveAudit, rulesType, logListFile);
+				doCleanup(rulesType, logListFile);
 				logger.log(Level.INFO, "Exiting event reader thread for process: " + processName);
 				eventReaderThreadRunning = false;
 			}
@@ -1114,46 +1198,199 @@ public class Audit extends AbstractReporter {
 		try{
 			for(String iptablesRule : iptablesRules){
 				String executeCommand = "iptables -I " + iptablesRule;
-				List<String> lines = Execute.getOutput(executeCommand);
-				if(Execute.containsOutputFromStderr(lines)){
-					throw new Exception(String.valueOf(lines));
+				Execute.Output output = Execute.getOutput(executeCommand);
+				output.log();
+				if(output.exitValueIndicatesError()){
+					return false;
 				}
 			}
-			logger.log(Level.INFO, "Configured iptables rules: {0}", Arrays.asList(iptablesRules));
 			return true;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to set iptable rules", e);
-			removeIptablesRules(iptablesRules);
 			return false;
 		}
 	}
 	
 	private boolean removeIptablesRules(String [] iptablesRules){
 		try{
+			boolean allRemoved = true;
 			for(String iptablesRule : iptablesRules){
 				String executeCommand = "iptables -D " + iptablesRule;
-				List<String> lines = Execute.getOutput(executeCommand);
-				if(Execute.containsOutputFromStderr(lines)){
-					throw new Exception(String.valueOf(lines));
-				}
+				Execute.Output output = Execute.getOutput(executeCommand);
+				output.log();
+				allRemoved = allRemoved || !output.exitValueIndicatesError();
 			}
-			return true;
+			return allRemoved;
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to remove iptables rule(s). Remove manually.", e);
 			return false;
 		}
 	}
 	
-	private boolean setAuditControlRules(String rulesType, String spadeAuditBridgeBinaryName){
+	private Boolean kernelModuleExists(String kernelModuleName){
+		try{
+			Execute.Output output = Execute.getOutput("lsmod");
+			if(output.exitValueIndicatesError()){
+				output.log();
+				return null;
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				for(String line : stdOutLines){
+					String[] tokens = line.split("\\s+");
+					if(tokens[0].equals(kernelModuleName)){
+						return true;
+					}
+				}
+				return false;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to check if module '"+kernelModuleName+"' exists", e);
+			return null;
+		}
+	}
+	
+	private String getKernelModuleName(String kernelModulePath){
+		if(kernelModulePath != null){
+			try{
+				String tokens[] = kernelModulePath.split("/");
+				String name = tokens[tokens.length - 1];
+				tokens = name.split("\\.");
+				name = tokens[0];
+				return name;
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to get module name for: "+ kernelModulePath, e);
+				return null;
+			}
+		}else{
+			return null;
+		}
+	}
+	
+	private boolean addKernelModule(String command){
+		try{
+			Execute.Output output = Execute.getOutput(command);
+			output.log();
+			return !output.exitValueIndicatesError();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command, e);
+			return false;
+		}
+	}
+	
+	private boolean addNetworkKernelModule(String kernelModulePath, String kernelModuleControllerPath, 
+			String uid, boolean ignoreUid, List<String> ignorePids, List<String> ignorePpids, boolean interceptSendRecv){
+		if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()
+				|| ignorePpids == null || ignorePpids.isEmpty()){
+			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids, ignorePpids});
+			return false;
+		}else{
+			if(!FileUtility.fileExists(kernelModulePath)){
+				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModulePath);
+				return false;
+			}else if(!FileUtility.fileExists(kernelModuleControllerPath)){
+				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModuleControllerPath);
+				return false;
+			}else{ // both exist
+				String kernelModuleName = getKernelModuleName(kernelModulePath);
+				if(kernelModuleName != null){
+					String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
+					if(kernelModuleControllerName != null){
+						Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
+						if(kernelModuleControllerExists != null){
+							if(kernelModuleControllerExists){
+								logger.log(Level.SEVERE, "Kernel module controller '"+kernelModuleControllerPath+"' "
+										+ "already exists.");
+								return false;
+							}else{
+								Boolean kernelModuleExists = kernelModuleExists(kernelModuleName);
+								if(kernelModuleExists != null){
+									if(kernelModuleExists == false){
+										// add the main kernel module
+										String kernelModuleAddCommand = "insmod " + kernelModulePath;
+										if(!addKernelModule(kernelModuleAddCommand)){
+											return false;
+										}
+									}
+									// add the controller kernel module
+									StringBuffer pids = new StringBuffer();
+									ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
+									pids.deleteCharAt(pids.length() - 1);// delete trailing comma
+									
+									StringBuffer ppids = new StringBuffer();
+									ignorePpids.forEach(ignorePpid -> {ppids.append(ignorePpid).append(",");});
+									ppids.deleteCharAt(ppids.length() - 1);// delete trailing comma
+									
+									String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
+									
+									String kernelModuleControllerAddCommand = 
+											String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
+											+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
+											+ "ignore_uids=\"%s\"", 
+											kernelModuleControllerPath, uid, pids, ppids,
+											interceptSendRecv ? "1" : "0", ignoreUidsArg);
+									
+									if(!addKernelModule(kernelModuleControllerAddCommand)){
+										return false;
+									}else{
+										return true;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+	
+	private boolean removeNetworkKernelModule(String kernelModuleControllerPath){
+		if(FileUtility.fileExists(kernelModuleControllerPath)){
+			String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
+			if(kernelModuleControllerName != null){
+				Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
+				if(kernelModuleControllerExists != null){
+					if(kernelModuleControllerExists){
+						// remove
+						String command = "rmmod " + kernelModuleControllerName;
+						try{
+							Execute.Output output = Execute.getOutput(command);
+							output.log();
+							return !output.exitValueIndicatesError();
+						}catch(Exception e){
+							logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command, e);
+							return false;
+						}
+					}
+				}
+			}
+		}else{
+			logger.log(Level.WARNING, "No module at path: " + kernelModuleControllerPath);
+			return false;
+		}
+		return false;
+	}
+	
+	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, 
+			List<String> ignorePpids, boolean kmAdded){
 		try {
 
+			if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()
+					|| ignorePpids == null || ignorePpids.isEmpty()){
+				logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids,
+						ignorePpids});
+				return false;
+			}
+			
 			if("none".equals(rulesType)){
 				// do nothing
 				return true;
 			}else{
 				
 				// Remove any existing audit rules
-				removeAuditctlRules();
+				if(!removeAuditctlRules()){
+					return false;
+				}
 				
 				// Set arch to use in the rules
 				String archField = "";
@@ -1162,30 +1399,42 @@ public class Audit extends AbstractReporter {
 				}else{
 					archField = "-F arch=b64 ";
 				}
-
-				// Find uid to use in rules
-				String uid = getOwnUid();
-				String uidField = "";
-				if(uid == null){
-					return false;
-				}else{
+				
+				String uidField = null;
+				if(ignoreUid){ // ignore the given uid
 					uidField = "-F uid!=" + uid + " ";
+				}else{ // only capture the given uid
+					uidField = "-F uid=" + uid + " ";
 				}
 
-				//Find pids to ignore
-				String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
-				List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
-
+				StringBuffer pidFields = new StringBuffer();
+				ignorePids.forEach(ignorePid -> {pidFields.append("-F pid!=").append(ignorePid).append(" ");});
+				
+				StringBuffer ppidFields = new StringBuffer();
+				ignorePpids.forEach(ignorePpid -> {ppidFields.append("-F ppid!=").append(ignorePpid).append(" ");});
+				
+				String pidAndPpidFields = pidFields.toString() + ppidFields.toString();
+				
 				List<String> auditRules = new ArrayList<String>();
 
 				if("all".equals(rulesType)){
-					String specialSyscallsRule = "auditctl -a exit,always ";
+
+					String netIONeverSyscallsRule = null;
+					if(kmAdded){
+						netIONeverSyscallsRule = "auditctl -a exit,never ";
+						netIONeverSyscallsRule += archField;
+						netIONeverSyscallsRule += "-S socket -S bind -S accept -S accept4 -S connect ";
+						netIONeverSyscallsRule += "-S sendmsg -S sendto -S recvmsg -S recvfrom -S sendmmsg -S recvmmsg ";
+					}
+					
+                    String specialSyscallsRule = "auditctl -a exit,always ";
 					String allSyscallsAuditRule = "auditctl -a exit,always ";
 
 					allSyscallsAuditRule += archField;
 					specialSyscallsRule += archField;
-
+					
 					allSyscallsAuditRule += "-S all ";
+					// The connect syscall rule won't be matched even if module added because the 'never' rule is before this one
 					specialSyscallsRule += "-S exit -S exit_group -S kill -S connect ";
 
 					allSyscallsAuditRule += uidField;
@@ -1193,14 +1442,12 @@ public class Audit extends AbstractReporter {
 
 					allSyscallsAuditRule += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 					
-					int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(allSyscallsAuditRule, pidsToIgnore);
-
-					List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
-					auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
-
-					String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
-					auditRules.add(specialSyscallsRule + fieldsForAuditRule);
-					auditRules.add(allSyscallsAuditRule + fieldsForAuditRule);
+					// THE NEVER RULE SHOULD ALWAYS BE THE FIRST IF IT IS INITIALIZED
+					if(kmAdded && netIONeverSyscallsRule != null){
+						auditRules.add(netIONeverSyscallsRule);
+					}
+					auditRules.add(specialSyscallsRule + pidAndPpidFields);
+					auditRules.add(allSyscallsAuditRule + pidAndPpidFields);
 
 				}else if(rulesType == null){
 
@@ -1213,13 +1460,19 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += uidField;
 					auditRuleWithoutSuccess += uidField;
 
-					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group -S connect ";
+					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group ";
+					if(!kmAdded){
+						auditRuleWithoutSuccess += "-S connect ";
+					}
 
 					if (USE_READ_WRITE) {
 						auditRuleWithSuccess += "-S read -S readv -S pread -S preadv -S write -S writev -S pwrite -S pwritev ";
 					}
-					if (USE_SOCK_SEND_RCV) {
-						auditRuleWithSuccess += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
+					if(!kmAdded){ // since km not added we don't need to log these syscalls
+						if (USE_SOCK_SEND_RCV) {
+							auditRuleWithSuccess += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
+						}
+						auditRuleWithSuccess += "-S bind -S accept -S accept4 -S socket ";
 					}
 					if (USE_MEMORY_SYSCALLS) {
 						auditRuleWithSuccess += "-S mmap -S mprotect ";
@@ -1233,7 +1486,6 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S open -S close -S creat -S openat -S mknodat -S mknod ";
 					auditRuleWithSuccess += "-S dup -S dup2 -S dup3 ";
 					auditRuleWithSuccess += "-S fcntl ";
-					auditRuleWithSuccess += "-S bind -S accept -S accept4 -S socket ";
 					auditRuleWithSuccess += "-S rename -S renameat ";
 					auditRuleWithSuccess += "-S setuid -S setreuid ";
 					auditRuleWithSuccess += "-S setgid -S setregid ";
@@ -1244,22 +1496,19 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S chmod -S fchmod -S fchmodat ";
 					auditRuleWithSuccess += "-S pipe -S pipe2 ";
 					auditRuleWithSuccess += "-S truncate -S ftruncate ";
+					auditRuleWithSuccess += "-S init_module -S finit_module ";
+					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
-					int loopFieldsForMainRuleTill = getAvailableFieldsCountInAuditRule(auditRuleWithSuccess, pidsToIgnore);
-
-					List<String> exitNeverAuditRules = buildAuditRulesForExtraPids(pidsToIgnore.subList(loopFieldsForMainRuleTill, pidsToIgnore.size()));
-					auditRules.addAll(exitNeverAuditRules); //add these '-a exit,never' first and then add the remaining rules
-
-					String fieldsForAuditRule = buildPidFieldsForAuditRule(pidsToIgnore.subList(0, loopFieldsForMainRuleTill));
-					auditRules.add(auditRuleWithoutSuccess + fieldsForAuditRule);
-					auditRules.add(auditRuleWithSuccess + fieldsForAuditRule);
+					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
+					auditRules.add(auditRuleWithSuccess + pidAndPpidFields);
 
 				}else{
 					logger.log(Level.SEVERE, "Invalid rules arguments: " + rulesType);
 					return false;
 				}
 
+				// Execute in provided order!
 				for(String auditRule : auditRules){
 					if(!executeAuditctlRule(auditRule)){
 						removeAuditctlRules();
@@ -1274,62 +1523,6 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-	}
-	
-	/**
-	 * Returns auditctl rules where a list=exit, action=never, field is either 'pid' or 'ppid' for each pid in the list
-	 * 
-	 * Example: auditctl -a exit,never -F pid=x, auditctl -a exit,never -F ppid=x
-	 * 
-	 * @param pidsToIgnore list of pids to build rules for
-	 * @return list of build rules
-	 */
-	private List<String> buildAuditRulesForExtraPids(List<String> pidsToIgnore){
-		List<String> rules = new ArrayList<String>();
-		for(String pidToIgnore : pidsToIgnore){
-			String pidIgnoreAuditRule = "auditctl -a exit,never -F pid="+pidToIgnore;
-			String ppidIgnoreAuditRule = "auditctl -a exit,never -F ppid="+pidToIgnore;
-			rules.add(pidIgnoreAuditRule);
-			rules.add(ppidIgnoreAuditRule);
-		}
-		return rules;
-	}
-
-	/**
-	 * Build pid fields portion of the auditctl rule given the list of pids
-	 * 
-	 * @param pidsToIgnore list of pids to ignore
-	 * @return pid fields portion of the auditctl rule
-	 */
-	private String buildPidFieldsForAuditRule(List<String> pidsToIgnore){
-		String pidFields = " ";
-		for(String pidToIgnore : pidsToIgnore){
-			pidFields += "-F pid!=" + pidToIgnore + " -F ppid!=" + pidToIgnore + " "; 
-		}
-		return pidFields;
-	}
-
-	/**
-	 * Given the audit rule finds out how many pids can be fit into that rule
-	 * 
-	 * NOTE: all -F flags in the rule must be already present
-	 * 
-	 * @param ruleSoFar rule with -F flags
-	 * @param pidsToIgnore list of pids to ignore
-	 * @return the count of -F fields that can be added in the rule
-	 */
-	private int getAvailableFieldsCountInAuditRule(String ruleSoFar, List<String> pidsToIgnore){
-		int maxFieldsAllowed = 64; //max allowed by auditctl command
-		//split the pre-formed rule on -F to find out the number of fields already present
-		int existingFieldsCount = ruleSoFar.split(" -F ").length - 1; 
-
-		//find out the pids & ppids that can be added to the main rule from the list of pids. divided by two to account for pid and ppid fields for the same pid
-		int fieldsForAuditRuleCount = (maxFieldsAllowed - existingFieldsCount)/2; 
-
-		//handling the case if the main rule can accommodate all pids in the list of pids to ignore 
-		int loopFieldsForMainRuleTill = Math.min(fieldsForAuditRuleCount, pidsToIgnore.size());
-
-		return loopFieldsForMainRuleTill;
 	}
 
 	private void deleteCacheMaps(){
@@ -1364,70 +1557,23 @@ public class Audit extends AbstractReporter {
 
 	private boolean executeAuditctlRule(String auditctlRule){
 		try{
-			List<String> auditctlOutput = Execute.getOutput(auditctlRule);
-			logger.log(Level.INFO, "configured audit rules: {0} with ouput: {1}", new Object[]{auditctlRule, auditctlOutput});
-			if(Execute.containsOutputFromStderr(auditctlOutput)){
-				return false;
-			}else{
-				return true;
-			}
+			Execute.Output output = Execute.getOutput(auditctlRule);
+			output.log();
+			return !output.exitValueIndicatesError();
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to add auditctl rule = " + auditctlRule, e);
+			logger.log(Level.SEVERE, "Failed to set audit rule: " + auditctlRule, e);
 			return false;
 		}
 	}
 
-	private void removeAuditctlRules(){
+	private boolean removeAuditctlRules(){
 		try{
-			logger.log(Level.INFO, "auditctl -D... output = " + Execute.getOutput("auditctl -D"));
+			Execute.Output output = Execute.getOutput("auditctl -D");
+			output.log();
+			return !output.exitValueIndicatesError();
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to remove auditctl rules", e);
-		}
-	}
-
-	private void buildProcFSTree(){
-		if(PROCFS){
-			
-			Long boottime = getBootTime();
-			if(boottime == null){
-				logger.log(Level.SEVERE, "Failed to build process information from /proc");
-			}else{
-			
-				// Build the process tree using the directories under /proc/.
-				// Directories which have a numeric name represent processes.
-				String path = "/proc";
-				java.io.File directory = new java.io.File(path);
-				java.io.File[] listOfFiles = directory.listFiles();
-				for (int i = 0; i < listOfFiles.length; i++) {
-					if (listOfFiles[i].isDirectory()) {
-	
-						String currentPID = listOfFiles[i].getName();
-						try {
-							// Parse the current directory name to make sure it is
-							// numeric. If not, ignore and continue.
-							Integer.parseInt(currentPID);
-							Process processVertex = createProcessFromProcFS(currentPID, boottime); //create
-							addProcess(currentPID, processVertex);//add to memory
-							if(!processVertexHasBeenPutBefore(processVertex)){
-								putVertex(processVertex);//add to internal buffer
-							}
-							Process parentVertex = getProcess(processVertex.getAnnotation(OPMConstants.PROCESS_PPID));
-							if (parentVertex != null) {
-								WasTriggeredBy childToParent = new WasTriggeredBy(processVertex, parentVertex);
-								putEdge(childToParent, getOperation(SYSCALL.UNKNOWN), "0", null, OPMConstants.SOURCE_PROCFS);
-							}
-	
-							// Get existing file descriptors for this process
-							Map<String, ArtifactIdentifier> fds = getFileDescriptors(currentPID);
-							if (fds != null) {
-								descriptors.addDescriptors(currentPID, fds);
-							}
-						} catch (Exception e) {
-							// Continue
-						}
-					}
-				}
-			}
+			logger.log(Level.SEVERE, "Failed to remove audit rules", e);
+			return false;
 		}
 	}
 
@@ -1498,113 +1644,91 @@ public class Audit extends AbstractReporter {
 		return true;
 	}
 
-	private List<String> listOfPidsToIgnore(String ignoreProcesses) {
-
-		//    	ignoreProcesses argument is a string of process names separated by blank space
-
-		List<String> pids = new ArrayList<String>();
-		try {
+	private List<String> listOfPidsToIgnore(String ignoreProcesses){
+//		ignoreProcesses argument is a string of process names separated by blank space
+		try{
+			List<String> pids = new ArrayList<String>();
 			if(ignoreProcesses != null && !ignoreProcesses.trim().isEmpty()){
-				//	            Using pidof command now to get all pids of the mentioned processes
+				// Using pidof command now to get all pids of the mentioned processes
 				java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
-				//	            pidof returns pids of given processes as a string separated by a blank space
+				// pidof returns pids of given processes as a string separated by a blank space
 				BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
 				String pidline = pidReader.readLine();
-				//	            added all returned from pidof command
+				// added all returned from pidof command
 				pids.addAll(Arrays.asList(pidline.split("\\s+")));
 				pidReader.close();
 			}
-
 			return pids;
-		} catch (IOException e) {
-			logger.log(Level.WARNING, "Error building list of processes to ignore. Partial list: " + pids, e);
-			return new ArrayList<String>();
+		}catch(IOException e){
+			logger.log(Level.WARNING, "Error building list of processes to ignore: " + ignoreProcesses, e);
+			return null;
 		}
 	}
 
+	// Returns the uid if valid username
+	private String checkIfValidUsername(String name){
+		String command = "id -u " + name;
+		try{
+			Execute.Output output = Execute.getOutput(command);
+			if(output.exitValueIndicatesError()){
+				logger.log(Level.SEVERE, "Invalid username provided. Command: {0}. Error: {1}", 
+						new Object[]{command, output.getStdErr()});
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				if(stdOutLines.size() == 0){
+					logger.log(Level.SEVERE, "No uid in output for command: {0}. Output: {1}.", new Object[]{
+							command, stdOutLines
+					});
+				}else{
+					String uidLine = stdOutLines.get(0);
+					if(uidLine == null || (uidLine = uidLine.trim()).isEmpty()){
+						logger.log(Level.SEVERE, "NULL/Empty uid for command: {0}. Output: {1}.", new Object[]{
+								command, stdOutLines
+						});
+					}else{
+						return uidLine;
+					}
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to execute command: " + command, e);
+		}
+		return null;
+	}
+	
 	private String getOwnUid(){
+		String command = "id -u";
 		try{
 			String uid = null;
-			List<String> outputLines = Execute.getOutput("id -u");
-			for(String outputLine : outputLines){
-				if(outputLine != null){
-					if(outputLine.contains("[STDOUT]")){
-						uid = outputLine.replace("[STDOUT]", "").trim(); 
-					}else if(outputLine.contains("[STDERR]")){
-						logger.log(Level.SEVERE, "Failed to get user id of JVM. Output = " + outputLines);
+			Execute.Output output = Execute.getOutput(command);
+			if(output.exitValueIndicatesError()){
+				logger.log(Level.SEVERE, "Failed to get user id of JVM. Command: {0}. Error: {1}.",
+						new Object[]{command, output.getStdErr()});
+				return null;
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				if(stdOutLines.size() == 0){
+					logger.log(Level.SEVERE, "No uid in output for command: {0}. Output: {1}.", new Object[]{
+							command, stdOutLines
+					});
+					return null;
+				}else{
+					String uidLine = stdOutLines.get(0);
+					if(uidLine == null || (uidLine = uidLine.trim()).isEmpty()){
+						logger.log(Level.SEVERE, "NULL/Empty uid for command: {0}. Output: {1}.", new Object[]{
+								command, stdOutLines
+						});
 						return null;
+					}else{
+						uid = uidLine;
 					}
 				}
-			}
-			return uid;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to get user id of JVM", e);
-			return null;
-		}
-	}
-
-	private Map<String, ArtifactIdentifier> getFileDescriptors(String pid){
-
-		if(isLiveAudit == false  // the audit log is being read from a file.
-				|| !PROCFS){ // the flag to read from procfs is false
-			return null;
-		}
-
-		Map<String, ArtifactIdentifier> fds = new HashMap<String, ArtifactIdentifier>();
-
-		Map<String, String> inodefd0 = new HashMap<String, String>();
-
-		try{
-			//LSOF args -> n = no DNS resolution, P = no port user-friendly naming, p = pid of process
-			List<String> lines = Execute.getOutput("lsof -nPp " + pid);
-			if(lines != null && lines.size() > 1){
-				lines.remove(0); //remove the heading line
-				for(String line : lines){
-					String tokens[] = line.split("\\s+");
-					if(tokens.length >= 9){
-						String type = tokens[4].toLowerCase().trim();
-						String fd = tokens[3].trim();
-						fd = fd.replaceAll("[^0-9]", ""); //ends with r(read), w(write), u(read and write), W (lock)
-						if(CommonFunctions.parseInt(fd, null) != null){
-							if("fifo".equals(type)){
-								String path = tokens[8];
-								if("pipe".equals(path)){ //unnamed pipe
-									String inode = tokens[7];
-									if(inodefd0.get(inode) == null){
-										inodefd0.put(inode, fd);
-									}else{
-										ArtifactIdentifier pipeInfo = new UnnamedPipeIdentifier(pid, fd, inodefd0.get(inode));
-										fds.put(fd, pipeInfo);
-										fds.put(inodefd0.get(inode), pipeInfo);
-										inodefd0.remove(inode);
-									}
-								}else{ //named pipe
-									fds.put(fd, new NamedPipeIdentifier(path));
-								}	    						
-							}else if("ipv4".equals(type) || "ipv6".equals(type)){
-								String protocol = String.valueOf(tokens[7]).toLowerCase();
-								//example of this token = 10.0.2.15:35859->172.231.72.152:443 (ESTABLISHED)
-								String[] srchostport = tokens[8].split("->")[0].split(":");
-								String[] dsthostport = tokens[8].split("->")[1].split("\\s+")[0].split(":");
-								fds.put(fd, new NetworkSocketIdentifier(srchostport[0], srchostport[1], dsthostport[0], dsthostport[1], protocol));
-							}else if("reg".equals(type) || "chr".equals(type)){
-								String path = tokens[8];
-								fds.put(fd, new FileIdentifier(path));  						
-							}else if("unix".equals(type)){
-								String path = tokens[8];
-								if(!path.equals("socket")){
-									fds.put(fd, new UnixSocketIdentifier(path));
-								}
-							}
-						}
-					}
-				}
+				return uid;
 			}
 		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to get file descriptors for pid " + pid, e);
+			logger.log(Level.SEVERE, "Failed to get user id of JVM using command: " + command, e);
+			return null;
 		}
-
-		return fds;
 	}
 
 	@Override
@@ -1619,62 +1743,79 @@ public class Audit extends AbstractReporter {
 		
 		while(eventReaderThreadRunning){
 			// Wait while the event reader thread is still running i.e. buffer being emptied
+			try{ Thread.sleep(PID_MSG_WAIT_TIMEOUT); }catch(Exception e){}
 		}
 		
-		if(NETFILTER_HANDLING){
-			// TODO add a buffer window size (outside of which we don't match) to empty the lists.
-			logger.log(Level.INFO, "{0} unmatched netfilter-syscall events", 
-					networkArtifactsFromNetfilter.size() + networkArtifactsFromSyscalls.size());
-		}
-				
+		// force print stats before exiting
+		printStats(true);
+		
 		return true;
 	}
 
-	private void printStats(){
-		Runtime runtime = Runtime.getRuntime();
-		long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024*1024);   	
-		long internalBufferSize = getBuffer().size();
-		logger.log(Level.INFO, "Internal buffer size: {0}, JVM memory in use: {1}MB", new Object[]{internalBufferSize, usedMemoryMB});
+	private void printStats(boolean forcePrint){
+		if(reportingEnabled || forcePrint){
+			long currentTime = System.currentTimeMillis();
+			if(((currentTime - lastReportedTime) >= reportEveryMs) || forcePrint){
+				Runtime runtime = Runtime.getRuntime();
+				long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024*1024);   	
+				int internalBufferSize = getBuffer().size();
+				String statString = String.format("Internal buffer size: %d, JVM memory in use: %dMB", 
+						internalBufferSize, usedMemoryMB);
+				if(REFINE_NET){
+					String netfilterStat = String.format("Unmatched: "
+							+ "%d netfilter-syscall, "
+							+ "%d syscall-netfilter. "
+							+ "Matched: "
+							+ "%d netfilter-syscall, "
+							+ "%d syscall-netfilter.",
+							networkAnnotationsFromNetfilter.size(),
+							networkAnnotationsFromSyscalls.size(),
+							matchedNetfilterSyscall,
+							matchedSyscallNetfilter);
+					statString += ", " + netfilterStat;
+				}
+				logger.log(Level.INFO, statString);
+				lastReportedTime = currentTime;
+			}
+		}
+	}
+	
+	private void setHandleKMRecordsFlag(boolean isLiveAudit, boolean valueOfHandleKMRecords){
+		// Only set the value if it hasn't been set and is log playback
+		if(HANDLE_KM_RECORDS == null && !isLiveAudit){
+			HANDLE_KM_RECORDS = valueOfHandleKMRecords;
+			logger.log(Level.INFO, "'handleLocalEndpoints' value set to '"+valueOfHandleKMRecords+"'");
+		}
 	}
 
 	private void finishEvent(Map<String, String> eventData){
 
-		if(reportingEnabled){
-			long currentTime = System.currentTimeMillis();
-			if((currentTime - lastReportedTime) >= reportEveryMs){
-				printStats();
-				lastReportedTime = currentTime;
-			}
-		}
+		printStats(false);
 
 		if (eventData == null) {
 			logger.log(Level.WARNING, "Null event data read");
 			return;
 		}
 
-		/*if("NETFILTER_PKT".equals(eventBuffer.get(eventId).get("type"))){ //for events with no syscalls
-    		try{
-    			handleNetfilterPacketEvent(eventBuffer.get(eventId));
-    		}catch(Exception e){
-    			logger.log(Level.WARNING, "Error processing finish syscall event with event id '"+eventId+"'", e);
-    		}
-    	}else{ //for events with syscalls
-    		handleSyscallEvent(eventId);
-    	}*/
-
 		try{
 			String recordType = eventData.get(AuditEventReader.RECORD_TYPE_KEY);
 			if(AuditEventReader.RECORD_TYPE_UBSI_ENTRY.equals(recordType)){
-				handleUnitEntry(eventData);
+				processManager.handleUnitEntry(eventData);
 			}else if(AuditEventReader.RECORD_TYPE_UBSI_EXIT.equals(recordType)){
-				handleUnitExit(eventData);
+				processManager.handleUnitExit(eventData);
 			}else if(AuditEventReader.RECORD_TYPE_UBSI_DEP.equals(recordType)){
-				handleUnitDependencies(eventData);
+				processManager.handleUnitDependency(eventData);
 			}else if(AuditEventReader.RECORD_TYPE_DAEMON_START.equals(recordType)){
-				clearAllProcessState();
+				//processManager.daemonStart(); TODO Not being used until figured out how to handle it.
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_PKT.equals(recordType)){
-				if(NETFILTER_HANDLING){
+				setHandleKMRecordsFlag(isLiveAudit, false); // Always do first because HANDLE_KM_RECORDS can be null when playback
+				if(REFINE_NET){
 					handleNetfilterPacketEvent(eventData);
+				}
+			}else if(AuditEventReader.KMODULE_RECORD_TYPE.equals(recordType)){
+				setHandleKMRecordsFlag(isLiveAudit, true); // Always do first because HANDLE_KM_RECORDS can be null when playback
+				if(HANDLE_KM_RECORDS){
+					handleKernelModuleEvent(eventData);
 				}
 			}else{
 				handleSyscallEvent(eventData);
@@ -1684,145 +1825,70 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
-	/*
-	 * Cases:
-	 * 
-	 * 1) Containing process could be null
-	 * 2) The reported unit could not have been sent (if yes then need to send the edge too)
-	 * 3) Any of the dependent unit could not have been sent (if yes then need to send the edge too)
-	 * 
-	 */
-	private void handleUnitDependencies(Map<String, String> eventData){
-		String time = "0"; // no time and event id
-		String eventId = "0"; // no time and event id
-		Integer unitDependencyCount = CommonFunctions.parseInt(eventData.get(AuditEventReader.UNIT_DEPS_COUNT), 0);
-		// Assumption that this dependent unit has been sent before along with the unit on which they are dependent on
-		
-		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
-		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
-		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
-		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
-		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
-		String unitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME);
-		
-		Process containingProcessMainUnit = getContainingProcessVertex(unitPid);
-		
-		if(containingProcessMainUnit == null){
-			// Haven't seen this pid before
-			// Create the process from the information in eventData
-			Map<String, String> newEventData = new HashMap<String, String>(eventData);
-			newEventData.put(AuditEventReader.PID, unitPid);
-			containingProcessMainUnit = putProcess(newEventData, time, eventId);
-		}
-		
-		// Must have seen the unit entry of this unit and would have added this unit then to the buffer
-		Process actingUnit = createBEEPCopyOfProcess(containingProcessMainUnit, 
-				unitTime, unitId, unitIteration, unitCount);
-		
-		if(!processVertexHasBeenPutBefore(actingUnit)){
-			// A unit can do entry only once
-			putVertex(actingUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
-			
-			// If this vertex wasn't seen before then that means DAEMON_START happened and blew away the state
-			// Set this the current active unit
-			popCurrentIterationIfAny(unitPid); // just to be safe
-			processUnitStack.get(unitPid).addLast(actingUnit);
-			WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(actingUnit, containingProcessMainUnit);
-			putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), unitTime, "0", OPMConstants.SOURCE_BEEP);
-		}
-		
-		for(int a = 0; a<unitDependencyCount; a++){
-			String dependentUnitPid = eventData.get(AuditEventReader.UNIT_PID+a);
-			String dependentUnitId = eventData.get(AuditEventReader.UNIT_UNITID+a);
-			String dependentUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+a);
-			String dependentUnitTime = eventData.get(AuditEventReader.UNIT_TIME+a);
-			String dependentUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+a);
-			String dependentUnitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME+a);
-			
-			Process containingProcessDependentUnit = getContainingProcessVertex(dependentUnitPid);
-			
-			if(containingProcessDependentUnit == null){
-				logger.log(Level.WARNING, "Saw dependent unit whose process wasn't seen or has exited: " 
-								+ eventData);
-			}else{
-				// Must have seen this unit before so not adding it again
-				Process dependentUnit = createBEEPCopyOfProcess(containingProcessDependentUnit, 
-						dependentUnitTime, dependentUnitId, dependentUnitIteration, dependentUnitCount);
-				
-				if(!processVertexHasBeenPutBefore(dependentUnit)){
-					// A unit can do entry only once
-					putVertex(dependentUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
-					
-					WasTriggeredBy unitToContainingProcessDep = new WasTriggeredBy(dependentUnit, containingProcessDependentUnit);
-					putEdge(unitToContainingProcessDep, getOperation(SYSCALL.UNIT), dependentUnitTime, "0", OPMConstants.SOURCE_BEEP);
-				}
-				
-				// List contains the dependent units and the reported unit is the unit on which they are dependent
-				WasTriggeredBy dependencyEdge = new WasTriggeredBy(actingUnit, dependentUnit);
-				// TODO use operation directly?
-				putEdge(dependencyEdge, OPMConstants.OPERATION_UNIT_DEPENDENCY, time, eventId, OPMConstants.SOURCE_BEEP);
-			}
-		}
-	}
-	
-	// assumption: no nested loops
-	private void handleUnitExit(Map<String, String> eventData){
-		String pid = eventData.get(AuditEventReader.PID);
-		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){
-			Process containingProcess = processUnitStack.get(pid).removeFirst();
-			processUnitStack.get(pid).clear();
-			processUnitStack.get(pid).addFirst(containingProcess);
-		}
-	}
-	
-	private void popCurrentIterationIfAny(String pid){
-		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 1){
-			processUnitStack.get(pid).removeLast();
-		}
-	}
-	
-	private void handleUnitEntry(Map<String, String> eventData){
-		String time = eventData.get(AuditEventReader.TIME);
+	private void handleKernelModuleEvent(Map<String, String> eventData){
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-//		String pid = eventData.get(AuditEventReader.PID);
-		String unitPid = eventData.get(AuditEventReader.UNIT_PID);
-		String unitId = eventData.get(AuditEventReader.UNIT_UNITID);
-		String unitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
-		String unitTime = eventData.get(AuditEventReader.UNIT_TIME);
-		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
-		String unitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME);
-		
-		Process containingProcess = getContainingProcessVertex(unitPid);
-		
-		if(containingProcess == null){
-			// Haven't seen this pid before
-			// Create the process from the information in eventData
-			Map<String, String> newEventData = new HashMap<String, String>(eventData);
-			newEventData.put(AuditEventReader.PID, unitPid);
-			containingProcess = putProcess(newEventData, time, eventId);
+		String time = eventData.get(AuditEventReader.TIME);
+		SYSCALL syscall = null;
+		try{
+			String pid = eventData.get(AuditEventReader.PID);
+			Integer syscallNumber = CommonFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), null);
+			String exit = eventData.get(AuditEventReader.EXIT);
+			int success = CommonFunctions.parseInt(eventData.get(AuditEventReader.SUCCESS), -1);
+			String sockFd = eventData.get(AuditEventReader.KMODULE_FD);
+			int sockType = Integer.parseInt(eventData.get(AuditEventReader.KMODULE_SOCKTYPE));
+			String localSaddr = eventData.get(AuditEventReader.KMODULE_LOCAL_SADDR);
+			String remoteSaddr = eventData.get(AuditEventReader.KMODULE_REMOTE_SADDR);
+			
+			if(success == 1){
+				syscall = getSyscall(syscallNumber);
+				if(syscall == null || syscall == SYSCALL.UNSUPPORTED){
+					log(Level.WARNING, "Invalid syscall: " + syscallNumber, null, time, eventId, null);
+				}else{
+					switch (syscall) {
+						case BIND:
+							handleBindKernelModule(eventData, time, eventId, syscall, pid,
+									exit, sockFd, sockType, localSaddr, remoteSaddr);
+							break;
+						case ACCEPT:
+						case ACCEPT4:
+							handleAcceptKernelModule(eventData, time, eventId, syscall, pid, 
+									exit, sockFd, sockType, localSaddr, remoteSaddr);
+							break;
+						case CONNECT:
+							handleConnectKernelModule(eventData, time, eventId, syscall, pid,
+									exit, sockFd, sockType, localSaddr, remoteSaddr);
+							break;
+						case SENDMSG:
+						case SENDTO:
+//						case SENDMMSG: // TODO
+							handleNetworkIOKernelModule(eventData, time, eventId, syscall, pid, exit, sockFd, 
+									sockType, localSaddr, remoteSaddr, false);
+							break;
+						case RECVMSG:
+						case RECVFROM:
+//						case RECVMMSG:
+							handleNetworkIOKernelModule(eventData, time, eventId, syscall, pid, exit, sockFd, 
+									sockType, localSaddr, remoteSaddr, true);
+							break;
+						default:
+							log(Level.WARNING, "Unexpected syscall: " + syscallNumber, null, time, eventId, syscall);
+							break;
+					}
+				}
+			}
+		}catch(Exception e){
+			log(Level.WARNING, "Failed to parse kernel module event", null, time, eventId, syscall);
 		}
-		
-		// pop the current iteration if any before adding the new one
-		// no nested loops at the moment
-		popCurrentIterationIfAny(unitPid);
-		
-		putUnitAndEdge(containingProcess, unitPid, time, eventId, 
-				unitId, unitIteration, unitTime, unitCount);
 	}
-
-	// Adds only if not seen before
-	private Process putUnitAndEdge(Process containingProcess, String pid, String eventTime, String eventId, 
-			String unitId, String iteration, String startTime, String count){
-		// Add this new unit on the stack
-		Process newUnit = createBEEPCopyOfProcess(containingProcess, startTime, unitId, iteration, count);
-		processUnitStack.get(pid).addLast(newUnit);
-		if(!processVertexHasBeenPutBefore(newUnit)){
-			// A unit can do entry only once
-			putVertex(newUnit);//add to internal buffer. not calling putProcess here because that would reset the stack
+	
+	private SYSCALL getSyscall(int syscallNumber){
+		int arch = -1;
+		if(ARCH_32BIT){
+			arch = 32;
+		}else{
+			arch = 64;
 		}
-		WasTriggeredBy unitToContainingProcess = new WasTriggeredBy(newUnit, containingProcess);
-		putEdge(unitToContainingProcess, getOperation(SYSCALL.UNIT), eventTime, eventId, OPMConstants.SOURCE_BEEP);
-		return newUnit;
+		return SYSCALL.getSyscall(syscallNumber, arch);
 	}
 	
 	/**
@@ -1838,30 +1904,28 @@ public class Audit extends AbstractReporter {
 	 * @param eventId id of the event against which the key value maps are saved
 	 */
 	private void handleSyscallEvent(Map<String, String> eventData) {
+		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		try {
-
 			int syscallNum = CommonFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), -1);
-
-			int arch = -1;
-			if(ARCH_32BIT){
-				arch = 32;
-			}else{
-				arch = 64;
-			}
-
+			
 			if(syscallNum == -1){
-				//logger.log(Level.INFO, "A non-syscall audit event OR missing syscall record with for event with id '" + eventId + "'");
 				return;
 			}
-
-			SYSCALL syscall = SYSCALL.getSyscall(syscallNum, arch);
+			
+			SYSCALL syscall = getSyscall(syscallNum);
+			
+			if(syscall == null){
+				log(Level.WARNING, "Invalid syscall: " + syscallNum, null, time, eventId, null);
+				return;
+			}else if(syscall == SYSCALL.UNSUPPORTED){
+				return;
+			}
 
 			if("1".equals(AUDITCTL_SYSCALL_SUCCESS_FLAG) 
 					&& AuditEventReader.SUCCESS_NO.equals(eventData.get(AuditEventReader.SUCCESS))){
 				//if only log successful events but the current event had success no then only monitor the following calls.
-				if(syscall == SYSCALL.KILL 
-						|| syscall == SYSCALL.EXIT || syscall == SYSCALL.EXIT_GROUP
+				if(syscall == SYSCALL.EXIT || syscall == SYSCALL.EXIT_GROUP
 						|| syscall == SYSCALL.CONNECT){
 					//continue and log these syscalls irrespective of success
 					// Syscall connect can fail with EINPROGRESS flag which we want to 
@@ -1879,8 +1943,36 @@ public class Audit extends AbstractReporter {
 					logger.log(Level.INFO, "Missing/Non-numerical argument#" + argumentNumber + " for event id '"+eventId+"'");
 				}
 			}
+			
+			// Check if one of the network related syscalls. Must do this check before because HANDLE_KM_RECORDS can be null
+			switch (syscall) {
+				case SENDMSG:
+				case SENDTO:
+				case RECVFROM: 
+				case RECVMSG:
+				case SOCKET:
+				case BIND:
+				case ACCEPT:
+				case ACCEPT4:
+				case CONNECT:
+					setHandleKMRecordsFlag(isLiveAudit, false);
+					break;
+				default:
+					break;
+			}
 
 			switch (syscall) {
+			case TEE:
+			case SPLICE:
+				handleTeeSplice(eventData, syscall);
+				break;
+			case VMSPLICE:
+				handleVmsplice(eventData, syscall);
+				break;
+			case INIT_MODULE:
+			case FINIT_MODULE:
+				handleInitModule(eventData, syscall);
+				break;
 			case FCNTL:
 				handleFcntl(eventData, syscall);
 				break;
@@ -1888,19 +1980,29 @@ public class Audit extends AbstractReporter {
 			case EXIT_GROUP:
 				handleExit(eventData, syscall);
 				break;
-			case READ: 
-			case READV:
-			case PREAD:
-			case PREADV:
 			case WRITE: 
 			case WRITEV:
 			case PWRITE:
 			case PWRITEV:
-			case SENDMSG: 
-			case RECVMSG: 
-			case SENDTO: 
+				handleIOEvent(syscall, eventData, false);
+				break;
+			case SENDMSG:
+			case SENDTO:
+				if(!HANDLE_KM_RECORDS){
+					handleIOEvent(syscall, eventData, false);
+				}
+				break;
 			case RECVFROM: 
-				handleIOEvent(syscall, eventData, eventData.get(AuditEventReader.ARG0));
+			case RECVMSG:
+				if(!HANDLE_KM_RECORDS){
+					handleIOEvent(syscall, eventData, true);
+				}
+				break;
+			case READ: 
+			case READV:
+			case PREAD:
+			case PREADV:
+				handleIOEvent(syscall, eventData, true);
 				break;
 			case MMAP:
 			case MMAP2:
@@ -1922,10 +2024,10 @@ public class Audit extends AbstractReporter {
 			case VFORK:
 			case FORK:
 			case CLONE:
-				handleForkClone(eventData, syscall);
+				processManager.handleForkVforkClone(eventData, syscall);
 				break;
 			case EXECVE:
-				handleExecve(eventData);
+				handleExecve(eventData, syscall);
 				break;
 			case OPEN:
 				handleOpen(eventData, syscall);
@@ -1937,7 +2039,7 @@ public class Audit extends AbstractReporter {
 				handleCreat(eventData);
 				break;
 			case OPENAT:
-				handleOpenat(eventData);
+				handleOpenat(eventData, syscall);
 				break;
 			case MKNODAT:
 				handleMknodat(eventData);
@@ -1951,20 +2053,25 @@ public class Audit extends AbstractReporter {
 				handleDup(eventData, syscall);
 				break;
 			case SOCKET:
-				handleSocket(eventData, syscall);
+				if(!HANDLE_KM_RECORDS){
+					handleSocket(eventData, syscall);
+				}
 				break;
 			case BIND:
-				handleBind(eventData, syscall);
+				if(!HANDLE_KM_RECORDS){
+					handleBind(eventData, syscall);
+				}
 				break;
 			case ACCEPT4:
 			case ACCEPT:
-				handleAccept(eventData, syscall);
+				if(!HANDLE_KM_RECORDS){
+					handleAccept(eventData, syscall);
+				}
 				break;
 			case CONNECT:
-				handleConnect(eventData);
-				break;
-			case KILL:
-				//handleKill(eventData);
+				if(!HANDLE_KM_RECORDS){
+					handleConnect(eventData, syscall);
+				}
 				break;
 			case RENAME:
 			case RENAMEAT:
@@ -2001,226 +2108,24 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	/**
-	 * Only for IO syscalls where the FD is argument 0 (a0).
-	 * If the descriptor is not a valid descriptor then handled as file or socket based on the syscall.
-	 * Otherwise handled based on artifact identifier type
-	 * 
-	 * @param syscall system call
-	 * @param eventData audit event data gotten in the log
-	 * @param fd the file descriptor number
-	 */
-	private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData, String fd){
-		String pid = eventData.get(AuditEventReader.PID);
-		String saddr = eventData.get(AuditEventReader.SADDR);
+	private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData, boolean isRead){
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String time = eventData.get(AuditEventReader.TIME);
+		String pid = eventData.get(AuditEventReader.PID);
+		String bytesTransferred = eventData.get(AuditEventReader.EXIT);
+		String saddr = eventData.get(AuditEventReader.SADDR);
+		String fd = eventData.get(AuditEventReader.ARG0);
+		String offset = null;
+		ArtifactIdentifier artifactIdentifier = null;	
 		
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);		
-
-		// In case of UDP sockets there won't be a connect/accept and instead in 
-		// reads/writes/sends/recvs a saddr value is sent.
-		if(saddr != null){
-			if(isNetlinkSaddr(saddr)){
-				// do nothing
-			}else{
-				handleNetworkIOEvent(syscall, eventData);
+		if(!isNetlinkSaddr(saddr)){
+			artifactIdentifier = getNetworkIdentifierFromFdAndOrSaddr(syscall, time, eventId, pid, fd, saddr);
+			if(syscall == SYSCALL.PREAD || syscall == SYSCALL.PREADV
+					|| syscall == SYSCALL.PWRITE || syscall == SYSCALL.PWRITEV){
+				offset = eventData.get(AuditEventReader.ARG3);
 			}
-		}else if(isUnknownType(artifactIdentifier)){ //either a new unknown i.e. null or a previously seen unknown
-			// preference given to file if the type of the artifact not known
-			if(isFileReadSyscall(syscall) || isFileWriteSyscall(syscall)){
-				if(USE_READ_WRITE){
-					handleFileIOEvent(syscall, eventData);
-				}
-			}else if(isSockReadSyscall(syscall) || isSockWriteSyscall(syscall)){
-				if(USE_SOCK_SEND_RCV){
-					handleNetworkIOEvent(syscall, eventData);
-				}
-			}else {
-				logger.log(Level.WARNING, "Unknown file descriptor type for eventid '"+eventId+"' and syscall '"+syscall+"'");
-			}
-		}else if(isSockType(artifactIdentifier)){ 
-			handleNetworkIOEvent(syscall, eventData);
-		}else if(isFileType(artifactIdentifier)){
-			handleFileIOEvent(syscall, eventData);
-		}
-	}
-	
-	/**
-	 * Returns true if the identifier is either a NetworkSocketIdentifier or a UnixSocketIdentifier otherwise false
-	 * 
-	 * @param artifactIdentifier identifier to check
-	 * @return true/false
-	 */
-	private boolean isSockType(ArtifactIdentifier artifactIdentifier){
-		if(artifactIdentifier == null){
-			return false;
-		}else{
-			Class<? extends ArtifactIdentifier> clazz = artifactIdentifier.getClass();
-			if(clazz.equals(NetworkSocketIdentifier.class) || clazz.equals(UnixSocketIdentifier.class)){
-				return true;
-			}else{
-				return false;
-			}
-		}
-	}
-	
-	/**
-	 * Returns true if the identifier is one of FileIdentifier, MemoryIdentifier, UnnamedPipeIdentifier, NamedPipeIdentifier 
-	 * otherwise false
-	 * 
-	 * @param artifactIdentifier identifier to check
-	 * @return true/false
-	 */
-	private boolean isFileType(ArtifactIdentifier artifactIdentifier){
-		if(artifactIdentifier == null){
-			return false;
-		}else{
-			Class<? extends ArtifactIdentifier> clazz = artifactIdentifier.getClass();
-			if(clazz.equals(FileIdentifier.class) || clazz.equals(MemoryIdentifier.class) ||
-					clazz.equals(UnnamedPipeIdentifier.class) || clazz.equals(NamedPipeIdentifier.class)){
-				return true;
-			}else{
-				return false;
-			}
-		}
-	}
-	
-	/**
-	 * Returns true if the identifier is either NULL or an UnknownIdentifier otherwise false
-	 * 
-	 * @param artifactIdentifier identifier to check
-	 * @return true/false
-	 */
-	private boolean isUnknownType(ArtifactIdentifier artifactIdentifier){
-		if(artifactIdentifier == null){
-			return true;
-		}else{
-			Class<? extends ArtifactIdentifier> clazz = artifactIdentifier.getClass();
-			if(clazz.equals(UnknownIdentifier.class)){
-				return true;
-			}else{
-				return false;
-			}
-		}
-	}
-	
-	/**
-	 * Returns true if the system call is one of read, readv, pread64 otherwise false
-	 * 
-	 * @param syscall system call
-	 * @return true/false
-	 */
-	private boolean isFileReadSyscall(SYSCALL syscall){
-		if(syscall != null){
-			switch (syscall) {
-				case READ:
-				case READV:
-				case PREAD:
-				case PREADV:
-					return true;
-				default:
-					return false;
-			}
-		}else{
-			return false;
-		}
-	}
-	
-	/**
-	 * Returns true if the system call is one of write, writev, write64 otherwise false
-	 * 
-	 * @param syscall system call
-	 * @return true/false
-	 */
-	private boolean isFileWriteSyscall(SYSCALL syscall){
-		if(syscall != null){
-			switch (syscall) {
-				case WRITE:
-				case WRITEV:
-				case PWRITE:
-				case PWRITEV:
-					return true;
-				default:
-					return false;
-			}
-		}else{
-			return false;
-		}
-	}
-
-	/**
-	 * Returns true if one of read, readv, pread64, recv, recvmsg, recvfrom otherwise false
-	 * 
-	 * @param syscall system call
-	 * @return true/false
-	 */
-	private boolean isSockReadSyscall(SYSCALL syscall){
-		boolean returnValue = isFileReadSyscall(syscall);
-		if(syscall != null){
-			switch (syscall) {
-				case RECV:
-				case RECVMSG:
-				case RECVFROM:
-					returnValue = returnValue || true;
-					break;
-				default:
-					returnValue = returnValue || false;
-					break;
-			}
-		}else{
-			returnValue = false;
-		}
-		return returnValue;
-	}
-	
-	/**
-	 * Returns true if one of write, writev, pwrite64, send, sendmsg, sendto otherwise false
-	 * 
-	 * @param syscall system call
-	 * @return true/false
-	 */
-	private boolean isSockWriteSyscall(SYSCALL syscall){
-		boolean returnValue = isFileWriteSyscall(syscall);
-		if(syscall != null){
-			switch (syscall) {
-				case SEND:
-				case SENDMSG:
-				case SENDTO:
-					returnValue = returnValue || true;
-					break;
-				default:
-					returnValue = returnValue || false;
-					break;
-			}
-		}else{
-			returnValue = false;
-		}
-		return returnValue;
-	}
-	
-	private void handleNetworkIOEvent(SYSCALL syscall, Map<String, String> eventData){
-		if(USE_SOCK_SEND_RCV){
-			if(isSockWriteSyscall(syscall)){
-				handleSend(eventData, syscall);
-			}else if(isSockReadSyscall(syscall)){
-				handleRecv(eventData, syscall);
-			}else{
-				log(Level.WARNING, "Unexpected syscall", null, eventData.get(AuditEventReader.TIME), 
-						eventData.get(AuditEventReader.EVENT_ID), syscall);
-			}
-		}
-	}
-
-	private void handleFileIOEvent(SYSCALL syscall, Map<String, String> eventData){
-		if(USE_READ_WRITE){
-			if(isFileReadSyscall(syscall)){
-				handleRead(eventData, syscall);
-			}else if(isFileWriteSyscall(syscall)){
-				handleWrite(eventData, syscall);
-			}else{
-				log(Level.WARNING, "Unexpected syscall", null, eventData.get(AuditEventReader.TIME), 
-						eventData.get(AuditEventReader.EVENT_ID), syscall);
-			}
+			
+			putIO(eventData, time, eventId, syscall, pid, fd, artifactIdentifier, bytesTransferred, offset, isRead);
 		}
 	}
 
@@ -2262,13 +2167,22 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 
-			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+					time, eventId, syscall);
 
-			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);    	
-			Process process = putProcess(eventData, time, eventId);    	
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);
 			WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
+	}
+	
+	private UnknownIdentifier addUnknownFd(String pid, String fd){
+		UnknownIdentifier unknown = new UnknownIdentifier(pid, fd);
+		unknown.setOpenedForRead(null);
+		markNewEpochForArtifact(unknown);
+		processManager.setFd(pid, fd, unknown);
+		return unknown;
 	}
 	
 	private void handleFcntl(Map<String, String> eventData, SYSCALL syscall){
@@ -2294,14 +2208,15 @@ public class Audit extends AbstractReporter {
 			handleDup(eventData, syscall);
 		}else if(cmd == F_SETFL){
 			if((flags & O_APPEND) == O_APPEND){
-				ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
 				if(artifactIdentifier == null){
-					descriptors.addUnknownDescriptor(pid, fd);
-					artifactIdentifier = descriptors.getDescriptor(pid, fd);
+					artifactIdentifier = addUnknownFd(pid, fd);
 				}
 				// Made file descriptor 'appendable', so set open for read to false so 
 				// that the edge on close is a WGB edge and not a Used edge
-				artifactIdentifier.setOpenedForRead(false);
+				if(artifactIdentifier.wasOpenedForRead() != null){
+					artifactIdentifier.setOpenedForRead(false);
+				}
 			}
 		}
 	}
@@ -2310,25 +2225,14 @@ public class Audit extends AbstractReporter {
 		// exit(), and exit_group() receives the following message(s):
 		// - SYSCALL
 		// - EOE
-
-		String pid = eventData.get(AuditEventReader.PID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-
 		if(CONTROL){
-			// Can be a unit. Not synthetically drawing the edge on the containing process and instead
-			// on the process/unit which called it.
-			Process process = putProcess(eventData, time, eventId); //put Process vertex if it didn't exist before
-			WasTriggeredBy exitEdge = new WasTriggeredBy(process, process);
-			putEdge(exitEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+			// Only draw edge if CONTROL is true
+			processManager.handleExit(eventData, syscall);
+		}else{
+			// Else remove the state only and not draw any edge
+			String pid = eventData.get(AuditEventReader.PID);
+			processManager.removeProcessUnitState(pid);
 		}
-
-		// NOT clearing process state here.
-		// Because in case of units we might see a dependent unit after the process has exited.
-		// We need the process (synthetic) annotations to create exactly the same one
-		// Clearing process state in fork and clone calls. Because that is the only way the same
-		// pid can be reassigned.
-		
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -2357,12 +2261,9 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
-		
-		String tgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null ?
-				pid : pidToTgidForMemoryArtifactsOnly.get(pid);
-		ArtifactIdentifier memoryArtifactIdentifier = 
-				new MemoryIdentifier(tgid, address, length);
+		Process process = processManager.handleProcessFromSyscall(eventData);		
+		String tgid = processManager.getMemoryTgid(pid);
+		ArtifactIdentifier memoryArtifactIdentifier = new MemoryIdentifier(tgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, null, true);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
@@ -2379,12 +2280,10 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 	
-			ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
+			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
 	
 			if(artifactIdentifier == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
-				artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
 	
 			Artifact artifact = putArtifact(eventData, artifactIdentifier, null, false);
@@ -2415,103 +2314,18 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16);
 		String protection = new BigInteger(eventData.get(AuditEventReader.ARG2)).toString(16);
 
-		String tgid = pidToTgidForMemoryArtifactsOnly.get(pid) == null 
-				? pid 
-				: pidToTgidForMemoryArtifactsOnly.get(pid);
+		String tgid = processManager.getMemoryTgid(pid);
 		
-		ArtifactIdentifier memoryInfo = 
-				new MemoryIdentifier(tgid, address, length);
+		ArtifactIdentifier memoryInfo = new MemoryIdentifier(tgid, address, length);
 		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, null, true);
 
-		Process process = putProcess(eventData, time, eventId); //create if doesn't exist
-
+		Process process = processManager.handleProcessFromSyscall(eventData);
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
 		edge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 	}
-	
-	private void clearAllProcessState(){
-		Set<String> pids = new HashSet<String>();
-		pids.addAll(processUnitStack.keySet());
-		for(String pid : pids){
-			clearProcessState(pid);
-		}
-	}
-	
-	private void clearProcessState(String pid){
-		processUnitStack.remove(pid); // Remove all process and beep unit vertices of the process
-		descriptors.removeDescriptorsOf(pid); // Remove all the descriptors of the process
-		pidToProcessHashes.remove(pid); // Remove all hashes of process vertices for this pid
-		pidToAgentEdgeHashes.remove(pid); // Remove all hashes of agents for this pid
-		pidToTgidForMemoryArtifactsOnly.remove(pid); // Remove mapping to thread group id
-	}
 
-	private void handleForkClone(Map<String, String> eventData, SYSCALL syscall) {
-		// fork() and clone() receive the following message(s):
-		// - SYSCALL
-		// - EOE
-
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String oldPID = eventData.get(AuditEventReader.PID);
-		String newPID = eventData.get(AuditEventReader.EXIT);
-
-		// Clearing process state of the newPID which might have existed before
-		clearProcessState(newPID);
-
-		Long flags = CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), 0L);
-		if(syscall == SYSCALL.CLONE){
-			//source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
-			if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ //is vfork
-				syscall = SYSCALL.VFORK;
-			}else if((flags & SIGCHLD) == SIGCHLD){ //is fork
-				syscall = SYSCALL.FORK;
-			}
-			//otherwise it is just clone
-		}        
-
-		Process oldProcess = putProcess(eventData, time, eventId); //will create if doesn't exist
-
-		// Whenever any new annotation is added to a Process which doesn't come from audit log then update the following ones. TODO
-		Map<String, String> newEventData = new HashMap<String, String>();
-		newEventData.putAll(eventData);
-		newEventData.put(OPMConstants.PROCESS_PID, newPID);
-		newEventData.put(OPMConstants.PROCESS_PPID, oldPID);
-		newEventData.put(OPMConstants.PROCESS_COMMAND_LINE, oldProcess.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE));
-		newEventData.put(OPMConstants.PROCESS_CWD, eventData.get(AuditEventReader.CWD));
-		newEventData.put(OPMConstants.PROCESS_START_TIME, time);
-
-		boolean RECREATE_AND_REPLACE = true; //true because a new process with the same pid might be being created. pids are recycled.
-
-		Process newProcess = putProcess(newEventData, RECREATE_AND_REPLACE, time, eventId);
-
-		WasTriggeredBy forkCloneEdge = new WasTriggeredBy(newProcess, oldProcess);
-		putEdge(forkCloneEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-
-		if(syscall == SYSCALL.FORK || syscall == SYSCALL.VFORK){
-			// Gets a copy of the parent's file descriptor table
-			descriptors.copyDescriptors(oldPID, newPID);
-		}else if(syscall == SYSCALL.CLONE){
-			if((flags & CLONE_FILES) == CLONE_FILES){
-				// Share the same file descriptor table
-				descriptors.linkDescriptors(oldPID, newPID);
-			}else{
-				// Gets a copy of the parent's file descriptor table
-				descriptors.copyDescriptors(oldPID, newPID);
-			}
-		}
-		
-		// If memory space being shared then only use tgid for memory artifacts
-		if((flags & CLONE_VM) == CLONE_VM){
-			if(pidToTgidForMemoryArtifactsOnly.get(oldPID) == null){
-				pidToTgidForMemoryArtifactsOnly.put(newPID, oldPID);
-			}else{
-				pidToTgidForMemoryArtifactsOnly.put(newPID, pidToTgidForMemoryArtifactsOnly.get(oldPID));
-			}
-		}
-	}
-
-	private void handleExecve(Map<String, String> eventData) {
+	private void handleExecve(Map<String, String> eventData, SYSCALL syscall) {
 		// execve() receives the following message(s):
 		// - SYSCALL
 		// - EXECVE
@@ -2521,79 +2335,28 @@ public class Audit extends AbstractReporter {
 		// - PATH
 		// - EOE
 
-		/*
-		 * Steps:
-		 * 0) check and get if the vertex with the pid exists already
-		 * 1) create the new vertex with the commandline which also replaces the vertex with the same pid
-		 * 2) if the vertex gotten in step 0 is null then it means that we missed that vertex
-		 * and cannot know what it uids and gids were. So, not trying to repair that vertex and not going
-		 * to put the edge from the child to the parent.
-		 * 3) add the Used edges from the newly created vertex in step 1 to the libraries used when execve
-		 *  was done
-		 */
-
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
 		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String cwd = eventData.get(AuditEventReader.CWD);
+		String pid = eventData.get(AuditEventReader.PID);
 
-		// + Getting existing process vertex before recreating and replacing the vertex with the same pid
-		// + Try to get it. if doesn't exist then don't add it because it's user or group identifiers might have been different
-		// + Ignoring the last comment and creating a new one with the information that we have so that CDM storage
-		// can add load edges ( execve event is a must for drawing load edges in CDM storage )
-		Process oldProcess = getProcess(pid); 
-		if(oldProcess == null){
-			// tempEventData has all the annotations that we can safely know about the process that called execve
-			Map<String, String> tempEventData = new HashMap<String, String>();
-			tempEventData.putAll(eventData);
-			tempEventData.remove(AuditEventReader.COMM);
-			tempEventData.remove(AuditEventReader.CWD);
-			oldProcess = putProcess(tempEventData, time, eventId);
-		}
-		
-		String commandline = null;
-		if(eventData.get(AuditEventReader.EXECVE_ARGC) != null){
-			Long argc = CommonFunctions.parseLong(eventData.get(AuditEventReader.EXECVE_ARGC), 0L);
-			commandline = "";
-			for(int i = 0; i < argc; i++){
-				commandline += eventData.get(AuditEventReader.EXECVE_PREFIX + "a" + i) + " ";
-			}
-			commandline = commandline.trim();
-		}else{
-			commandline = "[Record Missing]";
-		}
-
-		eventData.put(OPMConstants.PROCESS_COMMAND_LINE, commandline);
-		eventData.put(OPMConstants.PROCESS_START_TIME, time);
-
-		boolean RECREATE_AND_REPLACE = true; //true because a process vertex with the same pid created in execve
-		//this call would clear all the units for the pid because the process is doing execve, replacing itself.
-		Process newProcess = putProcess(eventData, RECREATE_AND_REPLACE, time, eventId);
-
-		if(oldProcess != null){
-			WasTriggeredBy execveEdge = new WasTriggeredBy(newProcess, oldProcess);
-			putEdge(execveEdge, getOperation(SYSCALL.EXECVE), time, eventId, AUDIT_SYSCALL_SOURCE);
-		}else{
-			log(Level.INFO, "Unable to create edge because process with pid '"+pid+"' missing", null, time, eventId, SYSCALL.EXECVE);
-		}
+		Process process = processManager.handleExecve(eventData, syscall);
 
 		//add used edge to the paths in the event data. get the number of paths using the 'items' key and then iterate
-		String cwd = eventData.get(AuditEventReader.CWD);
+		
 		List<PathRecord> loadPathRecords = getPathsWithNametype(eventData, AuditEventReader.NAMETYPE_NORMAL);
 		for(PathRecord loadPathRecord : loadPathRecords){
 			String path = constructAbsolutePath(loadPathRecord.getPath(), cwd, pid);
 			if(path == null){
-				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, SYSCALL.EXECVE);
+				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 				continue;
 			}        	
-			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType());
+			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType(),
+					time, eventId, syscall);
 			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
-			Used usedEdge = new Used(newProcess, usedArtifact);
+			Used usedEdge = new Used(process, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
-
-		descriptors.unlinkDescriptors(pid);
-		
-		pidToTgidForMemoryArtifactsOnly.remove(pid);
 	}
 
 	private void handleCreat(Map<String, String> eventData){
@@ -2633,7 +2396,7 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private void handleOpenat(Map<String, String> eventData){
+	private void handleOpenat(Map<String, String> eventData, SYSCALL syscall){
 		//openat() receives the following message(s):
 		// - SYSCALL
 		// - CWD
@@ -2647,7 +2410,7 @@ public class Audit extends AbstractReporter {
 		PathRecord pathRecord = getPathWithCreateOrNormalNametype(eventData);
 		
 		if(pathRecord == null){
-			log(Level.INFO, "Missing PATH record", null, time, eventId, SYSCALL.OPENAT);
+			log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 			return;
 		}
 		
@@ -2661,12 +2424,12 @@ public class Audit extends AbstractReporter {
 				String pid = eventData.get(AuditEventReader.PID);
 				String dirFdString = String.valueOf(dirFd);
 				//if null of if not file then cannot process it
-				ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, dirFdString);
-				if(artifactIdentifier == null || !FileIdentifier.class.equals(artifactIdentifier.getClass())){
-					log(Level.INFO, "Artifact not of type file '" + artifactIdentifier + "'", null, time, eventId, SYSCALL.OPENAT);
+				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, dirFdString);
+				if(artifactIdentifier == null || !(artifactIdentifier instanceof IdentifierWithPath)){
+					log(Level.INFO, "Expected 'dir' type fd: '" + artifactIdentifier + "'", null, time, eventId, syscall);
 					return;
 				}else{ //is file
-					String dirPath = ((FileIdentifier) artifactIdentifier).getPath();
+					String dirPath = ((IdentifierWithPath)artifactIdentifier).getPath();
 					eventData.put(AuditEventReader.CWD, dirPath); //replace cwd with dirPath to make eventData compatible with open
 				}
 			}
@@ -2678,7 +2441,7 @@ public class Audit extends AbstractReporter {
 		eventData.put(AuditEventReader.ARG1, eventData.get(AuditEventReader.ARG2)); //moved flags to second like in open
 		eventData.put(AuditEventReader.ARG2, eventData.get(AuditEventReader.ARG3)); //moved mode to third like in open
 
-		handleOpen(eventData, SYSCALL.OPENAT);
+		handleOpen(eventData, syscall);
 	}
 
 	private void handleOpen(Map<String, String> eventData, SYSCALL syscall) {
@@ -2722,29 +2485,20 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		Process process = putProcess(eventData, time, eventId);
+		Process process = processManager.handleProcessFromSyscall(eventData);
 
-		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+				time, eventId, syscall);
 
 		AbstractEdge edge = null;
 
 		if(isCreate){
-
-			if(!FileIdentifier.class.equals(artifactIdentifier.getClass())){
-				artifactIdentifier = new FileIdentifier(path); //can only create a file using open
-			}
 
 			//set new epoch
 			markNewEpochForArtifact(artifactIdentifier);
 
 			syscall = SYSCALL.CREATE;
 
-		}
-
-		if((!FileIdentifier.class.equals(artifactIdentifier.getClass()) && 
-				!artifactIdentifier.getClass().equals(NamedPipeIdentifier.class))){ //not a file and not a named pipe
-			//make it a file identifier
-			artifactIdentifier = new FileIdentifier(path);
 		}
 
 		boolean openedForRead = false;
@@ -2795,7 +2549,7 @@ public class Audit extends AbstractReporter {
 				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsArgs);
 			}
 			//everything happened successfully. add it to descriptors
-			descriptors.addDescriptor(pid, fd, artifactIdentifier, openedForRead);
+			processManager.setFd(pid, fd, artifactIdentifier, openedForRead);
 
 			putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -2807,13 +2561,14 @@ public class Audit extends AbstractReporter {
 		// - EOE
 		String pid = eventData.get(AuditEventReader.PID);
 		String fd = String.valueOf(CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
-		ArtifactIdentifier closedArtifactIdentifier = descriptors.removeDescriptor(pid, fd);
+		ArtifactIdentifier closedArtifactIdentifier = processManager.removeFd(pid, fd);
 		
 		if(CONTROL){
+			SYSCALL syscall = SYSCALL.CLOSE;
 			String time = eventData.get(AuditEventReader.TIME);
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
 			if(closedArtifactIdentifier != null){
-				Process process = putProcess(eventData, time, eventId);
+				Process process = processManager.handleProcessFromSyscall(eventData);
 				Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, null, false);
 				AbstractEdge edge = null;
 				Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
@@ -2825,90 +2580,28 @@ public class Audit extends AbstractReporter {
 					edge = new WasGeneratedBy(artifact, process);
 				}	   
 				if(edge != null){
-					putEdge(edge, getOperation(SYSCALL.CLOSE), time, eventId, AUDIT_SYSCALL_SOURCE);
+					putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 				}
 				//after everything done increment epoch is udp socket
-				if(closedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class) &&
-						OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP.equals(
-								((NetworkSocketIdentifier)closedArtifactIdentifier).getProtocol()
-								)){
+				if(isUdp(closedArtifactIdentifier)){
 					markNewEpochForArtifact(closedArtifactIdentifier);
 				}
 			}else{
-				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.CLOSE);
+				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 			}
 		}
 
 		//there is an option to either handle epochs 1) when artifact opened/created or 2) when artifacts deleted/closed.
 		//handling epoch at opened/created in all cases
 	}
-
-	private void handleRead(Map<String, String> eventData, SYSCALL syscall) {
-		// read() receives the following message(s):
-		// - SYSCALL
-		// - EOE
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
-		String fd = eventData.get(AuditEventReader.ARG0);
-		String bytesRead = eventData.get(AuditEventReader.EXIT);
-		String offset = null;
-		
-		if(syscall == SYSCALL.PREAD || syscall == SYSCALL.PREADV){
-			offset = eventData.get(AuditEventReader.ARG3);
-		}
-		
-		Process process = putProcess(eventData, time, eventId);
-
-		if(descriptors.getDescriptor(pid, fd) == null){
-			descriptors.addUnknownDescriptor(pid, fd);
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
-		}
-
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
-		Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
-		Used used = new Used(process, vertex);
-		used.addAnnotation(OPMConstants.EDGE_SIZE, bytesRead);
-		if(offset != null){
-			used.addAnnotation(OPMConstants.EDGE_OFFSET, offset);
-		}
-		putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-
-	}
-
-	private void handleWrite(Map<String, String> eventData, SYSCALL syscall) {
-		// write() receives the following message(s):
-		// - SYSCALL
-		// - EOE
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
-		String fd = eventData.get(AuditEventReader.ARG0);
-		String bytesWritten = eventData.get(AuditEventReader.EXIT);
-		String offset = null;
-		
-		if(syscall == SYSCALL.PWRITE || syscall == SYSCALL.PWRITEV){
-			offset = eventData.get(AuditEventReader.ARG3);
-		}
-
-		Process process = putProcess(eventData, time, eventId);
-		
-		if(descriptors.getDescriptor(pid, fd) == null){
-			descriptors.addUnknownDescriptor(pid, fd);
-			markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
-		}
-
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
-
-		if(artifactIdentifier != null){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
-			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
-			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesWritten);
-			if(offset != null){
-				wgb.addAnnotation(OPMConstants.EDGE_OFFSET, offset);
+	
+	private boolean isUdp(ArtifactIdentifier identifier){
+		if(identifier != null && identifier.getClass().equals(NetworkSocketIdentifier.class)){
+			if(PROTOCOL_NAME_UDP.equals(((NetworkSocketIdentifier)identifier).getProtocol())){
+				return true;
 			}
-			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
+		return false;
 	}
 
 	private void handleTruncate(Map<String, String> eventData, SYSCALL syscall) {
@@ -2918,7 +2611,6 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
 
 		ArtifactIdentifier artifactIdentifier = null;
 		String permissions = null;
@@ -2935,29 +2627,22 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing PATH or CWD record", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(), 
+					time, eventId, syscall);
 			permissions = pathRecord.getPermissions();
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get(AuditEventReader.ARG0);
-
-			if(descriptors.getDescriptor(pid, fd) == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+			artifactIdentifier = processManager.getFd(pid, fd);
+			if(artifactIdentifier == null){
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
-
-			artifactIdentifier = descriptors.getDescriptor(pid, fd);
 		}
 
 		if(artifactIdentifier != null){
-			if(FileIdentifier.class.equals(artifactIdentifier.getClass()) 
-					|| UnknownIdentifier.class.equals(artifactIdentifier.getClass())){
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
-				WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
-				putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-			}else{
-				log(Level.INFO, "Unexpected artifact type '"+artifactIdentifier+
-						"'. Can only be file or unknown", null, time, eventId, syscall);
-			}
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
+			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
+			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}else{
 			log(Level.INFO, "Failed to find artifact identifier from the event data", null, time, eventId, syscall);
 		}
@@ -2973,11 +2658,118 @@ public class Audit extends AbstractReporter {
 		String newFD = eventData.get(AuditEventReader.EXIT); //new fd returned in all: dup, dup2, dup3
 
 		if(!fd.equals(newFD)){ //if both fds same then it succeeds in case of dup2 and it does nothing so do nothing here too
-			if(descriptors.getDescriptor(pid, fd) == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
+			if(artifactIdentifier == null){
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
-			descriptors.duplicateDescriptor(pid, fd, newFD);
+			processManager.setFd(pid, newFD, artifactIdentifier);
+		}
+	}
+	
+	private void handleVmsplice(Map<String, String> eventData, SYSCALL syscall){
+		// vmsplice() receives the following messages:
+		// - SYSCALL
+		// - EOE
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		
+		String fdOut = eventData.get(AuditEventReader.ARG0);
+		String bytes = eventData.get(AuditEventReader.EXIT);
+		
+		if(!"0".equals(bytes)){		
+			ArtifactIdentifier fdOutIdentifier = processManager.getFd(pid, fdOut);
+			fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
+			
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+	
+			WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
+			processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
+			putEdge(processToWrittenArtifact, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+		}
+	}
+	
+	private void putTeeSplice(Map<String, String> eventData, SYSCALL syscall,
+			String time, String eventId, String fdIn, String fdOut, String pid, String bytes){
+		ArtifactIdentifier fdInIdentifier = processManager.getFd(pid, fdIn);
+		ArtifactIdentifier fdOutIdentifier = processManager.getFd(pid, fdOut);
+
+		// Use unknown if missing fds
+		fdInIdentifier = fdInIdentifier == null ? addUnknownFd(pid, fdIn) : fdInIdentifier;
+		fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
+
+		Process process = processManager.handleProcessFromSyscall(eventData);
+		Artifact fdInArtifact = putArtifact(eventData, fdInIdentifier, null, false);
+		Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+
+		Used processToReadArtifact = new Used(process, fdInArtifact);
+		processToReadArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
+		putEdge(processToReadArtifact, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
+		
+		WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
+		processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
+		putEdge(processToWrittenArtifact, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);
+		
+		WasDerivedFrom writtenToReadArtifact = new WasDerivedFrom(fdOutArtifact, fdInArtifact);
+		writtenToReadArtifact.addAnnotation(OPMConstants.EDGE_PID, pid);
+		putEdge(writtenToReadArtifact, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+	}
+	
+	private void handleTeeSplice(Map<String, String> eventData, SYSCALL syscall){
+		// tee(), and splice() receive the following messages:
+		// - SYSCALL
+		// - EOE
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+
+		String fdIn = eventData.get(AuditEventReader.ARG0), fdOut = null;
+		String bytes = eventData.get(AuditEventReader.EXIT);
+		
+		if(syscall == SYSCALL.TEE){
+			fdOut = eventData.get(AuditEventReader.ARG1);
+		}else if(syscall == SYSCALL.SPLICE){
+			fdOut = eventData.get(AuditEventReader.ARG2);
+		}else{
+			log(Level.WARNING, "Unexpected syscall: " + syscall, null, time, eventId, syscall);
+			return;
+		}
+		
+		// If fd out set and bytes transferred is not zero
+		if(fdOut != null && !"0".equals(bytes)){
+			putTeeSplice(eventData, syscall, time, eventId, fdIn, fdOut, pid, bytes);
+		}
+	}
+
+	private void handleInitModule(Map<String, String> eventData, SYSCALL syscall){
+		// init_module(), and finit_module receive the following messages:
+		// - SYSCALL
+		// - PATH [OPTIONAL] why? not the path of the kernel module
+		// - EOE
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		
+		ArtifactIdentifier moduleIdentifier = null;
+		if(syscall == SYSCALL.INIT_MODULE){
+			String memoryAddress = new BigInteger(eventData.get(AuditEventReader.ARG0)).toString(16); //convert to hexadecimal
+			String memorySize = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16); //convert to hexadecimal
+			String tgid = processManager.getMemoryTgid(pid);
+			moduleIdentifier = new MemoryIdentifier(tgid, memoryAddress, memorySize);
+		}else if(syscall == SYSCALL.FINIT_MODULE){
+			String fd = eventData.get(AuditEventReader.ARG0);
+			moduleIdentifier = processManager.getFd(pid, fd);
+			moduleIdentifier = moduleIdentifier == null ? addUnknownFd(pid, fd) : moduleIdentifier;
+		}else{
+			log(Level.WARNING, "Unexpected syscall in (f)init_module handler", null, time, eventId, syscall);
+		}
+		
+		if(moduleIdentifier != null){
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact module = putArtifact(eventData, moduleIdentifier, null, false);
+			Used loadedModule = new Used(process, module);
+			putEdge(loadedModule, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 	}
 	
@@ -2987,124 +2779,7 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - EOE
 		
-		if(SIMPLIFY){
-			if(syscall == SYSCALL.SETRESUID 
-					|| syscall == SYSCALL.SETRESGID
-					|| syscall == SYSCALL.SETFSUID
-					|| syscall == SYSCALL.SETFSGID){
-				return;
-			}
-		}
-		
-		String pid = eventData.get(AuditEventReader.PID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		Process containingProcess = getContainingProcessVertex(pid);
-		
-		if(containingProcess == null){
-			// Just add this (new) vertex since we don't have the old one
-			putProcess(eventData, time, eventId);
-		}else{
-			// Annotations to update
-			Map<String, String> annotationsToUpdate = new HashMap<String, String>();
-			annotationsToUpdate.put(OPMConstants.AGENT_UID, eventData.get(AuditEventReader.UID));
-			annotationsToUpdate.put(OPMConstants.AGENT_SUID, eventData.get(AuditEventReader.SUID));
-			annotationsToUpdate.put(OPMConstants.AGENT_EUID, eventData.get(AuditEventReader.EUID));
-			annotationsToUpdate.put(OPMConstants.AGENT_FSUID, eventData.get(AuditEventReader.FSUID));
-			annotationsToUpdate.put(OPMConstants.AGENT_GID, eventData.get(AuditEventReader.GID));
-			annotationsToUpdate.put(OPMConstants.AGENT_SGID, eventData.get(AuditEventReader.SGID));
-			annotationsToUpdate.put(OPMConstants.AGENT_EGID, eventData.get(AuditEventReader.EGID));
-			annotationsToUpdate.put(OPMConstants.AGENT_FSGID, eventData.get(AuditEventReader.FSGID));
-			
-			handleSetuidAndSetgidContainingProcess(time, eventId, syscall, 
-					containingProcess, annotationsToUpdate);
-		}
-		
-	}
-	
-	private void handleSetuidAndSetgidContainingProcess(String time, String eventId, SYSCALL syscall, 
-			Process containingProcess, Map<String, String> annotationsToUpdate){
-		// Always the CONTAINING process!
-		if(AGENTS){
-			
-			String pid = containingProcess.getAnnotation(OPMConstants.PROCESS_PID);
-			
-			Agent agent = new Agent();
-			agent.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-			agent.addAnnotation(OPMConstants.AGENT_UID, annotationsToUpdate.get(OPMConstants.AGENT_UID));
-			agent.addAnnotation(OPMConstants.AGENT_EUID, annotationsToUpdate.get(OPMConstants.AGENT_EUID));
-			agent.addAnnotation(OPMConstants.AGENT_GID, annotationsToUpdate.get(OPMConstants.AGENT_GID));
-			agent.addAnnotation(OPMConstants.AGENT_EGID, annotationsToUpdate.get(OPMConstants.AGENT_EGID));
-			if(!SIMPLIFY){
-				agent.addAnnotation(OPMConstants.AGENT_SUID, annotationsToUpdate.get(OPMConstants.AGENT_SUID));
-				agent.addAnnotation(OPMConstants.AGENT_FSUID, annotationsToUpdate.get(OPMConstants.AGENT_FSUID));
-				agent.addAnnotation(OPMConstants.AGENT_SGID, annotationsToUpdate.get(OPMConstants.AGENT_SGID));
-				agent.addAnnotation(OPMConstants.AGENT_FSGID, annotationsToUpdate.get(OPMConstants.AGENT_FSGID));
-			}
-			String agentHash = agent.bigHashCode();
-			if(!agentHashes.contains(agentHash)){
-				agentHashes.add(agentHash);
-				putVertex(agent);
-			}
-			if(pidToAgentEdgeHashes.get(pid) == null){
-				pidToAgentEdgeHashes.put(pid, new HashSet<String>());
-			}
-			WasControlledBy wasControlledBy = new WasControlledBy(containingProcess, agent);
-			wasControlledBy.addAnnotation(OPMConstants.EDGE_OPERATION, getOperation(syscall));
-			wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
-			wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
-			wasControlledBy.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-			
-			String edgeHash = wasControlledBy.bigHashCode();
-			if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
-				pidToAgentEdgeHashes.get(pid).add(edgeHash);
-				putEdge(wasControlledBy);
-			}
-			
-		}else{
-		
-			String pid = containingProcess.getAnnotation(OPMConstants.PROCESS_PID);
-			
-			// oldProcessUnitStack has only active iterations. 
-			// Should be only one active one since nested loops haven't been instrumented yet in BEEP.
-			// but taking care of nested loops still anyway. 
-			// IMPORTANT: Getting this here first because putProcess call on newContainingProcess would discard it
-			LinkedList<Process> oldProcessUnitStack = new LinkedList<Process>(processUnitStack.get(pid));
-
-			Map<String, String> oldContainingProcessAnnotations = containingProcess.getAnnotations();
-			Map<String, String> newContainingProcessAnnotations = 
-					updateKeyValuesInMap(oldContainingProcessAnnotations, annotationsToUpdate);
-			boolean RECREATE_AND_REPLACE = true; //has to be true since already an entry for the same pid exists
-			Process newContainingProcess = putProcess(newContainingProcessAnnotations, RECREATE_AND_REPLACE, time, eventId);
-
-			WasTriggeredBy newProcessToOldProcess = new WasTriggeredBy(newContainingProcess, containingProcess);
-			putEdge(newProcessToOldProcess, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-
-			//Get the new process unit stack now in which the new units would be added. 
-			//New because putProcess above has replaced the old one
-			LinkedList<Process> newProcessUnitStack = processUnitStack.get(pid);
-
-			if(oldProcessUnitStack != null){ // Means that there are units
-				//recreating the rest of the stack manually because existing iteration and count annotations need to be preserved
-				for(int a = 1; a<oldProcessUnitStack.size(); a++){ //start from 1 because 0 is the containing process
-					Process oldProcessUnit = oldProcessUnitStack.get(a);
-					Map<String, String> oldProcessUnitAnnotations = oldProcessUnit.getAnnotations();
-					Map<String, String> newProcessUnitAnnotations = 
-							updateKeyValuesInMap(oldProcessUnitAnnotations, annotationsToUpdate);
-					Process newProcessUnit = createProcessVertex(newProcessUnitAnnotations); //create process unit
-					newProcessUnitStack.addLast(newProcessUnit); //add to memory
-					if(!processVertexHasBeenPutBefore(newProcessUnit)){
-						putVertex(newProcessUnit);//add to internal buffer
-					}	
-					//drawing an edge from newProcessUnit to currentProcessUnit with operation based on current syscall
-					WasTriggeredBy newUnitToOldUnit = new WasTriggeredBy(newProcessUnit, oldProcessUnit);
-					putEdge(newUnitToOldUnit, getOperation(syscall), time, eventId, OPMConstants.SOURCE_BEEP);
-					//drawing an edge from newProcessUnit to newContainingProcess with operation unit to keep things consistent
-					WasTriggeredBy newUnitToNewProcess = new WasTriggeredBy(newProcessUnit, newContainingProcess);
-					putEdge(newUnitToNewProcess, getOperation(SYSCALL.UNIT), time, eventId, OPMConstants.SOURCE_BEEP);
-				}
-			}
-		}
+		processManager.handleSetuidSetgid(eventData, syscall);
 	}
 	
 	/**
@@ -3311,12 +2986,12 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier artifactIdentifier = null;
 
 			if(fdLong != AT_FDCWD){
-				artifactIdentifier = descriptors.getDescriptor(pid, fd);
+				artifactIdentifier = processManager.getFd(pid, fd);
 				if(artifactIdentifier == null){
 					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.MKNODAT);
 					return;
-				}else if(artifactIdentifier.getClass().equals(FileIdentifier.class)){
-					String directoryPath = ((FileIdentifier)artifactIdentifier).getPath();
+				}else if(artifactIdentifier instanceof IdentifierWithPath){
+					String directoryPath = ((IdentifierWithPath)artifactIdentifier).getPath();
 					//update cwd to directoryPath and call handleMknod. the file created path is always relative in this syscall
 					eventData.put(AuditEventReader.CWD, directoryPath);
 				}else{
@@ -3360,7 +3035,8 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+				time, eventId, syscall);
 
 		if(artifactIdentifier == null){
 			log(Level.INFO, "Unsupported mode for mknod '"+modeString+"'", null, time, eventId, syscall);
@@ -3445,18 +3121,18 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 
-		Process process = putProcess(eventData, time, eventId);
-
 		ArtifactIdentifier srcArtifactIdentifier = getArtifactIdentifierFromPathMode(srcPath, 
-				PathRecord.parsePathType(srcPathMode));
+				PathRecord.parsePathType(srcPathMode), time, eventId, syscall);
 		ArtifactIdentifier dstArtifactIdentifier = getArtifactIdentifierFromPathMode(dstPath, 
-				PathRecord.parsePathType(dstPathMode));
+				PathRecord.parsePathType(dstPathMode), time, eventId, syscall);
 		
 		if(srcArtifactIdentifier == null || dstArtifactIdentifier == null){
 			logger.log(Level.WARNING, "Missing path objects. Failed to "
 					+ "process syscall {0} for event id {1}", new Object[]{syscall, eventId});
 			return;
 		}
+		
+		Process process = processManager.handleProcessFromSyscall(eventData);
 
 		//destination is new so mark epoch
 		markNewEpochForArtifact(dstArtifactIdentifier);
@@ -3483,18 +3159,20 @@ public class Audit extends AbstractReporter {
 	 * @param pathType mode value for the path in the audit log
 	 * @return ArtifactIdentifier subclass or null
 	 */
-	private ArtifactIdentifier getArtifactIdentifierFromPathMode(String path, int pathType){
-		if((pathType & S_IFMT) == S_IFREG || (pathType & S_IFMT) == S_IFDIR 
-				|| (pathType & S_IFMT) == S_IFCHR || (pathType & S_IFMT) == S_IFBLK
-				|| (pathType & S_IFMT) == S_IFLNK){
-			return new FileIdentifier(path);
-		}else if((pathType & S_IFMT) == S_IFIFO){
-			return new NamedPipeIdentifier(path);
-		}else if((pathType & S_IFMT) == S_IFSOCK){
-			return new UnixSocketIdentifier(path);
-		}else{
-			logger.log(Level.INFO, "Unknown file type in mode: {0} for path: {1}. Using 'file' type", new Object[]{pathType, path});
-			return new FileIdentifier(path);
+	private ArtifactIdentifier getArtifactIdentifierFromPathMode(String path, int pathType, 
+			String time, String eventId, SYSCALL syscall){
+		int type = pathType & S_IFMT;
+		switch(type){
+			case S_IFREG: return new FileIdentifier(path);
+			case S_IFDIR: return new DirectoryIdentifier(path);
+			case S_IFCHR: return new CharacterDeviceIdentifier(path);
+			case S_IFBLK: return new BlockDeviceIdentifier(path);
+			case S_IFLNK: return new LinkIdentifier(path);
+			case S_IFIFO: return new NamedPipeIdentifier(path);
+			case S_IFSOCK: return new UnixSocketIdentifier(path);
+			default:
+				log(Level.INFO, "Unknown file type: "+pathType+". Defaulted to 'File'", null, time, eventId, syscall);
+				return new FileIdentifier(path);
 		}
 	}
 
@@ -3507,7 +3185,6 @@ public class Audit extends AbstractReporter {
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String time = eventData.get(AuditEventReader.TIME);
 		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
 		String modeArgument = null;
 		// if syscall is chmod, then path is <path0> relative to <cwd>
 		// if syscall is fchmod, look up file descriptor which is <a0>
@@ -3525,18 +3202,15 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing PATH or CWD records", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+					time, eventId, syscall);
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		} else if (syscall == SYSCALL.FCHMOD) {
-
 			String fd = eventData.get(AuditEventReader.ARG0);
-
-			if(descriptors.getDescriptor(pid, fd) == null){
-				descriptors.addUnknownDescriptor(pid, fd);
-				markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
+			artifactIdentifier = processManager.getFd(pid, fd);
+			if(artifactIdentifier == null){
+				artifactIdentifier = addUnknownFd(pid, fd);
 			}
-
-			artifactIdentifier = descriptors.getDescriptor(pid, fd);
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		}else if(syscall == SYSCALL.FCHMODAT){
 			PathRecord pathRecord = getFirstPathWithNametype(eventData, AuditEventReader.NAMETYPE_NORMAL);
@@ -3551,7 +3225,8 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Failed to create path", null, time, eventId, syscall);
 				return;
 			}
-			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType());
+			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
+					time, eventId, syscall);
 			modeArgument = eventData.get(AuditEventReader.ARG2);
 		}else{
 			log(Level.INFO, "Unexpected syscall '"+syscall+"' in CHMOD handler", null, time, eventId, syscall);
@@ -3563,6 +3238,7 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
+		Process process = processManager.handleProcessFromSyscall(eventData);
 		String mode = new BigInteger(modeArgument).toString(8);
 		mode = PathRecord.parsePermissions(mode);
 		Artifact vertex = putArtifact(eventData, artifactIdentifier, mode, true);
@@ -3582,21 +3258,40 @@ public class Audit extends AbstractReporter {
 		String fd1 = eventData.get(AuditEventReader.FD1);
 		ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
 		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
-		descriptors.addDescriptor(pid, fd0, readPipeIdentifier, true);
-		descriptors.addDescriptor(pid, fd1, writePipeIdentifier, false);
+		processManager.setFd(pid, fd0, readPipeIdentifier, true);
+		processManager.setFd(pid, fd1, writePipeIdentifier, false);
 
+		// Since both (read, and write) pipe identifiers are the same, only need to mark epoch on one.
 		markNewEpochForArtifact(readPipeIdentifier);
-		markNewEpochForArtifact(writePipeIdentifier);
-	}    
-
+	}
+	
+	public static Integer getProtocolNumber(String protocolName){
+		if(PROTOCOL_NAME_UDP.equals(protocolName)){
+			return 17;
+		}else if(PROTOCOL_NAME_TCP.equals(protocolName)){
+			return 6;
+		}else{
+			return null;
+		}
+	}
+	
+	private static String getProtocolName(Integer protocolNumber){
+		if(protocolNumber != null){
+			if(protocolNumber == 17){
+				return PROTOCOL_NAME_UDP;
+			}else if(protocolNumber == 6){
+				return PROTOCOL_NAME_TCP;
+			}
+		}
+		return null;
+	}
 
 	private void handleNetfilterPacketEvent(Map<String, String> eventData){
 //      Refer to the following link for protocol numbers
 //    	http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-    	
-    	String time = eventData.get(AuditEventReader.TIME);
+		String time = eventData.get(AuditEventReader.TIME);
     	String eventId = eventData.get(AuditEventReader.EVENT_ID);
-    	String protocolNumber = eventData.get(AuditEventReader.PROTO);
+    	String protocolNumberString = eventData.get(AuditEventReader.PROTO);
     	String hook = eventData.get(AuditEventReader.HOOK);//hook=1 (input), hook=3 (output)
     	
     	String localAddress = null, localPort = null, remoteAddress = null, remotePort = null;
@@ -3616,68 +3311,161 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	
-    	String protocolName = OPMConstants.getProtocolName(CommonFunctions.parseInt(protocolNumber, -1));
+    	Integer protocolNumber = CommonFunctions.parseInt(protocolNumberString, null);
+    	String protocolName = getProtocolName(protocolNumber);
+    	protocolName = protocolName == null ? "" : protocolName; // put empty if null
     	
-    	Artifact artifactFromNetfilter = new Artifact();
-    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS, localAddress);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT, localPort);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS, remoteAddress);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_PROTOCOL, protocolName);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_NETWORK_SOCKET);
-    	artifactFromNetfilter.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_NETFILTER);
+    	// Update this area if network annotations change. TODO in future
+    	// epoch and version added from the syscall artifact
+    	Map<String, String> annotationsFromNetfilter = new HashMap<String, String>();
+    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_LOCAL_ADDRESS, localAddress);
+    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_LOCAL_PORT, localPort);
+    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_REMOTE_ADDRESS, remoteAddress);
+    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort);
+    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_PROTOCOL, protocolName);
+    	annotationsFromNetfilter.put(OPMConstants.ARTIFACT_SUBTYPE, OPMConstants.SUBTYPE_NETWORK_SOCKET);
+    	annotationsFromNetfilter.put(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_NETFILTER);
 
-    	Artifact artifactFromSyscall = removeNetworkArtifactSeenInSyscall(remoteAddress, remotePort);
-    	if(artifactFromSyscall != null){
-    		String localPortFromSyscall = artifactFromSyscall.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
+    	Map<String, String> annotationsFromSyscall = getNetworkAnnotationsSeenInList(
+    			networkAnnotationsFromSyscalls, remoteAddress, remotePort);
+    	if(annotationsFromSyscall != null){ //found
+    		String localPortFromSyscall = annotationsFromSyscall.get(OPMConstants.ARTIFACT_LOCAL_PORT);
     		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
     			if(!localPortFromSyscall.equals(localPort)){
     				// different connection
-    				artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
-    				artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
-    				addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
+    				annotationsFromNetfilter.put(OPMConstants.EDGE_TIME, time);
+    				annotationsFromNetfilter.put(OPMConstants.EDGE_EVENT_ID, eventId);
+    				networkAnnotationsFromNetfilter.add(annotationsFromNetfilter);
     				return;
     			}
     		}
     		// logic for deduplication deviates from the current one
     		// standardize this too and handling of netfilter in syscall functions. TODO
-    		String epoch = artifactFromSyscall.getAnnotation(OPMConstants.ARTIFACT_EPOCH);
-    		String version = artifactFromSyscall.getAnnotation(OPMConstants.ARTIFACT_VERSION);
+    		String epoch = annotationsFromSyscall.get(OPMConstants.ARTIFACT_EPOCH);
+    		String version = annotationsFromSyscall.get(OPMConstants.ARTIFACT_VERSION);
     		if(epoch != null){
-    			artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_EPOCH, epoch);
+    			annotationsFromNetfilter.put(OPMConstants.ARTIFACT_EPOCH, epoch);
     		}
     		if(version != null){
-    			artifactFromNetfilter.addAnnotation(OPMConstants.ARTIFACT_VERSION, version);
+    			annotationsFromNetfilter.put(OPMConstants.ARTIFACT_VERSION, version);
     		}
-    		putVertex(artifactFromNetfilter);
+    		
+    		Artifact artifactFromNetfilter = new Artifact();
+    		artifactFromNetfilter.addAnnotations(annotationsFromNetfilter);
+    		putVertex(artifactFromNetfilter); // add this only. syscall one already added.
+    		
+    		Artifact artifactFromSyscall = new Artifact();
+    		artifactFromSyscall.addAnnotations(annotationsFromSyscall);
+    		
     		WasDerivedFrom syscallToNetfilter = new WasDerivedFrom(artifactFromNetfilter, artifactFromSyscall);
     		putEdge(syscallToNetfilter, getOperation(SYSCALL.UPDATE), time, eventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
     		
+    		// Found a match, and have consumed this. So, remove from the list.
+    		networkAnnotationsFromSyscalls.remove(annotationsFromSyscall);
+    		
+    		matchedNetfilterSyscall++;
+    		
     	}else{
-    		artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
-    		artifactFromNetfilter.addAnnotation(OPMConstants.EDGE_TIME, time);
-    		addNetworkArtifactToList(networkArtifactsFromNetfilter, artifactFromNetfilter, eventId);
+    		annotationsFromNetfilter.put(OPMConstants.EDGE_EVENT_ID, eventId);
+    		annotationsFromNetfilter.put(OPMConstants.EDGE_TIME, time);
+    		networkAnnotationsFromNetfilter.add(annotationsFromNetfilter);
     	}
     }
+	
+	private NetworkSocketIdentifier getNetworkIdentifier(SYSCALL syscall, String time, String eventId, 
+			String pid, String fd){
+		ArtifactIdentifier identifier = processManager.getFd(pid, fd);
+		if(identifier != null){
+			if(identifier.getClass().equals(NetworkSocketIdentifier.class)){
+				return ((NetworkSocketIdentifier)identifier);
+			}else{
+				log(Level.INFO, "Expected network identifier but found: " + 
+						identifier.getClass(), null, time, eventId, syscall);
+				return null;
+			}
+		}else{
+			return null;
+		}
+	}
+	
+	private String getProtocol(SYSCALL syscall, String time, String eventId, String pid, String fd){
+		NetworkSocketIdentifier identifier = getNetworkIdentifier(syscall, time, eventId, pid, fd);
+		if(identifier != null){
+			return identifier.getProtocol();
+		}else{
+			return null;
+		}
+	}
+	
+	private AddressPort getLocalAddressPort(SYSCALL syscall, String time, String eventId, String pid, String fd){
+		NetworkSocketIdentifier identifier = getNetworkIdentifier(syscall, time, eventId, pid, fd);
+		if(identifier != null){
+			NetworkSocketIdentifier networkIdentifier = ((NetworkSocketIdentifier)identifier);
+			return new AddressPort(networkIdentifier.getLocalHost(), networkIdentifier.getLocalPort());
+		}else{
+			return null;
+		}
+	}
+	
+	private String getProtocolNameBySockType(Integer sockType){
+		if(sockType != null){
+			if((sockType | SOCK_STREAM) == SOCK_STREAM){
+				return PROTOCOL_NAME_TCP;
+			}else if((sockType | SOCK_DGRAM) == SOCK_DGRAM){
+				return PROTOCOL_NAME_UDP;
+			}
+		}
+		return null;
+	}
 		
 	private void handleSocket(Map<String, String> eventData, SYSCALL syscall){
 		// socket() receives the following message(s):
 		// - SYSCALL
 		// - EOE
 		String sockFd = eventData.get(AuditEventReader.EXIT);
-		int protocolNumber = CommonFunctions.parseInt(eventData.get(AuditEventReader.ARG2), -1);
-		String protocolName = OPMConstants.getProtocolName(protocolNumber);
+		Integer socketType = CommonFunctions.parseInt(eventData.get(AuditEventReader.ARG1), null);
+		String protocolName = getProtocolNameBySockType(socketType);
 		
 		if(protocolName != null){
-		
 			String pid = eventData.get(AuditEventReader.PID);
-			
-			NetworkSocketIdentifier identifierForProtocol = new NetworkSocketIdentifier(null, null, null, null, protocolName);
-			
-			descriptors.addDescriptor(pid, sockFd, identifierForProtocol, false);
-			
+
+			NetworkSocketIdentifier identifierForProtocol = new NetworkSocketIdentifier(
+					null, null, null, null, protocolName);
+			processManager.setFd(pid, sockFd, identifierForProtocol, null); // no close edge
 		}
-		
+	}
+	
+	private void putBind(String pid, String fd, ArtifactIdentifier identifier){
+		if(identifier != null){
+			// no need to add to descriptors because we will have the address from other syscalls? TODO
+			processManager.setFd(pid, fd, identifier, null);
+			if(identifier instanceof UnixSocketIdentifier){
+				markNewEpochForArtifact(identifier);
+			}
+		}
+	}
+	
+	private void logInvalidSaddr(String saddr, String time, String eventId, SYSCALL syscall){
+		if(!"0100".equals(saddr)){ // if not empty path
+			log(Level.INFO, "Failed to parse saddr: " + saddr, null, time, eventId, syscall);
+		}
+	}
+	
+	// needed for marking epoch for unix socket
+	private void handleBindKernelModule(Map<String, String> eventData, String time, String eventId, SYSCALL syscall,
+			String pid, String exit, String sockFd, int sockType, String localSaddr, String remoteSaddr){
+		boolean isNetwork = isNetworkSaddr(localSaddr) || isNetworkSaddr(remoteSaddr);
+		if(!isNetwork){
+			// is unix
+			ArtifactIdentifier identifier = parseUnixSaddr(localSaddr); // local or remote. any is fine.
+			if(identifier != null){
+				putBind(pid, sockFd, identifier);
+			}else{
+				logInvalidSaddr(remoteSaddr, time, eventId, syscall);
+			}
+		}else{
+			// nothing needed in case of network because we get all info from other syscalls if kernel module
+		}
 	}
 	
 	private void handleBind(Map<String, String> eventData, SYSCALL syscall) {
@@ -3690,36 +3478,95 @@ public class Audit extends AbstractReporter {
 		String saddr = eventData.get(AuditEventReader.SADDR);
 		String sockFd = eventData.get(AuditEventReader.ARG0);
 		String pid = eventData.get(AuditEventReader.PID);
-		
-		if(isNetlinkSaddr(saddr)){
-			return;
-		}
-		
-		ArtifactIdentifier artifactIdentifier = parseSaddr(saddr, pid, sockFd, time, eventId, syscall);
-		if (artifactIdentifier != null) {
-			//NOTE: not using the file descriptor. using the socketFD here!
-			//Doing this to be able to link the accept syscalls to the correct artifactIdentifier.
-			//In case of unix socket accept, the saddr is almost always reliably invalid
-			// Epoch to be incremented only in case of unix sockets and not network sockets
-			if(UnixSocketIdentifier.class.equals(artifactIdentifier.getClass())){
-				// Setting wasOpenedForRead argument to false because can be written to
-				descriptors.addDescriptor(pid, sockFd, artifactIdentifier, false);
-				markNewEpochForArtifact(artifactIdentifier);
-			}else{
-				// Setting wasOpenedForRead argument to null so that when bound fd closed, no edge is drawn.
-				descriptors.addDescriptor(pid, sockFd, artifactIdentifier, null);
+
+		if(!isNetlinkSaddr(saddr)){ // not handling netlink
+			ArtifactIdentifier identifier = null;
+			if(isNetworkSaddr(saddr)){
+				AddressPort addressPort = parseNetworkSaddr(saddr);
+				if(addressPort != null){
+					String protocolName = getProtocol(syscall, time, eventId, pid, sockFd);
+					identifier = new NetworkSocketIdentifier(
+							addressPort.address, addressPort.port, null, null, protocolName);
+				}
+			}else if(isUnixSaddr(saddr)){
+				identifier = parseUnixSaddr(saddr);
 			}
+			
+			if(identifier == null){
+				logInvalidSaddr(saddr, time, eventId, syscall);
+			}else{
+				putBind(pid, sockFd, identifier);
+			}
+		}
+	}
+	
+	private NetworkSocketIdentifier constructNetworkIdentifier(SYSCALL syscall, String time, String eventId, 
+			String localSaddr, String remoteSaddr, Integer sockType){
+		String protocolName = getProtocolNameBySockType(sockType);
+		AddressPort local = parseNetworkSaddr(localSaddr);
+		AddressPort remote = parseNetworkSaddr(remoteSaddr);
+		if(local == null && remote == null){
+			log(Level.INFO, "Local and remote saddr both null", null, time, eventId, syscall);
 		}else{
-			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, syscall);
+			String localAddress = null, localPort = null, remoteAddress = null, remotePort = null;
+			if(local != null){
+				localAddress = local.address;
+				localPort = local.port;
+			}
+			if(remote != null){
+				remoteAddress = remote.address;
+				remotePort = remote.port;
+			}
+			return new NetworkSocketIdentifier(localAddress, localPort, 
+					remoteAddress, remotePort, protocolName);
+		}
+		return null;
+	}
+		
+	private void putConnect(SYSCALL syscall, String time, String eventId, String pid, String fd, 
+			ArtifactIdentifier fdIdentifier, Map<String, String> eventData){
+		if(fdIdentifier != null){
+			if(fdIdentifier instanceof NetworkSocketIdentifier){
+				markNewEpochForArtifact(fdIdentifier);
+			}
+			processManager.setFd(pid, fd, fdIdentifier, false);
+			
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact artifact = putArtifact(eventData, fdIdentifier, null, true);
+			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
+			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+			
+			if(REFINE_NET){
+				putWasDerivedFromEdgeFromNetworkArtifacts(artifact);
+			}
+		}
+	}
+	
+	private void handleConnectKernelModule(Map<String, String> eventData, String time, String eventId, SYSCALL syscall,
+			String pid, String exit, String sockFd, int sockType, String localSaddr, String remoteSaddr){
+		// if not network then unix. Only that being handled in kernel module
+		boolean isNetwork = isNetworkSaddr(localSaddr) || isNetworkSaddr(remoteSaddr);
+		
+		ArtifactIdentifier identifier = null;
+		
+		if(isNetwork){
+			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+		}else{ // is unix socket
+			identifier = parseUnixSaddr(remoteSaddr); // address in remote unlike accept
+			if(identifier == null){
+				logInvalidSaddr(localSaddr, time, eventId, syscall);
+			}
+		}
+		if(identifier != null){
+			putConnect(syscall, time, eventId, pid, sockFd, identifier, eventData);
 		}
 	}
 
-	private void handleConnect(Map<String, String> eventData) {
+	private void handleConnect(Map<String, String> eventData, SYSCALL syscall){
 		//connect() receives the following message(s):
 		// - SYSCALL
 		// - SADDR
-		// - EOE
-		
+		// - EOE	
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String time = eventData.get(AuditEventReader.TIME);
 		String pid = eventData.get(AuditEventReader.PID);
@@ -3729,7 +3576,7 @@ public class Audit extends AbstractReporter {
 		Integer exit = CommonFunctions.parseInt(eventData.get(AuditEventReader.EXIT), null);
 		if(exit == null){
 			log(Level.WARNING, "Failed to parse exit value: " + eventData.get(AuditEventReader.EXIT), 
-					null, time, eventId, SYSCALL.CONNECT);
+					null, time, eventId, syscall);
 			return;
 		}else{ // not null
 			// only handling if success is 0 or success is EINPROGRESS
@@ -3738,40 +3585,69 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 		}
-		
-		if(isNetlinkSaddr(saddr)){
-			return;
-		}
-		
-		ArtifactIdentifier parsedArtifactIdentifier = parseSaddr(saddr, pid, sockFd, time, eventId, SYSCALL.CONNECT);
-		if (parsedArtifactIdentifier != null) {
-			Process process = putProcess(eventData, time, eventId);
-			// update file descriptor table
-			descriptors.addDescriptor(pid, sockFd, parsedArtifactIdentifier, false);
-			
-			// Incrementing epoch only for network sockets
-			if(!UnixSocketIdentifier.class.equals(parsedArtifactIdentifier.getClass())){
-				markNewEpochForArtifact(parsedArtifactIdentifier);
+
+		if(!isNetlinkSaddr(saddr)){ // not handling netlink saddr
+			ArtifactIdentifier identifier = null;
+			if(isNetworkSaddr(saddr)){
+				AddressPort addressPort = parseNetworkSaddr(saddr);
+				if(addressPort != null){
+					String protocolName = getProtocol(syscall, time, eventId, pid, sockFd);
+					identifier = new NetworkSocketIdentifier(
+							null, null, addressPort.address, addressPort.port, protocolName);
+					
+				}
+			}else if(isUnixSaddr(saddr)){
+				identifier = parseUnixSaddr(saddr);
 			}
-
-			Artifact artifact = putArtifact(eventData, parsedArtifactIdentifier, null, true);
-			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
-			putEdge(wgb, getOperation(SYSCALL.CONNECT), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
-			putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, artifact);
-		}else{
-			log(Level.INFO, "Invalid saddr '"+saddr+"'", null, time, eventId, SYSCALL.CONNECT);
+			if(identifier == null){
+				logInvalidSaddr(saddr, time, eventId, syscall);
+			}else{
+				putConnect(syscall, time, eventId, pid, sockFd, identifier, eventData);
+			}
+		}
+	}
+
+	private void putAccept(SYSCALL syscall, String time, String eventId, String pid, String fd, 
+			ArtifactIdentifier fdIdentifier, Map<String, String> eventData){
+		// eventData must contain all information need to create a process vertex
+		if(fdIdentifier != null){
+			if(fdIdentifier instanceof NetworkSocketIdentifier){
+				markNewEpochForArtifact(fdIdentifier);
+			}
+			
+			processManager.setFd(pid, fd, fdIdentifier, false);
+			
+			Process process = processManager.handleProcessFromSyscall(eventData);
+			Artifact socket = putArtifact(eventData, fdIdentifier, null, false);
+			Used used = new Used(process, socket);
+			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+			
+			if(REFINE_NET){
+				putWasDerivedFromEdgeFromNetworkArtifacts(socket);
+			}
 		}
 	}
 	
-	private boolean isNetlinkSaddr(String saddr){
-		return saddr != null && saddr.startsWith("10");
+	private void handleAcceptKernelModule(Map<String, String> eventData, String time, String eventId, SYSCALL syscall,
+			String pid, String fd, String sockFd, int sockType, String localSaddr, String remoteSaddr){
+		// if not network then unix. Only that being handled in kernel module
+		boolean isNetwork = isNetworkSaddr(localSaddr) || isNetworkSaddr(remoteSaddr);
+		
+		ArtifactIdentifier identifier = null;
+		if(isNetwork){
+			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+		}else{ // is unix socket
+			identifier = parseUnixSaddr(localSaddr);
+			if(identifier == null){
+				logInvalidSaddr(localSaddr, time, eventId, syscall);
+			}
+		}
+		if(identifier != null){
+			putAccept(syscall, time, eventId, pid, fd, identifier, eventData);
+		}
 	}
 	
-	private boolean isNetworkSaddr(String saddr){
-		return saddr != null && (saddr.startsWith(IPV4_NETWORK_SOCKET_SADDR_PREFIX) || saddr.startsWith(IPV6_NETWORK_SOCKET_SADDR_PREFIX));
-	}
-
 	private void handleAccept(Map<String, String> eventData, SYSCALL syscall) {
 		//accept() & accept4() receive the following message(s):
 		// - SYSCALL
@@ -3784,294 +3660,209 @@ public class Audit extends AbstractReporter {
 		String fd = eventData.get(AuditEventReader.EXIT); //fd of the connection
 		String saddr = eventData.get(AuditEventReader.SADDR);
 
-		if(isNetlinkSaddr(saddr)){
-			return;
-		}
-		
-		// Previously bound address to the socketFD. Can either be unix socket or tcp socket
-		ArtifactIdentifier boundArtifactIdentifier = descriptors.getDescriptor(pid, sockFd); 
-		// New address for the new fd.
-		// Can only be tcp socket because udp doesn't do this syscall and in case of unix sockets
-		// the saddr field always has an empty unix socket path
-		ArtifactIdentifier acceptedArtifactIdentifier = parseSaddr(saddr, pid, sockFd, time, eventId, syscall);
-		
-		if(boundArtifactIdentifier != null){
-			// If bound artifact is a unix socket then just use that because parsed artifact is useless
-			if(boundArtifactIdentifier.getClass().equals(UnixSocketIdentifier.class)){
-				descriptors.addDescriptor(pid, fd, boundArtifactIdentifier, false);
-			}else if(boundArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
-				if(acceptedArtifactIdentifier == null){
-					descriptors.addDescriptor(pid, fd, boundArtifactIdentifier, false);
-				}else{
-					if(acceptedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
-						// both are network
-						NetworkSocketIdentifier boundNetworkSocket = (NetworkSocketIdentifier)boundArtifactIdentifier;
-						NetworkSocketIdentifier acceptedNetworkSocket = (NetworkSocketIdentifier)acceptedArtifactIdentifier;
-						NetworkSocketIdentifier combined = new NetworkSocketIdentifier(
-								boundNetworkSocket.getLocalHost(), boundNetworkSocket.getLocalPort(), 
-								acceptedNetworkSocket.getRemoteHost(), acceptedNetworkSocket.getRemotePort(), 
-								boundNetworkSocket.getProtocol());
-						descriptors.addDescriptor(pid, fd, combined, false);
+		if(!isNetlinkSaddr(saddr)){ // not handling netlink saddr
+			ArtifactIdentifier identifier = null;
+			ArtifactIdentifier boundIdentifier = processManager.getFd(pid, sockFd); // sockFd
+			if(isNetworkSaddr(saddr)){
+				AddressPort addressPort = parseNetworkSaddr(saddr);
+				if(addressPort != null){
+					String localAddress = null, localPort = null, 
+							protocol = getProtocol(syscall, time, eventId, pid, sockFd);
+					AddressPort localAddressPort = getLocalAddressPort(syscall, time, eventId, pid, sockFd);
+					if(localAddressPort != null){
+						localAddress = localAddressPort.address;
+						localPort = localAddressPort.port;
+					}
+					identifier = new NetworkSocketIdentifier(localAddress, localPort, 
+							addressPort.address, addressPort.port, protocol);
+				}
+			}else if(isUnixSaddr(saddr)){
+				// The unix saddr in accept is empty. So, use the bound one.
+				if(boundIdentifier != null){
+					if(boundIdentifier.getClass().equals(UnixSocketIdentifier.class)){
+						// Use a new one because the wasOpenedForRead is updated otherwise it would
+						// be updated in the bound identifier too.
+						identifier = new UnixSocketIdentifier(((UnixSocketIdentifier)boundIdentifier).getPath());
 					}else{
-						log(Level.WARNING, "Mismatched bound and accepted artifacts", null, time, eventId, syscall);
-						return;
+						log(Level.INFO, "Expected unix identifier but found: " + 
+								boundIdentifier.getClass(), null, time, eventId, syscall);
 					}
 				}
 			}
-		}else{
-			// Bound is null
-			// The only case that we can handle is if the parsed saddr is a network one
-			if(acceptedArtifactIdentifier != null &&
-					acceptedArtifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
-				descriptors.addDescriptor(pid, fd, acceptedArtifactIdentifier, false);
+			
+			if(identifier == null){
+				logInvalidSaddr(saddr, time, eventId, syscall);
 			}else{
-				log(Level.WARNING, "Missing bound and parsed artifacts", null, time, eventId, syscall);
-				return;
+				putAccept(syscall, time, eventId, pid, fd, identifier, eventData);
 			}
-		}
-		
-		//if reached this point then can process the accept event 
-
-		// Get the descriptor added above. If none added then null.
-		ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, fd);
-		if (artifactIdentifier != null) {
-			Process process = putProcess(eventData, time, eventId);
-			
-			// Increment epoch only if not unix socket i.e. network socket
-			if(!UnixSocketIdentifier.class.equals(artifactIdentifier.getClass())){
-				markNewEpochForArtifact(artifactIdentifier);
-			}
-			
-			Artifact socket = putArtifact(eventData, artifactIdentifier, null, false);
-			Used used = new Used(process, socket);
-			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-			
-			putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, socket);
-			
-		}else{
-			log(Level.INFO, "No artifact found for pid '"+pid+"' and fd '"+fd+"'", null, time, eventId, syscall);
 		}
 	}
 	
-	private void putWasDerivedFromEdgeFromNetworkArtifacts(String time, String eventId, Artifact syscallArtifact){
-		if(NETFILTER_HANDLING){
-			if(syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_NETWORK_SOCKET)){
-				String remoteAddress = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
-				String remotePort = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
-				Artifact netfilterArtifact = removeNetworkArtifactSeenInNetfilter(remoteAddress, remotePort);
-				if(netfilterArtifact != null){
-					
-					String localPortFromSyscall = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
-		    		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
-		    			if(!localPortFromSyscall.equals(netfilterArtifact.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT))){
-		    				// different connection
-		    				// basically further pruning
-		    				addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
-		    				return;
-		    			}
-		    		}
-					
-					// logic for deduplication deviates from the current one
-		    		// standardize this too and handling of netfilter in syscall functions. TODO
-		    		String epoch = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_EPOCH);
-		    		String version = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_VERSION);
-		    		if(epoch != null){
-		    			netfilterArtifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, epoch);
-		    		}
-		    		if(version != null){
-		    			netfilterArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, version);
-		    		}
-		    		
-		    		String netfilterTime = netfilterArtifact.removeAnnotation(OPMConstants.EDGE_TIME); //remove
-		    		String netfilterEventId = netfilterArtifact.removeAnnotation(OPMConstants.EDGE_EVENT_ID); //remove
-					
-		    		putVertex(netfilterArtifact);
-		    		// TODO USE A COPY OF THE SYSCALL ARTIFACT AND NOT THIS ONE!!!!
-					WasDerivedFrom edge = new WasDerivedFrom(netfilterArtifact, syscallArtifact);
-					putEdge(edge, getOperation(SYSCALL.UPDATE), netfilterTime, netfilterEventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
-				}else{
-					addNetworkArtifactToList(networkArtifactsFromSyscalls, syscallArtifact, eventId);
-				}
+	private void putWasDerivedFromEdgeFromNetworkArtifacts(Artifact syscallArtifact){
+		if(syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE).equals(OPMConstants.SUBTYPE_NETWORK_SOCKET)){
+			String remoteAddress = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
+			String remotePort = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
+			Map<String, String> netfilterAnnotations = getNetworkAnnotationsSeenInList(
+					networkAnnotationsFromNetfilter, remoteAddress, remotePort);
+			if(netfilterAnnotations != null){
+				String localPortFromSyscall = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
+	    		if(localPortFromSyscall != null && !localPortFromSyscall.trim().isEmpty()){
+	    			if(!localPortFromSyscall.equals(netfilterAnnotations.get(OPMConstants.ARTIFACT_LOCAL_PORT))){
+	    				// different connection
+	    				// basically further pruning
+	    				networkAnnotationsFromSyscalls.add(syscallArtifact.getAnnotations());
+	    				return;
+	    			}
+	    		}
+				
+	    		// remove the annotations map from netfilter because we are going to consume that.
+	    		// removing that here because the map is going to be updated below.
+	    		networkAnnotationsFromNetfilter.remove(netfilterAnnotations);
+	    		
+				// logic for deduplication deviates from the current one
+	    		// standardize this too and handling of netfilter in syscall functions. TODO
+	    		String epoch = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_EPOCH);
+	    		String version = syscallArtifact.getAnnotation(OPMConstants.ARTIFACT_VERSION);
+	    		if(epoch != null){
+	    			netfilterAnnotations.put(OPMConstants.ARTIFACT_EPOCH, epoch);
+	    		}
+	    		if(version != null){
+	    			netfilterAnnotations.put(OPMConstants.ARTIFACT_VERSION, version);
+	    		}
+	    		
+	    		String netfilterTime = netfilterAnnotations.remove(OPMConstants.EDGE_TIME); //remove
+	    		String netfilterEventId = netfilterAnnotations.remove(OPMConstants.EDGE_EVENT_ID); //remove
+				
+	    		Artifact netfilterArtifact = new Artifact();
+	    		netfilterArtifact.addAnnotations(netfilterAnnotations);
+	    		putVertex(netfilterArtifact);
+
+				WasDerivedFrom edge = new WasDerivedFrom(netfilterArtifact, syscallArtifact);
+				putEdge(edge, getOperation(SYSCALL.UPDATE), netfilterTime, netfilterEventId, OPMConstants.SOURCE_AUDIT_NETFILTER);
+				
+				matchedSyscallNetfilter++;
+			}else{
+				networkAnnotationsFromSyscalls.add(syscallArtifact.getAnnotations());
 			}
 		}
 	}
-
-	private ArtifactIdentifier getSockDescriptorArtifactIdentifier(String pid, String fd, 
-			String saddr, String time, String eventId, SYSCALL syscall){
-		
+	
+	private ArtifactIdentifier getNetworkIdentifierFromFdAndOrSaddr(SYSCALL syscall, String time, String eventId,
+			String pid, String fd, String saddr){
+		ArtifactIdentifier identifier = null;
 		if(saddr != null){
-			ArtifactIdentifier newOne = parseSaddr(saddr, pid, fd, time, eventId, syscall);
-			ArtifactIdentifier existing = descriptors.getDescriptor(pid, fd);
-			
-			if(newOne != null && newOne.getClass().equals(UnixSocketIdentifier.class)){
-				
-				if(existing == null || !existing.getClass().equals(UnixSocketIdentifier.class)){
-					//if null or not unix then add/replace with the new one
-					descriptors.addDescriptor(pid, fd, newOne, false);
-					//epoch?
-				}else{ // not null and is unix socket
-					
-					UnixSocketIdentifier existingUnix = (UnixSocketIdentifier)existing;
-					UnixSocketIdentifier newOneUnix = (UnixSocketIdentifier)newOne;
-					
-					if(!String.valueOf(existingUnix.getPath()).equals(newOneUnix.getPath())){
-						// replace if path different
-						descriptors.addDescriptor(pid, fd, newOne, false);
-					}else{
-						//path same then do nothing
+			if(!isNetlinkSaddr(saddr)){ // not handling netlink saddr
+				if(isNetworkSaddr(saddr)){
+					AddressPort addressPort = parseNetworkSaddr(saddr);
+					if(addressPort != null){
+						String localAddress = null, localPort = null;
+						//	Protocol has to be UDP since SOCK_DGRAM and (AF_INET or AF_INET6) 
+						//	protocol = getProtocol(syscall, time, eventId, pid, fd);
+						AddressPort localAddressPort = getLocalAddressPort(syscall, time, eventId, pid, fd);
+						if(localAddressPort != null){
+							localAddress = localAddressPort.address;
+							localPort = localAddressPort.port;
+						}
+						// Protocol can only be UDP because saddr only present when SOCK_DGRAM
+						// and family is AF_INET or AF_INET6.
+						identifier = new NetworkSocketIdentifier(localAddress, localPort, 
+								addressPort.address, addressPort.port, PROTOCOL_NAME_UDP);
 					}
-					
-				}
-				
-			}else{ // always network
-				// non-connection based
-				// increment epoch always if not unknown
-				if(newOne == null && existing == null){
-					descriptors.addUnknownDescriptor(pid, fd);
-					markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
-				}else if(newOne == null && existing != null){
-					// dont need to add it again
-				}else if(newOne != null && existing == null){
-					NetworkSocketIdentifier newOneNetwork = (NetworkSocketIdentifier)newOne;
-					ArtifactIdentifier artifactIdentifier = new NetworkSocketIdentifier(
-							newOneNetwork.getLocalHost(), newOneNetwork.getLocalPort(), 
-							newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
-							OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP);
-					descriptors.addDescriptor(pid, fd, artifactIdentifier, false);
-				}else{ // newone and existing both are non null
-					
-					if(newOne.getClass().equals(NetworkSocketIdentifier.class) &&
-							existing.getClass().equals(NetworkSocketIdentifier.class)){
-						NetworkSocketIdentifier newOneNetwork = (NetworkSocketIdentifier)newOne;
-						NetworkSocketIdentifier existingNetwork = (NetworkSocketIdentifier)existing;
-						// existing in udp server case would have local address and port
-						ArtifactIdentifier artifactIdentifier = new NetworkSocketIdentifier(
-								existingNetwork.getLocalHost(), existingNetwork.getLocalPort(), 
-								newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
-								existingNetwork.getProtocol());
-						
-						descriptors.addDescriptor(pid, fd, artifactIdentifier, false);
-					}else if(!newOne.getClass().equals(NetworkSocketIdentifier.class) &&
-							existing.getClass().equals(NetworkSocketIdentifier.class)){
-						// keep the existing
-					}else if(newOne.getClass().equals(NetworkSocketIdentifier.class) &&
-							!existing.getClass().equals(NetworkSocketIdentifier.class)){
-						NetworkSocketIdentifier newOneNetwork = (NetworkSocketIdentifier)newOne;
-						ArtifactIdentifier artifactIdentifier = new NetworkSocketIdentifier(
-								newOneNetwork.getLocalHost(), newOneNetwork.getLocalPort(), 
-								newOneNetwork.getRemoteHost(), newOneNetwork.getRemotePort(), 
-								OPMConstants.ARTIFACT_PROTOCOL_NAME_UDP);
-						descriptors.addDescriptor(pid, fd, artifactIdentifier, false);
-					}else{
-						// both Non-network. add the unknown
-						descriptors.addUnknownDescriptor(pid, fd);
-						markNewEpochForArtifact(descriptors.getDescriptor(pid, fd));
-					}
-					
+				}else if(isUnixSaddr(saddr)){
+					identifier = parseUnixSaddr(saddr);
+					// just use this
 				}
 			}
-			
+		}else{
+			// use fd
+			identifier = processManager.getFd(pid, fd);
 		}
-		
-		// base case. if none then add unknown
-		ArtifactIdentifier added = descriptors.getDescriptor(pid, fd);
-		if(added == null){
-			descriptors.addUnknownDescriptor(pid, fd);
-			added = descriptors.getDescriptor(pid, fd);
-			markNewEpochForArtifact(added);
-		}
-		
-		return added;
+	
+		// Don't update fd in descriptors even if updated identifier
+		// Not updating because if fd used again then saddr must be present
+		return identifier;
 	}
-
-	private void handleSend(Map<String, String> eventData, SYSCALL syscall) {
-		// sendto()/sendmsg() receive the following message(s):
-		// - SYSCALL
-		// - EOE
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
-
-		String fd = eventData.get(AuditEventReader.ARG0);
-		String bytesSent = eventData.get(AuditEventReader.EXIT);
-		String saddr = eventData.get(AuditEventReader.SADDR);
-		
-		if(isNetlinkSaddr(saddr)){
-			return;
-		}
-				
-		ArtifactIdentifier artifactIdentifier = 
-				getSockDescriptorArtifactIdentifier(pid, fd, saddr, time, eventId, syscall);
-		if(artifactIdentifier == null){
-			log(Level.WARNING, "Failed to get/build ArtifactIdentifier", null, time, eventId, syscall);
-			return;
-		}
-				
-		if(artifactIdentifier != null){
-			
-			// If saddr value is IP and artifact identifier is network then it is ALWAYS UDP
-			// Incrementing epoch always on send for UDP
-			if(isNetworkSaddr(saddr) && 
-					artifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
-				markNewEpochForArtifact(artifactIdentifier);
+	
+	private void handleNetworkIOKernelModule(Map<String, String> eventData, String time, String eventId, SYSCALL syscall,
+			String pid, String bytes, String sockFd, int sockType, String localSaddr, String remoteSaddr,
+			boolean isRecv){
+		boolean isNetwork = isNetworkSaddr(localSaddr) || isNetworkSaddr(remoteSaddr);
+		ArtifactIdentifier identifier = null;
+		if(isNetwork){
+			NetworkSocketIdentifier recordIdentifier =
+					constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+			ArtifactIdentifier fdIdentifier = processManager.getFd(pid, sockFd);
+			if(fdIdentifier instanceof NetworkSocketIdentifier){
+				NetworkSocketIdentifier fdNetworkIdentifier = (NetworkSocketIdentifier)fdIdentifier;
+				if(CommonFunctions.isNullOrEmpty(fdNetworkIdentifier.getRemoteHost())){
+					// Connection based IO
+					identifier = recordIdentifier;
+				}else{
+					// Non-connection based IO
+					identifier = fdNetworkIdentifier;
+				}
+			}else{
+				identifier = recordIdentifier;
 			}
-			
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, true);
-			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
-			wgb.addAnnotation(OPMConstants.EDGE_SIZE, bytesSent);
-			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-			
-			//udp
-			if(isNetworkSaddr(saddr)){
-				putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, vertex);
+		}else{ // is unix socket
+			identifier = parseUnixSaddr(localSaddr);
+			if(identifier == null){
+				logInvalidSaddr(localSaddr, time, eventId, syscall);
 			}
-			
-		}        
+		}
+		putIO(eventData, time, eventId, syscall, pid, sockFd, identifier, bytes, null, isRecv);
 	}
+	
+	private void putIO(Map<String, String> eventData, String time, String eventId, SYSCALL syscall,
+			String pid, String fd, ArtifactIdentifier identifier, 
+			String bytesTransferred, String offset, boolean incoming){
 
-	private void handleRecv(Map<String, String> eventData, SYSCALL syscall) {
-		// recvfrom()/recvmsg() receive the following message(s):
-		// - SYSCALL
-		// - EOE
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
-		String pid = eventData.get(AuditEventReader.PID);
-		Process process = putProcess(eventData, time, eventId);
-
-		String fd = eventData.get(AuditEventReader.ARG0);
-		String bytesReceived = eventData.get(AuditEventReader.EXIT);
-		String saddr = eventData.get(AuditEventReader.SADDR);
-		
-		if(isNetlinkSaddr(saddr)){
-			return;
+		boolean isNetworkUdp = false;
+		if(identifier instanceof NetworkSocketIdentifier){
+			if(!USE_SOCK_SEND_RCV){
+				return;
+			}
+			isNetworkUdp = isUdp(identifier);
+		}else{ // all else are local i.e. file io include unix
+			if(!USE_READ_WRITE){
+				return;
+			}
+			if(identifier instanceof UnixSocketIdentifier){
+				if(!UNIX_SOCKETS){
+					return;
+				}
+			}
 		}
 		
-		ArtifactIdentifier artifactIdentifier = getSockDescriptorArtifactIdentifier(pid, fd, 
-				saddr, time, eventId, syscall);
-		if(artifactIdentifier == null){
-			log(Level.WARNING, "Failed to get/build ArtifactIdentifier", null, time, eventId, syscall);
-			return;
+		if(identifier == null){
+			identifier = addUnknownFd(pid, fd);
 		}
 		
-		if(artifactIdentifier != null){
-			
-			// If saddr value is IP and artifact identifier is network then it is ALWAYS UDP
-			// Incrementing epoch always on recv for UDP
-			if(isNetworkSaddr(saddr) && 
-					artifactIdentifier.getClass().equals(NetworkSocketIdentifier.class)){
-				markNewEpochForArtifact(artifactIdentifier);
-			}
-			
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, null, false);
-			Used used = new Used(process, vertex);
-			used.addAnnotation(OPMConstants.EDGE_SIZE, bytesReceived);
-			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
-			
-			//udp
-			if(isNetworkSaddr(saddr)){
-				putWasDerivedFromEdgeFromNetworkArtifacts(time, eventId, vertex);
-			}
+		if(isNetworkUdp){
+			// Since saddr present that means that it is SOCK_DGRAM.
+			// Epoch for all SOCK_DGRAM
+			markNewEpochForArtifact(identifier);
+		}
+
+		Process process = processManager.handleProcessFromSyscall(eventData);
+		Artifact artifact = null;
+		AbstractEdge edge = null;
+		if(incoming){
+			artifact = putArtifact(eventData, identifier, null, false);
+			edge = new Used(process, artifact);
+		}else{
+			artifact = putArtifact(eventData, identifier, null, true);
+			edge = new WasGeneratedBy(artifact, process);
+		}
+		edge.addAnnotation(OPMConstants.EDGE_SIZE, bytesTransferred);
+		if(offset != null){
+			edge.addAnnotation(OPMConstants.EDGE_OFFSET, offset);	
+		}
+		putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+		
+		// UDP
+		if(isNetworkUdp && REFINE_NET){
+			putWasDerivedFromEdgeFromNetworkArtifacts(artifact);
 		}
 	}
 
@@ -4085,7 +3876,7 @@ public class Audit extends AbstractReporter {
 	 * @param eventId id of the audit event
 	 * @param syscall system call of the audit event
 	 */
-	private void log(Level level, String msg, Exception exception, String time, String eventId, SYSCALL syscall){
+	public void log(Level level, String msg, Exception exception, String time, String eventId, SYSCALL syscall){
 		String msgPrefix = "";
 		if(eventId != null && syscall != null){
 			msgPrefix = "[Time:EventID="+time+":"+eventId+", SYSCALL="+syscall+"] ";
@@ -4112,7 +3903,7 @@ public class Audit extends AbstractReporter {
 	 * @param eventId event id in the audit log which generated this edge
 	 * @param source source of the edge
 	 */
-	private void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
+	public void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
 		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
 			if(!UNIX_SOCKETS && 
 					(isUnixSocketArtifact(edge.getChildVertex()) ||
@@ -4164,7 +3955,6 @@ public class Audit extends AbstractReporter {
 	 * @return
 	 */
 	private String constructPathSpecial(String path, String fdString, String cwd, String pid, String time, String eventId, SYSCALL syscall){
-
 		if(path == null){
 			log(Level.INFO, "Missing PATH record", null, time, eventId, syscall);
 			return null;
@@ -4185,17 +3975,17 @@ public class Audit extends AbstractReporter {
 						return path;
 					}
 				}else{
-					ArtifactIdentifier artifactIdentifier = descriptors.getDescriptor(pid, String.valueOf(fd));
+					ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, String.valueOf(fd));
 					if(artifactIdentifier == null){
 						log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 						return null;
-					}else if(!FileIdentifier.class.equals(artifactIdentifier.getClass())){
+					}else if(!(artifactIdentifier instanceof IdentifierWithPath)){
 						log(Level.INFO, "FD with number '"+fd+"' for pid '"+pid+"' must be of type file but is '"+artifactIdentifier.getClass()+"'", null, time, eventId, syscall);
 						return null;
 					}else{
-						path = constructAbsolutePath(path, ((FileIdentifier)artifactIdentifier).getPath(), pid);
+						path = constructAbsolutePath(path, ((IdentifierWithPath)artifactIdentifier).getPath(), pid);
 						if(path == null){
-							log(Level.INFO, "Invalid path ("+((FileIdentifier)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
+							log(Level.INFO, "Invalid path ("+((IdentifierWithPath)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
 							return null;
 						}else{
 							return path;
@@ -4269,7 +4059,11 @@ public class Audit extends AbstractReporter {
 		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
 		if(updateVersion){
 			if(VERSION_ARTIFACTS == null){
-				if(FileIdentifier.class.equals(artifactIdentifierClass)){
+				if(FileIdentifier.class.equals(artifactIdentifierClass)
+						|| DirectoryIdentifier.class.equals(artifactIdentifierClass)
+						|| BlockDeviceIdentifier.class.equals(artifactIdentifierClass)
+						|| CharacterDeviceIdentifier.class.equals(artifactIdentifierClass)
+						|| LinkIdentifier.class.equals(artifactIdentifierClass)){
 					updateVersion = VERSION_FILES;
 				}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
 					updateVersion = VERSION_MEMORYS;
@@ -4294,9 +4088,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		// Special case: if /dev prefix path then don't version
-		if(FileIdentifier.class.equals(artifactIdentifierClass)
-				|| NamedPipeIdentifier.class.equals(artifactIdentifierClass)
-				|| UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
+		if(artifactIdentifier instanceof IdentifierWithPath){
 			String path = artifact.getAnnotation(OPMConstants.ARTIFACT_PATH);
 			if(path != null){
 				if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
@@ -4409,9 +4201,11 @@ public class Audit extends AbstractReporter {
 					if(!updated.get(OPMConstants.ARTIFACT_EPOCH)){	
 						if((KEEP_VERSIONS && updated.get(OPMConstants.ARTIFACT_VERSION) && added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
 								|| (KEEP_PATH_PERMISSIONS && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) && added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
-							putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
-									eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
-									version - 1, previousPermissions);
+							if(artifactIdentifier instanceof FileIdentifier){
+								putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
+										eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
+										version - 1, previousPermissions);
+							}
 						}
 					}
 				}
@@ -4450,7 +4244,7 @@ public class Audit extends AbstractReporter {
 	 * @param eventId event id of the new version of the artifact creation
 	 * @param pid pid of the process which did the update
 	 */
-	private void putVersionPermissionsUpdateEdge(Artifact newArtifact, 
+	private void putVersionPermissionsUpdateEdge(Artifact newArtifact,
 			String time, String eventId, String pid,
 			long previousVersion, String previousPermissions){
 		Artifact oldArtifact = new Artifact();
@@ -4498,128 +4292,77 @@ public class Audit extends AbstractReporter {
 			}
 		}
 	}
-
-	/**
-	 * Convenience function to get a new map with the existing key-values and given key-values replaced. 
-	 * 
-	 * @param keyValues existing key-values
-	 * @param newKeyValues key-values to update or replace
-	 * @return a new map with existing and updated key-values
-	 */    
-	private Map<String, String> updateKeyValuesInMap(Map<String, String> keyValues, Map<String, String> newKeyValues){
-		Map<String, String> result = new HashMap<String, String>();
-		if(keyValues != null){
-			result.putAll(keyValues);
+	
+	private AddressPort parseNetworkSaddr(String saddr){
+		// TODO the address = 0.0.0.0 and 127.0.0.1 issue! Rename or not?
+		try{
+			String address = null, port = null;
+			if (isIPv4Saddr(saddr) && saddr.length() >= 17){
+				port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+				int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
+				int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
+				int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
+				int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
+				address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+			}else if(isIPv6Saddr(saddr) && saddr.length() >= 49){
+				port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
+				String hextet1 = saddr.substring(16, 20);
+				String hextet2 = saddr.substring(20, 24);
+				String hextet3 = saddr.substring(24, 28);
+				String hextet4 = saddr.substring(28, 32);
+				String hextet5 = saddr.substring(32, 36);
+				String hextet6 = saddr.substring(36, 40);
+				String hextet7 = saddr.substring(40, 44);
+				String hextet8 = saddr.substring(44, 48);
+				address = String.format("%s:%s:%s:%s:%s:%s:%s:%s", hextet1, hextet2, hextet3, hextet4,
+						hextet5, hextet6, hextet7, hextet8);
+			}
+			if(address != null && port != null){
+				return new AddressPort(address, port);
+			}
+		}catch(Exception e){
+			// Logged by the caller
 		}
-		if(newKeyValues != null){
-			result.putAll(newKeyValues);
-		}
-		return result;
+		return null;
 	}
 	
-	/**
-	 * Returns either NetworkSocketIdentifier or UnixSocketIdentifier depending on the type in saddr.
-	 * 
-	 * If saddr starts with 01 then unix socket
-	 * If saddr starts with 02 then ipv4 network socket
-	 * If saddr starts with 0A then ipv6 network socket
-	 * If none of the above then null returned
-	 * 
-	 * Syscall parameter is using to identify (in case of network sockets) whether the address and port are 
-	 * source or destination ones. See code.
-	 * 
-	 * @param saddr a hex string of format 0100... or 0200... or 0A...
-	 * @param pid the id of the process
-	 * @param sockFd the socket file descriptor
-	 * @param time time of the audit event
-	 * @param eventId id of the event from where the saddr value is received
-	 * @param syscall syscall in which this saddr was received
-	 * @return the appropriate subclass of ArtifactIdentifier or null
-	 */
-	private ArtifactIdentifier parseSaddr(String saddr, String pid, String sockFd, String time, String eventId, SYSCALL syscall){
-		if(saddr != null && saddr.length() >= 2){
-			if(saddr.startsWith(UNIX_SOCKET_SADDR_PREFIX)){ //unix socket
-
-				String path = "";
-				int start = -1;
-
-				//starting from 2 since first two characters are 01
-				for(int a = 2;a <= saddr.length()-2; a+=2){
-					if(saddr.substring(a,a+2).equals("00")){ //null char
-						//continue until non-null found
-						continue;
-					}else{
-						//first non-null char i.e. we are going to start from here
-						start = a;
+	private UnixSocketIdentifier parseUnixSaddr(String saddr){
+		String path = "";
+		int start = -1;
+		//starting from 2 since first two characters are 01
+		for(int a = 2;a <= saddr.length()-2; a+=2){
+			if(saddr.substring(a,a+2).equals("00")){ //null char
+				//continue until non-null found
+				continue;
+			}else{
+				//first non-null char i.e. we are going to start from here
+				start = a;
+				break;
+			}
+		}
+		
+		if(start != -1){ //found
+			try{
+				for(; start <= saddr.length() - 2; start+=2){
+					char c = (char)(Integer.parseInt(saddr.substring(start, start+2), 16));
+					if(c == 0){ //null char
 						break;
 					}
+					path += c;
 				}
-				
-				if(start != -1){ //found
-					try{
-						for(; start <= saddr.length() - 2; start+=2){
-							char c = (char)(Integer.parseInt(saddr.substring(start, start+2), 16));
-							if(c == 0){ //null char
-								break;
-							}
-							path += c;
-						}
-					}catch(Exception e){
-						log(Level.INFO, "Failed to parse saddr value '"+saddr+"'", null, time, eventId, syscall);
-						return null;
-					}
-				}
-
-				if(path != null && !path.isEmpty()){
-					return new UnixSocketIdentifier(path);
-				}
-			}else{ //ip
-
-				String address = null, port = null;
-				if (saddr.startsWith(IPV4_NETWORK_SOCKET_SADDR_PREFIX)) {
-					port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-					int oct1 = Integer.parseInt(saddr.substring(8, 10), 16);
-					int oct2 = Integer.parseInt(saddr.substring(10, 12), 16);
-					int oct3 = Integer.parseInt(saddr.substring(12, 14), 16);
-					int oct4 = Integer.parseInt(saddr.substring(14, 16), 16);
-					address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
-				}else if(saddr.startsWith(IPV6_NETWORK_SOCKET_SADDR_PREFIX)){
-					port = Integer.toString(Integer.parseInt(saddr.substring(4, 8), 16));
-					int oct1 = Integer.parseInt(saddr.substring(40, 42), 16);
-					int oct2 = Integer.parseInt(saddr.substring(42, 44), 16);
-					int oct3 = Integer.parseInt(saddr.substring(44, 46), 16);
-					int oct4 = Integer.parseInt(saddr.substring(46, 48), 16);
-					address = String.format("::%s:%d.%d.%d.%d", saddr.substring(36, 40).toLowerCase(), oct1, oct2, oct3, oct4);
-				}
-
-				if(address != null && port != null){
-					
-					String protocolName = null;
-					ArtifactIdentifier identifierWithProtocolName = descriptors.getDescriptor(pid, sockFd);
-					if(identifierWithProtocolName != null){
-						if(identifierWithProtocolName.getClass().equals(NetworkSocketIdentifier.class)){
-							protocolName = ((NetworkSocketIdentifier)identifierWithProtocolName).getProtocol();
-						}else{
-							log(Level.WARNING, "Unexpected artifact identifier type: " + identifierWithProtocolName.getClass(), null, time, eventId, syscall);
-						}
-					}
-					
-					if(syscall.equals(SYSCALL.BIND)){//put address as local
-						return new NetworkSocketIdentifier(address, port, null, null, protocolName);
-					}else if(syscall.equals(SYSCALL.CONNECT) ||
-							syscall.equals(SYSCALL.ACCEPT) || 
-							syscall.equals(SYSCALL.ACCEPT4) ||
-							isSockReadSyscall(syscall) ||
-							isSockWriteSyscall(syscall)){//put address as remote
-						return new NetworkSocketIdentifier(null, null, address, port, protocolName);
-					}else{
-						log(Level.INFO, "Unsupported syscall to parse saddr '"+saddr+"'", null, time, eventId, syscall);
-					}
-				}
+			}catch(Exception e){
+				return null;
 			}
 		}
 
-		return null;
+		// TODO handle unnamed unix socket. Need a new identifier to contain the tgid like for memory identifier.
+		// Unnamed unix socket created through socketpair.
+		// TODO need to handle socketpair syscall for that too.
+		if(path != null && !path.isEmpty()){
+			return new UnixSocketIdentifier(path);
+		}else{
+			return null;
+		}
 	}
 
 	/**
@@ -4629,7 +4372,7 @@ public class Audit extends AbstractReporter {
 	 * @param syscall system call to get operation for
 	 * @return operation corresponding to the syscall
 	 */
-	private String getOperation(SYSCALL primary){
+	public String getOperation(SYSCALL primary){
 		return getOperation(primary, null);
 	}
 	
@@ -4690,401 +4433,43 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
-	//////////////////////////////////////// Process and Unit management code below
+}
 
-	/**
-	 * The eventData is used to get the pid and then get the process vertex if it already exists.
-	 * If the vertex didn't exist then it creates the new one and returns that. The new vertex is created
-	 * using the information in the eventData. The putVertex function is also called on the vertex if
-	 * it was created in this function and the new vertex is also added to the internal process map.
-	 * 
-	 * @param eventData key value pairs to use to create vertex from. This is in most cases all the key values
-	 * gotten in a syscall audit record. But additional information can also be added to this to be used by 
-	 * createProcessVertex function.
-	 * @return the vertex with the pid in the eventData map
-	 */
-	private Process putProcess(Map<String, String> eventData, String time, String eventId){
-		return putProcess(eventData, false, time, eventId);
+class AddressPort{
+	public final String address, port;
+	public AddressPort(String address, String port){
+		this.address = address;
+		this.port = port;
 	}
-
-
-	/**
-	 * See {@link #putProcess(Map) putProcess}
-	 * 
-	 * @param annotations key value pairs to use to create vertex from. This is in most cases all the key values
-	 * gotten in a syscall audit record. But additional information can also be added to this to be used by 
-	 * createProcessVertex function.
-	 * @param recreateAndReplace if true, it would create a new vertex using information in the eventData and 
-	 * replace the existing one if there is one. If false, it would recreate the vertex. 
-	 * @return
-	 */
-	private Process putProcess(Map<String, String> annotations, boolean recreateAndReplace, String time, String eventId){
-		if(annotations != null){
-			String pid = annotations.get(OPMConstants.PROCESS_PID);
-			Process process = getProcess(pid);
-			if(process == null || recreateAndReplace){
-				process = createProcessVertex(annotations);
-				addProcess(pid, process);
-
-				if(!processVertexHasBeenPutBefore(process)){
-					putVertex(process);
-				}	 
-				if(AGENTS){
-					Agent agent = new Agent();
-					agent.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-					agent.addAnnotation(OPMConstants.AGENT_UID, annotations.get(OPMConstants.AGENT_UID));
-					agent.addAnnotation(OPMConstants.AGENT_EUID, annotations.get(OPMConstants.AGENT_EUID));
-					agent.addAnnotation(OPMConstants.AGENT_GID, annotations.get(OPMConstants.AGENT_GID));
-					agent.addAnnotation(OPMConstants.AGENT_EGID, annotations.get(OPMConstants.AGENT_EGID));
-					if(!SIMPLIFY){
-						agent.addAnnotation(OPMConstants.AGENT_SUID, annotations.get(OPMConstants.AGENT_SUID));
-						agent.addAnnotation(OPMConstants.AGENT_FSUID, annotations.get(OPMConstants.AGENT_FSUID));
-						agent.addAnnotation(OPMConstants.AGENT_SGID, annotations.get(OPMConstants.AGENT_SGID));
-						agent.addAnnotation(OPMConstants.AGENT_FSGID, annotations.get(OPMConstants.AGENT_FSGID));
-					}
-					String agentHash = agent.bigHashCode();
-					if(!agentHashes.contains(agentHash)){
-						agentHashes.add(agentHash);
-						putVertex(agent);
-					}
-					if(pidToAgentEdgeHashes.get(pid) == null){
-						pidToAgentEdgeHashes.put(pid, new HashSet<String>());
-					}
-					
-					WasControlledBy wasControlledBy = new WasControlledBy(process, agent);
-					wasControlledBy.addAnnotation(OPMConstants.EDGE_EVENT_ID, eventId);
-					wasControlledBy.addAnnotation(OPMConstants.EDGE_TIME, time);
-					wasControlledBy.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-					
-					String edgeHash = wasControlledBy.bigHashCode();
-					if(!pidToAgentEdgeHashes.get(pid).contains(edgeHash)){
-						pidToAgentEdgeHashes.get(pid).add(edgeHash);
-						putEdge(wasControlledBy);
-					}
-				}
-			}
-			return process;
-		}
-		return null;
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((address == null) ? 0 : address.hashCode());
+		result = prime * result + ((port == null) ? 0 : port.hashCode());
+		return result;
 	}
-
-	/**
-	 * Checks if the hash of the process vertex exists in the map {@link #pidToProcessHashes pidToProcessHashes}
-	 * 
-	 * If it didn't exist then it returns false but it does add it
-	 * 
-	 * True if it exists
-	 * False if it doesn't exist
-	 * 
-	 * @param process process vertex to check
-	 * @return true/false
-	 */
-	private boolean processVertexHasBeenPutBefore(Process process){
-		String pid = process.getAnnotation(OPMConstants.PROCESS_PID);
-		
-		String hashString = DigestUtils.sha256Hex(process.toString());
-		
-		if(pidToProcessHashes.get(pid) == null){
-			pidToProcessHashes.put(pid, new HashSet<String>());
-		}
-		if(pidToProcessHashes.get(pid).contains(hashString)){
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
 			return true;
-		}else{
-			pidToProcessHashes.get(pid).add(hashString); //add it
+		if (obj == null)
 			return false;
-		}
+		if (getClass() != obj.getClass())
+			return false;
+		AddressPort other = (AddressPort) obj;
+		if (address == null) {
+			if (other.address != null)
+				return false;
+		} else if (!address.equals(other.address))
+			return false;
+		if (port == null) {
+			if (other.port != null)
+				return false;
+		} else if (!port.equals(other.port))
+			return false;
+		return true;
 	}
-
-	/**
-	 * A convenience wrapper of 
-	 * {@link #createProcessVertex(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String) createProcessVertex}.
-	 * 
-	 * Takes out the values for keys required by the above referenced function and calls it
-	 * 
-	 * Note: Values NOT in eventData when received from audit log -> commandline, cwd, SOURCE, start time, unit, iteration, and count.
-	 * So, put them manually in the map before calling this function.
-	 * 
-	 * @param annotations a key value map that usually contains the key values gotten in the audit syscall record
-	 * @return returns a Process instance with the passed in annotations
-	 */    
-	private Process createProcessVertex(Map<String, String> annotations){
-		//TODO have you added new annotations? if yes then update the annotation copying code in fork and clone handler
-		if(annotations == null){
-			return null;
-		}
-		return createProcessVertex(annotations.get(OPMConstants.PROCESS_PID), annotations.get(OPMConstants.PROCESS_PPID), 
-				//if data from audit log then 'name' is 'comm' otherwise audit annotation key is 'name'
-				annotations.get(OPMConstants.PROCESS_NAME) == null ? annotations.get(AuditEventReader.COMM) : 
-					annotations.get(OPMConstants.PROCESS_NAME), 
-						annotations.get(OPMConstants.PROCESS_COMMAND_LINE),
-						annotations.get(OPMConstants.PROCESS_CWD), annotations.get(OPMConstants.AGENT_UID), 
-						annotations.get(OPMConstants.AGENT_EUID), annotations.get(OPMConstants.AGENT_SUID), 
-						annotations.get(OPMConstants.AGENT_FSUID), annotations.get(OPMConstants.AGENT_GID), 
-						annotations.get(OPMConstants.AGENT_EGID), annotations.get(OPMConstants.AGENT_SGID), 
-						annotations.get(OPMConstants.AGENT_FSGID), annotations.get(OPMConstants.SOURCE), 
-						annotations.get(OPMConstants.PROCESS_START_TIME), annotations.get(OPMConstants.PROCESS_UNIT), 
-						annotations.get(OPMConstants.PROCESS_ITERATION), annotations.get(OPMConstants.PROCESS_COUNT),
-						//if data from audit log then 'seen time' is 'time' otherwise audit annotation key is 'seen time'
-						annotations.get(OPMConstants.PROCESS_SEEN_TIME) == null ?
-								annotations.get(AuditEventReader.TIME) :
-									annotations.get(OPMConstants.PROCESS_SEEN_TIME));
-	}
-
-	/**
-	 * The function to be used always to create a Process vertex. Don't use 'new Process()' invocation directly under any circumstances.
-	 * 
-	 * The function applies some rules on various annotations based on global variables. Always use this function to keep things consistent.
-	 * 
-	 * @param pid pid of the process
-	 * @param ppid parent's pid of the process
-	 * @param name name or 'comm' of the process as in Audit log syscall record
-	 * @param commandline gotten through execve syscall event only or when copied from an existing one [Optional]
-	 * @param cwd current working directory of the process [Optional]
-	 * @param uid user id of the process
-	 * @param euid effective user id of the process
-	 * @param suid saved user id of the process
-	 * @param fsuid file system user id of the process
-	 * @param gid group id of the process
-	 * @param egid effective group id of the process
-	 * @param sgid saved group id of the process
-	 * @param fsgid file system group id of the process
-	 * @param source source of the process information
-	 * @param startTime time at which the process was created [Optional]
-	 * @param unit id of the unit loop. [Optional]
-	 * @param iteration iteration of the unit loop. [Optional]
-	 * @param count count of a unit with all other annotation values same. [Optional]
-	 * @param seenTime time at which the process was seen. Only used if no start time.
-	 * @return returns a Process instance with the passed in annotations.
-	 */
-	private Process createProcessVertex(String pid, String ppid, String name, String commandline, String cwd, 
-			String uid, String euid, String suid, String fsuid, 
-			String gid, String egid, String sgid, String fsgid,
-			String source, String startTime, String unit, String iteration, String count,
-			String seenTime){
-		
-		Process process = new Process();
-		process.addAnnotation(OPMConstants.PROCESS_PID, pid);
-		process.addAnnotation(OPMConstants.PROCESS_PPID, ppid);
-		
-		if(name != null){
-			process.addAnnotation(OPMConstants.PROCESS_NAME, name);
-		}
-		
-		if(source == null){
-			process.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-		}else{
-			process.addAnnotation(OPMConstants.SOURCE, source);
-		}
-
-		//optional annotations below:
-
-		if(commandline != null){
-			process.addAnnotation(OPMConstants.PROCESS_COMMAND_LINE, commandline);
-		}
-		if(cwd != null){
-			process.addAnnotation(OPMConstants.PROCESS_CWD, cwd);
-		}
-
-		Map<String, String> agentAnnotations = new HashMap<String, String>();
-		agentAnnotations.put(OPMConstants.AGENT_UID, uid);
-		agentAnnotations.put(OPMConstants.AGENT_EUID, euid);
-		agentAnnotations.put(OPMConstants.AGENT_GID, gid);
-		agentAnnotations.put(OPMConstants.AGENT_EGID, egid);
-		
-		if(!SIMPLIFY){
-			agentAnnotations.put(OPMConstants.AGENT_SUID, suid);
-			agentAnnotations.put(OPMConstants.AGENT_FSUID, fsuid);
-
-			agentAnnotations.put(OPMConstants.AGENT_SGID, sgid);
-			agentAnnotations.put(OPMConstants.AGENT_FSGID, fsgid);
-		}
-		
-		if(!AGENTS){
-			process.addAnnotations(agentAnnotations);
-		}
-
-		// If there is a start time then use that.
-		// If no start time then use seen time. 
-		// If none then use nothing
-		if(startTime != null){
-			process.addAnnotation(OPMConstants.PROCESS_START_TIME, startTime);
-		}else{
-			if(seenTime != null){
-				process.addAnnotation(OPMConstants.PROCESS_SEEN_TIME, seenTime);
-			}
-		}
-
-		if(CREATE_BEEP_UNITS){
-			if(unit == null){
-				process.addAnnotation(OPMConstants.PROCESS_UNIT, "0"); // 0 indicates containing process
-			}else{
-				process.addAnnotation(OPMConstants.PROCESS_UNIT, unit);
-				// The iteration and count annotations are only for units and not the containing process
-				if(iteration != null){
-					process.addAnnotation(OPMConstants.PROCESS_ITERATION, iteration);
-				}
-				if(count != null){
-					process.addAnnotation(OPMConstants.PROCESS_COUNT, count);
-				}
-			}
-		}
-
-		return process;
-	}
-
-	/**
-	 * Creates a process object by reading from the /proc FS. Calls the
-	 * {@link #createProcessVertex(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String)}
-	 * internally to create the process vertex.
-	 * 
-	 * @param pid pid of the process to look for in the /proc FS
-	 * @return a Process object populated using /proc FS
-	 */
-	private Process createProcessFromProcFS(String pid, long boottime) {
-		// Check if this pid exists in the /proc/ filesystem
-		if ((new java.io.File("/proc/" + pid).exists())) {
-			// The process vertex is created using the proc filesystem.
-			try {
-				// order of keys in the status file changed. So, now looping through the file to get the necessary ones
-				int keysGottenCount = 0; //used to stop reading the file once all the required keys have been gotten
-				String line = null, nameline = null, ppidline = null, uidline = null, gidline = null;
-				BufferedReader procReader = new BufferedReader(new FileReader("/proc/" + pid + "/status"));
-				while ((line = procReader.readLine()) != null && keysGottenCount < 4) {
-					String tokens[] = line.split(":");
-					String key = tokens[0].trim().toLowerCase();
-					switch (key) {
-					case "name":
-						nameline = line;
-						keysGottenCount++;
-						break;
-					case "ppid":
-						ppidline = line;
-						keysGottenCount++;
-						break;
-					case "uid":
-						uidline = line;
-						keysGottenCount++;
-						break;
-					case "gid":
-						gidline = line;
-						keysGottenCount++;
-						break;
-					default:
-						break;
-					}
-				}
-				procReader.close();
-
-				BufferedReader statReader = new BufferedReader(new FileReader("/proc/" + pid + "/stat"));
-				String statline = statReader.readLine();
-				statReader.close();
-
-				BufferedReader cmdlineReader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
-				String cmdline = cmdlineReader.readLine();
-				cmdlineReader.close();
-
-				String stats[] = statline.split("\\s+");
-				long elapsedtime = Long.parseLong(stats[21]) * 10;
-				long startTime = boottime + elapsedtime;
-				//                String stime_readable = new java.text.SimpleDateFormat(simpleDatePattern).format(new java.util.Date(startTime));
-				//                String stime = Long.toString(startTime);
-				//
-				String name = nameline.split("name:")[1].trim();
-				String ppid = ppidline.split("\\s+")[1];
-				cmdline = (cmdline == null) ? "" : cmdline.replace("\0", " ").replace("\"", "'").trim();
-
-				// see for order of uid, euid, suid, fsiud: http://man7.org/linux/man-pages/man5/proc.5.html
-				String gidTokens[] = gidline.split("\\s+");
-				String uidTokens[] = uidline.split("\\s+");
-
-				Process newProcess = createProcessVertex(pid, ppid, name, null, null, 
-						uidTokens[1], uidTokens[2], uidTokens[3], uidTokens[4], 
-						gidTokens[1], gidTokens[2], gidTokens[3], gidTokens[4], 
-						OPMConstants.SOURCE_PROCFS, Long.toString(startTime), 
-						CREATE_BEEP_UNITS ? "0" : null, null, null, null);
-
-				// newProcess.addAnnotation("starttime_unix", stime);
-				// newProcess.addAnnotation("starttime_simple", stime_readable);
-				// newProcess.addAnnotation("commandline", cmdline);
-				return newProcess;
-			} catch (IOException | NumberFormatException e) {
-				logger.log(Level.WARNING, "Unable to create process vertex for pid " + pid + " from /proc/", e);
-				return null;
-			}
-		} else {
-			return null;
-		}
-	}
-
-	/**
-	 * Returns the main process i.e. at the zeroth index in the process stack for the pid, if any.
-	 * 
-	 * @param pid pid of the process
-	 * @return the main process with unit id 0. null if none found.
-	 */
-	private Process getContainingProcessVertex(String pid){
-		if(processUnitStack.get(pid) != null && processUnitStack.get(pid).size() > 0){
-			return processUnitStack.get(pid).getFirst();
-		}
-		return null;
-	}
-
-	/**
-	 * This function resets the stack for a pid used to keep the main containing process for a pid
-	 * and all the units for that pid. It clears the stack. Only call this when it is intended to clear 
-	 * all the state related to a process, state being the units and the existing process. Example, execve.
-	 *
-	 * @param pid pid of the process to return
-	 * @param process the process to add against the pid
-	 */
-	private void addProcess(String pid, Process process){ 
-		if(pid == null || process == null){
-			logger.log(Level.WARNING, "Failed to add process vertex in addProcess function because pid or process passed is null. Pid {0}, Process {1}", new Object[]{pid, String.valueOf(process)});
-		}else{
-			processUnitStack.put(pid, new LinkedList<Process>()); //always reset the stack whenever the main process is being added
-			processUnitStack.get(pid).addFirst(process);
-		}
-	}
-
-	/**
-	 * Checks the internal process hashmap and returns the process vertex. 
-	 * The process hashmap must have at least one vertex for that pid to return with not null.
-	 * The function returns the process vertex whichever is on top of the stack using a peek i.e.
-	 * can be a unit iteration
-	 * 
-	 * @param pid pid of the process to return
-	 * @return process process with the given pid or null (if none found)
-	 */
-	private Process getProcess(String pid){
-		if(processUnitStack.get(pid) != null && !processUnitStack.get(pid).isEmpty()){
-			Process process = processUnitStack.get(pid).peekLast();
-			return process;
-		}
-		return null;
-	}
-
-	/**
-	 * Creates a copy of the given process with the source annotation being 'beep'  
-	 * 
-	 * @param process process to create a copy of
-	 * @param startTime start time of the unit
-	 * @param unitId id of the unit
-	 * @return a copy with the copied and the updated annotations as in the process argument
-	 */
-	private Process createBEEPCopyOfProcess(Process process, String startTime, String unitId, String iteration, String count){
-		if(process == null){
-			return null;
-		}
-		return createProcessVertex(process.getAnnotation(OPMConstants.PROCESS_PID), 
-				process.getAnnotation(OPMConstants.PROCESS_PPID), process.getAnnotation(OPMConstants.PROCESS_NAME), 
-				process.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE), process.getAnnotation(OPMConstants.PROCESS_CWD), 
-				process.getAnnotation(OPMConstants.AGENT_UID), process.getAnnotation(OPMConstants.AGENT_EUID), 
-				process.getAnnotation(OPMConstants.AGENT_SUID), process.getAnnotation(OPMConstants.AGENT_FSUID), 
-				process.getAnnotation(OPMConstants.AGENT_GID), process.getAnnotation(OPMConstants.AGENT_EGID), 
-				process.getAnnotation(OPMConstants.AGENT_SGID), process.getAnnotation(OPMConstants.AGENT_FSGID), 
-				OPMConstants.SOURCE_BEEP, startTime, unitId, iteration, count, null); // NULL seen time
-	}
-			
 }
 
 /**

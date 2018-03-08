@@ -39,20 +39,23 @@ import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 
-import com.bbn.tc.schema.avro.AbstractObject;
-import com.bbn.tc.schema.avro.Event;
-import com.bbn.tc.schema.avro.FileObject;
-import com.bbn.tc.schema.avro.MemoryObject;
-import com.bbn.tc.schema.avro.NetFlowObject;
-import com.bbn.tc.schema.avro.Principal;
-import com.bbn.tc.schema.avro.SHORT;
-import com.bbn.tc.schema.avro.SrcSinkObject;
-import com.bbn.tc.schema.avro.SrcSinkType;
-import com.bbn.tc.schema.avro.Subject;
-import com.bbn.tc.schema.avro.TCCDMDatum;
-import com.bbn.tc.schema.avro.UUID;
-import com.bbn.tc.schema.avro.UnitDependency;
-import com.bbn.tc.schema.avro.UnnamedPipeObject;
+import com.bbn.tc.schema.avro.cdm18.AbstractObject;
+import com.bbn.tc.schema.avro.cdm18.Event;
+import com.bbn.tc.schema.avro.cdm18.FileObject;
+import com.bbn.tc.schema.avro.cdm18.Host;
+import com.bbn.tc.schema.avro.cdm18.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm18.HostType;
+import com.bbn.tc.schema.avro.cdm18.Interface;
+import com.bbn.tc.schema.avro.cdm18.MemoryObject;
+import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
+import com.bbn.tc.schema.avro.cdm18.Principal;
+import com.bbn.tc.schema.avro.cdm18.SHORT;
+import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
+import com.bbn.tc.schema.avro.cdm18.Subject;
+import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm18.UUID;
+import com.bbn.tc.schema.avro.cdm18.UnitDependency;
+import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
 
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -325,13 +328,34 @@ public class CDM extends AbstractReporter{
 		}
 		edgeKeyValues.putAll(getValuesFromPropertiesMap(event.getProperties()));
 		
-		String opmValue = null;
+		String opmValue = null, operationValue = null;
 		
 		UUID src1Uuid = null, dst1Uuid = null, // process to/from primary
 				src2Uuid = null, dst2Uuid = null, //process to/from secondary
 				src3Uuid = null, dst3Uuid = null; //primary to/from secondary
 		
 		switch (event.getType()) {
+			case EVENT_OTHER:
+				operationValue = edgeKeyValues.get(OPMConstants.EDGE_OPERATION);
+				if(OPMConstants.OPERATION_TEE.equals(operationValue) 
+						|| OPMConstants.OPERATION_SPLICE.equals(operationValue)){
+					src1Uuid = event.getSubject();
+					dst1Uuid = event.getPredicateObject();
+					
+					src2Uuid = event.getPredicateObject2();
+					dst2Uuid = event.getSubject();
+					
+					src3Uuid = event.getPredicateObject2();
+					dst3Uuid = event.getPredicateObject();
+				}else if(OPMConstants.OPERATION_VMSPLICE.equals(operationValue)){
+					src1Uuid = event.getPredicateObject();
+					dst1Uuid = event.getSubject();
+				}else if(OPMConstants.OPERATION_INIT_MODULE.equals(operationValue)
+						|| OPMConstants.OPERATION_FINIT_MODULE.equals(operationValue)){
+					src1Uuid = event.getSubject();
+					dst1Uuid = event.getPredicateObject();
+				}
+				break;
 			case EVENT_OPEN:
 			case EVENT_CLOSE:
 				opmValue = edgeKeyValues.get(OPMConstants.OPM);
@@ -537,18 +561,13 @@ public class CDM extends AbstractReporter{
 						vertex.addAnnotation("cdm.type", "NetFlowObject");
 					}else if(datumClass.equals(SrcSinkObject.class)){
 						SrcSinkObject srcSinkObject = (SrcSinkObject)datum;
-						if(srcSinkObject.getType() != null &&
-								srcSinkObject.getType().equals(SrcSinkType.SRCSINK_SYSTEM_PROPERTY)){
-							// stream marker
-						}else{
-							// unknown
-							uuid = srcSinkObject.getUuid();
-							baseObject = srcSinkObject.getBaseObject();
-							if(srcSinkObject.getFileDescriptor() != null){
-								vertex.addAnnotation("fileDescriptor", String.valueOf(srcSinkObject.getFileDescriptor()));
-							}
-							vertex.addAnnotation("cdm.type", "SrcSinkObject");
+						// unknown
+						uuid = srcSinkObject.getUuid();
+						baseObject = srcSinkObject.getBaseObject();
+						if(srcSinkObject.getFileDescriptor() != null){
+							vertex.addAnnotation("fileDescriptor", String.valueOf(srcSinkObject.getFileDescriptor()));
 						}
+						vertex.addAnnotation("cdm.type", "SrcSinkObject");
 					}else if(datumClass.equals(UnnamedPipeObject.class)){
 						UnnamedPipeObject unnamedPipeObject = (UnnamedPipeObject)datum;
 						uuid = unnamedPipeObject.getUuid();
@@ -567,8 +586,35 @@ public class CDM extends AbstractReporter{
 						if(fileObject.getType() != null){
 							vertex.addAnnotation("cdm.type", String.valueOf(fileObject.getType()));
 						}
-					}else{
-						// unexpected
+					}else if(datumClass.equals(Host.class)){
+						Host hostObject = (Host)datum;
+						uuid = hostObject.getUuid();
+						CharSequence hostName = hostObject.getHostName();
+						CharSequence osDetails = hostObject.getOsDetails();
+						HostType hostType = hostObject.getHostType();
+						List<HostIdentifier> hostIdentifiers = hostObject.getHostIdentifiers();
+						List<Interface> interfaces = hostObject.getInterfaces();
+						vertex.addAnnotation("hostName", String.valueOf(hostName));
+						vertex.addAnnotation("osDetails", String.valueOf(osDetails));
+						vertex.addAnnotation("hostType", String.valueOf(hostType));
+						if(hostIdentifiers != null){
+							for(HostIdentifier hostIdentifier : hostIdentifiers){
+								if(hostIdentifier != null){
+									vertex.addAnnotation(String.valueOf(hostIdentifier.getIdType()), 
+											String.valueOf(hostIdentifier.getIdValue()));
+								}
+							}
+						}
+						if(interfaces != null){
+							for(Interface interfaze : interfaces){
+								if(interfaze != null){
+									vertex.addAnnotation("name", String.valueOf(interfaze.getName()));
+									vertex.addAnnotation("macAddress", String.valueOf(interfaze.getMacAddress()));
+									vertex.addAnnotation("ipAddresses", String.valueOf(interfaze.getIpAddresses()));
+								}
+							}
+						}
+						vertex.addAnnotation("cdm.type", "Host");
 					}
 					vertex.addAnnotations(getValuesFromArtifactAbstractObject(baseObject));
 				}

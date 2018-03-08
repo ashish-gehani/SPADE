@@ -25,9 +25,12 @@ print_help ()
 {
 	echo "spade start | stop | debug | control | query | help"
 	echo ""
-	echo "'spade start' : Starts the SPADE daemon"
-	echo "'spade stop' : Stop the SPADE daemon after buffers empty"
-	echo "'spade kill' : Stop the SPADE daemon immediately"
+	echo "'spade start' : Starts SPADE"
+	echo "'spade stop' : Stops SPADE after buffers empty"
+	echo "'spade kill' : Stops SPADE immediately"
+	echo "'spade java-start' : Starts SPADE daemon (java-based)"
+	echo "'spade java-stop' : Stops SPADE daemon after buffers empty (java-based)"
+	echo "'spade java-kill' : Stops SPADE daemon immediately (java-based)"
 	echo "'spade debug' : Starts the SPADE daemon, logs to standard out"
 	echo "'spade control' : Starts an interactive SPADE controller"
 	echo "'spade query' : Starts an interactive command line SPADE query client"
@@ -45,8 +48,8 @@ pushd "${SPADE_ROOT}" > /dev/null
 if [ $# -eq 0 ] ; then
 	print_help
 else
-
-	if [ $1 = "start" ] || [ $1 = "stop" ] || [ $1 = "kill" ] ; then
+	spadePidFilePath=spade.pid
+	if [ $1 = "java-start" ] || [ $1 = "java-stop" ] || [ $1 = "java-kill" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
 	elif [ $1 = "query" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.CommandLine
@@ -54,6 +57,63 @@ else
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Control
 	elif [ $1 = "debug" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
+	elif [ $1 = "start" ] ; then
+		running=0
+		if [ -f "$spadePidFilePath" ] ; then
+			existingSpadePid=`cat $spadePidFilePath`
+			if [ -n "$existingSpadePid" ] ; then
+				if ps -p "$existingSpadePid" 2>&1 > /dev/null ; then
+					running=1
+				fi
+			fi
+		fi
+		if [ "$running" -eq 0 ] ; then
+			nohup java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.core.Kernel 2>&1 > /dev/null &
+			spadePid=$!
+			if ps -p "$spadePid" 2>&1 > /dev/null ; then
+				echo -n $spadePid > $spadePidFilePath
+				echo "Running SPADE with PID = $spadePid"
+			else
+				echo "Failed to start SPADE"
+			fi
+		else
+			echo "SPADE is already running with PID $existingSpadePid"
+		fi
+	elif [ $1 = "stop" ] || [ $1 = "kill" ] ; then
+		killSignal=
+		successMsg=
+		failureMsg=
+		if [ $1 = "stop" ] ; then
+			successMsg="SPADE will stop after buffers clear"
+			failureMsg="SPADE process could not be stopped"
+			killSignal=15
+		else
+			# force kill
+			successMsg="Stopping SPADE immediately"
+			failureMsg="SPADE process could not be killed"
+			killSignal=9
+		fi
+		if [ -f "$spadePidFilePath" ] ; then
+			existingSpadePid=`cat $spadePidFilePath`
+			if [ -n "$existingSpadePid" ] ; then
+				if ps -p "$existingSpadePid" 2>&1 > /dev/null ; then
+					kill -$killSignal $existingSpadePid
+					killResult=$?
+					if [ "$killResult" -eq 0 ] ; then
+						echo $successMsg
+					else
+						echo $failureMsg
+					fi
+				else
+					echo "SPADE is not running, but PID file exists"
+				fi
+			else
+				echo "PID file exists, but empty no pid present"
+			fi
+		else
+			echo "PID file does not exist"
+		fi
+
 	else
 		print_help
 	fi

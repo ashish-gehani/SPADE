@@ -41,11 +41,12 @@ public enum SYSCALL {
 	SYMLINK, SYMLINKAT, LINK, LINKAT, 
 	UNLINK, UNLINKAT,		
 	RENAME, RENAMEAT,
-	UNKNOWN, // Used for edges between processes where system call wasn't known (not an actual system call) 
-	KILL, 
+	UNKNOWN, // Used for edges between processes where system call wasn't known (not an actual system call)
 	DUP, DUP2, DUP3, 
 	EXIT, EXIT_GROUP, 
 	PIPE, PIPE2, 
+	TEE, SPLICE, VMSPLICE,
+	INIT_MODULE, FINIT_MODULE,
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
 	public static SYSCALL getSyscall(int syscallNum, int arch){
@@ -63,7 +64,11 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch (syscallNum) {
-			
+			case 175:	return INIT_MODULE;
+			case 313:	return FINIT_MODULE;
+			case 276:	return TEE;
+			case 275:	return SPLICE;
+			case 278:	return VMSPLICE;
 			case 43:	return ACCEPT;
 			case 288:	return ACCEPT4;
 			case 49:	return BIND;
@@ -83,7 +88,6 @@ public enum SYSCALL {
 			case 72:	return FCNTL;
 			case 58:	return FORK;
 			case 77:	return FTRUNCATE;
-			case 62:	return KILL;
 			case 86:	return LINK;
 			case 265:	return LINKAT;
 			case 133:	return MKNOD;
@@ -134,6 +138,11 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/i386/syscallent.h
 		switch (syscallNum) {
+			case 128: return INIT_MODULE;
+			case 350: return FINIT_MODULE;
+			case 315: return TEE;
+			case 313: return SPLICE;
+			case 316: return VMSPLICE;
 			case 1: return EXIT;
 			case 2: return FORK;
 			case 3: return READ;
@@ -157,7 +166,6 @@ public enum SYSCALL {
 			case 94: return FCHMOD;
 			case 120: return CLONE;
 			case 125: return MPROTECT;
-			case 129: return KILL;
 			case 145: return READV;
 			case 146: return WRITEV;			
 			case 180: return PREAD;
