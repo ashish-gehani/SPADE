@@ -648,6 +648,14 @@ void set_thread_time(char *buf, thread_time_t* thread_time)
 		//thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
 }
 
+void set_thread_seen_time_conditionally(int pid, char* buf){
+		thread_time_t* thread_time;
+		thread_time = &thread_create_time[pid];
+		if(thread_time->seconds == 0 && thread_time->milliseconds == 0){ // 0 means not set before
+				set_thread_time(buf, thread_time);      
+		}
+}
+
 long get_eventid(char* buf){
 		char *ptr;
 		long eventId;
@@ -1084,6 +1092,15 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 						proc_group_end(ut);
 				} else {
 						proc_end(ut);
+						if(sysno == 59){ // execve
+								set_thread_time(buf, &thread_create_time[tid]);
+								// updated start time to the time when execve happened. Done to reflect what happens in Audit reporter.
+						}
+				}
+				if(sysno == 231 || sysno == 60){ // exit_group or exit
+						// Need to set time to zero because it means that time hasn't been set for this process.
+						// The zero condition is used to set seen time for process otherwise it would be updated each time.
+						thread_create_time[tid].seconds = thread_create_time[tid].milliseconds = 0;
 				}
 		}
 }
@@ -1129,6 +1146,9 @@ void syscall_handler(char *buf)
 		pid = strtol(ptr+5, NULL, 10);
 
 		succ = get_succ(buf);
+		
+		// Set seen time here if not already set. thread_create_time is used in the functions below.
+		set_thread_seen_time_conditionally(pid, buf);
 
 		if(sysno == 62)
 		{
