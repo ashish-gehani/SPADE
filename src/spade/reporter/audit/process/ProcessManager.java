@@ -192,6 +192,21 @@ public abstract class ProcessManager extends ProcessStateManager{
 	}
 	
 	/**
+	 * Only sets the seen time in the active map. Done to reflect what is done in spadeAuditBridge.
+	 * 
+	 * @param eventData audit event key values
+	 */
+	public void processSeenInUnsupportedSyscall(Map<String, String> eventData){
+		String pid = eventData.get(AuditEventReader.PID);
+		String time = eventData.get(AuditEventReader.TIME);
+
+		ProcessKey existingProcessKey = active.get(pid);
+		if(existingProcessKey == null){
+			active.put(pid, new ProcessKey(pid, time));
+		}
+	}
+	
+	/**
 	 * Sets the given state as the active one for the pid.
 	 * 
 	 * ProcessKey is constructed using pid and startTime. startTime could be null.
@@ -203,9 +218,20 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @param state the currently active state for the process to set.
 	 */
 	protected void setProcessUnitState(ProcessUnitState state){
-		String pid = state.getProcess().pid;
-		String startTime = state.getProcess().startTime;		
-		ProcessKey key = new ProcessKey(pid, startTime);
+		ProcessIdentifier process = state.getProcess();
+		String pid = process.pid;
+		String time = process.startTime;
+		// Time logic: Use start time first, then check if there is an existing key, then use the current seen time
+		if(time == null){
+			// Check if there is an existing active mapping
+			ProcessKey existingKey = active.get(pid);
+			if(existingKey == null){
+				time = process.seenTime;
+			}else{
+				time = existingKey.time;
+			}
+		}
+		ProcessKey key = new ProcessKey(pid, time);
 		processUnitStates.put(key, state);
 		active.put(pid, key);
 	}
