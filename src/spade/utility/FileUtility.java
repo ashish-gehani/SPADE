@@ -147,7 +147,7 @@ public class FileUtility {
 	 */
 	public static boolean fileCanBeCreated(String filepath){
 		try{
-			return new File(filepath).getParentFile().exists();
+			return new File(filepath).getAbsoluteFile().getParentFile().exists();
 		}catch(Exception e){
 			return false;
 		}
