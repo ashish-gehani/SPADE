@@ -459,7 +459,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
-		int flags = CommonFunctions.parseInt(flagsString, null);
+		long flags = CommonFunctions.parseLong(flagsString, 0L);
 		String parentPid = eventData.get(AuditEventReader.PID);
 		String childPid = eventData.get(AuditEventReader.EXIT);
 		
