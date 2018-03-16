@@ -1021,12 +1021,12 @@ public class Audit extends AbstractReporter {
 								List<String> ppidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreParentProcesses");
 								if(pidsToIgnoreFromConfig != null){ // optional
 									pidsToIgnore.addAll(pidsToIgnoreFromConfig);
-									logger.log(Level.INFO, "Ignoring pids from config {0} for processes with names: {1}",
+									logger.log(Level.INFO, "Ignoring pids {0} for processes with names from config: {1}",
 											new Object[]{pidsToIgnoreFromConfig, configMap.get("ignoreProcesses")});
 								}
 								if(ppidsToIgnoreFromConfig != null){ // optional
 									ppidsToIgnore.addAll(ppidsToIgnoreFromConfig);
-									logger.log(Level.INFO, "Ignoring ppids from config {0} for processes with names: {1}",
+									logger.log(Level.INFO, "Ignoring ppids {0} for processes with names from config: {1}",
 											new Object[]{ppidsToIgnoreFromConfig, configMap.get("ignoreParentProcesses")});
 								}
 								
