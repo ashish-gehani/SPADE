@@ -2374,7 +2374,7 @@ public class Audit extends AbstractReporter {
 		
 		String processName = process.getAnnotation(OPMConstants.PROCESS_NAME);
 		if(namesOfProcessesToIgnoreFromConfig.contains(processName)){
-			log(Level.INFO, "'"+processName+"' process execve and present in list of processes to ignore", 
+			log(Level.INFO, "'"+processName+"' (pid="+pid+") process seen in execve and present in list of processes to ignore", 
 					null, time, eventId, syscall);
 		}
 	}
