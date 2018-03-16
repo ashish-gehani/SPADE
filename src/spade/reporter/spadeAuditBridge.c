@@ -154,6 +154,8 @@ bool singleFile = FALSE;
 unit_table_t *unit_table;
 event_buf_t *event_buf;
 
+void syscall_handler(char *buf);
+
 /*
 			Java does not support reading from Unix domain sockets.
 
@@ -1128,6 +1130,37 @@ bool get_succ(char *buf)
 		return false;
 }
 
+void ubsi_intercepted_handler(char* buf){
+	
+	char tmp[1024];
+	char* ptr_start;
+	char* ptr_end;
+	int tmp_current_index = 0;
+	
+	memset(&tmp[0], 0, 1024);
+	
+	ptr_start = buf;
+	
+	if(ptr_start != NULL){
+		ptr_end = strstr(buf, "ubsi_intercepted=");
+	
+		if(ptr_end != NULL){			
+			tmp_current_index = (ptr_end - ptr_start);
+			strncpy(&tmp[0], buf, tmp_current_index);
+			
+			ptr_start = strstr(buf, "syscall=");
+		
+			if(ptr_start != NULL){
+				strncpy(&tmp[tmp_current_index], ptr_start, (&buf[strlen(buf)] - ptr_start - 2));
+				
+				tmp[strlen(&tmp[0])] = '\n';
+				
+				syscall_handler(&tmp[0]);
+			}
+		}
+	}
+}
+
 void syscall_handler(char *buf)
 {
 		char *ptr;
@@ -1181,7 +1214,10 @@ int UBSI_buffer_flush()
 				HASH_FIND_INT(event_buf, &next_event_id, eb);
 				next_event_id++;
 				if(eb != NULL) {
-						if(strstr(eb->event, "type=SYSCALL") != NULL) {
+						if(strstr(eb->event, "ubsi_intercepted=") != NULL){
+								if(UBSIAnalysis) ubsi_intercepted_handler(eb->event);
+								else printf("%s", eb->event);
+						} else if(strstr(eb->event, "type=SYSCALL") != NULL) {
 								if(UBSIAnalysis) syscall_handler(eb->event);
 								else printf("%s", eb->event);
 						} else {
@@ -1272,7 +1308,10 @@ int UBSI_buffer(const char *buf)
 				HASH_FIND_INT(event_buf, &next_event_id, eb);
 				next_event_id++;
 				if(eb != NULL) {
-						if(strstr(eb->event, "type=SYSCALL") != NULL) {
+						if(strstr(eb->event, "ubsi_intercepted=") != NULL){
+								if(UBSIAnalysis) ubsi_intercepted_handler(eb->event);
+								else printf("%s", eb->event);
+						} else if(strstr(eb->event, "type=SYSCALL") != NULL) {
 								if(UBSIAnalysis) syscall_handler(eb->event);
 								else printf("%s", eb->event);
 						} else {

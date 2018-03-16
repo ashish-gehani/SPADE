@@ -1423,7 +1423,7 @@ public class Audit extends AbstractReporter {
 					if(kmAdded){
 						netIONeverSyscallsRule = "auditctl -a exit,never ";
 						netIONeverSyscallsRule += archField;
-						netIONeverSyscallsRule += "-S socket -S bind -S accept -S accept4 -S connect ";
+						netIONeverSyscallsRule += "-S kill -S socket -S bind -S accept -S accept4 -S connect ";
 						netIONeverSyscallsRule += "-S sendmsg -S sendto -S recvmsg -S recvfrom -S sendmmsg -S recvmmsg ";
 					}
 					
@@ -1460,9 +1460,9 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += uidField;
 					auditRuleWithoutSuccess += uidField;
 
-					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group ";
+					auditRuleWithoutSuccess += "-S exit -S exit_group ";
 					if(!kmAdded){
-						auditRuleWithoutSuccess += "-S connect ";
+						auditRuleWithoutSuccess += "-S connect -S kill ";
 					}
 
 					if (USE_READ_WRITE) {
