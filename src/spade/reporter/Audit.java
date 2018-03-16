@@ -21,7 +21,6 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
@@ -1664,22 +1663,34 @@ public class Audit extends AbstractReporter {
 
 	private List<String> listOfPidsToIgnore(String ignoreProcesses){
 //		ignoreProcesses argument is a string of process names separated by blank space
+		BufferedReader pidReader = null;
 		try{
 			List<String> pids = new ArrayList<String>();
 			if(ignoreProcesses != null && !ignoreProcesses.trim().isEmpty()){
 				// Using pidof command now to get all pids of the mentioned processes
 				java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
 				// pidof returns pids of given processes as a string separated by a blank space
-				BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+				pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
 				String pidline = pidReader.readLine();
-				// added all returned from pidof command
-				pids.addAll(Arrays.asList(pidline.split("\\s+")));
-				pidReader.close();
+				if(pidline != null){
+					// 	added all returned from pidof command
+					pids.addAll(Arrays.asList(pidline.split("\\s+")));
+				}else{
+					logger.log(Level.INFO, "No running process(es) with name(s): " + ignoreProcesses);
+				}
 			}
 			return pids;
-		}catch(IOException e){
+		}catch(Exception e){
 			logger.log(Level.WARNING, "Error building list of processes to ignore: " + ignoreProcesses, e);
 			return null;
+		}finally{
+			if(pidReader != null){
+				try{
+					pidReader.close();
+				}catch(Exception e){
+					// ignore
+				}
+			}
 		}
 	}
 
