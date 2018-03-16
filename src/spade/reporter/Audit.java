@@ -212,6 +212,8 @@ public class Audit extends AbstractReporter {
 	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	/********************** BEHAVIOR FLAGS - END *************************/
 
+	private Set<String> namesOfProcessesToIgnoreFromConfig = new HashSet<String>();
+	
 	private String spadeAuditBridgeProcessPid = null;
 	// true if live audit, false if log file. null not set.
 	private Boolean isLiveAudit = null;
@@ -1006,6 +1008,15 @@ public class Audit extends AbstractReporter {
 							String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
 							List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
 							if(pidsToIgnore != null){
+								
+								String ignoreProcessesValueFromConfig = configMap.get("ignoreProcesses");
+								if(ignoreProcessesValueFromConfig != null){
+									String[] ignoreProcessesArray = ignoreProcessesValueFromConfig.split(",");
+									for(String ignoreProcess : ignoreProcessesArray){
+										namesOfProcessesToIgnoreFromConfig.add(ignoreProcess.trim());
+									}
+								}
+								
 								List<String> ppidsToIgnore = new ArrayList<String>(pidsToIgnore); // same as pids
 								List<String> pidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreProcesses");
 								List<String> ppidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreParentProcesses");
@@ -2359,6 +2370,12 @@ public class Audit extends AbstractReporter {
 			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
 			Used usedEdge = new Used(process, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
+		}
+		
+		String processName = process.getAnnotation(OPMConstants.PROCESS_NAME);
+		if(namesOfProcessesToIgnoreFromConfig.contains(processName)){
+			log(Level.INFO, "'"+processName+"' process execve and present in list of processes to ignore", 
+					null, time, eventId, syscall);
 		}
 	}
 
