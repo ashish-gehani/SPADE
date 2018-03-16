@@ -1060,7 +1060,7 @@ public class Audit extends AbstractReporter {
 		}else{
 			// The spadeAuditBridge might have started
 			if(spadeAuditBridgeProcessPid != null){
-				sendSignalToPid(spadeAuditBridgeProcessPid, "2");
+				sendSignalToPid(spadeAuditBridgeProcessPid, "9"); // force kill since Audit not added
 			}
 			doCleanup(rulesType, logListFile);
 			return false;
@@ -1280,8 +1280,15 @@ public class Audit extends AbstractReporter {
 	private boolean addKernelModule(String command){
 		try{
 			Execute.Output output = Execute.getOutput(command);
-			output.log();
-			return !output.exitValueIndicatesError();
+			if(!output.getStdErr().isEmpty()){
+				logger.log(Level.SEVERE, "Command \"{0}\" failed with error: {1}.", new Object[]{
+						command, output.getStdErr()});
+				return false;
+			}else{
+				logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
+						command, output.getStdOut()});
+				return true;
+			}
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command, e);
 			return false;
