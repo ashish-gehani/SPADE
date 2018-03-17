@@ -52,7 +52,7 @@ public class TextFile extends AbstractStorage
             }
             String[] tokens = arguments.split("\\s+");
             filePath = tokens[0];
-            if(arguments.length() > 1)
+            if(tokens.length > 1)
             {
                 appendMode = Boolean.parseBoolean(tokens[1]);
             }

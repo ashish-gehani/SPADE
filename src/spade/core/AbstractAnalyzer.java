@@ -110,17 +110,20 @@ public abstract class AbstractAnalyzer
     {
         // key -> values
         // function name -> function class name, function return type
-        List<String> values = functionToClassMap.get(functionName);
-        if(values == null)
+        List<String> className = functionToClassMap.get(functionName);
+        if(className == null)
         {
             //TODO: create all query classes with abstractanalyzer beforehand
             if(functionName.equals("GetLineage") || functionName.equals("GetPaths"))
-                values = Arrays.asList("spade.query.common." + functionName, "spade.core.Graph");
+                className = Arrays.asList("spade.query.common." + functionName, "spade.core.Graph");
             else
-                values = Arrays.asList("spade.query.postgresql." + functionName, "Object");
-            functionToClassMap.put(functionName, values);
+            {
+                String storageName = AbstractQuery.getCurrentStorage().getClass().getSimpleName().toLowerCase();
+                className = Arrays.asList("spade.query." + storageName + "." + functionName, "java.lang.Object");
+            }
+            functionToClassMap.put(functionName, className);
         }
-        return values.get(0);
+        return className.get(0);
     }
 
     public String getReturnType(String functionName)

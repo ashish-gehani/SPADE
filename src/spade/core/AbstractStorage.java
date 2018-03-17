@@ -203,6 +203,7 @@ public abstract class AbstractStorage
      * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
+    @Deprecated
     public abstract AbstractEdge getEdge(String childVertexHash, String parentVertexHash);
 
     /**
@@ -212,6 +213,7 @@ public abstract class AbstractStorage
      * @param vertexHash hash of the vertex to find.
      * @return returns vertex object matching the given hash OR NULL.
      */
+    @Deprecated
     public abstract AbstractVertex getVertex(String vertexHash);
 
 

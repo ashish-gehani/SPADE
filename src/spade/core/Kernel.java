@@ -1511,6 +1511,11 @@ public class Kernel
         {
             storage.shutdown();
         }
+        // Shut down analzers.
+        for(AbstractAnalyzer analyzer: analyzers)
+        {
+            analyzer.shutdown();
+        }
 
         // Shut down server sockets.
         for (ServerSocket socket : serverSockets)
