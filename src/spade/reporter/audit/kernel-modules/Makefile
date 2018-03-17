@@ -1,5 +1,7 @@
 obj-m += netio.o netio_controller.o
 
+ccflags-y := -DRETPOLINE
+
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD)/src/spade/reporter/audit/kernel-modules modules
 
