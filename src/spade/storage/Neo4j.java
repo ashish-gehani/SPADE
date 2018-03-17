@@ -47,8 +47,10 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.factory.GraphDatabaseBuilder;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
@@ -78,7 +80,7 @@ import spade.core.BloomFilter;
 public class Neo4j extends AbstractStorage {
 
     // Identifying annotation to add to each edge/vertex
-    private static final String ID_STRING = Settings.getProperty("storage_identifier");
+    private static final String ID_STRING = "id";
     private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
     private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
     private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
@@ -671,7 +673,24 @@ public class Neo4j extends AbstractStorage {
     @Override
     public Object executeQuery(String query)
     {
-        return null;
+        try ( Transaction tx = graphDb.beginTx() )
+        {
+            Result result = null;
+            globalTxCheckin();
+            try
+            {
+                result = graphDb.execute(query);
+            }
+            catch(QueryExecutionException ex)
+            {
+                logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
+            }
+            finally
+            {
+                tx.success();
+            }
+            return result;
+        }
     }
 
     public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
