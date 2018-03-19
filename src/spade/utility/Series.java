@@ -63,6 +63,7 @@ public class Series<T extends Comparable<T>, V>{
 		if(t == null){
 			logger.log(Level.WARNING, "NOT ADDED. Key cannot be null. Value = " + v);
 		}else{
+			sorted = false;
 			SimpleEntry<T, V> entry = new SimpleEntry<T, V>(t, v);
 			series.add(entry);
 		}

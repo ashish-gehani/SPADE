@@ -684,7 +684,7 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 		
 		rc = printf("%s", buf);
 		if(print_unit) {
-				rc += printf(" unit=(pid=%d thread_time=%d.%d unitid=%d iteration=%d time=%.3lf count=%d) "
+				rc += printf(" unit=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d) "
 							,ut->cur_unit.tid, ut->thread.thread_time.seconds, ut->thread.thread_time.milliseconds, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
 		} 
 
@@ -946,7 +946,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
 
 						get_time_and_eventid(buf, &time, &eventId);
-						sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%d unitid=%d iteration=%d time=%.3lf count=%d), "
+						sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d), "
 								,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
 						emit_log(ut, tmp, true, true);
 				}

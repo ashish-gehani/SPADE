@@ -606,15 +606,18 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
 		String unitStartTime = eventData.get(AuditEventReader.UNIT_TIME);
 		
+		Process processVertex = null;
+		
 		// remove the last unit if there was any
 		ProcessUnitState state = getProcessUnitState(pid);
 		if(state != null){
 			if(state.isUnitActive()){
 				state.unitExit();
 			}
+			processVertex = buildVertex(state.getProcess(), state.getAgent(), state.getUnit());
+		}else{
+			processVertex = handleProcessFromSyscall(eventData);
 		}
-		
-		Process processVertex = handleProcessFromSyscall(eventData);
 		
 		UnitIdentifier unitIdentifier = new UnitIdentifier(unitId, unitIteration, unitCount, unitStartTime, eventId);
 				
