@@ -565,17 +565,21 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * 
 	 * @param eventData system call audit event key values
 	 * @param syscall fork/vfork/clone syscall
+	 * @param outputOPM generate OPM only if true
 	 * @return true
 	 */
-	public boolean handleExit(Map<String, String> eventData, SYSCALL syscall){
+	public boolean handleExit(Map<String, String> eventData, SYSCALL syscall, boolean outputOPM){
 		String pid = eventData.get(AuditEventReader.PID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
-		Process processVertex = handleProcessFromSyscall(eventData);
-		
-		WasTriggeredBy edge = new WasTriggeredBy(processVertex, processVertex);
-		reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT_SYSCALL);
+		if(outputOPM){
+			String time = eventData.get(AuditEventReader.TIME);
+			String eventId = eventData.get(AuditEventReader.EVENT_ID);
+			
+			Process processVertex = handleProcessFromSyscall(eventData);
+			
+			WasTriggeredBy edge = new WasTriggeredBy(processVertex, processVertex);
+			reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT_SYSCALL);
+		}
 
 		removeProcessUnitState(pid);
 		return true;
@@ -658,36 +662,54 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String readingUnitId = eventData.get(AuditEventReader.UNIT_UNITID);
 		String readingUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
 		String readingUnitCount = eventData.get(AuditEventReader.UNIT_COUNT);
-		String readingUnitStartTime = eventData.get(AuditEventReader.UNIT_TIME);
+		String readingUnitStartTimeString = eventData.get(AuditEventReader.UNIT_TIME);
+		Double readingUnitStartTime = CommonFunctions.parseDouble(readingUnitStartTimeString, null);
 		
 		String writingUnitPid = eventData.get(AuditEventReader.UNIT_PID+0);
 		String writingUnitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME+0);
 		String writingUnitId = eventData.get(AuditEventReader.UNIT_UNITID+0);
 		String writingUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+0);
 		String writingUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+0);
-		String writingUnitStartTime = eventData.get(AuditEventReader.UNIT_TIME+0);
+		String writingUnitStartTimeString = eventData.get(AuditEventReader.UNIT_TIME+0);
+		Double writingUnitStartTime = CommonFunctions.parseDouble(writingUnitStartTimeString, null);
 		
 		ProcessUnitState readingProcessState = getProcessUnitState(readingUnitPid, readingUnitThreadStartTime);
 		ProcessUnitState writingProcessState = getProcessUnitState(writingUnitPid, writingUnitThreadStartTime);
 		
 		if(readingProcessState != null && writingProcessState != null){
 			UnitIdentifier readingUnit = new UnitIdentifier(readingUnitId, readingUnitIteration, readingUnitCount, 
-					readingUnitStartTime, null);
-			AgentIdentifier readingUnitAgent = readingProcessState.getAgentForUnit(readingUnit);
-			Process readingUnitVertex = buildVertex(readingProcessState.getProcess(), readingUnitAgent, readingUnit);
-			
-			UnitIdentifier writingUnit = new UnitIdentifier(writingUnitId, writingUnitIteration, writingUnitCount, 
-					writingUnitStartTime, null);
-			AgentIdentifier writingUnitAgent = writingProcessState.getAgentForUnit(writingUnit);
-			Process writingUnitVertex = buildVertex(writingProcessState.getProcess(), writingUnitAgent, writingUnit);
-			
-			WasTriggeredBy edge = new WasTriggeredBy(readingUnitVertex, writingUnitVertex);
-			reporter.putEdge(edge, OPMConstants.OPERATION_UNIT_DEPENDENCY, "0", "0", OPMConstants.SOURCE_BEEP);
-			return true;
+					readingUnitStartTimeString, null);
+			if(readingUnitStartTime == null){
+				logger.log(Level.WARNING, "NULL/Invalid reading unit start time in event data: " + eventData);
+			}else{
+				AgentIdentifier readingUnitAgent = readingProcessState.getAgentByTime(readingUnitStartTime);
+				if(readingUnitAgent == null){
+					logger.log(Level.WARNING, "Failed to find reading unit agent from event data: " + eventData);
+				}else{
+					Process readingUnitVertex = buildVertex(readingProcessState.getProcess(), readingUnitAgent, readingUnit);
+					
+					UnitIdentifier writingUnit = new UnitIdentifier(writingUnitId, writingUnitIteration, writingUnitCount, 
+							writingUnitStartTimeString, null);
+					if(writingUnitStartTime == null){
+						logger.log(Level.WARNING, "NULL/Invalid writing unit start time in event data: " + eventData);
+					}else{
+						AgentIdentifier writingUnitAgent = writingProcessState.getAgentByTime(writingUnitStartTime);
+						if(writingUnitAgent == null){
+							logger.log(Level.WARNING, "Failed to find writing unit agent from event data: " + eventData);
+						}else{
+							Process writingUnitVertex = buildVertex(writingProcessState.getProcess(), writingUnitAgent, writingUnit);
+							
+							WasTriggeredBy edge = new WasTriggeredBy(readingUnitVertex, writingUnitVertex);
+							reporter.putEdge(edge, OPMConstants.OPERATION_UNIT_DEPENDENCY, "0", "0", OPMConstants.SOURCE_BEEP);
+							return true;
+						}
+					}
+				}
+			}
 		}else{
 			logger.log(Level.INFO, "Incomplete state for unit dependency edge. Event data: " + eventData);
-			return false;
 		}
+		return false;
 	}
 	
 	/*  PROCFS code below */

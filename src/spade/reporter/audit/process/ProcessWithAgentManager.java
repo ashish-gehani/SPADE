@@ -24,6 +24,7 @@ import java.util.logging.Level;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
+import spade.utility.CommonFunctions;
 import spade.vertex.opm.Process;
 
 /**
@@ -74,9 +75,10 @@ public class ProcessWithAgentManager extends ProcessManager{
 		return getVertex(pid);
 	}
 
-	protected void handleAgentUpdate(String time, String eventId, String pid, AgentIdentifier newAgent, String operation){
+	protected void handleAgentUpdate(String timeString, String eventId, String pid, AgentIdentifier newAgent, String operation){
 		String source = OPMConstants.SOURCE_AUDIT_SYSCALL;
 		ProcessWithAgentState state = (ProcessWithAgentState)getProcessUnitState(pid);
+		Double time = CommonFunctions.parseDouble(timeString, null);
 		if(state != null){
 			Process oldProcessVertex = buildVertex(state.getProcess(), state.getAgent(), null);
 			Process newProcessVertex = buildVertex(state.getProcess(), newAgent, null);
@@ -91,14 +93,14 @@ public class ProcessWithAgentManager extends ProcessManager{
 				}
 				
 				WasTriggeredBy newToOldProcess = new WasTriggeredBy(newProcessVertex, oldProcessVertex);
-				getReporter().putEdge(newToOldProcess, operation, time, eventId, source);
+				getReporter().putEdge(newToOldProcess, operation, timeString, eventId, source);
 
 				if(!state.isAgentSeenBeforeForUnit(newAgent)){
 					getReporter().putVertex(newUnitVertex);
 				}
 				
 				WasTriggeredBy newToOldUnit = new WasTriggeredBy(newUnitVertex, oldUnitVertex);
-				getReporter().putEdge(newToOldUnit, operation, time, eventId, source);
+				getReporter().putEdge(newToOldUnit, operation, timeString, eventId, source);
 
 				WasTriggeredBy newUnitToNewProcess = new WasTriggeredBy(newUnitVertex, newProcessVertex);
 				getReporter().putEdge(newUnitToNewProcess, OPMConstants.OPERATION_UNIT, unit.startTime, unit.eventId,
@@ -106,17 +108,17 @@ public class ProcessWithAgentManager extends ProcessManager{
 				
 				// TODO order of vertices and edges
 				
-				state.setAgent(newAgent);
+				state.setAgent(time, newAgent);
 			}else{
 				if(!state.isAgentSeenBeforeForProcess(newAgent)){
 					getReporter().putVertex(newProcessVertex);
 				}
-				state.setAgent(newAgent);
+				state.setAgent(time, newAgent);
 				WasTriggeredBy newToOldProcess = new WasTriggeredBy(newProcessVertex, oldProcessVertex);
-				getReporter().putEdge(newToOldProcess, operation, time, eventId, source);
+				getReporter().putEdge(newToOldProcess, operation, timeString, eventId, source);
 			}
 		}else{
-			getReporter().log(Level.INFO, "Tried to update agent without seeing process", null, time, eventId, null);
+			getReporter().log(Level.INFO, "Tried to update agent without seeing process", null, timeString, eventId, null);
 		}
 	}
 }

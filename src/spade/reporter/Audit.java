@@ -2257,14 +2257,7 @@ public class Audit extends AbstractReporter {
 		// exit(), and exit_group() receives the following message(s):
 		// - SYSCALL
 		// - EOE
-		if(CONTROL){
-			// Only draw edge if CONTROL is true
-			processManager.handleExit(eventData, syscall);
-		}else{
-			// Else remove the state only and not draw any edge
-			String pid = eventData.get(AuditEventReader.PID);
-			processManager.removeProcessUnitState(pid);
-		}
+		processManager.handleExit(eventData, syscall, CONTROL);
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){

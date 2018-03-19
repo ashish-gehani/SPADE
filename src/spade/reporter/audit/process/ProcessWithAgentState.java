@@ -34,8 +34,8 @@ public class ProcessWithAgentState extends ProcessUnitState{
 		previousProcessAgents.add(agent);
 	}
 	
-	protected void setAgent(AgentIdentifier agent){
-		super.setAgent(agent);
+	protected void setAgent(Double time, AgentIdentifier agent){
+		super.setAgent(time, agent);
 		previousProcessAgents.add(agent);
 		if(isUnitActive()){
 			previousUnitAgents.add(agent);
