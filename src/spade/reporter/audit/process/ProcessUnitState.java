@@ -19,14 +19,19 @@
  */
 package spade.reporter.audit.process;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import spade.utility.CommonFunctions;
+import spade.utility.Series;
 
 /**
  * Maintains the state to deduplicate, and manages process and unit vertices
  */
 public class ProcessUnitState{
 
+	private final Logger logger = Logger.getLogger(this.getClass().getName());
+	
 	// Process identifier cannot be modified for a state. Only set in constructor.
 	private ProcessIdentifier process;
 	
@@ -36,13 +41,7 @@ public class ProcessUnitState{
 	// The currently active unit or null (no active unit).
 	private UnitIdentifier unit;
 	
-	// + Needed for the case when unit dependency for an exited process seen and need to recreate
-	// the unit vertex. spadeAuditBridge masks which agent was current when write was done by a
-	// unit so using the last agent seen for that unit. NOTE: Memory overhead.
-	// + Possible fix for memory overhead could be that spadeAuditBridge reports memory ops by units
-	// to Audit and they are used to keep agents for only those units which did the write. 
-	private Map<UnitIdentifier, AgentIdentifier> unitToLastAgent = 
-			new HashMap<UnitIdentifier, AgentIdentifier>();
+	private Series<Double, AgentIdentifier> timeToAgent = new Series<Double, AgentIdentifier>();
 	
 	// Needed when a process exits and it's state is being removed.
 	// If true then information needed to recreate a unit vertex is not removed.
@@ -52,6 +51,13 @@ public class ProcessUnitState{
 	protected ProcessUnitState(ProcessIdentifier process, AgentIdentifier agent){
 		this.process = process;
 		this.agent = agent;
+		String timeString = process.startTime == null ? process.seenTime : process.startTime;
+		Double time = CommonFunctions.parseDouble(timeString, null);
+		if(time != null){
+			timeToAgent.add(time, agent);
+		}else{
+			logger.log(Level.WARNING, "Failed to get start/seen time for process: " + process);
+		}
 	}
 	
 	protected ProcessIdentifier getProcess(){
@@ -71,17 +77,19 @@ public class ProcessUnitState{
 	 * Also if a unit is active then sets the agent for that unit too (Needed for unit dependency event)
 	 * 
 	 * @param agent new agent for the process
+	 * @param time the time when the agent was set
 	 */
-	protected void setAgent(AgentIdentifier agent){
+	protected void setAgent(Double time, AgentIdentifier agent){
 		this.agent = agent;
-		if(unit != null){
-			unitToLastAgent.put(unit, agent);
+		if(time != null){
+			timeToAgent.add(time, agent);
+		}else{
+			logger.log(Level.WARNING, "Failed to set agent because time is NULL");
 		}
 	}
 	
 	protected void unitEnter(UnitIdentifier unit){
 		this.unit = unit;
-		unitToLastAgent.put(unit, agent);
 		if(!hadUnits){
 			hadUnits = true;
 		}
@@ -99,8 +107,12 @@ public class ProcessUnitState{
 		return hadUnits;
 	}
 	
-	protected AgentIdentifier getAgentForUnit(UnitIdentifier unit){
-		return unitToLastAgent.get(unit);
+	protected AgentIdentifier getAgentByTime(Double time){
+		if(time == null){
+			return null;
+		}else{
+			return timeToAgent.getBestMatch(time);
+		}
 	}
 	
 	// Only removes the state that is not needed after the process exits

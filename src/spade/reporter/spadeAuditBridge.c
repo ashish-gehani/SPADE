@@ -1156,8 +1156,14 @@ void ubsi_intercepted_handler(char* buf){
 				tmp[strlen(&tmp[0])] = '\n';
 				
 				syscall_handler(&tmp[0]);
+			}else{
+				fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
 			}
+		}else{
+			fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
 		}
+	}else{
+		fprintf(stderr, "ERROR: NULL buffer in UBSI record handler\n");	
 	}
 }
 

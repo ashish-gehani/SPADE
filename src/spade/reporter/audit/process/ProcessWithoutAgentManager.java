@@ -26,6 +26,7 @@ import java.util.logging.Level;
 import spade.edge.opm.WasControlledBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
+import spade.utility.CommonFunctions;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Process;
 
@@ -124,29 +125,30 @@ public class ProcessWithoutAgentManager extends ProcessManager{
 		return getVertex(pid);
 	}
 	
-	protected void handleAgentUpdate(String time, String eventId, String pid, AgentIdentifier newAgent, String operation){
+	protected void handleAgentUpdate(String timeString, String eventId, String pid, AgentIdentifier newAgent, String operation){
 		String source = OPMConstants.SOURCE_AUDIT_SYSCALL;
 		ProcessUnitState state = getProcessUnitState(pid);
+		Double time = CommonFunctions.parseDouble(timeString, null);
 		if(state != null){
 			Process processVertex = buildVertex(state.getProcess(), null, null);
 			Agent newAgentVertex = putAgentVertex(newAgent, source);
 			if(state.isUnitActive()){
 				Process unitVertex = buildVertex(state.getProcess(), null, state.getUnit());
 				
-				state.setAgent(newAgent);
+				state.setAgent(time, newAgent);
 				
 				WasControlledBy processToAgent = new WasControlledBy(processVertex, newAgentVertex);
 				WasControlledBy unitToAgent = new WasControlledBy(unitVertex, newAgentVertex);
 				
-				getReporter().putEdge(processToAgent, operation, time, eventId, source);
-				getReporter().putEdge(unitToAgent, operation, time, eventId, source);
+				getReporter().putEdge(processToAgent, operation, timeString, eventId, source);
+				getReporter().putEdge(unitToAgent, operation, timeString, eventId, source);
 			}else{
-				state.setAgent(newAgent);
+				state.setAgent(time, newAgent);
 				WasControlledBy processToAgent = new WasControlledBy(processVertex, newAgentVertex);
-				getReporter().putEdge(processToAgent, operation, time, eventId, source);
+				getReporter().putEdge(processToAgent, operation, timeString, eventId, source);
 			}
 		}else{
-			getReporter().log(Level.INFO, "Tried to update agent without seeing process", null, time, eventId, null);
+			getReporter().log(Level.INFO, "Tried to update agent without seeing process", null, timeString, eventId, null);
 		}
 	}	
 }
