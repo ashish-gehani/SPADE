@@ -89,41 +89,4 @@ public class Series<T extends Comparable<T>, V>{
 		return null; // none matched
 	}
 	
-	public static void main(String[] args){
-		Series<Double, String> series = new Series<>();
-		series.add(1.0, "a1");
-		series.add(2.0, "a2");
-		series.add(3.0, "a3");
-		series.add(null, "a4");
-		series.add(5.0, "a5");
-		series.add(6.0, "a6");
-		series.add(7.0, "a7");
-		
-		System.out.println(series.getBestMatch(0.9));
-		new B();
-	}
-	
-}
-
-abstract class A{
-	
-	public A(){
-		System.out.println("A constructor");
-		p();
-	}
-	
-	public void p(){
-		System.out.println("A:p");
-	}
-	
-}
-
-class B extends A{
-	public B(){
-		System.out.println("B constructor");
-	}
-	public void p(){
-		super.p();
-		System.out.println("B:p");
-	}
 }
