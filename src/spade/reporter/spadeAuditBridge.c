@@ -673,6 +673,7 @@ long get_eventid(char* buf){
 
 int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 {
+		if(print_proc && ut->proc[0] == '\0') return 0;
 		int rc = 0;
 
 		if(!print_unit && !print_proc) {
@@ -1131,40 +1132,40 @@ bool get_succ(char *buf)
 }
 
 void ubsi_intercepted_handler(char* buf){
-	
-	char tmp[1024];
-	char* ptr_start;
-	char* ptr_end;
-	int tmp_current_index = 0;
-	
-	memset(&tmp[0], 0, 1024);
-	
-	ptr_start = buf;
-	
-	if(ptr_start != NULL){
-		ptr_end = strstr(buf, "ubsi_intercepted=");
-	
-		if(ptr_end != NULL){			
-			tmp_current_index = (ptr_end - ptr_start);
-			strncpy(&tmp[0], buf, tmp_current_index);
-			
-			ptr_start = strstr(buf, "syscall=");
-		
-			if(ptr_start != NULL){
-				strncpy(&tmp[tmp_current_index], ptr_start, (&buf[strlen(buf)] - ptr_start - 2));
-				
-				tmp[strlen(&tmp[0])] = '\n';
-				
-				syscall_handler(&tmp[0]);
-			}else{
-				fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
-			}
+
+		char tmp[1024];
+		char* ptr_start;
+		char* ptr_end;
+		int tmp_current_index = 0;
+
+		memset(&tmp[0], 0, 1024);
+
+		ptr_start = buf;
+
+		if(ptr_start != NULL){
+				ptr_end = strstr(buf, "ubsi_intercepted=");
+
+				if(ptr_end != NULL){			
+						tmp_current_index = (ptr_end - ptr_start);
+						strncpy(&tmp[0], buf, tmp_current_index);
+
+						ptr_start = strstr(buf, "syscall=");
+
+						if(ptr_start != NULL){
+								strncpy(&tmp[tmp_current_index], ptr_start, (&buf[strlen(buf)] - ptr_start - 2));
+
+								tmp[strlen(&tmp[0])] = '\n';
+
+								syscall_handler(&tmp[0]);
+						}else{
+								fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
+						}
+				}else{
+						fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
+				}
 		}else{
-			fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
+				fprintf(stderr, "ERROR: NULL buffer in UBSI record handler\n");	
 		}
-	}else{
-		fprintf(stderr, "ERROR: NULL buffer in UBSI record handler\n");	
-	}
 }
 
 void syscall_handler(char *buf)
@@ -1176,7 +1177,7 @@ void syscall_handler(char *buf)
 
 		ptr = strstr(buf, " syscall=");
 		if(ptr == NULL) {
-				printf("ptr = NULL: %s\n", buf);
+				fprintf(stderr, "ERROR: ptr = NULL: %s\n", buf);
 				return;
 		}
 		sysno = strtol(ptr+9, NULL, 10);
