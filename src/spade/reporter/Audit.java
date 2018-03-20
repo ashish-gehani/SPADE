@@ -23,7 +23,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -68,7 +67,6 @@ import spade.reporter.audit.UnnamedPipeIdentifier;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
-import spade.utility.BerkeleyDB;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
@@ -130,8 +128,7 @@ public class Audit extends AbstractReporter {
 	// 2) Track epoch
 	// 3) Avoid duplication of artifacts
 	private ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties> artifactIdentifierToArtifactProperties;
-	//cache maps paths. global so that we delete on exit
-	private String artifactsCacheDatabasePath;
+	private final String artifactsMapId = "Audit[ArtifactsMap]";
 	/********************** ARTIFACT STATE - END *************************/
 	
 	/********************** NETFILTER - START *************************/
@@ -740,7 +737,14 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			deleteCacheMaps();
+			if(artifactIdentifierToArtifactProperties != null){
+				CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(artifactsMapId, 
+						artifactIdentifierToArtifactProperties);
+				artifactIdentifierToArtifactProperties = null;
+			}
+		}
+		if(processManager != null){
+			processManager.doCleanUp();
 		}
 	}
 	
@@ -779,12 +783,6 @@ public class Audit extends AbstractReporter {
 		// Init boolean flags from the arguments
 		if(!initFlagsFromArguments(argsMap)){
 			return false;
-		}
-		
-		if(AGENTS){
-			processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
-		}else{
-			processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
 		}
 		
 		// Check if the outputLog argument is valid or not
@@ -942,6 +940,19 @@ public class Audit extends AbstractReporter {
 		// Initialize cache data structures
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
 			if(!initCacheMaps(configMap)){
+				success = false;
+			}
+		}
+		
+		if(success){
+			try{
+				if(AGENTS){ // Make sure that this is done before starting the event reader thread
+					processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+				}else{
+					processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
 				success = false;
 			}
 		}
@@ -1542,36 +1553,6 @@ public class Audit extends AbstractReporter {
 
 	}
 
-	private void deleteCacheMaps(){
-		//Close the external store and then delete the folder
-		try{
-			if(artifactIdentifierToArtifactProperties != null){
-				artifactIdentifierToArtifactProperties.close();
-				artifactIdentifierToArtifactProperties = null;
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, null, e);
-		}
-		try{
-			File artifactsCacheDatabaseDirectoryFile = new File(artifactsCacheDatabasePath);
-			if(artifactsCacheDatabasePath != null && artifactsCacheDatabaseDirectoryFile.exists()){
-				try{
-					BigDecimal size = new BigDecimal(FileUtils.sizeOfDirectoryAsBigInteger(artifactsCacheDatabaseDirectoryFile));
-					size = size.divide(new BigDecimal("1024")); //KB
-					size = size.divide(new BigDecimal("1024")); //MB
-					size = size.divide(new BigDecimal("1024")); //GB
-					logger.log(Level.INFO, "Size of the artifacts properties map on disk: {0} GB", size.doubleValue());
-				}catch(Exception e){
-					logger.log(Level.INFO, "Failed to log the size of the artifacts properties map on disk", e);
-				}
-				FileUtils.forceDelete(artifactsCacheDatabaseDirectoryFile);
-				artifactsCacheDatabasePath = null;
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to delete cache maps at path: '"+artifactsCacheDatabasePath+"'");
-		}
-	}
-
 	private boolean executeAuditctlRule(String auditctlRule){
 		try{
 			Execute.Output output = Execute.getOutput(auditctlRule);
@@ -1596,69 +1577,28 @@ public class Audit extends AbstractReporter {
 
 	private boolean initCacheMaps(Map<String, String> configMap){
 		try{
-			long currentTime = System.currentTimeMillis(); 
-			artifactsCacheDatabasePath = configMap.get("tempDir") + File.separatorChar + "artifacts_" + currentTime;
-			try{
-				FileUtils.forceMkdir(new File(artifactsCacheDatabasePath));
-				FileUtils.forceDeleteOnExit(new File(artifactsCacheDatabasePath));
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create cache database directories", e);
-				return false;
-			}
-
-			try{
-				Integer artifactsCacheSize = CommonFunctions.parseInt(configMap.get("artifactsCacheSize"), null);
-				String artifactsDatabaseName = configMap.get("artifactsDatabaseName");
-				Double artifactsFalsePositiveProbability = CommonFunctions.parseDouble(configMap.get("artifactsBloomfilterFalsePositiveProbability"), null);
-				Integer artifactsExpectedNumberOfElements = CommonFunctions.parseInt(configMap.get("artifactsBloomFilterExpectedNumberOfElements"), null);
-
-				logger.log(Level.INFO, "Audit cache properties: artifactsCacheSize={0}, artifactsDatabaseName={1}, artifactsBloomfilterFalsePositiveProbability={2}, "
-						+ "artifactsBloomFilterExpectedNumberOfElements={3}", new Object[]{artifactsCacheSize, 
-								artifactsDatabaseName, artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements});
-
-				if(artifactsCacheSize == null || artifactsDatabaseName == null || 
-						artifactsFalsePositiveProbability == null || artifactsExpectedNumberOfElements == null){
-					logger.log(Level.SEVERE, "Undefined cache properties in Audit config");
-					return false;
-				}
-
-				artifactIdentifierToArtifactProperties = 
-						new ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties>(artifactsCacheSize, 
-								new BerkeleyDB<ArtifactProperties>(artifactsCacheDatabasePath, artifactsDatabaseName), 
-								artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements);
-								
-				artifactIdentifierToArtifactProperties.setKeyHashFunction(new Hasher<ArtifactIdentifier>() {
-				
-					@Override
-					public String getHash(ArtifactIdentifier t) {
-						if(t != null){
-							Map<String, String> annotations = t.getAnnotationsMap();
-							String subtype = t.getSubtype();
-							String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
-							return DigestUtils.sha256Hex(stringToHash);
-						}else{
-							return DigestUtils.sha256Hex("(null)");
+			artifactIdentifierToArtifactProperties = CommonFunctions.createExternalMemoryMapInstance(artifactsMapId,
+					configMap.get("artifactsCacheSize"), configMap.get("artifactsBloomfilterFalsePositiveProbability"), 
+					configMap.get("artifactsBloomFilterExpectedNumberOfElements"), configMap.get("tempDir"), 
+					configMap.get("artifactsDatabaseName"), configMap.get("externalMemoryMapReportingIntervalSeconds"),
+					new Hasher<ArtifactIdentifier>(){
+						@Override
+						public String getHash(ArtifactIdentifier t) {
+							if(t != null){
+								Map<String, String> annotations = t.getAnnotationsMap();
+								String subtype = t.getSubtype();
+								String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
+								return DigestUtils.sha256Hex(stringToHash);
+							}else{
+								return DigestUtils.sha256Hex("(null)");
+							}
 						}
-					}
-				});
-				
-				Long externalMemoryMapReportingIntervalSeconds = 
-						CommonFunctions.parseLong(configMap.get("externalMemoryMapReportingIntervalSeconds"), -1L);
-				
-				if(externalMemoryMapReportingIntervalSeconds > 0){
-					artifactIdentifierToArtifactProperties.printStats(externalMemoryMapReportingIntervalSeconds * 1000); 
-					//convert to millis
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to initialize necessary data structures", e);
-				return false;
-			}
-
+					});
+			return true;
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read default config file", e);
+			logger.log(Level.SEVERE, "Failed to create artifacts external map", e);
 			return false;
 		}
-		return true;
 	}
 
 	private List<String> listOfPidsToIgnore(String ignoreProcesses){

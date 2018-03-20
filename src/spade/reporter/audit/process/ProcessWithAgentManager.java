@@ -34,7 +34,7 @@ import spade.vertex.opm.Process;
  */
 public class ProcessWithAgentManager extends ProcessManager{
 
-	public ProcessWithAgentManager(Audit reporter, boolean simplify, boolean units){
+	public ProcessWithAgentManager(Audit reporter, boolean simplify, boolean units) throws Exception{
 		super(reporter, simplify, units);
 	}
 	
