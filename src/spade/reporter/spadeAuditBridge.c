@@ -1185,6 +1185,9 @@ void syscall_handler(char *buf)
 		pid = strtol(ptr+5, NULL, 10);
 
 		succ = get_succ(buf);
+
+		// Syscall exit(60) and exit_group(231) do not return, thus do not have "success" field. They always succeed.
+		if(sysno == 60 || sysno == 231) succ=true; 
 		
 		// Set seen time here if not already set. thread_create_time is used in the functions below.
 		set_thread_seen_time_conditionally(pid, buf);
