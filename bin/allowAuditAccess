@@ -1,0 +1,7 @@
+# Allow audit access for normal users
+sudo chmod ug+s `which auditctl` || handle_error $LINENO
+sudo chmod ug+s `which iptables` || handle_error $LINENO
+sudo chmod ug+s `which kmod` || handle_error $LINENO
+sudo chown root lib/spadeAuditBridge || handle_error $LINENO
+sudo chmod ug+s lib/spadeAuditBridge || handle_error $LINENO
+
