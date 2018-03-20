@@ -24,6 +24,8 @@ import java.util.Set;
 
 public class ProcessWithAgentState extends ProcessUnitState{
 
+	private static final long serialVersionUID = -614042966379285211L;
+	
 	// Needed to tell whether the process vertex with the new agent has already been reported or not.
 	private Set<AgentIdentifier> previousProcessAgents = new HashSet<AgentIdentifier>();
 	// Needed to tell whether the unit vertex with the new agent has already been reported or not.

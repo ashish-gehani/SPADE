@@ -3,6 +3,10 @@ package spade.utility;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -153,6 +157,14 @@ public class FileUtility {
 		}
 	}
 	
+	public static boolean directoryExists(String filepath){
+		try{
+			return new File(filepath).getAbsoluteFile().isDirectory();
+		}catch(Exception e){
+			return false;
+		}
+	}
+	
 	public static boolean deleteFile(String filepath){
 		try{
 			FileUtils.forceDelete(new File(filepath));
@@ -169,6 +181,39 @@ public class FileUtility {
 			return true;
 		}catch(Exception e){
 			return false;
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static <T> T loadClass(String pathToClass, String className) throws Exception{
+		URLClassLoader loader = URLClassLoader.newInstance(new URL[]{new File(pathToClass).toURI().toURL()});
+		Class<?> thisClass = loader.loadClass(className);
+		return (T)thisClass.newInstance();
+	}
+	
+	public static BigDecimal bytesToGigaBytes(BigInteger sizeBytes){
+		if(sizeBytes == null){
+			return null;
+		}else{
+			BigDecimal kilo = new BigDecimal("1024");
+			BigDecimal size = new BigDecimal(sizeBytes);
+			size = size.divide(kilo); //KB
+			size = size.divide(kilo); //MB
+			size = size.divide(kilo); //GB
+			return size;
+		}
+	}
+	
+	public static BigInteger getDirectorySizeInBytes(String filepath) throws Exception{
+		if(fileExists(filepath)){
+			try{
+				File file = new File(filepath);
+				return FileUtils.sizeOfDirectoryAsBigInteger(file);
+			}catch(Exception e){
+				throw e;
+			}
+		}else{
+			return BigInteger.ZERO;
 		}
 	}
 	
