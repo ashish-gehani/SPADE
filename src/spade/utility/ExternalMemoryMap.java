@@ -20,13 +20,14 @@
  */
 package spade.utility;
 
-import spade.core.BloomFilter;
-
 import java.io.Serializable;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import spade.core.BloomFilter;
 
 /**
  * A map that keeps specified number of elements in memory and kicks out the least recently
@@ -86,6 +87,8 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 	private long databaseInsertionsTotal = 0,
 			databaseInsertionsInterval = 0;
 	
+	private final String mapId;
+	
 	/**
 	 * Main constructor to create the map
 	 * @param cacheMaxSize Size of the in-memory map. Must be greater than 0.
@@ -94,24 +97,9 @@ public class ExternalMemoryMap<K, V extends Serializable>{
      * @param expectedNumberOfElements is the expected number of elements in the Bloom filter. Must be greater than 0
 	 */
 	
-	public ExternalMemoryMap(int cacheMaxSize, ExternalStore<V> cacheStore, double falsePositiveProbability, int expectedNumberOfElements) throws Exception{
-		
-		if(cacheMaxSize < 1){
-			throw new IllegalArgumentException("Cache size cannot be less than 1");
-		}
-		
-		if(cacheStore == null){
-			throw new IllegalArgumentException("External cache store cannot be null");
-		}
-		
-		if(falsePositiveProbability < 0 || falsePositiveProbability > 1){
-			throw new IllegalArgumentException("False positive probability must be in the range [0-1]");
-		}
-		
-		if(expectedNumberOfElements < 1){
-			throw new IllegalArgumentException("Expected number of elements cannot be less than 1");
-		}
-		
+	protected ExternalMemoryMap(String mapId, int cacheMaxSize, ExternalStore<V> cacheStore, 
+			double falsePositiveProbability, int expectedNumberOfElements) throws Exception{
+		this.mapId = mapId;
 		leastRecentlyUsedCache = new HashMap<>();
 		bloomFilter = new BloomFilter<>(falsePositiveProbability, expectedNumberOfElements);
 		this.cacheMaxSize = cacheMaxSize;
@@ -169,7 +157,7 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 				}
 				
 			}catch(Exception e){
-				logger.log(Level.WARNING, "Failed to update cache element in cachestore", e);
+				logger.log(Level.WARNING, mapId + ": Failed to update cache element in cachestore", e);
 			}
 		}
 	}
@@ -233,20 +221,24 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 			failedDatabaseHitsTotal += failedDatabaseHitsInterval;
 			databaseInsertionsTotal += databaseInsertionsInterval;
 			
-			logger.log(Level.INFO, "Total map accesses = {0}, Interval map accesses = {1}, "
+			int inMemoryMapSize = leastRecentlyUsedCache != null ? leastRecentlyUsedCache.size() : 0;
+			
+			logger.log(Level.INFO, mapId + ": Total map accesses = {0}, Interval map accesses = {1}, "
 					+ "Total bloomfilter false positives = {2}, Interval bloomfilter false positives = {3}, "
 					+ "Total LRU cache hits = {4}, Interval LRU cache hits = {5}, "
 					+ "Total LRU cache misses = {6}, Interval LRU cache misses = {7}, "
 					+ "Total successful database hits = {8}, Interval successful database hits = {9}, "
 					+ "Total failed database hits = {10}, Interval failed database hits = {11}, "
-					+ "Total database insertions = {12}, Interval database insertions = {13}",
+					+ "Total database insertions = {12}, Interval database insertions = {13}, "
+					+ "Current in-memory element count = {14}",
 					new Object[]{mapAccessesTotal, mapAccessesInterval,
 							bloomfilterFalsePositivesTotal, bloomfilterFalsePositivesInterval,
 							lruCacheHitsTotal, lruCacheHitsInterval,
 							lruCacheMissesTotal, lruCacheMissesInterval,
 							successfulDatabaseHitsTotal, successfulDatabaseHitsInterval,
 							failedDatabaseHitsTotal, failedDatabaseHitsInterval,
-							databaseInsertionsTotal, databaseInsertionsInterval});
+							databaseInsertionsTotal, databaseInsertionsInterval,
+							inMemoryMapSize});
 			
 			resetIntervalStats();
 		}
@@ -321,7 +313,7 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 				return null;
 			}
 		}catch(Exception e){
-			logger.log(Level.SEVERE, null, e);
+			logger.log(Level.SEVERE, mapId + ": Failed to get value for key: " + key, e);
 			return null;
 		}
 	}
@@ -362,7 +354,7 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 			Node.makeNodeHead(node, head);
 			return value;
 		}catch(Exception e){
-			logger.log(Level.SEVERE, null, e);
+			logger.log(Level.SEVERE, mapId + ": Failed to put " + value + " for " + key, e);
 			return null;
 		}
 	}
@@ -399,7 +391,7 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 				return null;
 			}
 		}catch(Exception e){
-			logger.log(Level.SEVERE, null, e);
+			logger.log(Level.SEVERE, mapId + ": Failed to remove key: " + key, e);
 			return null;
 		}
 	}
@@ -413,7 +405,7 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 		try{
 			cacheStore.clear();
 		}catch(Exception e){
-			logger.log(Level.SEVERE, null, e);
+			logger.log(Level.SEVERE, mapId + ": Failed to clear map", e);
 		}
 		head = new Node<K, V>(null, null);
 		tail = new Node<K, V>(null, null);
@@ -428,7 +420,28 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 				cacheStore.close();
 			}
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to close cache store", e);
+			logger.log(Level.SEVERE, mapId + ": Failed to close cache store", e);
+		}
+	}
+	
+	public BigInteger getSizeOfPersistedDataInBytes() throws Exception{
+		if(cacheStore != null){
+			return cacheStore.sizeInBytesOfPersistedData();
+		}else{
+			throw new Exception(mapId + ": NULL cache store");
+		}
+	}
+	
+	/**
+	 * Calls delete on the underlying external db
+	 */
+	public void delete(){
+		try{
+			if(cacheStore != null){
+				cacheStore.delete();
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed to delete cache store", e);
 		}
 	}
 }

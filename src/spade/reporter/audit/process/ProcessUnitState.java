@@ -19,6 +19,7 @@
  */
 package spade.reporter.audit.process;
 
+import java.io.Serializable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,7 +29,9 @@ import spade.utility.Series;
 /**
  * Maintains the state to deduplicate, and manages process and unit vertices
  */
-public class ProcessUnitState{
+public class ProcessUnitState implements Serializable{
+
+	private static final long serialVersionUID = -5842952642201154622L;
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 	

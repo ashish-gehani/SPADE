@@ -19,8 +19,14 @@
  */
 package spade.utility;
 
+import java.io.File;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,6 +34,7 @@ import org.apache.commons.codec.binary.Hex;
 
 public class CommonFunctions {
 
+	private static final Logger logger = Logger.getLogger(CommonFunctions.class.getName());
 	// Group 1: key
     // Group 2: value
     private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
@@ -168,5 +175,150 @@ public class CommonFunctions {
      */
     public static String encodeHex(String string){
     	return Hex.encodeHexString(String.valueOf(string).getBytes());
+    }
+
+    public static void closePrintSizeAndDeleteExternalMemoryMap(String id, ExternalMemoryMap<?, ?> map){
+    	if(map != null){
+    		try{
+    			map.close();
+    		}catch(Exception e){
+    			logger.log(Level.WARNING, id + ": Failed to close external map", e);
+    		}
+    		BigInteger sizeBytes = null;
+    		try{
+    			sizeBytes = map.getSizeOfPersistedDataInBytes();
+    			if(sizeBytes == null){
+    				logger.log(Level.INFO, id + ": Failed to get size of external map");
+    			}
+    		}catch(Exception e){
+    			logger.log(Level.WARNING, id + ": Failed to get size of external map", e);
+    		}
+    		if(sizeBytes != null){
+    			BigDecimal sizeGB = FileUtility.bytesToGigaBytes(sizeBytes);
+    			logger.log(Level.INFO, id + ": Size of the external map on disk: {0} GB", sizeGB.doubleValue());
+    		}
+    		try{
+    			map.delete();
+    		}catch(Exception e){
+    			logger.log(Level.WARNING, id + ": Failed to delete external map", e);
+    		}
+    	}else{
+    		logger.log(Level.WARNING, id + ": NULL external map");
+    	}
+    }
+
+    public static <X, Y extends Serializable> ExternalMemoryMap<X, Y> createExternalMemoryMapInstance(String id,
+    		String cacheSizeValue, String bloomfilterFalsePositiveProbValue, String bloomfilterExpectedElementsCountValue,
+    		String parentDBDirPathValue, String dbDirAndNameValue, String reportingIntervalSecondsValue,
+    		Hasher<X> hasher) throws Exception{
+
+    	String exceptionPrefix = id + ": ExternalMemoryMap creation: ";
+
+    	if(isNullOrEmpty(id)){
+    		throw new Exception(exceptionPrefix + 
+    				"NULL/Empty map id: "+id+".");
+    	}
+    	if(isNullOrEmpty(cacheSizeValue)){
+    		throw new Exception(exceptionPrefix + 
+    				"NULL/Empty cache size: "+cacheSizeValue+".");
+    	}
+    	if(isNullOrEmpty(bloomfilterFalsePositiveProbValue)){
+    		throw new Exception(exceptionPrefix + 
+    				"NULL/Empty bloomfilter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
+    	}
+    	if(isNullOrEmpty(bloomfilterExpectedElementsCountValue)){
+    		throw new Exception(exceptionPrefix + 
+    				"NULL/Empty bloomfilter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
+    	}
+    	if(isNullOrEmpty(parentDBDirPathValue)){
+    		throw new Exception(exceptionPrefix + 
+    				"NULL/Empty external DB parent path: "+parentDBDirPathValue+".");
+    	}
+    	if(isNullOrEmpty(dbDirAndNameValue)){
+    		throw new Exception(exceptionPrefix + 
+    				"NULL/Empty external DB name: "+dbDirAndNameValue+".");
+    	}
+
+    	Integer cacheSize = CommonFunctions.parseInt(cacheSizeValue, null);
+    	Double falsePositiveProb = CommonFunctions.parseDouble(bloomfilterFalsePositiveProbValue, null);
+    	Integer expectedNumberOfElements = CommonFunctions.parseInt(bloomfilterExpectedElementsCountValue, null);
+    	Long reporterInterval = CommonFunctions.parseLong(reportingIntervalSecondsValue, null); 
+
+    	if(cacheSize == null){
+    		throw new Exception(exceptionPrefix + "Non-integer cache size: "+cacheSizeValue+".");
+    	}
+    	if(falsePositiveProb == null){
+    		throw new Exception(exceptionPrefix + 
+    				"Non-double bloomfilter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
+    	}
+    	if(expectedNumberOfElements == null){
+    		throw new Exception(exceptionPrefix + 
+    				"Non-integer bloomfilter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
+    	}
+    	if(reporterInterval == null && !isNullOrEmpty(reportingIntervalSecondsValue)){
+    		throw new Exception(exceptionPrefix + 
+    				"Non-integer reporting interval: " + reportingIntervalSecondsValue + ".");
+    	}
+
+    	if(cacheSize < 1){
+    		throw new Exception(exceptionPrefix + 
+    				"Cache size cannot be less than 1: "+cacheSize+".");
+    	}
+    	if(falsePositiveProb < 0 || falsePositiveProb > 1){
+    		throw new Exception(exceptionPrefix + 
+    				"False positive probability must be in the range [0-1]: "+falsePositiveProb+".");
+    	}
+    	if(expectedNumberOfElements < 1){
+    		throw new Exception(exceptionPrefix + 
+    				"Expected number of elements cannot be less than 1: "+expectedNumberOfElements+".");
+    	}
+    	if(reporterInterval != null && reporterInterval < 0){
+    		throw new Exception(exceptionPrefix + 
+    				"Reporting interval cannot be less than 0: "+reporterInterval+".");
+    	}
+    	if(dbDirAndNameValue.contains(File.separator)){
+    		throw new Exception(exceptionPrefix + 
+    				"Invalid '"+File.separator+"' character in external DB name: "+dbDirAndNameValue+".");
+    	}		
+
+    	if(!FileUtility.directoryExists(parentDBDirPathValue)){
+    		if(!FileUtility.mkdirs(parentDBDirPathValue)){
+    			throw new Exception(exceptionPrefix + "Failed to create directory: " + parentDBDirPathValue);
+    		}
+    	}
+
+    	dbDirAndNameValue += "_" + System.currentTimeMillis();
+    	String dbPath = parentDBDirPathValue + File.separator + dbDirAndNameValue;
+
+    	if(FileUtility.directoryExists(dbPath)){
+    		throw new Exception(exceptionPrefix + "File already exists at path: " + dbPath);
+    	}else{
+    		if(!FileUtility.mkdirs(dbPath)){
+    			throw new Exception(exceptionPrefix + "Failed to create directory: " + dbPath);
+    		}
+    	}
+
+    	try{
+    		ExternalStore<Y> db = new BerkeleyDB<Y>(dbPath, dbDirAndNameValue);
+    		ExternalMemoryMap<X, Y> map = new ExternalMemoryMap<X, Y>(
+    				id, cacheSize, db, falsePositiveProb, expectedNumberOfElements);
+    		if(reporterInterval != null){
+    			reporterInterval *= 1000;
+    			map.printStats(reporterInterval);
+    		}
+    		if(hasher != null){
+    			map.setKeyHashFunction(hasher);
+    		}
+    		logger.log(Level.INFO, id+": ExternalMemoryMap created with params: cache size={0}, "
+    				+ "db path={1}, db name={2}, false positive prob={3}, expected number of elements={4}, "
+    				+ "reporting interval in millis={5}", new Object[]{
+    						cacheSize, dbPath, dbDirAndNameValue, falsePositiveProb, expectedNumberOfElements,
+    						reporterInterval
+    		});
+    		return map;
+    	}catch(Exception e){
+    		FileUtility.deleteFile(dbPath);
+    		throw new Exception(exceptionPrefix + "Exception: " + e.getMessage());
+    	}
     }
 }

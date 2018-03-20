@@ -40,7 +40,7 @@ public class ProcessWithoutAgentManager extends ProcessManager{
 	 */
 	private final Map<AgentIdentifier, String> agentToSource = new HashMap<AgentIdentifier, String>();
 	
-	public ProcessWithoutAgentManager(Audit reporter, boolean simplify, boolean units){
+	public ProcessWithoutAgentManager(Audit reporter, boolean simplify, boolean units) throws Exception{
 		super(reporter, simplify, units);
 	}
 	

@@ -30,6 +30,7 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.core.Settings;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.ArtifactIdentifier;
@@ -47,6 +48,9 @@ import spade.reporter.audit.UnixSocketIdentifier;
 import spade.reporter.audit.UnnamedPipeIdentifier;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
+import spade.utility.ExternalMemoryMap;
+import spade.utility.FileUtility;
+import spade.utility.Hasher;
 import spade.vertex.opm.Process;
 
 public abstract class ProcessManager extends ProcessStateManager{
@@ -72,7 +76,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * Needed to keep some process states in case of a unit dependency event because we need
 	 * to recreate the unit vertex as it was.
 	 */
-	private Map<ProcessKey, ProcessUnitState> processUnitStates = new HashMap<ProcessKey, ProcessUnitState>();
+	private ExternalMemoryMap<ProcessKey, ProcessUnitState> processUnitStates;
+	private final String processUnitStateMapId = "ProcessManager[ProcessUnitStatesMap]";
 	
 	/**
 	 * Used to tell if simple agent or complete agent needs to be created
@@ -84,10 +89,37 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	private final boolean units;
 	
-	protected ProcessManager(Audit reporter, boolean simplify, boolean units){
+	protected ProcessManager(Audit reporter, boolean simplify, boolean units) throws Exception{
 		this.reporter = reporter;
 		this.simplify = simplify;
 		this.units = units;
+		
+		String configFilePath = Settings.getDefaultConfigFilePath(ProcessManager.class);
+		Map<String, String> configMap = null;
+		try{
+			configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+		}catch(Exception e){
+			throw new Exception("Failed to read config file: " + configFilePath + ". " + e.getMessage());
+		}
+		
+		if(configMap == null){
+			throw new Exception("NULL config map read from file: " + configFilePath);
+		}else{
+			processUnitStates = CommonFunctions.createExternalMemoryMapInstance(processUnitStateMapId, 
+					configMap.get("cacheSize"), configMap.get("falsePositiveProb"), 
+					configMap.get("expectedElements"), configMap.get("dbParentDir"), 
+					configMap.get("dbName"), configMap.get("reportingIntervalSeconds"), 
+					new Hasher<ProcessKey>(){
+						@Override
+						public String getHash(ProcessKey t){
+							if(t == null){
+								return String.valueOf(t);
+							}else{
+								return t.pid + ":" + t.time;
+							}
+						}
+					});
+		}
 	}
 	
 	protected Audit getReporter(){
@@ -165,6 +197,13 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	protected abstract void handleAgentUpdate(String time, String eventId, String pid, AgentIdentifier newAgent, 
 			String operation);
+	
+	public void doCleanUp(){
+		if(processUnitStates != null){
+			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(processUnitStateMapId, processUnitStates);
+			processUnitStates = null;
+		}
+	}
 	
 	/**
 	 * Removes the following states for the pid:
