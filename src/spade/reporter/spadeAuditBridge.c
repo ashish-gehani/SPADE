@@ -1133,35 +1133,44 @@ bool get_succ(char *buf)
 
 void ubsi_intercepted_handler(char* buf){
 
-		char tmp[1024];
+		char* tmp;
 		char* ptr_start;
 		char* ptr_end;
 		int tmp_current_index = 0;
-
-		memset(&tmp[0], 0, 1024);
+		int buf_len;
 
 		ptr_start = buf;
 
 		if(ptr_start != NULL){
-				ptr_end = strstr(buf, "ubsi_intercepted=");
+				buf_len = strlen(buf) + 1; // null char
+				tmp = (char*)malloc(sizeof(char)*buf_len);
+				
+				if(tmp != NULL){
+					memset(tmp, 0, buf_len);
+					
+					ptr_end = strstr(buf, "ubsi_intercepted=");
 
-				if(ptr_end != NULL){			
-						tmp_current_index = (ptr_end - ptr_start);
-						strncpy(&tmp[0], buf, tmp_current_index);
+					if(ptr_end != NULL){			
+							tmp_current_index = (ptr_end - ptr_start);
+							strncpy(&tmp[0], buf, tmp_current_index);
 
-						ptr_start = strstr(buf, "syscall=");
+							ptr_start = strstr(buf, "syscall=");
 
-						if(ptr_start != NULL){
-								strncpy(&tmp[tmp_current_index], ptr_start, (&buf[strlen(buf)] - ptr_start - 2));
+							if(ptr_start != NULL){
+									strncpy(&tmp[tmp_current_index], ptr_start, (&buf[strlen(buf)] - ptr_start - 2));
 
-								tmp[strlen(&tmp[0])] = '\n';
+									tmp[strlen(tmp)] = '\n';
 
-								syscall_handler(&tmp[0]);
-						}else{
-								fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
-						}
+									syscall_handler(tmp);
+							}else{
+									fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
+							}
+					}else{
+							fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
+					}
+					free(tmp);
 				}else{
-						fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
+					fprintf(stderr, "ERROR: Failed to allocate memory for 'ubsi_intercepted' record\n");	
 				}
 		}else{
 				fprintf(stderr, "ERROR: NULL buffer in UBSI record handler\n");	
