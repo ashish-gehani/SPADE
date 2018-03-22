@@ -797,12 +797,13 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 
 void unit_end(unit_table_t *unit, long a1)
 {
+		if(unit == NULL) return;
 		struct link_unit_t *ut;
 		char *buf;
 		int buf_size;
+/*
 		int link_count = HASH_COUNT(unit->link_unit);
 
-/*
 		if(unit->valid == true || link_count > 1) {
 				buf_size = link_count * 200;
 				buf = (char*) malloc(buf_size);
@@ -831,6 +832,7 @@ void unit_end(unit_table_t *unit, long a1)
 
 void proc_end(unit_table_t *unit)
 {
+		if(unit == NULL) return;
 		unit_end(unit, -1);
 		delete_proc_hash(unit->mem_proc);
 		unit->mem_proc = NULL;
@@ -876,6 +878,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 
 		// not duplicated write
 		umt = (mem_unit_t*) malloc(sizeof(mem_unit_t));
+		assert(umt);
 		umt->addr = addr;
 		HASH_ADD(hh, ut->mem_unit, addr, sizeof(long int),  umt);
 
@@ -899,6 +902,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 		HASH_FIND(hh, pt->mem_proc, &addr, sizeof(long int), pmt);
 		if(pmt == NULL) {
 				pmt = (mem_proc_t*) malloc(sizeof(mem_proc_t));
+				assert(pmt);
 				pmt->addr = addr;
 				pmt->last_written_unit = ut->cur_unit;
 				HASH_ADD(hh, pt->mem_proc, addr, sizeof(long int),  pmt);
@@ -943,6 +947,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 				if(lt == NULL) {
 						// emit the dependence.
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
+						assert(lt);
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
 
@@ -958,6 +963,7 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 {
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
+		assert(ut);
 		//ut->tid = tid;
 		ut->thread.tid = tid;
 		ut->thread.thread_time.seconds = thread_create_time[tid].seconds;
@@ -1144,6 +1150,7 @@ void ubsi_intercepted_handler(char* buf){
 		if(ptr_start != NULL){
 				buf_len = strlen(buf) + 1; // null char
 				tmp = (char*)malloc(sizeof(char)*buf_len);
+				assert(tmp);
 				
 				if(tmp != NULL){
 					memset(tmp, 0, buf_len);
@@ -1293,9 +1300,11 @@ int UBSI_buffer(const char *buf)
 									HASH_FIND_INT(event_buf, &id, eb);
 									if(eb == NULL) {
 											eb = (event_buf_t*) malloc(sizeof(event_buf_t));
+										 assert(eb);
 											eb->id = id;
 											//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
 											eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
+										 assert(eb->event);
 											eb->event_byte = event_byte;
 											strncpy(eb->event, event, event_byte+1);
 											HASH_ADD_INT(event_buf, id, eb);
