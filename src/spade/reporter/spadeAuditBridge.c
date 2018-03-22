@@ -894,7 +894,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
-						assert(1);
+						return;
 				}
 		}
 
@@ -930,7 +930,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
-						assert(1);
+						return;
 				}
 		}
 
@@ -1150,7 +1150,6 @@ void ubsi_intercepted_handler(char* buf){
 		if(ptr_start != NULL){
 				buf_len = strlen(buf) + 1; // null char
 				tmp = (char*)malloc(sizeof(char)*buf_len);
-				assert(tmp);
 				
 				if(tmp != NULL){
 					memset(tmp, 0, buf_len);
