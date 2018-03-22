@@ -70,6 +70,7 @@ typedef int bool;
 #define true 1
 #define false 0
 
+#define PRINT_MEM_CONSUMPTION_INTERVAL 0 // second
 // A struct to keep time as reported in audit log. Upto milliseconds.
 // Doing it this way because double and long values don't seem to work with uthash in the structs where needed
 typedef struct thread_time_t{
@@ -731,14 +732,12 @@ void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 		link_unit_t *tmp_unit, *cur_unit;
 		mem_unit_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, hash_unit, cur_unit, tmp_unit) {
-				if(hash_unit != cur_unit) 
-						HASH_DEL(hash_unit, cur_unit); 
+				HASH_DEL(hash_unit, cur_unit); 
 				if(cur_unit) free(cur_unit);  
 		}
 
 		HASH_ITER(hh, hash_mem, cur_mem, tmp_mem) {
-				if(hash_mem != cur_mem) 
-						HASH_DEL(hash_mem, cur_mem); 
+				HASH_DEL(hash_mem, cur_mem); 
 				if(cur_mem) free(cur_mem);  
 		}
 }
@@ -747,8 +746,7 @@ void delete_proc_hash(mem_proc_t *mem_proc)
 {
 		mem_proc_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, mem_proc, cur_mem, tmp_mem) {
-				if(mem_proc != cur_mem) 
-						HASH_DEL(mem_proc, cur_mem); 
+				HASH_DEL(mem_proc, cur_mem); 
 				if(cur_mem) free(cur_mem);  
 		}
 }
@@ -870,6 +868,14 @@ void clear_proc(unit_table_t *unit)
 void proc_end(unit_table_t *unit)
 {
 		if(unit == NULL) return;
+
+		thread_group_leader_t *tgl;
+		HASH_FIND(hh, thread_group_leader_hash, &(unit->thread), sizeof(thread_t), tgl);
+		if(tgl) {
+				HASH_DEL(thread_group_leader_hash, tgl);
+				free(tgl);
+		}
+
 		clear_proc(unit);
 
 		HASH_DEL(unit_table, unit);
@@ -897,10 +903,15 @@ void proc_group_end(unit_table_t *unit)
 		HASH_ITER(hh, tg->threads, cur_t, tmp_t) {
 				HASH_FIND(hh, unit_table, &(cur_t->thread), sizeof(thread_t), ut); 
 				proc_end(ut);
+				HASH_DEL(tg->threads, cur_t);
+				free(cur_t);
 		}
 
 		HASH_FIND(hh, unit_table, &(tgl->thread), sizeof(thread_t), ut); 
 		proc_end(ut);
+
+		HASH_DEL(thread_group_hash, tg);
+		free(tg);
 }
 
 void flush_all_unit()
@@ -1367,20 +1378,19 @@ void syscall_handler(char *buf)
 		}
 
 		// Periodically print out memory usage for debugging
-/*
-#define PRINT_INTERVAL 60 // second
+#ifdef PRINT_MEM_CONSUMPTION_INTERVAL 
 		static double last_print_time = 0;
 		double cur_time = get_timestamp_double(buf);
 		long mem_usage;
 		int num_ff;
 
-		if(PRINT_INTERVAL > 0 && (cur_time - PRINT_INTERVAL > last_print_time)) {
+		if(PRINT_MEM_CONSUMPTION_INTERVAL > 0 && (cur_time - PRINT_MEM_CONSUMPTION_INTERVAL > last_print_time)) {
 			 mem_usage = get_mem_usage();
 				num_ff = count_processes("firefox");
-				fprintf(stderr, "time, %lf, mem, %ld, Kb, firefox processes, %d\n", cur_time, mem_usage, num_ff); 
+				fprintf(stderr, "time %lf, mem %ld Kb, # firefox threads %d\n", cur_time, mem_usage, num_ff); 
 				last_print_time = cur_time;
 		}
-*/
+#endif
 }
 
 #define EVENT_LENGTH 1048576
