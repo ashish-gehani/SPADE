@@ -70,7 +70,6 @@ typedef int bool;
 #define true 1
 #define false 0
 
-#define PRINT_MEM_CONSUMPTION_INTERVAL 0 // second
 // A struct to keep time as reported in audit log. Upto milliseconds.
 // Doing it this way because double and long values don't seem to work with uthash in the structs where needed
 typedef struct thread_time_t{
@@ -1376,21 +1375,6 @@ void syscall_handler(char *buf)
 		} else {
 				non_UBSI_event(pid, sysno, succ, buf);
 		}
-
-		// Periodically print out memory usage for debugging
-#ifdef PRINT_MEM_CONSUMPTION_INTERVAL 
-		static double last_print_time = 0;
-		double cur_time = get_timestamp_double(buf);
-		long mem_usage;
-		int num_ff;
-
-		if(PRINT_MEM_CONSUMPTION_INTERVAL > 0 && (cur_time - PRINT_MEM_CONSUMPTION_INTERVAL > last_print_time)) {
-			 mem_usage = get_mem_usage();
-				num_ff = count_processes("firefox");
-				fprintf(stderr, "time %lf, mem %ld Kb, # firefox threads %d\n", cur_time, mem_usage, num_ff); 
-				last_print_time = cur_time;
-		}
-#endif
 }
 
 #define EVENT_LENGTH 1048576
@@ -1537,39 +1521,5 @@ int get_max_pid()
 		fclose(fp);
 
 		return max_pid;
-}
-
-long get_mem_usage() 
-{
-		char tmp[1024];
-		long mem = 0; 
-		FILE* fp_s = fopen( "/proc/self/status", "r" );
-		while(1) {
-				if(fp_s == NULL) {
-						fprintf(stderr, "ERROR: proc/self\n");
-						break;
-				}    
-				fgets(tmp, 1024, fp_s);
-				if(strncmp(tmp, "VmSize:", 7) == 0) { 
-						sscanf(tmp, "VmSize:\t%ld", &mem);
-						//fprintf(stderr, "MEMUSAGE %s: %s\n", str, tmp);
-						break;
-				}    
-		}
-		fclose(fp_s);
-
-		return mem; 
-}
-
-int count_processes(char *str)
-{
-		int ret = 0;
-
-		unit_table_t *cur_proc, *tmp_proc;
-		HASH_ITER(hh, unit_table, cur_proc, tmp_proc) {
-				if(strstr(cur_proc->proc, str) != NULL) ret++;
-		}
-
-		return ret;
 }
 
