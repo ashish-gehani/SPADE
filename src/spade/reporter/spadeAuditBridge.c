@@ -70,7 +70,7 @@ typedef int bool;
 #define true 1
 #define false 0
 
-#define PRINT_MEM_CONSUMPTION_INTERVAL 60 // second
+#define PRINT_MEM_CONSUMPTION_INTERVAL 0 // second
 // A struct to keep time as reported in audit log. Upto milliseconds.
 // Doing it this way because double and long values don't seem to work with uthash in the structs where needed
 typedef struct thread_time_t{
