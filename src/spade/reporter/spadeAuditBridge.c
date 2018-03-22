@@ -137,6 +137,30 @@ typedef struct iteration_count_t{
 	int count;
 } iteration_count_t;
 
+typedef struct thread_group_leader_t{
+		thread_t thread;
+		thread_t leader;
+		UT_hash_handle hh;
+} thread_group_leader_t;
+
+// child --> thread_group_leader
+typedef struct thread_hash_t{
+		thread_t thread;
+		UT_hash_handle hh;
+} thread_hash_t;
+
+/* thread_group_leader --> list of child threads
+// sys_exit:  clear all child threads data only if I am the thread leader
+// sys_exit_group: find thread leader and clear all child.
+*/
+typedef struct thread_group_t{
+		thread_t leader;
+		thread_hash_t *threads;
+		UT_hash_handle hh;
+} thread_group_t;
+
+thread_group_leader_t *thread_group_leader_hash;
+thread_group_t *thread_group_hash;
 // Maximum iterations that can be buffered during a single timestamp
 #define iteration_count_buffer_size 1000
 // Total number of iterations so far in the iteration_count buffer
@@ -155,6 +179,10 @@ unit_table_t *unit_table;
 event_buf_t *event_buf;
 
 void syscall_handler(char *buf);
+
+// Debugging
+long get_mem_usage();
+int count_processes(char *str);
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -713,7 +741,6 @@ void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 						HASH_DEL(hash_mem, cur_mem); 
 				if(cur_mem) free(cur_mem);  
 		}
-
 }
 
 void delete_proc_hash(mem_proc_t *mem_proc)
@@ -830,12 +857,25 @@ void unit_end(unit_table_t *unit, long a1)
 		unit->w_addr = 0;
 }
 
-void proc_end(unit_table_t *unit)
+void clear_proc(unit_table_t *unit)
 {
 		if(unit == NULL) return;
+
 		unit_end(unit, -1);
 		delete_proc_hash(unit->mem_proc);
 		unit->mem_proc = NULL;
+
+}
+
+void proc_end(unit_table_t *unit)
+{
+		if(unit == NULL) return;
+		clear_proc(unit);
+
+		HASH_DEL(unit_table, unit);
+		free(unit);
+
+		return;
 }
 
 void proc_group_end(unit_table_t *unit)
@@ -843,17 +883,24 @@ void proc_group_end(unit_table_t *unit)
 		int pid = unit->pid;
 		unit_table_t *pt;
 
-		if(pid != unit->thread.tid) {
-				thread_t th;  
-				th.tid = pid; 
-				th.thread_time.seconds = thread_create_time[pid].seconds;
-				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
-				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
-				//HASH_FIND_INT(unit_table, &pid, pt);
-				proc_end(pt);
+		thread_group_leader_t *tgl;
+		thread_group_t *tg;
+		thread_hash_t *cur_t, *tmp_t;
+		unit_table_t *ut;
+
+		HASH_FIND(hh, thread_group_leader_hash, &(unit->thread), sizeof(thread_t), tgl);
+		if(tgl == NULL) return;
+		
+		HASH_FIND(hh, thread_group_hash, &(tgl->leader), sizeof(thread_t), tg);
+		if(tg == NULL)	return;
+		
+		HASH_ITER(hh, tg->threads, cur_t, tmp_t) {
+				HASH_FIND(hh, unit_table, &(cur_t->thread), sizeof(thread_t), ut); 
+				proc_end(ut);
 		}
 
-		proc_end(unit);
+		HASH_FIND(hh, unit_table, &(tgl->thread), sizeof(thread_t), ut); 
+		proc_end(ut);
 }
 
 void flush_all_unit()
@@ -894,7 +941,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
-						assert(1);
+						return;
 				}
 		}
 
@@ -930,7 +977,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
-						assert(1);
+						return;
 				}
 		}
 
@@ -987,16 +1034,103 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		return ut;
 }
 
+void print_thread_group(thread_t thread)
+{
+		thread_group_leader_t *ut;
+		thread_group_t *gt;
+		thread_hash_t *cur_t, *tmp_t;
+
+		HASH_FIND(hh, thread_group_leader_hash, &thread, sizeof(thread_t), ut);
+
+		fprintf(stdout, "THREAD_GROUP: thread %d\n", thread.tid);
+		if(ut == NULL) {
+				fprintf(stdout, "THREAD_GROUP: EMPTY!\n\n");
+				return;
+		}
+		
+		fprintf(stdout, "  Leader: %d\n", ut->leader.tid);
+
+		HASH_FIND(hh, thread_group_hash, &(ut->leader), sizeof(thread_t), gt);
+		if(gt == NULL) {
+				fprintf(stdout, "     NO child.\n\n");
+				return;
+		}
+		
+		HASH_ITER(hh, gt->threads, cur_t, tmp_t) {
+				fprintf(stdout, "     Child: %d\n", cur_t->thread.tid);
+		}
+		fprintf(stdout, "\n");
+}
+
+void set_thread_group(thread_t leader, thread_t child)
+{
+		thread_group_t *ut;
+		thread_hash_t *lt;
+
+		HASH_FIND(hh, thread_group_hash, &leader, sizeof(thread_t), ut);
+		if(ut == NULL) {
+				ut = malloc(sizeof(struct thread_group_t));
+				assert(ut);
+				ut->leader = leader;
+				ut->threads = NULL;
+
+				lt = malloc(sizeof(thread_hash_t));
+				assert(lt);
+				lt->thread = child;
+				HASH_ADD(hh, ut->threads, thread, sizeof(thread_t), lt);
+
+				HASH_ADD(hh, thread_group_hash, leader, sizeof(thread_t), ut);
+		} else {
+				HASH_FIND(hh, ut->threads, &child, sizeof(thread_t), lt);
+				if(lt == NULL) {
+						lt = malloc(sizeof(thread_hash_t));
+						assert(lt);
+						lt->thread = child;
+						HASH_ADD(hh, ut->threads, thread, sizeof(thread_t), lt);
+				}
+		}
+}
+
+thread_group_leader_t* add_thread_group_leader(thread_t thread, thread_t leader)
+{
+		thread_group_leader_t *ut = malloc(sizeof(struct thread_group_leader_t));
+		assert(ut);
+		ut->thread = thread;
+		ut->leader = leader;
+		
+		HASH_ADD(hh, thread_group_leader_hash, thread, sizeof(thread_t), ut);
+
+		return ut;
+}
+
+void set_thread_group_leader(thread_t child, thread_t parent)
+{
+		thread_group_leader_t *ut;
+		HASH_FIND(hh, thread_group_leader_hash, &child, sizeof(thread_t), ut);
+
+		if(ut != NULL) return; // child is already in the hash
+
+		HASH_FIND(hh, thread_group_leader_hash, &parent, sizeof(thread_t), ut);
+		if(ut == NULL) {
+				// parent is not in the hash
+				ut = add_thread_group_leader(parent, parent);
+		}
+		
+		ut = add_thread_group_leader(child, ut->leader);
+
+		set_thread_group(ut->leader, child);
+}
+
 void set_pid(int tid, int pid)
 {
 		struct unit_table_t *ut;
 		int ppid;
 
-		thread_t th; 
-		th.tid = pid; 
-		th.thread_time.seconds = thread_create_time[pid].seconds;
-		th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
-		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* looking for parent thread's pid */
+		thread_t th_child, th_parent; 
+		th_parent.tid = pid; 
+		th_parent.thread_time.seconds = thread_create_time[pid].seconds;
+		th_parent.thread_time.milliseconds = thread_create_time[pid].milliseconds;
+		HASH_FIND(hh, unit_table, &th_parent, sizeof(thread_t), ut);  /* looking for parent thread's pid */
 		//HASH_FIND_INT(unit_table, &pid, ut);  /* looking for parent thread's pid */
 
 		if(ut == NULL) ppid = pid;
@@ -1004,16 +1138,19 @@ void set_pid(int tid, int pid)
 
 		ut = NULL;
 
-		th.tid = tid; 
-		th.thread_time.seconds = thread_create_time[tid].seconds;
-		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
-		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* id already in the hash? */
+		th_child.tid = tid; 
+		th_child.thread_time.seconds = thread_create_time[tid].seconds;
+		th_child.thread_time.milliseconds = thread_create_time[tid].milliseconds;
+		HASH_FIND(hh, unit_table, &th_child, sizeof(thread_t), ut);  /* id already in the hash? */
 		//HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
-				ut = add_unit(tid, ppid, 0); 
+				ut = add_unit(tid, ppid, 0);
 		} else {
 				ut->pid = ppid;
 		}
+
+		set_thread_group_leader(th_child, th_parent);
+		//print_thread_group(th_child);
 }
 
 void UBSI_event(long tid, long a0, long a1, char *buf)
@@ -1099,8 +1236,10 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
 				if(sysno == 231) { // exit_group call
 						proc_group_end(ut);
-				} else {
+				} else if(sysno == 60) {
 						proc_end(ut);
+				} else {
+						clear_proc(ut);
 						if(sysno == 59){ // execve
 								set_thread_time(buf, &thread_create_time[tid]);
 								// updated start time to the time when execve happened. Done to reflect what happens in Audit reporter.
@@ -1150,7 +1289,6 @@ void ubsi_intercepted_handler(char* buf){
 		if(ptr_start != NULL){
 				buf_len = strlen(buf) + 1; // null char
 				tmp = (char*)malloc(sizeof(char)*buf_len);
-				assert(tmp);
 				
 				if(tmp != NULL){
 					memset(tmp, 0, buf_len);
@@ -1188,7 +1326,7 @@ void syscall_handler(char *buf)
 {
 		char *ptr;
 		int sysno;
-		long a0, a1, pid;
+		long a0, a1, pid, ppid;
 		bool succ = false;
 
 		ptr = strstr(buf, " syscall=");
@@ -1198,6 +1336,9 @@ void syscall_handler(char *buf)
 		}
 		sysno = strtol(ptr+9, NULL, 10);
 		
+		ptr = strstr(ptr, " ppid=");
+		ppid = strtol(ptr+6, NULL, 10);
+
 		ptr = strstr(ptr, " pid=");
 		pid = strtol(ptr+5, NULL, 10);
 
@@ -1224,6 +1365,22 @@ void syscall_handler(char *buf)
 		} else {
 				non_UBSI_event(pid, sysno, succ, buf);
 		}
+
+		// Periodically print out memory usage for debugging
+/*
+#define PRINT_INTERVAL 60 // second
+		static double last_print_time = 0;
+		double cur_time = get_timestamp_double(buf);
+		long mem_usage;
+		int num_ff;
+
+		if(PRINT_INTERVAL > 0 && (cur_time - PRINT_INTERVAL > last_print_time)) {
+			 mem_usage = get_mem_usage();
+				num_ff = count_processes("firefox");
+				fprintf(stderr, "time, %lf, mem, %ld, Kb, firefox processes, %d\n", cur_time, mem_usage, num_ff); 
+				last_print_time = cur_time;
+		}
+*/
 }
 
 #define EVENT_LENGTH 1048576
@@ -1371,3 +1528,38 @@ int get_max_pid()
 
 		return max_pid;
 }
+
+long get_mem_usage() 
+{
+		char tmp[1024];
+		long mem = 0; 
+		FILE* fp_s = fopen( "/proc/self/status", "r" );
+		while(1) {
+				if(fp_s == NULL) {
+						fprintf(stderr, "ERROR: proc/self\n");
+						break;
+				}    
+				fgets(tmp, 1024, fp_s);
+				if(strncmp(tmp, "VmSize:", 7) == 0) { 
+						sscanf(tmp, "VmSize:\t%ld", &mem);
+						//fprintf(stderr, "MEMUSAGE %s: %s\n", str, tmp);
+						break;
+				}    
+		}
+		fclose(fp_s);
+
+		return mem; 
+}
+
+int count_processes(char *str)
+{
+		int ret = 0;
+
+		unit_table_t *cur_proc, *tmp_proc;
+		HASH_ITER(hh, unit_table, cur_proc, tmp_proc) {
+				if(strstr(cur_proc->proc, str) != NULL) ret++;
+		}
+
+		return ret;
+}
+
