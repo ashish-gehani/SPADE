@@ -791,7 +791,7 @@ void loop_exit(unit_table_t *unit, char *buf)
 
 		get_time_and_eventid(buf, &time, &eventId);
 		// Adding extra space at the end of UBSI_EXIT string below because last character is overwritten with NULL char
-		if(incomplete_record == false) {
+		if(incomplete_record == false && unit->proc[0] != '\0') {
 				sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
 				//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 				emit_log(unit, tmp, false, true);
@@ -832,7 +832,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
 		
-		if(incomplete_record == false) {
+		if(incomplete_record == false && unit->proc[0] != '\0') {
 				sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
 				emit_log(unit, tmp, true, true);
 		}
@@ -1028,7 +1028,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
 
 						get_time_and_eventid(buf, &time, &eventId);
-						if(incomplete_record == false) {
+						if(incomplete_record == false && ut->proc[0] != '\0') {
 								sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d), "
 												,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
 								emit_log(ut, tmp, true, true);
