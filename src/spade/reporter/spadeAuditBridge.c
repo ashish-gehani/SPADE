@@ -137,6 +137,30 @@ typedef struct iteration_count_t{
 	int count;
 } iteration_count_t;
 
+typedef struct thread_group_leader_t{
+		thread_t thread;
+		thread_t leader;
+		UT_hash_handle hh;
+} thread_group_leader_t;
+
+// child --> thread_group_leader
+typedef struct thread_hash_t{
+		thread_t thread;
+		UT_hash_handle hh;
+} thread_hash_t;
+
+/* thread_group_leader --> list of child threads
+// sys_exit:  clear all child threads data only if I am the thread leader
+// sys_exit_group: find thread leader and clear all child.
+*/
+typedef struct thread_group_t{
+		thread_t leader;
+		thread_hash_t *threads;
+		UT_hash_handle hh;
+} thread_group_t;
+
+thread_group_leader_t *thread_group_leader_hash;
+thread_group_t *thread_group_hash;
 // Maximum iterations that can be buffered during a single timestamp
 #define iteration_count_buffer_size 1000
 // Total number of iterations so far in the iteration_count buffer
@@ -154,7 +178,13 @@ bool singleFile = FALSE;
 unit_table_t *unit_table;
 event_buf_t *event_buf;
 
+bool incomplete_record = false;
+
 void syscall_handler(char *buf);
+
+// Debugging
+long get_mem_usage();
+int count_processes(char *str);
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -602,7 +632,10 @@ void get_time_and_eventid(char *buf, double *time, long *eventId)
 		char *ptr;
 
 		ptr = strstr(buf, "(");
-		if(ptr == NULL) return;
+		if(ptr == NULL) {
+				incomplete_record = true;
+				return;
+		}
 
 		sscanf(ptr+1, "%lf:%ld", time, eventId);
 
@@ -614,7 +647,10 @@ double get_timestamp_double(char *buf){
 		char *ptr;
 		double time;
 		ptr = strstr(buf, "(");
-		if(ptr == NULL) return 0;
+		if(ptr == NULL) {
+				incomplete_record = true;
+				return 0;
+		}
 
 		sscanf(ptr+1, "%lf", &time);
 
@@ -629,6 +665,7 @@ void get_timestamp(char *buf, int* seconds, int* millis)
 		if(ptr == NULL){
 			*seconds = -1;
 			*millis = -1;
+		 incomplete_record = true;
 		}else{
 			sscanf(ptr+1, "%d", seconds);
 			
@@ -636,6 +673,7 @@ void get_timestamp(char *buf, int* seconds, int* millis)
 			if(ptr == NULL){
 				*seconds = -1;
 				*millis = -1;
+				incomplete_record = true;
 			}else{
 				sscanf(ptr+1, "%d", millis);
 			}
@@ -664,7 +702,10 @@ long get_eventid(char* buf){
 
 		// Expected string format -> "type=<TYPE> msg=audit(<TIME>:<EVENTID>): ...."
 		ptr = strstr(buf, ":");
-		if(ptr == NULL) return 0;
+		if(ptr == NULL) {
+				incomplete_record = true;
+				return 0;
+		}
 
 		sscanf(ptr+1, "%ld", &eventId);
 
@@ -673,6 +714,7 @@ long get_eventid(char* buf){
 
 int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 {
+		if(incomplete_record == true) return 0;
 		if(print_proc && ut->proc[0] == '\0') return 0;
 		int rc = 0;
 
@@ -703,25 +745,21 @@ void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 		link_unit_t *tmp_unit, *cur_unit;
 		mem_unit_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, hash_unit, cur_unit, tmp_unit) {
-				if(hash_unit != cur_unit) 
-						HASH_DEL(hash_unit, cur_unit); 
+				HASH_DEL(hash_unit, cur_unit); 
 				if(cur_unit) free(cur_unit);  
 		}
 
 		HASH_ITER(hh, hash_mem, cur_mem, tmp_mem) {
-				if(hash_mem != cur_mem) 
-						HASH_DEL(hash_mem, cur_mem); 
+				HASH_DEL(hash_mem, cur_mem); 
 				if(cur_mem) free(cur_mem);  
 		}
-
 }
 
 void delete_proc_hash(mem_proc_t *mem_proc)
 {
 		mem_proc_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, mem_proc, cur_mem, tmp_mem) {
-				if(mem_proc != cur_mem) 
-						HASH_DEL(mem_proc, cur_mem); 
+				HASH_DEL(mem_proc, cur_mem); 
 				if(cur_mem) free(cur_mem);  
 		}
 }
@@ -737,6 +775,7 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		ptr = strstr(buf, " ppid=");
 		if(ptr == NULL) {
 				fprintf(stderr, "loop_entry error! cannot find proc info: %s", buf);
+				incomplete_record = true;
 		} else {
 				ptr++;
 				strncpy(unit->proc, ptr, strlen(ptr));
@@ -752,10 +791,12 @@ void loop_exit(unit_table_t *unit, char *buf)
 
 		get_time_and_eventid(buf, &time, &eventId);
 		// Adding extra space at the end of UBSI_EXIT string below because last character is overwritten with NULL char
-		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
-		//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
-		emit_log(unit, tmp, false, true);
-		unit->valid = false;
+		if(incomplete_record == false && unit->proc[0] != '\0') {
+				sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
+				//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
+				emit_log(unit, tmp, false, true);
+				unit->valid = false;
+		}
 }
 
 void unit_entry(unit_table_t *unit, long a1, char* buf)
@@ -791,18 +832,21 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
 		
-		sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
-		emit_log(unit, tmp, true, true);
+		if(incomplete_record == false && unit->proc[0] != '\0') {
+				sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
+				emit_log(unit, tmp, true, true);
+		}
 }
 
 void unit_end(unit_table_t *unit, long a1)
 {
+		if(unit == NULL) return;
 		struct link_unit_t *ut;
 		char *buf;
 		int buf_size;
+/*
 		int link_count = HASH_COUNT(unit->link_unit);
 
-/*
 		if(unit->valid == true || link_count > 1) {
 				buf_size = link_count * 200;
 				buf = (char*) malloc(buf_size);
@@ -829,11 +873,33 @@ void unit_end(unit_table_t *unit, long a1)
 		unit->w_addr = 0;
 }
 
-void proc_end(unit_table_t *unit)
+void clear_proc(unit_table_t *unit)
 {
+		if(unit == NULL) return;
+
 		unit_end(unit, -1);
 		delete_proc_hash(unit->mem_proc);
 		unit->mem_proc = NULL;
+
+}
+
+void proc_end(unit_table_t *unit)
+{
+		if(unit == NULL) return;
+
+		thread_group_leader_t *tgl;
+		HASH_FIND(hh, thread_group_leader_hash, &(unit->thread), sizeof(thread_t), tgl);
+		if(tgl) {
+				HASH_DEL(thread_group_leader_hash, tgl);
+				free(tgl);
+		}
+
+		clear_proc(unit);
+
+		HASH_DEL(unit_table, unit);
+		free(unit);
+
+		return;
 }
 
 void proc_group_end(unit_table_t *unit)
@@ -841,17 +907,29 @@ void proc_group_end(unit_table_t *unit)
 		int pid = unit->pid;
 		unit_table_t *pt;
 
-		if(pid != unit->thread.tid) {
-				thread_t th;  
-				th.tid = pid; 
-				th.thread_time.seconds = thread_create_time[pid].seconds;
-				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
-				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
-				//HASH_FIND_INT(unit_table, &pid, pt);
-				proc_end(pt);
+		thread_group_leader_t *tgl;
+		thread_group_t *tg;
+		thread_hash_t *cur_t, *tmp_t;
+		unit_table_t *ut;
+
+		HASH_FIND(hh, thread_group_leader_hash, &(unit->thread), sizeof(thread_t), tgl);
+		if(tgl == NULL) return;
+		
+		HASH_FIND(hh, thread_group_hash, &(tgl->leader), sizeof(thread_t), tg);
+		if(tg == NULL)	return;
+		
+		HASH_ITER(hh, tg->threads, cur_t, tmp_t) {
+				HASH_FIND(hh, unit_table, &(cur_t->thread), sizeof(thread_t), ut); 
+				proc_end(ut);
+				HASH_DEL(tg->threads, cur_t);
+				free(cur_t);
 		}
 
-		proc_end(unit);
+		HASH_FIND(hh, unit_table, &(tgl->thread), sizeof(thread_t), ut); 
+		proc_end(ut);
+
+		HASH_DEL(thread_group_hash, tg);
+		free(tg);
 }
 
 void flush_all_unit()
@@ -876,6 +954,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 
 		// not duplicated write
 		umt = (mem_unit_t*) malloc(sizeof(mem_unit_t));
+		assert(umt);
 		umt->addr = addr;
 		HASH_ADD(hh, ut->mem_unit, addr, sizeof(long int),  umt);
 
@@ -891,7 +970,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
-						assert(1);
+						return;
 				}
 		}
 
@@ -899,6 +978,7 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 		HASH_FIND(hh, pt->mem_proc, &addr, sizeof(long int), pmt);
 		if(pmt == NULL) {
 				pmt = (mem_proc_t*) malloc(sizeof(mem_proc_t));
+				assert(pmt);
 				pmt->addr = addr;
 				pmt->last_written_unit = ut->cur_unit;
 				HASH_ADD(hh, pt->mem_proc, addr, sizeof(long int),  pmt);
@@ -926,7 +1006,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
-						assert(1);
+						return;
 				}
 		}
 
@@ -943,13 +1023,16 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 				if(lt == NULL) {
 						// emit the dependence.
 						lt = (link_unit_t*) malloc(sizeof(link_unit_t));
+						assert(lt);
 						lt->id = pmt->last_written_unit;
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
 
 						get_time_and_eventid(buf, &time, &eventId);
-						sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d), "
-								,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
-						emit_log(ut, tmp, true, true);
+						if(incomplete_record == false && ut->proc[0] != '\0') {
+								sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d), "
+												,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
+								emit_log(ut, tmp, true, true);
+						}
 				}
 		}
 }
@@ -958,6 +1041,7 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 {
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
+		assert(ut);
 		//ut->tid = tid;
 		ut->thread.tid = tid;
 		ut->thread.thread_time.seconds = thread_create_time[tid].seconds;
@@ -981,16 +1065,75 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		return ut;
 }
 
+void set_thread_group(thread_t leader, thread_t child)
+{
+		thread_group_t *ut;
+		thread_hash_t *lt;
+
+		HASH_FIND(hh, thread_group_hash, &leader, sizeof(thread_t), ut);
+		if(ut == NULL) {
+				ut = malloc(sizeof(struct thread_group_t));
+				assert(ut);
+				ut->leader = leader;
+				ut->threads = NULL;
+
+				lt = malloc(sizeof(thread_hash_t));
+				assert(lt);
+				lt->thread = child;
+				HASH_ADD(hh, ut->threads, thread, sizeof(thread_t), lt);
+
+				HASH_ADD(hh, thread_group_hash, leader, sizeof(thread_t), ut);
+		} else {
+				HASH_FIND(hh, ut->threads, &child, sizeof(thread_t), lt);
+				if(lt == NULL) {
+						lt = malloc(sizeof(thread_hash_t));
+						assert(lt);
+						lt->thread = child;
+						HASH_ADD(hh, ut->threads, thread, sizeof(thread_t), lt);
+				}
+		}
+}
+
+thread_group_leader_t* add_thread_group_leader(thread_t thread, thread_t leader)
+{
+		thread_group_leader_t *ut = malloc(sizeof(struct thread_group_leader_t));
+		assert(ut);
+		ut->thread = thread;
+		ut->leader = leader;
+		
+		HASH_ADD(hh, thread_group_leader_hash, thread, sizeof(thread_t), ut);
+
+		return ut;
+}
+
+void set_thread_group_leader(thread_t child, thread_t parent)
+{
+		thread_group_leader_t *ut;
+		HASH_FIND(hh, thread_group_leader_hash, &child, sizeof(thread_t), ut);
+
+		if(ut != NULL) return; // child is already in the hash
+
+		HASH_FIND(hh, thread_group_leader_hash, &parent, sizeof(thread_t), ut);
+		if(ut == NULL) {
+				// parent is not in the hash
+				ut = add_thread_group_leader(parent, parent);
+		}
+		
+		ut = add_thread_group_leader(child, ut->leader);
+
+		set_thread_group(ut->leader, child);
+}
+
 void set_pid(int tid, int pid)
 {
 		struct unit_table_t *ut;
 		int ppid;
 
-		thread_t th; 
-		th.tid = pid; 
-		th.thread_time.seconds = thread_create_time[pid].seconds;
-		th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
-		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* looking for parent thread's pid */
+		thread_t th_child, th_parent; 
+		th_parent.tid = pid; 
+		th_parent.thread_time.seconds = thread_create_time[pid].seconds;
+		th_parent.thread_time.milliseconds = thread_create_time[pid].milliseconds;
+		HASH_FIND(hh, unit_table, &th_parent, sizeof(thread_t), ut);  /* looking for parent thread's pid */
 		//HASH_FIND_INT(unit_table, &pid, ut);  /* looking for parent thread's pid */
 
 		if(ut == NULL) ppid = pid;
@@ -998,16 +1141,19 @@ void set_pid(int tid, int pid)
 
 		ut = NULL;
 
-		th.tid = tid; 
-		th.thread_time.seconds = thread_create_time[tid].seconds;
-		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
-		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* id already in the hash? */
+		th_child.tid = tid; 
+		th_child.thread_time.seconds = thread_create_time[tid].seconds;
+		th_child.thread_time.milliseconds = thread_create_time[tid].milliseconds;
+		HASH_FIND(hh, unit_table, &th_child, sizeof(thread_t), ut);  /* id already in the hash? */
 		//HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
-				ut = add_unit(tid, ppid, 0); 
+				ut = add_unit(tid, ppid, 0);
 		} else {
 				ut->pid = ppid;
 		}
+
+		set_thread_group_leader(th_child, th_parent);
+		//print_thread_group(th_child);
 }
 
 void UBSI_event(long tid, long a0, long a1, char *buf)
@@ -1082,8 +1228,10 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		if(succ == true && (sysno == 56 || sysno == 57 || sysno == 58)) // clone or fork
 		{
 				ptr = strstr(buf, " a2=");
+				if(ptr == NULL) return;
 				a2 = strtol(ptr+4, NULL, 16);
 				ptr = strstr(buf, " exit=");
+				if(ptr == NULL) return;
 				ret = strtol(ptr+6, NULL, 10);
 
 				set_thread_time(buf, &thread_create_time[ret]); /* set thread_create_time */
@@ -1093,8 +1241,10 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
 				if(sysno == 231) { // exit_group call
 						proc_group_end(ut);
-				} else {
+				} else if(sysno == 60) {
 						proc_end(ut);
+				} else {
+						clear_proc(ut);
 						if(sysno == 59){ // execve
 								set_thread_time(buf, &thread_create_time[tid]);
 								// updated start time to the time when execve happened. Done to reflect what happens in Audit reporter.
@@ -1108,14 +1258,18 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		}
 }
 
-bool get_succ(char *buf)
+bool get_succ(char *buf, int sysno)
 {
 		char *ptr;
 		char succ[16];
 		int i=0;
 
+// Syscall exit(60) and exit_group(231) do not return, thus do not have "success" field. They always succeed.
+		if(sysno == 60 || sysno == 231) return true; 
+
 		ptr = strstr(buf, " success=");
 		if(ptr == NULL) {
+				incomplete_record = true;
 				return false;
 		}
 		ptr+=9;
@@ -1133,37 +1287,50 @@ bool get_succ(char *buf)
 
 void ubsi_intercepted_handler(char* buf){
 
-		char tmp[1024];
+		char* tmp;
 		char* ptr_start;
 		char* ptr_end;
 		int tmp_current_index = 0;
-
-		memset(&tmp[0], 0, 1024);
+		int buf_len;
 
 		ptr_start = buf;
 
 		if(ptr_start != NULL){
-				ptr_end = strstr(buf, "ubsi_intercepted=");
+				buf_len = strlen(buf) + 1; // null char
+				tmp = (char*)malloc(sizeof(char)*buf_len);
+				
+				if(tmp != NULL){
+					memset(tmp, 0, buf_len);
+					
+					ptr_end = strstr(buf, "ubsi_intercepted=");
 
-				if(ptr_end != NULL){			
-						tmp_current_index = (ptr_end - ptr_start);
-						strncpy(&tmp[0], buf, tmp_current_index);
+					if(ptr_end != NULL){			
+							tmp_current_index = (ptr_end - ptr_start);
+							strncpy(&tmp[0], buf, tmp_current_index);
 
-						ptr_start = strstr(buf, "syscall=");
+							ptr_start = strstr(buf, "syscall=");
 
-						if(ptr_start != NULL){
-								strncpy(&tmp[tmp_current_index], ptr_start, (&buf[strlen(buf)] - ptr_start - 2));
+							if(ptr_start != NULL){
+									strncpy(&tmp[tmp_current_index], ptr_start, (&buf[strlen(buf)] - ptr_start - 2));
 
-								tmp[strlen(&tmp[0])] = '\n';
+									tmp[strlen(tmp)] = '\n';
 
-								syscall_handler(&tmp[0]);
-						}else{
-								fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
-						}
+									syscall_handler(tmp);
+							}else{
+								incomplete_record = true;
+									fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
+							}
+					}else{
+						 incomplete_record = true;
+							fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
+					}
+					free(tmp);
 				}else{
-						fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
+				 incomplete_record = true;
+					fprintf(stderr, "ERROR: Failed to allocate memory for 'ubsi_intercepted' record\n");	
 				}
 		}else{
+				incomplete_record = true;
 				fprintf(stderr, "ERROR: NULL buffer in UBSI record handler\n");	
 		}
 }
@@ -1172,8 +1339,10 @@ void syscall_handler(char *buf)
 {
 		char *ptr;
 		int sysno;
-		long a0, a1, pid;
+		long a0, a1, pid, ppid;
 		bool succ = false;
+
+		incomplete_record = false;
 
 		ptr = strstr(buf, " syscall=");
 		if(ptr == NULL) {
@@ -1182,13 +1351,15 @@ void syscall_handler(char *buf)
 		}
 		sysno = strtol(ptr+9, NULL, 10);
 		
+		ptr = strstr(ptr, " ppid=");
+		if(ptr == NULL) return;
+		ppid = strtol(ptr+6, NULL, 10);
+
 		ptr = strstr(ptr, " pid=");
+		if(ptr == NULL) return;
 		pid = strtol(ptr+5, NULL, 10);
 
-		succ = get_succ(buf);
-
-		// Syscall exit(60) and exit_group(231) do not return, thus do not have "success" field. They always succeed.
-		if(sysno == 60 || sysno == 231) succ=true; 
+		succ = get_succ(buf, sysno);
 		
 		// Set seen time here if not already set. thread_create_time is used in the functions below.
 		set_thread_seen_time_conditionally(pid, buf);
@@ -1196,10 +1367,12 @@ void syscall_handler(char *buf)
 		if(sysno == 62)
 		{
 				ptr = strstr(buf, " a0=");
+				if(ptr == NULL) return;
 				a0 = strtol(ptr+4, NULL, 16);
 				if(a0 == UENTRY || a0 == UEXIT || a0 == MREAD1 || a0 == MREAD2 || a0 == MWRITE1 || a0 ==MWRITE2)
 				{
 						ptr = strstr(ptr, " a1=");
+						if(ptr == NULL) return;
 						a1 = strtol(ptr+4, NULL, 16);
 						UBSI_event(pid, a0, a1, buf);
 				} else {
@@ -1284,9 +1457,11 @@ int UBSI_buffer(const char *buf)
 									HASH_FIND_INT(event_buf, &id, eb);
 									if(eb == NULL) {
 											eb = (event_buf_t*) malloc(sizeof(event_buf_t));
+										 assert(eb);
 											eb->id = id;
 											//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
 											eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
+										 assert(eb->event);
 											eb->event_byte = event_byte;
 											strncpy(eb->event, event, event_byte+1);
 											HASH_ADD_INT(event_buf, id, eb);
@@ -1353,3 +1528,4 @@ int get_max_pid()
 
 		return max_pid;
 }
+
