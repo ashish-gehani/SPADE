@@ -19,9 +19,10 @@
  */
 package spade.reporter.audit;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public interface VertexIdentifier{
+public interface VertexIdentifier extends Serializable{
 
 	public Map<String, String> getAnnotationsMap();
 	

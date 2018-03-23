@@ -19,6 +19,7 @@
  */
 package spade.utility;
 
+import java.io.Serializable;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,37 +28,15 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Series<T extends Comparable<T>, V>{
+public class Series<T extends Serializable & Comparable<T>, V extends Serializable> implements Serializable{
 
-	private final Logger logger = Logger.getLogger(this.getClass().getName());
+	private static final long serialVersionUID = -5587048659400431438L;
+
+	private static final Logger logger = Logger.getLogger(Series.class.getName());
 	
 	private List<SimpleEntry<T, V>> series = new ArrayList<SimpleEntry<T, V>>();
 	
 	private boolean sorted = false;
-	private Comparator<SimpleEntry<T, V>> comparator = new Comparator<SimpleEntry<T,V>>(){
-		@Override
-		public int compare(SimpleEntry<T, V> o1, SimpleEntry<T, V> o2){
-			if(o1 == null && o2 == null){
-				return 0;
-			}else if(o1 == null && o2 != null){
-				return -1;
-			}else if(o1 != null && o2 == null){
-				return 1;
-			}else{
-				T t1 = o1.getKey();
-				T t2 = o2.getKey();
-				if(t1 == null && t2 == null){
-					return 0;
-				}else if(t1 == null && t2 != null){
-					return -1;
-				}else if(t1 != null && t2 == null){
-					return 1;
-				}else{
-					return t1.compareTo(t2);
-				}
-			}
-		}
-	};	
 	
 	public void add(T t, V v){
 		if(t == null){
@@ -76,7 +55,30 @@ public class Series<T extends Comparable<T>, V>{
 		}else{
 			if(!sorted){
 				sorted = true;
-				Collections.sort(series, comparator);
+				Collections.sort(series, new Comparator<SimpleEntry<T,V>>(){
+					@Override
+					public int compare(SimpleEntry<T, V> o1, SimpleEntry<T, V> o2){
+						if(o1 == null && o2 == null){
+							return 0;
+						}else if(o1 == null && o2 != null){
+							return -1;
+						}else if(o1 != null && o2 == null){
+							return 1;
+						}else{
+							T t1 = o1.getKey();
+							T t2 = o2.getKey();
+							if(t1 == null && t2 == null){
+								return 0;
+							}else if(t1 == null && t2 != null){
+								return -1;
+							}else if(t1 != null && t2 == null){
+								return 1;
+							}else{
+								return t1.compareTo(t2);
+							}
+						}
+					}
+				});
 			}
 			// Looking up in reverse because we want the last associated value for that key.
 			for(int a = series.size() - 1; a > -1; a--){
