@@ -178,6 +178,8 @@ bool singleFile = FALSE;
 unit_table_t *unit_table;
 event_buf_t *event_buf;
 
+bool incomplete_record = false;
+
 void syscall_handler(char *buf);
 
 // Debugging
@@ -630,7 +632,10 @@ void get_time_and_eventid(char *buf, double *time, long *eventId)
 		char *ptr;
 
 		ptr = strstr(buf, "(");
-		if(ptr == NULL) return;
+		if(ptr == NULL) {
+				incomplete_record = true;
+				return;
+		}
 
 		sscanf(ptr+1, "%lf:%ld", time, eventId);
 
@@ -642,7 +647,10 @@ double get_timestamp_double(char *buf){
 		char *ptr;
 		double time;
 		ptr = strstr(buf, "(");
-		if(ptr == NULL) return 0;
+		if(ptr == NULL) {
+				incomplete_record = true;
+				return 0;
+		}
 
 		sscanf(ptr+1, "%lf", &time);
 
@@ -657,6 +665,7 @@ void get_timestamp(char *buf, int* seconds, int* millis)
 		if(ptr == NULL){
 			*seconds = -1;
 			*millis = -1;
+		 incomplete_record = true;
 		}else{
 			sscanf(ptr+1, "%d", seconds);
 			
@@ -664,6 +673,7 @@ void get_timestamp(char *buf, int* seconds, int* millis)
 			if(ptr == NULL){
 				*seconds = -1;
 				*millis = -1;
+				incomplete_record = true;
 			}else{
 				sscanf(ptr+1, "%d", millis);
 			}
@@ -692,7 +702,10 @@ long get_eventid(char* buf){
 
 		// Expected string format -> "type=<TYPE> msg=audit(<TIME>:<EVENTID>): ...."
 		ptr = strstr(buf, ":");
-		if(ptr == NULL) return 0;
+		if(ptr == NULL) {
+				incomplete_record = true;
+				return 0;
+		}
 
 		sscanf(ptr+1, "%ld", &eventId);
 
@@ -701,6 +714,7 @@ long get_eventid(char* buf){
 
 int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 {
+		if(incomplete_record == true) return 0;
 		if(print_proc && ut->proc[0] == '\0') return 0;
 		int rc = 0;
 
@@ -761,6 +775,7 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		ptr = strstr(buf, " ppid=");
 		if(ptr == NULL) {
 				fprintf(stderr, "loop_entry error! cannot find proc info: %s", buf);
+				incomplete_record = true;
 		} else {
 				ptr++;
 				strncpy(unit->proc, ptr, strlen(ptr));
@@ -776,10 +791,12 @@ void loop_exit(unit_table_t *unit, char *buf)
 
 		get_time_and_eventid(buf, &time, &eventId);
 		// Adding extra space at the end of UBSI_EXIT string below because last character is overwritten with NULL char
-		sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
-		//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
-		emit_log(unit, tmp, false, true);
-		unit->valid = false;
+		if(incomplete_record == false && unit->proc[0] != '\0') {
+				sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
+				//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
+				emit_log(unit, tmp, false, true);
+				unit->valid = false;
+		}
 }
 
 void unit_entry(unit_table_t *unit, long a1, char* buf)
@@ -815,8 +832,10 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
 		
-		sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
-		emit_log(unit, tmp, true, true);
+		if(incomplete_record == false && unit->proc[0] != '\0') {
+				sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
+				emit_log(unit, tmp, true, true);
+		}
 }
 
 void unit_end(unit_table_t *unit, long a1)
@@ -1009,9 +1028,11 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 						HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
 
 						get_time_and_eventid(buf, &time, &eventId);
-						sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d), "
-								,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
-						emit_log(ut, tmp, true, true);
+						if(incomplete_record == false && ut->proc[0] != '\0') {
+								sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d), "
+												,time, eventId, lt->id.tid, lt->id.thread_time.seconds, lt->id.thread_time.milliseconds, lt->id.loopid, lt->id.iteration, lt->id.timestamp, lt->id.count);
+								emit_log(ut, tmp, true, true);
+						}
 				}
 		}
 }
@@ -1042,34 +1063,6 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		//HASH_ADD_INT(unit_table, tid, ut);
 		HASH_ADD(hh, unit_table, thread, sizeof(thread_t), ut);
 		return ut;
-}
-
-void print_thread_group(thread_t thread)
-{
-		thread_group_leader_t *ut;
-		thread_group_t *gt;
-		thread_hash_t *cur_t, *tmp_t;
-
-		HASH_FIND(hh, thread_group_leader_hash, &thread, sizeof(thread_t), ut);
-
-		fprintf(stdout, "THREAD_GROUP: thread %d\n", thread.tid);
-		if(ut == NULL) {
-				fprintf(stdout, "THREAD_GROUP: EMPTY!\n\n");
-				return;
-		}
-		
-		fprintf(stdout, "  Leader: %d\n", ut->leader.tid);
-
-		HASH_FIND(hh, thread_group_hash, &(ut->leader), sizeof(thread_t), gt);
-		if(gt == NULL) {
-				fprintf(stdout, "     NO child.\n\n");
-				return;
-		}
-		
-		HASH_ITER(hh, gt->threads, cur_t, tmp_t) {
-				fprintf(stdout, "     Child: %d\n", cur_t->thread.tid);
-		}
-		fprintf(stdout, "\n");
 }
 
 void set_thread_group(thread_t leader, thread_t child)
@@ -1235,8 +1228,10 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		if(succ == true && (sysno == 56 || sysno == 57 || sysno == 58)) // clone or fork
 		{
 				ptr = strstr(buf, " a2=");
+				if(ptr == NULL) return;
 				a2 = strtol(ptr+4, NULL, 16);
 				ptr = strstr(buf, " exit=");
+				if(ptr == NULL) return;
 				ret = strtol(ptr+6, NULL, 10);
 
 				set_thread_time(buf, &thread_create_time[ret]); /* set thread_create_time */
@@ -1271,6 +1266,7 @@ bool get_succ(char *buf)
 
 		ptr = strstr(buf, " success=");
 		if(ptr == NULL) {
+				incomplete_record = true;
 				return false;
 		}
 		ptr+=9;
@@ -1318,16 +1314,20 @@ void ubsi_intercepted_handler(char* buf){
 
 									syscall_handler(tmp);
 							}else{
+								incomplete_record = true;
 									fprintf(stderr, "ERROR: Malformed UBSI record: 'syscall' not found\n");	
 							}
 					}else{
+						 incomplete_record = true;
 							fprintf(stderr, "ERROR: Malformed UBSI record: 'ubsi_intercepted' not found\n");
 					}
 					free(tmp);
 				}else{
+				 incomplete_record = true;
 					fprintf(stderr, "ERROR: Failed to allocate memory for 'ubsi_intercepted' record\n");	
 				}
 		}else{
+				incomplete_record = true;
 				fprintf(stderr, "ERROR: NULL buffer in UBSI record handler\n");	
 		}
 }
@@ -1339,6 +1339,8 @@ void syscall_handler(char *buf)
 		long a0, a1, pid, ppid;
 		bool succ = false;
 
+		incomplete_record = false;
+
 		ptr = strstr(buf, " syscall=");
 		if(ptr == NULL) {
 				fprintf(stderr, "ERROR: ptr = NULL: %s\n", buf);
@@ -1347,9 +1349,11 @@ void syscall_handler(char *buf)
 		sysno = strtol(ptr+9, NULL, 10);
 		
 		ptr = strstr(ptr, " ppid=");
+		if(ptr == NULL) return;
 		ppid = strtol(ptr+6, NULL, 10);
 
 		ptr = strstr(ptr, " pid=");
+		if(ptr == NULL) return;
 		pid = strtol(ptr+5, NULL, 10);
 
 		succ = get_succ(buf);
@@ -1363,10 +1367,12 @@ void syscall_handler(char *buf)
 		if(sysno == 62)
 		{
 				ptr = strstr(buf, " a0=");
+				if(ptr == NULL) return;
 				a0 = strtol(ptr+4, NULL, 16);
 				if(a0 == UENTRY || a0 == UEXIT || a0 == MREAD1 || a0 == MREAD2 || a0 == MWRITE1 || a0 ==MWRITE2)
 				{
 						ptr = strstr(ptr, " a1=");
+						if(ptr == NULL) return;
 						a1 = strtol(ptr+4, NULL, 16);
 						UBSI_event(pid, a0, a1, buf);
 				} else {
