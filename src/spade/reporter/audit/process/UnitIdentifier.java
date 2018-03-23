@@ -27,6 +27,7 @@ import spade.reporter.audit.VertexIdentifier;
 
 public class UnitIdentifier implements VertexIdentifier{
 
+	private static final long serialVersionUID = 8062088531269504158L;
 	public final String id, iteration, count, startTime;
 	public final String source = OPMConstants.SOURCE_BEEP;
 	

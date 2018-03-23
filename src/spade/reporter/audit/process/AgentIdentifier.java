@@ -27,6 +27,7 @@ import spade.reporter.audit.VertexIdentifier;
 
 public class AgentIdentifier implements VertexIdentifier{
 
+	private static final long serialVersionUID = 7999238514755805769L;
 	public final String uid, euid, gid, egid,
 			// Following values optional
 			suid, fsuid, sgid, fsgid;

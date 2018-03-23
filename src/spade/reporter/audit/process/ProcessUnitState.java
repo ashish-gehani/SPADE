@@ -33,7 +33,7 @@ public class ProcessUnitState implements Serializable{
 
 	private static final long serialVersionUID = -5842952642201154622L;
 
-	private final Logger logger = Logger.getLogger(this.getClass().getName());
+	private static final Logger logger = Logger.getLogger(ProcessUnitState.class.getName());
 	
 	// Process identifier cannot be modified for a state. Only set in constructor.
 	private ProcessIdentifier process;

@@ -27,6 +27,7 @@ import spade.reporter.audit.VertexIdentifier;
 
 public class ProcessIdentifier implements VertexIdentifier{
 
+	private static final long serialVersionUID = -8035203971144574644L;
 	public final String pid, ppid, name, cwd, commandLine, startTime, seenTime, processUnitId, processSource;
 	
 	/**
