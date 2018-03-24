@@ -70,6 +70,7 @@ typedef int bool;
 #define true 1
 #define false 0
 
+#define MAX_SIGNO 50
 // A struct to keep time as reported in audit log. Upto milliseconds.
 // Doing it this way because double and long values don't seem to work with uthash in the structs where needed
 typedef struct thread_time_t{
@@ -119,6 +120,7 @@ typedef struct unit_table_t {
 		mem_proc_t *mem_proc;
 		mem_unit_t *mem_unit; // mem_write_record in the unit
 		char proc[1024];
+		bool signal_handler[MAX_SIGNO];
 		UT_hash_handle hh;
 } unit_table_t;
 
@@ -1039,6 +1041,7 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 
 unit_table_t* add_unit(int tid, int pid, bool valid)
 {
+		int i;
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
 		assert(ut);
@@ -1061,6 +1064,9 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->mem_proc = NULL;
 		ut->mem_unit = NULL;
 		bzero(ut->proc, 1024);
+		for(i = 0; i < MAX_SIGNO; i++) {
+				ut->signal_handler[i] = false;
+		}
 		//HASH_ADD_INT(unit_table, tid, ut);
 		HASH_ADD(hh, unit_table, thread, sizeof(thread_t), ut);
 		return ut;
@@ -1207,7 +1213,7 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 {
 		char *ptr;
-		long a2;
+		long a0, a1, a2;
 		long ret;
 		int time;
 
@@ -1265,6 +1271,49 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 						// The zero condition is used to set seen time for process otherwise it would be updated each time.
 						thread_create_time[tid].seconds = thread_create_time[tid].milliseconds = 0;
 				}
+		} else if(succ == true && sysno == 62) {
+
+				ptr = strstr(buf, " a0=");
+				if(ptr == NULL) return;
+				a0 = strtol(ptr+4, NULL, 16);
+				ptr = strstr(ptr, " a1=");
+				if(ptr == NULL) return;
+				a1 = strtol(ptr+4, NULL, 16);
+
+				// clear target process' memory if kill syscall with SIGINT or SIGKILL or SIGTERM
+				// It might cause false negative if the taget process has custom signal hander for SIGTERM or SIGINT
+				if(a1 == SIGINT || a1 == SIGKILL || a1 == SIGTERM) { 
+						unit_table_t *target_ut;
+						thread_t target_thread;
+						target_thread.tid = a0;
+						target_thread.thread_time.seconds = thread_create_time[a0].seconds;
+						target_thread.thread_time.milliseconds = thread_create_time[a0].milliseconds;
+
+						HASH_FIND(hh, unit_table, &target_thread, sizeof(thread_t), target_ut);
+						if(target_ut == NULL) return;
+						if(a1 < MAX_SIGNO) {
+								if(target_ut->signal_handler[a1] == true) return; // If the target process has signal handler, ignore the signal.
+						}
+
+						thread_group_leader_t *target_tgl;
+						HASH_FIND(hh, thread_group_leader_hash, &(target_thread), sizeof(thread_t), target_tgl);
+						if(target_tgl == NULL) proc_end(target_ut);
+						else proc_group_end(target_ut);
+				}
+		} else if(succ == true && sysno == 13) {  // SYS_rt_sigaction. If the thread has signal handlers, signals will not kill it.
+				ptr = strstr(buf, " a1=");
+				if(ptr == NULL) return;
+				a1 = strtol(ptr+4, NULL, 16);
+				if(a1 == 0) return;
+
+				ptr = strstr(buf, " a0=");
+				if(ptr == NULL) return;
+				a0 = strtol(ptr+4, NULL, 16);
+				
+				if(a0 > MAX_SIGNO) {
+						return;
+				}
+				//ut->signal_handler[a0] = true;
 		}
 }
 
