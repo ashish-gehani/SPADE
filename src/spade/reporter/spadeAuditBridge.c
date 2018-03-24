@@ -1060,6 +1060,7 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->link_unit = NULL;
 		ut->mem_proc = NULL;
 		ut->mem_unit = NULL;
+		bzero(ut->proc, 1024);
 		//HASH_ADD_INT(unit_table, tid, ut);
 		HASH_ADD(hh, unit_table, thread, sizeof(thread_t), ut);
 		return ut;
