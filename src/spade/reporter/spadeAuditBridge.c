@@ -184,10 +184,6 @@ bool incomplete_record = false;
 
 void syscall_handler(char *buf);
 
-// Debugging
-long get_mem_usage();
-int count_processes(char *str);
-
 /*
 			Java does not support reading from Unix domain sockets.
 
@@ -329,7 +325,6 @@ void socket_read(char *programName)
 void read_log(FILE *fp, char* filepath)
 {
 		char buffer[BUFFER_LENGTH];
-		//FILE *fp = stdin;
 
 		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		do{
@@ -686,8 +681,6 @@ void get_timestamp(char *buf, int* seconds, int* millis)
 void set_thread_time(char *buf, thread_time_t* thread_time)
 {
 		get_timestamp(buf, &thread_time->seconds, &thread_time->milliseconds);
-		//thread_time->seconds = (int)time;
-		//thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
 }
 
 void set_thread_seen_time_conditionally(int pid, char* buf){
@@ -795,7 +788,6 @@ void loop_exit(unit_table_t *unit, char *buf)
 		// Adding extra space at the end of UBSI_EXIT string below because last character is overwritten with NULL char
 		if(incomplete_record == false && unit->proc[0] != '\0') {
 				sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
-				//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 				emit_log(unit, tmp, false, true);
 				unit->valid = false;
 		}
@@ -846,27 +838,6 @@ void unit_end(unit_table_t *unit, long a1)
 		struct link_unit_t *ut;
 		char *buf;
 		int buf_size;
-/*
-		int link_count = HASH_COUNT(unit->link_unit);
-
-		if(unit->valid == true || link_count > 1) {
-				buf_size = link_count * 200;
-				buf = (char*) malloc(buf_size);
-				bzero(buf, buf_size);
-				// emit linked unit lists;
-				if(unit->link_unit != NULL) {
-						sprintf(buf, "type=UBSI_DEP2 list=\"");
-						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
-								// < 200 bytes,
-								sprintf(buf+strlen(buf), "(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d),"
-								,ut->id.tid, ut->id.threadtime, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
-						}
-						sprintf(buf+strlen(buf), "\" ");
-						emit_log(unit, buf, true, true);
-						free(buf);
-				}
-		}
-*/		
 
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
@@ -1045,7 +1016,6 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
 		assert(ut);
-		//ut->tid = tid;
 		ut->thread.tid = tid;
 		ut->thread.thread_time.seconds = thread_create_time[tid].seconds;
 		ut->thread.thread_time.milliseconds = thread_create_time[tid].milliseconds;
@@ -1067,7 +1037,6 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		for(i = 0; i < MAX_SIGNO; i++) {
 				ut->signal_handler[i] = false;
 		}
-		//HASH_ADD_INT(unit_table, tid, ut);
 		HASH_ADD(hh, unit_table, thread, sizeof(thread_t), ut);
 		return ut;
 }
@@ -1141,7 +1110,6 @@ void set_pid(int tid, int pid)
 		th_parent.thread_time.seconds = thread_create_time[pid].seconds;
 		th_parent.thread_time.milliseconds = thread_create_time[pid].milliseconds;
 		HASH_FIND(hh, unit_table, &th_parent, sizeof(thread_t), ut);  /* looking for parent thread's pid */
-		//HASH_FIND_INT(unit_table, &pid, ut);  /* looking for parent thread's pid */
 
 		if(ut == NULL) ppid = pid;
 		else ppid = ut->pid;
@@ -1152,7 +1120,6 @@ void set_pid(int tid, int pid)
 		th_child.thread_time.seconds = thread_create_time[tid].seconds;
 		th_child.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th_child, sizeof(thread_t), ut);  /* id already in the hash? */
-		//HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
 				ut = add_unit(tid, ppid, 0);
 		} else {
@@ -1160,7 +1127,6 @@ void set_pid(int tid, int pid)
 		}
 
 		set_thread_group_leader(th_child, th_parent);
-		//print_thread_group(th_child);
 }
 
 void UBSI_event(long tid, long a0, long a1, char *buf)
@@ -1172,7 +1138,6 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 		th.thread_time.seconds = thread_create_time[tid].seconds;
 		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
-		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
 				isNewUnit = 1;
@@ -1224,7 +1189,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		th.thread_time.seconds = thread_create_time[tid].seconds;
 		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
-		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
 				ut = add_unit(tid, tid, 0);
@@ -1310,10 +1274,9 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				if(ptr == NULL) return;
 				a0 = strtol(ptr+4, NULL, 16);
 				
-				if(a0 > MAX_SIGNO) {
-						return;
+				if(a0 < MAX_SIGNO) {
+						ut->signal_handler[a0] = true;
 				}
-				//ut->signal_handler[a0] = true;
 		}
 }
 
@@ -1518,7 +1481,6 @@ int UBSI_buffer(const char *buf)
 											eb = (event_buf_t*) malloc(sizeof(event_buf_t));
 										 assert(eb);
 											eb->id = id;
-											//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
 											eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
 										 assert(eb->event);
 											eb->event_byte = event_byte;
