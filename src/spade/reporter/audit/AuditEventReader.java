@@ -485,11 +485,16 @@ public class AuditEventReader {
 	 * @return map of key values
 	 */
 	private Map<String, String> getEventMap(Set<String> records){
-		Map<String, String> eventMap = new HashMap<String, String>();
-		for(String record : records){
-			eventMap.putAll(parseEventLine(record));
+		try{
+			Map<String, String> eventMap = new HashMap<String, String>();
+			for(String record : records){
+				eventMap.putAll(parseEventLine(record));
+			}
+			return eventMap;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to parse records: "+ records, e);
+			throw e;
 		}
-		return eventMap;
 	}
 
 	public void close(){
