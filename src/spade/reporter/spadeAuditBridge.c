@@ -1235,8 +1235,17 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				if(ptr == NULL) return;
 				ret = strtol(ptr+6, NULL, 10);
 
+				unit_table_t *child_ut;
+				thread_t child_th;
+				child_th.tid = ret;
+				child_th.thread_time.seconds = thread_create_time[ret].seconds;
+				child_th.thread_time.milliseconds = thread_create_time[ret].milliseconds;
+				HASH_FIND(hh, unit_table, &child_th, sizeof(thread_t), child_ut); 
+				
+				if(child_ut != NULL) proc_end(child_ut);
+
 				set_thread_time(buf, &thread_create_time[ret]); /* set thread_create_time */
-				if(a2 > 0) { // thread_creat event
+				if(sysno == 56 && a2 > 0) { // thread_creat event
 						set_pid(ret, tid);
 				}
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
@@ -1245,7 +1254,7 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				} else if(sysno == 60) {
 						proc_end(ut);
 				} else {
-						clear_proc(ut);
+						proc_end(ut);
 						if(sysno == 59){ // execve
 								set_thread_time(buf, &thread_create_time[tid]);
 								// updated start time to the time when execve happened. Done to reflect what happens in Audit reporter.
