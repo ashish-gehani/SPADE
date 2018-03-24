@@ -114,7 +114,7 @@ public class Sketch extends AbstractSketch
                 BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(networkVertex);
                 if (newAncestors != null)
                 {
-                    logger.log(Level.INFO, "concreteSketch - Found bloomfilter for networkVertex");
+                    logger.log(Level.INFO, "concreteSketch - Found Bloom filter for networkVertex");
                     Runnable update = new updateMatrixThread(this, networkVertex, incomingEdge.type());
                     new Thread(update).start();
                 }
@@ -172,11 +172,11 @@ class updateMatrixThread implements Runnable
                     sketch.matrixFilter.updateAncestors(currentVertex, newAncestors);
                 }
             }
-            logger.log(Level.INFO, "concreteSketch - Updated bloomfilters for USED edge - storageId: {0}", storageId);
+            logger.log(Level.INFO, "concreteSketch - Updated Bloom filters for USED edge - storageId: {0}", storageId);
         }
         else if (type.equalsIgnoreCase("WasGeneratedBy"))
         {
-            logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for WGB edge for storageId: {0}", storageId);
+            logger.log(Level.INFO, "concreteSketch - Updating matrix filter for WGB edge for storageId: {0}", storageId);
             GetLineage getLineage = new GetLineage();
             Map<String, List<String>> lineageParams = new HashMap<>();
             lineageParams.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, storageId));
@@ -190,7 +190,7 @@ class updateMatrixThread implements Runnable
                     sketch.matrixFilter.add(vertex, currentVertex);
                 }
             }
-            logger.log(Level.INFO, "concreteSketch - Updated bloomfilters for WGB edge - storageId: {0}", storageId);
+            logger.log(Level.INFO, "concreteSketch - Updated Bloom filters for WGB edge - storageId: {0}", storageId);
         }
     }
 
