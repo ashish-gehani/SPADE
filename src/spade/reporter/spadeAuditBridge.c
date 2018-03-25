@@ -1175,12 +1175,11 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 		}
 }
 
-void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
+void non_UBSI_event(long tid, int sysno, bool succ, long a0, long a1, long a2, char *buf)
 {
 		char *ptr;
-		long a0, a1, a2;
+		int time, retno;
 		long ret;
-		int time;
 
 		struct unit_table_t *ut;
 
@@ -1198,12 +1197,11 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 
 		if(succ == true && (sysno == 56 || sysno == 57 || sysno == 58)) // clone or fork
 		{
-				ptr = strstr(buf, " a2=");
-				if(ptr == NULL) return;
-				a2 = strtol(ptr+4, NULL, 16);
 				ptr = strstr(buf, " exit=");
 				if(ptr == NULL) return;
-				ret = strtol(ptr+6, NULL, 10);
+
+				retno = sscanf(ptr, " exit=%ld", &ret);
+				if(retno != 1) return;
 
 				unit_table_t *child_ut;
 				thread_t child_th;
@@ -1237,13 +1235,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				}
 		} else if(succ == true && sysno == 62) {
 
-				ptr = strstr(buf, " a0=");
-				if(ptr == NULL) return;
-				a0 = strtol(ptr+4, NULL, 16);
-				ptr = strstr(ptr, " a1=");
-				if(ptr == NULL) return;
-				a1 = strtol(ptr+4, NULL, 16);
-
 				// clear target process' memory if kill syscall with SIGINT or SIGKILL or SIGTERM
 				// It might cause false negative if the taget process has custom signal hander for SIGTERM or SIGINT
 				if(a1 == SIGINT || a1 == SIGKILL || a1 == SIGTERM) { 
@@ -1265,15 +1256,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 						else proc_group_end(target_ut);
 				}
 		} else if(succ == true && sysno == 13) {  // SYS_rt_sigaction. If the thread has signal handlers, signals will not kill it.
-				ptr = strstr(buf, " a1=");
-				if(ptr == NULL) return;
-				a1 = strtol(ptr+4, NULL, 16);
-				if(a1 == 0) return;
-
-				ptr = strstr(buf, " a0=");
-				if(ptr == NULL) return;
-				a0 = strtol(ptr+4, NULL, 16);
-				
 				if(a0 < MAX_SIGNO) {
 						ut->signal_handler[a0] = true;
 				}
@@ -1360,26 +1342,28 @@ void ubsi_intercepted_handler(char* buf){
 void syscall_handler(char *buf)
 {
 		char *ptr;
-		int sysno;
-		long a0, a1, pid, ppid;
+		int sysno, retno;
+		long a0, a1, a2, a3, pid, ppid;
 		bool succ = false;
 
 		incomplete_record = false;
 
 		ptr = strstr(buf, " syscall=");
-		if(ptr == NULL) {
-				fprintf(stderr, "ERROR: ptr = NULL: %s\n", buf);
-				return;
-		}
-		sysno = strtol(ptr+9, NULL, 10);
-		
-		ptr = strstr(ptr, " ppid=");
 		if(ptr == NULL) return;
-		ppid = strtol(ptr+6, NULL, 10);
 
-		ptr = strstr(ptr, " pid=");
+		retno = sscanf(ptr, " syscall=%d", &sysno);
+		if(retno != 1) return;
+
+		ptr = strstr(buf, " a0=");
 		if(ptr == NULL) return;
-		pid = strtol(ptr+5, NULL, 10);
+
+		retno = sscanf(ptr, " a0=%lx a1=%lx a2=%lx a3=%lx", &a0, &a1, &a2, &a3);
+		if(retno != 4) return;
+
+		ptr = strstr(ptr, " ppid=");
+		retno = sscanf(ptr, " ppid=%ld pid=%ld", &ppid, &pid);
+		
+		if(retno != 2) return;
 
 		succ = get_succ(buf, sysno);
 		
@@ -1388,20 +1372,14 @@ void syscall_handler(char *buf)
 
 		if(sysno == 62)
 		{
-				ptr = strstr(buf, " a0=");
-				if(ptr == NULL) return;
-				a0 = strtol(ptr+4, NULL, 16);
 				if(a0 == UENTRY || a0 == UEXIT || a0 == MREAD1 || a0 == MREAD2 || a0 == MWRITE1 || a0 ==MWRITE2)
 				{
-						ptr = strstr(ptr, " a1=");
-						if(ptr == NULL) return;
-						a1 = strtol(ptr+4, NULL, 16);
 						UBSI_event(pid, a0, a1, buf);
 				} else {
-						non_UBSI_event(pid, sysno, succ, buf);
+						non_UBSI_event(pid, sysno, succ, a0, a1, a2, buf);
 				}
 		} else {
-				non_UBSI_event(pid, sysno, succ, buf);
+				non_UBSI_event(pid, sysno, succ, a0, a1, a2, buf);
 		}
 }
 
