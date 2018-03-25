@@ -224,11 +224,11 @@ public class CommonFunctions {
     	}
     	if(isNullOrEmpty(bloomfilterFalsePositiveProbValue)){
     		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty bloomfilter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
+    				"NULL/Empty Bloom filter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
     	}
     	if(isNullOrEmpty(bloomfilterExpectedElementsCountValue)){
     		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty bloomfilter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
+    				"NULL/Empty Bloom filter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
     	}
     	if(isNullOrEmpty(parentDBDirPathValue)){
     		throw new Exception(exceptionPrefix + 
@@ -249,11 +249,11 @@ public class CommonFunctions {
     	}
     	if(falsePositiveProb == null){
     		throw new Exception(exceptionPrefix + 
-    				"Non-double bloomfilter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
+    				"Non-double Bloom filter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
     	}
     	if(expectedNumberOfElements == null){
     		throw new Exception(exceptionPrefix + 
-    				"Non-integer bloomfilter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
+    				"Non-integer Bloom filter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
     	}
     	if(reporterInterval == null && !isNullOrEmpty(reportingIntervalSecondsValue)){
     		throw new Exception(exceptionPrefix + 

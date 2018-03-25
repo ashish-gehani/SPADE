@@ -224,7 +224,7 @@ public class ExternalMemoryMap<K, V extends Serializable>{
 			int inMemoryMapSize = leastRecentlyUsedCache != null ? leastRecentlyUsedCache.size() : 0;
 			
 			logger.log(Level.INFO, mapId + ": Total map accesses = {0}, Interval map accesses = {1}, "
-					+ "Total bloomfilter false positives = {2}, Interval bloomfilter false positives = {3}, "
+					+ "Total Bloom filter false positives = {2}, Interval Bloom filter false positives = {3}, "
 					+ "Total LRU cache hits = {4}, Interval LRU cache hits = {5}, "
 					+ "Total LRU cache misses = {6}, Interval LRU cache misses = {7}, "
 					+ "Total successful database hits = {8}, Interval successful database hits = {9}, "
