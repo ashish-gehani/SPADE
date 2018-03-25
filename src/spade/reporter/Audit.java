@@ -56,6 +56,7 @@ import spade.reporter.audit.DirectoryIdentifier;
 import spade.reporter.audit.FileIdentifier;
 import spade.reporter.audit.IdentifierWithPath;
 import spade.reporter.audit.LinkIdentifier;
+import spade.reporter.audit.MalformedAuditDataException;
 import spade.reporter.audit.MemoryIdentifier;
 import spade.reporter.audit.NamedPipeIdentifier;
 import spade.reporter.audit.NetworkSocketIdentifier;
@@ -628,12 +629,12 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS,
 								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
 								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
-								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS});
+								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST});
 				return true;
 			}
 		}
@@ -1177,21 +1178,39 @@ public class Audit extends AbstractReporter {
 					}
 				}
 				
-				try{
+				while(true){
 					Map<String, String> eventData = null;
-					while((eventData = auditEventReader.readEventData()) != null){
-						finishEvent(eventData);
-					}
-				}catch(Exception e){
-					logger.log(Level.WARNING, "Stopped reading event stream. ", e);
-				}finally{
 					try{
-						if(auditEventReader != null){
-							auditEventReader.close();
+						eventData = auditEventReader.readEventData();
+						if(eventData == null){
+							// EOF
+							break;
+						}else{
+							try{
+								finishEvent(eventData);
+							}catch(Exception e){
+								logger.log(Level.SEVERE, "Failed to handle event: " + eventData, e);
+								if(FAIL_FAST){
+									break;
+								}
+							}
+						}
+					}catch(MalformedAuditDataException made){
+						logger.log(Level.SEVERE, "Failed to parse event", made);
+						if(FAIL_FAST){
+							break;
 						}
 					}catch(Exception e){
-						logger.log(Level.WARNING, "Failed to close audit event reader", e);
+						logger.log(Level.SEVERE, "Stopped reading event stream. ", e);
+						break;
 					}
+				}
+				try{
+					if(auditEventReader != null){
+						auditEventReader.close();
+					}
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Failed to close audit event reader", e);
 				}
 				
 				// Sent a signal to the process in shutdown to stop reading.
