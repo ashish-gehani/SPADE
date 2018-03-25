@@ -35,6 +35,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.exception.ExceptionUtils;
+
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
@@ -384,10 +386,12 @@ public class AuditEventReader {
 			Map<String, String> eventData = null;
 			
 			if(pendingUBSIEvent){
-				eventData = getEventMap(currentEventRecords);
+				Set<String> copy = new HashSet<String>();
+				copy.addAll(currentEventRecords);
+				currentEventRecords.clear();
 				currentEventId = -1L;
 				pendingUBSIEvent = false;
-				currentEventRecords.clear();
+				eventData = getEventMap(copy);
 			}else{
 				String line = null;
 				
@@ -484,7 +488,7 @@ public class AuditEventReader {
 	 * @param records records of a single event
 	 * @return map of key values
 	 */
-	private Map<String, String> getEventMap(Set<String> records){
+	private Map<String, String> getEventMap(Set<String> records) throws Exception{
 		try{
 			Map<String, String> eventMap = new HashMap<String, String>();
 			for(String record : records){
@@ -492,8 +496,8 @@ public class AuditEventReader {
 			}
 			return eventMap;
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to parse records: "+ records, e);
-			throw e;
+			throw new MalformedAuditDataException(e.getMessage()+ 
+					" ["+ExceptionUtils.getStackTrace(e)+"] ", String.valueOf(records));
 		}
 	}
 
