@@ -19,9 +19,19 @@
  */
  package spade.reporter;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -36,15 +46,6 @@ import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 /**
  * JSON reporter for SPADE
  *
@@ -54,14 +55,14 @@ public class JSON extends AbstractReporter {
 
     private boolean shutdown = false;
     private boolean PRINT_DEBUG = true;
-    private HashMap<Integer, AbstractVertex> vertices;
+    private HashMap<String, AbstractVertex> vertices;
 
     @Override
     public boolean launch(final String arguments) {
         /*
         * argument is path to json file
         */
-        vertices = new HashMap<Integer, AbstractVertex>();
+        vertices = new HashMap<String, AbstractVertex>();
 
         Runnable eventThread = new Runnable() {
             public void run() {
@@ -158,9 +159,14 @@ public class JSON extends AbstractReporter {
 
     private void processVertex(JSONObject vertexObject) {
       // Activity, Agent, Entity
-      int id;
+      String id = null;
+      
       try {
-        id = vertexObject.getInt("id");
+    	Object idValue = vertexObject.get("id");
+    	if(idValue == null){
+    		throw new JSONException("");
+    	}
+        id = String.valueOf(idValue);
       } catch (JSONException e) {
         JSON.log(Level.SEVERE, "Missing id in vertex, ignoring vertex : " + vertexObject.toString() , null);
         return;
@@ -197,22 +203,30 @@ public class JSON extends AbstractReporter {
         // no annotations
       }
 
-      vertices.put(Integer.valueOf(id), vertex);
+      vertices.put(id, vertex);
       putVertex(vertex);
     }
 
     private void processEdge(JSONObject edgeObject) {
-      int from;
+      String from;
       try {
-        from = edgeObject.getInt("from");
+        Object fromValue = edgeObject.get("from");
+        if(fromValue == null){
+        	throw new JSONException("");
+        }
+        from = String.valueOf(fromValue);
       } catch (JSONException e) {
         JSON.log(Level.SEVERE, "Missing 'from' in edge, ignoring edge : " + edgeObject.toString() , null);
         return;
       }
 
-      int to;
+      String to;
       try {
-        to = edgeObject.getInt("to");
+        Object toValue = edgeObject.get("to");
+        if(toValue == null){
+        	throw new JSONException("");
+        }
+        to = String.valueOf(toValue);
       } catch (JSONException e) {
         JSON.log(Level.SEVERE, "Missing 'to' in edge, ignoring edge : " + edgeObject.toString() , null);
         return;
@@ -281,4 +295,5 @@ public class JSON extends AbstractReporter {
             Logger.getLogger(JSON.class.getName()).log(level, msg, thrown);
         }
     }
+    
 }
