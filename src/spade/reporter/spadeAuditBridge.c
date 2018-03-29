@@ -34,6 +34,7 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <getopt.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#define _XOPEN_SOURCE
 #include <time.h>
 #include <errno.h>
 
