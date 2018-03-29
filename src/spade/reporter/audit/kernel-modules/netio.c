@@ -19,6 +19,7 @@
 #include <linux/types.h>
 #include <asm/paravirt.h> /* write_cr0 */
 #include <asm/uaccess.h>  /* get_fs, set_fs */
+#include <linux/uaccess.h> /* copy_to_user */
 
 #define PROC_V    "/proc/version"
 #define BOOT_PATH "/boot/System.map-"

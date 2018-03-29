@@ -34,8 +34,6 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <getopt.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <asm-generic/uaccess.h>
-#define _XOPEN_SOURCE
 #include <time.h>
 #include <errno.h>
 
@@ -224,7 +222,7 @@ int command_line_option(int argc, char **argv)
 						case 't':
 								strncpy(dirTimeBuf, optarg, 256);
 								struct tm temp_tm;
-								if(strptime(dirTimeBuf, "%Y-%m-%d:%H:%M:%S", &temp_tm) == 0) {
+								if(strftime(dirTimeBuf, 256, "%Y-%m-%d:%H:%M:%S", &temp_tm) == 0) {
 										fprintf(stderr, "time error: %s, dirTime = %ld\n", dirTimeBuf, dirTime);
 										break;
 								}
