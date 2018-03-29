@@ -169,8 +169,8 @@ void print_usage(char** argv) {
 		printf("  -u, --unit                unit analysis\n");
 		printf("  -s, --socket              socket name\n");
 		printf("  -w, --wait-for-end        continue processing till the end of the log is reached\n");
-		printf("  -f, --files               a filename that has a list of log files to process\n");  
-		printf("  -F, --file				single file to process\n");  
+		printf("  -f, --files               a filename that has a list of log files to process\n");
+		printf("  -F, --file				single file to process\n");
 		printf("  -d, --dir                 a directory name that contains log files\n");
 		printf("  -t, --time                timestamp. Only handle log files modified after the timestamp. \n");
 		printf("                            This option is only valid with -d option. (format: YYYY-MM-DD:HH:MM:SS,\n");
@@ -218,7 +218,7 @@ int command_line_option(int argc, char **argv)
 								strncpy(dirPath, optarg, 256);
 								dirRead = TRUE;
 								break;
-	
+
 						case 't':
 								strncpy(dirTimeBuf, optarg, 256);
 								struct tm temp_tm;
@@ -315,10 +315,10 @@ void read_file_path()
 {
 	// If 'F' flag was passed
 	if(singleFile == TRUE){
-		
+
 		FILE *log_fp;
 		fprintf(stderr, "reading a log file: %s", filePath);
-		
+
 		log_fp = fopen(filePath, "r");
 		if(log_fp == NULL) {
 				fprintf(stderr, "file open error: %s", filePath);
@@ -327,9 +327,9 @@ void read_file_path()
 		read_log(log_fp, filePath);
 		fclose(log_fp);
 		UBSI_buffer_flush();
-		
+
 	}else{ // If 'f' flag was passed
-	
+
 		FILE *fp = fopen(filePath, "r");
 		FILE *log_fp;
 		char tmp[1024];
@@ -344,7 +344,7 @@ void read_file_path()
 				if(fgets(tmp, 1024, fp) == NULL) break;
 				fprintf(stderr, "reading a log file: %s", tmp);
 				if(tmp[strlen(tmp)-1] == '\n') tmp[strlen(tmp)-1] = '\0';
-				
+
 				log_fp = fopen(tmp, "r");
 				if(log_fp == NULL) {
 						fprintf(stderr, "file open error: %s", tmp);
@@ -368,7 +368,7 @@ ino_t find_next_file(time_t time, ino_t cur_inode)
 		struct stat sbuf;
 		char time_buf[256];
 		struct tm tm;
-		
+
 		char eFile[1024];
 		time_t eTime = 0; // the earliest file mod time but later than dirTime
 		int eInode = 0;
@@ -392,7 +392,7 @@ ino_t find_next_file(time_t time, ino_t cur_inode)
 						continue;
 				}
 				if(!S_ISREG(sbuf.st_mode)) continue; // if the file is not a regular file (e.g., dir)
-				
+
 				if(sbuf.st_mtime > time)
 				{
 						if(cur_inode == sbuf.st_ino) continue; // this is current file.
@@ -404,11 +404,11 @@ ino_t find_next_file(time_t time, ino_t cur_inode)
 //				strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&sbuf.st_mtime));
 //				printf("file: %s, last modified time %s(%ld)\n", file, time_buf, sbuf.st_mtime);
 		}
-		
+
 		if(eInode > 0) {
 //				strftime(time_buf, sizeof(time_buf), "%Y-%m-%d:%H:%M:%S", localtime(&eTime));
 //				printf("Read next file: (inode %d, last modified time %s(%ld)\n", eInode, time_buf, eTime);
-		} 
+		}
 		closedir(d);
 		return eInode;
 }
@@ -453,12 +453,12 @@ ino_t read_log_online(ino_t inode)
 		time_t time;
 
 		FILE *fp = open_inode(inode);
-		
+
 		if(fp == NULL) {
 				fprintf(stderr, "file open error 1: inode %ld\n", inode);
 				return -1;
 		}
-		
+
 		do{
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
@@ -474,9 +474,9 @@ ino_t read_log_online(ino_t inode)
 										while(fgets(& buffer[0], BUFFER_LENGTH, fp) != NULL) { // check the log again.
 												UBSI_buffer(buffer);
 										}
-										// At this point, the next log is available and the current log does not have any new event. 
+										// At this point, the next log is available and the current log does not have any new event.
 										//Safe to close the current one and process the next log
-										fclose(fp); 
+										fclose(fp);
 										return next_inode;
 								}
 						}
@@ -488,9 +488,9 @@ ino_t read_log_online(ino_t inode)
 void dir_read()
 {
 		ino_t inode = 0;
-		
+
 		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
-		
+
 		while((inode = find_next_file(dirTime, 0)) <= 0) sleep(1);
 		//printf("Next file: inode %ld\n", inode);
 
@@ -500,6 +500,16 @@ void dir_read()
 		}
 }
 
+static inline int get_max_pid()
+{
+		int max_pid;
+	 	FILE *fp = fopen("/proc/sys/kernel/pid_max", "r");
+
+		fscanf(fp, "%d", &max_pid);
+		fclose(fp);
+		return max_pid;
+}
+
 int main(int argc, char *argv[]) {
 		int max_pid, i;
 		char *programName = argv[0];
@@ -507,7 +517,7 @@ int main(int argc, char *argv[]) {
 		char buffer[BUFFER_LENGTH];
 		struct sockaddr_un serverAddress;
 
-		
+
 		putenv("TZ=EST5EDT"); // set timezone
 		tzset();
 
@@ -535,7 +545,7 @@ int main(int argc, char *argv[]) {
 
 /*
  * Checks if an iteration exists with the arguments provided
- * 
+ *
  * If exists, then increments the count for it and returns that count.
  * If doesn't exist then adds this iteration_count and returns the count
  * value which would be zero.
@@ -546,7 +556,7 @@ int get_iteration_count(int tid, int unitid, int iteration){
 	if(current_time_iterations_index != 0){
 			int a = 0;
 			for(; a<current_time_iterations_index; a++){
-					if(current_time_iterations[a].tid == tid 
+					if(current_time_iterations[a].tid == tid
 							&& current_time_iterations[a].unitid == unitid
 								&& current_time_iterations[a].iteration == iteration){
 							current_time_iterations[a].count++;
@@ -578,12 +588,12 @@ int get_iteration_count(int tid, int unitid, int iteration){
 // Just resets the index instead of resetting each individual struct in the buffer
 // Starts overriding the structs from the previous timestamp
 void reset_current_time_iteration_counts(){
-	current_time_iterations_index = 0;	
+	current_time_iterations_index = 0;
 }
 
 bool is_same_unit(thread_unit_t u1, thread_unit_t u2)
 {
-		if(u1.tid == u2.tid && 
+		if(u1.tid == u2.tid &&
 				 u1.thread_time.seconds == u2.thread_time.seconds &&
 				 u1.thread_time.milliseconds == u2.thread_time.milliseconds &&
 					u1.loopid == u2.loopid &&
@@ -629,7 +639,7 @@ void get_timestamp(char *buf, int* seconds, int* millis)
 			*millis = -1;
 		}else{
 			sscanf(ptr+1, "%d", seconds);
-			
+
 			ptr = strstr(buf, ".");
 			if(ptr == NULL){
 				*seconds = -1;
@@ -652,7 +662,7 @@ void set_thread_seen_time_conditionally(int pid, char* buf){
 		thread_time_t* thread_time;
 		thread_time = &thread_create_time[pid];
 		if(thread_time->seconds == 0 && thread_time->milliseconds == 0){ // 0 means not set before
-				set_thread_time(buf, thread_time);      
+				set_thread_time(buf, thread_time);
 		}
 }
 
@@ -679,12 +689,12 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 		}
 
 		buf[strlen(buf)-1] = '\0';
-		
+
 		rc = printf("%s", buf);
 		if(print_unit) {
 				rc += printf(" unit=(pid=%d thread_time=%d.%d unitid=%d iteration=%d time=%.3lf count=%d) "
 							,ut->cur_unit.tid, ut->thread.thread_time.seconds, ut->thread.thread_time.milliseconds, ut->cur_unit.loopid, ut->cur_unit.iteration, ut->cur_unit.timestamp, ut->cur_unit.count);
-		} 
+		}
 
 		if(print_proc) {
 				rc += printf("%s", ut->proc);
@@ -700,15 +710,15 @@ void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 		link_unit_t *tmp_unit, *cur_unit;
 		mem_unit_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, hash_unit, cur_unit, tmp_unit) {
-				if(hash_unit != cur_unit) 
-						HASH_DEL(hash_unit, cur_unit); 
-				if(cur_unit) free(cur_unit);  
+				if(hash_unit != cur_unit)
+						HASH_DEL(hash_unit, cur_unit);
+				if(cur_unit) free(cur_unit);
 		}
 
 		HASH_ITER(hh, hash_mem, cur_mem, tmp_mem) {
-				if(hash_mem != cur_mem) 
-						HASH_DEL(hash_mem, cur_mem); 
-				if(cur_mem) free(cur_mem);  
+				if(hash_mem != cur_mem)
+						HASH_DEL(hash_mem, cur_mem);
+				if(cur_mem) free(cur_mem);
 		}
 
 }
@@ -717,9 +727,9 @@ void delete_proc_hash(mem_proc_t *mem_proc)
 {
 		mem_proc_t *tmp_mem, *cur_mem;
 		HASH_ITER(hh, mem_proc, cur_mem, tmp_mem) {
-				if(mem_proc != cur_mem) 
-						HASH_DEL(mem_proc, cur_mem); 
-				if(cur_mem) free(cur_mem);  
+				if(mem_proc != cur_mem)
+						HASH_DEL(mem_proc, cur_mem);
+				if(cur_mem) free(cur_mem);
 		}
 }
 
@@ -730,7 +740,7 @@ void loop_entry(unit_table_t *unit, long a1, char* buf, double time)
 		unit->cur_unit.loopid = a1;
 		unit->cur_unit.iteration = 0;
 		unit->cur_unit.timestamp = time;
-		
+
 		ptr = strstr(buf, " ppid=");
 		if(ptr == NULL) {
 				fprintf(stderr, "loop_entry error! cannot find proc info: %s", buf);
@@ -766,7 +776,7 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		eventid = get_eventid(buf);
 
 		if(last_time == -1){
-			last_time = time;	
+			last_time = time;
 		}else if(last_time != time){
 			last_time = time;
 			reset_current_time_iteration_counts();
@@ -780,14 +790,14 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 		}
 		unit->valid = true;
 		unit->cur_unit.timestamp = time;
-		
-		int iteration_count_value = get_iteration_count(tid, 
+
+		int iteration_count_value = get_iteration_count(tid,
 												unit->cur_unit.loopid,
 												unit->cur_unit.iteration);
-		// Can return -1 which means that the buffer is full. Error printed in 
+		// Can return -1 which means that the buffer is full. Error printed in
 		// get_iteration_count function
 		unit->cur_unit.count = iteration_count_value;
-		
+
 		sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
 		emit_log(unit, tmp, true, true);
 }
@@ -817,7 +827,7 @@ void unit_end(unit_table_t *unit, long a1)
 						free(buf);
 				}
 		}
-*/		
+*/
 
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
@@ -839,11 +849,11 @@ void proc_group_end(unit_table_t *unit)
 		unit_table_t *pt;
 
 		if(pid != unit->thread.tid) {
-				thread_t th;  
-				th.tid = pid; 
+				thread_t th;
+				th.tid = pid;
 				th.thread_time.seconds = thread_create_time[pid].seconds;
 				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
-				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt);
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				proc_end(pt);
 		}
@@ -881,11 +891,11 @@ void mem_write(unit_table_t *ut, long int addr, char* buf)
 		unit_table_t *pt;
 		if(pid == ut->thread.tid) pt = ut;
 		else {
-				thread_t th;  
-				th.tid = pid; 
+				thread_t th;
+				th.tid = pid;
 				th.thread_time.seconds = thread_create_time[pid].seconds;
 				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
-				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt);
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
 						assert(1);
@@ -916,11 +926,11 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 
 		if(pid == ut->thread.tid) pt = ut;
 		else {
-				thread_t th;  
-				th.tid = pid; 
+				thread_t th;
+				th.tid = pid;
 				th.thread_time.seconds = thread_create_time[pid].seconds;
 				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
-				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt);
 				//HASH_FIND_INT(unit_table, &pid, pt);
 				if(pt == NULL) {
 						assert(1);
@@ -968,7 +978,7 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->cur_unit.loopid = 0;
 		ut->cur_unit.iteration = 0;
 		ut->cur_unit.timestamp = 0;
-		ut->cur_unit.count = 0; 
+		ut->cur_unit.count = 0;
 
 		ut->link_unit = NULL;
 		ut->mem_proc = NULL;
@@ -983,8 +993,8 @@ void set_pid(int tid, int pid)
 		struct unit_table_t *ut;
 		int ppid;
 
-		thread_t th; 
-		th.tid = pid; 
+		thread_t th;
+		th.tid = pid;
 		th.thread_time.seconds = thread_create_time[pid].seconds;
 		th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* looking for parent thread's pid */
@@ -995,13 +1005,13 @@ void set_pid(int tid, int pid)
 
 		ut = NULL;
 
-		th.tid = tid; 
+		th.tid = tid;
 		th.thread_time.seconds = thread_create_time[tid].seconds;
 		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);  /* id already in the hash? */
 		//HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
-				ut = add_unit(tid, ppid, 0); 
+				ut = add_unit(tid, ppid, 0);
 		} else {
 				ut->pid = ppid;
 		}
@@ -1012,10 +1022,10 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 		int isNewUnit = 0;
 		struct unit_table_t *ut;
 		thread_t th;
-		th.tid = tid; 
+		th.tid = tid;
 		th.thread_time.seconds = thread_create_time[tid].seconds;
 		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
-		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
+		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);
 		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
@@ -1024,11 +1034,11 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 		}
 
 		switch(a0) {
-				case UENTRY: 
+				case UENTRY:
 						if(ut->valid) unit_end(ut, a1);
 						unit_entry(ut, a1, buf);
 						break;
-				case UEXIT: 
+				case UEXIT:
 						if(isNewUnit == false)
 						{
 								unit_end(ut, a1);
@@ -1063,11 +1073,11 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 
 		struct unit_table_t *ut;
 
-		thread_t th;  
-		th.tid = tid; 
+		thread_t th;
+		th.tid = tid;
 		th.thread_time.seconds = thread_create_time[tid].seconds;
 		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
-		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
+		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut);
 		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
@@ -1141,12 +1151,12 @@ void syscall_handler(char *buf)
 				return;
 		}
 		sysno = strtol(ptr+9, NULL, 10);
-		
+
 		ptr = strstr(ptr, " pid=");
 		pid = strtol(ptr+5, NULL, 10);
 
 		succ = get_succ(buf);
-		
+
 		// Set seen time here if not already set. thread_create_time is used in the functions below.
 		set_thread_seen_time_conditionally(pid, buf);
 
@@ -1190,7 +1200,7 @@ int UBSI_buffer_flush()
 						HASH_DEL(event_buf, eb);
 						free(eb->event);
 						free(eb);
-				} 
+				}
 		}
 }
 
@@ -1293,14 +1303,4 @@ void UBSI_sig_handler(int signo)
 		} else {
 				// ignore the signal and the process continues until the end of the input stream/file.
 		}
-}
-
-int get_max_pid()
-{
-		int max_pid;
-	 FILE *fp = fopen("/proc/sys/kernel/pid_max", "r");
-		fscanf(fp, "%d", &max_pid);
-		fclose(fp);
-
-		return max_pid;
 }
