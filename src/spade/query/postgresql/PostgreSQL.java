@@ -59,7 +59,7 @@ public abstract class PostgreSQL<R, P> extends AbstractQuery<R, P>
                 {
                     String colName = columnLabels.get(i);
                     String value = result.getString(i);
-                    if (!StringUtils.isNullOrEmpty(value))
+                    if (value != null)
                     {
                         if(colName != null && !colName.equals(PRIMARY_KEY))
                         {
@@ -100,7 +100,7 @@ public abstract class PostgreSQL<R, P> extends AbstractQuery<R, P>
                 {
                     String colName = columnLabels.get(i);
                     String value = result.getString(i);
-                    if (!StringUtils.isNullOrEmpty(value))
+                    if (value != null)
                     {
                         if (colName != null && !colName.equals(PRIMARY_KEY))
                         {
