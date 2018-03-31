@@ -30,6 +30,7 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.core.Settings;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.ArtifactIdentifier;
@@ -47,6 +48,9 @@ import spade.reporter.audit.UnixSocketIdentifier;
 import spade.reporter.audit.UnnamedPipeIdentifier;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
+import spade.utility.ExternalMemoryMap;
+import spade.utility.FileUtility;
+import spade.utility.Hasher;
 import spade.vertex.opm.Process;
 
 public abstract class ProcessManager extends ProcessStateManager{
@@ -72,7 +76,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * Needed to keep some process states in case of a unit dependency event because we need
 	 * to recreate the unit vertex as it was.
 	 */
-	private Map<ProcessKey, ProcessUnitState> processUnitStates = new HashMap<ProcessKey, ProcessUnitState>();
+	private ExternalMemoryMap<ProcessKey, ProcessUnitState> processUnitStates;
+	private final String processUnitStateMapId = "ProcessManager[ProcessUnitStatesMap]";
 	
 	/**
 	 * Used to tell if simple agent or complete agent needs to be created
@@ -84,10 +89,37 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	private final boolean units;
 	
-	protected ProcessManager(Audit reporter, boolean simplify, boolean units){
+	protected ProcessManager(Audit reporter, boolean simplify, boolean units) throws Exception{
 		this.reporter = reporter;
 		this.simplify = simplify;
 		this.units = units;
+		
+		String configFilePath = Settings.getDefaultConfigFilePath(ProcessManager.class);
+		Map<String, String> configMap = null;
+		try{
+			configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+		}catch(Exception e){
+			throw new Exception("Failed to read config file: " + configFilePath + ". " + e.getMessage());
+		}
+		
+		if(configMap == null){
+			throw new Exception("NULL config map read from file: " + configFilePath);
+		}else{
+			processUnitStates = CommonFunctions.createExternalMemoryMapInstance(processUnitStateMapId, 
+					configMap.get("cacheSize"), configMap.get("falsePositiveProb"), 
+					configMap.get("expectedElements"), configMap.get("dbParentDir"), 
+					configMap.get("dbName"), configMap.get("reportingIntervalSeconds"), 
+					new Hasher<ProcessKey>(){
+						@Override
+						public String getHash(ProcessKey t){
+							if(t == null){
+								return String.valueOf(t);
+							}else{
+								return t.pid + ":" + t.time;
+							}
+						}
+					});
+		}
 	}
 	
 	protected Audit getReporter(){
@@ -165,6 +197,13 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	protected abstract void handleAgentUpdate(String time, String eventId, String pid, AgentIdentifier newAgent, 
 			String operation);
+	
+	public void doCleanUp(){
+		if(processUnitStates != null){
+			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(processUnitStateMapId, processUnitStates);
+			processUnitStates = null;
+		}
+	}
 	
 	/**
 	 * Removes the following states for the pid:
@@ -459,7 +498,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
-		int flags = CommonFunctions.parseInt(flagsString, null);
+		long flags = CommonFunctions.parseLong(flagsString, 0L);
 		String parentPid = eventData.get(AuditEventReader.PID);
 		String childPid = eventData.get(AuditEventReader.EXIT);
 		
@@ -565,17 +604,21 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * 
 	 * @param eventData system call audit event key values
 	 * @param syscall fork/vfork/clone syscall
+	 * @param outputOPM generate OPM only if true
 	 * @return true
 	 */
-	public boolean handleExit(Map<String, String> eventData, SYSCALL syscall){
+	public boolean handleExit(Map<String, String> eventData, SYSCALL syscall, boolean outputOPM){
 		String pid = eventData.get(AuditEventReader.PID);
-		String time = eventData.get(AuditEventReader.TIME);
-		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
-		Process processVertex = handleProcessFromSyscall(eventData);
-		
-		WasTriggeredBy edge = new WasTriggeredBy(processVertex, processVertex);
-		reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT_SYSCALL);
+		if(outputOPM){
+			String time = eventData.get(AuditEventReader.TIME);
+			String eventId = eventData.get(AuditEventReader.EVENT_ID);
+			
+			Process processVertex = handleProcessFromSyscall(eventData);
+			
+			WasTriggeredBy edge = new WasTriggeredBy(processVertex, processVertex);
+			reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT_SYSCALL);
+		}
 
 		removeProcessUnitState(pid);
 		return true;
@@ -602,15 +645,18 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String unitCount = eventData.get(AuditEventReader.UNIT_COUNT);
 		String unitStartTime = eventData.get(AuditEventReader.UNIT_TIME);
 		
+		Process processVertex = null;
+		
 		// remove the last unit if there was any
 		ProcessUnitState state = getProcessUnitState(pid);
 		if(state != null){
 			if(state.isUnitActive()){
 				state.unitExit();
 			}
+			processVertex = buildVertex(state.getProcess(), state.getAgent(), state.getUnit());
+		}else{
+			processVertex = handleProcessFromSyscall(eventData);
 		}
-		
-		Process processVertex = handleProcessFromSyscall(eventData);
 		
 		UnitIdentifier unitIdentifier = new UnitIdentifier(unitId, unitIteration, unitCount, unitStartTime, eventId);
 				
@@ -658,36 +704,54 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String readingUnitId = eventData.get(AuditEventReader.UNIT_UNITID);
 		String readingUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
 		String readingUnitCount = eventData.get(AuditEventReader.UNIT_COUNT);
-		String readingUnitStartTime = eventData.get(AuditEventReader.UNIT_TIME);
+		String readingUnitStartTimeString = eventData.get(AuditEventReader.UNIT_TIME);
+		Double readingUnitStartTime = CommonFunctions.parseDouble(readingUnitStartTimeString, null);
 		
 		String writingUnitPid = eventData.get(AuditEventReader.UNIT_PID+0);
 		String writingUnitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME+0);
 		String writingUnitId = eventData.get(AuditEventReader.UNIT_UNITID+0);
 		String writingUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+0);
 		String writingUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+0);
-		String writingUnitStartTime = eventData.get(AuditEventReader.UNIT_TIME+0);
+		String writingUnitStartTimeString = eventData.get(AuditEventReader.UNIT_TIME+0);
+		Double writingUnitStartTime = CommonFunctions.parseDouble(writingUnitStartTimeString, null);
 		
 		ProcessUnitState readingProcessState = getProcessUnitState(readingUnitPid, readingUnitThreadStartTime);
 		ProcessUnitState writingProcessState = getProcessUnitState(writingUnitPid, writingUnitThreadStartTime);
 		
 		if(readingProcessState != null && writingProcessState != null){
 			UnitIdentifier readingUnit = new UnitIdentifier(readingUnitId, readingUnitIteration, readingUnitCount, 
-					readingUnitStartTime, null);
-			AgentIdentifier readingUnitAgent = readingProcessState.getAgentForUnit(readingUnit);
-			Process readingUnitVertex = buildVertex(readingProcessState.getProcess(), readingUnitAgent, readingUnit);
-			
-			UnitIdentifier writingUnit = new UnitIdentifier(writingUnitId, writingUnitIteration, writingUnitCount, 
-					writingUnitStartTime, null);
-			AgentIdentifier writingUnitAgent = writingProcessState.getAgentForUnit(writingUnit);
-			Process writingUnitVertex = buildVertex(writingProcessState.getProcess(), writingUnitAgent, writingUnit);
-			
-			WasTriggeredBy edge = new WasTriggeredBy(readingUnitVertex, writingUnitVertex);
-			reporter.putEdge(edge, OPMConstants.OPERATION_UNIT_DEPENDENCY, "0", "0", OPMConstants.SOURCE_BEEP);
-			return true;
+					readingUnitStartTimeString, null);
+			if(readingUnitStartTime == null){
+				logger.log(Level.WARNING, "NULL/Invalid reading unit start time in event data: " + eventData);
+			}else{
+				AgentIdentifier readingUnitAgent = readingProcessState.getAgentByTime(readingUnitStartTime);
+				if(readingUnitAgent == null){
+					logger.log(Level.WARNING, "Failed to find reading unit agent from event data: " + eventData);
+				}else{
+					Process readingUnitVertex = buildVertex(readingProcessState.getProcess(), readingUnitAgent, readingUnit);
+					
+					UnitIdentifier writingUnit = new UnitIdentifier(writingUnitId, writingUnitIteration, writingUnitCount, 
+							writingUnitStartTimeString, null);
+					if(writingUnitStartTime == null){
+						logger.log(Level.WARNING, "NULL/Invalid writing unit start time in event data: " + eventData);
+					}else{
+						AgentIdentifier writingUnitAgent = writingProcessState.getAgentByTime(writingUnitStartTime);
+						if(writingUnitAgent == null){
+							logger.log(Level.WARNING, "Failed to find writing unit agent from event data: " + eventData);
+						}else{
+							Process writingUnitVertex = buildVertex(writingProcessState.getProcess(), writingUnitAgent, writingUnit);
+							
+							WasTriggeredBy edge = new WasTriggeredBy(readingUnitVertex, writingUnitVertex);
+							reporter.putEdge(edge, OPMConstants.OPERATION_UNIT_DEPENDENCY, "0", "0", OPMConstants.SOURCE_BEEP);
+							return true;
+						}
+					}
+				}
+			}
 		}else{
 			logger.log(Level.INFO, "Incomplete state for unit dependency edge. Event data: " + eventData);
-			return false;
 		}
+		return false;
 	}
 	
 	/*  PROCFS code below */

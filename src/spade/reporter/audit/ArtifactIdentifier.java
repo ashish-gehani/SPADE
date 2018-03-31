@@ -30,6 +30,7 @@ import java.util.Map;
  */
 public abstract class ArtifactIdentifier implements VertexIdentifier{
 	
+	private static final long serialVersionUID = 4429967254473060156L;
 	/**
 	 * Used to tell whether the artifact was opened for reading or writing
 	 * 

@@ -19,11 +19,11 @@
  */
 package spade.reporter.audit;
 
-import java.io.Serializable;
-import java.util.Map;
+public class MalformedAuditDataException extends Exception{
 
-public interface VertexIdentifier extends Serializable{
+	private static final long serialVersionUID = -818081225019978956L;
 
-	public Map<String, String> getAnnotationsMap();
-	
+	public MalformedAuditDataException(String msg, String data){
+		super(String.format("msg='%s' data='%s'", msg, data));
+	}
 }

@@ -510,6 +510,8 @@ public class HostInfo{
 	 * A class which contains all the Host information required at the moment.
 	 */
 	public static class Host implements VertexIdentifier{
+		
+		private static final long serialVersionUID = -5990891430891823447L;
 		// Everything initialized to empty values to avoid NPE
 		private String serialNumber = "", hostType = "", hostName = "", operationSystem = "";
 		private List<Interface> interfaces = new ArrayList<Interface>();
