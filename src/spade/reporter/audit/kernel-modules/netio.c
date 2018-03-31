@@ -18,8 +18,11 @@
 #include <linux/time.h>
 #include <linux/types.h>
 #include <asm/paravirt.h> /* write_cr0 */
-#include <linux/uaccess.h>  /* get_fs, set_fs */
-#include <linux/kallsyms.h>
+#include <asm/uaccess.h>  /* get_fs, set_fs */
+
+#define PROC_V    "/proc/version"
+#define BOOT_PATH "/boot/System.map-"
+#define MAX_VERSION_LEN   256
 
 MODULE_LICENSE("GPL");
 
@@ -46,8 +49,8 @@ static int uids_len = 0;
 /* 
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
  * Don't need to synchronize 'stop' variable modification because it can only be set by a kernel module and only one
- * kernel module is calling the function which updates it at the moment. Since only instance of a kernel module can be 
- * added at a time which ensures no concurrent updates.
+ * kernel module is calling this function at the moment. Also, only one instance of a kernel module can be added at a time
+ * hence ensuring no concurrent updates.
  */
 static volatile int stop = 1;
 
@@ -79,6 +82,7 @@ static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src);
 static void print_array(const char*, int[], int);
 static int exists_in_array(int, int[], int);
 static int log_syscall(int, int, int, int);
+static int find_sys_call_table(char*);
 static void copy_array(int* dst, int* src, int len);
 static void netio_logging_start(int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
@@ -108,7 +112,7 @@ static void print_array(const char* desc, int arr[], int arrlen){
 		strPrint[cursor - 2] = ']'; // replace ','
 		strPrint[cursor - 1] = '\0'; // replace ' '
 	}
-	printk(KERN_EMERG "[netio] %s\n", strPrint);
+	printk(KERN_EMERG "%s\n", strPrint);
 }
 
 static int exists_in_array(int id, int arr[], int arrlen){
@@ -152,6 +156,113 @@ static int log_syscall(int pid, int ppid, int uid, int success){
 		return -1;
 	}
 	return 1;
+}
+
+static int find_sys_call_table (char *kern_ver) {
+    char system_map_entry[MAX_VERSION_LEN];
+    int i = 0;
+
+    /*
+     * Holds the /boot/System.map-<version> file name as we build it
+     */
+    char *filename;
+
+    /*
+     * Length of the System.map filename, terminating NULL included
+     */
+    size_t filename_length = strlen(kern_ver) + strlen(BOOT_PATH) + 1;
+
+    /*
+     * This will point to our /boot/System.map-<version> file
+     */
+    struct file *f = NULL;
+ 
+    mm_segment_t oldfs;
+ 
+    oldfs = get_fs();
+    set_fs (KERNEL_DS);
+
+    printk(KERN_EMERG "Kernel version: %s\n", kern_ver);
+     
+    filename = kmalloc(filename_length, GFP_KERNEL);
+    if (filename == NULL) {
+        printk(KERN_EMERG "kmalloc failed on System.map-<version> filename allocation");
+        return -1;
+    }
+     
+    /*
+     * Zero out memory to be safe
+     */
+    memset(filename, 0, filename_length);
+     
+    /*
+     * Construct our /boot/System.map-<version> file name
+     */
+    strncpy(filename, BOOT_PATH, strlen(BOOT_PATH));
+    strncat(filename, kern_ver, strlen(kern_ver));
+     
+    /*
+     * Open the System.map file for reading
+     */
+    f = filp_open(filename, O_RDONLY, 0);
+    if (IS_ERR(f) || (f == NULL)) {
+        printk(KERN_EMERG "Error opening System.map-<version> file: %s\n", filename);
+        return -1;
+    }
+ 
+    memset(system_map_entry, 0, MAX_VERSION_LEN);
+ 
+    /*
+     * Read one byte at a time from the file until we either max out
+     * out our buffer or read an entire line.
+     */
+    while (vfs_read(f, system_map_entry + i, 1, &f->f_pos) == 1) {
+        /*
+         * If we've read an entire line or maxed out our buffer,
+         * check to see if we've just read the sys_call_table entry.
+         */
+        if ( system_map_entry[i] == '\n' || i == MAX_VERSION_LEN ) {
+            // Reset the "column"/"character" counter for the row
+            i = 0;
+             
+            if (strstr(system_map_entry, "sys_call_table") != NULL) {
+                char *sys_string;
+                char *system_map_entry_ptr = system_map_entry;
+                 
+                sys_string = kmalloc(MAX_VERSION_LEN, GFP_KERNEL);  
+                if (sys_string == NULL) { 
+                    filp_close(f, 0);
+                    set_fs(oldfs);
+
+                    kfree(filename);
+     
+                    return -1;
+                }
+ 
+                memset(sys_string, 0, MAX_VERSION_LEN);
+
+                strncpy(sys_string, strsep(&system_map_entry_ptr, " "), MAX_VERSION_LEN);
+             
+                kstrtoul(sys_string, 16, &syscall_table_address);
+                 
+                kfree(sys_string);
+                 
+                break;
+            }
+             
+            memset(system_map_entry, 0, MAX_VERSION_LEN);
+            continue;
+        }
+         
+        i++;
+    }
+ 
+    filp_close(f, 0);
+    set_fs(oldfs);
+     
+    kfree(filename);
+ 
+    return 0;
 }
 
 static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src){
@@ -531,39 +642,42 @@ asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 
 static int __init onload(void) {
 	int success = -1;
-	syscall_table_address = kallsyms_lookup_name("sys_call_table");
-	//printk(KERN_EMERG "sys_call_table address = %lx\n", syscall_table_address);
-	if (syscall_table_address != 0){
-		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
-		write_cr0 (read_cr0 () & (~ 0x10000));
-		original_kill = (void *)syscall_table[__NR_kill];
-		syscall_table[__NR_kill] = (unsigned long)&new_kill;
-		original_bind = (void *)syscall_table[__NR_bind];
-		syscall_table[__NR_bind] = (unsigned long)&new_bind;
-		original_connect = (void *)syscall_table[__NR_connect];
-		syscall_table[__NR_connect] = (unsigned long)&new_connect;
-		original_accept = (void *)syscall_table[__NR_accept];
-		syscall_table[__NR_accept] = (unsigned long)&new_accept;
-		original_accept4 = (void *)syscall_table[__NR_accept4];
-		syscall_table[__NR_accept4] = (unsigned long)&new_accept4;
-		original_sendto = (void *)syscall_table[__NR_sendto];
-		syscall_table[__NR_sendto] = (unsigned long)&new_sendto;
-		original_sendmsg = (void *)syscall_table[__NR_sendmsg];
-		syscall_table[__NR_sendmsg] = (unsigned long)&new_sendmsg;
-		//original_sendmmsg = (void *)syscall_table[__NR_sendmmsg];
-		//syscall_table[__NR_sendmmsg] = (unsigned long)&new_sendmmsg;
-		original_recvfrom = (void *)syscall_table[__NR_recvfrom];
-		syscall_table[__NR_recvfrom] = (unsigned long)&new_recvfrom;
-		original_recvmsg = (void *)syscall_table[__NR_recvmsg];
-		syscall_table[__NR_recvmsg] = (unsigned long)&new_recvmsg;
-		//original_recvmmsg = (void *)syscall_table[__NR_recvmmsg];
-		//syscall_table[__NR_recvmmsg] = (unsigned long)&new_recvmmsg;
-		write_cr0 (read_cr0 () | 0x10000);
-		printk(KERN_EMERG "[netio] system call table hooked\n");
-		success = 0;
-	} else {
-		printk(KERN_EMERG "[netio] system call table address not initialized\n");
-		success = -1;
+	char* kernel_version = &(utsname()->release[0]);
+	printk(KERN_EMERG "Version: %s\n", kernel_version);
+	
+	if(find_sys_call_table(kernel_version) == 0){
+		if (syscall_table_address != 0){
+			unsigned long* syscall_table = (unsigned long*)syscall_table_address;
+			write_cr0 (read_cr0 () & (~ 0x10000));
+			original_kill = (void *)syscall_table[__NR_kill];
+			syscall_table[__NR_kill] = (unsigned long)&new_kill;
+			original_bind = (void *)syscall_table[__NR_bind];
+			syscall_table[__NR_bind] = (unsigned long)&new_bind;
+			original_connect = (void *)syscall_table[__NR_connect];
+			syscall_table[__NR_connect] = (unsigned long)&new_connect;
+			original_accept = (void *)syscall_table[__NR_accept];
+			syscall_table[__NR_accept] = (unsigned long)&new_accept;
+			original_accept4 = (void *)syscall_table[__NR_accept4];
+			syscall_table[__NR_accept4] = (unsigned long)&new_accept4;
+			original_sendto = (void *)syscall_table[__NR_sendto];
+			syscall_table[__NR_sendto] = (unsigned long)&new_sendto;
+			original_sendmsg = (void *)syscall_table[__NR_sendmsg];
+			syscall_table[__NR_sendmsg] = (unsigned long)&new_sendmsg;
+			//original_sendmmsg = (void *)syscall_table[__NR_sendmmsg];
+			//syscall_table[__NR_sendmmsg] = (unsigned long)&new_sendmmsg;
+			original_recvfrom = (void *)syscall_table[__NR_recvfrom];
+			syscall_table[__NR_recvfrom] = (unsigned long)&new_recvfrom;
+			original_recvmsg = (void *)syscall_table[__NR_recvmsg];
+			syscall_table[__NR_recvmsg] = (unsigned long)&new_recvmsg;
+			//original_recvmmsg = (void *)syscall_table[__NR_recvmmsg];
+			//syscall_table[__NR_recvmmsg] = (unsigned long)&new_recvmmsg;
+			write_cr0 (read_cr0 () | 0x10000);
+			printk(KERN_EMERG "[+] onload: sys_call_table hooked\n");
+			success = 0;
+		} else {
+			printk(KERN_EMERG "[-] onload: syscall_table is NULL\n");
+			success = -1;
+		}
 	}
     /*
      * A non 0 return means init_module failed; module can't be loaded.
@@ -587,9 +701,9 @@ static void __exit onunload(void) {
 		syscall_table[__NR_recvmsg] = (unsigned long)original_recvmsg;
 		//syscall_table[__NR_recvmmsg] = (unsigned long)original_recvmmsg;
         write_cr0 (read_cr0 () | 0x10000);
-        printk(KERN_EMERG "[netio] system call table unhooked\n");
+        printk(KERN_EMERG "[+] onunload: sys_call_table unhooked\n");
     } else {
-        printk(KERN_EMERG "[netio] system call table address not initialized\n");
+        printk(KERN_EMERG "[-] onunload: syscall_table is NULL\n");
     }
 }
 
@@ -598,7 +712,7 @@ static void netio_logging_start(int net_io_flag, int syscall_success_flag,
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_length, int uids_list[], int ignore_uids_flag){
 	int oldStopValue = stop;
-		
+	
 	net_io = net_io_flag;
 	syscall_success = syscall_success_flag;
 	ignore_uids = ignore_uids_flag;
@@ -612,10 +726,10 @@ static void netio_logging_start(int net_io_flag, int syscall_success_flag,
 	
 	stop = 0;
 	
-	printk(KERN_EMERG "[netio] Stop value: %d -> %d\n", oldStopValue, stop);
-	printk(KERN_EMERG "[netio] syscall_success flag value: %d\n", syscall_success);
-	printk(KERN_EMERG "[netio] net_io flag value: %d\n", net_io);
-	printk(KERN_EMERG "[netio] ignore_uids flag value: %d\n", ignore_uids);
+	printk(KERN_EMERG "[start] Stop value: %d -> %d\n", oldStopValue, stop);
+	printk(KERN_EMERG "syscall_success flag value: %d\n", syscall_success);
+	printk(KERN_EMERG "net_io flag value: %d\n", net_io);
+	printk(KERN_EMERG "ignore_uids flag value: %d\n", ignore_uids);
 	print_array("pids_ignore", pids_ignore, pids_ignore_len);
 	print_array("ppids_ignore", ppids_ignore, ppids_ignore_len);
 	print_array("uids", uids, uids_len);
@@ -630,7 +744,7 @@ static void netio_logging_start(int net_io_flag, int syscall_success_flag,
 static void netio_logging_stop(void){
 	int oldStopValue = stop;
 	stop = 1;
-	printk(KERN_EMERG "[netio] Stop value: %d -> %d\n", oldStopValue, stop);
+	printk(KERN_EMERG "[stop] Stop value: %d -> %d\n", oldStopValue, stop);
 }
 
 EXPORT_SYMBOL(netio_logging_start);
