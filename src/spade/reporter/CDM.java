@@ -37,7 +37,6 @@ import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.io.FileUtils;
 
 import com.bbn.tc.schema.avro.cdm18.AbstractObject;
 import com.bbn.tc.schema.avro.cdm18.Event;
@@ -62,7 +61,6 @@ import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.edge.cdm.SimpleEdge;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.BerkeleyDB;
 import spade.utility.CommonFunctions;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
@@ -97,12 +95,10 @@ public class CDM extends AbstractReporter{
 	private volatile boolean shutdown = false;
 	private final long THREAD_JOIN_WAIT = 1000; // One second
 	private final long BUFFER_DRAIN_DELAY = 500;
-
-	// External database path for the external memory map
-	private String dbpath = null;
 	
 	// Using an external map because can grow arbitrarily
 	private ExternalMemoryMap<String, AbstractVertex> uuidToVertexMap;
+	private final String uuidMapId = "CDM[UUID2VertexMap]";
 	
 	private DataReader dataReader;
 		
@@ -174,64 +170,19 @@ public class CDM extends AbstractReporter{
 	
 	private ExternalMemoryMap<String, AbstractVertex> initCacheMap(String tempDirPath, String verticesDatabaseName, String verticesCacheSize,
 			String verticesBloomfilterFalsePositiveProbability, String verticesBloomfilterExpectedNumberOfElements){
-		logger.log(Level.INFO, "Argument(s): [{0} = {1}, {2} = {3}, {4} = {5}, {6} = {7}, {8} = {9}]", 
-				new Object[]{CONFIG_KEY_CACHE_DATABASE_PARENT_PATH, tempDirPath,
-						CONFIG_KEY_CACHE_DATABASE_NAME, verticesDatabaseName,
-						CONFIG_KEY_CACHE_SIZE, verticesCacheSize,
-						CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY, verticesBloomfilterFalsePositiveProbability,
-						CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS, verticesBloomfilterExpectedNumberOfElements});
 		try{
-			if(tempDirPath == null || verticesDatabaseName == null || verticesCacheSize == null
-					|| verticesBloomfilterFalsePositiveProbability == null ||
-					verticesBloomfilterExpectedNumberOfElements == null){
-				logger.log(Level.SEVERE, "Null argument(s)");
-				return null;
-			}else{
-				if(!FileUtility.fileExists(tempDirPath)){
-					if(!FileUtility.mkdirs(tempDirPath)){
-						logger.log(Level.SEVERE, "Failed to create temp dir at: " + tempDirPath);
-						return null;
-					}
-				}
-				
-				Integer cacheSize = CommonFunctions.parseInt(verticesCacheSize, null);
-				if(cacheSize != null){
-					Double falsePositiveProb = CommonFunctions.parseDouble(verticesBloomfilterFalsePositiveProbability, null);
-					if(falsePositiveProb != null){
-						Integer expectedNumberOfElements = CommonFunctions.parseInt(verticesBloomfilterExpectedNumberOfElements, null);
-						if(expectedNumberOfElements != null){
-							String timestampedDBName = verticesDatabaseName + "_" + System.currentTimeMillis();
-							dbpath = tempDirPath + File.separatorChar + timestampedDBName;
-							if(FileUtility.mkdirs(dbpath)){
-								ExternalMemoryMap<String, AbstractVertex> externalMap = 
-										new ExternalMemoryMap<String, AbstractVertex>(cacheSize, 
-												new BerkeleyDB<AbstractVertex>(dbpath, timestampedDBName), 
-												falsePositiveProb, expectedNumberOfElements);
-								// Setting hash to be used as the key because saving vertices by CDM hashes
-								externalMap.setKeyHashFunction(new Hasher<String>() {
-									@Override
-									public String getHash(String t) {
-										return t;
-									}
-								});
-								return externalMap;
-							}else{
-								logger.log(Level.SEVERE, "Failed to create database dir: " + timestampedDBName);
-							}
-						}else{
-							logger.log(Level.SEVERE, "Expected number of elements must be an Integer");
+			return CommonFunctions.createExternalMemoryMapInstance(uuidMapId, verticesCacheSize, 
+					verticesBloomfilterFalsePositiveProbability, verticesBloomfilterExpectedNumberOfElements, tempDirPath, 
+					verticesDatabaseName, null, new Hasher<String>(){
+						@Override
+						public String getHash(String t) {
+							return t;
 						}
-					}else{
-						logger.log(Level.SEVERE, "False positive probability must be Floating-Point");
-					}
-				}else{
-					logger.log(Level.SEVERE, "Cache size must be an Integer");
-				}
-			}
+					});
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to init cache map", e);
+			logger.log(Level.SEVERE, "Failed to create external map", e);
+			return null;
 		}
-		return null;
 	}
 	
 	private void initReporting(String reportingIntervalSecondsConfig){
@@ -701,23 +652,10 @@ public class CDM extends AbstractReporter{
 	
 
 	private void doCleanup(){
-		
-		try{
-			if(uuidToVertexMap != null){
-				uuidToVertexMap.close();
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to close cache map", e);
+		if(uuidToVertexMap != null){
+			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(uuidMapId, uuidToVertexMap);
+			uuidToVertexMap = null;
 		}
-		
-		try{
-			if(dbpath != null && FileUtility.fileExists(dbpath)){
-				FileUtils.forceDelete(new File(dbpath));
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to delete database dir at: " + dbpath, e);
-		}
-		
 	}	
 }
 
