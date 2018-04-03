@@ -8,6 +8,7 @@ JAVAC_CP = build:lib/*
 JAVAC_OPTIONS = -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
+AUDIT_KERNEL_MODULES_MAKEFILE = src/spade/reporter/audit/kernel-modules/Makefile
  
 #
 # In Ubuntu, when you install llvm headers, it puts llvm and llvm-c inside version folder.
@@ -123,11 +124,7 @@ build-linuxaudit: build/spade/reporter/Audit.class lib/spadeAuditBridge audit-ke
 lib/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
 	gcc -o lib/spadeAuditBridge src/spade/reporter/spadeAuditBridge.c
 audit-kernel-module:
-	@mkdir -p lib/kernel-modules
-	$(MAKE) -f src/spade/reporter/audit/kernel-modules/Makefile
-	@cp -r src/spade/reporter/audit/kernel-modules/* lib/kernel-modules/
-	@rm -f lib/kernel-modules/Makefile lib/kernel-modules/netio.c lib/kernel-modules/netio_controller.c lib/kernel-modules/README
-	@find src/spade/reporter/audit/kernel-modules/ -mindepth 1 ! -name 'README' ! -name 'Makefile' ! -name 'netio.c' ! -name 'netio_controller.c' -exec rm -rf {} +
+	$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE)
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/libLinuxFUSE.h lib/libLinuxFUSE.so
@@ -240,7 +237,7 @@ clean:
 	@rm -rf cfg/ssl
 	@rm -rf log
 	@rm -rf tmp
-	@rm -rf lib/kernel-modules
+	@$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE) clean
  
 DESTDIR = @prefix@
 install:
