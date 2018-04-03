@@ -1,29 +1,31 @@
-#include <linux/module.h>  /* Needed by all kernel modules */
-#include <linux/moduleparam.h>
-#include <linux/kernel.h>  /* Needed for loglevels (KERN_WARNING, KERN_EMERG, KERN_INFO, etc.) */
-#include <linux/init.h>    /* Needed for __init and __exit macros. */
-#include <linux/unistd.h>  /* sys_call_table __NR_* system call function indices */
-#include <linux/fs.h>      /* filp_open */
-#include <linux/slab.h>    /* kmalloc */
-#include <linux/socket.h>
-#include <linux/fdtable.h>
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2015 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+#include <linux/unistd.h>  // __NR_<system-call-name>
 #include <linux/file.h>
-#include <linux/sched.h>
 #include <linux/net.h>
-#include <linux/un.h>
 #include <linux/audit.h>
-#include <linux/string.h>
-#include <linux/utsname.h>
-#include <linux/delay.h>
-#include <linux/time.h>
-#include <linux/types.h>
-#include <asm/paravirt.h> /* write_cr0 */
-#include <linux/uaccess.h>  /* get_fs, set_fs */
+#include <asm/paravirt.h> // write_cr0
+#include <linux/uaccess.h>  // copy_from_user
 #include <linux/kallsyms.h>
 
-MODULE_LICENSE("GPL");
-
-#define MAX_FIELDS 16
+#include "globals.h"
 
 #define UENTRY 0xffffff9c
 #define UEXIT 0xffffff9b
@@ -31,17 +33,6 @@ MODULE_LICENSE("GPL");
 #define MREAD2 0xffffff37
 #define MWRITE1 0xfffffed4
 #define MWRITE2 0xfffffed3
-
-static int syscall_success = -1;
-static int net_io = 0;
-static int ignore_uids = 1;
-static int pids_ignore[MAX_FIELDS];
-static int ppids_ignore[MAX_FIELDS];
-static int uids[MAX_FIELDS];
-
-static int pids_ignore_len = 0;
-static int ppids_ignore_len = 0;
-static int uids_len = 0;
 
 /* 
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
@@ -51,7 +42,7 @@ static int uids_len = 0;
  */
 static volatile int stop = 1;
 
-unsigned long syscall_table_address = 0;
+static unsigned long syscall_table_address = 0;
 
 // The return type for all system calls used is 'long' below even though some return 'int' according to API.
 // Using 'long' because linux 64-bit kernel code uses a 'long' return value for all system calls. 
@@ -76,7 +67,6 @@ static void sockaddr_to_hex(unsigned char* dst, int dst_len, unsigned char* addr
 static int copy_msghdr_from_user(struct msghdr *dst, const struct msghdr __user *src);
 static int copy_sockaddr_from_user(struct sockaddr_storage *dst, const struct sockaddr __user *src, uint32_t src_size);
 static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src);
-static void print_array(const char*, int[], int);
 static int exists_in_array(int, int[], int);
 static int log_syscall(int, int, int, int);
 static void copy_array(int* dst, int* src, int len);
@@ -91,24 +81,6 @@ static void copy_array(int* dst, int* src, int len){
 	for(; a < len; a++){
 		dst[a] = src[a];	
 	}	
-}
-
-static void print_array(const char* desc, int arr[], int arrlen){
-	int MAX_STR_LEN = 1024;
-	char strPrint[MAX_STR_LEN];
-	if(arrlen == 0){
-		sprintf(&(strPrint[0]), "%s (%d) = []", desc, arrlen);
-	}else{
-		int i = 0;
-		int cursor = 0;
-		cursor = sprintf(&(strPrint[cursor]), "%s (%d) = [", desc, arrlen);
-		for(; i < arrlen; i++){
-			cursor += sprintf(&(strPrint[cursor]), "%d, ", arr[i]);
-		}
-		strPrint[cursor - 2] = ']'; // replace ','
-		strPrint[cursor - 1] = '\0'; // replace ' '
-	}
-	printk(KERN_EMERG "[netio] %s\n", strPrint);
 }
 
 static int exists_in_array(int id, int arr[], int arrlen){
@@ -597,8 +569,6 @@ static void netio_logging_start(int net_io_flag, int syscall_success_flag,
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_length, int uids_list[], int ignore_uids_flag){
-	int oldStopValue = stop;
-		
 	net_io = net_io_flag;
 	syscall_success = syscall_success_flag;
 	ignore_uids = ignore_uids_flag;
@@ -610,27 +580,15 @@ static void netio_logging_start(int net_io_flag, int syscall_success_flag,
 	copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
 	copy_array(&uids[0], &uids_list[0], uids_len);
 	
+	print_args("netio");
+	printk(KERN_EMERG "[netio] Logging started!\n");
+	
 	stop = 0;
-	
-	printk(KERN_EMERG "[netio] Stop value: %d -> %d\n", oldStopValue, stop);
-	printk(KERN_EMERG "[netio] syscall_success flag value: %d\n", syscall_success);
-	printk(KERN_EMERG "[netio] net_io flag value: %d\n", net_io);
-	printk(KERN_EMERG "[netio] ignore_uids flag value: %d\n", ignore_uids);
-	print_array("pids_ignore", pids_ignore, pids_ignore_len);
-	print_array("ppids_ignore", ppids_ignore, ppids_ignore_len);
-	print_array("uids", uids, uids_len);
-	
-	if(ignore_uids == 1){
-		printk(KERN_EMERG "[netio] Mode = ignoring given uids\n");	
-	}else{
-		printk(KERN_EMERG "[netio] Mode = capturing given uids only\n");		
-	}
 }
 
 static void netio_logging_stop(void){
-	int oldStopValue = stop;
+	printk(KERN_EMERG "[netio] Logging stopped!\n");
 	stop = 1;
-	printk(KERN_EMERG "[netio] Stop value: %d -> %d\n", oldStopValue, stop);
 }
 
 EXPORT_SYMBOL(netio_logging_start);
