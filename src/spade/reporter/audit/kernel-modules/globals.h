@@ -23,6 +23,8 @@
 #include <linux/init.h>
 #include <linux/string.h>
 
+#include "build.h"
+
 MODULE_LICENSE("GPL");
 
 #define MAX_FIELDS 64
@@ -39,6 +41,17 @@ static int ppids_ignore_len = 0;
 static int uids_len = 0;
 
 void print_args(const char*);
+int hashes_equal(char* h1, char* h2); // 1 = equal, 0 = not equal
+
+int hashes_equal(char* h1, char* h2){
+	if(h1 == NULL && h2 == NULL){
+		return 1;
+	}else if((h1 == NULL && h2 != NULL) || (h1 != NULL && h2 == NULL)){
+		return 0;
+	}else{
+		return strcmp(h1, h2) == 0 ? 1 : 0;
+	}
+}
 
 void print_args(const char* module_name){
 	int a = 0;

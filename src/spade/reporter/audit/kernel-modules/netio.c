@@ -70,11 +70,11 @@ static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src);
 static int exists_in_array(int, int[], int);
 static int log_syscall(int, int, int, int);
 static void copy_array(int* dst, int* src, int len);
-static void netio_logging_start(int net_io_flag, int syscall_success_flag, 
+static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
-									int uids_len, int uids[], int ignore_uids);
-static void netio_logging_stop(void);
+									int uids_len, int uids[], int ignore_uids); // 1 success, 0 failure
+static void netio_logging_stop(char* caller_build_hash);
 
 static void copy_array(int* dst, int* src, int len){
 	int a = 0;
@@ -565,30 +565,41 @@ static void __exit onunload(void) {
     }
 }
 
-static void netio_logging_start(int net_io_flag, int syscall_success_flag, 
+static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_length, int uids_list[], int ignore_uids_flag){
-	net_io = net_io_flag;
-	syscall_success = syscall_success_flag;
-	ignore_uids = ignore_uids_flag;
-	pids_ignore_len = pids_ignore_length;
-	ppids_ignore_len = ppids_ignore_length;
-	uids_len = uids_length;
-	
-	copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
-	copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
-	copy_array(&uids[0], &uids_list[0], uids_len);
-	
-	print_args("netio");
-	printk(KERN_EMERG "[netio] Logging started!\n");
-	
-	stop = 0;
+	if(hashes_equal(caller_build_hash, BUILD_HASH) == 1){
+		net_io = net_io_flag;
+		syscall_success = syscall_success_flag;
+		ignore_uids = ignore_uids_flag;
+		pids_ignore_len = pids_ignore_length;
+		ppids_ignore_len = ppids_ignore_length;
+		uids_len = uids_length;
+		
+		copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
+		copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
+		copy_array(&uids[0], &uids_list[0], uids_len);
+		
+		print_args("netio");
+		printk(KERN_EMERG "[netio] Logging started!\n");
+		
+		stop = 0;
+		
+		return 1;
+	}else{
+		printk(KERN_EMERG "[netio] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT started!\n");
+		return 0;
+	}
 }
 
-static void netio_logging_stop(void){
-	printk(KERN_EMERG "[netio] Logging stopped!\n");
-	stop = 1;
+static void netio_logging_stop(char* caller_build_hash){
+	if(hashes_equal(caller_build_hash, BUILD_HASH) == 1){
+		printk(KERN_EMERG "[netio] Logging stopped!\n");
+		stop = 1;
+	}else{
+		printk(KERN_EMERG "[netio] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT stopped!\n");
+	}
 }
 
 EXPORT_SYMBOL(netio_logging_start);

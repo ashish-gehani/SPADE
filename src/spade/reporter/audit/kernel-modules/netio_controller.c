@@ -32,8 +32,8 @@ MODULE_PARM_DESC(ppids_ignore, "Comma-separated ppids to ignore");
 module_param_array(uids, int, &uids_len, 0000);
 MODULE_PARM_DESC(uids, "Comma-separated uids list (to ignore or capture)");
 
-extern void netio_logging_start(int, int, int, int[], int, int[], int, int[], int); // starts logging
-extern void netio_logging_stop(void); // stops logging
+extern int netio_logging_start(char* caller_build_hash, int, int, int, int[], int, int[], int, int[], int); // starts logging
+extern void netio_logging_stop(char* caller_build_hash); // stops logging
 
 static int __init onload(void){
 	char* module_name = "netio_controller";
@@ -73,14 +73,17 @@ static int __init onload(void){
 	if(success == -1){
 		return -1;
 	}else{
-		netio_logging_start(net_io, syscall_success, pids_ignore_len, pids_ignore,
-						ppids_ignore_len, ppids_ignore, uids_len, uids, ignore_uids);
-		return 0;
+		if(netio_logging_start(BUILD_HASH, net_io, syscall_success, pids_ignore_len, pids_ignore,
+						ppids_ignore_len, ppids_ignore, uids_len, uids, ignore_uids) == 1){
+			return 0;
+		}else{
+			return -1;
+		}
 	}
 }
 
 static void __exit onunload(void) {
-    netio_logging_stop();
+    netio_logging_stop(BUILD_HASH);
 }
 
 module_init(onload);
