@@ -1312,6 +1312,7 @@ public class Audit extends AbstractReporter {
 			if(!output.getStdErr().isEmpty()){
 				logger.log(Level.SEVERE, "Command \"{0}\" failed with error: {1}.", new Object[]{
 						command, output.getStdErr()});
+				logger.log(Level.SEVERE, "Run 'grep netio <dmesg-logs> | tail -5' to check for exact error.");
 				return false;
 			}else{
 				logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
