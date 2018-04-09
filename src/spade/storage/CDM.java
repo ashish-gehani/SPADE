@@ -909,14 +909,41 @@ public class CDM extends Kafka {
 			}
 		}
 		
-		String sessionNumberString = argumentsMap.get("session");
+		String cdmOutFilePath = Settings.getDefaultOutputFilePath(this.getClass());
+		Map<String, String> cdmOutFileKeyValues = null;
+		if(FileUtility.fileExists(cdmOutFilePath)){
+			try{
+				cdmOutFileKeyValues = FileUtility.readConfigFileAsKeyValueMap(cdmOutFilePath, "=");
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to read file: " + cdmOutFilePath, e);
+				return false;
+			}
+		}
+		
+		String lastSessionKey = "lastSession";
+		String sessionKey = "session";
+		String sessionNumberString = argumentsMap.get(sessionKey);
 		if(sessionNumberString != null){
 			Integer sessionNumber = CommonFunctions.parseInt(sessionNumberString, null);
 			if(sessionNumber == null){
-				logger.log(Level.SEVERE, "'session' must be an 'int': " + sessionNumberString);
+				logger.log(Level.SEVERE, "'"+sessionKey+"' must be an 'int': " + sessionNumberString);
 				return false;
 			}else{
 				this.sessionNumber = sessionNumber;
+			}
+		}else{ // no session number in args. read from file
+			if(cdmOutFileKeyValues != null){
+				String lastSessionString = cdmOutFileKeyValues.get(lastSessionKey);
+				if(lastSessionString != null){
+					Integer lastSessionInteger = CommonFunctions.parseInt(lastSessionString, null);
+					if(lastSessionInteger == null){
+						logger.log(Level.SEVERE, "Invalid '"+lastSessionKey+"' value '"+lastSessionString+
+								"' in file: " + cdmOutFilePath);
+						return false;
+					}else{
+						this.sessionNumber = lastSessionInteger + 1;
+					}
+				}
 			}
 		}
 		
@@ -985,12 +1012,35 @@ public class CDM extends Kafka {
 			if(hostVertex == null){
 				return false;
 			}else{
+				cdmOutFileKeyValues = getMapWithSessionNumber(cdmOutFileKeyValues, lastSessionKey, this.sessionNumber);
+				if(!writeOutFile(cdmOutFilePath, cdmOutFileKeyValues)){
+					return false;
+				}
+				logger.log(Level.INFO, "Session number = " + this.sessionNumber);
 				populateEventRules();
 				publishStreamMarkerObject(true);
 				publishHost(hostVertex);
 				this.hostUUID = getUuid(hostVertex);
 			}
 			return true;
+		}
+	}
+	
+	private Map<String, String> getMapWithSessionNumber(Map<String, String> keyValues, String sessionKey, int session){
+		if(keyValues == null){
+			keyValues = new HashMap<String, String>();
+		}
+		keyValues.put(sessionKey, String.valueOf(session));
+		return keyValues;
+	}
+	
+	private boolean writeOutFile(String outFilePath, Map<String, String> keyValues){
+		try{
+			FileUtility.writeKeyValuesMapToFile(outFilePath, keyValues);
+			return true;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to write map ("+keyValues+") to file: " + outFilePath, e);
+			return false;
 		}
 	}
 	
