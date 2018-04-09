@@ -1561,7 +1561,9 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S truncate -S ftruncate ";
 					auditRuleWithSuccess += "-S init_module -S finit_module ";
 					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
-					auditRuleWithSuccess += "-S socketpair ";
+					if(!ARCH_32BIT){
+						auditRuleWithSuccess += "-S socketpair ";
+					}
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
 					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
