@@ -64,7 +64,9 @@ import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
 import spade.reporter.audit.UnixSocketIdentifier;
 import spade.reporter.audit.UnknownIdentifier;
+import spade.reporter.audit.UnnamedNetworkSocketPairIdentifier;
 import spade.reporter.audit.UnnamedPipeIdentifier;
+import spade.reporter.audit.UnnamedUnixSocketPairIdentifier;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
@@ -113,7 +115,10 @@ public class Audit extends AbstractReporter {
 	// Source of following: http://elixir.free-electrons.com/linux/latest/source/include/uapi/asm-generic/errno.h#L97
 	private final int EINPROGRESS = -115;
 	// Source: http://elixir.free-electrons.com/linux/latest/source/include/linux/net.h#L65
-	private final int SOCK_STREAM = 1, SOCK_DGRAM = 2;
+	private final int SOCK_STREAM = 1, SOCK_DGRAM = 2, SOCK_SEQPACKET = 5;
+	// Source: https://elixir.bootlin.com/linux/latest/source/include/linux/socket.h#L162
+	private final int AF_UNIX = 1, AF_LOCAL = 1, AF_INET = 2, AF_INET6 = 10;
+	private final int PF_UNIX = AF_UNIX, PF_LOCAL = AF_LOCAL, PF_INET = AF_INET, PF_INET6 = AF_INET6;
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
@@ -194,7 +199,9 @@ public class Audit extends AbstractReporter {
 			VERSION_UNNAMED_PIPES = true,
 			VERSION_UNKNOWNS = true,
 			VERSION_NETWORK_SOCKETS = false,
-			VERSION_UNIX_SOCKETS = true;
+			VERSION_UNIX_SOCKETS = true,
+			VERSION_UNNAMED_NETWORK_SOCKET_PAIR = true,
+			VERSION_UNNAMED_UNIX_SOCKET_PAIR = true;
 	private boolean KEEP_VERSIONS = true,
 			KEEP_EPOCHS = true,
 			KEEP_PATH_PERMISSIONS = true,
@@ -507,6 +514,22 @@ public class Audit extends AbstractReporter {
 			VERSION_UNIX_SOCKETS = parseBoolean(argValue, VERSION_UNIX_SOCKETS);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnixSockets': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionUnnamedUnixSocketPairs");
+		if(isValidBoolean(argValue)){
+			VERSION_UNNAMED_UNIX_SOCKET_PAIR = parseBoolean(argValue, VERSION_UNNAMED_UNIX_SOCKET_PAIR);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedUnixSocketPairs': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("versionUnnamedNetworkSocketPairs");
+		if(isValidBoolean(argValue)){
+			VERSION_UNNAMED_NETWORK_SOCKET_PAIR = parseBoolean(argValue, VERSION_UNNAMED_NETWORK_SOCKET_PAIR);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedNetworkSocketPairs': " + argValue);
 			return false;
 		}
 		
@@ -1240,7 +1263,7 @@ public class Audit extends AbstractReporter {
 				String executeCommand = "iptables -I " + iptablesRule;
 				Execute.Output output = Execute.getOutput(executeCommand);
 				output.log();
-				if(output.exitValueIndicatesError()){
+				if(output.hasError()){
 					return false;
 				}
 			}
@@ -1258,7 +1281,7 @@ public class Audit extends AbstractReporter {
 				String executeCommand = "iptables -D " + iptablesRule;
 				Execute.Output output = Execute.getOutput(executeCommand);
 				output.log();
-				allRemoved = allRemoved || !output.exitValueIndicatesError();
+				allRemoved = allRemoved && (!output.hasError());
 			}
 			return allRemoved;
 		}catch(Exception e){
@@ -1270,7 +1293,7 @@ public class Audit extends AbstractReporter {
 	private Boolean kernelModuleExists(String kernelModuleName){
 		try{
 			Execute.Output output = Execute.getOutput("lsmod");
-			if(output.exitValueIndicatesError()){
+			if(output.hasError()){
 				output.log();
 				return null;
 			}else{
@@ -1309,15 +1332,8 @@ public class Audit extends AbstractReporter {
 	private boolean addKernelModule(String command){
 		try{
 			Execute.Output output = Execute.getOutput(command);
-			if(!output.getStdErr().isEmpty()){
-				logger.log(Level.SEVERE, "Command \"{0}\" failed with error: {1}.", new Object[]{
-						command, output.getStdErr()});
-				return false;
-			}else{
-				logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
-						command, output.getStdOut()});
-				return true;
-			}
+			output.log();
+			return !output.hasError();
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command, e);
 			return false;
@@ -1403,7 +1419,7 @@ public class Audit extends AbstractReporter {
 						try{
 							Execute.Output output = Execute.getOutput(command);
 							output.log();
-							return !output.exitValueIndicatesError();
+							return !output.hasError();
 						}catch(Exception e){
 							logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command, e);
 							return false;
@@ -1545,6 +1561,7 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S truncate -S ftruncate ";
 					auditRuleWithSuccess += "-S init_module -S finit_module ";
 					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
+					auditRuleWithSuccess += "-S socketpair ";
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
 					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
@@ -1576,7 +1593,7 @@ public class Audit extends AbstractReporter {
 		try{
 			Execute.Output output = Execute.getOutput(auditctlRule);
 			output.log();
-			return !output.exitValueIndicatesError();
+			return !output.hasError();
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to set audit rule: " + auditctlRule, e);
 			return false;
@@ -1587,7 +1604,7 @@ public class Audit extends AbstractReporter {
 		try{
 			Execute.Output output = Execute.getOutput("auditctl -D");
 			output.log();
-			return !output.exitValueIndicatesError();
+			return !output.hasError();
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to remove audit rules", e);
 			return false;
@@ -1658,7 +1675,7 @@ public class Audit extends AbstractReporter {
 		String command = "id -u " + name;
 		try{
 			Execute.Output output = Execute.getOutput(command);
-			if(output.exitValueIndicatesError()){
+			if(output.hasError()){
 				logger.log(Level.SEVERE, "Invalid username provided. Command: {0}. Error: {1}", 
 						new Object[]{command, output.getStdErr()});
 			}else{
@@ -1689,7 +1706,7 @@ public class Audit extends AbstractReporter {
 		try{
 			String uid = null;
 			Execute.Output output = Execute.getOutput(command);
-			if(output.exitValueIndicatesError()){
+			if(output.hasError()){
 				logger.log(Level.SEVERE, "Failed to get user id of JVM. Command: {0}. Error: {1}.",
 						new Object[]{command, output.getStdErr()});
 				return null;
@@ -1953,6 +1970,9 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case SOCKETPAIR:
+				handleSocketPair(eventData, syscall);
+				break;
 			case TEE:
 			case SPLICE:
 				handleTeeSplice(eventData, syscall);
@@ -3236,6 +3256,40 @@ public class Audit extends AbstractReporter {
 		wgb.addAnnotation(OPMConstants.EDGE_MODE, mode);
 		putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 	}
+	
+	private void handleSocketPair(Map<String, String> eventData, SYSCALL syscall){
+		// socketpair() receives the following message(s):
+		// - SYSCALL
+		// - FD_PAIR
+		// - EOE
+		String pid = eventData.get(AuditEventReader.PID);
+		String fd0 = eventData.get(AuditEventReader.FD0);
+		String fd1 = eventData.get(AuditEventReader.FD1);
+		String domainString = eventData.get(AuditEventReader.ARG0);
+		String sockTypeString = eventData.get(AuditEventReader.ARG1);
+		
+		int domain = CommonFunctions.parseInt(domainString, null); // Let exception be thrown
+		int sockType = CommonFunctions.parseInt(sockTypeString, null);
+		
+		String protocol = getProtocolNameBySockType(sockType);
+		
+		ArtifactIdentifier fdIdentifier = null;
+		
+		if(domain == AF_INET || domain == AF_INET6 || domain == PF_INET || domain == PF_INET6){
+			fdIdentifier = new UnnamedNetworkSocketPairIdentifier(pid, fd0, fd1, protocol);
+		}else if(domain == AF_LOCAL || domain == AF_UNIX || domain == PF_LOCAL || domain == PF_UNIX){
+			fdIdentifier = new UnnamedUnixSocketPairIdentifier(pid, fd0, fd1);
+		}else{
+			// Unsupported domain
+		}
+		
+		if(fdIdentifier != null){
+			processManager.setFd(pid, fd0, fdIdentifier, false);
+			processManager.setFd(pid, fd1, fdIdentifier, false);
+			
+			markNewEpochForArtifact(fdIdentifier);
+		}
+	}
 
 	private void handlePipe(Map<String, String> eventData, SYSCALL syscall) {
 		// pipe() receives the following message(s):
@@ -3399,9 +3453,11 @@ public class Audit extends AbstractReporter {
 	
 	private String getProtocolNameBySockType(Integer sockType){
 		if(sockType != null){
-			if((sockType | SOCK_STREAM) == SOCK_STREAM){
+			if((sockType & SOCK_SEQPACKET) == SOCK_SEQPACKET){ // check first because seqpacket matches stream too
 				return PROTOCOL_NAME_TCP;
-			}else if((sockType | SOCK_DGRAM) == SOCK_DGRAM){
+			}else if((sockType & SOCK_STREAM) == SOCK_STREAM){
+				return PROTOCOL_NAME_TCP;
+			}else if((sockType & SOCK_DGRAM) == SOCK_DGRAM){
 				return PROTOCOL_NAME_UDP;
 			}
 		}
@@ -3817,7 +3873,7 @@ public class Audit extends AbstractReporter {
 			if(!USE_READ_WRITE){
 				return;
 			}
-			if(identifier instanceof UnixSocketIdentifier){
+			if(identifier instanceof UnixSocketIdentifier || identifier instanceof UnnamedUnixSocketPairIdentifier){
 				if(!UNIX_SOCKETS){
 					return;
 				}
@@ -3922,7 +3978,8 @@ public class Audit extends AbstractReporter {
 	
 	private boolean isUnixSocketArtifact(AbstractVertex vertex){
 		return vertex != null && 
-				OPMConstants.SUBTYPE_UNIX_SOCKET.equals(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE));
+				(OPMConstants.SUBTYPE_UNIX_SOCKET.equals(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE))
+						|| OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR.equals(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE)));
 	}
 
 	/**
@@ -4067,6 +4124,10 @@ public class Audit extends AbstractReporter {
 					updateVersion = VERSION_NETWORK_SOCKETS;
 				}else if(UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
 					updateVersion = VERSION_UNIX_SOCKETS;
+				}else if(UnnamedNetworkSocketPairIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_UNNAMED_NETWORK_SOCKET_PAIR;
+				}else if(UnnamedUnixSocketPairIdentifier.class.equals(artifactIdentifierClass)){
+					updateVersion = VERSION_UNNAMED_UNIX_SOCKET_PAIR;
 				}else{
 					logger.log(Level.WARNING, "Unexpected artifact type: {0}", new Object[]{artifactIdentifierClass});
 				}

@@ -183,7 +183,7 @@ public class HostInfo{
 			String command = "lshw -C system";
 			try{
 				Execute.Output output = Execute.getOutput(command);
-				if(output.exitValueIndicatesError()){
+				if(output.hasError()){
 					output.log();
 					return null;
 				}else{
@@ -232,7 +232,7 @@ public class HostInfo{
 			 String command = "uname -a";
 			 try{
 				 Execute.Output output = Execute.getOutput(command);
-				 if(output.exitValueIndicatesError()){
+				 if(output.hasError()){
 					 output.log();
 				 }else{
 					 List<String> stdOutLines = output.getStdOut();
@@ -455,7 +455,7 @@ public class HostInfo{
 			try{
 				Execute.Output output = Execute.getOutput("auditctl -m " + auditRecordMsg);
 				output.log();
-				if(!output.exitValueIndicatesError()){
+				if(!output.hasError()){
 					return true;
 				}
 			}catch(Exception e){

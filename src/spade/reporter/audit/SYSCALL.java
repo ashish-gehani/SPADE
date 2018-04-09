@@ -47,6 +47,7 @@ public enum SYSCALL {
 	PIPE, PIPE2, 
 	TEE, SPLICE, VMSPLICE,
 	INIT_MODULE, FINIT_MODULE,
+	SOCKETPAIR, // Only in 64-bit
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
 	public static SYSCALL getSyscall(int syscallNum, int arch){
@@ -64,6 +65,7 @@ public enum SYSCALL {
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch (syscallNum) {
+			case 53:	return SOCKETPAIR;
 			case 175:	return INIT_MODULE;
 			case 313:	return FINIT_MODULE;
 			case 276:	return TEE;

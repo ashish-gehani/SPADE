@@ -25,6 +25,7 @@ import java.util.Map;
 
 public class NetworkSocketIdentifier extends ArtifactIdentifier {
 
+	private static final long serialVersionUID = -431788671179917399L;
 	private String localHost, localPort,
 					remoteHost, remotePort,
 					protocol;
@@ -121,4 +122,11 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 			return false;
 		return true;
 	}
+
+	@Override
+	public String toString() {
+		return "NetworkSocketIdentifier [localHost=" + localHost + ", localPort=" + localPort + ", remoteHost="
+				+ remoteHost + ", remotePort=" + remotePort + ", protocol=" + protocol + "]";
+	}
+	
 }

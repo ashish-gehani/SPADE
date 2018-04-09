@@ -20,7 +20,9 @@
 package spade.reporter.audit;
 
 public class NamedPipeIdentifier extends IdentifierWithPath{
-	
+
+	private static final long serialVersionUID = -243227327860125495L;
+
 	public NamedPipeIdentifier(String path){
 		super(path);
 	}

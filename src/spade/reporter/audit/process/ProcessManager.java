@@ -817,7 +817,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		try{
 			//LSOF args -> n = no DNS resolution, P = no port user-friendly naming, p = pid of process
 			Execute.Output output = Execute.getOutput("lsof -nPp " + pid);
-			if(!output.exitValueIndicatesError()){
+			if(!output.hasError()){
 				List<String> stdOutLines = output.getStdOut();
 				stdOutLines.remove(0); //remove the heading line
 				
@@ -870,6 +870,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 								case "unix": 
 									if(!"socket".equals(path)){ // abstract socket and don't know the name
 										identifier = new UnixSocketIdentifier(path);
+									}else{
+										// identifying unnamed unix socket pairs how? TODO
 									}
 									break;
 								case "blk": identifier = new BlockDeviceIdentifier(path); break;
