@@ -61,8 +61,37 @@ public abstract class ProcessManager extends ProcessStateManager{
 	//  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
 	//  AND  
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
-	private final int SIGCHLD = 17, CLONE_VFORK = 0x00004000, CLONE_VM = 0x00000100,
-			CLONE_FILES = 0x00000400;
+	public static final Map<String, Integer> cloneFlags = new HashMap<String, Integer>();
+	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES;
+
+	static{
+		cloneFlags.put("CLONE_CHILD_CLEARTID", 0x00200000);
+		cloneFlags.put("CLONE_CHILD_SETTID", 0x01000000);
+		cloneFlags.put("CLONE_FILES", 0x00000400);
+		cloneFlags.put("CLONE_FS", 0x00000200);
+		cloneFlags.put("CLONE_IO", 0x80000000);
+		cloneFlags.put("CLONE_NEWIPC", 0x08000000);
+		cloneFlags.put("CLONE_NEWNET", 0x40000000);
+		cloneFlags.put("CLONE_NEWNS", 0x00020000);
+		cloneFlags.put("CLONE_NEWPID", 0x20000000);
+		cloneFlags.put("CLONE_NEWUTS", 0x04000000);
+		cloneFlags.put("CLONE_PARENT", 0x00008000);
+		cloneFlags.put("CLONE_PARENT_SETTID", 0x00100000);
+		cloneFlags.put("CLONE_PTRACE", 0x00002000);
+		cloneFlags.put("CLONE_SETTLS", 0x00080000);
+		cloneFlags.put("CLONE_SIGHAND", 0x00000800);
+		cloneFlags.put("CLONE_SYSVSEM", 0x00040000);
+		cloneFlags.put("CLONE_THREAD", 0x00010000);
+		cloneFlags.put("CLONE_UNTRACED", 0x00800000);
+		cloneFlags.put("CLONE_VFORK", 0x00004000);
+		cloneFlags.put("CLONE_VM", 0x00000100);
+		cloneFlags.put("SIGCHLD", 17);
+
+		SIGCHLD = cloneFlags.get("SIGCHLD");
+		CLONE_VFORK = cloneFlags.get("CLONE_VFORK");
+		CLONE_VM = cloneFlags.get("CLONE_VM");
+		CLONE_FILES = cloneFlags.get("CLONE_FILES");
+	}
 	
 	private Audit reporter;
 	
@@ -531,14 +560,26 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 		
 		boolean handle = true;
+		String flagsAnnotation = "";
 		
 		if(syscall == SYSCALL.FORK){
 			processForked(parentPid, childPid);
 		}else if(syscall == SYSCALL.VFORK){
 			processVforked(parentPid, childPid);
 		}else if(syscall == SYSCALL.CLONE){
-			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
 			boolean shareMemory = (flags & CLONE_VM) == CLONE_VM;
+			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
+			for(Map.Entry<String, Integer> cloneFlag : cloneFlags.entrySet()){
+				String cloneFlagName = cloneFlag.getKey();
+				Integer cloneFlagValue = cloneFlag.getValue();
+				if((flags & cloneFlagValue) == cloneFlagValue){
+					flagsAnnotation += cloneFlagName + "|";
+				}
+			}
+			flagsAnnotation = flagsAnnotation.trim();
+			if(!flagsAnnotation.isEmpty()){
+				flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
+			}
 			processCloned(parentPid, childPid, linkFds, shareMemory);
 		}else{
 			handle = false;
@@ -547,6 +588,9 @@ public abstract class ProcessManager extends ProcessStateManager{
 		
 		if(handle){
 			WasTriggeredBy edge = new WasTriggeredBy(childVertex, parentVertex);
+			if(!flagsAnnotation.isEmpty()){
+				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsAnnotation);
+			}
 			reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, source);
 			return true;
 		}else{
