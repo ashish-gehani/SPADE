@@ -44,6 +44,10 @@ public class ProcessUnitState implements Serializable{
 	// The currently active unit or null (no active unit).
 	private UnitIdentifier unit;
 	
+	// Id of the thread group leader. Refers to self by default
+	// Not keeping the time because there can be only one active process with the same pid at a time.
+	private String threadGroupId;
+	
 	private Series<Double, AgentIdentifier> timeToAgent = new Series<Double, AgentIdentifier>();
 	
 	// Needed when a process exits and it's state is being removed.
@@ -54,6 +58,7 @@ public class ProcessUnitState implements Serializable{
 	protected ProcessUnitState(ProcessIdentifier process, AgentIdentifier agent){
 		this.process = process;
 		this.agent = agent;
+		threadGroupId = process.pid;
 		String timeString = process.startTime == null ? process.seenTime : process.startTime;
 		Double time = CommonFunctions.parseDouble(timeString, null);
 		if(time != null){
@@ -61,6 +66,14 @@ public class ProcessUnitState implements Serializable{
 		}else{
 			logger.log(Level.WARNING, "Failed to get start/seen time for process: " + process);
 		}
+	}
+	
+	protected void setThreadGroupId(String threadGroupId){
+		this.threadGroupId = threadGroupId;
+	}
+	
+	protected String getThreadGroupId(){
+		return threadGroupId;
 	}
 	
 	protected ProcessIdentifier getProcess(){

@@ -22,10 +22,13 @@ package spade.reporter.audit.process;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.Serializable;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -62,7 +65,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	//  AND  
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
 	public static final Map<String, Integer> cloneFlags = new HashMap<String, Integer>();
-	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES;
+	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD;
 
 	static{
 		cloneFlags.put("CLONE_CHILD_CLEARTID", 0x00200000);
@@ -91,6 +94,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		CLONE_VFORK = cloneFlags.get("CLONE_VFORK");
 		CLONE_VM = cloneFlags.get("CLONE_VM");
 		CLONE_FILES = cloneFlags.get("CLONE_FILES");
+		CLONE_THREAD = cloneFlags.get("CLONE_THREAD");
 	}
 	
 	private Audit reporter;
@@ -98,7 +102,13 @@ public abstract class ProcessManager extends ProcessStateManager{
 	/**
 	 * Contains a mapping from pid to the keys of currently active processes
 	 */
-	private Map<String, ProcessKey> active = new HashMap<String, ProcessKey>();
+	private Map<String, ProcessKey> activeProcesses = new HashMap<String, ProcessKey>();
+
+	/**
+	 * Map from thread group id to set of active members of the thread group.
+	 * Since number of thread group ids is limited by the number of pids, not using an external memory map.
+	 */
+	private Map<String, Set<ProcessKey>> activeThreadGroups = new HashMap<String, Set<ProcessKey>>();
 	
 	/**
 	 * Contains a mapping from keys of all (needed) processes to actual state.
@@ -246,7 +256,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	public void removeProcessUnitState(String pid){
 		super.processExited(pid);
-		ProcessKey key = active.remove(pid);
+		ProcessKey key = activeProcesses.remove(pid);
 		if(key != null){
 			ProcessUnitState state = processUnitStates.get(key);
 			if(state != null){
@@ -268,9 +278,9 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String pid = eventData.get(AuditEventReader.PID);
 		String time = eventData.get(AuditEventReader.TIME);
 
-		ProcessKey existingProcessKey = active.get(pid);
+		ProcessKey existingProcessKey = activeProcesses.get(pid);
 		if(existingProcessKey == null){
-			active.put(pid, new ProcessKey(pid, time));
+			activeProcesses.put(pid, new ProcessKey(pid, time));
 		}
 	}
 	
@@ -292,7 +302,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		// Time logic: Use start time first, then check if there is an existing key, then use the current seen time
 		if(time == null){
 			// Check if there is an existing active mapping
-			ProcessKey existingKey = active.get(pid);
+			ProcessKey existingKey = activeProcesses.get(pid);
 			if(existingKey == null){
 				time = process.seenTime;
 			}else{
@@ -301,7 +311,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 		ProcessKey key = new ProcessKey(pid, time);
 		processUnitStates.put(key, state);
-		active.put(pid, key);
+		activeProcesses.put(pid, key);
 	}
 	
 	/**
@@ -311,7 +321,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @return process unit state
 	 */
 	protected ProcessUnitState getProcessUnitState(String pid){
-		ProcessKey key = active.get(pid);
+		ProcessKey key = activeProcesses.get(pid);
 		if(key != null){
 			return processUnitStates.get(key);
 		}else{
@@ -352,7 +362,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	public void daemonStart(){
 		super.clearAll();
 		clearAll();
-		active.clear();
+		activeProcesses.clear();
 		processUnitStates.clear();
 	}
 	
@@ -581,6 +591,18 @@ public abstract class ProcessManager extends ProcessStateManager{
 				flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
 			}
 			processCloned(parentPid, childPid, linkFds, shareMemory);
+			
+			boolean isThread = (flags & CLONE_THREAD) == CLONE_THREAD;
+			if(isThread){
+				String threadGroupId = parentState.getThreadGroupId(); // Can't be null
+				ProcessUnitState childState = getProcessUnitState(childPid); // State already added above using putProcessVertex
+				childState.setThreadGroupId(threadGroupId); // Update the thread group id for child
+				if(activeThreadGroups.get(threadGroupId) == null){
+					activeThreadGroups.put(threadGroupId, new HashSet<ProcessKey>());
+				}
+				// Add the process key for the child against the active thread group
+				activeThreadGroups.get(threadGroupId).add(activeProcesses.get(childPid));
+			}
 		}else{
 			handle = false;
 			reporter.log(Level.INFO, "Unexpected syscall", null, time, eventId, syscall);
@@ -639,7 +661,6 @@ public abstract class ProcessManager extends ProcessStateManager{
 		
 		return true;
 	}
-
 	/**
 	 * Does the following:
 	 * 
@@ -653,18 +674,71 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	public boolean handleExit(Map<String, String> eventData, SYSCALL syscall, boolean outputOPM){
 		String pid = eventData.get(AuditEventReader.PID);
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
 		if(outputOPM){
-			String time = eventData.get(AuditEventReader.TIME);
-			String eventId = eventData.get(AuditEventReader.EVENT_ID);
-			
 			Process processVertex = handleProcessFromSyscall(eventData);
 			
 			WasTriggeredBy edge = new WasTriggeredBy(processVertex, processVertex);
 			reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, OPMConstants.SOURCE_AUDIT_SYSCALL);
 		}
+		
+		ProcessKey activeKey = null;
+		ProcessUnitState state = null;
+		String threadGroupId = null;
+		Set<ProcessKey> threadGroupsKeys = null;
+		
+		activeKey = activeProcesses.get(pid);
+		if(activeKey != null){
+			state = processUnitStates.get(activeKey);
+			if(state != null){
+				threadGroupId = state.getThreadGroupId();
+				if(threadGroupId != null){
+					threadGroupsKeys = activeThreadGroups.get(threadGroupId);
+				}
+			}
+		}
 
-		removeProcessUnitState(pid);
+		if(syscall == SYSCALL.EXIT_GROUP){
+			if(threadGroupsKeys != null){
+				for(ProcessKey threadGroupMemberKey : threadGroupsKeys){
+					if(threadGroupMemberKey != null){
+						String threadGroupMemberPid = threadGroupMemberKey.pid;
+						ProcessKey activeThreadGroupMemberKey = activeProcesses.get(threadGroupMemberPid);
+						if(threadGroupMemberKey.equals(activeThreadGroupMemberKey)){
+							activeProcesses.remove(threadGroupMemberPid);
+						}
+						processUnitStates.remove(threadGroupMemberKey);
+					}
+				}
+			}
+			activeThreadGroups.remove(threadGroupId);
+			activeProcesses.remove(pid);
+			if(activeKey != null){
+				processUnitStates.remove(activeKey);
+			}
+		}else if(syscall == SYSCALL.EXIT){
+			if(threadGroupsKeys != null){
+				threadGroupsKeys.remove(null);
+				threadGroupsKeys.remove(activeKey);
+				if(threadGroupsKeys.isEmpty()){
+					// remove group
+					activeThreadGroups.remove(threadGroupId);
+				}
+			}
+			if(activeThreadGroups.get(threadGroupId) == null){
+				activeProcesses.remove(pid);
+				if(activeKey != null){
+					processUnitStates.remove(activeKey);
+				}
+			}else{
+				removeProcessUnitState(pid);
+			}
+		}else{
+			reporter.log(Level.WARNING, "Unexpected syscall in exit handler", null, time, eventId, syscall);
+		}
+		
 		return true;
 	}
 	
@@ -1049,7 +1123,10 @@ public abstract class ProcessManager extends ProcessStateManager{
 	}
 }
 
-class ProcessKey{
+class ProcessKey implements Serializable{
+	
+	private static final long serialVersionUID = -5735819091990559950L;
+	
 	String pid;
 	String time; // starttime or null
 	
