@@ -25,7 +25,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #define FUSE_USE_VERSION 26
 
-#include "libLinuxFUSE.h"
+#include "spade_reporter_LinuxFUSE.h"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

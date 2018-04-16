@@ -19,19 +19,19 @@
  */
 package spade.filter;
 
+import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FileUtils;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
-import spade.utility.BerkeleyDB;
+import spade.utility.CommonFunctions;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.Hasher;
-
-import java.io.File;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Can be used to check:
@@ -42,28 +42,19 @@ public class AuditSanity extends AbstractFilter{
 
 	private Logger logger = Logger.getLogger(this.getClass().getName());
 	
-	private String dbpath = Settings.getProperty("spade_root") + "tmp" + File.separatorChar + "vertexhashes_" + System.currentTimeMillis();
-	
 	private ExternalMemoryMap<AbstractVertex, Integer> vertexMap;
+	private final String vertexMapId = "AuditSanity[VertexMap]";
 	
 	public boolean initialize(String arguments){
 		try{
-			
-			FileUtils.deleteQuietly(new File(dbpath));
-			FileUtils.forceMkdir(new File(dbpath));
-			
-			vertexMap = 
-					new ExternalMemoryMap<AbstractVertex, Integer>(100000, 
-							new BerkeleyDB<Integer>(dbpath, "vertexhashes_" + System.currentTimeMillis()), 
-							0.0001, 10000000);
-			
-			vertexMap.setKeyHashFunction(new Hasher<AbstractVertex>() {
-				@Override
-				public String getHash(AbstractVertex t) {
-					return DigestUtils.sha256Hex(String.valueOf(t));
-				}
-			});
-			
+			vertexMap = CommonFunctions.createExternalMemoryMapInstance(vertexMapId, "100000", "0.0001", "10000000", 
+					Settings.getProperty("spade_root") + File.separator + "tmp", "vertexhashes", "120", 
+					new Hasher<AbstractVertex>(){
+						@Override
+						public String getHash(AbstractVertex t) {
+							return DigestUtils.sha256Hex(String.valueOf(t));
+						}
+					});
 			return true;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to create external map", e);
@@ -72,18 +63,11 @@ public class AuditSanity extends AbstractFilter{
 	}
 	
 	public boolean shutdown(){
-		try{
-			vertexMap.close();
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to close external map", e);
+		if(vertexMap != null){
+			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(vertexMapId, vertexMap);
+			vertexMap = null;
 		}
-		try{
-			FileUtils.forceDelete(new File(dbpath));
-			return true;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to delete temp db at path: " + dbpath, e);
-			return false;
-		}
+		return true;
 	}
 	
 	@Override

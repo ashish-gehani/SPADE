@@ -20,6 +20,14 @@
  */
 package spade.utility;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.math.BigInteger;
+
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
@@ -27,13 +35,6 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 
 /**
  * This class implements the ExternalStore interface and is used in ExternalMemoryMap class
@@ -46,26 +47,18 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 	private Environment environment;
 	private Database database;
 	
-	public BerkeleyDB(String filePath, String databaseName) {
+	private String directoryPath;
+	
+	public BerkeleyDB(String directoryPath, String databaseName) throws Exception{
+		this.directoryPath = directoryPath;
+		
 		EnvironmentConfig envConfig = new EnvironmentConfig();
 		envConfig.setAllowCreate(true);
-		environment = new Environment(new File(filePath), envConfig);
+		environment = new Environment(new File(directoryPath), envConfig);
 		
 		DatabaseConfig dbConfig = new DatabaseConfig();
 		dbConfig.setAllowCreate(true);
 		database = environment.openDatabase(null, databaseName, dbConfig);
-	}
-
-	@Override
-	public boolean init() throws Exception {
-		return true;
-	}
-
-	@Override
-	public boolean shutdown() throws Exception {
-		database.close();
-		environment.close();
-		return true;
 	}
 
 	@Override
@@ -115,6 +108,21 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 	public void close() throws Exception{
 		database.close();
 		environment.close();
+	}
+	
+	@Override
+	public void delete() throws Exception{
+		if(FileUtility.fileExists(this.directoryPath)){
+			FileUtility.deleteFile(this.directoryPath);
+		}
+	}
+	
+	public BigInteger sizeInBytesOfPersistedData() throws Exception{
+		if(FileUtility.fileExists(directoryPath)){
+			return FileUtility.getDirectorySizeInBytes(directoryPath);
+		}else{
+			throw new Exception("No directory found at path: " + directoryPath);
+		}
 	}
 
 }
