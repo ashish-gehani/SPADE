@@ -537,7 +537,7 @@ public class CDM extends Kafka {
 		agentVertex.addAnnotation(OPMConstants.SOURCE, OPMConstants.SOURCE_AUDIT_SYSCALL);
 		for(String agentAnnotation : agentAnnotations){
 			String agentAnnotationValue = process.getAnnotation(agentAnnotation);
-			if(agentAnnotation != null){ // some are optional so check for null
+			if(agentAnnotationValue != null && !"".equals(agentAnnotationValue)){
 				agentVertex.addAnnotation(agentAnnotation, agentAnnotationValue);
 			}
 		}
