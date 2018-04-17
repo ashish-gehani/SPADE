@@ -127,11 +127,11 @@ audit-kernel-module:
 	$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE)
 
 # Build the LinuxFUSE reporter.
-build-linuxfuse: src/spade/reporter/libLinuxFUSE.h lib/libLinuxFUSE.so
+build-linuxfuse: src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.so
 	@echo ''
 	@echo '-----> IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
 	@echo ''
-src/spade/reporter/libLinuxFUSE.h: build/spade/reporter/LinuxFUSE.class
+src/spade/reporter/spade_reporter_LinuxFUSE.h: build/spade/reporter/LinuxFUSE.class
 	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/LinuxFUSE.java
 lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
@@ -231,7 +231,7 @@ graph-utility:
 clean:
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build android-build android-lib
-	@rm -rf src/spade/reporter/lib*FUSE.h lib/libLinuxFUSE.* lib/libMacFUSE.*
+	@rm -rf src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.* lib/libMacFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeAuditBridge
 	@rm -rf cfg/ssl
