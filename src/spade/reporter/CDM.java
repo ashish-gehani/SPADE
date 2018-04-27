@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -93,66 +94,54 @@ public class CDM extends AbstractReporter{
 	private long linesRead = 0;
 
 	private volatile boolean shutdown = false;
-	private final long THREAD_JOIN_WAIT = 1000; // One second
-	private final long BUFFER_DRAIN_DELAY = 500;
 	
 	// Using an external map because can grow arbitrarily
 	private ExternalMemoryMap<String, AbstractVertex> uuidToVertexMap;
 	private final String uuidMapId = "CDM[UUID2VertexMap]";
 	
-	private DataReader dataReader;
+	private LinkedList<DataReader> dataReaders = new LinkedList<DataReader>();
+	private boolean waitForLog = true;
 		
 	// The main thread that processes the file
-	private Thread datumProcessorThread = new Thread(new Runnable() {
+	private Thread datumProcessorThread = new Thread(new Runnable(){
 		@Override
-		public void run() {
-			while(!shutdown){
-				try{
-					
+		public void run(){
+			boolean shutdownCalledAndSucceeded = false;
+			try{
+				while(!dataReaders.isEmpty()){
+					DataReader dataReader = dataReaders.removeFirst();
+					String currentFilePath = dataReader.getDataFilePath();
+					logger.log(Level.INFO, "Started reading file: " + currentFilePath);
 					TCCDMDatum tccdmDatum = null;
 					while((tccdmDatum = (TCCDMDatum)dataReader.read()) != null){
+						if(shutdown && !waitForLog){
+							shutdownCalledAndSucceeded = true;
+							logger.log(Level.INFO, "Shutting down the data reader thread");
+							break;
+						}
 						Object datum = tccdmDatum.getDatum();
 						processDatum(datum);
 					}
-					
-					// EOF
-					if(tccdmDatum == null){
+					try{
+						dataReader.close();
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Continuing but FAILED to close data reader for file: " + 
+								currentFilePath, e);
+					}
+					if(shutdownCalledAndSucceeded){ // break out of the outer loop too
 						break;
 					}
-					
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Error reading/processing file", e);
+					logger.log(Level.INFO, "Finished reading file: " + currentFilePath);
 				}
+				if(!shutdownCalledAndSucceeded){ // If shutdown not called
+					logger.log(Level.INFO, "Finished reading all file(s)");
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Stopping because of reading/processing error", e);
 			}
-			
-			while(getBuffer().size() > 0){
-				if(shutdown){
-					break;
-				}
-				try{
-					Thread.sleep(BUFFER_DRAIN_DELAY);
-				}catch(Exception e){
-					//No need to log this exception
-				}
-				
-				if(reportingEnabled){
-					long currentTime = System.currentTimeMillis();
-					if((currentTime - lastReportedTime) >= reportEveryMs){
-						printStats();
-						lastReportedTime = currentTime;
-					}
-				}
-				
-			}
-			
-			if(getBuffer().size() > 0){
-				logger.log(Level.INFO, "File processing partially succeeded");
-			}else{
-				logger.log(Level.INFO, "File processing successfully succeeded");
-			}
-			
+			// Here either because of exception, shutdown, or all files read.
 			doCleanup();
-			
+			logger.log(Level.INFO, "Exiting data reader thread");
 		}
 	}, "CDM-Reporter");
 	
@@ -199,55 +188,153 @@ public class CDM extends AbstractReporter{
 	}
 	
 	@Override
-	public boolean launch(String arguments) {
-		String filepath = arguments;
+	public boolean launch(String arguments){
+		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
 		
-		try{
-			if(FileUtility.fileExists(filepath)){
-				Map<String, String> configMap = readDefaultConfigFile();
-				if(configMap != null){
-					String schemaFilePath = configMap.get(CONFIG_KEY_SCHEMA);
-					if(FileUtility.fileExists(schemaFilePath)){
-						
-						initReporting(configMap.get("reportingIntervalSeconds"));
-						
-						if(filepath.endsWith(".json")){
-							dataReader = new JsonReader(filepath, schemaFilePath);
-						}else{
-							dataReader = new BinaryReader(filepath, schemaFilePath);
-						}
-						
-						uuidToVertexMap = initCacheMap(configMap.get(CONFIG_KEY_CACHE_DATABASE_PARENT_PATH), 
-								configMap.get(CONFIG_KEY_CACHE_DATABASE_NAME), configMap.get(CONFIG_KEY_CACHE_SIZE), 
-								configMap.get(CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY), 
-								configMap.get(CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS));
-						
-						if(uuidToVertexMap != null){
-							
-							datumProcessorThread.start();
-							return true;
-							
-						}else{
-							return false;
-						}
-						
-					}else{
-						logger.log(Level.SEVERE, "Failed to find schema file at: " + schemaFilePath);
-						return false;
-					}
-				}else{
+		String inputFileArgument = argsMap.get("inputFile");
+		String rotateArgument = argsMap.get("rotate");
+		String waitForLogArgument = argsMap.get("waitForLog");
+		
+		if(CommonFunctions.isNullOrEmpty(inputFileArgument)){
+			logger.log(Level.SEVERE, "NULL/Empty 'inputFile' argument: " + inputFileArgument);
+			return false;
+		}else{
+			inputFileArgument = inputFileArgument.trim();
+			File inputFile = null;
+			try{
+				inputFile = new File(inputFileArgument);
+				if(!inputFile.exists()){
+					logger.log(Level.SEVERE, "No file at path: " + inputFileArgument);
 					return false;
 				}
-			}else{
-				logger.log(Level.SEVERE, "Failed to find input filepath at: " + filepath);
+				if(!inputFile.isFile()){
+					logger.log(Level.SEVERE, "Not a regular file at path: " + inputFileArgument);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if file exists: " + inputFileArgument, e);
 				return false;
 			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to launch reporter CDM", e);
-			doCleanup();
+			boolean rotate = false;
+			if(rotateArgument != null){
+				if(rotateArgument.equalsIgnoreCase("true")){
+					rotate = true;
+				}else if(rotateArgument.equalsIgnoreCase("false")){
+					rotate = false;
+				}else{
+					logger.log(Level.SEVERE, "Invalid 'rotate' (only 'true'/'false') argument: " + rotateArgument);
+					return false;
+				}
+			}
+			if(waitForLogArgument != null){
+				if(waitForLogArgument.equalsIgnoreCase("true")){
+					waitForLog = true;
+				}else if(waitForLogArgument.equalsIgnoreCase("false")){
+					waitForLog = false;
+				}else{
+					logger.log(Level.SEVERE, "Invalid 'waitForLog' (only 'true'/'false') argument: " + waitForLogArgument);
+					return false;
+				}
+			}
+			LinkedList<String> inputFilePaths = new LinkedList<String>(); // ordered
+			inputFilePaths.addLast(inputFile.getAbsolutePath());
+			if(rotate){
+				try{
+					String inputFileParentPath = inputFile.getParentFile().getAbsolutePath();
+					String inputFileName = inputFile.getName();
+					int totalFilesCount = inputFile.getParentFile().list().length;
+					for(int a = 1; a < totalFilesCount; a++){
+						File file = new File(inputFileParentPath + File.separatorChar + inputFileName + "." + a);
+						if(file.exists()){
+							inputFilePaths.addLast(file.getAbsolutePath());
+						}
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to gather all input files", e);
+					return false;
+				}
+			}
+			
+			String schemaFilePath = null;
+			Map<String, String> configMap = readDefaultConfigFile();
+			if(configMap == null || configMap.isEmpty()){
+				logger.log(Level.SEVERE, "NULL/Empty config map: " + configMap);
+				return false;
+			}else{
+				schemaFilePath = configMap.get(CONFIG_KEY_SCHEMA);
+				if(CommonFunctions.isNullOrEmpty(schemaFilePath)){
+					logger.log(Level.SEVERE, "NULL/Empty '"+CONFIG_KEY_SCHEMA+"' in config file: "+schemaFilePath);
+					return false;
+				}else{
+					schemaFilePath = schemaFilePath.trim();
+					try{
+						File schemaFile = new File(schemaFilePath);
+						if(!schemaFile.exists()){
+							logger.log(Level.SEVERE, "Schema file doesn't exist: " + schemaFilePath);
+							return false;
+						}
+						if(!schemaFile.isFile()){
+							logger.log(Level.SEVERE, "Schema path is not a regular file: " + schemaFilePath);
+							return false;
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to check if schema file exists: " + schemaFilePath, e);
+						return false;
+					}
+				}
+			}
+			
+			try{
+				boolean binaryFormat = false;
+				if(inputFileArgument.endsWith(".json")){
+					binaryFormat = false;
+				}else{
+					binaryFormat = true;
+				}
+				for(String inputFilePath : inputFilePaths){
+					DataReader dataReader = null;
+					if(binaryFormat){
+						dataReader = new BinaryReader(inputFilePath, schemaFilePath);
+					}else{
+						dataReader = new JsonReader(inputFilePath, schemaFilePath);
+					}
+					dataReaders.addLast(dataReader);
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to build data reader", e);
+				return false;
+			}
+			
+			initReporting(configMap.get("reportingIntervalSeconds"));
+			
+			try{
+				uuidToVertexMap = initCacheMap(configMap.get(CONFIG_KEY_CACHE_DATABASE_PARENT_PATH), 
+						configMap.get(CONFIG_KEY_CACHE_DATABASE_NAME), configMap.get(CONFIG_KEY_CACHE_SIZE), 
+						configMap.get(CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY), 
+						configMap.get(CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS));
+				if(uuidToVertexMap == null){
+					logger.log(Level.SEVERE, "NULL external memory map");
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to create external memory map", e);
+				return false;
+			}
+			
+			try{
+				datumProcessorThread.start();
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to start data processor thread", e);
+				doCleanup();
+				return false;
+			}
+			
+			logger.log(Level.INFO, 
+					"Arguments: rotate='"+rotate+"', waitForLog='"+waitForLog+"', inputFile='"+inputFileArgument+"'");
+			logger.log(Level.INFO, "Input files: " + inputFilePaths);
+			
+			return true;
 		}
-		
-		return false;
 	}
 	
 	private void printStats(){
@@ -634,27 +721,34 @@ public class CDM extends AbstractReporter{
 	}
 	
 	@Override
-	public boolean shutdown() {
+	public boolean shutdown(){
 		shutdown = true;
-		
-		try{
-			
-			if(datumProcessorThread != null){
-				datumProcessorThread.join(THREAD_JOIN_WAIT);
-			}
-			
-			return true;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to close file reader", e);
-			return false;
+		if(waitForLog){
+			logger.log(Level.INFO, "Going to shutdown after all files read.");
+		}else{
+			logger.log(Level.INFO, "Going to shutdown right now.");
 		}
+		return true;
 	}
 	
-
-	private void doCleanup(){
+	private synchronized void doCleanup(){
 		if(uuidToVertexMap != null){
 			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(uuidMapId, uuidToVertexMap);
 			uuidToVertexMap = null;
+		}
+
+		if(dataReaders != null){
+			while(!dataReaders.isEmpty()){
+				DataReader dataReader = dataReaders.removeFirst();
+				if(dataReader != null){
+					try{
+						dataReader.close();
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Failed to close data reader for file: " + 
+								dataReader.getDataFilePath(), e);
+					}
+				}
+			}
 		}
 	}	
 }

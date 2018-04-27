@@ -97,8 +97,8 @@ public class Neo4j extends AbstractStorage {
     public enum NodeTypes implements Label { VERTEX }
     private String neo4jDatabaseDirectoryPath = null;
 
-  	public final String HASHCODE_LABEL = "hashCode";
-  	private double falsePositiveProbability = 0.0001;
+    public final String HASHCODE_LABEL = "hashCode";
+    private double falsePositiveProbability = 0.0001;
 
     // Performance tuning note: Set this to higher value (up to Integer.MAX_VALUE) to reduce db hit rate.
     // Downside: This would eat more heap at start time.
