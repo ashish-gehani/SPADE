@@ -21,10 +21,8 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -58,6 +56,7 @@ import spade.reporter.audit.DirectoryIdentifier;
 import spade.reporter.audit.FileIdentifier;
 import spade.reporter.audit.IdentifierWithPath;
 import spade.reporter.audit.LinkIdentifier;
+import spade.reporter.audit.MalformedAuditDataException;
 import spade.reporter.audit.MemoryIdentifier;
 import spade.reporter.audit.NamedPipeIdentifier;
 import spade.reporter.audit.NetworkSocketIdentifier;
@@ -69,7 +68,6 @@ import spade.reporter.audit.UnnamedPipeIdentifier;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
-import spade.utility.BerkeleyDB;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
 import spade.utility.ExternalMemoryMap;
@@ -131,8 +129,7 @@ public class Audit extends AbstractReporter {
 	// 2) Track epoch
 	// 3) Avoid duplication of artifacts
 	private ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties> artifactIdentifierToArtifactProperties;
-	//cache maps paths. global so that we delete on exit
-	private String artifactsCacheDatabasePath;
+	private final String artifactsMapId = "Audit[ArtifactsMap]";
 	/********************** ARTIFACT STATE - END *************************/
 	
 	/********************** NETFILTER - START *************************/
@@ -212,6 +209,8 @@ public class Audit extends AbstractReporter {
 	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	/********************** BEHAVIOR FLAGS - END *************************/
 
+	private Set<String> namesOfProcessesToIgnoreFromConfig = new HashSet<String>();
+	
 	private String spadeAuditBridgeProcessPid = null;
 	// true if live audit, false if log file. null not set.
 	private Boolean isLiveAudit = null;
@@ -630,12 +629,12 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS,
 								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
 								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
-								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS});
+								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST});
 				return true;
 			}
 		}
@@ -739,7 +738,14 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			deleteCacheMaps();
+			if(artifactIdentifierToArtifactProperties != null){
+				CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(artifactsMapId, 
+						artifactIdentifierToArtifactProperties);
+				artifactIdentifierToArtifactProperties = null;
+			}
+		}
+		if(processManager != null){
+			processManager.doCleanUp();
 		}
 	}
 	
@@ -778,12 +784,6 @@ public class Audit extends AbstractReporter {
 		// Init boolean flags from the arguments
 		if(!initFlagsFromArguments(argsMap)){
 			return false;
-		}
-		
-		if(AGENTS){
-			processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
-		}else{
-			processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
 		}
 		
 		// Check if the outputLog argument is valid or not
@@ -946,6 +946,19 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(success){
+			try{
+				if(AGENTS){ // Make sure that this is done before starting the event reader thread
+					processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+				}else{
+					processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
+				success = false;
+			}
+		}
+		
+		if(success){
 			if(isLiveAudit){
 				// if live audit and no km but handling records then error
 				if(!ADD_KM && HANDLE_KM_RECORDS){ // in case of live audit HANDLE_KM_RECORDS will never be null
@@ -1006,17 +1019,26 @@ public class Audit extends AbstractReporter {
 							String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
 							List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
 							if(pidsToIgnore != null){
+								
+								String ignoreProcessesValueFromConfig = configMap.get("ignoreProcesses");
+								if(ignoreProcessesValueFromConfig != null){
+									String[] ignoreProcessesArray = ignoreProcessesValueFromConfig.split(",");
+									for(String ignoreProcess : ignoreProcessesArray){
+										namesOfProcessesToIgnoreFromConfig.add(ignoreProcess.trim());
+									}
+								}
+								
 								List<String> ppidsToIgnore = new ArrayList<String>(pidsToIgnore); // same as pids
 								List<String> pidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreProcesses");
 								List<String> ppidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreParentProcesses");
 								if(pidsToIgnoreFromConfig != null){ // optional
 									pidsToIgnore.addAll(pidsToIgnoreFromConfig);
-									logger.log(Level.INFO, "Ignoring pids from config {0} for processes with names: {1}",
+									logger.log(Level.INFO, "Ignoring pids {0} for processes with names from config: {1}",
 											new Object[]{pidsToIgnoreFromConfig, configMap.get("ignoreProcesses")});
 								}
 								if(ppidsToIgnoreFromConfig != null){ // optional
 									ppidsToIgnore.addAll(ppidsToIgnoreFromConfig);
-									logger.log(Level.INFO, "Ignoring ppids from config {0} for processes with names: {1}",
+									logger.log(Level.INFO, "Ignoring ppids {0} for processes with names from config: {1}",
 											new Object[]{ppidsToIgnoreFromConfig, configMap.get("ignoreParentProcesses")});
 								}
 								
@@ -1049,7 +1071,7 @@ public class Audit extends AbstractReporter {
 		}else{
 			// The spadeAuditBridge might have started
 			if(spadeAuditBridgeProcessPid != null){
-				sendSignalToPid(spadeAuditBridgeProcessPid, "2");
+				sendSignalToPid(spadeAuditBridgeProcessPid, "9"); // force kill since Audit not added
 			}
 			doCleanup(rulesType, logListFile);
 			return false;
@@ -1156,21 +1178,39 @@ public class Audit extends AbstractReporter {
 					}
 				}
 				
-				try{
+				while(true){
 					Map<String, String> eventData = null;
-					while((eventData = auditEventReader.readEventData()) != null){
-						finishEvent(eventData);
-					}
-				}catch(Exception e){
-					logger.log(Level.WARNING, "Stopped reading event stream. ", e);
-				}finally{
 					try{
-						if(auditEventReader != null){
-							auditEventReader.close();
+						eventData = auditEventReader.readEventData();
+						if(eventData == null){
+							// EOF
+							break;
+						}else{
+							try{
+								finishEvent(eventData);
+							}catch(Exception e){
+								logger.log(Level.SEVERE, "Failed to handle event: " + eventData, e);
+								if(FAIL_FAST){
+									break;
+								}
+							}
+						}
+					}catch(MalformedAuditDataException made){
+						logger.log(Level.SEVERE, "Failed to parse event", made);
+						if(FAIL_FAST){
+							break;
 						}
 					}catch(Exception e){
-						logger.log(Level.WARNING, "Failed to close audit event reader", e);
+						logger.log(Level.SEVERE, "Stopped reading event stream. ", e);
+						break;
 					}
+				}
+				try{
+					if(auditEventReader != null){
+						auditEventReader.close();
+					}
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Failed to close audit event reader", e);
 				}
 				
 				// Sent a signal to the process in shutdown to stop reading.
@@ -1269,8 +1309,16 @@ public class Audit extends AbstractReporter {
 	private boolean addKernelModule(String command){
 		try{
 			Execute.Output output = Execute.getOutput(command);
-			output.log();
-			return !output.exitValueIndicatesError();
+			if(!output.getStdErr().isEmpty()){
+				logger.log(Level.SEVERE, "Command \"{0}\" failed with error: {1}.", new Object[]{
+						command, output.getStdErr()});
+				logger.log(Level.SEVERE, "Run 'grep netio <dmesg-logs> | tail -5' to check for exact error.");
+				return false;
+			}else{
+				logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
+						command, output.getStdOut()});
+				return true;
+			}
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command, e);
 			return false;
@@ -1423,7 +1471,7 @@ public class Audit extends AbstractReporter {
 					if(kmAdded){
 						netIONeverSyscallsRule = "auditctl -a exit,never ";
 						netIONeverSyscallsRule += archField;
-						netIONeverSyscallsRule += "-S socket -S bind -S accept -S accept4 -S connect ";
+						netIONeverSyscallsRule += "-S kill -S socket -S bind -S accept -S accept4 -S connect ";
 						netIONeverSyscallsRule += "-S sendmsg -S sendto -S recvmsg -S recvfrom -S sendmmsg -S recvmmsg ";
 					}
 					
@@ -1460,9 +1508,9 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += uidField;
 					auditRuleWithoutSuccess += uidField;
 
-					auditRuleWithoutSuccess += "-S kill -S exit -S exit_group ";
+					auditRuleWithoutSuccess += "-S exit -S exit_group ";
 					if(!kmAdded){
-						auditRuleWithoutSuccess += "-S connect ";
+						auditRuleWithoutSuccess += "-S connect -S kill ";
 					}
 
 					if (USE_READ_WRITE) {
@@ -1525,36 +1573,6 @@ public class Audit extends AbstractReporter {
 
 	}
 
-	private void deleteCacheMaps(){
-		//Close the external store and then delete the folder
-		try{
-			if(artifactIdentifierToArtifactProperties != null){
-				artifactIdentifierToArtifactProperties.close();
-				artifactIdentifierToArtifactProperties = null;
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, null, e);
-		}
-		try{
-			File artifactsCacheDatabaseDirectoryFile = new File(artifactsCacheDatabasePath);
-			if(artifactsCacheDatabasePath != null && artifactsCacheDatabaseDirectoryFile.exists()){
-				try{
-					BigDecimal size = new BigDecimal(FileUtils.sizeOfDirectoryAsBigInteger(artifactsCacheDatabaseDirectoryFile));
-					size = size.divide(new BigDecimal("1024")); //KB
-					size = size.divide(new BigDecimal("1024")); //MB
-					size = size.divide(new BigDecimal("1024")); //GB
-					logger.log(Level.INFO, "Size of the artifacts properties map on disk: {0} GB", size.doubleValue());
-				}catch(Exception e){
-					logger.log(Level.INFO, "Failed to log the size of the artifacts properties map on disk", e);
-				}
-				FileUtils.forceDelete(artifactsCacheDatabaseDirectoryFile);
-				artifactsCacheDatabasePath = null;
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to delete cache maps at path: '"+artifactsCacheDatabasePath+"'");
-		}
-	}
-
 	private boolean executeAuditctlRule(String auditctlRule){
 		try{
 			Execute.Output output = Execute.getOutput(auditctlRule);
@@ -1579,89 +1597,60 @@ public class Audit extends AbstractReporter {
 
 	private boolean initCacheMaps(Map<String, String> configMap){
 		try{
-			long currentTime = System.currentTimeMillis(); 
-			artifactsCacheDatabasePath = configMap.get("tempDir") + File.separatorChar + "artifacts_" + currentTime;
-			try{
-				FileUtils.forceMkdir(new File(artifactsCacheDatabasePath));
-				FileUtils.forceDeleteOnExit(new File(artifactsCacheDatabasePath));
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create cache database directories", e);
-				return false;
-			}
-
-			try{
-				Integer artifactsCacheSize = CommonFunctions.parseInt(configMap.get("artifactsCacheSize"), null);
-				String artifactsDatabaseName = configMap.get("artifactsDatabaseName");
-				Double artifactsFalsePositiveProbability = CommonFunctions.parseDouble(configMap.get("artifactsBloomfilterFalsePositiveProbability"), null);
-				Integer artifactsExpectedNumberOfElements = CommonFunctions.parseInt(configMap.get("artifactsBloomFilterExpectedNumberOfElements"), null);
-
-				logger.log(Level.INFO, "Audit cache properties: artifactsCacheSize={0}, artifactsDatabaseName={1}, artifactsBloomfilterFalsePositiveProbability={2}, "
-						+ "artifactsBloomFilterExpectedNumberOfElements={3}", new Object[]{artifactsCacheSize, 
-								artifactsDatabaseName, artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements});
-
-				if(artifactsCacheSize == null || artifactsDatabaseName == null || 
-						artifactsFalsePositiveProbability == null || artifactsExpectedNumberOfElements == null){
-					logger.log(Level.SEVERE, "Undefined cache properties in Audit config");
-					return false;
-				}
-
-				artifactIdentifierToArtifactProperties = 
-						new ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties>(artifactsCacheSize, 
-								new BerkeleyDB<ArtifactProperties>(artifactsCacheDatabasePath, artifactsDatabaseName), 
-								artifactsFalsePositiveProbability, artifactsExpectedNumberOfElements);
-								
-				artifactIdentifierToArtifactProperties.setKeyHashFunction(new Hasher<ArtifactIdentifier>() {
-				
-					@Override
-					public String getHash(ArtifactIdentifier t) {
-						if(t != null){
-							Map<String, String> annotations = t.getAnnotationsMap();
-							String subtype = t.getSubtype();
-							String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
-							return DigestUtils.sha256Hex(stringToHash);
-						}else{
-							return DigestUtils.sha256Hex("(null)");
+			artifactIdentifierToArtifactProperties = CommonFunctions.createExternalMemoryMapInstance(artifactsMapId,
+					configMap.get("artifactsCacheSize"), configMap.get("artifactsBloomfilterFalsePositiveProbability"), 
+					configMap.get("artifactsBloomFilterExpectedNumberOfElements"), configMap.get("tempDir"), 
+					configMap.get("artifactsDatabaseName"), configMap.get("externalMemoryMapReportingIntervalSeconds"),
+					new Hasher<ArtifactIdentifier>(){
+						@Override
+						public String getHash(ArtifactIdentifier t) {
+							if(t != null){
+								Map<String, String> annotations = t.getAnnotationsMap();
+								String subtype = t.getSubtype();
+								String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
+								return DigestUtils.sha256Hex(stringToHash);
+							}else{
+								return DigestUtils.sha256Hex("(null)");
+							}
 						}
-					}
-				});
-				
-				Long externalMemoryMapReportingIntervalSeconds = 
-						CommonFunctions.parseLong(configMap.get("externalMemoryMapReportingIntervalSeconds"), -1L);
-				
-				if(externalMemoryMapReportingIntervalSeconds > 0){
-					artifactIdentifierToArtifactProperties.printStats(externalMemoryMapReportingIntervalSeconds * 1000); 
-					//convert to millis
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to initialize necessary data structures", e);
-				return false;
-			}
-
+					});
+			return true;
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read default config file", e);
+			logger.log(Level.SEVERE, "Failed to create artifacts external map", e);
 			return false;
 		}
-		return true;
 	}
 
 	private List<String> listOfPidsToIgnore(String ignoreProcesses){
 //		ignoreProcesses argument is a string of process names separated by blank space
+		BufferedReader pidReader = null;
 		try{
 			List<String> pids = new ArrayList<String>();
 			if(ignoreProcesses != null && !ignoreProcesses.trim().isEmpty()){
 				// Using pidof command now to get all pids of the mentioned processes
 				java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
 				// pidof returns pids of given processes as a string separated by a blank space
-				BufferedReader pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
+				pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
 				String pidline = pidReader.readLine();
-				// added all returned from pidof command
-				pids.addAll(Arrays.asList(pidline.split("\\s+")));
-				pidReader.close();
+				if(pidline != null){
+					// 	added all returned from pidof command
+					pids.addAll(Arrays.asList(pidline.split("\\s+")));
+				}else{
+					logger.log(Level.INFO, "No running process(es) with name(s): " + ignoreProcesses);
+				}
 			}
 			return pids;
-		}catch(IOException e){
+		}catch(Exception e){
 			logger.log(Level.WARNING, "Error building list of processes to ignore: " + ignoreProcesses, e);
 			return null;
+		}finally{
+			if(pidReader != null){
+				try{
+					pidReader.close();
+				}catch(Exception e){
+					// ignore
+				}
+			}
 		}
 	}
 
@@ -1907,6 +1896,9 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		try {
+			
+			processManager.processSeenInUnsupportedSyscall(eventData); // Always set first because that is what is done in spadeAuditBridge and it is updated if syscall handled.
+			
 			int syscallNum = CommonFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), -1);
 			
 			if(syscallNum == -1){
@@ -2225,14 +2217,7 @@ public class Audit extends AbstractReporter {
 		// exit(), and exit_group() receives the following message(s):
 		// - SYSCALL
 		// - EOE
-		if(CONTROL){
-			// Only draw edge if CONTROL is true
-			processManager.handleExit(eventData, syscall);
-		}else{
-			// Else remove the state only and not draw any edge
-			String pid = eventData.get(AuditEventReader.PID);
-			processManager.removeProcessUnitState(pid);
-		}
+		processManager.handleExit(eventData, syscall, CONTROL);
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -2356,6 +2341,12 @@ public class Audit extends AbstractReporter {
 			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
 			Used usedEdge = new Used(process, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
+		}
+		
+		String processName = process.getAnnotation(OPMConstants.PROCESS_NAME);
+		if(namesOfProcessesToIgnoreFromConfig.contains(processName)){
+			log(Level.INFO, "'"+processName+"' (pid="+pid+") process seen in execve and present in list of processes to ignore", 
+					null, time, eventId, syscall);
 		}
 	}
 

@@ -97,8 +97,8 @@ public class Neo4j extends AbstractStorage {
     public enum NodeTypes implements Label { VERTEX }
     private String neo4jDatabaseDirectoryPath = null;
 
-  	public final String HASHCODE_LABEL = "hashCode";
-  	private double falsePositiveProbability = 0.0001;
+    public final String HASHCODE_LABEL = "hashCode";
+    private double falsePositiveProbability = 0.0001;
 
     // Performance tuning note: Set this to higher value (up to Integer.MAX_VALUE) to reduce db hit rate.
     // Downside: This would eat more heap at start time.
@@ -206,7 +206,7 @@ public class Neo4j extends AbstractStorage {
 	    		return bloomFilter;
 	    	}
     	} catch (IOException exception) {
-    		logger.log(Level.SEVERE, "Failed to load spade neo4j bloomfilter cache", exception);
+    		logger.log(Level.SEVERE, "Failed to load Bloom filter cache", exception);
     	} catch(ClassNotFoundException exception) {
         	exception.printStackTrace();
       	}
@@ -224,7 +224,7 @@ public class Neo4j extends AbstractStorage {
     		objectOutputStream.close();
     		fileOutputStream.close();
     	} catch (IOException exception) {
-    		logger.log(Level.SEVERE, "Failed to save spade neo4j bloomfilter cache", exception);
+    		logger.log(Level.SEVERE, "Failed to save Bloom filter cache", exception);
     	}
 
     }
@@ -309,7 +309,7 @@ public class Neo4j extends AbstractStorage {
         saveBloomFilter(EDGE_BLOOMFILTER, edgeBloomFilter);
         
         if (LOG_PERFORMANCE_STATS==true) {
-          logger.log(Level.INFO, "All chores completed!");
+          logger.log(Level.INFO, "All tasks completed!");
         }
         return true;
     }
@@ -322,7 +322,7 @@ public class Neo4j extends AbstractStorage {
 
         long diff = Calendar.getInstance().getTime().getTime() - reportProgressDate.getTime();
         if (diff > reportProgressAverageTime) {
-            logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false +tive/min. Bloom filter false +tive probability: " + nodeBloomFilter.getFalsePositiveProbability() + " Bloom filter elements count: " + nodeBloomFilter.count());
+            logger.log(Level.INFO, "Node L1: Rate: " + (int) (falsePositiveCount - falsePositiveCountTmp)/(diff/reportProgressAverageTime) + " confirmed false positive/min. Bloom filter false positive probability: " + nodeBloomFilter.getFalsePositiveProbability() + " Bloom filter elements count: " + nodeBloomFilter.count());
             logger.log(Level.INFO, "Node L2: Rate: " + (int) (nodeFoundInLocalCacheCount - nodeFoundInLocalCacheCountTmp)/(diff/reportProgressAverageTime) + " node detection from local cache/min. Total: " + nodeFoundInLocalCacheCount);
             logger.log(Level.INFO, "Node L2: Rate: " + (int) (100.0*localNodeHashQueue.size()/NODE_VERTEX_LOCAL_CACHE_SIZE) + " % local node cache filled. Total: " + NODE_VERTEX_LOCAL_CACHE_SIZE);
             logger.log(Level.INFO, "Node L3: Rate: " + (int) (dbHitCountForVertex - dbHitCountForVertexTmp)/(diff/reportProgressAverageTime) + " db hit for vertexes from putVertices /min. Total: " + dbHitCountForVertex);
@@ -383,7 +383,7 @@ public class Neo4j extends AbstractStorage {
     	globalTxCheckin();
 
     	try {
-        if (nodeBloomFilter.contains(bigHashCode)) { // L1, confirming if its false +tive
+        if (nodeBloomFilter.contains(bigHashCode)) { // L1, confirming if its false positive
           if (localNodeCache.containsKey(bigHashCode)) { // L2
             	nodeFoundInLocalCacheCount++;
               return false;
