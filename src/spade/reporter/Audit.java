@@ -139,12 +139,7 @@ public class Audit extends AbstractReporter {
 	
 	/********************** NETFILTER - START *************************/
 	
-	private final String[] iptablesRules = {
-			"OUTPUT -p tcp -m state --state NEW -j AUDIT --type accept",
-			"INPUT -p tcp -m state --state NEW -j AUDIT --type accept",
-			"OUTPUT -p udp -m state --state NEW -j AUDIT --type accept",
-			"INPUT -p udp -m state --state NEW -j AUDIT --type accept"
-			};
+	private String[] iptablesRules = null;
 	
 	private int matchedNetfilterSyscall = 0,
 			matchedSyscallNetfilter = 0;
@@ -744,6 +739,28 @@ public class Audit extends AbstractReporter {
 		return inputAuditLogFiles;
 	}
 	
+	private String[] buildIptableRules(String uid, boolean ignore){
+		String tcpInput = "INPUT -p tcp -m state --state NEW -j AUDIT --type accept",
+				tcpOutput = "OUTPUT -p tcp -m state --state NEW -j AUDIT --type accept",
+				udpInput = "INPUT -p udp -m state --state NEW -j AUDIT --type accept",
+				udpOutput = "OUTPUT -p udp -m state --state NEW -j AUDIT --type accept",
+				nonNewInput = "INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+				nonNewOutput = "OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT";
+		
+		String uidOutput = null;
+		if(ignore){ // ignore only the given uid
+			uidOutput = "OUTPUT -m owner --uid-owner " + uid + " -j ACCEPT";
+		}else{ // capture only the given uid
+			uidOutput = "OUTPUT -m owner ! --uid-owner " + uid + " -j ACCEPT";
+		}
+		// Order matters
+		/*
+		 * The rules are going to be appended. So, first add the rules to exclude activity that we don't 
+		 * want and then add the rules for the activity which we want to go to linux audit.
+		 */
+		return new String[]{uidOutput, nonNewInput, nonNewOutput, tcpInput, tcpOutput, udpInput, udpOutput};
+	}
+	
 	private void doCleanup(String rulesType, String logListFile){
 		if(isLiveAudit){
 			if(!"none".equals(rulesType)){
@@ -1071,6 +1088,7 @@ public class Audit extends AbstractReporter {
 								}
 								if(success){
 									if(NETFILTER_RULES){
+										iptablesRules = buildIptableRules(uid, ignoreUid);
 										success = setIptablesRules(iptablesRules);
 									}
 									if(success){
@@ -1260,7 +1278,7 @@ public class Audit extends AbstractReporter {
 	private boolean setIptablesRules(String[] iptablesRules){
 		try{
 			for(String iptablesRule : iptablesRules){
-				String executeCommand = "iptables -I " + iptablesRule;
+				String executeCommand = "iptables -A " + iptablesRule;
 				Execute.Output output = Execute.getOutput(executeCommand);
 				output.log();
 				if(output.hasError()){
@@ -1275,19 +1293,19 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean removeIptablesRules(String [] iptablesRules){
-		try{
-			boolean allRemoved = true;
-			for(String iptablesRule : iptablesRules){
-				String executeCommand = "iptables -D " + iptablesRule;
+		boolean allRemoved = true;
+		for(String iptablesRule : iptablesRules){
+			String executeCommand = "iptables -D " + iptablesRule;
+			try{
 				Execute.Output output = Execute.getOutput(executeCommand);
 				output.log();
 				allRemoved = allRemoved && (!output.hasError());
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to remove iptables rule. Remove manually.", e);
+				return false;
 			}
-			return allRemoved;
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to remove iptables rule(s). Remove manually.", e);
-			return false;
 		}
+		return allRemoved;
 	}
 	
 	private Boolean kernelModuleExists(String kernelModuleName){
