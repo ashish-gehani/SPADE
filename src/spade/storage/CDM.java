@@ -666,6 +666,31 @@ public class CDM extends Kafka {
 								sourceFileDescriptor, sinkFileDescriptor, null, null); // TODO UUID for src and sink???
 					}
 					
+				}else if(OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR.equals(artifactType)
+						|| OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR.equals(artifactType)){
+					String pid = vertex.getAnnotation(OPMConstants.ARTIFACT_PID);
+					String fd0 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD0);
+					String fd1 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD1);
+					if(pid == null || fd0 == null || fd1 == null){
+						logger.log(Level.WARNING, "Error parsing pid/fd0/fd1 in artifact {0}", new Object[]{vertex});
+						return false;
+					}else{
+						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+						if(OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR.equals(artifactType)){
+							Integer protocol = Audit.getProtocolNumber(vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL));
+							properties.put(OPMConstants.ARTIFACT_PROTOCOL, String.valueOf(protocol));
+						}
+						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+						properties.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
+						properties.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
+						properties.put(OPMConstants.ARTIFACT_SUBTYPE, artifactType);
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+						
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
+
+						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
+								SrcSinkType.SRCSINK_UNKNOWN, null);
+					}
 				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
 
 					Integer pid = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_PID), null);
@@ -812,8 +837,19 @@ public class CDM extends Kafka {
 									incrementStatsCount(keyName);
 								}
 							}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
-								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
-									incrementStatsCount(SrcSinkObject.class.getSimpleName());
+								SrcSinkObject sso = ((SrcSinkObject)cdmObject);
+								if(sso.getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
+									String subtype = SrcSinkObject.class.getSimpleName();
+									if(sso.getBaseObject() != null){
+										if(sso.getBaseObject().getProperties() != null){
+											CharSequence subtypeCharSeq = sso.getBaseObject().getProperties().
+													get(OPMConstants.ARTIFACT_SUBTYPE);
+											if(subtypeCharSeq != null){
+												subtype = subtypeCharSeq.toString();
+											}
+										}
+									}
+									incrementStatsCount(subtype);
 								}
 							}else if(cdmObject.getClass().equals(FileObject.class)){
 								FileObjectType fileObjectType = ((FileObject)cdmObject).getType();
@@ -873,14 +909,41 @@ public class CDM extends Kafka {
 			}
 		}
 		
-		String sessionNumberString = argumentsMap.get("session");
+		String cdmOutFilePath = Settings.getDefaultOutputFilePath(this.getClass());
+		Map<String, String> cdmOutFileKeyValues = null;
+		if(FileUtility.fileExists(cdmOutFilePath)){
+			try{
+				cdmOutFileKeyValues = FileUtility.readConfigFileAsKeyValueMap(cdmOutFilePath, "=");
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to read file: " + cdmOutFilePath, e);
+				return false;
+			}
+		}
+		
+		String lastSessionKey = "lastSession";
+		String sessionKey = "session";
+		String sessionNumberString = argumentsMap.get(sessionKey);
 		if(sessionNumberString != null){
 			Integer sessionNumber = CommonFunctions.parseInt(sessionNumberString, null);
 			if(sessionNumber == null){
-				logger.log(Level.SEVERE, "'session' must be an 'int': " + sessionNumberString);
+				logger.log(Level.SEVERE, "'"+sessionKey+"' must be an 'int': " + sessionNumberString);
 				return false;
 			}else{
 				this.sessionNumber = sessionNumber;
+			}
+		}else{ // no session number in args. read from file
+			if(cdmOutFileKeyValues != null){
+				String lastSessionString = cdmOutFileKeyValues.get(lastSessionKey);
+				if(lastSessionString != null){
+					Integer lastSessionInteger = CommonFunctions.parseInt(lastSessionString, null);
+					if(lastSessionInteger == null){
+						logger.log(Level.SEVERE, "Invalid '"+lastSessionKey+"' value '"+lastSessionString+
+								"' in file: " + cdmOutFilePath);
+						return false;
+					}else{
+						this.sessionNumber = lastSessionInteger + 1;
+					}
+				}
 			}
 		}
 		
@@ -949,12 +1012,35 @@ public class CDM extends Kafka {
 			if(hostVertex == null){
 				return false;
 			}else{
+				cdmOutFileKeyValues = getMapWithSessionNumber(cdmOutFileKeyValues, lastSessionKey, this.sessionNumber);
+				if(!writeOutFile(cdmOutFilePath, cdmOutFileKeyValues)){
+					return false;
+				}
+				logger.log(Level.INFO, "Session number = " + this.sessionNumber);
 				populateEventRules();
 				publishStreamMarkerObject(true);
 				publishHost(hostVertex);
 				this.hostUUID = getUuid(hostVertex);
 			}
 			return true;
+		}
+	}
+	
+	private Map<String, String> getMapWithSessionNumber(Map<String, String> keyValues, String sessionKey, int session){
+		if(keyValues == null){
+			keyValues = new HashMap<String, String>();
+		}
+		keyValues.put(sessionKey, String.valueOf(session));
+		return keyValues;
+	}
+	
+	private boolean writeOutFile(String outFilePath, Map<String, String> keyValues){
+		try{
+			FileUtility.writeKeyValuesMapToFile(outFilePath, keyValues);
+			return true;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to write map ("+keyValues+") to file: " + outFilePath, e);
+			return false;
 		}
 	}
 	

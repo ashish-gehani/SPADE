@@ -17,47 +17,36 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-
 package spade.reporter.audit;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class UnknownIdentifier extends ArtifactIdentifier{
+public abstract class FdPairIdentifier extends ArtifactIdentifier {
 
-	private static final long serialVersionUID = 6511655756054136851L;
-	private String pid, fd;
+	private static final long serialVersionUID = -4930748608565367219L;
 	
-	public UnknownIdentifier(String pid, String fd){
+	public final String pid, fd0, fd1;
+	
+	public FdPairIdentifier(String pid, String fd0, String fd1){
 		this.pid = pid;
-		this.fd = fd;
+		this.fd0 = fd0;
+		this.fd1 = fd1;
 	}
 	
-	public String getFD(){
-		return fd;
+	@Override
+	public Map<String, String> getAnnotationsMap(){
+		Map<String, String> map = new HashMap<String, String>();
+		map.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+		return map;
 	}
 
-	public String getPID(){
-		return pid;
-	}
-	
 	@Override
-	public Map<String, String> getAnnotationsMap() {
-		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put(OPMConstants.ARTIFACT_PID, pid);
-		annotations.put(OPMConstants.ARTIFACT_FD, fd);
-		return annotations;
-	}
-	
-	public String getSubtype(){
-		return OPMConstants.SUBTYPE_UNKNOWN;
-	}
-	
-	@Override
-	public int hashCode(){
+	public int hashCode() {
 		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
+		int result = super.hashCode();
+		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
+		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
 		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
 		return result;
 	}
@@ -66,15 +55,20 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
-		if (obj == null)
+		if (!super.equals(obj))
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		UnknownIdentifier other = (UnknownIdentifier) obj;
-		if (fd == null) {
-			if (other.fd != null)
+		FdPairIdentifier other = (FdPairIdentifier) obj;
+		if (fd0 == null) {
+			if (other.fd0 != null)
 				return false;
-		} else if (!fd.equals(other.fd))
+		} else if (!fd0.equals(other.fd0))
+			return false;
+		if (fd1 == null) {
+			if (other.fd1 != null)
+				return false;
+		} else if (!fd1.equals(other.fd1))
 			return false;
 		if (pid == null) {
 			if (other.pid != null)
@@ -84,8 +78,5 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 		return true;
 	}
 
-	@Override
-	public String toString() {
-		return "UnknownIdentifier [pid=" + pid + ", fd=" + fd + "]";
-	}
+	public abstract String toString();
 }

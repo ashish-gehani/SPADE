@@ -3,6 +3,7 @@ package spade.utility;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URL;
@@ -108,6 +109,23 @@ public class FileUtility {
 			}
 		}		
 		return map;
+	}
+	
+	/**
+	 * format -> <key>'='<value> (per line)
+	 * 
+	 * @param outputFilePath path of the file to write to
+	 * @param keyValues map
+	 * @throws Exception
+	 */
+	public static void writeKeyValuesMapToFile(String outputFilePath, Map<String, String> keyValues) throws Exception{
+		PrintWriter writer = new PrintWriter(outputFilePath);
+		for(Map.Entry<String, String> entry : keyValues.entrySet()){
+			String key = entry.getKey();
+			String value = entry.getValue();
+			writer.println(key + "=" + value);
+		}
+		writer.close();
 	}
 	
 	public static boolean fileExists(String filepath){

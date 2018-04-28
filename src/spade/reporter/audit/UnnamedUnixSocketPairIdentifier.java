@@ -17,19 +17,34 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-
 package spade.reporter.audit;
 
-public class UnixSocketIdentifier extends IdentifierWithPath{
+import java.util.Map;
 
-	private static final long serialVersionUID = 7736301923798421533L;
+public class UnnamedUnixSocketPairIdentifier extends FdPairIdentifier{
 
-	public UnixSocketIdentifier(String path){
-		super(path);
+	private static final long serialVersionUID = 9009374043657988074L;
+
+	public UnnamedUnixSocketPairIdentifier(String pid, String fd0, String fd1){
+		super(pid, fd0, fd1);
 	}
 	
-	public String getSubtype(){
-		return OPMConstants.SUBTYPE_UNIX_SOCKET;
+	@Override
+	public Map<String, String> getAnnotationsMap(){
+		Map<String, String> map = super.getAnnotationsMap();
+		map.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
+		map.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
+		return map;
+	}
+
+	@Override
+	public String getSubtype() {
+		return OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR;
 	}
 	
+	@Override
+	public String toString() {
+		return "UnnamedUnixSocketPairIdentifier [pid=" + pid + ", fd0=" + fd0 + ", fd1=" + fd1 + "]";
+	}
+
 }

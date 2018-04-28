@@ -20,9 +20,7 @@
 http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 --------------------------------------------------------------------------------
 	*/
-
 #define _GNU_SOURCE
-
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -72,6 +70,7 @@ typedef int bool;
 #define true 1
 #define false 0
 
+#define MAX_SIGNO 50
 // A struct to keep time as reported in audit log. Upto milliseconds.
 // Doing it this way because double and long values don't seem to work with uthash in the structs where needed
 typedef struct thread_time_t{
@@ -121,6 +120,7 @@ typedef struct unit_table_t {
 		mem_proc_t *mem_proc;
 		mem_unit_t *mem_unit; // mem_write_record in the unit
 		char proc[1024];
+		bool signal_handler[MAX_SIGNO];
 		UT_hash_handle hh;
 } unit_table_t;
 
@@ -183,11 +183,6 @@ event_buf_t *event_buf;
 bool incomplete_record = false;
 
 void syscall_handler(char *buf);
-int get_max_pid();
-
-// Debugging
-long get_mem_usage();
-int count_processes(char *str);
 
 /*
 			Java does not support reading from Unix domain sockets.
@@ -330,7 +325,6 @@ void socket_read(char *programName)
 void read_log(FILE *fp, char* filepath)
 {
 		char buffer[BUFFER_LENGTH];
-		//FILE *fp = stdin;
 
 		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		do{
@@ -687,8 +681,6 @@ void get_timestamp(char *buf, int* seconds, int* millis)
 void set_thread_time(char *buf, thread_time_t* thread_time)
 {
 		get_timestamp(buf, &thread_time->seconds, &thread_time->milliseconds);
-		//thread_time->seconds = (int)time;
-		//thread_time->milliseconds = (int)((time - thread_time->seconds) * 1000);
 }
 
 void set_thread_seen_time_conditionally(int pid, char* buf){
@@ -796,7 +788,6 @@ void loop_exit(unit_table_t *unit, char *buf)
 		// Adding extra space at the end of UBSI_EXIT string below because last character is overwritten with NULL char
 		if(incomplete_record == false && unit->proc[0] != '\0') {
 				sprintf(tmp, "type=UBSI_EXIT msg=ubsi(%.3f:%ld):  ", time, eventId);
-				//sprintf(tmp,  "type=UBSI_EXIT pid=%d  ", unit->cur_unit.tid);
 				emit_log(unit, tmp, false, true);
 				unit->valid = false;
 		}
@@ -847,27 +838,6 @@ void unit_end(unit_table_t *unit, long a1)
 		struct link_unit_t *ut;
 		char *buf;
 		int buf_size;
-/*
-		int link_count = HASH_COUNT(unit->link_unit);
-
-		if(unit->valid == true || link_count > 1) {
-				buf_size = link_count * 200;
-				buf = (char*) malloc(buf_size);
-				bzero(buf, buf_size);
-				// emit linked unit lists;
-				if(unit->link_unit != NULL) {
-						sprintf(buf, "type=UBSI_DEP2 list=\"");
-						for(ut=unit->link_unit; ut != NULL; ut=ut->hh.next) {
-								// < 200 bytes,
-								sprintf(buf+strlen(buf), "(pid=%d thread_time=%d.000 unitid=%d iteration=%d time=%.3lf count=%d),"
-								,ut->id.tid, ut->id.threadtime, ut->id.loopid, ut->id.iteration, ut->id.timestamp, ut->id.count);
-						}
-						sprintf(buf+strlen(buf), "\" ");
-						emit_log(unit, buf, true, true);
-						free(buf);
-				}
-		}
-*/		
 
 		delete_unit_hash(unit->link_unit, unit->mem_unit);
 		unit->link_unit = NULL;
@@ -1042,10 +1012,10 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 
 unit_table_t* add_unit(int tid, int pid, bool valid)
 {
+		int i;
 		struct unit_table_t *ut;
 		ut = malloc(sizeof(struct unit_table_t));
 		assert(ut);
-		//ut->tid = tid;
 		ut->thread.tid = tid;
 		ut->thread.thread_time.seconds = thread_create_time[tid].seconds;
 		ut->thread.thread_time.milliseconds = thread_create_time[tid].milliseconds;
@@ -1064,7 +1034,9 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->mem_proc = NULL;
 		ut->mem_unit = NULL;
 		bzero(ut->proc, 1024);
-		//HASH_ADD_INT(unit_table, tid, ut);
+		for(i = 0; i < MAX_SIGNO; i++) {
+				ut->signal_handler[i] = false;
+		}
 		HASH_ADD(hh, unit_table, thread, sizeof(thread_t), ut);
 		return ut;
 }
@@ -1138,7 +1110,6 @@ void set_pid(int tid, int pid)
 		th_parent.thread_time.seconds = thread_create_time[pid].seconds;
 		th_parent.thread_time.milliseconds = thread_create_time[pid].milliseconds;
 		HASH_FIND(hh, unit_table, &th_parent, sizeof(thread_t), ut);  /* looking for parent thread's pid */
-		//HASH_FIND_INT(unit_table, &pid, ut);  /* looking for parent thread's pid */
 
 		if(ut == NULL) ppid = pid;
 		else ppid = ut->pid;
@@ -1149,7 +1120,6 @@ void set_pid(int tid, int pid)
 		th_child.thread_time.seconds = thread_create_time[tid].seconds;
 		th_child.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th_child, sizeof(thread_t), ut);  /* id already in the hash? */
-		//HASH_FIND_INT(unit_table, &tid, ut);  /* id already in the hash? */
 		if (ut == NULL) {
 				ut = add_unit(tid, ppid, 0);
 		} else {
@@ -1157,7 +1127,6 @@ void set_pid(int tid, int pid)
 		}
 
 		set_thread_group_leader(th_child, th_parent);
-		//print_thread_group(th_child);
 }
 
 void UBSI_event(long tid, long a0, long a1, char *buf)
@@ -1169,7 +1138,6 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 		th.thread_time.seconds = thread_create_time[tid].seconds;
 		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
-		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
 				isNewUnit = 1;
@@ -1207,12 +1175,11 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 		}
 }
 
-void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
+void non_UBSI_event(long tid, int sysno, bool succ, long a0, long a1, long a2, char *buf)
 {
 		char *ptr;
-		long a2;
+		int time, retno;
 		long ret;
-		int time;
 
 		struct unit_table_t *ut;
 
@@ -1221,7 +1188,6 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 		th.thread_time.seconds = thread_create_time[tid].seconds;
 		th.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		HASH_FIND(hh, unit_table, &th, sizeof(thread_t), ut); 
-		//HASH_FIND_INT(unit_table, &tid, ut);
 
 		if(ut == NULL) {
 				ut = add_unit(tid, tid, 0);
@@ -1231,15 +1197,23 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 
 		if(succ == true && (sysno == 56 || sysno == 57 || sysno == 58)) // clone or fork
 		{
-				ptr = strstr(buf, " a2=");
-				if(ptr == NULL) return;
-				a2 = strtol(ptr+4, NULL, 16);
 				ptr = strstr(buf, " exit=");
 				if(ptr == NULL) return;
-				ret = strtol(ptr+6, NULL, 10);
+
+				retno = sscanf(ptr, " exit=%ld", &ret);
+				if(retno != 1) return;
+
+				unit_table_t *child_ut;
+				thread_t child_th;
+				child_th.tid = ret;
+				child_th.thread_time.seconds = thread_create_time[ret].seconds;
+				child_th.thread_time.milliseconds = thread_create_time[ret].milliseconds;
+				HASH_FIND(hh, unit_table, &child_th, sizeof(thread_t), child_ut); 
+				
+				if(child_ut != NULL) proc_end(child_ut);
 
 				set_thread_time(buf, &thread_create_time[ret]); /* set thread_create_time */
-				if(a2 > 0) { // thread_creat event
+				if(sysno == 56 && a2 > 0) { // thread_creat event
 						set_pid(ret, tid);
 				}
 		} else if(succ == true && ( sysno == 59 || sysno == 322 || sysno == 60 || sysno == 231)) { // execve, exit or exit_group
@@ -1248,7 +1222,7 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 				} else if(sysno == 60) {
 						proc_end(ut);
 				} else {
-						clear_proc(ut);
+						proc_end(ut);
 						if(sysno == 59){ // execve
 								set_thread_time(buf, &thread_create_time[tid]);
 								// updated start time to the time when execve happened. Done to reflect what happens in Audit reporter.
@@ -1258,6 +1232,32 @@ void non_UBSI_event(long tid, int sysno, bool succ, char *buf)
 						// Need to set time to zero because it means that time hasn't been set for this process.
 						// The zero condition is used to set seen time for process otherwise it would be updated each time.
 						thread_create_time[tid].seconds = thread_create_time[tid].milliseconds = 0;
+				}
+		} else if(succ == true && sysno == 62) {
+
+				// clear target process' memory if kill syscall with SIGINT or SIGKILL or SIGTERM
+				// It might cause false negative if the taget process has custom signal hander for SIGTERM or SIGINT
+				if(a1 == SIGINT || a1 == SIGKILL || a1 == SIGTERM) { 
+						unit_table_t *target_ut;
+						thread_t target_thread;
+						target_thread.tid = a0;
+						target_thread.thread_time.seconds = thread_create_time[a0].seconds;
+						target_thread.thread_time.milliseconds = thread_create_time[a0].milliseconds;
+
+						HASH_FIND(hh, unit_table, &target_thread, sizeof(thread_t), target_ut);
+						if(target_ut == NULL) return;
+						if(a1 < MAX_SIGNO) {
+								if(target_ut->signal_handler[a1] == true) return; // If the target process has signal handler, ignore the signal.
+						}
+
+						thread_group_leader_t *target_tgl;
+						HASH_FIND(hh, thread_group_leader_hash, &(target_thread), sizeof(thread_t), target_tgl);
+						if(target_tgl == NULL) proc_end(target_ut);
+						else proc_group_end(target_ut);
+				}
+		} else if(succ == true && sysno == 13) {  // SYS_rt_sigaction. If the thread has signal handlers, signals will not kill it.
+				if(a0 < MAX_SIGNO) {
+						ut->signal_handler[a0] = true;
 				}
 		}
 }
@@ -1342,26 +1342,28 @@ void ubsi_intercepted_handler(char* buf){
 void syscall_handler(char *buf)
 {
 		char *ptr;
-		int sysno;
-		long a0, a1, pid, ppid;
+		int sysno, retno;
+		long a0, a1, a2, a3, pid, ppid;
 		bool succ = false;
 
 		incomplete_record = false;
 
 		ptr = strstr(buf, " syscall=");
-		if(ptr == NULL) {
-				fprintf(stderr, "ERROR: ptr = NULL: %s\n", buf);
-				return;
-		}
-		sysno = strtol(ptr+9, NULL, 10);
-		
-		ptr = strstr(ptr, " ppid=");
 		if(ptr == NULL) return;
-		ppid = strtol(ptr+6, NULL, 10);
 
-		ptr = strstr(ptr, " pid=");
+		retno = sscanf(ptr, " syscall=%d", &sysno);
+		if(retno != 1) return;
+
+		ptr = strstr(buf, " a0=");
 		if(ptr == NULL) return;
-		pid = strtol(ptr+5, NULL, 10);
+
+		retno = sscanf(ptr, " a0=%lx a1=%lx a2=%lx a3=%lx", &a0, &a1, &a2, &a3);
+		if(retno != 4) return;
+
+		ptr = strstr(ptr, " ppid=");
+		retno = sscanf(ptr, " ppid=%ld pid=%ld", &ppid, &pid);
+		
+		if(retno != 2) return;
 
 		succ = get_succ(buf, sysno);
 		
@@ -1370,20 +1372,14 @@ void syscall_handler(char *buf)
 
 		if(sysno == 62)
 		{
-				ptr = strstr(buf, " a0=");
-				if(ptr == NULL) return;
-				a0 = strtol(ptr+4, NULL, 16);
 				if(a0 == UENTRY || a0 == UEXIT || a0 == MREAD1 || a0 == MREAD2 || a0 == MWRITE1 || a0 ==MWRITE2)
 				{
-						ptr = strstr(ptr, " a1=");
-						if(ptr == NULL) return;
-						a1 = strtol(ptr+4, NULL, 16);
 						UBSI_event(pid, a0, a1, buf);
 				} else {
-						non_UBSI_event(pid, sysno, succ, buf);
+						non_UBSI_event(pid, sysno, succ, a0, a1, a2, buf);
 				}
 		} else {
-				non_UBSI_event(pid, sysno, succ, buf);
+				non_UBSI_event(pid, sysno, succ, a0, a1, a2, buf);
 		}
 }
 
@@ -1463,7 +1459,6 @@ int UBSI_buffer(const char *buf)
 											eb = (event_buf_t*) malloc(sizeof(event_buf_t));
 										 assert(eb);
 											eb->id = id;
-											//eb->event = (char*) malloc(sizeof(char) * EVENT_LENGTH);
 											eb->event = (char*) malloc(sizeof(char) * (event_byte+1));
 										 assert(eb->event);
 											eb->event_byte = event_byte;

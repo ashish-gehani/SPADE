@@ -25,6 +25,7 @@ import java.util.Map;
 
 public class MemoryIdentifier extends ArtifactIdentifier{
 	
+	private static final long serialVersionUID = -4838164396726143615L;
 	private String memoryAddress;
 	private String size;
 	private String tgid;
@@ -95,6 +96,11 @@ public class MemoryIdentifier extends ArtifactIdentifier{
 		} else if (!size.equals(other.size))
 			return false;
 		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "MemoryIdentifier [memoryAddress=" + memoryAddress + ", size=" + size + ", tgid=" + tgid + "]";
 	}
 
 }

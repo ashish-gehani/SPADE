@@ -21,7 +21,9 @@
 package spade.reporter.audit;
 
 public class FileIdentifier extends IdentifierWithPath{
-	
+
+	private static final long serialVersionUID = 4297464246093502916L;
+
 	public FileIdentifier(String path){
 		super(path);
 	}

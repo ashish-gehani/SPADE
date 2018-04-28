@@ -30,6 +30,8 @@ import java.util.Map;
 
 public abstract class IdentifierWithPath extends ArtifactIdentifier{
 	
+	private static final long serialVersionUID = 2336830245458423080L;
+	
 	private String path;
 	
 	public IdentifierWithPath(String path){
@@ -73,5 +75,10 @@ public abstract class IdentifierWithPath extends ArtifactIdentifier{
 		} else if (!path.equals(other.path))
 			return false;
 		return true;
+	}
+
+	@Override
+	public String toString() {
+		return this.getClass().getSimpleName() + " [path=" + path + "]";
 	}
 }

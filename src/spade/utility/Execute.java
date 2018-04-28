@@ -113,8 +113,8 @@ public class Execute{
 		 * Note: Can't also use size of standard error because it can contain warnings
 		 * @return true (if exitValue >= 0) else false
 		 */
-		public boolean exitValueIndicatesError(){
-			return exitValue < 0;
+		public boolean hasError(){
+			return exitValue < 0 || !stdErr.isEmpty();
 		}
 		public List<String> getStdOut(){
 			return stdOut;
@@ -123,13 +123,12 @@ public class Execute{
 			return stdErr;
 		}
 		public void log(){
-			if(exitValueIndicatesError()){
+			if(hasError()){
 				logger.log(Level.SEVERE, "Command \"{0}\" failed with error: {1}.", new Object[]{
-						command, getStdErr()});
+						command, stdErr});
 			}else{
 				logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
-						command, getStdOut()
-				});
+						command, stdOut});
 			}
 		}
 	}

@@ -37,8 +37,8 @@
 /* 
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
  * Don't need to synchronize 'stop' variable modification because it can only be set by a kernel module and only one
- * kernel module is calling the function which updates it at the moment. Since only instance of a kernel module can be 
- * added at a time which ensures no concurrent updates.
+ * kernel module is updating it at the moment. Also, only one instance of a kernel module can be added at a time
+ * hence ensuring no concurrent updates.
  */
 static volatile int stop = 1;
 
@@ -505,7 +505,7 @@ static int __init onload(void) {
 	int success = -1;
 	syscall_table_address = kallsyms_lookup_name("sys_call_table");
 	//printk(KERN_EMERG "sys_call_table address = %lx\n", syscall_table_address);
-	if (syscall_table_address != 0){
+	if(syscall_table_address != 0){
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
 		write_cr0 (read_cr0 () & (~ 0x10000));
 		original_kill = (void *)syscall_table[__NR_kill];
@@ -533,7 +533,7 @@ static int __init onload(void) {
 		write_cr0 (read_cr0 () | 0x10000);
 		printk(KERN_EMERG "[netio] system call table hooked\n");
 		success = 0;
-	} else {
+	}else{
 		printk(KERN_EMERG "[netio] system call table address not initialized\n");
 		success = -1;
 	}

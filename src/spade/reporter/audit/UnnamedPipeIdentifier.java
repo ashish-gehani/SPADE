@@ -20,30 +20,19 @@
 
 package spade.reporter.audit;
 
-import java.util.HashMap;
 import java.util.Map;
 
-public class UnnamedPipeIdentifier extends ArtifactIdentifier{
+public class UnnamedPipeIdentifier extends FdPairIdentifier{
 
-	private String fd0, fd1;
-	private String pid;
+	private static final long serialVersionUID = -4888235272900911375L;
 	
+	/**
+	 * @param pid owner process id
+	 * @param fd0 read end of the pipe
+	 * @param fd1 write end of the pipe
+	 */
 	public UnnamedPipeIdentifier(String pid, String fd0, String fd1){
-		this.pid = pid;
-		this.fd0 = fd0;
-		this.fd1 = fd1;
-	}
-	
-	public String getPid(){
-		return pid;
-	}
-
-	public String getFd1() {
-		return fd1;
-	}
-
-	public String getFd0() {
-		return fd0;
+		super(pid, fd0, fd1);
 	}
 
 	public String getSubtype(){
@@ -52,49 +41,14 @@ public class UnnamedPipeIdentifier extends ArtifactIdentifier{
 	
 	@Override
 	public Map<String, String> getAnnotationsMap() {
-		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put(OPMConstants.ARTIFACT_READ_FD, fd0);
-		annotations.put(OPMConstants.ARTIFACT_WRITE_FD, fd1);
-		annotations.put(OPMConstants.ARTIFACT_PID, pid);
+		Map<String, String> annotations = super.getAnnotationsMap();
+		annotations.put(OPMConstants.ARTIFACT_READ_FD, String.valueOf(fd0));
+		annotations.put(OPMConstants.ARTIFACT_WRITE_FD, String.valueOf(fd1));
 		return annotations;
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
-		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
-		return result;
+	public String toString() {
+		return "UnnamedPipeIdentifier [fd0=" + fd0 + ", fd1=" + fd1 + ", pid=" + pid + "]";
 	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		UnnamedPipeIdentifier other = (UnnamedPipeIdentifier) obj;
-		if (fd0 == null) {
-			if (other.fd0 != null)
-				return false;
-		} else if (!fd0.equals(other.fd0))
-			return false;
-		if (fd1 == null) {
-			if (other.fd1 != null)
-				return false;
-		} else if (!fd1.equals(other.fd1))
-			return false;
-		if (pid == null) {
-			if (other.pid != null)
-				return false;
-		} else if (!pid.equals(other.pid))
-			return false;
-		return true;
-	}
-	
-	
 }
