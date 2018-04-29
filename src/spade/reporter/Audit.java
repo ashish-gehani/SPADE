@@ -755,10 +755,12 @@ public class Audit extends AbstractReporter {
 		}
 		// Order matters
 		/*
-		 * The rules are going to be appended. So, first add the rules to exclude activity that we don't 
-		 * want and then add the rules for the activity which we want to go to linux audit.
+		 * The rules are going to be inserted because we want to precede any other rules that might already
+		 * exist. That's why the rules are inserted in reverse order so that they are in the order that we want
+		 * them to be. So, first add the rules to exclude activity that we don't  want and then add the rules 
+		 * for the activity which we want to go to linux audit.
 		 */
-		return new String[]{uidOutput, nonNewInput, nonNewOutput, tcpInput, tcpOutput, udpInput, udpOutput};
+		return new String[]{tcpInput, tcpOutput, udpInput, udpOutput, nonNewInput, nonNewOutput, uidOutput};
 	}
 	
 	private void doCleanup(String rulesType, String logListFile){
@@ -1278,7 +1280,8 @@ public class Audit extends AbstractReporter {
 	private boolean setIptablesRules(String[] iptablesRules){
 		try{
 			for(String iptablesRule : iptablesRules){
-				String executeCommand = "iptables -A " + iptablesRule;
+				// Using insert to precede any existing rules
+				String executeCommand = "iptables -I " + iptablesRule;
 				Execute.Output output = Execute.getOutput(executeCommand);
 				output.log();
 				if(output.hasError()){
