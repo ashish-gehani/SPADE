@@ -25,8 +25,8 @@ public class UnnamedUnixSocketPairIdentifier extends FdPairIdentifier{
 
 	private static final long serialVersionUID = 9009374043657988074L;
 
-	public UnnamedUnixSocketPairIdentifier(String pid, String fd0, String fd1){
-		super(pid, fd0, fd1);
+	public UnnamedUnixSocketPairIdentifier(String tgid, String fd0, String fd1){
+		super(tgid, fd0, fd1);
 	}
 	
 	@Override
@@ -44,7 +44,7 @@ public class UnnamedUnixSocketPairIdentifier extends FdPairIdentifier{
 	
 	@Override
 	public String toString() {
-		return "UnnamedUnixSocketPairIdentifier [pid=" + pid + ", fd0=" + fd0 + ", fd1=" + fd1 + "]";
+		return "UnnamedUnixSocketPairIdentifier [tgid=" + tgid + ", fd0=" + fd0 + ", fd1=" + fd1 + "]";
 	}
 
 }

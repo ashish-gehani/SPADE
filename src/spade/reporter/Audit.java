@@ -2260,7 +2260,8 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private UnknownIdentifier addUnknownFd(String pid, String fd){
-		UnknownIdentifier unknown = new UnknownIdentifier(pid, fd);
+		String fdTgid = processManager.getFdTgid(pid);
+		UnknownIdentifier unknown = new UnknownIdentifier(fdTgid, fd);
 		unknown.setOpenedForRead(null);
 		markNewEpochForArtifact(unknown);
 		processManager.setFd(pid, fd, unknown);
@@ -3338,6 +3339,7 @@ public class Audit extends AbstractReporter {
 		String fd1 = eventData.get(AuditEventReader.FD1);
 		String domainString = eventData.get(AuditEventReader.ARG0);
 		String sockTypeString = eventData.get(AuditEventReader.ARG1);
+		String fdTgid = processManager.getFdTgid(pid);
 		
 		int domain = CommonFunctions.parseInt(domainString, null); // Let exception be thrown
 		int sockType = CommonFunctions.parseInt(sockTypeString, null);
@@ -3347,9 +3349,9 @@ public class Audit extends AbstractReporter {
 		ArtifactIdentifier fdIdentifier = null;
 		
 		if(domain == AF_INET || domain == AF_INET6 || domain == PF_INET || domain == PF_INET6){
-			fdIdentifier = new UnnamedNetworkSocketPairIdentifier(pid, fd0, fd1, protocol);
+			fdIdentifier = new UnnamedNetworkSocketPairIdentifier(fdTgid, fd0, fd1, protocol);
 		}else if(domain == AF_LOCAL || domain == AF_UNIX || domain == PF_LOCAL || domain == PF_UNIX){
-			fdIdentifier = new UnnamedUnixSocketPairIdentifier(pid, fd0, fd1);
+			fdIdentifier = new UnnamedUnixSocketPairIdentifier(fdTgid, fd0, fd1);
 		}else{
 			// Unsupported domain
 		}
@@ -3368,11 +3370,11 @@ public class Audit extends AbstractReporter {
 		// - FD_PAIR
 		// - EOE
 		String pid = eventData.get(AuditEventReader.PID);
-
+		String fdTgid = processManager.getFdTgid(pid);
 		String fd0 = eventData.get(AuditEventReader.FD0);
 		String fd1 = eventData.get(AuditEventReader.FD1);
-		ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
-		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
+		ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(fdTgid, fd0, fd1);
+		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(fdTgid, fd0, fd1);
 		processManager.setFd(pid, fd0, readPipeIdentifier, true);
 		processManager.setFd(pid, fd1, writePipeIdentifier, false);
 

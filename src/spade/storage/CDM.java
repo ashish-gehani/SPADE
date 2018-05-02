@@ -657,7 +657,7 @@ public class CDM extends Kafka {
 						return false;
 					}else{
 						Map<CharSequence, CharSequence> properties = new HashMap<>();
-						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
 						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
@@ -668,11 +668,11 @@ public class CDM extends Kafka {
 					
 				}else if(OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR.equals(artifactType)
 						|| OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR.equals(artifactType)){
-					String pid = vertex.getAnnotation(OPMConstants.ARTIFACT_PID);
+					String tgid = vertex.getAnnotation(OPMConstants.ARTIFACT_TGID);
 					String fd0 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD0);
 					String fd1 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD1);
-					if(pid == null || fd0 == null || fd1 == null){
-						logger.log(Level.WARNING, "Error parsing pid/fd0/fd1 in artifact {0}", new Object[]{vertex});
+					if(tgid == null || fd0 == null || fd1 == null){
+						logger.log(Level.WARNING, "Error parsing tgid/fd0/fd1 in artifact {0}", new Object[]{vertex});
 						return false;
 					}else{
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
@@ -680,7 +680,7 @@ public class CDM extends Kafka {
 							Integer protocol = Audit.getProtocolNumber(vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL));
 							properties.put(OPMConstants.ARTIFACT_PROTOCOL, String.valueOf(protocol));
 						}
-						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+						properties.put(OPMConstants.ARTIFACT_TGID, String.valueOf(tgid));
 						properties.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
 						properties.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
 						properties.put(OPMConstants.ARTIFACT_SUBTYPE, artifactType);
@@ -693,15 +693,15 @@ public class CDM extends Kafka {
 					}
 				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
 
-					Integer pid = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_PID), null);
+					Integer tgid = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_TGID), null);
 					Integer fd = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_FD), null);
-					if(fd == null || pid == null){
-						logger.log(Level.WARNING, "Error parsing pid/fd in artifact {0}", new Object[]{vertex});
+					if(fd == null || tgid == null){
+						logger.log(Level.WARNING, "Error parsing tgid/fd in artifact {0}", new Object[]{vertex});
 						return false;
 					}else{
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+						properties.put(OPMConstants.ARTIFACT_TGID, String.valueOf(tgid));
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
 
 						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);

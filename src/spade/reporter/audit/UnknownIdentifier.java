@@ -26,10 +26,10 @@ import java.util.Map;
 public class UnknownIdentifier extends ArtifactIdentifier{
 
 	private static final long serialVersionUID = 6511655756054136851L;
-	private String pid, fd;
+	private String tgid, fd;
 	
-	public UnknownIdentifier(String pid, String fd){
-		this.pid = pid;
+	public UnknownIdentifier(String tgid, String fd){
+		this.tgid = tgid;
 		this.fd = fd;
 	}
 	
@@ -37,14 +37,14 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 		return fd;
 	}
 
-	public String getPID(){
-		return pid;
+	public String getTgid(){
+		return tgid;
 	}
 	
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put(OPMConstants.ARTIFACT_PID, pid);
+		annotations.put(OPMConstants.ARTIFACT_TGID, tgid);
 		annotations.put(OPMConstants.ARTIFACT_FD, fd);
 		return annotations;
 	}
@@ -58,7 +58,7 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((tgid == null) ? 0 : tgid.hashCode());
 		return result;
 	}
 
@@ -76,16 +76,16 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 				return false;
 		} else if (!fd.equals(other.fd))
 			return false;
-		if (pid == null) {
-			if (other.pid != null)
+		if (tgid == null) {
+			if (other.tgid != null)
 				return false;
-		} else if (!pid.equals(other.pid))
+		} else if (!tgid.equals(other.tgid))
 			return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return "UnknownIdentifier [pid=" + pid + ", fd=" + fd + "]";
+		return "UnknownIdentifier [tgid=" + tgid + ", fd=" + fd + "]";
 	}
 }

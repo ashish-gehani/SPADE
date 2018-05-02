@@ -27,12 +27,12 @@ public class UnnamedPipeIdentifier extends FdPairIdentifier{
 	private static final long serialVersionUID = -4888235272900911375L;
 	
 	/**
-	 * @param pid owner process id
+	 * @param tgid owner process's thread group id
 	 * @param fd0 read end of the pipe
 	 * @param fd1 write end of the pipe
 	 */
-	public UnnamedPipeIdentifier(String pid, String fd0, String fd1){
-		super(pid, fd0, fd1);
+	public UnnamedPipeIdentifier(String tgid, String fd0, String fd1){
+		super(tgid, fd0, fd1);
 	}
 
 	public String getSubtype(){
@@ -49,6 +49,6 @@ public class UnnamedPipeIdentifier extends FdPairIdentifier{
 
 	@Override
 	public String toString() {
-		return "UnnamedPipeIdentifier [fd0=" + fd0 + ", fd1=" + fd1 + ", pid=" + pid + "]";
+		return "UnnamedPipeIdentifier [fd0=" + fd0 + ", fd1=" + fd1 + ", tgid=" + tgid + "]";
 	}
 }

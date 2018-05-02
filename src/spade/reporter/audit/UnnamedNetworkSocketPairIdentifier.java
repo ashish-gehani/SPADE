@@ -27,8 +27,8 @@ public class UnnamedNetworkSocketPairIdentifier extends FdPairIdentifier{
 	
 	public final String protocol;
 	
-	public UnnamedNetworkSocketPairIdentifier(String pid, String fd0, String fd1, String protocol){
-		super(pid, fd0, fd1);
+	public UnnamedNetworkSocketPairIdentifier(String tgid, String fd0, String fd1, String protocol){
+		super(tgid, fd0, fd1);
 		this.protocol = protocol;
 	}
 
@@ -73,7 +73,7 @@ public class UnnamedNetworkSocketPairIdentifier extends FdPairIdentifier{
 
 	@Override
 	public String toString() {
-		return "UnnamedNetworkSocketPairIdentifier [protocol=" + protocol + ", pid=" + pid + ", fd0=" + fd0 + ", fd1="
+		return "UnnamedNetworkSocketPairIdentifier [protocol=" + protocol + ", tgid=" + tgid + ", fd0=" + fd0 + ", fd1="
 				+ fd1 + "]";
 	}
 }

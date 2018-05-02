@@ -26,10 +26,10 @@ public abstract class FdPairIdentifier extends ArtifactIdentifier {
 
 	private static final long serialVersionUID = -4930748608565367219L;
 	
-	public final String pid, fd0, fd1;
+	public final String tgid, fd0, fd1;
 	
-	public FdPairIdentifier(String pid, String fd0, String fd1){
-		this.pid = pid;
+	public FdPairIdentifier(String tgid, String fd0, String fd1){
+		this.tgid = tgid;
 		this.fd0 = fd0;
 		this.fd1 = fd1;
 	}
@@ -37,7 +37,7 @@ public abstract class FdPairIdentifier extends ArtifactIdentifier {
 	@Override
 	public Map<String, String> getAnnotationsMap(){
 		Map<String, String> map = new HashMap<String, String>();
-		map.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+		map.put(OPMConstants.ARTIFACT_TGID, String.valueOf(tgid));
 		return map;
 	}
 
@@ -47,7 +47,7 @@ public abstract class FdPairIdentifier extends ArtifactIdentifier {
 		int result = super.hashCode();
 		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
 		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((tgid == null) ? 0 : tgid.hashCode());
 		return result;
 	}
 
@@ -70,10 +70,10 @@ public abstract class FdPairIdentifier extends ArtifactIdentifier {
 				return false;
 		} else if (!fd1.equals(other.fd1))
 			return false;
-		if (pid == null) {
-			if (other.pid != null)
+		if (tgid == null) {
+			if (other.tgid != null)
 				return false;
-		} else if (!pid.equals(other.pid))
+		} else if (!tgid.equals(other.tgid))
 			return false;
 		return true;
 	}

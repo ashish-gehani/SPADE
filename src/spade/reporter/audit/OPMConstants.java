@@ -87,7 +87,7 @@ public class OPMConstants {
 			ARTIFACT_MEMORY_ADDRESS = "memory address",
 			ARTIFACT_PATH = "path",
 			ARTIFACT_PERMISSIONS = "permissions", 
-			ARTIFACT_PID = PROCESS_PID,
+			//ARTIFACT_PID = PROCESS_PID,
 			ARTIFACT_PROTOCOL = "protocol",
 			ARTIFACT_READ_FD = "read fd",
 			ARTIFACT_SIZE = "size",
