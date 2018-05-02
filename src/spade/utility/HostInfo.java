@@ -211,14 +211,26 @@ public class HostInfo{
 		 */
 		private static String readSerialNumberFromDbusFile(){
 			String filepath = "/var/lib/dbus/machine-id";
-			if(FileUtility.fileExists(filepath)){
-				List<String> lines = FileUtility.readLines(filepath);
-				if(lines != null && !lines.isEmpty()){
-					return lines.get(0);
+			try{
+				if(FileUtility.isFileReadable(filepath)){
+					try{
+						List<String> lines = FileUtility.readLines(filepath);
+						if(lines == null || lines.isEmpty()){
+							logger.log(Level.SEVERE, "NULL/Empty lines in file: " + filepath);
+							return null;
+						}else{
+							return lines.get(0);
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to read file: " + filepath, e);
+						return null;
+					}
 				}else{
+					logger.log(Level.SEVERE, "File is not readable: " + filepath);
 					return null;
 				}
-			}else{
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if file is readable: " + filepath, e);
 				return null;
 			}
 		}

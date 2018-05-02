@@ -112,16 +112,26 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 	
 	@Override
 	public void delete() throws Exception{
-		if(FileUtility.fileExists(this.directoryPath)){
-			FileUtility.deleteFile(this.directoryPath);
+		try{
+			if(FileUtility.doesPathExist(directoryPath)){
+				if(!FileUtility.deleteDirectory(directoryPath)){
+					throw new Exception();
+				}
+			}
+		}catch(Exception e){
+			throw new Exception(e.getMessage() + ". Path deletion failed: " + directoryPath);
 		}
 	}
 	
 	public BigInteger sizeInBytesOfPersistedData() throws Exception{
-		if(FileUtility.fileExists(directoryPath)){
-			return FileUtility.getDirectorySizeInBytes(directoryPath);
-		}else{
-			throw new Exception("No directory found at path: " + directoryPath);
+		try{
+			if(FileUtility.doesPathExist(directoryPath)){
+				return FileUtility.getSizeInBytes(directoryPath);
+			}else{
+				throw new Exception("Does not exist");
+			}
+		}catch(Exception e){
+			throw new Exception(e.getMessage() + ". Failed to get size for path: " + directoryPath);
 		}
 	}
 

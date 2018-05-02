@@ -659,29 +659,6 @@ public class Audit extends AbstractReporter {
 	}
 	
 	/**
-	 * Tries to setup the temp directory at the given path.
-	 * 
-	 * Returns true if it already exists or gets created successfully. 
-	 * Else returns false
-	 * 
-	 * @param tempDirectoryPath path of the temp directory to create
-	 * @return true/false
-	 */
-	private boolean setupTempDirectory(String tempDirectoryPath){
-		if(FileUtility.fileExists(tempDirectoryPath)){
-			return true;
-		}else{
-			try{
-				new File(tempDirectoryPath).mkdir();
-				return true;
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create temp directory. Defined in config.", e);
-				return false;
-			}
-		}
-	}
-	
-	/**
 	 * Creates a temp file in the given tempDir from the list of audit log files
 	 * 
 	 * Returns the path of the temp file is that is created successfully
@@ -719,7 +696,7 @@ public class Audit extends AbstractReporter {
 	 * 
 	 * @param inputAuditLogFilePath path of the audit log file
 	 * @param rotate a flag to tell whether to read the rotated logs or not
-	 * @return list if input log files
+	 * @return list if input log files or null if error
 	 */
 	private List<String> getListOfInputAuditLogs(String inputAuditLogFilePath, boolean rotate){
 		// Build a list of audit log files to be read
@@ -730,9 +707,21 @@ public class Audit extends AbstractReporter {
 			//name is the name of the file passed in as argument
 			//can only process 99 logs
 			for(int logCount = 1; logCount<=99; logCount++){
-				if(FileUtility.fileExists(inputAuditLogFilePath + "." + logCount)){
-					inputAuditLogFiles.addFirst(inputAuditLogFilePath + "." + logCount); 
-					//adding first so that they are added in the reverse order
+				String logPath = inputAuditLogFilePath + "." + logCount;
+				try{
+					if(FileUtility.doesPathExist(logPath)){
+						if(FileUtility.isFile(logPath)){
+							if(FileUtility.isFileReadable(logPath)){
+								inputAuditLogFiles.addFirst(logPath); 
+								//adding first so that they are added in the reverse order
+							}else{
+								logger.log(Level.WARNING, "Log skipped because file not readable: " + logPath);
+							}
+						}
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if log path is readable: " + logPath, e);
+					return null;
 				}
 			}
 		}
@@ -772,11 +761,21 @@ public class Audit extends AbstractReporter {
 				removeIptablesRules(iptablesRules);
 			}
 			if(ADD_KM){
-				removeNetworkKernelModule(kernelModuleControllerPath);
+				removeControllerNetworkKernelModule();
 			}
 		}else{
-			if(FileUtility.fileExists(logListFile)){
-				FileUtility.deleteFile(logListFile);
+			try{
+				if(FileUtility.doesPathExist(logListFile)){
+					if(FileUtility.isFile(logListFile)){
+						if(!FileUtility.deleteFile(logListFile)){
+							logger.log(Level.WARNING, "Failed to delete temp log list file: " + logListFile);
+						}
+					}else{
+						logger.log(Level.WARNING, "Failed to delete log list temp file. Not a file: " + logListFile);
+					}
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check and delete log list file: " + logListFile, e);
 			}
 		}
 		if(KEEP_ARTIFACT_PROPERTIES_MAP){
@@ -814,9 +813,16 @@ public class Audit extends AbstractReporter {
 		}
 
 		// Get path of spadeAuditBridge binary from the config file
-		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");		
-		if(!FileUtility.fileExists(spadeAuditBridgeBinaryPath)){
-			logger.log(Level.SEVERE, "Must specify a valid 'spadeAuditBridge' key in config");
+		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");
+		try{
+			if(!FileUtility.isFileReadable(spadeAuditBridgeBinaryPath)){
+				logger.log(Level.SEVERE, "File specified in config by 'spadeAuditBridge' key is not readable: " +
+						spadeAuditBridgeBinaryPath);
+				return false;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to check if file specified in config by 'spadeAuditBridge' key is readable: " +
+					spadeAuditBridgeBinaryPath, e);
 			return false;
 		}
 		
@@ -831,22 +837,24 @@ public class Audit extends AbstractReporter {
 		// Check if the outputLog argument is valid or not
 		outputLogFilePath = argsMap.get("outputLog");
 		if(outputLogFilePath != null){
-			if(!FileUtility.fileCanBeCreated(outputLogFilePath)){
-				logger.log(Level.SEVERE, "Invalid path for 'outputLog' : " + outputLogFilePath);
-				return false;
-			}else{
-				
-				String recordsToRotateOutputLogAfterArgument = argsMap.get("outputLogRotate");
-				if(recordsToRotateOutputLogAfterArgument != null){
-					Long parsedOutputLogRotate = CommonFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
-					if(parsedOutputLogRotate == null){
-						logger.log(Level.SEVERE, "Invalid value for 'outputLogRotate': "+ recordsToRotateOutputLogAfterArgument);
-						return false;
-					}else{
-						recordsToRotateOutputLogAfter = parsedOutputLogRotate;
-					}
+			try{
+				if(!FileUtility.createFile(outputLogFilePath)){
+					logger.log(Level.SEVERE, "Failed to create file specified by 'outputLog' argument: " + outputLogFilePath);
+					return false;
 				}
-				
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to create file specified by 'outputLog' argument: " + outputLogFilePath, e);
+				return false;
+			}
+			String recordsToRotateOutputLogAfterArgument = argsMap.get("outputLogRotate");
+			if(recordsToRotateOutputLogAfterArgument != null){
+				Long parsedOutputLogRotate = CommonFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
+				if(parsedOutputLogRotate == null){
+					logger.log(Level.SEVERE, "Invalid value for 'outputLogRotate': "+ recordsToRotateOutputLogAfterArgument);
+					return false;
+				}else{
+					recordsToRotateOutputLogAfter = parsedOutputLogRotate;
+				}
 			}
 		}
 
@@ -869,9 +877,14 @@ public class Audit extends AbstractReporter {
 			
 			if(inputAuditLogFileArgument != null){
 			
-				if(!FileUtility.fileExists(inputAuditLogFileArgument)){
-					logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
-										+ inputAuditLogFileArgument);
+				try{
+					if(!FileUtility.isFileReadable(inputAuditLogFileArgument)){
+						logger.log(Level.SEVERE, "File specified for 'inputLog' argument not readable: " + inputAuditLogFileArgument);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if file specified for 'inputLog' argument is readable: "
+							+ inputAuditLogFileArgument, e);
 					return false;
 				}
 	
@@ -886,14 +899,28 @@ public class Audit extends AbstractReporter {
 				}
 	
 				List<String> inputAuditLogFiles = getListOfInputAuditLogs(inputAuditLogFileArgument, rotate);
-	
-				logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
+				
+				if(inputAuditLogFiles == null){
+					logger.log(Level.SEVERE, "Failed to get list of input log");
+					return false;
+				}else{
+					logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
+				}
 	
 				// Only needed in case of audit log files and not in case of live audit
 				String tempDirPath = configMap.get("tempDir");
-				if(!setupTempDirectory(tempDirPath)){
+				try{
+					if(!FileUtility.createDirectories(tempDirPath)){
+						logger.log(Level.SEVERE, "Failed to create temp directory defined in config with key 'tempDir': "
+								+ tempDirPath);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to create temp directory defined in config with key 'tempDir': "
+							+ tempDirPath, e);
 					return false;
 				}
+				
 				// Create the input file for spadeAuditBridge to read the audit logs from 
 				logListFile = createLogListFileForSpadeAuditBridge(spadeAuditBridgeBinaryName, inputAuditLogFiles, tempDirPath);
 				if(logListFile == null){
@@ -1376,56 +1403,66 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids, ignorePpids});
 			return false;
 		}else{
-			if(!FileUtility.fileExists(kernelModulePath)){
-				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModulePath);
+			try{
+				if(!FileUtility.isFileReadable(kernelModulePath)){
+					logger.log(Level.SEVERE, "Kernel module path not readable: " + kernelModulePath);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if kernel module path is readable: " + kernelModulePath, e);
 				return false;
-			}else if(!FileUtility.fileExists(kernelModuleControllerPath)){
-				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModuleControllerPath);
+			}
+			try{
+				if(!FileUtility.isFileReadable(kernelModuleControllerPath)){
+					logger.log(Level.SEVERE, "Controller kernel module path not readable: " + kernelModuleControllerPath);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if controller kernel module path is readable: " + kernelModuleControllerPath, e);
 				return false;
-			}else{ // both exist
-				String kernelModuleName = getKernelModuleName(kernelModulePath);
-				if(kernelModuleName != null){
-					String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
-					if(kernelModuleControllerName != null){
-						Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
-						if(kernelModuleControllerExists != null){
-							if(kernelModuleControllerExists){
-								logger.log(Level.SEVERE, "Kernel module controller '"+kernelModuleControllerPath+"' "
-										+ "already exists.");
-								return false;
-							}else{
-								Boolean kernelModuleExists = kernelModuleExists(kernelModuleName);
-								if(kernelModuleExists != null){
-									if(kernelModuleExists == false){
-										// add the main kernel module
-										String kernelModuleAddCommand = "insmod " + kernelModulePath;
-										if(!addKernelModule(kernelModuleAddCommand)){
-											return false;
-										}
-									}
-									// add the controller kernel module
-									StringBuffer pids = new StringBuffer();
-									ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
-									pids.deleteCharAt(pids.length() - 1);// delete trailing comma
-									
-									StringBuffer ppids = new StringBuffer();
-									ignorePpids.forEach(ignorePpid -> {ppids.append(ignorePpid).append(",");});
-									ppids.deleteCharAt(ppids.length() - 1);// delete trailing comma
-									
-									String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
-									
-									String kernelModuleControllerAddCommand = 
-											String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
-											+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
-											+ "ignore_uids=\"%s\"", 
-											kernelModuleControllerPath, uid, pids, ppids,
-											interceptSendRecv ? "1" : "0", ignoreUidsArg);
-									
-									if(!addKernelModule(kernelModuleControllerAddCommand)){
+			}
+			String kernelModuleName = getKernelModuleName(kernelModulePath);
+			if(kernelModuleName != null){
+				String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
+				if(kernelModuleControllerName != null){
+					Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
+					if(kernelModuleControllerExists != null){
+						if(kernelModuleControllerExists){
+							logger.log(Level.SEVERE, "Kernel module controller '"+kernelModuleControllerPath+"' "
+									+ "already exists.");
+							return false;
+						}else{
+							Boolean kernelModuleExists = kernelModuleExists(kernelModuleName);
+							if(kernelModuleExists != null){
+								if(kernelModuleExists == false){
+									// add the main kernel module
+									String kernelModuleAddCommand = "insmod " + kernelModulePath;
+									if(!addKernelModule(kernelModuleAddCommand)){
 										return false;
-									}else{
-										return true;
 									}
+								}
+								// add the controller kernel module
+								StringBuffer pids = new StringBuffer();
+								ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
+								pids.deleteCharAt(pids.length() - 1);// delete trailing comma
+								
+								StringBuffer ppids = new StringBuffer();
+								ignorePpids.forEach(ignorePpid -> {ppids.append(ignorePpid).append(",");});
+								ppids.deleteCharAt(ppids.length() - 1);// delete trailing comma
+								
+								String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
+								
+								String kernelModuleControllerAddCommand = 
+										String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
+										+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
+										+ "ignore_uids=\"%s\"", 
+										kernelModuleControllerPath, uid, pids, ppids,
+										interceptSendRecv ? "1" : "0", ignoreUidsArg);
+								
+								if(!addKernelModule(kernelModuleControllerAddCommand)){
+									return false;
+								}else{
+									return true;
 								}
 							}
 						}
@@ -1436,33 +1473,36 @@ public class Audit extends AbstractReporter {
 		return false;
 	}
 	
-	private boolean removeNetworkKernelModule(String kernelModuleControllerPath){
-		if(FileUtility.fileExists(kernelModuleControllerPath)){
-			String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
-			if(kernelModuleControllerName != null){
-				Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
-				if(kernelModuleControllerExists != null){
-					if(kernelModuleControllerExists){
-						// remove
-						String command = "rmmod " + kernelModuleControllerName;
+	private boolean removeControllerNetworkKernelModule(){
+		String controllerModulePath = kernelModuleControllerPath;
+		if(CommonFunctions.isNullOrEmpty(controllerModulePath)){
+			logger.log(Level.WARNING, "NULL/Empty controller kernel module path: " + controllerModulePath);
+		}else{
+			String controllerModuleName = getKernelModuleName(controllerModulePath);
+			if(CommonFunctions.isNullOrEmpty(controllerModuleName)){
+				logger.log(Level.SEVERE, "Failed to get module name from module path: " + controllerModulePath);
+			}else{
+				Boolean controllerModuleExists = kernelModuleExists(controllerModuleName);
+				if(controllerModuleExists == null){
+					logger.log(Level.SEVERE, "Failed to check if controller module '"+controllerModuleName+"' exists");
+				}else{
+					if(controllerModuleExists ==  false){
+						logger.log(Level.INFO, "Controller kernel module not added : " + controllerModuleName);
+					}else{
+						String command = "rmmod " + controllerModuleName;
 						try{
 							Execute.Output output = Execute.getOutput(command);
 							output.log();
 							return !output.hasError();
 						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command, e);
-							return false;
+							logger.log(Level.SEVERE, "Failed to controller module with command: " + command, e);
 						}
 					}
 				}
 			}
-		}else{
-			logger.log(Level.WARNING, "No module at path: " + kernelModuleControllerPath);
-			return false;
 		}
 		return false;
 	}
-	
 	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, 
 			List<String> ignorePpids, boolean kmAdded){
 		try {

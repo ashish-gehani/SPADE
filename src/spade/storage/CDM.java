@@ -911,13 +911,23 @@ public class CDM extends Kafka {
 		
 		String cdmOutFilePath = Settings.getDefaultOutputFilePath(this.getClass());
 		Map<String, String> cdmOutFileKeyValues = null;
-		if(FileUtility.fileExists(cdmOutFilePath)){
-			try{
-				cdmOutFileKeyValues = FileUtility.readConfigFileAsKeyValueMap(cdmOutFilePath, "=");
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to read file: " + cdmOutFilePath, e);
-				return false;
+		try{
+			if(FileUtility.doesPathExist(cdmOutFilePath)){
+				if(!FileUtility.isFile(cdmOutFilePath)){
+					logger.log(Level.SEVERE, "CDM storage output file not a file: " + cdmOutFilePath);
+					return false;
+				}else{
+					try{
+						cdmOutFileKeyValues = FileUtility.readConfigFileAsKeyValueMap(cdmOutFilePath, "=");
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to read CDM storage output file: " + cdmOutFilePath, e);
+						return false;
+					}
+				}
 			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to check if CDM storage output file is a file: " + cdmOutFilePath, e);
+			return false;
 		}
 		
 		String lastSessionKey = "lastSession";
@@ -990,12 +1000,26 @@ public class CDM extends Kafka {
 							+ "'TrustStorePassword', 'KeyStoreLocation', 'KeyStorePassword', 'KeyPassword'");
 					return false;
 				}
-				if(!FileUtility.fileExists(trustStoreLocation)){
-					logger.log(Level.SEVERE, "Invalid location for trust store 'TrustStoreLocation': " + trustStoreLocation);
+				try{
+					if(!FileUtility.doesPathExist(trustStoreLocation)){
+						logger.log(Level.SEVERE, "Path specified for 'TrustStoreLocation' key in config does not exist: "
+								+ trustStoreLocation);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if path specified for 'TrustStoreLocation' key in config exists: "
+							+ trustStoreLocation, e);
 					return false;
 				}
-				if(!FileUtility.fileExists(keyStoreLocation)){
-					logger.log(Level.SEVERE, "Invalid location for key store 'KeyStoreLocation': " + keyStoreLocation);
+				try{
+					if(!FileUtility.doesPathExist(keyStoreLocation)){
+						logger.log(Level.SEVERE, "Path specified for 'KeyStoreLocation' key in config does not exist: "
+								+ keyStoreLocation);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if path specified for 'KeyStoreLocation' key in config exists: "
+							+ keyStoreLocation, e);
 					return false;
 				}
 			}catch(Exception e){
@@ -1036,10 +1060,16 @@ public class CDM extends Kafka {
 	
 	private boolean writeOutFile(String outFilePath, Map<String, String> keyValues){
 		try{
-			FileUtility.writeKeyValuesMapToFile(outFilePath, keyValues);
-			return true;
+			List<String> lines = CommonFunctions.mapToLines(keyValues, "=");
+			if(lines == null){
+				logger.log(Level.SEVERE, "NULL map for writing out to CDM storage output file");
+				return false;
+			}else{
+				FileUtility.writeLines(outFilePath, lines);
+				return true;
+			}
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to write map ("+keyValues+") to file: " + outFilePath, e);
+			logger.log(Level.SEVERE, "Failed to write map ("+keyValues+") to CDM storage output file: " + outFilePath, e);
 			return false;
 		}
 	}
@@ -1067,13 +1097,18 @@ public class CDM extends Kafka {
 					return null;
 				}
 			}
-			if(FileUtility.fileExists(hostFilePath)){
-				HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
-				AbstractVertex hostVertex = new Artifact();
-				hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
-				return hostVertex;
-			}else{
-				logger.log(Level.SEVERE, "Missing host file at path: " + hostFilePath);
+			try{
+				if(FileUtility.isFileReadable(hostFilePath)){
+					HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
+					AbstractVertex hostVertex = new Artifact();
+					hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
+					return hostVertex;
+				}else{
+					logger.log(Level.SEVERE, "Host info file path is not readable: " + hostFilePath);
+					return null;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if host info file is readable: " + hostFilePath, e);
 				return null;
 			}
 		}
