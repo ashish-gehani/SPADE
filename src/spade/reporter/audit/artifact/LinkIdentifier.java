@@ -18,18 +18,20 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
-public class UnixSocketIdentifier extends IdentifierWithPath{
+import spade.reporter.audit.OPMConstants;
 
-	private static final long serialVersionUID = 7736301923798421533L;
+public class LinkIdentifier extends PathIdentifier{
 
-	public UnixSocketIdentifier(String path){
+	private static final long serialVersionUID = -3222231038037812756L;
+
+	public LinkIdentifier(String path){
 		super(path);
 	}
 	
-	public String getSubtype(){
-		return OPMConstants.SUBTYPE_UNIX_SOCKET;
+	@Override
+	public String getSubtype() {
+		return OPMConstants.SUBTYPE_LINK;
 	}
-	
 }

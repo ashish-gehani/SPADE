@@ -47,26 +47,26 @@ import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
-import spade.reporter.audit.ArtifactIdentifier;
-import spade.reporter.audit.ArtifactProperties;
 import spade.reporter.audit.AuditEventReader;
-import spade.reporter.audit.BlockDeviceIdentifier;
-import spade.reporter.audit.CharacterDeviceIdentifier;
-import spade.reporter.audit.DirectoryIdentifier;
-import spade.reporter.audit.FileIdentifier;
-import spade.reporter.audit.IdentifierWithPath;
-import spade.reporter.audit.LinkIdentifier;
 import spade.reporter.audit.MalformedAuditDataException;
-import spade.reporter.audit.MemoryIdentifier;
-import spade.reporter.audit.NamedPipeIdentifier;
-import spade.reporter.audit.NetworkSocketIdentifier;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
-import spade.reporter.audit.UnixSocketIdentifier;
-import spade.reporter.audit.UnknownIdentifier;
-import spade.reporter.audit.UnnamedNetworkSocketPairIdentifier;
-import spade.reporter.audit.UnnamedPipeIdentifier;
-import spade.reporter.audit.UnnamedUnixSocketPairIdentifier;
+import spade.reporter.audit.artifact.ArtifactIdentifier;
+import spade.reporter.audit.artifact.ArtifactProperties;
+import spade.reporter.audit.artifact.BlockDeviceIdentifier;
+import spade.reporter.audit.artifact.CharacterDeviceIdentifier;
+import spade.reporter.audit.artifact.DirectoryIdentifier;
+import spade.reporter.audit.artifact.FileIdentifier;
+import spade.reporter.audit.artifact.PathIdentifier;
+import spade.reporter.audit.artifact.LinkIdentifier;
+import spade.reporter.audit.artifact.MemoryIdentifier;
+import spade.reporter.audit.artifact.NamedPipeIdentifier;
+import spade.reporter.audit.artifact.NetworkSocketIdentifier;
+import spade.reporter.audit.artifact.UnixSocketIdentifier;
+import spade.reporter.audit.artifact.UnknownIdentifier;
+import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
+import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
+import spade.reporter.audit.artifact.UnnamedUnixSocketPairIdentifier;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
@@ -2507,11 +2507,11 @@ public class Audit extends AbstractReporter {
 				String dirFdString = String.valueOf(dirFd);
 				//if null of if not file then cannot process it
 				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, dirFdString);
-				if(artifactIdentifier == null || !(artifactIdentifier instanceof IdentifierWithPath)){
+				if(artifactIdentifier == null || !(artifactIdentifier instanceof PathIdentifier)){
 					log(Level.INFO, "Expected 'dir' type fd: '" + artifactIdentifier + "'", null, time, eventId, syscall);
 					return;
 				}else{ //is file
-					String dirPath = ((IdentifierWithPath)artifactIdentifier).getPath();
+					String dirPath = ((PathIdentifier)artifactIdentifier).getPath();
 					eventData.put(AuditEventReader.CWD, dirPath); //replace cwd with dirPath to make eventData compatible with open
 				}
 			}
@@ -3072,8 +3072,8 @@ public class Audit extends AbstractReporter {
 				if(artifactIdentifier == null){
 					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.MKNODAT);
 					return;
-				}else if(artifactIdentifier instanceof IdentifierWithPath){
-					String directoryPath = ((IdentifierWithPath)artifactIdentifier).getPath();
+				}else if(artifactIdentifier instanceof PathIdentifier){
+					String directoryPath = ((PathIdentifier)artifactIdentifier).getPath();
 					//update cwd to directoryPath and call handleMknod. the file created path is always relative in this syscall
 					eventData.put(AuditEventReader.CWD, directoryPath);
 				}else{
@@ -4099,13 +4099,13 @@ public class Audit extends AbstractReporter {
 					if(artifactIdentifier == null){
 						log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 						return null;
-					}else if(!(artifactIdentifier instanceof IdentifierWithPath)){
+					}else if(!(artifactIdentifier instanceof PathIdentifier)){
 						log(Level.INFO, "FD with number '"+fd+"' for pid '"+pid+"' must be of type file but is '"+artifactIdentifier.getClass()+"'", null, time, eventId, syscall);
 						return null;
 					}else{
-						path = constructAbsolutePath(path, ((IdentifierWithPath)artifactIdentifier).getPath(), pid);
+						path = constructAbsolutePath(path, ((PathIdentifier)artifactIdentifier).getPath(), pid);
 						if(path == null){
-							log(Level.INFO, "Invalid path ("+((IdentifierWithPath)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
+							log(Level.INFO, "Invalid path ("+((PathIdentifier)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
 							return null;
 						}else{
 							return path;
@@ -4212,7 +4212,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		// Special case: if /dev prefix path then don't version
-		if(artifactIdentifier instanceof IdentifierWithPath){
+		if(artifactIdentifier instanceof PathIdentifier){
 			String path = artifact.getAnnotation(OPMConstants.ARTIFACT_PATH);
 			if(path != null){
 				if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
@@ -4287,7 +4287,7 @@ public class Audit extends AbstractReporter {
 			
 			if(KEEP_PATH_PERMISSIONS){
 				// Permissions for only path based ones
-				if(artifactIdentifier instanceof IdentifierWithPath){
+				if(artifactIdentifier instanceof PathIdentifier){
 					if(permissions != null){
 						added.put(OPMConstants.ARTIFACT_PERMISSIONS, true);
 						artifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, permissions);

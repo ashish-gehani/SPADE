@@ -18,9 +18,11 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
 import java.util.Map;
+
+import spade.reporter.audit.OPMConstants;
 
 public class UnnamedPipeIdentifier extends FdPairIdentifier{
 

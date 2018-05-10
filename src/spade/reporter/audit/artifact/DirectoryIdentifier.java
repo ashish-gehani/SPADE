@@ -18,17 +18,21 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
-public class FileIdentifier extends IdentifierWithPath{
+import spade.reporter.audit.OPMConstants;
 
-	private static final long serialVersionUID = 4297464246093502916L;
+public class DirectoryIdentifier extends PathIdentifier{
 
-	public FileIdentifier(String path){
+	private static final long serialVersionUID = 6683176723268354042L;
+
+	public DirectoryIdentifier(String path){
 		super(path);
 	}
 	
-	public String getSubtype(){
-		return OPMConstants.SUBTYPE_FILE;
+	@Override
+	public String getSubtype() {
+		return OPMConstants.SUBTYPE_DIRECTORY;
 	}
+
 }

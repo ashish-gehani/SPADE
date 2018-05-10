@@ -17,18 +17,20 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit;
 
-public class NamedPipeIdentifier extends IdentifierWithPath{
+package spade.reporter.audit.artifact;
 
-	private static final long serialVersionUID = -243227327860125495L;
+import spade.reporter.audit.OPMConstants;
 
-	public NamedPipeIdentifier(String path){
+public class FileIdentifier extends PathIdentifier{
+
+	private static final long serialVersionUID = 4297464246093502916L;
+
+	public FileIdentifier(String path){
 		super(path);
 	}
 	
 	public String getSubtype(){
-		return OPMConstants.SUBTYPE_NAMED_PIPE;
+		return OPMConstants.SUBTYPE_FILE;
 	}
-	
 }

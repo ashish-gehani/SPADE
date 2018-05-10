@@ -18,9 +18,11 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
 import java.util.Map;
+
+import spade.reporter.audit.VertexIdentifier;
 
 /**
  * A class to be extended by all artifact types to be used in the Audit reporter.

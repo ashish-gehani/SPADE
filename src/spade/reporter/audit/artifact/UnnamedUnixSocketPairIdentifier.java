@@ -17,63 +17,37 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit;
+
+package spade.reporter.audit.artifact;
 
 import java.util.Map;
 
-public class UnnamedNetworkSocketPairIdentifier extends FdPairIdentifier{
+import spade.reporter.audit.OPMConstants;
 
-	private static final long serialVersionUID = -7375847456130740800L;
-	
-	public final String protocol;
-	
-	public UnnamedNetworkSocketPairIdentifier(String tgid, String fd0, String fd1, String protocol){
+public class UnnamedUnixSocketPairIdentifier extends FdPairIdentifier{
+
+	private static final long serialVersionUID = 9009374043657988074L;
+
+	public UnnamedUnixSocketPairIdentifier(String tgid, String fd0, String fd1){
 		super(tgid, fd0, fd1);
-		this.protocol = protocol;
 	}
-
+	
 	@Override
 	public Map<String, String> getAnnotationsMap(){
 		Map<String, String> map = super.getAnnotationsMap();
 		map.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
 		map.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
-		map.put(OPMConstants.ARTIFACT_PROTOCOL, String.valueOf(protocol));
 		return map;
 	}
 
 	@Override
 	public String getSubtype() {
-		return OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR;
+		return OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR;
 	}
-
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = super.hashCode();
-		result = prime * result + ((protocol == null) ? 0 : protocol.hashCode());
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (!super.equals(obj))
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		UnnamedNetworkSocketPairIdentifier other = (UnnamedNetworkSocketPairIdentifier) obj;
-		if (protocol == null) {
-			if (other.protocol != null)
-				return false;
-		} else if (!protocol.equals(other.protocol))
-			return false;
-		return true;
-	}
-
+	
 	@Override
 	public String toString() {
-		return "UnnamedNetworkSocketPairIdentifier [protocol=" + protocol + ", tgid=" + tgid + ", fd0=" + fd0 + ", fd1="
-				+ fd1 + "]";
+		return "UnnamedUnixSocketPairIdentifier [tgid=" + tgid + ", fd0=" + fd0 + ", fd1=" + fd1 + "]";
 	}
+
 }

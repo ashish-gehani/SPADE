@@ -22,7 +22,7 @@ package spade.reporter.audit.process;
 import java.util.HashMap;
 import java.util.Map;
 
-import spade.reporter.audit.ArtifactIdentifier;
+import spade.reporter.audit.artifact.ArtifactIdentifier;
 
 /**
  * Manages any state for the currently active processes

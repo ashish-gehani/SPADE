@@ -18,7 +18,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
 import java.io.Serializable;
 import java.util.HashSet;

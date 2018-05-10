@@ -17,10 +17,13 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit;
+
+package spade.reporter.audit.artifact;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import spade.reporter.audit.OPMConstants;
 
 public abstract class FdPairIdentifier extends ArtifactIdentifier {
 
