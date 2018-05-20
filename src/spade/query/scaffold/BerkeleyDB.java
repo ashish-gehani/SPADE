@@ -17,14 +17,13 @@ import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
 import org.apache.commons.lang.StringUtils;
 import spade.core.AbstractEdge;
-import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.postgresql.PostgreSQL;
 
 import java.io.File;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +34,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.AbstractQuery.COL_VALUE;
+import static spade.core.AbstractQuery.getCurrentStorage;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.DIRECTION;
 import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
@@ -42,8 +42,6 @@ import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
 import static spade.core.AbstractStorage.MAX_DEPTH;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
-import static spade.query.postgresql.PostgreSQL.EDGE_TABLE;
-import static spade.query.postgresql.PostgreSQL.VERTEX_TABLE;
 
 
 /**
@@ -562,91 +560,29 @@ public class BerkeleyDB extends Scaffold
     @Override
     public Graph queryManager(Map<String, List<String>> params)
     {
-        Graph result = new Graph();
-        String hash = params.get(PRIMARY_KEY).get(COL_VALUE);
-        String direction = params.get(DIRECTION).get(0);
-        int maxDepth = Integer.parseInt(params.get(MAX_DEPTH).get(0));
-        Map<String, Set<String>> lineageMap = getLineage(hash, direction, maxDepth);
-        if(lineageMap == null)
-            return result;
-
-        StringBuilder vertexQueryBuilder = new StringBuilder(500);
-        StringBuilder edgeQueryBuilder = new StringBuilder(1000);
         try
         {
-            boolean edgeFound = false;
-            vertexQueryBuilder.append("SELECT * FROM ");
-            vertexQueryBuilder.append(VERTEX_TABLE);
-            vertexQueryBuilder.append(" WHERE ");
-            vertexQueryBuilder.append(PRIMARY_KEY + " IN (");
-            edgeQueryBuilder.append("SELECT * FROM ");
-            edgeQueryBuilder.append(EDGE_TABLE);
-            edgeQueryBuilder.append(" WHERE (");
-            String vertexKey;
-            String neighborKey;
-            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+            String hash = params.get(PRIMARY_KEY).get(COL_VALUE);
+            String direction = params.get(DIRECTION).get(0);
+            int maxDepth = Integer.parseInt(params.get(MAX_DEPTH).get(0));
+            Map<String, Set<String>> lineageMap = getLineage(hash, direction, maxDepth);
+            if(lineageMap != null)
             {
-                vertexKey = CHILD_VERTEX_KEY;
-                neighborKey = PARENT_VERTEX_KEY;
-            }
-            else
-            {
-                vertexKey = PARENT_VERTEX_KEY;
-                neighborKey = CHILD_VERTEX_KEY;
-            }
-            for (Map.Entry<String, Set<String>> entry : lineageMap.entrySet())
-            {
-                String vertexHash = entry.getKey();
-                Set<String> neighbors = entry.getValue();
-                vertexQueryBuilder.append("'");
-                vertexQueryBuilder.append(vertexHash);
-                vertexQueryBuilder.append("'");
-                vertexQueryBuilder.append(", ");
+                String storageName = getCurrentStorage().getClass().getSimpleName();
+                String className = "spade.query." + storageName.toLowerCase() + "." + storageName;
+                Class<?> queryClass = Class.forName(className);
+                Method method = queryClass.getMethod("constructGraphFromLineageMap");
+                Graph result = (Graph) method.invoke(null, lineageMap, direction);
 
-                if(neighbors.size() > 0)
-                {
-                    edgeFound = true;
-                    edgeQueryBuilder.append(vertexKey);
-                    edgeQueryBuilder.append(AbstractQuery.OPERATORS.EQUALS);
-                    edgeQueryBuilder.append("'");
-                    edgeQueryBuilder.append(vertexHash);
-                    edgeQueryBuilder.append("'");
-                    edgeQueryBuilder.append(" AND ");
-                    edgeQueryBuilder.append(neighborKey);
-                    edgeQueryBuilder.append(" IN (");
-                    for(String neighborHash : neighbors)
-                    {
-                        edgeQueryBuilder.append("'");
-                        edgeQueryBuilder.append(neighborHash);
-                        edgeQueryBuilder.append("'");
-                        edgeQueryBuilder.append(", ");
-                    }
-                    String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 2);
-                    edgeQueryBuilder = new StringBuilder(edge_query + ")) OR (");
-                }
-            }
-            String vertex_query = vertexQueryBuilder.substring(0, vertexQueryBuilder.length() - 2);
-            vertexQueryBuilder = new StringBuilder(vertex_query + ");");
-            Set<AbstractVertex> vertexSet = PostgreSQL.prepareVertexSetFromSQLResult(vertexQueryBuilder.toString());
-            result.vertexSet().addAll(vertexSet);
-
-            if(edgeFound)
-            {
-                String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 4);
-                edgeQueryBuilder = new StringBuilder(edge_query + ";");
-                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + vertexQueryBuilder.toString());
-                Logger.getLogger(Scaffold.class.getName()).log(Level.INFO, "Following query: " + edgeQueryBuilder.toString());
-                Set<AbstractEdge> edgeSet = PostgreSQL.prepareEdgeSetFromSQLResult(edgeQueryBuilder.toString());
-                result.edgeSet().addAll(edgeSet);
+                return result;
             }
         }
         catch(Exception ex)
         {
-            Logger.getLogger(Scaffold.class.getName()).log(Level.SEVERE, "Error in Query Manager!", ex);
-            return null;
+            logger.log(Level.SEVERE, "Error in query manager!", ex);
         }
 
-        return result;
+        return null;
     }
 
     private static class Neighbors implements Serializable

@@ -741,6 +741,4 @@ public class PostgreSQL extends SQL
 
         return result;
     }
-
-    public Graph
 }

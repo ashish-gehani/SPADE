@@ -6,6 +6,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
+import spade.core.Graph;
 import spade.core.Vertex;
 
 import java.sql.ResultSet;
@@ -22,6 +23,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
+import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 import static spade.storage.SQL.stripDashes;
@@ -146,4 +148,85 @@ public abstract class PostgreSQL<R, P> extends AbstractQuery<R, P>
 
         return edgeSet;
     }
+
+    public static Graph constructGraphFromLineageMap(Map<String, Set<String>> lineageMap, String direction)
+    {
+        Graph result = new Graph();
+        StringBuilder vertexQueryBuilder = new StringBuilder(500);
+        StringBuilder edgeQueryBuilder = new StringBuilder(1000);
+        try
+        {
+            boolean edgeFound = false;
+            vertexQueryBuilder.append("SELECT * FROM ");
+            vertexQueryBuilder.append(VERTEX_TABLE);
+            vertexQueryBuilder.append(" WHERE ");
+            vertexQueryBuilder.append(PRIMARY_KEY + " IN (");
+            edgeQueryBuilder.append("SELECT * FROM ");
+            edgeQueryBuilder.append(EDGE_TABLE);
+            edgeQueryBuilder.append(" WHERE (");
+            String vertexKey;
+            String neighborKey;
+            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+            {
+                vertexKey = CHILD_VERTEX_KEY;
+                neighborKey = PARENT_VERTEX_KEY;
+            }
+            else
+            {
+                vertexKey = PARENT_VERTEX_KEY;
+                neighborKey = CHILD_VERTEX_KEY;
+            }
+            for (Map.Entry<String, Set<String>> entry : lineageMap.entrySet())
+            {
+                String vertexHash = entry.getKey();
+                Set<String> neighbors = entry.getValue();
+                vertexQueryBuilder.append("'");
+                vertexQueryBuilder.append(vertexHash);
+                vertexQueryBuilder.append("'");
+                vertexQueryBuilder.append(", ");
+
+                if(neighbors.size() > 0)
+                {
+                    edgeFound = true;
+                    edgeQueryBuilder.append(vertexKey);
+                    edgeQueryBuilder.append(AbstractQuery.OPERATORS.EQUALS);
+                    edgeQueryBuilder.append("'");
+                    edgeQueryBuilder.append(vertexHash);
+                    edgeQueryBuilder.append("'");
+                    edgeQueryBuilder.append(" AND ");
+                    edgeQueryBuilder.append(neighborKey);
+                    edgeQueryBuilder.append(" IN (");
+                    for(String neighborHash : neighbors)
+                    {
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(neighborHash);
+                        edgeQueryBuilder.append("'");
+                        edgeQueryBuilder.append(", ");
+                    }
+                    String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 2);
+                    edgeQueryBuilder = new StringBuilder(edge_query + ")) OR (");
+                }
+            }
+            String vertex_query = vertexQueryBuilder.substring(0, vertexQueryBuilder.length() - 2);
+            vertexQueryBuilder = new StringBuilder(vertex_query + ");");
+            Set<AbstractVertex> vertexSet = prepareVertexSetFromSQLResult(vertexQueryBuilder.toString());
+            result.vertexSet().addAll(vertexSet);
+
+            if(edgeFound)
+            {
+                String edge_query = edgeQueryBuilder.substring(0, edgeQueryBuilder.length() - 4);
+                edgeQueryBuilder = new StringBuilder(edge_query + ";");
+                Set<AbstractEdge> edgeSet = prepareEdgeSetFromSQLResult(edgeQueryBuilder.toString());
+                result.edgeSet().addAll(edgeSet);
+            }
+        }
+        catch(Exception ex)
+        {
+            Logger.getLogger(PostgreSQL.class.getName()).log(Level.SEVERE, "Error constructing graph from lineage map!", ex);
+            return null;
+        }
+
+        return result;
+    }
+
 }

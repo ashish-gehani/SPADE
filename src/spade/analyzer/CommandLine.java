@@ -184,7 +184,9 @@ public class CommandLine extends AbstractAnalyzer
                             AbstractQuery queryClass;
                             Class<?> returnType;
                             Object result;
-                            if(USE_SCAFFOLD)
+                            if( (functionName.equalsIgnoreCase("GetLineage") ||
+                                    functionName.equalsIgnoreCase("GetPaths") )
+                                    && USE_SCAFFOLD)
                             {
                                 result = scaffold.queryManager(queryParameters);
                                 returnType = Graph.class;
@@ -195,7 +197,7 @@ public class CommandLine extends AbstractAnalyzer
                                 returnType = Class.forName(getReturnType(functionName));
                                 result = queryClass.execute(queryParameters, resultLimit);
                             }
-                            if(result != null && returnType.isAssignableFrom(result.getClass()))
+                              if(result != null && returnType.isAssignableFrom(result.getClass()))
                             {
                                 if(result instanceof Graph)
                                 {
