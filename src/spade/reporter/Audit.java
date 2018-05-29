@@ -48,6 +48,7 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.reporter.audit.AuditEventReader;
+import spade.reporter.audit.Globals;
 import spade.reporter.audit.MalformedAuditDataException;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
@@ -57,11 +58,11 @@ import spade.reporter.audit.artifact.BlockDeviceIdentifier;
 import spade.reporter.audit.artifact.CharacterDeviceIdentifier;
 import spade.reporter.audit.artifact.DirectoryIdentifier;
 import spade.reporter.audit.artifact.FileIdentifier;
-import spade.reporter.audit.artifact.PathIdentifier;
 import spade.reporter.audit.artifact.LinkIdentifier;
 import spade.reporter.audit.artifact.MemoryIdentifier;
 import spade.reporter.audit.artifact.NamedPipeIdentifier;
 import spade.reporter.audit.artifact.NetworkSocketIdentifier;
+import spade.reporter.audit.artifact.PathIdentifier;
 import spade.reporter.audit.artifact.UnixSocketIdentifier;
 import spade.reporter.audit.artifact.UnknownIdentifier;
 import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
@@ -164,6 +165,8 @@ public class Audit extends AbstractReporter {
 	/********************** NETFILTER - END *************************/
 
 	/********************** BEHAVIOR FLAGS - START *************************/
+	
+	private Globals globals = null;
 	//Reporting variables
 	private boolean reportingEnabled = false;
 	private long reportEveryMs;
@@ -178,29 +181,11 @@ public class Audit extends AbstractReporter {
 	private boolean CREATE_BEEP_UNITS = false;
 	private boolean SIMPLIFY = true;
 	private boolean PROCFS = false;
-	private boolean UNIX_SOCKETS = false;
 	private boolean WAIT_FOR_LOG_END = true;
 	private boolean AGENTS = false;
 	private boolean CONTROL = true;
 	private boolean USE_MEMORY_SYSCALLS = true;
 	private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
-	// Null  -> don't use i.e. the default behavior
-	// True  -> override all other versioning flags and version everything
-	// False -> override all other versioning flags and don't version anything 
-	private Boolean VERSION_ARTIFACTS = null;
-	private boolean VERSION_FILES = true,
-			VERSION_MEMORYS = true,
-			VERSION_NAMED_PIPES = true,
-			VERSION_UNNAMED_PIPES = true,
-			VERSION_UNKNOWNS = true,
-			VERSION_NETWORK_SOCKETS = false,
-			VERSION_UNIX_SOCKETS = true,
-			VERSION_UNNAMED_NETWORK_SOCKET_PAIR = true,
-			VERSION_UNNAMED_UNIX_SOCKET_PAIR = true;
-	private boolean KEEP_VERSIONS = true,
-			KEEP_EPOCHS = true,
-			KEEP_PATH_PERMISSIONS = true,
-			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 	private boolean ANONYMOUS_MMAP = true;
 	private boolean NETFILTER_RULES = false;
 	private boolean REFINE_NET = false;
@@ -367,6 +352,16 @@ public class Audit extends AbstractReporter {
 	 * @return true if all flags had valid values / false if any of the flags had a non-boolean value
 	 */
 	private boolean initFlagsFromArguments(Map<String, String> args){
+		try{
+			globals = Globals.parseArguments(args);
+			if(globals == null){
+				throw new Exception("NULL globals object. Failed to initialize flags.");
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to parse arguments", e);
+			return false;
+		}
+		
 		String argValue = args.get("failfast");
 		if(isValidBoolean(argValue)){
 			FAIL_FAST = parseBoolean(argValue, FAIL_FAST);
@@ -424,14 +419,6 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-		argValue = args.get("unixSockets");
-		if(isValidBoolean(argValue)){
-			UNIX_SOCKETS = parseBoolean(argValue, UNIX_SOCKETS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'unixSockets': " + argValue);
-			return false;
-		}
-		
 		argValue = args.get("waitForLog");
 		if(isValidBoolean(argValue)){
 			WAIT_FOR_LOG_END = parseBoolean(argValue, WAIT_FOR_LOG_END);
@@ -455,118 +442,6 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for 'control': " + argValue);
 			return false;
 		}
-		
-		argValue = args.get("versionNetworkSockets");
-		if(isValidBoolean(argValue)){
-			VERSION_NETWORK_SOCKETS = parseBoolean(argValue, VERSION_NETWORK_SOCKETS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionNetworkSockets': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionFiles");
-		if(isValidBoolean(argValue)){
-			VERSION_FILES = parseBoolean(argValue, VERSION_FILES);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionFiles': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionMemorys");
-		if(isValidBoolean(argValue)){
-			VERSION_MEMORYS = parseBoolean(argValue, VERSION_MEMORYS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionMemorys': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionNamedPipes");
-		if(isValidBoolean(argValue)){
-			VERSION_NAMED_PIPES = parseBoolean(argValue, VERSION_NAMED_PIPES);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionNamedPipes': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnnamedPipes");
-		if(isValidBoolean(argValue)){
-			VERSION_UNNAMED_PIPES = parseBoolean(argValue, VERSION_UNNAMED_PIPES);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedPipes': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnknowns");
-		if(isValidBoolean(argValue)){
-			VERSION_UNKNOWNS = parseBoolean(argValue, VERSION_UNKNOWNS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnknowns': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnixSockets");
-		if(isValidBoolean(argValue)){
-			VERSION_UNIX_SOCKETS = parseBoolean(argValue, VERSION_UNIX_SOCKETS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnixSockets': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnnamedUnixSocketPairs");
-		if(isValidBoolean(argValue)){
-			VERSION_UNNAMED_UNIX_SOCKET_PAIR = parseBoolean(argValue, VERSION_UNNAMED_UNIX_SOCKET_PAIR);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedUnixSocketPairs': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnnamedNetworkSocketPairs");
-		if(isValidBoolean(argValue)){
-			VERSION_UNNAMED_NETWORK_SOCKET_PAIR = parseBoolean(argValue, VERSION_UNNAMED_NETWORK_SOCKET_PAIR);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedNetworkSocketPairs': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionArtifacts");
-		if(argValue == null){
-			// continue. NULL is the default value
-		}else{
-			if(isValidBoolean(argValue)){
-				VERSION_ARTIFACTS = parseBoolean(argValue, true);
-			}else{
-				logger.log(Level.SEVERE, "Invalid flag value for 'versionArtifacts': " + argValue);
-				return false;
-			}
-		}
-		
-		argValue = args.get("versions");
-		if(isValidBoolean(argValue)){
-			KEEP_VERSIONS = parseBoolean(argValue, KEEP_VERSIONS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versions': " + argValue);
-			return false;
-		}
-
-		argValue = args.get("epochs");
-		if(isValidBoolean(argValue)){
-			KEEP_EPOCHS = parseBoolean(argValue, KEEP_EPOCHS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'epochs': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("permissions");
-		if(isValidBoolean(argValue)){
-			KEEP_PATH_PERMISSIONS = parseBoolean(argValue, KEEP_PATH_PERMISSIONS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'permissions': " + argValue);
-			return false;
-		}
-		
-		if(!KEEP_VERSIONS && !KEEP_EPOCHS && !KEEP_PATH_PERMISSIONS){
-			KEEP_ARTIFACT_PROPERTIES_MAP = false;
-		}	
 		
 		// Ignore for now. Changing it now would break code in places.
 		// Sucess always assumed to be '1' for now (default value)
@@ -647,12 +522,12 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}",
-						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS,
-								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
-								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
+                           + "{14}={15}, {16}={17}, {18}={19}",
+						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
+								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST});
+				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
 		}
@@ -778,7 +653,7 @@ public class Audit extends AbstractReporter {
 				logger.log(Level.SEVERE, "Failed to check and delete log list file: " + logListFile, e);
 			}
 		}
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+		if(globals.keepingArtifactPropertiesMap){
 			if(artifactIdentifierToArtifactProperties != null){
 				CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(artifactsMapId, 
 						artifactIdentifierToArtifactProperties);
@@ -1008,7 +883,7 @@ public class Audit extends AbstractReporter {
 		boolean success = true;
 		
 		// Initialize cache data structures
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+		if(globals.keepingArtifactPropertiesMap){
 			if(!initCacheMaps(configMap)){
 				success = false;
 			}
@@ -3947,7 +3822,7 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 			if(identifier instanceof UnixSocketIdentifier || identifier instanceof UnnamedUnixSocketPairIdentifier){
-				if(!UNIX_SOCKETS){
+				if(!globals.unixSockets){
 					return;
 				}
 			}
@@ -4024,7 +3899,7 @@ public class Audit extends AbstractReporter {
 	 */
 	public void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
 		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
-			if(!UNIX_SOCKETS && 
+			if(!globals.unixSockets && 
 					(isUnixSocketArtifact(edge.getChildVertex()) ||
 							isUnixSocketArtifact(edge.getParentVertex()))){
 				return;
@@ -4178,35 +4053,35 @@ public class Audit extends AbstractReporter {
 
 		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
 		if(updateVersion){
-			if(VERSION_ARTIFACTS == null){
+			if(globals.versionArtifacts == null){
 				if(FileIdentifier.class.equals(artifactIdentifierClass)
 						|| DirectoryIdentifier.class.equals(artifactIdentifierClass)
 						|| BlockDeviceIdentifier.class.equals(artifactIdentifierClass)
 						|| CharacterDeviceIdentifier.class.equals(artifactIdentifierClass)
 						|| LinkIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_FILES;
+					updateVersion = globals.versionFiles;
 				}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_MEMORYS;
+					updateVersion = globals.versionMemorys;
 				}else if(NamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_NAMED_PIPES;
+					updateVersion = globals.versionNamedPipes;
 				}else if(UnnamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNNAMED_PIPES;
+					updateVersion = globals.versionUnnamedPipes;
 				}else if(UnknownIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNKNOWNS;
+					updateVersion = globals.versionUnknowns;
 				}else if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_NETWORK_SOCKETS;
+					updateVersion = globals.versionNetworkSockets;
 				}else if(UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNIX_SOCKETS;
+					updateVersion = globals.versionUnixSockets;
 				}else if(UnnamedNetworkSocketPairIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNNAMED_NETWORK_SOCKET_PAIR;
+					updateVersion = globals.versionUnnamedNetworkSocketPairs;
 				}else if(UnnamedUnixSocketPairIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNNAMED_UNIX_SOCKET_PAIR;
+					updateVersion = globals.versionUnnamedUnixSocketPairs;
 				}else{
 					logger.log(Level.WARNING, "Unexpected artifact type: {0}", new Object[]{artifactIdentifierClass});
 				}
-			}else if(VERSION_ARTIFACTS){ //if true
+			}else if(globals.versionArtifacts){ //if true
 				updateVersion = true;
-			}else if(!VERSION_ARTIFACTS){ //if false
+			}else if(!globals.versionArtifacts){ //if false
 				updateVersion = false;
 			}
 		}
@@ -4221,7 +4096,7 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
+		if(globals.keepingArtifactPropertiesMap){
 			
 			/*
 			 * Going to keep all the state if map is being used and just going to choose not to 
@@ -4244,7 +4119,7 @@ public class Audit extends AbstractReporter {
 			
 			ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
 			
-			if(KEEP_VERSIONS && updateVersion){
+			if(globals.versions && updateVersion){
 				artifactProperties.clearAllPermissionsExceptCurrent();
 			}
 
@@ -4271,13 +4146,13 @@ public class Audit extends AbstractReporter {
 				artifactProperties.setCurrentPermissions(permissions);
 			}
 			
-			if(KEEP_VERSIONS){
+			if(globals.versions){
 				added.put(OPMConstants.ARTIFACT_VERSION, true);
 				artifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, 
 						String.valueOf(version));
 			}
 			
-			if(KEEP_EPOCHS){
+			if(globals.epochs){
 				if(!artifactIdentifierClass.equals(MemoryIdentifier.class)){
 					added.put(OPMConstants.ARTIFACT_EPOCH, true);
 					artifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, 
@@ -4285,7 +4160,7 @@ public class Audit extends AbstractReporter {
 				}
 			}
 			
-			if(KEEP_PATH_PERMISSIONS){
+			if(globals.permissions){
 				// Permissions for only path based ones
 				if(artifactIdentifier instanceof PathIdentifier){
 					if(permissions != null){
@@ -4314,7 +4189,7 @@ public class Audit extends AbstractReporter {
 			
 			callPutVertex = callPutVertex || allUninitialized;
 			
-			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
+			if(isUnixSocketArtifact(artifact) && !globals.unixSockets){
 				// Don't do anything
 			}else{
 				
@@ -4323,8 +4198,10 @@ public class Audit extends AbstractReporter {
 				if(callPutVertex){
 					putVertex(artifact);
 					if(!updated.get(OPMConstants.ARTIFACT_EPOCH)){	
-						if((KEEP_VERSIONS && updated.get(OPMConstants.ARTIFACT_VERSION) && added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
-								|| (KEEP_PATH_PERMISSIONS && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) && added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
+						if((globals.versions && updated.get(OPMConstants.ARTIFACT_VERSION) 
+								&& added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
+								|| (globals.permissions && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) 
+										&& added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
 							if(artifactIdentifier instanceof FileIdentifier){
 								putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
 										eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
@@ -4337,7 +4214,7 @@ public class Audit extends AbstractReporter {
 		}else{
 			// If not keeping the artifacts properties map then no way of telling if we should 
 			// call putVertex or not again (possible duplication). So, calling putVertex each time
-			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
+			if(isUnixSocketArtifact(artifact) && !globals.unixSockets){
 				// don't add
 			}else{
 				putVertex(artifact);
@@ -4373,10 +4250,10 @@ public class Audit extends AbstractReporter {
 			long previousVersion, String previousPermissions){
 		Artifact oldArtifact = new Artifact();
 		oldArtifact.addAnnotations(newArtifact.getAnnotations());
-		if(KEEP_VERSIONS && previousVersion > -1){
+		if(globals.versions && previousVersion > -1){
 			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, String.valueOf(previousVersion));
 		}
-		if(KEEP_PATH_PERMISSIONS && previousPermissions != null){
+		if(globals.permissions && previousPermissions != null){
 			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, String.valueOf(previousPermissions));
 		}
 		WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
@@ -4410,8 +4287,8 @@ public class Audit extends AbstractReporter {
 	 * @param artifactIdentifier artifact identifier to get the properties of
 	 */
 	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier){
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			if(KEEP_EPOCHS){			
+		if(globals.keepingArtifactPropertiesMap){
+			if(globals.epochs){			
 				getArtifactProperties(artifactIdentifier).markNewEpoch();
 			}
 		}
