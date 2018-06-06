@@ -95,6 +95,7 @@ public class OPMConstants {
 			ARTIFACT_LOCAL_PORT = "local port",
 			ARTIFACT_SUBTYPE = "subtype",
 			ARTIFACT_TGID = "tgid",
+			ARTIFACT_PID = "pid",
 			ARTIFACT_VERSION = "version",
 			ARTIFACT_WRITE_FD = "write fd",
 			ARTIFACT_HOST_TYPE = "host type",

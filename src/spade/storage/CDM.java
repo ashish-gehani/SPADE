@@ -657,8 +657,8 @@ public class CDM extends Kafka {
 						return false;
 					}else{
 						Map<CharSequence, CharSequence> properties = new HashMap<>();
-						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), OPMConstants.ARTIFACT_PID, properties);
 
 						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
@@ -680,7 +680,7 @@ public class CDM extends Kafka {
 							Integer protocol = Audit.getProtocolNumber(vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL));
 							properties.put(OPMConstants.ARTIFACT_PROTOCOL, String.valueOf(protocol));
 						}
-						properties.put(OPMConstants.ARTIFACT_TGID, String.valueOf(tgid));
+						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
 						properties.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
 						properties.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
 						properties.put(OPMConstants.ARTIFACT_SUBTYPE, artifactType);
@@ -701,7 +701,7 @@ public class CDM extends Kafka {
 					}else{
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-						properties.put(OPMConstants.ARTIFACT_TGID, String.valueOf(tgid));
+						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
 
 						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
@@ -1600,6 +1600,24 @@ public class CDM extends Kafka {
 		if(from != null && to != null){
 			if(from.get(key) != null){
 				to.put(key, from.get(key));
+			}
+		}
+	}
+	
+	/**
+	 * Adds the value of fromkey from the 'from' map to the 'to' map as tokey only if non-null
+	 * 
+	 * If either of the maps null then nothing happens
+	 * 
+	 * @param fromKey key to check for and add as in the from map
+	 * @param from map to get the value for the key from
+	 * @param toKey key to put the value as in the to map
+	 * @param to map to put the value for the key and the key to
+	 */
+	public void addIfNotNull(String fromKey, Map<String, String> from, String toKey, Map<CharSequence, CharSequence> to){
+		if(from != null && to != null){
+			if(from.get(fromKey) != null){
+				to.put(toKey, from.get(fromKey));
 			}
 		}
 	}
