@@ -40,8 +40,7 @@ public class Globals{
 					versionUnnamedNetworkSocketPairsKey = "versionUnnamedNetworkSocketPairs",
 					versionsKey = "versions",
 					epochsKey = "epochs",
-					permissionsKey = "permissions", 
-					versionArtifactsKey = "versionArtifacts";
+					permissionsKey = "permissions";
 	
 	public final boolean unixSockets,
 					versionNetworkSockets,
@@ -57,16 +56,11 @@ public class Globals{
 					epochs,
 					permissions;
 	public final boolean keepingArtifactPropertiesMap;
-	// Null  -> don't use i.e. the default behavior
-	// True  -> override all other versioning flags and version everything
-	// False -> override all other versioning flags and don't version anything
-	public final Boolean versionArtifacts;
 	
 	private Globals(boolean unixSockets, boolean versionNetworkSockets, boolean versionFiles, 
 			boolean versionMemorys, boolean versionNamedPipes, boolean versionUnnamedPipes,
 			boolean versionUnknowns, boolean versionUnixSockets, boolean versionUnnamedUnixSocketPairs,
-			boolean versionUnnamedNetworkSocketPairs, boolean versions, boolean epochs, boolean permissions, 
-			Boolean versionArtifacts){
+			boolean versionUnnamedNetworkSocketPairs, boolean versions, boolean epochs, boolean permissions){
 		this.unixSockets = unixSockets;
 		this.versionNetworkSockets = versionNetworkSockets;
 		this.versionFiles = versionFiles;
@@ -77,7 +71,6 @@ public class Globals{
 		this.versionUnixSockets = versionUnixSockets;
 		this.versionUnnamedUnixSocketPairs = versionUnnamedUnixSocketPairs;
 		this.versionUnnamedNetworkSocketPairs = versionUnnamedNetworkSocketPairs;
-		this.versionArtifacts = versionArtifacts;
 		this.versions = versions;
 		this.epochs = epochs;
 		this.permissions = permissions;
@@ -87,14 +80,14 @@ public class Globals{
 	public String toString(){
 		return String.format("Audit flags (Globals): '%s'='%s', '%s'='%s', '%s'='%s', '%s'='%s', '%s'='%s',"
 				+ " '%s'='%s', '%s'='%s', '%s'='%s', '%s'='%s', '%s'='%s',"
-				+ " '%s'='%s', '%s'='%s', '%s'='%s', '%s'='%s'", 
+				+ " '%s'='%s', '%s'='%s', '%s'='%s'", 
 				unixSocketsKey, unixSockets, versionNetworkSocketsKey, versionNetworkSockets,
 				versionFilesKey, versionFiles, versionMemorysKey, versionMemorys,
 				versionNamedPipesKey, versionNamedPipes, versionUnnamedPipesKey, versionUnnamedPipes,
 				versionUnknownsKey, versionUnknowns, versionUnixSocketsKey, versionUnixSockets,
 				versionUnnamedUnixSocketPairsKey, versionUnnamedUnixSocketPairs, 
 				versionUnnamedNetworkSocketPairsKey, versionUnnamedNetworkSocketPairs,
-				versionArtifactsKey, versionArtifacts, versionsKey, versions, epochsKey, epochs,
+				versionsKey, versions, epochsKey, epochs,
 				permissionsKey, permissions);
 	}
 	
@@ -117,8 +110,7 @@ public class Globals{
 				parseBooleanArgument(map, versionUnnamedNetworkSocketPairsKey, false),
 				parseBooleanArgument(map, versionsKey, true),
 				parseBooleanArgument(map, epochsKey, true),
-				parseBooleanArgument(map, permissionsKey, true),
-				parseBooleanArgument(map, versionArtifactsKey, null));
+				parseBooleanArgument(map, permissionsKey, true));
 	}
 	
 	private static Boolean parseBooleanArgument(Map<String, String> map, String key, Boolean defaultValue)
@@ -134,10 +126,10 @@ public class Globals{
 					return defaultValue;
 				}else{
 					if(value.equalsIgnoreCase("true") || value.equalsIgnoreCase("yes") || value.equalsIgnoreCase("1")
-							|| value.equals("on")){
+							|| value.equalsIgnoreCase("on")){
 						return true;
 					}else if(value.equalsIgnoreCase("false") || value.equalsIgnoreCase("no") || value.equalsIgnoreCase("0")
-							|| value.equals("off")){
+							|| value.equalsIgnoreCase("off")){
 						return false;
 					}else{
 						throw new Exception("Invalid value for boolean argument '"+key+"': '"+value+"'");

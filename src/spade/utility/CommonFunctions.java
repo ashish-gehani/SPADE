@@ -169,6 +169,16 @@ public class CommonFunctions {
 		}
 	}
     
+    public static boolean bigIntegerEquals(BigInteger a, BigInteger b){
+		if(a == null && b == null){
+			return true;
+		}else if((a == null && b != null) || (a != null && b == null)){
+			return false;
+		}else{
+			return a.equals(b);
+		}
+	}
+    
     /**
      * Create hex string from ascii
      * 

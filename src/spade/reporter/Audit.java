@@ -37,7 +37,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
@@ -53,7 +52,7 @@ import spade.reporter.audit.MalformedAuditDataException;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
 import spade.reporter.audit.artifact.ArtifactIdentifier;
-import spade.reporter.audit.artifact.ArtifactProperties;
+import spade.reporter.audit.artifact.ArtifactManager;
 import spade.reporter.audit.artifact.BlockDeviceIdentifier;
 import spade.reporter.audit.artifact.CharacterDeviceIdentifier;
 import spade.reporter.audit.artifact.DirectoryIdentifier;
@@ -73,9 +72,7 @@ import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
-import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
-import spade.utility.Hasher;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -129,13 +126,9 @@ public class Audit extends AbstractReporter {
 	/********************** PROCESS STATE - END *************************/
 	
 	/********************** ARITFACT STATE - START *************************/
-	// Map for artifact infos to versions and bytes read/written on sockets 
-	// Use cases:
-	// 1) Track version
-	// 2) Track epoch
-	// 3) Avoid duplication of artifacts
-	private ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties> artifactIdentifierToArtifactProperties;
-	private final String artifactsMapId = "Audit[ArtifactsMap]";
+	
+	private ArtifactManager artifactManager;
+	
 	/********************** ARTIFACT STATE - END *************************/
 	
 	/********************** NETFILTER - START *************************/
@@ -653,12 +646,8 @@ public class Audit extends AbstractReporter {
 				logger.log(Level.SEVERE, "Failed to check and delete log list file: " + logListFile, e);
 			}
 		}
-		if(globals.keepingArtifactPropertiesMap){
-			if(artifactIdentifierToArtifactProperties != null){
-				CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(artifactsMapId, 
-						artifactIdentifierToArtifactProperties);
-				artifactIdentifierToArtifactProperties = null;
-			}
+		if(artifactManager != null){
+			artifactManager.doCleanUp();
 		}
 		if(processManager != null){
 			processManager.doCleanUp();
@@ -882,9 +871,11 @@ public class Audit extends AbstractReporter {
 		// used to identify failure and do cleanup.
 		boolean success = true;
 		
-		// Initialize cache data structures
-		if(globals.keepingArtifactPropertiesMap){
-			if(!initCacheMaps(configMap)){
+		if(success){
+			try{
+				artifactManager = new ArtifactManager(this, globals);
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to instantiate artifact manager", e);
 				success = false;
 			}
 		}
@@ -1557,32 +1548,6 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private boolean initCacheMaps(Map<String, String> configMap){
-		try{
-			artifactIdentifierToArtifactProperties = CommonFunctions.createExternalMemoryMapInstance(artifactsMapId,
-					configMap.get("artifactsCacheSize"), configMap.get("artifactsBloomfilterFalsePositiveProbability"), 
-					configMap.get("artifactsBloomFilterExpectedNumberOfElements"), configMap.get("tempDir"), 
-					configMap.get("artifactsDatabaseName"), configMap.get("externalMemoryMapReportingIntervalSeconds"),
-					new Hasher<ArtifactIdentifier>(){
-						@Override
-						public String getHash(ArtifactIdentifier t) {
-							if(t != null){
-								Map<String, String> annotations = t.getAnnotationsMap();
-								String subtype = t.getSubtype();
-								String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
-								return DigestUtils.sha256Hex(stringToHash);
-							}else{
-								return DigestUtils.sha256Hex("(null)");
-							}
-						}
-					});
-			return true;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create artifacts external map", e);
-			return false;
-		}
-	}
-
 	private List<String> listOfPidsToIgnore(String ignoreProcesses){
 //		ignoreProcesses argument is a string of process names separated by blank space
 		BufferedReader pidReader = null;
@@ -2127,8 +2092,10 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
 					time, eventId, syscall);
 
+			artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
+			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);
+			Artifact artifact = putArtifactFromSyscall(eventData, artifactIdentifier);
 			WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -2138,7 +2105,7 @@ public class Audit extends AbstractReporter {
 		String fdTgid = processManager.getFdTgid(pid);
 		UnknownIdentifier unknown = new UnknownIdentifier(fdTgid, fd);
 		unknown.setOpenedForRead(null);
-		markNewEpochForArtifact(unknown);
+		artifactManager.artifactCreated(unknown);
 		processManager.setFd(pid, fd, unknown);
 		return unknown;
 	}
@@ -2215,7 +2182,8 @@ public class Audit extends AbstractReporter {
 		Process process = processManager.handleProcessFromSyscall(eventData);		
 		String tgid = processManager.getMemoryTgid(pid);
 		ArtifactIdentifier memoryArtifactIdentifier = new MemoryIdentifier(tgid, address, length);
-		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, null, true);
+		artifactManager.artifactVersioned(memoryArtifactIdentifier);
+		Artifact memoryArtifact = putArtifactFromSyscall(eventData, memoryArtifactIdentifier);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(wgbEdge, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);		
@@ -2237,7 +2205,7 @@ public class Audit extends AbstractReporter {
 				artifactIdentifier = addUnknownFd(pid, fd);
 			}
 	
-			Artifact artifact = putArtifact(eventData, artifactIdentifier, null, false);
+			Artifact artifact = putArtifactFromSyscall(eventData, artifactIdentifier);
 	
 			Used usedEdge = new Used(process, artifact);
 			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
@@ -2267,8 +2235,9 @@ public class Audit extends AbstractReporter {
 
 		String tgid = processManager.getMemoryTgid(pid);
 		
-		ArtifactIdentifier memoryInfo = new MemoryIdentifier(tgid, address, length);
-		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, null, true);
+		ArtifactIdentifier memoryIdentifier = new MemoryIdentifier(tgid, address, length);
+		artifactManager.artifactVersioned(memoryIdentifier);
+		Artifact memoryArtifact = putArtifactFromSyscall(eventData, memoryIdentifier);
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
@@ -2304,7 +2273,8 @@ public class Audit extends AbstractReporter {
 			}        	
 			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType(),
 					time, eventId, syscall);
-			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
+			artifactManager.artifactPermissioned(artifactIdentifier, loadPathRecord.getPermissions());
+			Artifact usedArtifact = putArtifactFromSyscall(eventData, artifactIdentifier);
 			Used usedEdge = new Used(process, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -2441,23 +2411,11 @@ public class Audit extends AbstractReporter {
 			log(Level.INFO, "Missing CWD or PATH record", null, time, eventId, syscall);
 			return;
 		}
-
+		
 		Process process = processManager.handleProcessFromSyscall(eventData);
-
 		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
 				time, eventId, syscall);
-
 		AbstractEdge edge = null;
-
-		if(isCreate){
-
-			//set new epoch
-			markNewEpochForArtifact(artifactIdentifier);
-
-			syscall = SYSCALL.CREATE;
-
-		}
-
 		boolean openedForRead = false;
 		
 		String flagsArgs = "";
@@ -2479,23 +2437,34 @@ public class Audit extends AbstractReporter {
 			flagsArgs = flagsArgs.substring(0, flagsArgs.length() - 1);
 		}
 
+		if(isCreate){
+			artifactManager.artifactCreated(artifactIdentifier);
+			syscall = SYSCALL.CREATE;
+		}
+		
 		if((flags & O_WRONLY) == O_WRONLY || 
 				(flags & O_RDWR) == O_RDWR ||
 				 (flags & O_APPEND) == O_APPEND || 
 				 (flags & O_TRUNC) == O_TRUNC){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), true);
+			if(!isCreate){
+				// If artifact not created
+				artifactManager.artifactVersioned(artifactIdentifier);
+			}
+			artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
+			Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 			edge = new WasGeneratedBy(vertex, process);
 			openedForRead = false;
-		} else if ((flags & O_RDONLY) == O_RDONLY) {
+		}else if((flags & O_RDONLY) == O_RDONLY){
+			artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
 			if(isCreate){
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), true);
+				Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 				edge = new WasGeneratedBy(vertex, process);
 			}else{
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);
+				Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 				edge = new Used(process, vertex);
 			}
 			openedForRead = true;
-		} else {
+		}else{
 			log(Level.INFO, "Unhandled value of FLAGS argument '"+flags+"'", null, time, eventId, syscall);
 			return;
 		}
@@ -2526,22 +2495,24 @@ public class Audit extends AbstractReporter {
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
 			if(closedArtifactIdentifier != null){
 				Process process = processManager.handleProcessFromSyscall(eventData);
-				Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, null, false);
 				AbstractEdge edge = null;
 				Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
 				if(wasOpenedForRead == null){
 					// Not drawing an edge because didn't seen an open or was a 'bound' fd
-				}else if(wasOpenedForRead){
-					edge = new Used(process, artifact);
-				}else {
-					edge = new WasGeneratedBy(artifact, process);
-				}	   
+				}else{
+					Artifact artifact = putArtifactFromSyscall(eventData, closedArtifactIdentifier);
+					if(wasOpenedForRead){
+						edge = new Used(process, artifact);
+					}else{
+						edge = new WasGeneratedBy(artifact, process);
+					}
+				}
 				if(edge != null){
 					putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 				}
 				//after everything done increment epoch is udp socket
 				if(isUdp(closedArtifactIdentifier)){
-					markNewEpochForArtifact(closedArtifactIdentifier);
+					artifactManager.artifactCreated(closedArtifactIdentifier);
 				}
 			}else{
 				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
@@ -2597,7 +2568,9 @@ public class Audit extends AbstractReporter {
 
 		if(artifactIdentifier != null){
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
+			artifactManager.artifactVersioned(artifactIdentifier);
+			artifactManager.artifactPermissioned(artifactIdentifier, permissions);
+			Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}else{
@@ -2639,7 +2612,8 @@ public class Audit extends AbstractReporter {
 			fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+			artifactManager.artifactVersioned(fdOutIdentifier);
+			Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutIdentifier);
 	
 			WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
 			processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
@@ -2657,8 +2631,9 @@ public class Audit extends AbstractReporter {
 		fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
-		Artifact fdInArtifact = putArtifact(eventData, fdInIdentifier, null, false);
-		Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+		Artifact fdInArtifact = putArtifactFromSyscall(eventData, fdInIdentifier);
+		artifactManager.artifactVersioned(fdOutIdentifier);
+		Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutIdentifier);
 
 		Used processToReadArtifact = new Used(process, fdInArtifact);
 		processToReadArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
@@ -2724,7 +2699,7 @@ public class Audit extends AbstractReporter {
 		
 		if(moduleIdentifier != null){
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact module = putArtifact(eventData, moduleIdentifier, null, false);
+			Artifact module = putArtifactFromSyscall(eventData, moduleIdentifier);
 			Used loadedModule = new Used(process, module);
 			putEdge(loadedModule, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -3001,7 +2976,7 @@ public class Audit extends AbstractReporter {
 		}	
 
 		if(artifactIdentifier != null){
-			markNewEpochForArtifact(artifactIdentifier);
+			artifactManager.artifactCreated(artifactIdentifier);
 		}
 	}
 
@@ -3092,13 +3067,15 @@ public class Audit extends AbstractReporter {
 		Process process = processManager.handleProcessFromSyscall(eventData);
 
 		//destination is new so mark epoch
-		markNewEpochForArtifact(dstArtifactIdentifier);
+		artifactManager.artifactCreated(dstArtifactIdentifier);
 
-		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
+		artifactManager.artifactPermissioned(srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode));
+		Artifact srcVertex = putArtifactFromSyscall(eventData, srcArtifactIdentifier);
 		Used used = new Used(process, srcVertex);
 		putEdge(used, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
 
-		Artifact dstVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
+		artifactManager.artifactPermissioned(dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode));
+		Artifact dstVertex = putArtifactFromSyscall(eventData, dstArtifactIdentifier);
 		WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
 		putEdge(wgb, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);
 
@@ -3195,10 +3172,14 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		Process process = processManager.handleProcessFromSyscall(eventData);
 		String mode = new BigInteger(modeArgument).toString(8);
-		mode = PathRecord.parsePermissions(mode);
-		Artifact vertex = putArtifact(eventData, artifactIdentifier, mode, true);
+		String permissions = PathRecord.parsePermissions(mode);
+		
+		artifactManager.artifactVersioned(artifactIdentifier);
+		artifactManager.artifactPermissioned(artifactIdentifier, permissions);
+		
+		Process process = processManager.handleProcessFromSyscall(eventData);
+		Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 		WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 		wgb.addAnnotation(OPMConstants.EDGE_MODE, mode);
 		putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
@@ -3235,7 +3216,7 @@ public class Audit extends AbstractReporter {
 			processManager.setFd(pid, fd0, fdIdentifier, false);
 			processManager.setFd(pid, fd1, fdIdentifier, false);
 			
-			markNewEpochForArtifact(fdIdentifier);
+			artifactManager.artifactCreated(fdIdentifier);
 		}
 	}
 
@@ -3254,7 +3235,7 @@ public class Audit extends AbstractReporter {
 		processManager.setFd(pid, fd1, writePipeIdentifier, false);
 
 		// Since both (read, and write) pipe identifiers are the same, only need to mark epoch on one.
-		markNewEpochForArtifact(readPipeIdentifier);
+		artifactManager.artifactCreated(readPipeIdentifier);
 	}
 	
 	public static Integer getProtocolNumber(String protocolName){
@@ -3434,7 +3415,7 @@ public class Audit extends AbstractReporter {
 			// no need to add to descriptors because we will have the address from other syscalls? TODO
 			processManager.setFd(pid, fd, identifier, null);
 			if(identifier instanceof UnixSocketIdentifier){
-				markNewEpochForArtifact(identifier);
+				artifactManager.artifactCreated(identifier);
 			}
 		}
 	}
@@ -3521,12 +3502,13 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier fdIdentifier, Map<String, String> eventData){
 		if(fdIdentifier != null){
 			if(fdIdentifier instanceof NetworkSocketIdentifier){
-				markNewEpochForArtifact(fdIdentifier);
+				artifactManager.artifactCreated(fdIdentifier);
 			}
 			processManager.setFd(pid, fd, fdIdentifier, false);
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact artifact = putArtifact(eventData, fdIdentifier, null, true);
+			artifactManager.artifactVersioned(fdIdentifier);
+			Artifact artifact = putArtifactFromSyscall(eventData, fdIdentifier);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
@@ -3607,13 +3589,13 @@ public class Audit extends AbstractReporter {
 		// eventData must contain all information need to create a process vertex
 		if(fdIdentifier != null){
 			if(fdIdentifier instanceof NetworkSocketIdentifier){
-				markNewEpochForArtifact(fdIdentifier);
+				artifactManager.artifactCreated(fdIdentifier);
 			}
 			
 			processManager.setFd(pid, fd, fdIdentifier, false);
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact socket = putArtifact(eventData, fdIdentifier, null, false);
+			Artifact socket = putArtifactFromSyscall(eventData, fdIdentifier);
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
@@ -3835,17 +3817,18 @@ public class Audit extends AbstractReporter {
 		if(isNetworkUdp){
 			// Since saddr present that means that it is SOCK_DGRAM.
 			// Epoch for all SOCK_DGRAM
-			markNewEpochForArtifact(identifier);
+			artifactManager.artifactCreated(identifier);
 		}
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
 		Artifact artifact = null;
 		AbstractEdge edge = null;
 		if(incoming){
-			artifact = putArtifact(eventData, identifier, null, false);
+			artifact = putArtifactFromSyscall(eventData, identifier);
 			edge = new Used(process, artifact);
 		}else{
-			artifact = putArtifact(eventData, identifier, null, true);
+			artifactManager.artifactVersioned(identifier);
+			artifact = putArtifactFromSyscall(eventData, identifier);
 			edge = new WasGeneratedBy(artifact, process);
 		}
 		edge.addAnnotation(OPMConstants.EDGE_SIZE, bytesTransferred);
@@ -3884,6 +3867,15 @@ public class Audit extends AbstractReporter {
 		}else{
 			logger.log(level, msgPrefix + msg, exception);
 		}
+	}
+	
+	private Artifact putArtifactFromSyscall(Map<String, String> eventData, ArtifactIdentifier identifier){
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		String source = AUDIT_SYSCALL_SOURCE;
+		String operation = getOperation(SYSCALL.UPDATE);
+		return artifactManager.putArtifact(time, eventId, operation, pid, source, identifier);
 	}
 	
 	/**
@@ -3989,309 +3981,6 @@ public class Audit extends AbstractReporter {
 				}
 			}
 		}    	
-	}
-
-	/**
-	 * Creates the artifact according to the rules decided on for the current version of Audit reporter
-	 * and then puts the artifact in the buffer at the end if it wasn't put before.
-	 * 
-	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
-	 * @param artifactIdentifier artifact to create
-	 * @param permissions permissions as found in the 'mode' key in the PATH audit record (or null)
-	 * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
-	 * @return the created artifact
-	 */
-	private Artifact putArtifact(Map<String, String> eventData, 
-			ArtifactIdentifier artifactIdentifier, String permissions,
-			boolean updateVersion){
-		return putArtifact(eventData, artifactIdentifier, permissions, updateVersion, null);
-	}
-
-	/**
-	 * Creates the artifact according to the rules decided on for the current version of Audit reporter
-	 * and then puts the artifact in the buffer at the end if it wasn't put before.
-	 * 
-	 * Rules:
-	 * 1) If unix socket identifier and unix sockets disabled using {@link #UNIX_SOCKETS UNIX_SOCKETS} then null returned
-	 * 2) If useThisSource param is null then {@link #DEV_AUDIT DEV_AUDIT} is used
-	 * 3) If file identifier, pipe identifier or unix socket identifier and path starts with /dev then set updateVersion to false
-	 * 4) If network socket identifier versioning is false then set updateVersion to false
-	 * 5) If memory identifier then don't put the epoch annotation
-	 * 6) Put vertex to buffer if not added before. We know if it is added before or not based on updateVersion and if version wasn't initialized before this call
-	 * 7) Draw version update edge if file identifier and version has been updated
-	 * 
-	 * NEW: 
-	 * 8) If KEEP_VERSIONS is false then version annotation not added and WDF edge between old and new version not drawn
-	 * 9) If KEEP_EPOCHS is false then epoch annotation not added
-	 * 10) If KEEP_ARTIFACT_PROPERTIES_MAP is false then version and epoch annotations NOT added
-	 * 
-	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
-	 * @param artifactIdentifier artifact to create
-	 * @param permissions permissions as found in the 'mode' key in the PATH audit record (or null)
-	 * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
-	 * @param useThisSource the source value to use. if null then {@link #DEV_AUDIT DEV_AUDIT} is used.
-	 * @return the created artifact
-	 */
-	private Artifact putArtifact(Map<String, String> eventData, 
-			ArtifactIdentifier artifactIdentifier, String permissions, 
-			boolean updateVersion, String useThisSource){
-		if(artifactIdentifier == null){
-			return null;
-		}
-		
-		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
-		
-		Artifact artifact = new Artifact();
-		artifact.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, artifactIdentifier.getSubtype());
-		artifact.addAnnotations(artifactIdentifier.getAnnotationsMap());
-
-		if(useThisSource != null){
-			artifact.addAnnotation(OPMConstants.SOURCE, useThisSource);
-		}else{
-			artifact.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-		}
-
-		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
-		if(updateVersion){
-			if(globals.versionArtifacts == null){
-				if(FileIdentifier.class.equals(artifactIdentifierClass)
-						|| DirectoryIdentifier.class.equals(artifactIdentifierClass)
-						|| BlockDeviceIdentifier.class.equals(artifactIdentifierClass)
-						|| CharacterDeviceIdentifier.class.equals(artifactIdentifierClass)
-						|| LinkIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionFiles;
-				}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionMemorys;
-				}else if(NamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionNamedPipes;
-				}else if(UnnamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionUnnamedPipes;
-				}else if(UnknownIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionUnknowns;
-				}else if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionNetworkSockets;
-				}else if(UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionUnixSockets;
-				}else if(UnnamedNetworkSocketPairIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionUnnamedNetworkSocketPairs;
-				}else if(UnnamedUnixSocketPairIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = globals.versionUnnamedUnixSocketPairs;
-				}else{
-					logger.log(Level.WARNING, "Unexpected artifact type: {0}", new Object[]{artifactIdentifierClass});
-				}
-			}else if(globals.versionArtifacts){ //if true
-				updateVersion = true;
-			}else if(!globals.versionArtifacts){ //if false
-				updateVersion = false;
-			}
-		}
-		
-		// Special case: if /dev prefix path then don't version
-		if(artifactIdentifier instanceof PathIdentifier){
-			String path = artifact.getAnnotation(OPMConstants.ARTIFACT_PATH);
-			if(path != null){
-				if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
-					updateVersion = false;
-				}
-			}
-		}
-		
-		if(globals.keepingArtifactPropertiesMap){
-			
-			/*
-			 * Going to keep all the state if map is being used and just going to choose not to 
-			 * add the relevant annotations
-			 */
-
-			Set<String> syntheticAnnotations = new HashSet<String>();
-			syntheticAnnotations.add(OPMConstants.ARTIFACT_VERSION);
-			syntheticAnnotations.add(OPMConstants.ARTIFACT_EPOCH);
-			syntheticAnnotations.add(OPMConstants.ARTIFACT_PERMISSIONS);
-			
-			Map<String, Boolean> uninitialized = new HashMap<String, Boolean>();
-			Map<String, Boolean> updated = new HashMap<String, Boolean>();
-			Map<String, Boolean> added = new HashMap<String, Boolean>();
-			
-			// Add the default values
-			added.put(OPMConstants.ARTIFACT_VERSION, false);
-			added.put(OPMConstants.ARTIFACT_EPOCH, false);
-			added.put(OPMConstants.ARTIFACT_PERMISSIONS, false);
-			
-			ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
-			
-			if(globals.versions && updateVersion){
-				artifactProperties.clearAllPermissionsExceptCurrent();
-			}
-
-			// Set if annotations have been initialized or not
-			// Version can be reinitialized
-			uninitialized.put(OPMConstants.ARTIFACT_VERSION, artifactProperties.isVersionUninitialized());
-			uninitialized.put(OPMConstants.ARTIFACT_EPOCH, artifactProperties.isEpochUninitialized());
-			uninitialized.put(OPMConstants.ARTIFACT_PERMISSIONS, artifactProperties.isPermissionsUninitialized());
-			
-			// Set if annotations have been updated or not
-			updated.put(OPMConstants.ARTIFACT_VERSION, updateVersion || artifactProperties.isEpochPending());
-			updated.put(OPMConstants.ARTIFACT_EPOCH, artifactProperties.isEpochPending());
-			boolean permissionsUpdated = permissions != null && !artifactProperties.permissionsSeenBefore(permissions);
-			updated.put(OPMConstants.ARTIFACT_PERMISSIONS, permissionsUpdated);
-			
-			// Get values for annotations / this also initializes the annotations
-			Long version = artifactProperties.getVersion(updateVersion);
-			Long epoch = artifactProperties.getEpoch();
-			artifactProperties.initializePermissions();
-			String previousPermissions = artifactProperties.getCurrentPermissions();
-			if(permissions == null){
-				permissions = artifactProperties.getCurrentPermissions();
-			}else{
-				artifactProperties.setCurrentPermissions(permissions);
-			}
-			
-			if(globals.versions){
-				added.put(OPMConstants.ARTIFACT_VERSION, true);
-				artifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, 
-						String.valueOf(version));
-			}
-			
-			if(globals.epochs){
-				if(!artifactIdentifierClass.equals(MemoryIdentifier.class)){
-					added.put(OPMConstants.ARTIFACT_EPOCH, true);
-					artifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, 
-							String.valueOf(epoch));
-				}
-			}
-			
-			if(globals.permissions){
-				// Permissions for only path based ones
-				if(artifactIdentifier instanceof PathIdentifier){
-					if(permissions != null){
-						added.put(OPMConstants.ARTIFACT_PERMISSIONS, true);
-						artifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, permissions);
-					}
-				}
-			}
-			
-			boolean callPutVertex = false;
-			boolean allUninitialized = true;
-			
-			for(String syntheticAnnotation : syntheticAnnotations){
-				
-				boolean callPutVertexForThisAnnotation = false;
-				if(uninitialized.get(syntheticAnnotation)
-						|| updated.get(syntheticAnnotation)){
-					if(added.get(syntheticAnnotation)){
-						callPutVertexForThisAnnotation = true;
-					}
-				}
-				callPutVertex = callPutVertex || callPutVertexForThisAnnotation;
-				allUninitialized = allUninitialized && uninitialized.get(syntheticAnnotation);
-				
-			}
-			
-			callPutVertex = callPutVertex || allUninitialized;
-			
-			if(isUnixSocketArtifact(artifact) && !globals.unixSockets){
-				// Don't do anything
-			}else{
-				
-				// Version / permissions update edge only if the vertex is actually added
-				
-				if(callPutVertex){
-					putVertex(artifact);
-					if(!updated.get(OPMConstants.ARTIFACT_EPOCH)){	
-						if((globals.versions && updated.get(OPMConstants.ARTIFACT_VERSION) 
-								&& added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
-								|| (globals.permissions && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) 
-										&& added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
-							if(artifactIdentifier instanceof FileIdentifier){
-								putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
-										eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
-										version - 1, previousPermissions);
-							}
-						}
-					}
-				}
-			}			
-		}else{
-			// If not keeping the artifacts properties map then no way of telling if we should 
-			// call putVertex or not again (possible duplication). So, calling putVertex each time
-			if(isUnixSocketArtifact(artifact) && !globals.unixSockets){
-				// don't add
-			}else{
-				putVertex(artifact);
-			}
-		}
-
-		return artifact;
-	}
-	
-	/**
-	 * Creates a version or permissions update edge i.e. from the new version/permissions of an artifact 
-	 * to the old version/permissions of the same artifact.
-	 * At the moment only being done for file, namedpipes, and unix socket artifacts. (only for path based artifacts)
-	 * See {@link #putArtifact(Map, ArtifactIdentifier, boolean, String) putArtifact}.
-	 * 
-	 * If the previous version number of the artifact is less than 0 then the edge won't be drawn because that means that there was
-	 * no previous version. 
-	 * 
-	 * Doesn't put the two artifact vertices because they should already have been added from where this function is called
-	 * 
-	 * Rules:
-	 * 1) If epoch was pending and has been incremented then we don't draw this update edge
-	 * 2) 
-	 * 
-	 * 
-	 * @param newArtifact artifact which has the updated version
-	 * @param time timestamp when this happened
-	 * @param eventId event id of the new version of the artifact creation
-	 * @param pid pid of the process which did the update
-	 */
-	private void putVersionPermissionsUpdateEdge(Artifact newArtifact,
-			String time, String eventId, String pid,
-			long previousVersion, String previousPermissions){
-		Artifact oldArtifact = new Artifact();
-		oldArtifact.addAnnotations(newArtifact.getAnnotations());
-		if(globals.versions && previousVersion > -1){
-			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, String.valueOf(previousVersion));
-		}
-		if(globals.permissions && previousPermissions != null){
-			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, String.valueOf(previousPermissions));
-		}
-		WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
-		versionUpdate.addAnnotation(OPMConstants.EDGE_PID, pid);
-		putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, AUDIT_SYSCALL_SOURCE);
-	}
-
-	/**
-	 * Returns artifact properties for the given artifact identifier. If there is no entry for the artifact identifier
-	 * then it adds one for it and returns that. Simply observing it would modify it. Access the data structure 
-	 * {@link #artifactIdentifierToArtifactProperties artifactIdentifierToArtifactProperties} directly if need to see
-	 * if an entry for the given key exists.
-	 * 
-	 * @param artifactIdentifier artifact identifier object to get properties of
-	 * @return returns artifact properties in the map
-	 */
-	private ArtifactProperties getArtifactProperties(ArtifactIdentifier artifactIdentifier){
-		ArtifactProperties artifactProperties = artifactIdentifierToArtifactProperties.get(artifactIdentifier);
-		if(artifactProperties == null){
-			artifactProperties = new ArtifactProperties();
-		}
-		artifactIdentifierToArtifactProperties.put(artifactIdentifier, artifactProperties);
-		return artifactProperties;
-	}
-	
-	/**
-	 * Get the corresponding artifact properties for the artifact identifier and marks a new epoch
-	 * on that. If {@link #KEEP_ARTIFACT_PROPERTIES_MAP KEEP_ARTIFACT_PROPERTIES_MAP} is true 
-	 * then epoch marked otherwise returns without doing anything.
-	 * 
-	 * @param artifactIdentifier artifact identifier to get the properties of
-	 */
-	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier){
-		if(globals.keepingArtifactPropertiesMap){
-			if(globals.epochs){			
-				getArtifactProperties(artifactIdentifier).markNewEpoch();
-			}
-		}
 	}
 	
 	private AddressPort parseNetworkSaddr(String saddr){
