@@ -1,15 +1,15 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2015 SRI International.
- 
+
 JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
 JAVAC_CP = build:lib/*
-JAVAC_OPTIONS = -Xlint:none -proc:none
+JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 AUDIT_KERNEL_MODULES_MAKEFILE = src/spade/reporter/audit/kernel-modules/Makefile
- 
+
 #
 # In Ubuntu, when you install llvm headers, it puts llvm and llvm-c inside version folder.
 # sudo ln -s  llvm-3.6/llvm/ llvm
