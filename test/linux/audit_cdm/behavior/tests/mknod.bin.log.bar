@@ -1,0 +1,3 @@
+node=dtc2 type=SYSCALL msg=audit(1519240621.739:1060294568): arch=c000003e syscall=59 success=yes exit=0 a0=140e988 a1=140aea8 a2=140bc08 a3=7fff214ccc00 items=2 ppid=20688 pid=20689 auid=1004 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=(none) ses=23 comm="mknod.bin" exe="/home/vinod/SPADE/test/linux/audit_cdm/behavior/tests/mknod.bin" key=(null)
+node=dtc2 type=EXECVE msg=audit(1519240621.739:1060294568): argc=1 a0="/home/vinod/SPADE/test/linux/audit_cdm/behavior/tests/mknod.bin"
+node=dtc2 type=CWD msg=audit(1519240621.739:1060294568):  cwd="/home/local"
