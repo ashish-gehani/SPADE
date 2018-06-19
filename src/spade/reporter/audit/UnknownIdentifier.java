@@ -82,4 +82,9 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 			return false;
 		return true;
 	}
+
+	@Override
+	public String toString() {
+		return "UnknownIdentifier [pid=" + pid + ", fd=" + fd + "]";
+	}
 }

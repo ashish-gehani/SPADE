@@ -22,6 +22,7 @@
 package spade.utility;
 
 import java.io.Serializable;
+import java.math.BigInteger;
 
 /**
  * This interface must be implemented by classes that need to be used as external storage for ExternalMemoryMap class
@@ -30,18 +31,7 @@ import java.io.Serializable;
  */
 
 public interface ExternalStore<V extends Serializable>{
-	/**
-	 * Any initialization code required by the external storage
-	 * @return true if successfully initialized
-	 * @throws Exception Any implementation dependent exception
-	 */
-	public boolean init() throws Exception;
-	/**
-	 * Any shutdown to be called when external storage no longer needed
-	 * @return true if successful
-	 * @throws Exception Any implementation dependent exception
-	 */
-	public boolean shutdown() throws Exception;
+	
 	/**
 	 * A function to get the value storage against the provided key
 	 * @param key Key to look for
@@ -72,4 +62,12 @@ public interface ExternalStore<V extends Serializable>{
 	 * @throws Exception Any implementation dependent exception
 	 */
 	public void close() throws Exception;
+	/**
+	 * Delete persisted data (if any)
+	 */
+	public void delete() throws Exception;
+	/**
+	 * Return size in bytes of data persisted
+	 */
+	public BigInteger sizeInBytesOfPersistedData() throws Exception;
 }

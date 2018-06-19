@@ -75,10 +75,11 @@ public class Kernel
 	static
     {
 		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
+		System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp %2$s %4$s: %5$s%6$s%n");
 	}
 
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
+    public static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
 
     /**
      * Path to log files including the prefix.
@@ -88,7 +89,7 @@ public class Kernel
     /**
      * Path to configuration files.
      */
-     private static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
+     public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
@@ -809,7 +810,7 @@ public class Kernel
                     // SPADE thread to extract buffer elements.
                     reporter.arguments = arguments;
                     reporters.add(reporter);
-                    logger.log(Level.INFO, "Reporter added: {0}", className);
+                    logger.log(Level.INFO, "Reporter added: {0}", className + " " + arguments);
                     outputStream.println("done");
                 }
                 else
@@ -881,7 +882,7 @@ public class Kernel
                     storage.edgeCount = 0;
                     storages.add(storage);
                     AbstractQuery.setCurrentStorage(storage);
-                    logger.log(Level.INFO, "Storage added: {0}", className);
+                    logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
                     outputStream.println("done");
                 }
                 else
@@ -949,7 +950,7 @@ public class Kernel
                 }
 
                 filters.add(index, filter);
-                logger.log(Level.INFO, "Filter added: {0}", className);
+                logger.log(Level.INFO, "Filter added: {0}", className + " " + arguments);
                 outputStream.println("done");
 
                 break;
@@ -1006,7 +1007,7 @@ public class Kernel
                         transformers.add(index, transformer);
                     }
 
-                    logger.log(Level.INFO, "Transformer added: {0}", className);
+                    logger.log(Level.INFO, "Transformer added: {0}", className + " " + arguments);
                     outputStream.println("done");
                 }
                 else
