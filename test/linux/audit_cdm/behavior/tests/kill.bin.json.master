@@ -1,0 +1,17 @@
+{"datum":{"com.bbn.tc.schema.avro.cdm18.TimeMarker":{}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.StartMarker":{"sessionNumber":0}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.Host"}}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.Principal":{"type":"PRINCIPAL_LOCAL","userId","username":null,"groupIds:[]","properties":{"map":{"euid"}}}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":{"string":"kill.bin"},"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{"name":"kill.bin",}}}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":null,"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{"name":"kill.bin",,}}}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.Event":{"type":"EVENT_EXECUTE","predicateObject":{},"predicateObjectPath":null,"predicateObject2":null,"predicateObject2Path":null,"name":null,"parameters":null,"location":null,"size":null,"programPoint":null,"properties":{"map":{}}}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.TimeMarker":{}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+
+{"datum":{"com.bbn.tc.schema.avro.cdm18.EndMarker":{"sessionNumber":0,"recordCounts":{"TimeMarker":"2","EndMarker":"1","StartMarker":"1","Host":"1","EVENT_EXECUTE":"1","Principal":"1","SUBJECT_PROCESS":"2"}}},"CDMVersion":"18","source":"SOURCE_LINUX_SYSCALL_TRACE"}
