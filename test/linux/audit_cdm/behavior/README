@@ -1,0 +1,25 @@
+create "local" user.  The wrapper scripts should be run from
+the regular user account.  The scripts use sudo to invoke the
+individual tests as "local" user.  
+
+If you want to have a different name for the TESTUSER than local,
+change gen_audit_spade.sh and set the value of "TESTUSER"
+
+
+set SPADE_HOME in gen_audit_spade.sh
+
+build the binaries
+cd tests
+./build.csh
+
+create master files:
+./gen_master_cdm.csh tests
+
+run unit tests
+./run_gen_audit.csh tests
+
+run unit tests randomly
+./run_rand_audit.csh tests
+
+  
+
