@@ -75,7 +75,7 @@ public abstract class AbstractAnalyzer
         catch(IOException | ClassNotFoundException ex)
         {
             functionToClassMap = new HashMap<>();
-            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!", ex);
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!");
         }
     }
 
@@ -131,7 +131,8 @@ public abstract class AbstractAnalyzer
         List<String> values = functionToClassMap.get(functionName);
         if(values == null)
         {
-            values = Arrays.asList("spade.query.postgresql." + functionName, "Object");
+            String storageName = AbstractQuery.getCurrentStorage().getClass().getSimpleName().toLowerCase();
+            values = Arrays.asList("spade.query." + storageName + "." + functionName, "Object");
         }
 
         return values.get(1);
@@ -177,7 +178,7 @@ public abstract class AbstractAnalyzer
         @Override
         public abstract void run();
 
-        protected abstract void parseQuery(String line);
+        protected abstract boolean parseQuery(String line);
 
         protected Graph iterateTransformers(Graph graph, QueryMetaData queryMetaData)
         {

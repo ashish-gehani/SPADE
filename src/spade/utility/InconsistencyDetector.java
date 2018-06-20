@@ -52,22 +52,22 @@ public class InconsistencyDetector {
 	public void update()
 	{
 		Graph mainCachedGraph = cachedGraphs.iterator().next();
-		for(Graph G: responseGraphs)
+		for(Graph response: responseGraphs)
 		{
-			Map<AbstractVertex,List<AbstractEdge>> outgoingGEdges = outgoingEdges(G);
-			for(AbstractVertex V: G.vertexSet())
+			Map<AbstractVertex, List<AbstractEdge>> outgoingEdges = outgoingEdges(response);
+			for(AbstractVertex responseVertex: response.vertexSet())
 			{
 				// put new vertex in cached graph
-				mainCachedGraph.putVertex(V);
+				mainCachedGraph.putVertex(responseVertex);
 				// update outgoingCachedGraphEdges
-				List<AbstractEdge> cachedEdgeList = outgoingCachedGraphEdges.get(V);
+				List<AbstractEdge> cachedEdgeList = outgoingCachedGraphEdges.get(responseVertex);
 				if(cachedEdgeList == null)
 					cachedEdgeList = new ArrayList<>();
 				// if a list already existed just add the new edges to it
-				cachedEdgeList.addAll(outgoingGEdges.get(V));
-				outgoingCachedGraphEdges.put(V,cachedEdgeList);
+				cachedEdgeList.addAll(outgoingEdges.get(responseVertex));
+				outgoingCachedGraphEdges.put(responseVertex,cachedEdgeList);
 			}
-			for(AbstractEdge e: G.edgeSet())
+			for(AbstractEdge e: response.edgeSet())
 			{
 				mainCachedGraph.putEdge(e);
 			}			
@@ -104,16 +104,16 @@ public class InconsistencyDetector {
 	 * 
 	 * @return true if found inconsistency or false if not
 	 */
-	private int findInconsistency(Graph reference, Graph test)
+	private int findInconsistency(Graph g_earlier, Graph g_later)
 	{
-		SimpleDateFormat referenceTime = new SimpleDateFormat(reference.getComputeTime());
-		SimpleDateFormat testTime = new SimpleDateFormat(test.getComputeTime());	
+		SimpleDateFormat referenceTime = new SimpleDateFormat(g_earlier.getComputeTime());
+		SimpleDateFormat testTime = new SimpleDateFormat(g_later.getComputeTime());
 		// TODO there is no function to compare them
 
 		int inconsistencyCount = 0;
-		Set<AbstractVertex> referenceVertexSet = reference.vertexSet();
-		Set<AbstractVertex> testVertexSet = test.vertexSet();
-		Set<AbstractEdge> testEdgeSet = test.edgeSet();
+		Set<AbstractVertex> referenceVertexSet = g_earlier.vertexSet();
+		Set<AbstractVertex> testVertexSet = g_later.vertexSet();
+		Set<AbstractEdge> testEdgeSet = g_later.edgeSet();
 		for(AbstractVertex x : testVertexSet)
 		{
 			if(!referenceVertexSet.contains(x)) // x is not in ground
@@ -123,7 +123,7 @@ public class InconsistencyDetector {
 				continue;
 			for(AbstractEdge e : referenceEdgeSet)
 			{
-				// x -e-> y and e is in reference and NOT in test
+				// x -e-> y and e is in g_earlier and NOT in g_later
 				if(!testEdgeSet.contains(e))
 				{
 					// y is in testGraph
@@ -132,7 +132,7 @@ public class InconsistencyDetector {
 						logger.log(Level.WARNING, "Inconsistency Detected: missing edge");
 						inconsistencyCount++;
 					}
-					if(x.getDepth() < reference.getMaxDepth())
+					if(x.getDepth() < g_earlier.getMaxDepth())
 					{
 						logger.log(Level.WARNING, "Inconsistency Detected: missing edge and vertex");
 						inconsistencyCount++;

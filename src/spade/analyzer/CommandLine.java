@@ -180,7 +180,11 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         try
                         {
-                            parseQuery(line.trim());
+                            boolean parse_successful = parseQuery(line.trim());
+                            if(!parse_successful)
+                            {
+                                throw new Exception();
+                            }
                             AbstractQuery queryClass;
                             Class<?> returnType;
                             Object result;
@@ -193,11 +197,12 @@ public class CommandLine extends AbstractAnalyzer
                             }
                             else
                             {
-                                queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
+                                String functionClassName = getFunctionClassName(functionName);
+                                queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
                                 returnType = Class.forName(getReturnType(functionName));
                                 result = queryClass.execute(queryParameters, resultLimit);
                             }
-                              if(result != null && returnType.isAssignableFrom(result.getClass()))
+                            if(result != null && returnType.isAssignableFrom(result.getClass()))
                             {
                                 if(result instanceof Graph)
                                 {
@@ -206,7 +211,7 @@ public class CommandLine extends AbstractAnalyzer
                                         logger.log(Level.INFO, "Performing remote resolution.");
                                         //TODO: Could use a factory pattern here to get remote resolver
                                         remoteResolver = new Recursive((Graph) result, functionName,
-                                                        Integer.parseInt(maxLength), direction);
+                                                Integer.parseInt(maxLength), direction);
                                         Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
                                         remoteResolverThread.start();
                                         // wait for thread to complete to get the final graph
@@ -223,9 +228,9 @@ public class CommandLine extends AbstractAnalyzer
                                             inconsistencyDetector.update();
                                         }
                                         // TODO: return the stitched graphs
-                                        for(Graph graph: finalGraphSet)
+                                        for(Graph graph : finalGraphSet)
                                         {
-                                            result = Graph.union((Graph)result, graph);
+                                            result = Graph.union((Graph) result, graph);
                                         }
                                         logger.log(Level.INFO, "Remote resolution completed.");
                                     }
@@ -253,21 +258,12 @@ public class CommandLine extends AbstractAnalyzer
                             queryOutputStream.writeObject(returnType.getName());
                             if(result != null)
                             {
-//                                String string = "Vertices: " + ((Graph) result).vertexSet().size();
-//                                string += ". Edges: " + ((Graph) result).edgeSet().size() + ".\n";
-//                                logger.log(Level.INFO, string);
-//                                string += result.toString();
-//                                logger.log(Level.INFO, string);
-//                                queryOutputStream.writeObject(string);
-                                if(functionName.equals("GetLineage"))
-                                    modifyResult((Graph) result);
                                 queryOutputStream.writeObject(result);
                             }
                             else
                             {
                                 queryOutputStream.writeObject("Result Empty");
                             }
-
                         }
                         catch(Exception ex)
                         {
@@ -352,7 +348,7 @@ public class CommandLine extends AbstractAnalyzer
         }
 
         @Override
-        public void parseQuery(String query_line)
+        public boolean parseQuery(String query_line)
         {
             if(query_line.startsWith("export"))
             {
@@ -437,7 +433,9 @@ public class CommandLine extends AbstractAnalyzer
             catch(Exception ex)
             {
                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query: \n" + query_line, ex);
+                return false;
             }
+            return true;
         }
 
         private Map<String, Object> getQueryMetaData(Graph result)

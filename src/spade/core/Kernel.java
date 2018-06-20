@@ -893,20 +893,28 @@ public class Kernel
                     logger.log(Level.SEVERE, "Unable to find/load class", er);
                     return;
                 }
-                if (storage.initialize(arguments))
+                try
                 {
-                    // The initialize() method must return true to indicate
-                    // successful startup.
-                    storage.arguments = arguments;
-                    storage.vertexCount = 0;
-                    storage.edgeCount = 0;
-                    storages.add(storage);
-                    AbstractQuery.setCurrentStorage(storage);
-                    logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
-                    outputStream.println("done");
+                    if(storage.initialize(arguments))
+                    {
+                        // The initialize() method must return true to indicate
+                        // successful startup.
+                        storage.arguments = arguments;
+                        storage.vertexCount = 0;
+                        storage.edgeCount = 0;
+                        storages.add(storage);
+                        AbstractQuery.setCurrentStorage(storage);
+                        logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
+                        outputStream.println("done");
+                    }
+                    else
+                    {
+                        outputStream.println("failed");
+                    }
                 }
-                else
+                catch(Exception | Error ex)
                 {
+                    logger.log(Level.SEVERE, "Unable to initialize storage!", ex);
                     outputStream.println("failed");
                 }
 
