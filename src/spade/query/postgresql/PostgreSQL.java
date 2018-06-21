@@ -104,12 +104,10 @@ public abstract class PostgreSQL<R, P> extends AbstractQuery<R, P>
                     String value = result.getString(i);
                     if (value != null)
                     {
-                        if (colName != null && !colName.equals(PRIMARY_KEY))
+                        if (!(colName == null || colName.equals(PRIMARY_KEY) ||
+                                colName.equals(CHILD_VERTEX_KEY) ||
+                                colName.equals(PARENT_VERTEX_KEY)))
                         {
-                            if(colName.equals(CHILD_VERTEX_KEY) || colName.equals(PARENT_VERTEX_KEY))
-                            {
-                                value = stripDashes(value);
-                            }
                             annotations.put(colName, value);
                         }
                     }

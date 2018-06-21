@@ -1,43 +1,39 @@
 package spade.query.neo4j;
 
-import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.Result;
 import spade.core.Graph;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import static spade.storage.Neo4j.convertNodeToVertex;
+import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
+import static spade.core.AbstractStorage.PRIMARY_KEY;
+
 /**
  * @author raza
  */
 public class GetChildren extends Neo4j<Graph, Map<String, List<String>>>
 {
+    private static final Logger logger = Logger.getLogger(GetChildren.class.getName());
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {
-        String vertexQuery = prepareGetVertexQuery(parameters, limit);
-        Result result = (Result) currentStorage.executeQuery(vertexQuery);
-        Iterator<Node> nodeSet = result.columnAs(VERTEX_ALIAS);
-        Node node;
-        if(nodeSet.hasNext())
+        try
         {
-            // starting point can only be one vertex
-            node = nodeSet.next();
+            String query = PRIMARY_KEY;
+            List<String> values = parameters.get(PARENT_VERTEX_KEY);
+            query += ":" ;
+            query += values.get(COL_VALUE);
+
+            spade.storage.Neo4j neo4jStorage = (spade.storage.Neo4j) currentStorage;
+            Graph children = neo4jStorage.getChildren(query);
+            return children;
         }
-        else
+        catch (Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error retrieving children!", ex);
             return null;
-        Iterable<Relationship> relationships = node.getRelationships(Direction.INCOMING);
-        Graph children = new Graph();
-        for(Relationship relationship: relationships)
-        {
-            children.putVertex(convertNodeToVertex(relationship.getEndNode()));
         }
-
-
-        return children;
     }
 }
