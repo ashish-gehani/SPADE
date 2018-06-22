@@ -18,54 +18,39 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class UnnamedPipeIdentifier extends ArtifactIdentifier{
+import spade.reporter.audit.OPMConstants;
 
-	private String fd0, fd1;
-	private String pid;
+public abstract class FdPairIdentifier extends ArtifactIdentifier {
+
+	private static final long serialVersionUID = -4930748608565367219L;
 	
-	public UnnamedPipeIdentifier(String pid, String fd0, String fd1){
-		this.pid = pid;
+	public final String tgid, fd0, fd1;
+	
+	public FdPairIdentifier(String tgid, String fd0, String fd1){
+		this.tgid = tgid;
 		this.fd0 = fd0;
 		this.fd1 = fd1;
 	}
 	
-	public String getPid(){
-		return pid;
-	}
-
-	public String getFd1() {
-		return fd1;
-	}
-
-	public String getFd0() {
-		return fd0;
-	}
-
-	public String getSubtype(){
-		return OPMConstants.SUBTYPE_UNNAMED_PIPE;
-	}
-	
 	@Override
-	public Map<String, String> getAnnotationsMap() {
-		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put(OPMConstants.ARTIFACT_READ_FD, fd0);
-		annotations.put(OPMConstants.ARTIFACT_WRITE_FD, fd1);
-		annotations.put(OPMConstants.ARTIFACT_PID, pid);
-		return annotations;
+	public Map<String, String> getAnnotationsMap(){
+		Map<String, String> map = new HashMap<String, String>();
+		map.put(OPMConstants.ARTIFACT_TGID, String.valueOf(tgid));
+		return map;
 	}
 
 	@Override
 	public int hashCode() {
 		final int prime = 31;
-		int result = 1;
+		int result = super.hashCode();
 		result = prime * result + ((fd0 == null) ? 0 : fd0.hashCode());
 		result = prime * result + ((fd1 == null) ? 0 : fd1.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((tgid == null) ? 0 : tgid.hashCode());
 		return result;
 	}
 
@@ -73,11 +58,11 @@ public class UnnamedPipeIdentifier extends ArtifactIdentifier{
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
-		if (obj == null)
+		if (!super.equals(obj))
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		UnnamedPipeIdentifier other = (UnnamedPipeIdentifier) obj;
+		FdPairIdentifier other = (FdPairIdentifier) obj;
 		if (fd0 == null) {
 			if (other.fd0 != null)
 				return false;
@@ -88,13 +73,13 @@ public class UnnamedPipeIdentifier extends ArtifactIdentifier{
 				return false;
 		} else if (!fd1.equals(other.fd1))
 			return false;
-		if (pid == null) {
-			if (other.pid != null)
+		if (tgid == null) {
+			if (other.tgid != null)
 				return false;
-		} else if (!pid.equals(other.pid))
+		} else if (!tgid.equals(other.tgid))
 			return false;
 		return true;
 	}
-	
-	
+
+	public abstract String toString();
 }

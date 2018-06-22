@@ -18,46 +18,47 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class UnknownIdentifier extends ArtifactIdentifier{
+import spade.reporter.audit.OPMConstants;
 
-	private String pid, fd;
-	
-	public UnknownIdentifier(String pid, String fd){
-		this.pid = pid;
-		this.fd = fd;
-	}
-	
-	public String getFD(){
-		return fd;
-	}
+/**
+ * Just a utility class. Added because FileIdentity, NamePipeIdentity and UnixSocketIdentity all have the same implementation.
+ * So they all extend this class
+ */
 
-	public String getPID(){
-		return pid;
+public abstract class PathIdentifier extends ArtifactIdentifier{
+	
+	private static final long serialVersionUID = 2336830245458423080L;
+	
+	private String path;
+	
+	public PathIdentifier(String path){
+		path = path.replace("//", "/");
+		this.path = path;
 	}
 	
 	@Override
-	public Map<String, String> getAnnotationsMap() {
+	public Map<String, String> getAnnotationsMap(){
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put(OPMConstants.ARTIFACT_PID, pid);
-		annotations.put(OPMConstants.ARTIFACT_FD, fd);
+		annotations.put(OPMConstants.ARTIFACT_PATH, path);
 		return annotations;
 	}
 	
-	public String getSubtype(){
-		return OPMConstants.SUBTYPE_UNKNOWN;
+	public String getPath(){
+		return path;
 	}
 	
+	public abstract String getSubtype();
+	
 	@Override
-	public int hashCode(){
+	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
-		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
+		result = prime * result + ((path == null) ? 0 : path.hashCode());
 		return result;
 	}
 
@@ -69,22 +70,17 @@ public class UnknownIdentifier extends ArtifactIdentifier{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		UnknownIdentifier other = (UnknownIdentifier) obj;
-		if (fd == null) {
-			if (other.fd != null)
+		PathIdentifier other = (PathIdentifier) obj;
+		if (path == null) {
+			if (other.path != null)
 				return false;
-		} else if (!fd.equals(other.fd))
-			return false;
-		if (pid == null) {
-			if (other.pid != null)
-				return false;
-		} else if (!pid.equals(other.pid))
+		} else if (!path.equals(other.path))
 			return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return "UnknownIdentifier [pid=" + pid + ", fd=" + fd + "]";
+		return this.getClass().getSimpleName() + " [path=" + path + "]";
 	}
 }

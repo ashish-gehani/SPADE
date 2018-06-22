@@ -18,43 +18,42 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
-import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Just a utility class. Added because FileIdentity, NamePipeIdentity and UnixSocketIdentity all have the same implementation.
- * So they all extend this class
- */
+import spade.reporter.audit.OPMConstants;
 
-public abstract class IdentifierWithPath extends ArtifactIdentifier{
+public class UnnamedNetworkSocketPairIdentifier extends FdPairIdentifier{
+
+	private static final long serialVersionUID = -7375847456130740800L;
 	
-	private String path;
+	public final String protocol;
 	
-	public IdentifierWithPath(String path){
-		path = path.replace("//", "/");
-		this.path = path;
+	public UnnamedNetworkSocketPairIdentifier(String tgid, String fd0, String fd1, String protocol){
+		super(tgid, fd0, fd1);
+		this.protocol = protocol;
 	}
-	
+
 	@Override
 	public Map<String, String> getAnnotationsMap(){
-		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put(OPMConstants.ARTIFACT_PATH, path);
-		return annotations;
+		Map<String, String> map = super.getAnnotationsMap();
+		map.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
+		map.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
+		map.put(OPMConstants.ARTIFACT_PROTOCOL, String.valueOf(protocol));
+		return map;
 	}
-	
-	public String getPath(){
-		return path;
+
+	@Override
+	public String getSubtype() {
+		return OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR;
 	}
-	
-	public abstract String getSubtype();
-	
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((path == null) ? 0 : path.hashCode());
+		int result = super.hashCode();
+		result = prime * result + ((protocol == null) ? 0 : protocol.hashCode());
 		return result;
 	}
 
@@ -62,16 +61,22 @@ public abstract class IdentifierWithPath extends ArtifactIdentifier{
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
-		if (obj == null)
+		if (!super.equals(obj))
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		IdentifierWithPath other = (IdentifierWithPath) obj;
-		if (path == null) {
-			if (other.path != null)
+		UnnamedNetworkSocketPairIdentifier other = (UnnamedNetworkSocketPairIdentifier) obj;
+		if (protocol == null) {
+			if (other.protocol != null)
 				return false;
-		} else if (!path.equals(other.path))
+		} else if (!protocol.equals(other.protocol))
 			return false;
 		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "UnnamedNetworkSocketPairIdentifier [protocol=" + protocol + ", tgid=" + tgid + ", fd0=" + fd0 + ", fd1="
+				+ fd1 + "]";
 	}
 }

@@ -37,7 +37,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
@@ -47,32 +46,33 @@ import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
-import spade.reporter.audit.ArtifactIdentifier;
-import spade.reporter.audit.ArtifactProperties;
 import spade.reporter.audit.AuditEventReader;
-import spade.reporter.audit.BlockDeviceIdentifier;
-import spade.reporter.audit.CharacterDeviceIdentifier;
-import spade.reporter.audit.DirectoryIdentifier;
-import spade.reporter.audit.FileIdentifier;
-import spade.reporter.audit.IdentifierWithPath;
-import spade.reporter.audit.LinkIdentifier;
+import spade.reporter.audit.Globals;
 import spade.reporter.audit.MalformedAuditDataException;
-import spade.reporter.audit.MemoryIdentifier;
-import spade.reporter.audit.NamedPipeIdentifier;
-import spade.reporter.audit.NetworkSocketIdentifier;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
-import spade.reporter.audit.UnixSocketIdentifier;
-import spade.reporter.audit.UnknownIdentifier;
-import spade.reporter.audit.UnnamedPipeIdentifier;
+import spade.reporter.audit.artifact.ArtifactIdentifier;
+import spade.reporter.audit.artifact.ArtifactManager;
+import spade.reporter.audit.artifact.BlockDeviceIdentifier;
+import spade.reporter.audit.artifact.CharacterDeviceIdentifier;
+import spade.reporter.audit.artifact.DirectoryIdentifier;
+import spade.reporter.audit.artifact.FileIdentifier;
+import spade.reporter.audit.artifact.LinkIdentifier;
+import spade.reporter.audit.artifact.MemoryIdentifier;
+import spade.reporter.audit.artifact.NamedPipeIdentifier;
+import spade.reporter.audit.artifact.NetworkSocketIdentifier;
+import spade.reporter.audit.artifact.PathIdentifier;
+import spade.reporter.audit.artifact.UnixSocketIdentifier;
+import spade.reporter.audit.artifact.UnknownIdentifier;
+import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
+import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
+import spade.reporter.audit.artifact.UnnamedUnixSocketPairIdentifier;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
-import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
-import spade.utility.Hasher;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -113,7 +113,10 @@ public class Audit extends AbstractReporter {
 	// Source of following: http://elixir.free-electrons.com/linux/latest/source/include/uapi/asm-generic/errno.h#L97
 	private final int EINPROGRESS = -115;
 	// Source: http://elixir.free-electrons.com/linux/latest/source/include/linux/net.h#L65
-	private final int SOCK_STREAM = 1, SOCK_DGRAM = 2;
+	private final int SOCK_STREAM = 1, SOCK_DGRAM = 2, SOCK_SEQPACKET = 5;
+	// Source: https://elixir.bootlin.com/linux/latest/source/include/linux/socket.h#L162
+	private final int AF_UNIX = 1, AF_LOCAL = 1, AF_INET = 2, AF_INET6 = 10;
+	private final int PF_UNIX = AF_UNIX, PF_LOCAL = AF_LOCAL, PF_INET = AF_INET, PF_INET6 = AF_INET6;
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
@@ -123,23 +126,14 @@ public class Audit extends AbstractReporter {
 	/********************** PROCESS STATE - END *************************/
 	
 	/********************** ARITFACT STATE - START *************************/
-	// Map for artifact infos to versions and bytes read/written on sockets 
-	// Use cases:
-	// 1) Track version
-	// 2) Track epoch
-	// 3) Avoid duplication of artifacts
-	private ExternalMemoryMap<ArtifactIdentifier, ArtifactProperties> artifactIdentifierToArtifactProperties;
-	private final String artifactsMapId = "Audit[ArtifactsMap]";
+	
+	private ArtifactManager artifactManager;
+	
 	/********************** ARTIFACT STATE - END *************************/
 	
 	/********************** NETFILTER - START *************************/
 	
-	private final String[] iptablesRules = {
-			"OUTPUT -p tcp -m state --state NEW -j AUDIT --type accept",
-			"INPUT -p tcp -m state --state NEW -j AUDIT --type accept",
-			"OUTPUT -p udp -m state --state NEW -j AUDIT --type accept",
-			"INPUT -p udp -m state --state NEW -j AUDIT --type accept"
-			};
+	private String[] iptablesRules = null;
 	
 	private int matchedNetfilterSyscall = 0,
 			matchedSyscallNetfilter = 0;
@@ -164,6 +158,8 @@ public class Audit extends AbstractReporter {
 	/********************** NETFILTER - END *************************/
 
 	/********************** BEHAVIOR FLAGS - START *************************/
+	
+	private Globals globals = null;
 	//Reporting variables
 	private boolean reportingEnabled = false;
 	private long reportEveryMs;
@@ -178,27 +174,11 @@ public class Audit extends AbstractReporter {
 	private boolean CREATE_BEEP_UNITS = false;
 	private boolean SIMPLIFY = true;
 	private boolean PROCFS = false;
-	private boolean UNIX_SOCKETS = false;
 	private boolean WAIT_FOR_LOG_END = true;
 	private boolean AGENTS = false;
 	private boolean CONTROL = true;
 	private boolean USE_MEMORY_SYSCALLS = true;
 	private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
-	// Null  -> don't use i.e. the default behavior
-	// True  -> override all other versioning flags and version everything
-	// False -> override all other versioning flags and don't version anything 
-	private Boolean VERSION_ARTIFACTS = null;
-	private boolean VERSION_FILES = true,
-			VERSION_MEMORYS = true,
-			VERSION_NAMED_PIPES = true,
-			VERSION_UNNAMED_PIPES = true,
-			VERSION_UNKNOWNS = true,
-			VERSION_NETWORK_SOCKETS = false,
-			VERSION_UNIX_SOCKETS = true;
-	private boolean KEEP_VERSIONS = true,
-			KEEP_EPOCHS = true,
-			KEEP_PATH_PERMISSIONS = true,
-			KEEP_ARTIFACT_PROPERTIES_MAP = true;
 	private boolean ANONYMOUS_MMAP = true;
 	private boolean NETFILTER_RULES = false;
 	private boolean REFINE_NET = false;
@@ -365,6 +345,16 @@ public class Audit extends AbstractReporter {
 	 * @return true if all flags had valid values / false if any of the flags had a non-boolean value
 	 */
 	private boolean initFlagsFromArguments(Map<String, String> args){
+		try{
+			globals = Globals.parseArguments(args);
+			if(globals == null){
+				throw new Exception("NULL globals object. Failed to initialize flags.");
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to parse arguments", e);
+			return false;
+		}
+		
 		String argValue = args.get("failfast");
 		if(isValidBoolean(argValue)){
 			FAIL_FAST = parseBoolean(argValue, FAIL_FAST);
@@ -422,14 +412,6 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-		argValue = args.get("unixSockets");
-		if(isValidBoolean(argValue)){
-			UNIX_SOCKETS = parseBoolean(argValue, UNIX_SOCKETS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'unixSockets': " + argValue);
-			return false;
-		}
-		
 		argValue = args.get("waitForLog");
 		if(isValidBoolean(argValue)){
 			WAIT_FOR_LOG_END = parseBoolean(argValue, WAIT_FOR_LOG_END);
@@ -453,102 +435,6 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for 'control': " + argValue);
 			return false;
 		}
-		
-		argValue = args.get("versionNetworkSockets");
-		if(isValidBoolean(argValue)){
-			VERSION_NETWORK_SOCKETS = parseBoolean(argValue, VERSION_NETWORK_SOCKETS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionNetworkSockets': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionFiles");
-		if(isValidBoolean(argValue)){
-			VERSION_FILES = parseBoolean(argValue, VERSION_FILES);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionFiles': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionMemorys");
-		if(isValidBoolean(argValue)){
-			VERSION_MEMORYS = parseBoolean(argValue, VERSION_MEMORYS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionMemorys': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionNamedPipes");
-		if(isValidBoolean(argValue)){
-			VERSION_NAMED_PIPES = parseBoolean(argValue, VERSION_NAMED_PIPES);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionNamedPipes': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnnamedPipes");
-		if(isValidBoolean(argValue)){
-			VERSION_UNNAMED_PIPES = parseBoolean(argValue, VERSION_UNNAMED_PIPES);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnnamedPipes': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnknowns");
-		if(isValidBoolean(argValue)){
-			VERSION_UNKNOWNS = parseBoolean(argValue, VERSION_UNKNOWNS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnknowns': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionUnixSockets");
-		if(isValidBoolean(argValue)){
-			VERSION_UNIX_SOCKETS = parseBoolean(argValue, VERSION_UNIX_SOCKETS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versionUnixSockets': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("versionArtifacts");
-		if(argValue == null){
-			// continue. NULL is the default value
-		}else{
-			if(isValidBoolean(argValue)){
-				VERSION_ARTIFACTS = parseBoolean(argValue, true);
-			}else{
-				logger.log(Level.SEVERE, "Invalid flag value for 'versionArtifacts': " + argValue);
-				return false;
-			}
-		}
-		
-		argValue = args.get("versions");
-		if(isValidBoolean(argValue)){
-			KEEP_VERSIONS = parseBoolean(argValue, KEEP_VERSIONS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'versions': " + argValue);
-			return false;
-		}
-
-		argValue = args.get("epochs");
-		if(isValidBoolean(argValue)){
-			KEEP_EPOCHS = parseBoolean(argValue, KEEP_EPOCHS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'epochs': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("permissions");
-		if(isValidBoolean(argValue)){
-			KEEP_PATH_PERMISSIONS = parseBoolean(argValue, KEEP_PATH_PERMISSIONS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'permissions': " + argValue);
-			return false;
-		}
-		
-		if(!KEEP_VERSIONS && !KEEP_EPOCHS && !KEEP_PATH_PERMISSIONS){
-			KEEP_ARTIFACT_PROPERTIES_MAP = false;
-		}	
 		
 		// Ignore for now. Changing it now would break code in places.
 		// Sucess always assumed to be '1' for now (default value)
@@ -629,36 +515,13 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}",
-						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, "units", CREATE_BEEP_UNITS,
-								"unixSockets", UNIX_SOCKETS, "waitForLog", WAIT_FOR_LOG_END, "versions", KEEP_VERSIONS, 
-								"epochs", KEEP_EPOCHS, "permissions", KEEP_PATH_PERMISSIONS, "netfilter", NETFILTER_RULES, 
+                           + "{14}={15}, {16}={17}, {18}={19}",
+						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
+								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST});
+				logger.log(Level.INFO, globals.toString());
 				return true;
-			}
-		}
-	}
-	
-	/**
-	 * Tries to setup the temp directory at the given path.
-	 * 
-	 * Returns true if it already exists or gets created successfully. 
-	 * Else returns false
-	 * 
-	 * @param tempDirectoryPath path of the temp directory to create
-	 * @return true/false
-	 */
-	private boolean setupTempDirectory(String tempDirectoryPath){
-		if(FileUtility.fileExists(tempDirectoryPath)){
-			return true;
-		}else{
-			try{
-				new File(tempDirectoryPath).mkdir();
-				return true;
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create temp directory. Defined in config.", e);
-				return false;
 			}
 		}
 	}
@@ -701,7 +564,7 @@ public class Audit extends AbstractReporter {
 	 * 
 	 * @param inputAuditLogFilePath path of the audit log file
 	 * @param rotate a flag to tell whether to read the rotated logs or not
-	 * @return list if input log files
+	 * @return list if input log files or null if error
 	 */
 	private List<String> getListOfInputAuditLogs(String inputAuditLogFilePath, boolean rotate){
 		// Build a list of audit log files to be read
@@ -712,13 +575,49 @@ public class Audit extends AbstractReporter {
 			//name is the name of the file passed in as argument
 			//can only process 99 logs
 			for(int logCount = 1; logCount<=99; logCount++){
-				if(FileUtility.fileExists(inputAuditLogFilePath + "." + logCount)){
-					inputAuditLogFiles.addFirst(inputAuditLogFilePath + "." + logCount); 
-					//adding first so that they are added in the reverse order
+				String logPath = inputAuditLogFilePath + "." + logCount;
+				try{
+					if(FileUtility.doesPathExist(logPath)){
+						if(FileUtility.isFile(logPath)){
+							if(FileUtility.isFileReadable(logPath)){
+								inputAuditLogFiles.addFirst(logPath); 
+								//adding first so that they are added in the reverse order
+							}else{
+								logger.log(Level.WARNING, "Log skipped because file not readable: " + logPath);
+							}
+						}
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if log path is readable: " + logPath, e);
+					return null;
 				}
 			}
 		}
 		return inputAuditLogFiles;
+	}
+	
+	private String[] buildIptableRules(String uid, boolean ignore){
+		String tcpInput = "INPUT -p tcp -m state --state NEW -j AUDIT --type accept",
+				tcpOutput = "OUTPUT -p tcp -m state --state NEW -j AUDIT --type accept",
+				udpInput = "INPUT -p udp -m state --state NEW -j AUDIT --type accept",
+				udpOutput = "OUTPUT -p udp -m state --state NEW -j AUDIT --type accept",
+				nonNewInput = "INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+				nonNewOutput = "OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT";
+		
+		String uidOutput = null;
+		if(ignore){ // ignore only the given uid
+			uidOutput = "OUTPUT -m owner --uid-owner " + uid + " -j ACCEPT";
+		}else{ // capture only the given uid
+			uidOutput = "OUTPUT -m owner ! --uid-owner " + uid + " -j ACCEPT";
+		}
+		// Order matters
+		/*
+		 * The rules are going to be inserted because we want to precede any other rules that might already
+		 * exist. That's why the rules are inserted in reverse order so that they are in the order that we want
+		 * them to be. So, first add the rules to exclude activity that we don't  want and then add the rules 
+		 * for the activity which we want to go to linux audit.
+		 */
+		return new String[]{tcpInput, tcpOutput, udpInput, udpOutput, nonNewInput, nonNewOutput, uidOutput};
 	}
 	
 	private void doCleanup(String rulesType, String logListFile){
@@ -730,19 +629,25 @@ public class Audit extends AbstractReporter {
 				removeIptablesRules(iptablesRules);
 			}
 			if(ADD_KM){
-				removeNetworkKernelModule(kernelModuleControllerPath);
+				removeControllerNetworkKernelModule();
 			}
 		}else{
-			if(FileUtility.fileExists(logListFile)){
-				FileUtility.deleteFile(logListFile);
+			try{
+				if(FileUtility.doesPathExist(logListFile)){
+					if(FileUtility.isFile(logListFile)){
+						if(!FileUtility.deleteFile(logListFile)){
+							logger.log(Level.WARNING, "Failed to delete temp log list file: " + logListFile);
+						}
+					}else{
+						logger.log(Level.WARNING, "Failed to delete log list temp file. Not a file: " + logListFile);
+					}
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check and delete log list file: " + logListFile, e);
 			}
 		}
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			if(artifactIdentifierToArtifactProperties != null){
-				CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(artifactsMapId, 
-						artifactIdentifierToArtifactProperties);
-				artifactIdentifierToArtifactProperties = null;
-			}
+		if(artifactManager != null){
+			artifactManager.doCleanUp();
 		}
 		if(processManager != null){
 			processManager.doCleanUp();
@@ -772,9 +677,16 @@ public class Audit extends AbstractReporter {
 		}
 
 		// Get path of spadeAuditBridge binary from the config file
-		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");		
-		if(!FileUtility.fileExists(spadeAuditBridgeBinaryPath)){
-			logger.log(Level.SEVERE, "Must specify a valid 'spadeAuditBridge' key in config");
+		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");
+		try{
+			if(!FileUtility.isFileReadable(spadeAuditBridgeBinaryPath)){
+				logger.log(Level.SEVERE, "File specified in config by 'spadeAuditBridge' key is not readable: " +
+						spadeAuditBridgeBinaryPath);
+				return false;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to check if file specified in config by 'spadeAuditBridge' key is readable: " +
+					spadeAuditBridgeBinaryPath, e);
 			return false;
 		}
 		
@@ -789,22 +701,24 @@ public class Audit extends AbstractReporter {
 		// Check if the outputLog argument is valid or not
 		outputLogFilePath = argsMap.get("outputLog");
 		if(outputLogFilePath != null){
-			if(!FileUtility.fileCanBeCreated(outputLogFilePath)){
-				logger.log(Level.SEVERE, "Invalid path for 'outputLog' : " + outputLogFilePath);
-				return false;
-			}else{
-				
-				String recordsToRotateOutputLogAfterArgument = argsMap.get("outputLogRotate");
-				if(recordsToRotateOutputLogAfterArgument != null){
-					Long parsedOutputLogRotate = CommonFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
-					if(parsedOutputLogRotate == null){
-						logger.log(Level.SEVERE, "Invalid value for 'outputLogRotate': "+ recordsToRotateOutputLogAfterArgument);
-						return false;
-					}else{
-						recordsToRotateOutputLogAfter = parsedOutputLogRotate;
-					}
+			try{
+				if(!FileUtility.createFile(outputLogFilePath)){
+					logger.log(Level.SEVERE, "Failed to create file specified by 'outputLog' argument: " + outputLogFilePath);
+					return false;
 				}
-				
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to create file specified by 'outputLog' argument: " + outputLogFilePath, e);
+				return false;
+			}
+			String recordsToRotateOutputLogAfterArgument = argsMap.get("outputLogRotate");
+			if(recordsToRotateOutputLogAfterArgument != null){
+				Long parsedOutputLogRotate = CommonFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
+				if(parsedOutputLogRotate == null){
+					logger.log(Level.SEVERE, "Invalid value for 'outputLogRotate': "+ recordsToRotateOutputLogAfterArgument);
+					return false;
+				}else{
+					recordsToRotateOutputLogAfter = parsedOutputLogRotate;
+				}
 			}
 		}
 
@@ -827,9 +741,14 @@ public class Audit extends AbstractReporter {
 			
 			if(inputAuditLogFileArgument != null){
 			
-				if(!FileUtility.fileExists(inputAuditLogFileArgument)){
-					logger.log(Level.SEVERE, "Input audit log file at specified path doesn't exist : " 
-										+ inputAuditLogFileArgument);
+				try{
+					if(!FileUtility.isFileReadable(inputAuditLogFileArgument)){
+						logger.log(Level.SEVERE, "File specified for 'inputLog' argument not readable: " + inputAuditLogFileArgument);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if file specified for 'inputLog' argument is readable: "
+							+ inputAuditLogFileArgument, e);
 					return false;
 				}
 	
@@ -844,14 +763,28 @@ public class Audit extends AbstractReporter {
 				}
 	
 				List<String> inputAuditLogFiles = getListOfInputAuditLogs(inputAuditLogFileArgument, rotate);
-	
-				logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
+				
+				if(inputAuditLogFiles == null){
+					logger.log(Level.SEVERE, "Failed to get list of input log");
+					return false;
+				}else{
+					logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
+				}
 	
 				// Only needed in case of audit log files and not in case of live audit
 				String tempDirPath = configMap.get("tempDir");
-				if(!setupTempDirectory(tempDirPath)){
+				try{
+					if(!FileUtility.createDirectories(tempDirPath)){
+						logger.log(Level.SEVERE, "Failed to create temp directory defined in config with key 'tempDir': "
+								+ tempDirPath);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to create temp directory defined in config with key 'tempDir': "
+							+ tempDirPath, e);
 					return false;
 				}
+				
 				// Create the input file for spadeAuditBridge to read the audit logs from 
 				logListFile = createLogListFileForSpadeAuditBridge(spadeAuditBridgeBinaryName, inputAuditLogFiles, tempDirPath);
 				if(logListFile == null){
@@ -938,9 +871,11 @@ public class Audit extends AbstractReporter {
 		// used to identify failure and do cleanup.
 		boolean success = true;
 		
-		// Initialize cache data structures
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			if(!initCacheMaps(configMap)){
+		if(success){
+			try{
+				artifactManager = new ArtifactManager(this, globals);
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to instantiate artifact manager", e);
 				success = false;
 			}
 		}
@@ -1048,6 +983,7 @@ public class Audit extends AbstractReporter {
 								}
 								if(success){
 									if(NETFILTER_RULES){
+										iptablesRules = buildIptableRules(uid, ignoreUid);
 										success = setIptablesRules(iptablesRules);
 									}
 									if(success){
@@ -1237,10 +1173,11 @@ public class Audit extends AbstractReporter {
 	private boolean setIptablesRules(String[] iptablesRules){
 		try{
 			for(String iptablesRule : iptablesRules){
+				// Using insert to precede any existing rules
 				String executeCommand = "iptables -I " + iptablesRule;
 				Execute.Output output = Execute.getOutput(executeCommand);
 				output.log();
-				if(output.exitValueIndicatesError()){
+				if(output.hasError()){
 					return false;
 				}
 			}
@@ -1252,25 +1189,25 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean removeIptablesRules(String [] iptablesRules){
-		try{
-			boolean allRemoved = true;
-			for(String iptablesRule : iptablesRules){
-				String executeCommand = "iptables -D " + iptablesRule;
+		boolean allRemoved = true;
+		for(String iptablesRule : iptablesRules){
+			String executeCommand = "iptables -D " + iptablesRule;
+			try{
 				Execute.Output output = Execute.getOutput(executeCommand);
 				output.log();
-				allRemoved = allRemoved || !output.exitValueIndicatesError();
+				allRemoved = allRemoved && (!output.hasError());
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to remove iptables rule. Remove manually.", e);
+				return false;
 			}
-			return allRemoved;
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to remove iptables rule(s). Remove manually.", e);
-			return false;
 		}
+		return allRemoved;
 	}
 	
 	private Boolean kernelModuleExists(String kernelModuleName){
 		try{
 			Execute.Output output = Execute.getOutput("lsmod");
-			if(output.exitValueIndicatesError()){
+			if(output.hasError()){
 				output.log();
 				return null;
 			}else{
@@ -1332,56 +1269,66 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids, ignorePpids});
 			return false;
 		}else{
-			if(!FileUtility.fileExists(kernelModulePath)){
-				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModulePath);
+			try{
+				if(!FileUtility.isFileReadable(kernelModulePath)){
+					logger.log(Level.SEVERE, "Kernel module path not readable: " + kernelModulePath);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if kernel module path is readable: " + kernelModulePath, e);
 				return false;
-			}else if(!FileUtility.fileExists(kernelModuleControllerPath)){
-				logger.log(Level.SEVERE, "Missing kernel module at: " + kernelModuleControllerPath);
+			}
+			try{
+				if(!FileUtility.isFileReadable(kernelModuleControllerPath)){
+					logger.log(Level.SEVERE, "Controller kernel module path not readable: " + kernelModuleControllerPath);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if controller kernel module path is readable: " + kernelModuleControllerPath, e);
 				return false;
-			}else{ // both exist
-				String kernelModuleName = getKernelModuleName(kernelModulePath);
-				if(kernelModuleName != null){
-					String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
-					if(kernelModuleControllerName != null){
-						Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
-						if(kernelModuleControllerExists != null){
-							if(kernelModuleControllerExists){
-								logger.log(Level.SEVERE, "Kernel module controller '"+kernelModuleControllerPath+"' "
-										+ "already exists.");
-								return false;
-							}else{
-								Boolean kernelModuleExists = kernelModuleExists(kernelModuleName);
-								if(kernelModuleExists != null){
-									if(kernelModuleExists == false){
-										// add the main kernel module
-										String kernelModuleAddCommand = "insmod " + kernelModulePath;
-										if(!addKernelModule(kernelModuleAddCommand)){
-											return false;
-										}
-									}
-									// add the controller kernel module
-									StringBuffer pids = new StringBuffer();
-									ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
-									pids.deleteCharAt(pids.length() - 1);// delete trailing comma
-									
-									StringBuffer ppids = new StringBuffer();
-									ignorePpids.forEach(ignorePpid -> {ppids.append(ignorePpid).append(",");});
-									ppids.deleteCharAt(ppids.length() - 1);// delete trailing comma
-									
-									String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
-									
-									String kernelModuleControllerAddCommand = 
-											String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
-											+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
-											+ "ignore_uids=\"%s\"", 
-											kernelModuleControllerPath, uid, pids, ppids,
-											interceptSendRecv ? "1" : "0", ignoreUidsArg);
-									
-									if(!addKernelModule(kernelModuleControllerAddCommand)){
+			}
+			String kernelModuleName = getKernelModuleName(kernelModulePath);
+			if(kernelModuleName != null){
+				String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
+				if(kernelModuleControllerName != null){
+					Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
+					if(kernelModuleControllerExists != null){
+						if(kernelModuleControllerExists){
+							logger.log(Level.SEVERE, "Kernel module controller '"+kernelModuleControllerPath+"' "
+									+ "already exists.");
+							return false;
+						}else{
+							Boolean kernelModuleExists = kernelModuleExists(kernelModuleName);
+							if(kernelModuleExists != null){
+								if(kernelModuleExists == false){
+									// add the main kernel module
+									String kernelModuleAddCommand = "insmod " + kernelModulePath;
+									if(!addKernelModule(kernelModuleAddCommand)){
 										return false;
-									}else{
-										return true;
 									}
+								}
+								// add the controller kernel module
+								StringBuffer pids = new StringBuffer();
+								ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
+								pids.deleteCharAt(pids.length() - 1);// delete trailing comma
+								
+								StringBuffer ppids = new StringBuffer();
+								ignorePpids.forEach(ignorePpid -> {ppids.append(ignorePpid).append(",");});
+								ppids.deleteCharAt(ppids.length() - 1);// delete trailing comma
+								
+								String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
+								
+								String kernelModuleControllerAddCommand = 
+										String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
+										+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
+										+ "ignore_uids=\"%s\"", 
+										kernelModuleControllerPath, uid, pids, ppids,
+										interceptSendRecv ? "1" : "0", ignoreUidsArg);
+								
+								if(!addKernelModule(kernelModuleControllerAddCommand)){
+									return false;
+								}else{
+									return true;
 								}
 							}
 						}
@@ -1392,33 +1339,36 @@ public class Audit extends AbstractReporter {
 		return false;
 	}
 	
-	private boolean removeNetworkKernelModule(String kernelModuleControllerPath){
-		if(FileUtility.fileExists(kernelModuleControllerPath)){
-			String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
-			if(kernelModuleControllerName != null){
-				Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
-				if(kernelModuleControllerExists != null){
-					if(kernelModuleControllerExists){
-						// remove
-						String command = "rmmod " + kernelModuleControllerName;
+	private boolean removeControllerNetworkKernelModule(){
+		String controllerModulePath = kernelModuleControllerPath;
+		if(CommonFunctions.isNullOrEmpty(controllerModulePath)){
+			logger.log(Level.WARNING, "NULL/Empty controller kernel module path: " + controllerModulePath);
+		}else{
+			String controllerModuleName = getKernelModuleName(controllerModulePath);
+			if(CommonFunctions.isNullOrEmpty(controllerModuleName)){
+				logger.log(Level.SEVERE, "Failed to get module name from module path: " + controllerModulePath);
+			}else{
+				Boolean controllerModuleExists = kernelModuleExists(controllerModuleName);
+				if(controllerModuleExists == null){
+					logger.log(Level.SEVERE, "Failed to check if controller module '"+controllerModuleName+"' exists");
+				}else{
+					if(controllerModuleExists ==  false){
+						logger.log(Level.INFO, "Controller kernel module not added : " + controllerModuleName);
+					}else{
+						String command = "rmmod " + controllerModuleName;
 						try{
 							Execute.Output output = Execute.getOutput(command);
 							output.log();
-							return !output.exitValueIndicatesError();
+							return !output.hasError();
 						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to remove kernel module with command: " + command, e);
-							return false;
+							logger.log(Level.SEVERE, "Failed to controller module with command: " + command, e);
 						}
 					}
 				}
 			}
-		}else{
-			logger.log(Level.WARNING, "No module at path: " + kernelModuleControllerPath);
-			return false;
 		}
 		return false;
 	}
-	
 	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, 
 			List<String> ignorePpids, boolean kmAdded){
 		try {
@@ -1546,6 +1496,9 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S truncate -S ftruncate ";
 					auditRuleWithSuccess += "-S init_module -S finit_module ";
 					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
+					if(!ARCH_32BIT){
+						auditRuleWithSuccess += "-S socketpair ";
+					}
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
 					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
@@ -1577,7 +1530,7 @@ public class Audit extends AbstractReporter {
 		try{
 			Execute.Output output = Execute.getOutput(auditctlRule);
 			output.log();
-			return !output.exitValueIndicatesError();
+			return !output.hasError();
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to set audit rule: " + auditctlRule, e);
 			return false;
@@ -1588,35 +1541,9 @@ public class Audit extends AbstractReporter {
 		try{
 			Execute.Output output = Execute.getOutput("auditctl -D");
 			output.log();
-			return !output.exitValueIndicatesError();
+			return !output.hasError();
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to remove audit rules", e);
-			return false;
-		}
-	}
-
-	private boolean initCacheMaps(Map<String, String> configMap){
-		try{
-			artifactIdentifierToArtifactProperties = CommonFunctions.createExternalMemoryMapInstance(artifactsMapId,
-					configMap.get("artifactsCacheSize"), configMap.get("artifactsBloomfilterFalsePositiveProbability"), 
-					configMap.get("artifactsBloomFilterExpectedNumberOfElements"), configMap.get("tempDir"), 
-					configMap.get("artifactsDatabaseName"), configMap.get("externalMemoryMapReportingIntervalSeconds"),
-					new Hasher<ArtifactIdentifier>(){
-						@Override
-						public String getHash(ArtifactIdentifier t) {
-							if(t != null){
-								Map<String, String> annotations = t.getAnnotationsMap();
-								String subtype = t.getSubtype();
-								String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
-								return DigestUtils.sha256Hex(stringToHash);
-							}else{
-								return DigestUtils.sha256Hex("(null)");
-							}
-						}
-					});
-			return true;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create artifacts external map", e);
 			return false;
 		}
 	}
@@ -1659,7 +1586,7 @@ public class Audit extends AbstractReporter {
 		String command = "id -u " + name;
 		try{
 			Execute.Output output = Execute.getOutput(command);
-			if(output.exitValueIndicatesError()){
+			if(output.hasError()){
 				logger.log(Level.SEVERE, "Invalid username provided. Command: {0}. Error: {1}", 
 						new Object[]{command, output.getStdErr()});
 			}else{
@@ -1690,7 +1617,7 @@ public class Audit extends AbstractReporter {
 		try{
 			String uid = null;
 			Execute.Output output = Execute.getOutput(command);
-			if(output.exitValueIndicatesError()){
+			if(output.hasError()){
 				logger.log(Level.SEVERE, "Failed to get user id of JVM. Command: {0}. Error: {1}.",
 						new Object[]{command, output.getStdErr()});
 				return null;
@@ -1954,6 +1881,9 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case SOCKETPAIR:
+				handleSocketPair(eventData, syscall);
+				break;
 			case TEE:
 			case SPLICE:
 				handleTeeSplice(eventData, syscall);
@@ -2162,17 +2092,20 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
 					time, eventId, syscall);
 
+			artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
+			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact artifact = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);
+			Artifact artifact = putArtifactFromSyscall(eventData, artifactIdentifier);
 			WasGeneratedBy deletedEdge = new WasGeneratedBy(artifact, process);
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 	}
 	
 	private UnknownIdentifier addUnknownFd(String pid, String fd){
-		UnknownIdentifier unknown = new UnknownIdentifier(pid, fd);
+		String fdTgid = processManager.getFdTgid(pid);
+		UnknownIdentifier unknown = new UnknownIdentifier(fdTgid, fd);
 		unknown.setOpenedForRead(null);
-		markNewEpochForArtifact(unknown);
+		artifactManager.artifactCreated(unknown);
 		processManager.setFd(pid, fd, unknown);
 		return unknown;
 	}
@@ -2249,7 +2182,8 @@ public class Audit extends AbstractReporter {
 		Process process = processManager.handleProcessFromSyscall(eventData);		
 		String tgid = processManager.getMemoryTgid(pid);
 		ArtifactIdentifier memoryArtifactIdentifier = new MemoryIdentifier(tgid, address, length);
-		Artifact memoryArtifact = putArtifact(eventData, memoryArtifactIdentifier, null, true);
+		artifactManager.artifactVersioned(memoryArtifactIdentifier);
+		Artifact memoryArtifact = putArtifactFromSyscall(eventData, memoryArtifactIdentifier);
 		WasGeneratedBy wgbEdge = new WasGeneratedBy(memoryArtifact, process);
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(wgbEdge, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);		
@@ -2271,7 +2205,7 @@ public class Audit extends AbstractReporter {
 				artifactIdentifier = addUnknownFd(pid, fd);
 			}
 	
-			Artifact artifact = putArtifact(eventData, artifactIdentifier, null, false);
+			Artifact artifact = putArtifactFromSyscall(eventData, artifactIdentifier);
 	
 			Used usedEdge = new Used(process, artifact);
 			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
@@ -2301,8 +2235,9 @@ public class Audit extends AbstractReporter {
 
 		String tgid = processManager.getMemoryTgid(pid);
 		
-		ArtifactIdentifier memoryInfo = new MemoryIdentifier(tgid, address, length);
-		Artifact memoryArtifact = putArtifact(eventData, memoryInfo, null, true);
+		ArtifactIdentifier memoryIdentifier = new MemoryIdentifier(tgid, address, length);
+		artifactManager.artifactVersioned(memoryIdentifier);
+		Artifact memoryArtifact = putArtifactFromSyscall(eventData, memoryIdentifier);
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
 		WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
@@ -2338,7 +2273,8 @@ public class Audit extends AbstractReporter {
 			}        	
 			ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, loadPathRecord.getPathType(),
 					time, eventId, syscall);
-			Artifact usedArtifact = putArtifact(eventData, artifactIdentifier, loadPathRecord.getPermissions(), false);
+			artifactManager.artifactPermissioned(artifactIdentifier, loadPathRecord.getPermissions());
+			Artifact usedArtifact = putArtifactFromSyscall(eventData, artifactIdentifier);
 			Used usedEdge = new Used(process, usedArtifact);
 			putEdge(usedEdge, getOperation(SYSCALL.LOAD), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -2416,11 +2352,11 @@ public class Audit extends AbstractReporter {
 				String dirFdString = String.valueOf(dirFd);
 				//if null of if not file then cannot process it
 				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, dirFdString);
-				if(artifactIdentifier == null || !(artifactIdentifier instanceof IdentifierWithPath)){
+				if(artifactIdentifier == null || !(artifactIdentifier instanceof PathIdentifier)){
 					log(Level.INFO, "Expected 'dir' type fd: '" + artifactIdentifier + "'", null, time, eventId, syscall);
 					return;
 				}else{ //is file
-					String dirPath = ((IdentifierWithPath)artifactIdentifier).getPath();
+					String dirPath = ((PathIdentifier)artifactIdentifier).getPath();
 					eventData.put(AuditEventReader.CWD, dirPath); //replace cwd with dirPath to make eventData compatible with open
 				}
 			}
@@ -2475,23 +2411,11 @@ public class Audit extends AbstractReporter {
 			log(Level.INFO, "Missing CWD or PATH record", null, time, eventId, syscall);
 			return;
 		}
-
+		
 		Process process = processManager.handleProcessFromSyscall(eventData);
-
 		ArtifactIdentifier artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(),
 				time, eventId, syscall);
-
 		AbstractEdge edge = null;
-
-		if(isCreate){
-
-			//set new epoch
-			markNewEpochForArtifact(artifactIdentifier);
-
-			syscall = SYSCALL.CREATE;
-
-		}
-
 		boolean openedForRead = false;
 		
 		String flagsArgs = "";
@@ -2513,23 +2437,34 @@ public class Audit extends AbstractReporter {
 			flagsArgs = flagsArgs.substring(0, flagsArgs.length() - 1);
 		}
 
+		if(isCreate){
+			artifactManager.artifactCreated(artifactIdentifier);
+			syscall = SYSCALL.CREATE;
+		}
+		
 		if((flags & O_WRONLY) == O_WRONLY || 
 				(flags & O_RDWR) == O_RDWR ||
 				 (flags & O_APPEND) == O_APPEND || 
 				 (flags & O_TRUNC) == O_TRUNC){
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), true);
+			if(!isCreate){
+				// If artifact not created
+				artifactManager.artifactVersioned(artifactIdentifier);
+			}
+			artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
+			Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 			edge = new WasGeneratedBy(vertex, process);
 			openedForRead = false;
-		} else if ((flags & O_RDONLY) == O_RDONLY) {
+		}else if((flags & O_RDONLY) == O_RDONLY){
+			artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
 			if(isCreate){
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), true);
+				Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 				edge = new WasGeneratedBy(vertex, process);
 			}else{
-				Artifact vertex = putArtifact(eventData, artifactIdentifier, pathRecord.getPermissions(), false);
+				Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 				edge = new Used(process, vertex);
 			}
 			openedForRead = true;
-		} else {
+		}else{
 			log(Level.INFO, "Unhandled value of FLAGS argument '"+flags+"'", null, time, eventId, syscall);
 			return;
 		}
@@ -2560,22 +2495,24 @@ public class Audit extends AbstractReporter {
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
 			if(closedArtifactIdentifier != null){
 				Process process = processManager.handleProcessFromSyscall(eventData);
-				Artifact artifact = putArtifact(eventData, closedArtifactIdentifier, null, false);
 				AbstractEdge edge = null;
 				Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
 				if(wasOpenedForRead == null){
 					// Not drawing an edge because didn't seen an open or was a 'bound' fd
-				}else if(wasOpenedForRead){
-					edge = new Used(process, artifact);
-				}else {
-					edge = new WasGeneratedBy(artifact, process);
-				}	   
+				}else{
+					Artifact artifact = putArtifactFromSyscall(eventData, closedArtifactIdentifier);
+					if(wasOpenedForRead){
+						edge = new Used(process, artifact);
+					}else{
+						edge = new WasGeneratedBy(artifact, process);
+					}
+				}
 				if(edge != null){
 					putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 				}
 				//after everything done increment epoch is udp socket
 				if(isUdp(closedArtifactIdentifier)){
-					markNewEpochForArtifact(closedArtifactIdentifier);
+					artifactManager.artifactCreated(closedArtifactIdentifier);
 				}
 			}else{
 				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
@@ -2631,7 +2568,9 @@ public class Audit extends AbstractReporter {
 
 		if(artifactIdentifier != null){
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact vertex = putArtifact(eventData, artifactIdentifier, permissions, true);
+			artifactManager.artifactVersioned(artifactIdentifier);
+			artifactManager.artifactPermissioned(artifactIdentifier, permissions);
+			Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}else{
@@ -2673,7 +2612,8 @@ public class Audit extends AbstractReporter {
 			fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+			artifactManager.artifactVersioned(fdOutIdentifier);
+			Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutIdentifier);
 	
 			WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
 			processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
@@ -2691,8 +2631,9 @@ public class Audit extends AbstractReporter {
 		fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
-		Artifact fdInArtifact = putArtifact(eventData, fdInIdentifier, null, false);
-		Artifact fdOutArtifact = putArtifact(eventData, fdOutIdentifier, null, true);
+		Artifact fdInArtifact = putArtifactFromSyscall(eventData, fdInIdentifier);
+		artifactManager.artifactVersioned(fdOutIdentifier);
+		Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutIdentifier);
 
 		Used processToReadArtifact = new Used(process, fdInArtifact);
 		processToReadArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
@@ -2758,7 +2699,7 @@ public class Audit extends AbstractReporter {
 		
 		if(moduleIdentifier != null){
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact module = putArtifact(eventData, moduleIdentifier, null, false);
+			Artifact module = putArtifactFromSyscall(eventData, moduleIdentifier);
 			Used loadedModule = new Used(process, module);
 			putEdge(loadedModule, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -2981,8 +2922,8 @@ public class Audit extends AbstractReporter {
 				if(artifactIdentifier == null){
 					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.MKNODAT);
 					return;
-				}else if(artifactIdentifier instanceof IdentifierWithPath){
-					String directoryPath = ((IdentifierWithPath)artifactIdentifier).getPath();
+				}else if(artifactIdentifier instanceof PathIdentifier){
+					String directoryPath = ((PathIdentifier)artifactIdentifier).getPath();
 					//update cwd to directoryPath and call handleMknod. the file created path is always relative in this syscall
 					eventData.put(AuditEventReader.CWD, directoryPath);
 				}else{
@@ -3035,7 +2976,7 @@ public class Audit extends AbstractReporter {
 		}	
 
 		if(artifactIdentifier != null){
-			markNewEpochForArtifact(artifactIdentifier);
+			artifactManager.artifactCreated(artifactIdentifier);
 		}
 	}
 
@@ -3126,13 +3067,15 @@ public class Audit extends AbstractReporter {
 		Process process = processManager.handleProcessFromSyscall(eventData);
 
 		//destination is new so mark epoch
-		markNewEpochForArtifact(dstArtifactIdentifier);
+		artifactManager.artifactCreated(dstArtifactIdentifier);
 
-		Artifact srcVertex = putArtifact(eventData, srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode), false);
+		artifactManager.artifactPermissioned(srcArtifactIdentifier, PathRecord.parsePermissions(srcPathMode));
+		Artifact srcVertex = putArtifactFromSyscall(eventData, srcArtifactIdentifier);
 		Used used = new Used(process, srcVertex);
 		putEdge(used, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
 
-		Artifact dstVertex = putArtifact(eventData, dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode), true);
+		artifactManager.artifactPermissioned(dstArtifactIdentifier, PathRecord.parsePermissions(dstPathMode));
+		Artifact dstVertex = putArtifactFromSyscall(eventData, dstArtifactIdentifier);
 		WasGeneratedBy wgb = new WasGeneratedBy(dstVertex, process);
 		putEdge(wgb, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);
 
@@ -3229,13 +3172,52 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		Process process = processManager.handleProcessFromSyscall(eventData);
 		String mode = new BigInteger(modeArgument).toString(8);
-		mode = PathRecord.parsePermissions(mode);
-		Artifact vertex = putArtifact(eventData, artifactIdentifier, mode, true);
+		String permissions = PathRecord.parsePermissions(mode);
+		
+		artifactManager.artifactVersioned(artifactIdentifier);
+		artifactManager.artifactPermissioned(artifactIdentifier, permissions);
+		
+		Process process = processManager.handleProcessFromSyscall(eventData);
+		Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 		WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 		wgb.addAnnotation(OPMConstants.EDGE_MODE, mode);
 		putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+	}
+	
+	private void handleSocketPair(Map<String, String> eventData, SYSCALL syscall){
+		// socketpair() receives the following message(s):
+		// - SYSCALL
+		// - FD_PAIR
+		// - EOE
+		String pid = eventData.get(AuditEventReader.PID);
+		String fd0 = eventData.get(AuditEventReader.FD0);
+		String fd1 = eventData.get(AuditEventReader.FD1);
+		String domainString = eventData.get(AuditEventReader.ARG0);
+		String sockTypeString = eventData.get(AuditEventReader.ARG1);
+		String fdTgid = processManager.getFdTgid(pid);
+		
+		int domain = CommonFunctions.parseInt(domainString, null); // Let exception be thrown
+		int sockType = CommonFunctions.parseInt(sockTypeString, null);
+		
+		String protocol = getProtocolNameBySockType(sockType);
+		
+		ArtifactIdentifier fdIdentifier = null;
+		
+		if(domain == AF_INET || domain == AF_INET6 || domain == PF_INET || domain == PF_INET6){
+			fdIdentifier = new UnnamedNetworkSocketPairIdentifier(fdTgid, fd0, fd1, protocol);
+		}else if(domain == AF_LOCAL || domain == AF_UNIX || domain == PF_LOCAL || domain == PF_UNIX){
+			fdIdentifier = new UnnamedUnixSocketPairIdentifier(fdTgid, fd0, fd1);
+		}else{
+			// Unsupported domain
+		}
+		
+		if(fdIdentifier != null){
+			processManager.setFd(pid, fd0, fdIdentifier, false);
+			processManager.setFd(pid, fd1, fdIdentifier, false);
+			
+			artifactManager.artifactCreated(fdIdentifier);
+		}
 	}
 
 	private void handlePipe(Map<String, String> eventData, SYSCALL syscall) {
@@ -3244,16 +3226,16 @@ public class Audit extends AbstractReporter {
 		// - FD_PAIR
 		// - EOE
 		String pid = eventData.get(AuditEventReader.PID);
-
+		String fdTgid = processManager.getFdTgid(pid);
 		String fd0 = eventData.get(AuditEventReader.FD0);
 		String fd1 = eventData.get(AuditEventReader.FD1);
-		ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
-		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(pid, fd0, fd1);
+		ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(fdTgid, fd0, fd1);
+		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(fdTgid, fd0, fd1);
 		processManager.setFd(pid, fd0, readPipeIdentifier, true);
 		processManager.setFd(pid, fd1, writePipeIdentifier, false);
 
 		// Since both (read, and write) pipe identifiers are the same, only need to mark epoch on one.
-		markNewEpochForArtifact(readPipeIdentifier);
+		artifactManager.artifactCreated(readPipeIdentifier);
 	}
 	
 	public static Integer getProtocolNumber(String protocolName){
@@ -3400,9 +3382,11 @@ public class Audit extends AbstractReporter {
 	
 	private String getProtocolNameBySockType(Integer sockType){
 		if(sockType != null){
-			if((sockType | SOCK_STREAM) == SOCK_STREAM){
+			if((sockType & SOCK_SEQPACKET) == SOCK_SEQPACKET){ // check first because seqpacket matches stream too
 				return PROTOCOL_NAME_TCP;
-			}else if((sockType | SOCK_DGRAM) == SOCK_DGRAM){
+			}else if((sockType & SOCK_STREAM) == SOCK_STREAM){
+				return PROTOCOL_NAME_TCP;
+			}else if((sockType & SOCK_DGRAM) == SOCK_DGRAM){
 				return PROTOCOL_NAME_UDP;
 			}
 		}
@@ -3431,7 +3415,7 @@ public class Audit extends AbstractReporter {
 			// no need to add to descriptors because we will have the address from other syscalls? TODO
 			processManager.setFd(pid, fd, identifier, null);
 			if(identifier instanceof UnixSocketIdentifier){
-				markNewEpochForArtifact(identifier);
+				artifactManager.artifactCreated(identifier);
 			}
 		}
 	}
@@ -3518,12 +3502,13 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier fdIdentifier, Map<String, String> eventData){
 		if(fdIdentifier != null){
 			if(fdIdentifier instanceof NetworkSocketIdentifier){
-				markNewEpochForArtifact(fdIdentifier);
+				artifactManager.artifactCreated(fdIdentifier);
 			}
 			processManager.setFd(pid, fd, fdIdentifier, false);
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact artifact = putArtifact(eventData, fdIdentifier, null, true);
+			artifactManager.artifactVersioned(fdIdentifier);
+			Artifact artifact = putArtifactFromSyscall(eventData, fdIdentifier);
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
@@ -3604,13 +3589,13 @@ public class Audit extends AbstractReporter {
 		// eventData must contain all information need to create a process vertex
 		if(fdIdentifier != null){
 			if(fdIdentifier instanceof NetworkSocketIdentifier){
-				markNewEpochForArtifact(fdIdentifier);
+				artifactManager.artifactCreated(fdIdentifier);
 			}
 			
 			processManager.setFd(pid, fd, fdIdentifier, false);
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			Artifact socket = putArtifact(eventData, fdIdentifier, null, false);
+			Artifact socket = putArtifactFromSyscall(eventData, fdIdentifier);
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
@@ -3818,8 +3803,8 @@ public class Audit extends AbstractReporter {
 			if(!USE_READ_WRITE){
 				return;
 			}
-			if(identifier instanceof UnixSocketIdentifier){
-				if(!UNIX_SOCKETS){
+			if(identifier instanceof UnixSocketIdentifier || identifier instanceof UnnamedUnixSocketPairIdentifier){
+				if(!globals.unixSockets){
 					return;
 				}
 			}
@@ -3832,17 +3817,18 @@ public class Audit extends AbstractReporter {
 		if(isNetworkUdp){
 			// Since saddr present that means that it is SOCK_DGRAM.
 			// Epoch for all SOCK_DGRAM
-			markNewEpochForArtifact(identifier);
+			artifactManager.artifactCreated(identifier);
 		}
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
 		Artifact artifact = null;
 		AbstractEdge edge = null;
 		if(incoming){
-			artifact = putArtifact(eventData, identifier, null, false);
+			artifact = putArtifactFromSyscall(eventData, identifier);
 			edge = new Used(process, artifact);
 		}else{
-			artifact = putArtifact(eventData, identifier, null, true);
+			artifactManager.artifactVersioned(identifier);
+			artifact = putArtifactFromSyscall(eventData, identifier);
 			edge = new WasGeneratedBy(artifact, process);
 		}
 		edge.addAnnotation(OPMConstants.EDGE_SIZE, bytesTransferred);
@@ -3883,6 +3869,15 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
+	private Artifact putArtifactFromSyscall(Map<String, String> eventData, ArtifactIdentifier identifier){
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		String source = AUDIT_SYSCALL_SOURCE;
+		String operation = getOperation(SYSCALL.UPDATE);
+		return artifactManager.putArtifact(time, eventId, operation, pid, source, identifier);
+	}
+	
 	/**
 	 * Standardized method to be called for putting an edge into the reporter's buffer.
 	 * Adds the arguments to the edge with proper annotations. If any argument null then 
@@ -3896,7 +3891,7 @@ public class Audit extends AbstractReporter {
 	 */
 	public void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
 		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
-			if(!UNIX_SOCKETS && 
+			if(!globals.unixSockets && 
 					(isUnixSocketArtifact(edge.getChildVertex()) ||
 							isUnixSocketArtifact(edge.getParentVertex()))){
 				return;
@@ -3923,7 +3918,8 @@ public class Audit extends AbstractReporter {
 	
 	private boolean isUnixSocketArtifact(AbstractVertex vertex){
 		return vertex != null && 
-				OPMConstants.SUBTYPE_UNIX_SOCKET.equals(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE));
+				(OPMConstants.SUBTYPE_UNIX_SOCKET.equals(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE))
+						|| OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR.equals(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE)));
 	}
 
 	/**
@@ -3970,13 +3966,13 @@ public class Audit extends AbstractReporter {
 					if(artifactIdentifier == null){
 						log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 						return null;
-					}else if(!(artifactIdentifier instanceof IdentifierWithPath)){
+					}else if(!(artifactIdentifier instanceof PathIdentifier)){
 						log(Level.INFO, "FD with number '"+fd+"' for pid '"+pid+"' must be of type file but is '"+artifactIdentifier.getClass()+"'", null, time, eventId, syscall);
 						return null;
 					}else{
-						path = constructAbsolutePath(path, ((IdentifierWithPath)artifactIdentifier).getPath(), pid);
+						path = constructAbsolutePath(path, ((PathIdentifier)artifactIdentifier).getPath(), pid);
 						if(path == null){
-							log(Level.INFO, "Invalid path ("+((IdentifierWithPath)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
+							log(Level.INFO, "Invalid path ("+((PathIdentifier)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
 							return null;
 						}else{
 							return path;
@@ -3985,303 +3981,6 @@ public class Audit extends AbstractReporter {
 				}
 			}
 		}    	
-	}
-
-	/**
-	 * Creates the artifact according to the rules decided on for the current version of Audit reporter
-	 * and then puts the artifact in the buffer at the end if it wasn't put before.
-	 * 
-	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
-	 * @param artifactIdentifier artifact to create
-	 * @param permissions permissions as found in the 'mode' key in the PATH audit record (or null)
-	 * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
-	 * @return the created artifact
-	 */
-	private Artifact putArtifact(Map<String, String> eventData, 
-			ArtifactIdentifier artifactIdentifier, String permissions,
-			boolean updateVersion){
-		return putArtifact(eventData, artifactIdentifier, permissions, updateVersion, null);
-	}
-
-	/**
-	 * Creates the artifact according to the rules decided on for the current version of Audit reporter
-	 * and then puts the artifact in the buffer at the end if it wasn't put before.
-	 * 
-	 * Rules:
-	 * 1) If unix socket identifier and unix sockets disabled using {@link #UNIX_SOCKETS UNIX_SOCKETS} then null returned
-	 * 2) If useThisSource param is null then {@link #DEV_AUDIT DEV_AUDIT} is used
-	 * 3) If file identifier, pipe identifier or unix socket identifier and path starts with /dev then set updateVersion to false
-	 * 4) If network socket identifier versioning is false then set updateVersion to false
-	 * 5) If memory identifier then don't put the epoch annotation
-	 * 6) Put vertex to buffer if not added before. We know if it is added before or not based on updateVersion and if version wasn't initialized before this call
-	 * 7) Draw version update edge if file identifier and version has been updated
-	 * 
-	 * NEW: 
-	 * 8) If KEEP_VERSIONS is false then version annotation not added and WDF edge between old and new version not drawn
-	 * 9) If KEEP_EPOCHS is false then epoch annotation not added
-	 * 10) If KEEP_ARTIFACT_PROPERTIES_MAP is false then version and epoch annotations NOT added
-	 * 
-	 * @param eventData a map that contains the keys eventid, time, and pid. Used for creating the UPDATE edge. 
-	 * @param artifactIdentifier artifact to create
-	 * @param permissions permissions as found in the 'mode' key in the PATH audit record (or null)
-	 * @param updateVersion true or false to tell if the version has to be updated. Is modified based on the rules in the function
-	 * @param useThisSource the source value to use. if null then {@link #DEV_AUDIT DEV_AUDIT} is used.
-	 * @return the created artifact
-	 */
-	private Artifact putArtifact(Map<String, String> eventData, 
-			ArtifactIdentifier artifactIdentifier, String permissions, 
-			boolean updateVersion, String useThisSource){
-		if(artifactIdentifier == null){
-			return null;
-		}
-		
-		Class<? extends ArtifactIdentifier> artifactIdentifierClass = artifactIdentifier.getClass();
-		
-		Artifact artifact = new Artifact();
-		artifact.addAnnotation(OPMConstants.ARTIFACT_SUBTYPE, artifactIdentifier.getSubtype());
-		artifact.addAnnotations(artifactIdentifier.getAnnotationsMap());
-
-		if(useThisSource != null){
-			artifact.addAnnotation(OPMConstants.SOURCE, useThisSource);
-		}else{
-			artifact.addAnnotation(OPMConstants.SOURCE, AUDIT_SYSCALL_SOURCE);
-		}
-
-		// Only consult global flags if updateVersion was true otherwise we are not going to version anyway
-		if(updateVersion){
-			if(VERSION_ARTIFACTS == null){
-				if(FileIdentifier.class.equals(artifactIdentifierClass)
-						|| DirectoryIdentifier.class.equals(artifactIdentifierClass)
-						|| BlockDeviceIdentifier.class.equals(artifactIdentifierClass)
-						|| CharacterDeviceIdentifier.class.equals(artifactIdentifierClass)
-						|| LinkIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_FILES;
-				}else if(MemoryIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_MEMORYS;
-				}else if(NamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_NAMED_PIPES;
-				}else if(UnnamedPipeIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNNAMED_PIPES;
-				}else if(UnknownIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNKNOWNS;
-				}else if(NetworkSocketIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_NETWORK_SOCKETS;
-				}else if(UnixSocketIdentifier.class.equals(artifactIdentifierClass)){
-					updateVersion = VERSION_UNIX_SOCKETS;
-				}else{
-					logger.log(Level.WARNING, "Unexpected artifact type: {0}", new Object[]{artifactIdentifierClass});
-				}
-			}else if(VERSION_ARTIFACTS){ //if true
-				updateVersion = true;
-			}else if(!VERSION_ARTIFACTS){ //if false
-				updateVersion = false;
-			}
-		}
-		
-		// Special case: if /dev prefix path then don't version
-		if(artifactIdentifier instanceof IdentifierWithPath){
-			String path = artifact.getAnnotation(OPMConstants.ARTIFACT_PATH);
-			if(path != null){
-				if(updateVersion && path.startsWith("/dev/")){ //need this check for path based identities
-					updateVersion = false;
-				}
-			}
-		}
-		
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			
-			/*
-			 * Going to keep all the state if map is being used and just going to choose not to 
-			 * add the relevant annotations
-			 */
-
-			Set<String> syntheticAnnotations = new HashSet<String>();
-			syntheticAnnotations.add(OPMConstants.ARTIFACT_VERSION);
-			syntheticAnnotations.add(OPMConstants.ARTIFACT_EPOCH);
-			syntheticAnnotations.add(OPMConstants.ARTIFACT_PERMISSIONS);
-			
-			Map<String, Boolean> uninitialized = new HashMap<String, Boolean>();
-			Map<String, Boolean> updated = new HashMap<String, Boolean>();
-			Map<String, Boolean> added = new HashMap<String, Boolean>();
-			
-			// Add the default values
-			added.put(OPMConstants.ARTIFACT_VERSION, false);
-			added.put(OPMConstants.ARTIFACT_EPOCH, false);
-			added.put(OPMConstants.ARTIFACT_PERMISSIONS, false);
-			
-			ArtifactProperties artifactProperties = getArtifactProperties(artifactIdentifier);
-			
-			if(KEEP_VERSIONS && updateVersion){
-				artifactProperties.clearAllPermissionsExceptCurrent();
-			}
-
-			// Set if annotations have been initialized or not
-			// Version can be reinitialized
-			uninitialized.put(OPMConstants.ARTIFACT_VERSION, artifactProperties.isVersionUninitialized());
-			uninitialized.put(OPMConstants.ARTIFACT_EPOCH, artifactProperties.isEpochUninitialized());
-			uninitialized.put(OPMConstants.ARTIFACT_PERMISSIONS, artifactProperties.isPermissionsUninitialized());
-			
-			// Set if annotations have been updated or not
-			updated.put(OPMConstants.ARTIFACT_VERSION, updateVersion || artifactProperties.isEpochPending());
-			updated.put(OPMConstants.ARTIFACT_EPOCH, artifactProperties.isEpochPending());
-			boolean permissionsUpdated = permissions != null && !artifactProperties.permissionsSeenBefore(permissions);
-			updated.put(OPMConstants.ARTIFACT_PERMISSIONS, permissionsUpdated);
-			
-			// Get values for annotations / this also initializes the annotations
-			Long version = artifactProperties.getVersion(updateVersion);
-			Long epoch = artifactProperties.getEpoch();
-			artifactProperties.initializePermissions();
-			String previousPermissions = artifactProperties.getCurrentPermissions();
-			if(permissions == null){
-				permissions = artifactProperties.getCurrentPermissions();
-			}else{
-				artifactProperties.setCurrentPermissions(permissions);
-			}
-			
-			if(KEEP_VERSIONS){
-				added.put(OPMConstants.ARTIFACT_VERSION, true);
-				artifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, 
-						String.valueOf(version));
-			}
-			
-			if(KEEP_EPOCHS){
-				if(!artifactIdentifierClass.equals(MemoryIdentifier.class)){
-					added.put(OPMConstants.ARTIFACT_EPOCH, true);
-					artifact.addAnnotation(OPMConstants.ARTIFACT_EPOCH, 
-							String.valueOf(epoch));
-				}
-			}
-			
-			if(KEEP_PATH_PERMISSIONS){
-				// Permissions for only path based ones
-				if(artifactIdentifier instanceof IdentifierWithPath){
-					if(permissions != null){
-						added.put(OPMConstants.ARTIFACT_PERMISSIONS, true);
-						artifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, permissions);
-					}
-				}
-			}
-			
-			boolean callPutVertex = false;
-			boolean allUninitialized = true;
-			
-			for(String syntheticAnnotation : syntheticAnnotations){
-				
-				boolean callPutVertexForThisAnnotation = false;
-				if(uninitialized.get(syntheticAnnotation)
-						|| updated.get(syntheticAnnotation)){
-					if(added.get(syntheticAnnotation)){
-						callPutVertexForThisAnnotation = true;
-					}
-				}
-				callPutVertex = callPutVertex || callPutVertexForThisAnnotation;
-				allUninitialized = allUninitialized && uninitialized.get(syntheticAnnotation);
-				
-			}
-			
-			callPutVertex = callPutVertex || allUninitialized;
-			
-			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
-				// Don't do anything
-			}else{
-				
-				// Version / permissions update edge only if the vertex is actually added
-				
-				if(callPutVertex){
-					putVertex(artifact);
-					if(!updated.get(OPMConstants.ARTIFACT_EPOCH)){	
-						if((KEEP_VERSIONS && updated.get(OPMConstants.ARTIFACT_VERSION) && added.get(OPMConstants.ARTIFACT_VERSION) && version > -1)
-								|| (KEEP_PATH_PERMISSIONS && updated.get(OPMConstants.ARTIFACT_PERMISSIONS) && added.get(OPMConstants.ARTIFACT_PERMISSIONS))){
-							if(artifactIdentifier instanceof FileIdentifier){
-								putVersionPermissionsUpdateEdge(artifact, eventData.get(AuditEventReader.TIME), 
-										eventData.get(AuditEventReader.EVENT_ID), eventData.get(AuditEventReader.PID), 
-										version - 1, previousPermissions);
-							}
-						}
-					}
-				}
-			}			
-		}else{
-			// If not keeping the artifacts properties map then no way of telling if we should 
-			// call putVertex or not again (possible duplication). So, calling putVertex each time
-			if(isUnixSocketArtifact(artifact) && !UNIX_SOCKETS){
-				// don't add
-			}else{
-				putVertex(artifact);
-			}
-		}
-
-		return artifact;
-	}
-	
-	/**
-	 * Creates a version or permissions update edge i.e. from the new version/permissions of an artifact 
-	 * to the old version/permissions of the same artifact.
-	 * At the moment only being done for file, namedpipes, and unix socket artifacts. (only for path based artifacts)
-	 * See {@link #putArtifact(Map, ArtifactIdentifier, boolean, String) putArtifact}.
-	 * 
-	 * If the previous version number of the artifact is less than 0 then the edge won't be drawn because that means that there was
-	 * no previous version. 
-	 * 
-	 * Doesn't put the two artifact vertices because they should already have been added from where this function is called
-	 * 
-	 * Rules:
-	 * 1) If epoch was pending and has been incremented then we don't draw this update edge
-	 * 2) 
-	 * 
-	 * 
-	 * @param newArtifact artifact which has the updated version
-	 * @param time timestamp when this happened
-	 * @param eventId event id of the new version of the artifact creation
-	 * @param pid pid of the process which did the update
-	 */
-	private void putVersionPermissionsUpdateEdge(Artifact newArtifact,
-			String time, String eventId, String pid,
-			long previousVersion, String previousPermissions){
-		Artifact oldArtifact = new Artifact();
-		oldArtifact.addAnnotations(newArtifact.getAnnotations());
-		if(KEEP_VERSIONS && previousVersion > -1){
-			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_VERSION, String.valueOf(previousVersion));
-		}
-		if(KEEP_PATH_PERMISSIONS && previousPermissions != null){
-			oldArtifact.addAnnotation(OPMConstants.ARTIFACT_PERMISSIONS, String.valueOf(previousPermissions));
-		}
-		WasDerivedFrom versionUpdate = new WasDerivedFrom(newArtifact, oldArtifact);
-		versionUpdate.addAnnotation(OPMConstants.EDGE_PID, pid);
-		putEdge(versionUpdate, getOperation(SYSCALL.UPDATE), time, eventId, AUDIT_SYSCALL_SOURCE);
-	}
-
-	/**
-	 * Returns artifact properties for the given artifact identifier. If there is no entry for the artifact identifier
-	 * then it adds one for it and returns that. Simply observing it would modify it. Access the data structure 
-	 * {@link #artifactIdentifierToArtifactProperties artifactIdentifierToArtifactProperties} directly if need to see
-	 * if an entry for the given key exists.
-	 * 
-	 * @param artifactIdentifier artifact identifier object to get properties of
-	 * @return returns artifact properties in the map
-	 */
-	private ArtifactProperties getArtifactProperties(ArtifactIdentifier artifactIdentifier){
-		ArtifactProperties artifactProperties = artifactIdentifierToArtifactProperties.get(artifactIdentifier);
-		if(artifactProperties == null){
-			artifactProperties = new ArtifactProperties();
-		}
-		artifactIdentifierToArtifactProperties.put(artifactIdentifier, artifactProperties);
-		return artifactProperties;
-	}
-	
-	/**
-	 * Get the corresponding artifact properties for the artifact identifier and marks a new epoch
-	 * on that. If {@link #KEEP_ARTIFACT_PROPERTIES_MAP KEEP_ARTIFACT_PROPERTIES_MAP} is true 
-	 * then epoch marked otherwise returns without doing anything.
-	 * 
-	 * @param artifactIdentifier artifact identifier to get the properties of
-	 */
-	private void markNewEpochForArtifact(ArtifactIdentifier artifactIdentifier){
-		if(KEEP_ARTIFACT_PROPERTIES_MAP){
-			if(KEEP_EPOCHS){			
-				getArtifactProperties(artifactIdentifier).markNewEpoch();
-			}
-		}
 	}
 	
 	private AddressPort parseNetworkSaddr(String saddr){

@@ -18,55 +18,49 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class MemoryIdentifier extends ArtifactIdentifier{
+import spade.reporter.audit.OPMConstants;
+
+public class UnknownIdentifier extends ArtifactIdentifier{
+
+	private static final long serialVersionUID = 6511655756054136851L;
+	private String tgid, fd;
 	
-	private String memoryAddress;
-	private String size;
-	private String tgid;
-	
-	public MemoryIdentifier(String tgid, String memoryAddress, String size){
-		this.memoryAddress = memoryAddress;
-		this.size = size;
+	public UnknownIdentifier(String tgid, String fd){
 		this.tgid = tgid;
+		this.fd = fd;
 	}
 	
-	public String getMemoryAddress(){
-		return memoryAddress;
+	public String getFD(){
+		return fd;
 	}
-		
-	public String getSize(){
-		return size;
-	}
-	
+
 	public String getTgid(){
 		return tgid;
 	}
-
+	
 	@Override
 	public Map<String, String> getAnnotationsMap() {
 		Map<String, String> annotations = new HashMap<String, String>();
-		annotations.put(OPMConstants.ARTIFACT_MEMORY_ADDRESS, memoryAddress);
-		annotations.put(OPMConstants.ARTIFACT_SIZE, size);
 		annotations.put(OPMConstants.ARTIFACT_TGID, tgid);
+		annotations.put(OPMConstants.ARTIFACT_FD, fd);
 		return annotations;
 	}
 	
 	public String getSubtype(){
-		return OPMConstants.SUBTYPE_MEMORY_ADDRESS;
+		return OPMConstants.SUBTYPE_UNKNOWN;
 	}
-
+	
 	@Override
-	public int hashCode() {
+	public int hashCode(){
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((memoryAddress == null) ? 0 : memoryAddress.hashCode());
+		result = prime * result + ((fd == null) ? 0 : fd.hashCode());
 		result = prime * result + ((tgid == null) ? 0 : tgid.hashCode());
-		result = prime * result + ((size == null) ? 0 : size.hashCode());
 		return result;
 	}
 
@@ -78,23 +72,22 @@ public class MemoryIdentifier extends ArtifactIdentifier{
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		MemoryIdentifier other = (MemoryIdentifier) obj;
-		if (memoryAddress == null) {
-			if (other.memoryAddress != null)
+		UnknownIdentifier other = (UnknownIdentifier) obj;
+		if (fd == null) {
+			if (other.fd != null)
 				return false;
-		} else if (!memoryAddress.equals(other.memoryAddress))
+		} else if (!fd.equals(other.fd))
 			return false;
 		if (tgid == null) {
 			if (other.tgid != null)
 				return false;
 		} else if (!tgid.equals(other.tgid))
 			return false;
-		if (size == null) {
-			if (other.size != null)
-				return false;
-		} else if (!size.equals(other.size))
-			return false;
 		return true;
 	}
 
+	@Override
+	public String toString() {
+		return "UnknownIdentifier [tgid=" + tgid + ", fd=" + fd + "]";
+	}
 }

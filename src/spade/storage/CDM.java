@@ -657,8 +657,8 @@ public class CDM extends Kafka {
 						return false;
 					}else{
 						Map<CharSequence, CharSequence> properties = new HashMap<>();
-						addIfNotNull(OPMConstants.ARTIFACT_PID, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), OPMConstants.ARTIFACT_PID, properties);
 
 						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
 
@@ -666,17 +666,42 @@ public class CDM extends Kafka {
 								sourceFileDescriptor, sinkFileDescriptor, null, null); // TODO UUID for src and sink???
 					}
 					
+				}else if(OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR.equals(artifactType)
+						|| OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR.equals(artifactType)){
+					String tgid = vertex.getAnnotation(OPMConstants.ARTIFACT_TGID);
+					String fd0 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD0);
+					String fd1 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD1);
+					if(tgid == null || fd0 == null || fd1 == null){
+						logger.log(Level.WARNING, "Error parsing tgid/fd0/fd1 in artifact {0}", new Object[]{vertex});
+						return false;
+					}else{
+						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
+						if(OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR.equals(artifactType)){
+							Integer protocol = Audit.getProtocolNumber(vertex.getAnnotation(OPMConstants.ARTIFACT_PROTOCOL));
+							properties.put(OPMConstants.ARTIFACT_PROTOCOL, String.valueOf(protocol));
+						}
+						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
+						properties.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
+						properties.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
+						properties.put(OPMConstants.ARTIFACT_SUBTYPE, artifactType);
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+						
+						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
+
+						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
+								SrcSinkType.SRCSINK_UNKNOWN, null);
+					}
 				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
 
-					Integer pid = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_PID), null);
+					Integer tgid = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_TGID), null);
 					Integer fd = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_FD), null);
-					if(fd == null || pid == null){
-						logger.log(Level.WARNING, "Error parsing pid/fd in artifact {0}", new Object[]{vertex});
+					if(fd == null || tgid == null){
+						logger.log(Level.WARNING, "Error parsing tgid/fd in artifact {0}", new Object[]{vertex});
 						return false;
 					}else{
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(pid));
+						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
 
 						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
@@ -812,8 +837,19 @@ public class CDM extends Kafka {
 									incrementStatsCount(keyName);
 								}
 							}else if(cdmObject.getClass().equals(SrcSinkObject.class)){
-								if(((SrcSinkObject)cdmObject).getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
-									incrementStatsCount(SrcSinkObject.class.getSimpleName());
+								SrcSinkObject sso = ((SrcSinkObject)cdmObject);
+								if(sso.getType().equals(SrcSinkType.SRCSINK_UNKNOWN)){
+									String subtype = SrcSinkObject.class.getSimpleName();
+									if(sso.getBaseObject() != null){
+										if(sso.getBaseObject().getProperties() != null){
+											CharSequence subtypeCharSeq = sso.getBaseObject().getProperties().
+													get(OPMConstants.ARTIFACT_SUBTYPE);
+											if(subtypeCharSeq != null){
+												subtype = subtypeCharSeq.toString();
+											}
+										}
+									}
+									incrementStatsCount(subtype);
 								}
 							}else if(cdmObject.getClass().equals(FileObject.class)){
 								FileObjectType fileObjectType = ((FileObject)cdmObject).getType();
@@ -873,14 +909,51 @@ public class CDM extends Kafka {
 			}
 		}
 		
-		String sessionNumberString = argumentsMap.get("session");
+		String cdmOutFilePath = Settings.getDefaultOutputFilePath(this.getClass());
+		Map<String, String> cdmOutFileKeyValues = null;
+		try{
+			if(FileUtility.doesPathExist(cdmOutFilePath)){
+				if(!FileUtility.isFile(cdmOutFilePath)){
+					logger.log(Level.SEVERE, "CDM storage output file not a file: " + cdmOutFilePath);
+					return false;
+				}else{
+					try{
+						cdmOutFileKeyValues = FileUtility.readConfigFileAsKeyValueMap(cdmOutFilePath, "=");
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to read CDM storage output file: " + cdmOutFilePath, e);
+						return false;
+					}
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to check if CDM storage output file is a file: " + cdmOutFilePath, e);
+			return false;
+		}
+		
+		String lastSessionKey = "lastSession";
+		String sessionKey = "session";
+		String sessionNumberString = argumentsMap.get(sessionKey);
 		if(sessionNumberString != null){
 			Integer sessionNumber = CommonFunctions.parseInt(sessionNumberString, null);
 			if(sessionNumber == null){
-				logger.log(Level.SEVERE, "'session' must be an 'int': " + sessionNumberString);
+				logger.log(Level.SEVERE, "'"+sessionKey+"' must be an 'int': " + sessionNumberString);
 				return false;
 			}else{
 				this.sessionNumber = sessionNumber;
+			}
+		}else{ // no session number in args. read from file
+			if(cdmOutFileKeyValues != null){
+				String lastSessionString = cdmOutFileKeyValues.get(lastSessionKey);
+				if(lastSessionString != null){
+					Integer lastSessionInteger = CommonFunctions.parseInt(lastSessionString, null);
+					if(lastSessionInteger == null){
+						logger.log(Level.SEVERE, "Invalid '"+lastSessionKey+"' value '"+lastSessionString+
+								"' in file: " + cdmOutFilePath);
+						return false;
+					}else{
+						this.sessionNumber = lastSessionInteger + 1;
+					}
+				}
 			}
 		}
 		
@@ -927,12 +1000,26 @@ public class CDM extends Kafka {
 							+ "'TrustStorePassword', 'KeyStoreLocation', 'KeyStorePassword', 'KeyPassword'");
 					return false;
 				}
-				if(!FileUtility.fileExists(trustStoreLocation)){
-					logger.log(Level.SEVERE, "Invalid location for trust store 'TrustStoreLocation': " + trustStoreLocation);
+				try{
+					if(!FileUtility.doesPathExist(trustStoreLocation)){
+						logger.log(Level.SEVERE, "Path specified for 'TrustStoreLocation' key in config does not exist: "
+								+ trustStoreLocation);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if path specified for 'TrustStoreLocation' key in config exists: "
+							+ trustStoreLocation, e);
 					return false;
 				}
-				if(!FileUtility.fileExists(keyStoreLocation)){
-					logger.log(Level.SEVERE, "Invalid location for key store 'KeyStoreLocation': " + keyStoreLocation);
+				try{
+					if(!FileUtility.doesPathExist(keyStoreLocation)){
+						logger.log(Level.SEVERE, "Path specified for 'KeyStoreLocation' key in config does not exist: "
+								+ keyStoreLocation);
+						return false;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to check if path specified for 'KeyStoreLocation' key in config exists: "
+							+ keyStoreLocation, e);
 					return false;
 				}
 			}catch(Exception e){
@@ -949,12 +1036,41 @@ public class CDM extends Kafka {
 			if(hostVertex == null){
 				return false;
 			}else{
+				cdmOutFileKeyValues = getMapWithSessionNumber(cdmOutFileKeyValues, lastSessionKey, this.sessionNumber);
+				if(!writeOutFile(cdmOutFilePath, cdmOutFileKeyValues)){
+					return false;
+				}
+				logger.log(Level.INFO, "Session number = " + this.sessionNumber);
 				populateEventRules();
 				publishStreamMarkerObject(true);
 				publishHost(hostVertex);
 				this.hostUUID = getUuid(hostVertex);
 			}
 			return true;
+		}
+	}
+	
+	private Map<String, String> getMapWithSessionNumber(Map<String, String> keyValues, String sessionKey, int session){
+		if(keyValues == null){
+			keyValues = new HashMap<String, String>();
+		}
+		keyValues.put(sessionKey, String.valueOf(session));
+		return keyValues;
+	}
+	
+	private boolean writeOutFile(String outFilePath, Map<String, String> keyValues){
+		try{
+			List<String> lines = CommonFunctions.mapToLines(keyValues, "=");
+			if(lines == null){
+				logger.log(Level.SEVERE, "NULL map for writing out to CDM storage output file");
+				return false;
+			}else{
+				FileUtility.writeLines(outFilePath, lines);
+				return true;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to write map ("+keyValues+") to CDM storage output file: " + outFilePath, e);
+			return false;
 		}
 	}
 	
@@ -981,13 +1097,18 @@ public class CDM extends Kafka {
 					return null;
 				}
 			}
-			if(FileUtility.fileExists(hostFilePath)){
-				HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
-				AbstractVertex hostVertex = new Artifact();
-				hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
-				return hostVertex;
-			}else{
-				logger.log(Level.SEVERE, "Missing host file at path: " + hostFilePath);
+			try{
+				if(FileUtility.isFileReadable(hostFilePath)){
+					HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
+					AbstractVertex hostVertex = new Artifact();
+					hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
+					return hostVertex;
+				}else{
+					logger.log(Level.SEVERE, "Host info file path is not readable: " + hostFilePath);
+					return null;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if host info file is readable: " + hostFilePath, e);
 				return null;
 			}
 		}
@@ -1479,6 +1600,24 @@ public class CDM extends Kafka {
 		if(from != null && to != null){
 			if(from.get(key) != null){
 				to.put(key, from.get(key));
+			}
+		}
+	}
+	
+	/**
+	 * Adds the value of fromkey from the 'from' map to the 'to' map as tokey only if non-null
+	 * 
+	 * If either of the maps null then nothing happens
+	 * 
+	 * @param fromKey key to check for and add as in the from map
+	 * @param from map to get the value for the key from
+	 * @param toKey key to put the value as in the to map
+	 * @param to map to put the value for the key and the key to
+	 */
+	public void addIfNotNull(String fromKey, Map<String, String> from, String toKey, Map<CharSequence, CharSequence> to){
+		if(from != null && to != null){
+			if(from.get(fromKey) != null){
+				to.put(toKey, from.get(fromKey));
 			}
 		}
 	}

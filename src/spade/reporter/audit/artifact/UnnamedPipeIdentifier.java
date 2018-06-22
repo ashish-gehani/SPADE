@@ -18,16 +18,39 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit;
+package spade.reporter.audit.artifact;
 
-public class UnixSocketIdentifier extends IdentifierWithPath{
+import java.util.Map;
+
+import spade.reporter.audit.OPMConstants;
+
+public class UnnamedPipeIdentifier extends FdPairIdentifier{
+
+	private static final long serialVersionUID = -4888235272900911375L;
 	
-	public UnixSocketIdentifier(String path){
-		super(path);
+	/**
+	 * @param tgid owner process's thread group id
+	 * @param fd0 read end of the pipe
+	 * @param fd1 write end of the pipe
+	 */
+	public UnnamedPipeIdentifier(String tgid, String fd0, String fd1){
+		super(tgid, fd0, fd1);
 	}
-	
+
 	public String getSubtype(){
-		return OPMConstants.SUBTYPE_UNIX_SOCKET;
+		return OPMConstants.SUBTYPE_UNNAMED_PIPE;
 	}
 	
+	@Override
+	public Map<String, String> getAnnotationsMap() {
+		Map<String, String> annotations = super.getAnnotationsMap();
+		annotations.put(OPMConstants.ARTIFACT_READ_FD, String.valueOf(fd0));
+		annotations.put(OPMConstants.ARTIFACT_WRITE_FD, String.valueOf(fd1));
+		return annotations;
+	}
+
+	@Override
+	public String toString() {
+		return "UnnamedPipeIdentifier [fd0=" + fd0 + ", fd1=" + fd1 + ", tgid=" + tgid + "]";
+	}
 }

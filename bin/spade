@@ -57,7 +57,11 @@ else
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Control
 	elif [ $1 = "debug" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
-	elif [ $1 = "start" ] ; then
+	elif [ $1 = "start" ]  || [ $1 = "remote-debug" ] ; then
+		remote_debugging_flags=
+		if [ $1 = "remote-debug" ] ; then
+			remote_debugging_flags="-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
+		fi
 		running=0
 		if [ -f "$spadePidFilePath" ] ; then
 			existingSpadePid=`cat $spadePidFilePath`
@@ -68,7 +72,7 @@ else
 			fi
 		fi
 		if [ "$running" -eq 0 ] ; then
-			nohup java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.core.Kernel 2>&1 > /dev/null &
+			nohup java $remote_debugging_flags -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.core.Kernel 2>&1 > /dev/null &
 			spadePid=$!
 			if ps -p "$spadePid" 2>&1 > /dev/null ; then
 				echo -n $spadePid > $spadePidFilePath
