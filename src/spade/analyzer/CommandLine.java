@@ -30,7 +30,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import static spade.core.AbstractStorage.USE_SCAFFOLD;
+import static spade.core.AbstractStorage.BUILD_SCAFFOLD;
 import static spade.core.AbstractStorage.scaffold;
 
 /**
@@ -189,7 +189,7 @@ public class CommandLine extends AbstractAnalyzer
                             Object result;
                             if( (functionName.equalsIgnoreCase("GetLineage") ||
                                     functionName.equalsIgnoreCase("GetPaths") )
-                                    && USE_SCAFFOLD)
+                                    && USE_SCAFFOLD && BUILD_SCAFFOLD)
                             {
                                 result = scaffold.queryManager(queryParameters);
                                 returnType = Graph.class;

@@ -22,6 +22,7 @@ package spade.core;
 import spade.query.scaffold.Scaffold;
 import spade.query.scaffold.ScaffoldFactory;
 
+import java.io.FileInputStream;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -32,6 +33,8 @@ import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 import static spade.core.Kernel.SPADE_ROOT;
 
 
@@ -67,7 +70,7 @@ public abstract class AbstractStorage
      */
     protected long edgeCount;
 
-    protected Properties databaseConfigs = new Properties();
+    protected static Properties databaseConfigs = new Properties();
 
     /**
      * Variables and functions for computing performance stats
@@ -77,6 +80,78 @@ public abstract class AbstractStorage
     protected long reportEveryMs;
     protected long startTime, lastReportedTime;
     protected long lastReportedVertexCount, lastReportedEdgeCount;
+
+    private static String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.core.AbstractStorage.config";
+    /**
+     * Variables and functions for managing scaffold storage
+     */
+    public static Scaffold scaffold = null;
+    public static boolean BUILD_SCAFFOLD;
+    public static String SCAFFOLD_PATH;
+    public static String SCAFFOLD_DATABASE_NAME;
+    static
+    {
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+            BUILD_SCAFFOLD = Boolean.parseBoolean(databaseConfigs.getProperty("build_scaffold"));
+            SCAFFOLD_PATH = SPADE_ROOT + databaseConfigs.getProperty("scaffold_path");
+            SCAFFOLD_DATABASE_NAME = databaseConfigs.getProperty("scaffold_database_name");
+            if(BUILD_SCAFFOLD)
+            {
+                scaffold = ScaffoldFactory.createScaffold(SCAFFOLD_DATABASE_NAME);
+                if(!scaffold.initialize(SCAFFOLD_PATH))
+                {
+                    Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING, "Scaffold not set!");
+                }
+            }
+        }
+        catch(Exception ex)
+        {
+            // default settings
+            BUILD_SCAFFOLD = false;
+            SCAFFOLD_PATH = SPADE_ROOT + "db/scaffold";
+            SCAFFOLD_DATABASE_NAME = "BerkeleyDB";
+            Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING,
+                    "Loading configurations from file unsuccessful! Falling back to default settings", ex);
+        }
+    }
+
+    protected boolean insertScaffoldEntry(AbstractEdge incomingEdge)
+    {
+        return scaffold.insertEntry(incomingEdge);
+    }
+
+    /* For testing purposes only. Set scaffold through Settings file normally. */
+    public static void setScaffold(Scaffold scaffold)
+    {
+        AbstractStorage.scaffold = scaffold;
+        BUILD_SCAFFOLD = true;
+    }
+
+    /**
+     * This method is invoked by the kernel to initialize the storage.
+     *
+     * @param arguments The arguments with which this storage is to be
+     * initialized.
+     * @return True if the storage was initialized successfully.
+     */
+    public abstract boolean initialize(String arguments);
+
+    /**
+     * This method is invoked by the kernel to shut down the storage.
+     *
+     * @return True if the storage was shut down successfully.
+     */
+    public boolean shutdown()
+    {
+        if(BUILD_SCAFFOLD)
+        {
+            scaffold.shutdown();
+        }
+
+        return true;
+    }
 
     protected void computeStats()
     {
@@ -113,60 +188,6 @@ public abstract class AbstractStorage
         }
     }
 
-
-    /**
-     * Variables and functions for managing scaffold storage
-     */
-    public static Scaffold scaffold = null;
-    public static boolean USE_SCAFFOLD = Boolean.parseBoolean(Settings.getProperty("use_scaffold"));
-    public static final String scaffoldPath = SPADE_ROOT + Settings.getProperty("scaffold_path");
-    static
-    {
-        if(USE_SCAFFOLD)
-        {
-            scaffold = ScaffoldFactory.createDefaultScaffold();
-            if(!scaffold.initialize(scaffoldPath))
-            {
-                Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING, "Scaffold not set!");
-            }
-        }
-    }
-
-    protected boolean insertScaffoldEntry(AbstractEdge incomingEdge)
-    {
-        return scaffold.insertEntry(incomingEdge);
-    }
-
-    /* For testing purposes only. Set scaffold through Settings file normally. */
-    public static void setScaffold(Scaffold scaffold)
-    {
-        AbstractStorage.scaffold = scaffold;
-        USE_SCAFFOLD = true;
-    }
-
-    /**
-     * This method is invoked by the kernel to initialize the storage.
-     *
-     * @param arguments The arguments with which this storage is to be
-     * initialized.
-     * @return True if the storage was initialized successfully.
-     */
-    public abstract boolean initialize(String arguments);
-
-    /**
-     * This method is invoked by the kernel to shut down the storage.
-     *
-     * @return True if the storage was shut down successfully.
-     */
-    public boolean shutdown()
-    {
-        if(USE_SCAFFOLD)
-        {
-            scaffold.shutdown();
-        }
-
-        return true;
-    }
 
     /**
      * This method returns current edge count.

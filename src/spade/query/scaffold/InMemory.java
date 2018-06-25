@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractStorage.scaffoldPath;
+import static spade.core.AbstractStorage.SCAFFOLD_PATH;
 
 
 public class InMemory extends Scaffold
@@ -61,7 +61,7 @@ public class InMemory extends Scaffold
     public boolean shutdown()
     {
         // store scaffold
-        String file_name = scaffoldPath + "scaffold";
+        String file_name = SCAFFOLD_PATH + "scaffold";
         File file = new File(file_name);
         try
         {

@@ -1,13 +1,10 @@
 package spade.storage;
 
 
-import org.apache.commons.io.FileUtils;
-import scala.reflect.internal.Trees;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.DriverManager;
@@ -306,7 +303,7 @@ public class MySQL extends SQL
         {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
-            if(USE_SCAFFOLD)
+            if(BUILD_SCAFFOLD)
             {
                 //TODO: device policy in case of non-insertion into scaffold
                 insertScaffoldEntry(incomingEdge);

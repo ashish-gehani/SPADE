@@ -16,9 +16,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 import static spade.core.Kernel.sslServerSocketFactory;
 
 /**
@@ -29,12 +32,32 @@ public abstract class AbstractAnalyzer
     public String QUERY_PORT;
     protected AbstractResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
-    protected boolean USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
     private static Map<String, List<String>> functionToClassMap;
     protected static boolean EXPORT_RESULT = false;
     public static final String COMPARISON_OPERATORS = "=|>|<|>=|<=";
     public static final String BOOLEAN_OPERATORS = "AND|OR";
     protected static final InconsistencyDetector inconsistencyDetector = new InconsistencyDetector();
+    protected static Properties databaseConfigs = new Properties();
+    private static String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.core.AbstractAnalyzer.config";
+    public static boolean USE_SCAFFOLD;
+    public static boolean USE_TRANSFORMER;
+    static
+    {
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+            USE_SCAFFOLD = Boolean.parseBoolean(databaseConfigs.getProperty("use_scaffold"));
+            USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
+        }
+        catch(Exception ex)
+        {
+            // default settings
+            USE_SCAFFOLD = false;
+            USE_TRANSFORMER = false;
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING,
+                    "Loading configurations from the file unsuccessful! Falling back to default settings" , ex);
+        }
+    }
 
     /**
      * remoteResolutionRequired is used by query module to signal the Analyzer

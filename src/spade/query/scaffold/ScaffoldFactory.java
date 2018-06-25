@@ -1,32 +1,24 @@
 package spade.query.scaffold;
 
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 public class ScaffoldFactory
 {
-    private ScaffoldFactory(){}
 
-    public static Scaffold createScaffold(String scaffoldType)
+    public static Scaffold createScaffold(String scaffoldDatabaseName)
     {
-        Scaffold scaffold = null;
-        if(scaffoldType.equals("BerkeleyDB"))
+        Scaffold scaffold;
+        String packagePath = "spade.query.scaffold.";
+        try
         {
-            scaffold = new BerkeleyDB();
+            scaffold = (Scaffold) Class.forName(packagePath + scaffoldDatabaseName).newInstance();
         }
-        else if(scaffoldType.equals("LevelDB"))
+        catch(Exception ex)
         {
-            scaffold = new LevelDB();
-        }
-        else if(scaffoldType.equals("InMemory"))
-        {
-            scaffold = new InMemory();
-        }
-        else if(scaffoldType.equals("Redis"))
-        {
-            scaffold = new Redis();
-        }
-        else if(scaffoldType.equals("PostgreSQL"))
-        {
-            scaffold = new PostgreSQL();
+            scaffold = createDefaultScaffold();
+            Logger.getLogger(ScaffoldFactory.class.getName()).log(Level.SEVERE, "Scaffold database not found! Creating default Scaffold", ex);
         }
 
         return scaffold;
@@ -34,6 +26,6 @@ public class ScaffoldFactory
 
     public static Scaffold createDefaultScaffold()
     {
-        return new PostgreSQL();
+        return new BerkeleyDB();
     }
 }

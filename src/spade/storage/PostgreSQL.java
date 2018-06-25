@@ -436,7 +436,7 @@ public class PostgreSQL extends SQL
             s.close();
             globalTxCheckin(false);
 
-            if(USE_SCAFFOLD)
+            if(BUILD_SCAFFOLD)
             {
                 //TODO: device policy in case of non-insertion into scaffold
                 insertScaffoldEntry(incomingEdge);
@@ -475,7 +475,7 @@ public class PostgreSQL extends SQL
             }
         }
 
-        if(USE_SCAFFOLD)
+        if(BUILD_SCAFFOLD)
         {
             insertScaffoldEntry(incomingEdge);
         }
