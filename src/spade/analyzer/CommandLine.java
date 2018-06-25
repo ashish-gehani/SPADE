@@ -19,6 +19,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -30,7 +31,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import static spade.core.AbstractStorage.USE_SCAFFOLD;
+import static spade.core.AbstractStorage.BUILD_SCAFFOLD;
 import static spade.core.AbstractStorage.scaffold;
 
 /**
@@ -189,7 +190,7 @@ public class CommandLine extends AbstractAnalyzer
                             Object result;
                             if( (functionName.equalsIgnoreCase("GetLineage") ||
                                     functionName.equalsIgnoreCase("GetPaths") )
-                                    && USE_SCAFFOLD)
+                                    && USE_SCAFFOLD && BUILD_SCAFFOLD)
                             {
                                 result = scaffold.queryManager(queryParameters);
                                 returnType = Graph.class;
@@ -197,6 +198,10 @@ public class CommandLine extends AbstractAnalyzer
                             else
                             {
                                 String functionClassName = getFunctionClassName(functionName);
+                                if(functionClassName == null)
+                                {
+                                    throw new Exception();
+                                }
                                 queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
                                 returnType = Class.forName(getReturnType(functionName));
                                 result = queryClass.execute(queryParameters, resultLimit);
@@ -241,14 +246,26 @@ public class CommandLine extends AbstractAnalyzer
                                         result = iterateTransformers((Graph) result, queryMetaData);
                                         logger.log(Level.INFO, "Transformers applied successfully.");
                                     }
-                                    // if result output is to be converted into dot file format
-                                    if(EXPORT_RESULT)
-                                    {
-                                        returnType = String.class;
-                                        result = ((Graph) result).exportGraph();
-                                        EXPORT_RESULT = false;
-                                    }
                                 }
+                                // if result output is to be converted into dot file format
+                                if(EXPORT_RESULT)
+                                {
+                                    Graph temp_result = new Graph();
+                                    if(functionName.equalsIgnoreCase("GetEdge"))
+                                    {
+                                        temp_result.edgeSet().addAll((Set<AbstractEdge>) result);
+                                        result = temp_result;
+                                    }
+                                    else if(functionName.equalsIgnoreCase("GetVertex"))
+                                    {
+                                        temp_result.vertexSet().addAll((Set<AbstractVertex>) result);
+                                        result = temp_result;
+                                    }
+                                    returnType = String.class;
+                                    result = ((Graph) result).exportGraph();
+                                    EXPORT_RESULT = false;
+                                }
+
                             }
                             else
                             {

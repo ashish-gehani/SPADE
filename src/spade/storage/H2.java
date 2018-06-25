@@ -1,7 +1,6 @@
 package spade.storage;
 
 
-import org.apache.commons.io.FileUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
@@ -315,7 +314,7 @@ public class H2 extends SQL
         {
             Statement s = dbConnection.createStatement();
             s.execute(insertString);
-            if(USE_SCAFFOLD)
+            if(BUILD_SCAFFOLD)
             {
                 //TODO: device policy in case of non-insertion into scaffold
                 insertScaffoldEntry(incomingEdge);
