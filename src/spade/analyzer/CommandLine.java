@@ -180,10 +180,16 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         try
                         {
+                            if(AbstractQuery.getCurrentStorage() == null)
+                            {
+                                String message = "No storage available to query!";
+                                throw new Exception(message);
+                            }
                             boolean parse_successful = parseQuery(line.trim());
                             if(!parse_successful)
                             {
-                                throw new Exception();
+                                String message = "Querying parsing not successful! Make sure you follow the guidelines";
+                                throw new Exception(message);
                             }
                             AbstractQuery queryClass;
                             Class<?> returnType;
@@ -200,7 +206,8 @@ public class CommandLine extends AbstractAnalyzer
                                 String functionClassName = getFunctionClassName(functionName);
                                 if(functionClassName == null)
                                 {
-                                    throw new Exception();
+                                    String message = "Required query class not available!";
+                                    throw new Exception(message);
                                 }
                                 queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
                                 returnType = Class.forName(getReturnType(functionName));

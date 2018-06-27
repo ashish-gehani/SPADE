@@ -904,8 +904,8 @@ public class Kernel
                         storage.edgeCount = 0;
                         storages.add(storage);
                         AbstractQuery.setCurrentStorage(storage);
-                        logger.log(Level.INFO, "currentStorage set to "+ storage.getClass().getName());
                         logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
+                        logger.log(Level.INFO, "currentStorage set to "+ storage.getClass().getName());
                         outputStream.println("done");
                     }
                     else
@@ -1370,11 +1370,15 @@ public class Kernel
                             storageIterator.remove();
                             if(updateCurrentStorage)
                             {
-                                AbstractStorage nextStorage = storageIterator.next();
-                                if(nextStorage != null)
+                                if(storageIterator.hasNext())
                                 {
+                                    AbstractStorage nextStorage = storageIterator.next();
                                     AbstractQuery.setCurrentStorage(nextStorage);
                                     logger.log(Level.INFO, "currentStorage updated to " + nextStorage.getClass().getName());
+                                }
+                                else
+                                {
+                                    AbstractQuery.setCurrentStorage(null);
                                 }
                             }
                             logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)",

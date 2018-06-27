@@ -153,15 +153,15 @@ public abstract class AbstractAnalyzer
             {
                 Class.forName(className);
                 functionToClassMap.put(functionName, classInfo);
-                return classInfo.get(0);
             }
             catch(ClassNotFoundException ex)
             {
-                Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, "Query class not present!", ex);
+                Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, "Unable to find/load query class!", ex);
+                return null;
             }
         }
 
-        return null;
+        return classInfo.get(0);
     }
 
     public String getReturnType(String functionName)
