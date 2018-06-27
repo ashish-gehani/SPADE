@@ -19,9 +19,24 @@
  */
 package spade.utility;
 
-public class JavaHome {
+import java.io.File;
 
-    public static void main(String[] arguments) {
-        System.out.println(System.getProperty("java.home"));
+public class JavaHome{
+
+	// Prints the path to 'include' directory in java home
+    public static void main(String[] arguments) throws Exception{
+    	boolean found = false;
+    	String javaHomePath = System.getProperty("java.home");
+    	File javaHomeFile = new File(javaHomePath);
+    	File javaHomeDir = javaHomeFile;
+    	do{
+    		for(File file : javaHomeDir.listFiles()){
+	    		if(file.getName().equals("include")){
+	    			System.out.println(file.getAbsolutePath());
+	    			found = true;
+	    			break;
+	    		}
+	    	}
+    	}while((javaHomeDir = javaHomeDir.getParentFile()) != null && !found);
     }
 }

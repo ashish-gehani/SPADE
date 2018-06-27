@@ -135,7 +135,7 @@ src/spade/reporter/spade_reporter_LinuxFUSE.h: build/spade/reporter/LinuxFUSE.cl
 	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/LinuxFUSE.java
 lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
+	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome) -I$(shell java -classpath build spade.utility.JavaHome)/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
  
 # Build the OpenBSM reporter.
 build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c lib/spadeOpenBSM
@@ -149,7 +149,7 @@ lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/MacFUSE.java
-	gcc -dynamiclib -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
+	gcc -dynamiclib -I$(shell java -classpath build spade.utility.JavaHome) -I$(shell java -classpath build spade.utility.JavaHome)/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
  
 llvm:
 	@make $(LLVM_RULE)
