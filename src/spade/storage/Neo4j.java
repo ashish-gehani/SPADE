@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -72,13 +73,18 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.core.BloomFilter;
+import spade.utility.CommonFunctions;
+
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 
 /**
  * Neo4j storage implementation.
  *
- * @author Dawood Tariq and Hasanat Kazmi
+ * @author Dawood Tariq and Hasanat Kazmi databasePath
  */
-public class Neo4j extends AbstractStorage {
+public class Neo4j extends AbstractStorage
+{
 
     // Identifying annotation to add to each edge/vertex
     private static final String ID_STRING = "id";
@@ -96,7 +102,7 @@ public class Neo4j extends AbstractStorage {
 
     public enum RelationshipTypes implements RelationshipType { EDGE }
     public enum NodeTypes implements Label { VERTEX }
-    private String neo4jDatabaseDirectoryPath = null;
+    private String databasePath;
 
     public final String HASHCODE_LABEL = "hashCode";
     private double falsePositiveProbability = 0.0001;
@@ -150,24 +156,47 @@ public class Neo4j extends AbstractStorage {
     private int foundInDbCountTmp = 0;
     private int falsePositiveCountTmp = 0;
     //
+    private static Properties databaseConfigs = new Properties();
+
+    public Neo4j()
+    {
+        String configFile =  CONFIG_PATH + FILE_SEPARATOR + "spade.storage.Neo4j.config";
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+        }
+        catch(Exception ex)
+        {
+            String msg  = "Loading Neo4j configurations for SPADE unsuccessful! Unexpected behavior might follow";
+            logger.log(Level.SEVERE, msg, ex);
+        }
+    }
 
     @Override
-    public boolean initialize(String arguments) {
-        try {
-            neo4jDatabaseDirectoryPath = arguments;
-            if (neo4jDatabaseDirectoryPath == null) {
-                return false;
+    public boolean initialize(String arguments)
+    {
+        try
+        {
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            databasePath = argsMap.get("databasePath");
+            if (databasePath == null)
+            {
+                databasePath = databaseConfigs.getProperty("databasePath");
             }
-            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
-            try {
+            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(databasePath);
+            try
+            {
                 graphDbBuilder.loadPropertiesFromFile(NEO_CONFIG_FILE);
-                logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
-            } catch (Exception exception) {
-                logger.log(Level.INFO, "Default Neo4j configurations loaded.");
+                logger.log(Level.INFO, "Neo4j internal configurations loaded from config file.");
+            }
+            catch (Exception exception)
+            {
+                logger.log(Level.INFO, "Default Neo4j internal configurations loaded.");
             }
             graphDb = graphDbBuilder.newGraphDatabase();
 
-            try ( Transaction tx = graphDb.beginTx() ) {
+            try ( Transaction tx = graphDb.beginTx() )
+            {
                 index = graphDb.index();
                 // Create vertex index
                 vertexIndex = index.forNodes(VERTEX_INDEX);
@@ -179,14 +208,17 @@ public class Neo4j extends AbstractStorage {
             nodeBloomFilter = loadBloomFilter(NODE_BLOOMFILTER);
             edgeBloomFilter = loadBloomFilter(EDGE_BLOOMFILTER);
 
-            if (LOG_PERFORMANCE_STATS==true) {
+            if (LOG_PERFORMANCE_STATS==true)
+            {
               logger.log(Level.INFO, "nodeBloomFilter size at startup: " + nodeBloomFilter.count());
             }
             reportProgressDate = Calendar.getInstance().getTime();
             lastFlushTime = Calendar.getInstance().getTime();
 
             return true;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
@@ -195,7 +227,7 @@ public class Neo4j extends AbstractStorage {
     private BloomFilter loadBloomFilter(String fileName) {
 
     	try {
-    		File filePath = new File(neo4jDatabaseDirectoryPath, fileName);
+    		File filePath = new File(databasePath, fileName);
     		if (filePath.exists()) {
 	    		FileInputStream fileInputStream = new FileInputStream(
 	    			filePath.toString()
@@ -218,7 +250,7 @@ public class Neo4j extends AbstractStorage {
 
     	try {
     		FileOutputStream fileOutputStream = new FileOutputStream(
-    			new File(neo4jDatabaseDirectoryPath, fileName).toString()
+    			new File(databasePath, fileName).toString()
 			);
     		ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
     		objectOutputStream.writeObject(bloomFilter);

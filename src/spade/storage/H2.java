@@ -4,6 +4,7 @@ package spade.storage;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
+import spade.utility.CommonFunctions;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -33,7 +35,8 @@ public class H2 extends SQL
         }
         catch(IOException ex)
         {
-            logger.log(Level.SEVERE, "Loading H2 configurations from file unsuccessful!", ex);
+            String msg  = "Loading H2 configurations from file unsuccessful! Unexpected behavior might follow";
+            logger.log(Level.SEVERE, msg, ex);
         }
     }
 
@@ -42,13 +45,13 @@ public class H2 extends SQL
      * if not already present. The necessary tables include VERTEX and EDGE tables
      * to store provenance metadata.
      *
-     * @param arguments A string of 4 space-separated tokens used for making a successful
-     *                  connection to the database, of the following format:
-     *                  'database_path username password'
-     *                  <p>
+     * @param arguments A string of 3 space-separated tokens for making a successful connection
+     *                  to the database, could be provided in the following format:
+     *                  'databasePath databaseUser databasePassword'
+     *
      *                  Example argument strings are as follows:
      *                  /tmp/spade.sql sa null
-     *                  <p>
+     *
      *                  Points to note:
      *                  1. The database driver jar should be present in lib/ in the project's root.
      * @return returns true if the connection to database has been successful.
@@ -58,17 +61,16 @@ public class H2 extends SQL
     {
         try
         {
-            // Arguments consist of 3 space-separated tokens: 'URL username password'
-            String[] tokens = arguments.split("\\s+");
-            String databaseURL = tokens[0];
-            File f = new File(databaseURL);
-            if(!f.isAbsolute())
-            {
-                databaseURL = DB_ROOT + databaseURL;
-            }
-            String databaseUsername = tokens[1];
-            String databasePassword = tokens[2];
-            databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databaseURL;
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            // These arguments could be provided: databasePath databaseUsername databasePassword
+            String databasePath = (argsMap.get("databasePath") != null) ? argsMap.get("databasePath") :
+                    databaseConfigs.getProperty("databasePath");
+            String databaseUsername = (argsMap.get("databaseUsername") != null) ? argsMap.get("databaseUsername") :
+                    databaseConfigs.getProperty("databaseUsername");
+            String databasePassword = (argsMap.get("databasePassword") != null) ? argsMap.get("databasePassword") :
+                    databaseConfigs.getProperty("databasePassword");
+
+            String databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databasePath;
 
             Class.forName(databaseConfigs.getProperty("databaseDriver")).newInstance();
             dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
