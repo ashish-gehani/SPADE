@@ -46,7 +46,7 @@ ifeq ($(OS_NAME), Linux)
 endif
 ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 	OS_BUILD = build/spade/reporter/ProcMon.class
-	JAVAC_CP = build;lib\*
+	JAVAC_CP = build;lib\*;neo4j-community-3.4.1\lib\*
 endif
  
 # -------- Default Build Configuration -----
@@ -54,7 +54,7 @@ REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM
 # -------------------------------------------
  
 .PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages android-build
- 
+
 all:    build
 	./bin/keys/generatekeys.sh
  
@@ -66,11 +66,21 @@ help:
  
 # ---------- Building SPADE ----------    
 .SECONDEXPANSION:
- 
+
 build: | prepare-dirs
 build: build-java $$(OS_BUILD) lib/spade.jar
-build-java: core clients utilities storages filters query analyzers sketches transformers reporters
- 
+build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
+
+NEO4J_DIR=neo4j-community-3.4.1
+download-neo4j:
+	@if [ -d $(NEO4J_DIR) ]; then \
+		echo "Neo4j already exists"; \
+	else \
+		echo "Neo4j does not exist. Downloading now..."; \
+		bin/downloadNeo4j \
+		echo "--- Downloaded Neo4j and dependencies ---"; \
+	fi
+
 .SUFFIXES : .class .java
  
 prepare-dirs:

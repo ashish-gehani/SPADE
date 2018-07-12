@@ -1,4 +1,4 @@
-$!/bin/bash
+#!/bin/bash
 OS_NAME=$(uname)
 if [ $OS_NAME == "Linux" ]
 then
