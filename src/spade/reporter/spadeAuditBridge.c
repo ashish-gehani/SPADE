@@ -55,16 +55,21 @@ char filePath[256];
 char dirPath[256];
 char dirTimeBuf[256];
 time_t dirTime = 0;
+char mergeUnitStr[256];
+int mergeUnit = 0;
 
 // UBSI Unit analysis
 #include <assert.h>
 #include "uthash.h"
-#define UENTRY 0xffffff9c
-#define UEXIT 0xffffff9b
+#define UENTRY 0xffffff9c // (kill(-100
+#define UENTRY_ID 0xffffff9a // (kill (-102
+
+#define UEXIT 0xffffff9b // (kill (-101
 #define MREAD1 0xffffff38
 #define MREAD2 0xffffff37
 #define MWRITE1 0xfffffed4
 #define MWRITE2 0xfffffed3
+#define UDEP 0xfffffe70 // (kill (-400, dependent id)
 
 typedef int bool;
 #define true 1
@@ -108,6 +113,12 @@ typedef struct thread_t {
 		thread_time_t thread_time; // thread create time. seconds and milliseconds.
 } thread_t;
 
+typedef struct unit_id_map_t {
+		int unitid;
+		thread_unit_t thread_unit;
+		UT_hash_handle hh;
+} unit_id_map_t;
+
 typedef struct unit_table_t {
 		thread_t thread;
 //		int tid; // pid in auditlog which is actually thread_id.
@@ -119,6 +130,9 @@ typedef struct unit_table_t {
 		link_unit_t *link_unit;
 		mem_proc_t *mem_proc;
 		mem_unit_t *mem_unit; // mem_write_record in the unit
+		int unitid;
+		int merge_count;
+		unit_id_map_t *unit_id_map;
 		char proc[1024];
 		bool signal_handler[MAX_SIGNO];
 		UT_hash_handle hh;
@@ -139,7 +153,7 @@ typedef struct iteration_count_t{
 	int count;
 } iteration_count_t;
 
-typedef struct thread_group_leader_t{
+typedef struct thread_group_leader_t {
 		thread_t thread;
 		thread_t leader;
 		UT_hash_handle hh;
@@ -203,6 +217,7 @@ void print_usage(char** argv) {
 		printf("  -F, --file				single file to process\n");  
 		printf("  -d, --dir                 a directory name that contains log files\n");
 		printf("  -t, --time                timestamp. Only handle log files modified after the timestamp. \n");
+		printf("  -m, --merge-unit          merge N units into a single unit.\n");
 		printf("                            This option is only valid with -d option. (format: YYYY-MM-DD:HH:MM:SS,\n");
 		printf("                              e.g., 2017-1-21:07:09:20)\n");
 		printf("  -h, --help                print this help and exit\n");
@@ -224,10 +239,11 @@ int command_line_option(int argc, char **argv)
 				{"dir",				required_argument,	NULL, 'd'},
 				{"time",			required_argument,	NULL, 't'},
 				{"wait-for-end",	no_argument,		NULL, 'w'},
+				{"merge-unit",	required_argument,		NULL, 'm'},
 				{NULL,				0,					NULL,	0}
 		};
 
-		while((c = getopt_long(argc, argv, "hus:F:f:d:t:w", long_opt, NULL)) != -1)
+		while((c = getopt_long(argc, argv, "hus:F:f:d:t:m:w", long_opt, NULL)) != -1)
 		{
 				switch(c)
 				{
@@ -248,7 +264,11 @@ int command_line_option(int argc, char **argv)
 								strncpy(dirPath, optarg, 256);
 								dirRead = TRUE;
 								break;
-	
+						case 'm':
+								strncpy(mergeUnitStr, optarg, 256);
+								mergeUnit = atoi(mergeUnitStr);
+								break;
+
 						case 't':
 								strncpy(dirTimeBuf, optarg, 256);
 								struct tm temp_tm;
@@ -545,7 +565,8 @@ int main(int argc, char *argv[]) {
 		signal(SIGINT, UBSI_sig_handler);
 		signal(SIGKILL, UBSI_sig_handler);
 		signal(SIGTERM, UBSI_sig_handler);
-
+		
+		//fprintf(stderr, "mergeUnit = %d\n", mergeUnit);
 		max_pid = get_max_pid() + 1;
 		max_pid = max_pid*2;
 		thread_create_time = (thread_time_t*) malloc(sizeof(thread_time_t)*max_pid);
@@ -735,18 +756,26 @@ int emit_log(unit_table_t *ut, char* buf, bool print_unit, bool print_proc)
 		return rc;
 }
 
+void delete_unit_id_map(unit_id_map_t *unit_map)
+{
+		unit_id_map_t *tmp_id, *cur_id;
+
+		if(unit_map != NULL) {
+				HASH_ITER(hh, unit_map, cur_id, tmp_id) {
+						HASH_DEL(unit_map, cur_id); 
+						if(cur_id) free(cur_id);  
+				}
+		}
+}
+
 void delete_unit_hash(link_unit_t *hash_unit, mem_unit_t *hash_mem)
 {
 		link_unit_t *tmp_unit, *cur_unit;
 		mem_unit_t *tmp_mem, *cur_mem;
+
 		HASH_ITER(hh, hash_unit, cur_unit, tmp_unit) {
 				HASH_DEL(hash_unit, cur_unit); 
 				if(cur_unit) free(cur_unit);  
-		}
-
-		HASH_ITER(hh, hash_mem, cur_mem, tmp_mem) {
-				HASH_DEL(hash_mem, cur_mem); 
-				if(cur_mem) free(cur_mem);  
 		}
 }
 
@@ -830,6 +859,48 @@ void unit_entry(unit_table_t *unit, long a1, char* buf)
 				sprintf(tmp, "type=UBSI_ENTRY msg=ubsi(%.3f:%ld): ", time, eventid);
 				emit_log(unit, tmp, true, true);
 		}
+		if(mergeUnit > 0) {
+				unit->merge_count = 1;
+		}
+}
+
+void unit_entry_map_uid(unit_table_t *ut, long a1, char* buf)
+{
+		ut->unitid = a1;
+		// find main thread
+		int pid = ut->pid;
+		unit_table_t *pt;
+
+		if(pid == ut->thread.tid) pt = ut;
+		else {
+				thread_t th;  
+				th.tid = pid; 
+				th.thread_time.seconds = thread_create_time[pid].seconds;
+				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				//HASH_FIND_INT(unit_table, &pid, pt);
+				if(pt == NULL) {
+						fprintf(stderr, "UENTRY_ID NULL, id = %ld\n", a1);
+						incomplete_record = true;
+						return;
+				}
+		}
+
+		unit_id_map_t *umap = (unit_id_map_t*) malloc(sizeof(unit_id_map_t));
+		assert(umap);
+		umap->unitid = (int)a1;
+		umap->thread_unit = ut->cur_unit;
+		HASH_ADD(hh, pt->unit_id_map, unitid, sizeof(int), umap);
+	/*	fprintf(stderr, "UENTRY_ID added, :%ld, pid %d, uid %ld(%x) (pt->unit_id_map %p)\n", get_eventid(buf), pid, a1, a1, pt->unit_id_map);
+
+		unit_id_map_t *umap_t;
+		int unitid = (int)a1;
+		HASH_FIND(hh, pt->unit_id_map, &unitid, sizeof(int), umap_t);
+		if(umap_t == NULL) {
+				fprintf(stderr, "UENTRY_ID failed!, pid %d, uid %ld(%x) (pt->unit_id_map %p) \n", pid, unitid, unitid, pt->unit_id_map);
+		} else {
+				fprintf(stderr, "UENTRY_ID succeed!, pid %d, uid %ld(%x) (pt->unit_id_map %p) \n", pid, unitid, unitid, pt->unit_id_map);
+		}*/
 }
 
 void unit_end(unit_table_t *unit, long a1)
@@ -844,6 +915,7 @@ void unit_end(unit_table_t *unit, long a1)
 		unit->mem_unit = NULL;
 		unit->r_addr = 0;
 		unit->w_addr = 0;
+		unit->merge_count = 0;
 }
 
 void clear_proc(unit_table_t *unit)
@@ -852,7 +924,9 @@ void clear_proc(unit_table_t *unit)
 
 		unit_end(unit, -1);
 		delete_proc_hash(unit->mem_proc);
+		delete_unit_id_map(unit->unit_id_map);
 		unit->mem_proc = NULL;
+		unit->unit_id_map = NULL;
 
 }
 
@@ -891,6 +965,7 @@ void proc_group_end(unit_table_t *unit)
 		HASH_FIND(hh, thread_group_hash, &(tgl->leader), sizeof(thread_t), tg);
 		if(tg == NULL)	return;
 		
+
 		HASH_ITER(hh, tg->threads, cur_t, tmp_t) {
 				HASH_FIND(hh, unit_table, &(cur_t->thread), sizeof(thread_t), ut); 
 				proc_end(ut);
@@ -1010,6 +1085,62 @@ void mem_read(unit_table_t *ut, long int addr, char *buf)
 		}
 }
 
+void UBSI_dep(unit_table_t *ut, long unit_from, char *buf)
+{
+		long eventId;
+		int pid = ut->pid;
+		unit_table_t *pt;
+		char tmp[2048];
+		double time;
+
+		if(pid == ut->thread.tid) pt = ut;
+		else {
+				thread_t th;  
+				th.tid = pid; 
+				th.thread_time.seconds = thread_create_time[pid].seconds;
+				th.thread_time.milliseconds = thread_create_time[pid].milliseconds;
+				HASH_FIND(hh, unit_table, &th, sizeof(thread_t), pt); 
+				//HASH_FIND_INT(unit_table, &pid, pt);
+				if(pt == NULL) {
+						incomplete_record = true;
+						fprintf(stderr, "UDEP, pt is null!\n");
+						return;
+				}
+		}
+
+		unit_id_map_t *umap_t;
+		int unitid = (int)unit_from;
+		HASH_FIND(hh, pt->unit_id_map, &unitid, sizeof(int), umap_t);
+		if(umap_t == NULL) {
+				fprintf(stderr, "UDEP, umap is null!, unitfrom = pid %d, %d(%x) (pt->unit_id_map %p) \n", pid, unitid, unitid, pt->unit_id_map);
+				fprintf(stderr, "      %s\n", buf);
+				return;
+		}
+				
+		if(is_same_unit(ut->cur_unit, umap_t->thread_unit)) return; 
+
+		link_unit_t *lt;
+		thread_unit_t lid = umap_t->thread_unit;
+		HASH_FIND(hh, ut->link_unit, &lid, sizeof(thread_unit_t), lt);
+		if(lt != NULL)  return; // this dependency has already emitted
+
+		lt = (link_unit_t*) malloc(sizeof(link_unit_t));
+		assert(lt);
+		lt->id = umap_t->thread_unit;
+		HASH_ADD(hh, ut->link_unit, id, sizeof(thread_unit_t), lt);
+
+
+		get_time_and_eventid(buf, &time, &eventId);
+
+		sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(pid=%d thread_time=%d.%03d unitid=%d iteration=%d time=%.3lf count=%d), "
+						,time, eventId, umap_t->thread_unit.tid, umap_t->thread_unit.thread_time.seconds, umap_t->thread_unit.thread_time.milliseconds, umap_t->thread_unit.loopid, umap_t->thread_unit.iteration, umap_t->thread_unit.timestamp, umap_t->thread_unit.count);
+		emit_log(ut, tmp, true, true);
+  
+		//ut->num_dep++;
+		//sprintf(tmp, "type=UBSI_DEP msg=ubsi(%.3f:%ld): dep=(%d-%d)" ,time, eventId, ut->unitid, unit_from);
+		//emit_log(ut, tmp, true, true);
+}
+
 unit_table_t* add_unit(int tid, int pid, bool valid)
 {
 		int i;
@@ -1021,6 +1152,7 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->thread.thread_time.milliseconds = thread_create_time[tid].milliseconds;
 		ut->pid = pid;
 		ut->valid = valid;
+		ut->merge_count = 0;
 
 		ut->cur_unit.tid = tid;
 		ut->cur_unit.thread_time.seconds = thread_create_time[tid].seconds;
@@ -1033,6 +1165,8 @@ unit_table_t* add_unit(int tid, int pid, bool valid)
 		ut->link_unit = NULL;
 		ut->mem_proc = NULL;
 		ut->mem_unit = NULL;
+		ut->unit_id_map = NULL;
+
 		bzero(ut->proc, 1024);
 		for(i = 0; i < MAX_SIGNO; i++) {
 				ut->signal_handler[i] = false;
@@ -1146,8 +1280,16 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 
 		switch(a0) {
 				case UENTRY: 
-						if(ut->valid) unit_end(ut, a1);
-						unit_entry(ut, a1, buf);
+						if(mergeUnit > 0) {
+								ut->merge_count++;
+								if(ut->merge_count ==  1 || ut->merge_count > mergeUnit) {
+										if(ut->valid) unit_end(ut, a1);
+										unit_entry(ut, a1, buf);
+								}
+						}
+						break;
+				case UENTRY_ID: // this is for the new instrumentation of Firefox only (that directly emits depedant)
+						unit_entry_map_uid(ut, a1, buf);
 						break;
 				case UEXIT: 
 						if(isNewUnit == false)
@@ -1171,6 +1313,9 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 				case MWRITE2:
 						ut->w_addr += a1;
 						mem_write(ut, ut->w_addr, buf);
+						break;
+				case UDEP: // this is for the new instrumentation of Firefox only (that directly emits depedant)
+						UBSI_dep(ut, a1, buf);
 						break;
 		}
 }
@@ -1372,7 +1517,7 @@ void syscall_handler(char *buf)
 
 		if(sysno == 62)
 		{
-				if(a0 == UENTRY || a0 == UEXIT || a0 == MREAD1 || a0 == MREAD2 || a0 == MWRITE1 || a0 ==MWRITE2)
+				if(a0 == UENTRY || a0 == UEXIT || a0 == MREAD1 || a0 == MREAD2 || a0 == MWRITE1 || a0 ==MWRITE2 || a0 == UDEP || a0 == UENTRY_ID)
 				{
 						UBSI_event(pid, a0, a1, buf);
 				} else {
