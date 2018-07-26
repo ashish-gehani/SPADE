@@ -4,7 +4,7 @@
 JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
-JAVAC_CP = build:lib/*:neo4j-community-3.4.1/lib/*
+JAVAC_CP = build:lib/*:neo4j-community-3.4.4/lib/*
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
@@ -46,7 +46,7 @@ ifeq ($(OS_NAME), Linux)
 endif
 ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 	OS_BUILD = build/spade/reporter/ProcMon.class
-	JAVAC_CP = build;lib\*;neo4j-community-3.4.1\lib\*
+	JAVAC_CP = build;lib\*;neo4j-community-3.4.4\lib\*
 endif
  
 # -------- Default Build Configuration -----
@@ -71,7 +71,7 @@ build: | prepare-dirs
 build: build-java $$(OS_BUILD) lib/spade.jar
 build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
 
-NEO4J_DIR=neo4j-community-3.4.1
+NEO4J_DIR=neo4j-community-3.4.4
 download-neo4j:
 	@if [ -d $(NEO4J_DIR) ]; then \
 		echo "Neo4j already exists"; \
