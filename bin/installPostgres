@@ -31,14 +31,29 @@ then
     sudo apt-get upgrade
     sudo apt-get install postgresql-9.5
     echo "Installed PostgreSQL 9.5"
-    sudo -u postgres createuser ${vars[databaseUser]} --createdb --no-password
-    echo "*:*:*:${vars[databaseUser]}:${vars[databasePassword]}" > $HOME/.pgpass
+    sudo -u postgres createuser ${vars[databaseUsername]} --createdb --no-password
+    echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
     chmod 0600 $HOME/.pgpass
-    echo "Successfully created user '${vars[databaseUser]}'"
+    echo "Successfully created user '${vars[databaseUsername]}'"
     sudo sed -i -e '1ilocal   all   spade   trust\'  /etc/postgresql/9.5/main/pg_hba.conf
     sudo service postgresql restart
-    sudo  createdb ${vars[databaseName]} --no-password --owner=${vars[databaseUser]} --username=${vars[databaseUser]}
-    echo "Successfully created database '${vars[databaseName]}' for user '${vars[databaseUser]}'"
+    sudo  createdb ${vars[databasePath]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
+    echo "Successfully created database '${vars[databasePath]}' for user '${vars[databaseUsername]}'"
+  else
+    sudo dnf install https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-28-x86_64/pgdg-fedora95-9.5-5.noarch.rpm
+    sudo dnf install postgresql95 postgresql95-server
+    echo "Installed PostgreSQL 9.5"
+    sudo /usr/pgsql-9.5/bin/postgresql95-setup initdb
+    sudo systemctl enable postgresql-9.5
+    sudo systemctl start postgresql-9.5
+    sudo -u postgres createuser ${vars[databaseUsername]} --createdb --no-password
+    echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
+    chmod 0600 $HOME/.pgpass
+    echo "Successfully created user '${vars[databaseUsername]}'"
+    sudo sed -i -e '1ilocal   all   spade   trust\'  /var/lib/pgsql/9.5/data/pg_hba.conf
+    sudo systemctl restart postgresql-9.5
+    sudo createdb ${vars[databasePath]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
+    echo "Successfully created database '${vars[databasePath]}' for user '${vars[databaseUsername]}'"
   fi
 elif [ $OS_NAME == "Darwin" ]
 then
