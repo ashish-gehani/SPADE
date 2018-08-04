@@ -1286,6 +1286,9 @@ void UBSI_event(long tid, long a0, long a1, char *buf)
 										if(ut->valid) unit_end(ut, a1);
 										unit_entry(ut, a1, buf);
 								}
+						} else {
+								if(ut->valid) unit_end(ut, a1);
+								unit_entry(ut, a1, buf);
 						}
 						break;
 				case UENTRY_ID: // this is for the new instrumentation of Firefox only (that directly emits depedant)
