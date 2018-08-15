@@ -12,18 +12,14 @@ import java.util.logging.Logger;
 public abstract class AbstractQuery<R, P>
 {
     // indices of variables in parameter map of GetVertex and GetEdge
-    protected static final int ARITHMETIC_OPERATOR = 0;
-    protected static final int COL_VALUE = 1;
+    protected static final int COMPARISON_OPERATOR = 0;
+    public static final int COL_VALUE = 1;
     protected static final int BOOLEAN_OPERATOR = 2;
 
     protected static final Integer DEFAULT_MIN_LIMIT = 1;
     protected static final Integer DEFAULT_MAX_LIMIT = 100;
 
-    public static final boolean USE_SCAFFOLD = true;
-
     protected static AbstractStorage currentStorage;
-    protected static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    protected static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
 
     public interface OPERATORS
     {
@@ -42,6 +38,11 @@ public abstract class AbstractQuery<R, P>
     public static void setCurrentStorage(AbstractStorage storage)
     {
         currentStorage = storage;
+    }
+
+    public static AbstractStorage getCurrentStorage()
+    {
+        return currentStorage;
     }
 
     public void register()

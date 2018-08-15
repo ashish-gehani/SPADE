@@ -20,15 +20,23 @@
 package spade.core;
 
 import spade.query.scaffold.Scaffold;
+import spade.query.scaffold.ScaffoldFactory;
 
-import java.util.HashMap;
+import java.io.FileInputStream;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Map;
+import java.util.Properties;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
+import static spade.core.Kernel.SPADE_ROOT;
+
 
 /**
  * This is the base class from which concrete storage types inherit.
@@ -43,19 +51,10 @@ public abstract class AbstractStorage
     public static final String DIRECTION = "direction";
     public static final String MAX_DEPTH = "maxDepth";
     public static final String MAX_LENGTH = "maxLength";
-    public static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    public static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
-
-    protected static boolean USE_SCAFFOLD = false;
-
-    public static void setScaffold(Scaffold scaffold)
-    {
-        AbstractStorage.scaffold = scaffold;
-        USE_SCAFFOLD = true;
-    }
-
-    public static Scaffold scaffold;
-
+    public static final String DIRECTION_ANCESTORS = "ancestors";
+    public static final String DIRECTION_DESCENDANTS = "descendants";
+    public static final String DIRECTION_BOTH = "both";
+    protected Logger logger;
 
     /**
      * The arguments with which this storage was initialized.
@@ -65,11 +64,70 @@ public abstract class AbstractStorage
      * The number of vertices that this storage instance has successfully
      * received.
      */
-    long vertexCount;
+    protected long vertexCount;
     /**
      * The number of edges that this storage instance has successfully received.
      */
-    long edgeCount;
+    protected long edgeCount;
+
+    protected static Properties databaseConfigs = new Properties();
+
+    /**
+     * Variables and functions for computing performance stats
+     */
+    protected boolean reportingEnabled = false;
+    protected long reportingInterval;
+    protected long reportEveryMs;
+    protected long startTime, lastReportedTime;
+    protected long lastReportedVertexCount, lastReportedEdgeCount;
+
+    private static String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.core.AbstractStorage.config";
+    /**
+     * Variables and functions for managing scaffold storage
+     */
+    public static Scaffold scaffold = null;
+    public static boolean BUILD_SCAFFOLD;
+    public static String SCAFFOLD_PATH;
+    public static String SCAFFOLD_DATABASE_NAME;
+    static
+    {
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+            BUILD_SCAFFOLD = Boolean.parseBoolean(databaseConfigs.getProperty("build_scaffold"));
+            SCAFFOLD_PATH = SPADE_ROOT + databaseConfigs.getProperty("scaffold_path");
+            SCAFFOLD_DATABASE_NAME = databaseConfigs.getProperty("scaffold_database_name");
+            if(BUILD_SCAFFOLD)
+            {
+                scaffold = ScaffoldFactory.createScaffold(SCAFFOLD_DATABASE_NAME);
+                if(!scaffold.initialize(SCAFFOLD_PATH))
+                {
+                    Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING, "Scaffold not set!");
+                }
+            }
+        }
+        catch(Exception ex)
+        {
+            // default settings
+            BUILD_SCAFFOLD = false;
+            SCAFFOLD_PATH = SPADE_ROOT + "db/scaffold";
+            SCAFFOLD_DATABASE_NAME = "BerkeleyDB";
+            Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING,
+                    "Loading configurations from file unsuccessful! Falling back to default settings", ex);
+        }
+    }
+
+    protected boolean insertScaffoldEntry(AbstractEdge incomingEdge)
+    {
+        return scaffold.insertEntry(incomingEdge);
+    }
+
+    /* For testing purposes only. Set scaffold through Settings file normally. */
+    public static void setScaffold(Scaffold scaffold)
+    {
+        AbstractStorage.scaffold = scaffold;
+        BUILD_SCAFFOLD = true;
+    }
 
     /**
      * This method is invoked by the kernel to initialize the storage.
@@ -85,7 +143,51 @@ public abstract class AbstractStorage
      *
      * @return True if the storage was shut down successfully.
      */
-    public abstract boolean shutdown();
+    public boolean shutdown()
+    {
+        if(BUILD_SCAFFOLD)
+        {
+            scaffold.shutdown();
+        }
+
+        return true;
+    }
+
+    protected void computeStats()
+    {
+        long currentTime = System.currentTimeMillis();
+        if((currentTime - lastReportedTime) >= reportEveryMs)
+        {
+            printStats();
+            lastReportedTime = currentTime;
+            lastReportedVertexCount = vertexCount;
+            lastReportedEdgeCount = edgeCount;
+        }
+    }
+
+    protected void printStats()
+    {
+        long currentTime = System.currentTimeMillis();
+        float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
+        float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
+        if(overallTime > 0 && intervalTime > 0)
+        {
+            // # records/sec
+            float overallVertexVolume = (float) vertexCount / overallTime;
+            float overallEdgeVolume = (float) edgeCount / overallTime;
+            // # records/sec
+
+            long intervalVertexCount = vertexCount - lastReportedVertexCount;
+            long intervalEdgeCount = edgeCount - lastReportedEdgeCount;
+            float intervalVertexVolume = (float) (intervalVertexCount) / intervalTime;
+            float intervalEdgeVolume = (float) (intervalEdgeCount) / intervalTime;
+            logger.log(Level.INFO, "Overall Stats => rate: {0} vertex/sec and {1} edge/sec. count: vertices: {2} and edges: {3}. In total {4} seconds.\n" +
+                            "Interval Stats => rate: {5} vertex/sec and {6} edge/sec. count: vertices: {7} and edges: {8}. In {9} seconds.",
+                    new Object[]{overallVertexVolume, overallEdgeVolume, vertexCount, edgeCount, overallTime, intervalVertexVolume,
+                            intervalEdgeVolume, intervalVertexCount, intervalEdgeCount, intervalTime});
+        }
+    }
+
 
     /**
      * This method returns current edge count.
@@ -122,6 +224,7 @@ public abstract class AbstractStorage
      * @param parentVertexHash hash of the destination vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
+    @Deprecated
     public abstract AbstractEdge getEdge(String childVertexHash, String parentVertexHash);
 
     /**
@@ -131,6 +234,7 @@ public abstract class AbstractStorage
      * @param vertexHash hash of the vertex to find.
      * @return returns vertex object matching the given hash OR NULL.
      */
+    @Deprecated
     public abstract AbstractVertex getVertex(String vertexHash);
 
 

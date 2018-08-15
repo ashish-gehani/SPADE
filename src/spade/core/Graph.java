@@ -78,7 +78,6 @@ public class Graph extends AbstractStorage implements Serializable
     private static final int MAX_QUERY_HITS = 1000;
     private static final String SRC_VERTEX_ID = "SRC_VERTEX_ID";
     private static final String DST_VERTEX_ID = "DST_VERTEX_ID";
-    private static final String ID_STRING = Settings.getProperty("storage_identifier");
 
     private static final Pattern nodePattern = Pattern.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
     private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
@@ -104,12 +103,19 @@ public class Graph extends AbstractStorage implements Serializable
     private transient IndexWriter edgeIndexWriter;
 
     /**
-     * Fields for Consistency check
+     * Fields for consistency check and query params
      */
     private String hostName;
     private String computeTime;
     private int maxDepth;
     private AbstractVertex rootVertex;
+
+    public AbstractVertex getDestinationVertex()
+    {
+        return destinationVertex;
+    }
+
+    private AbstractVertex destinationVertex;
     private String signature;
     
     public void mergeThreads() {
@@ -178,8 +184,8 @@ public class Graph extends AbstractStorage implements Serializable
                 String value = currentEntry.getValue();
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
-            doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            vertexIndexWriter.addDocument(doc);
+            doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
+            // vertexIndexWriter.addDocument(doc);
             // vertexIndexWriter.commit();
 
             String hashCode = incomingVertex.bigHashCode();
@@ -223,16 +229,13 @@ public class Graph extends AbstractStorage implements Serializable
             {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equals(ID_STRING)) {
-                    continue;
-                }
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
-            doc.add(new Field(ID_STRING, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
+            doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
             doc.add(new Field(SRC_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getChildVertex()), Field.Store.YES, Field.Index.ANALYZED));
             doc.add(new Field(DST_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getParentVertex()), Field.Store.YES, Field.Index.ANALYZED));
-            edgeIndexWriter.addDocument(doc);
-            // edgeIndexWriter.commit();
+//            edgeIndexWriter.addDocument(doc);
+//            edgeIndexWriter.commit();
 
             String hashCode = incomingEdge.getChildVertex().bigHashCode() + incomingEdge.getParentVertex().bigHashCode();
             edgeIdentifiers.put(hashCode, incomingEdge);
@@ -385,7 +388,8 @@ public class Graph extends AbstractStorage implements Serializable
      * @param graph2 Input graph 2
      * @return The result graph
      */
-    public static Graph union(Graph graph1, Graph graph2) {
+    public static Graph union(Graph graph1, Graph graph2)
+    {
         Graph resultGraph = new Graph();
         Set<AbstractVertex> vertices = new HashSet<>();
         Set<AbstractEdge> edges = new HashSet<>();
@@ -395,14 +399,21 @@ public class Graph extends AbstractStorage implements Serializable
         edges.addAll(graph1.edgeSet());
         edges.addAll(graph2.edgeSet());
 
-        for (AbstractVertex vertex : vertices) {
+        for (AbstractVertex vertex : vertices)
+        {
             resultGraph.putVertex(vertex);
         }
-        for (AbstractEdge edge : edges) {
+        for (AbstractEdge edge : edges)
+        {
             resultGraph.putEdge(edge);
         }
 
+        // adding network maps
+        resultGraph.networkMap.putAll(graph1.networkMap());
+        resultGraph.networkMap.putAll(graph2.networkMap());
+
         resultGraph.commitIndex();
+
         return resultGraph;
     }
 
@@ -708,7 +719,7 @@ public class Graph extends AbstractStorage implements Serializable
             for (int i = 0; i < hits.length; ++i) {
                 int docId = hits[i].doc;
                 Document foundDoc = searcher.doc(docId);
-                results.add(Integer.parseInt(foundDoc.get(ID_STRING)));
+                results.add(Integer.parseInt(foundDoc.get(PRIMARY_KEY)));
             }
 
             searcher.close();

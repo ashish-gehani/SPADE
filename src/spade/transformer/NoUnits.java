@@ -19,23 +19,28 @@
  */
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
 
 //remove units and edges to units
-public class NoUnits extends AbstractTransformer{
+public class NoUnits extends AbstractTransformer
+{
 
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		Graph resultGraph = new Graph();
-		for(AbstractEdge edge : graph.edgeSet()){
-			if(getAnnotationSafe(edge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UNIT)){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
+			if(getAnnotationSafe(edge, OPMConstants.EDGE_OPERATION).equals(OPMConstants.OPERATION_UNIT))
+			{
 				continue;
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge, OPMConstants.PROCESS_UNIT);
-			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null)
+			{
 				resultGraph.putVertex(newEdge.getChildVertex());
 				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
@@ -43,5 +48,4 @@ public class NoUnits extends AbstractTransformer{
 		}
 		return resultGraph;
 	}
-	
 }

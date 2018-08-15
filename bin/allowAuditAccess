@@ -1,0 +1,6 @@
+# Allow audit access for normal users
+sudo chmod ug+s `which auditctl`
+sudo chmod ug+s `which iptables`
+sudo chmod ug+s `which kmod`
+sudo chown root lib/spadeAuditBridge
+sudo chmod ug+s lib/spadeAuditBridge

@@ -34,37 +34,57 @@ import java.util.logging.Logger;
  * A storage implementation that simply outputs plain text to a file.
  * @author Armando Caro
  */
-public class TextFile extends AbstractStorage {
+public class TextFile extends AbstractStorage
+{
 
     private FileWriter outputFile;
     private String filePath;
+    private boolean appendMode = false;
 
     @Override
-    public boolean initialize(String arguments) {
-        try {
-            if (arguments == null) {
+    public boolean initialize(String arguments)
+    {
+        try
+        {
+            if (arguments == null)
+            {
                 return false;
             }
-            filePath = arguments;
-            outputFile = new FileWriter(filePath, false);
-            outputFile.write("[BEGIN]\n");
+            String[] tokens = arguments.split("\\s+");
+            filePath = tokens[0];
+            if(tokens.length > 1)
+            {
+                appendMode = Boolean.parseBoolean(tokens[1]);
+            }
+            outputFile = new FileWriter(filePath, appendMode);
+            if(!appendMode)
+            {
+                outputFile.write("[BEGIN]\n");
+            }
+
             return true;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             Logger.getLogger(TextFile.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
 
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
-        try {
-            String vertexId = DigestUtils.sha256Hex(incomingVertex.toString());
+    public boolean putVertex(AbstractVertex incomingVertex)
+    {
+        try
+        {
+            String vertexHash = incomingVertex.bigHashCode();
             StringBuilder annotationString = new StringBuilder();
-            annotationString.append("VERTEX (" + vertexId + "): {");
-            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+            annotationString.append("VERTEX (" + vertexHash + "): {");
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key == null || value == null) {
+                if (key == null || value == null)
+                {
                     continue;
                 }
                 annotationString.append(key);
@@ -75,8 +95,11 @@ public class TextFile extends AbstractStorage {
             annotationString.append("}\n");
             String vertexString = annotationString.toString();
             outputFile.write(vertexString);
+
             return true;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             Logger.getLogger(TextFile.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
@@ -89,16 +112,19 @@ public class TextFile extends AbstractStorage {
     }
 
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
+    public boolean putEdge(AbstractEdge incomingEdge)
+    {
         try {
-            String srcId = DigestUtils.sha256Hex(incomingEdge.getChildVertex().toString());
-            String dstId = DigestUtils.sha256Hex(incomingEdge.getParentVertex().toString());
+            String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
+            String parentVertexHash = incomingEdge.getParentVertex().bigHashCode();
             StringBuilder annotationString = new StringBuilder();
-            annotationString.append("EDGE (" + srcId + " -> " + dstId + "): {");
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+            annotationString.append("EDGE (" + childVertexHash + " -> " + parentVertexHash + "): {");
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key == null || value == null) {
+                if (key == null || value == null)
+                {
                     continue;
                 }
                 annotationString.append(key);
@@ -109,20 +135,28 @@ public class TextFile extends AbstractStorage {
             annotationString.append("}\n");
             String edgeString = annotationString.toString();
             outputFile.write(edgeString);
+
             return true;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             Logger.getLogger(TextFile.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
     }
 
     @Override
-    public boolean shutdown() {
-        try {
+    public boolean shutdown()
+    {
+        try
+        {
             outputFile.write("[END]\n");
             outputFile.close();
+
             return true;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             Logger.getLogger(TextFile.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }

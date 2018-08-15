@@ -12,7 +12,7 @@ import spade.core.MatrixFilter;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.common.GetPaths;
-import spade.query.sql.postgresql.GetVertex;
+import spade.query.postgresql.GetVertex;
 
 import javax.net.ssl.SSLSocket;
 import java.io.IOException;

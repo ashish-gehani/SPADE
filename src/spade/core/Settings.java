@@ -34,55 +34,25 @@ import java.util.logging.Logger;
 public class Settings
 {
 
-    private static final String settingsFile = "cfg/settings.config";
+    private static final String settingsFile = "cfg/spade.core.Kernel.config";
     private final static Properties spadeProperties = new Properties();
 
     static
     {
-        // load general settings
-        setProperty("spade_root", "./");
-        setProperty("local_control_port", "19999");
-        setProperty("commandline_query_port", "19998");
-        setProperty("remote_sketch_port", "29998");
-        setProperty("connection_timeout", "15000");
-        setProperty("source_reporter", "source_reporter");
-        setProperty("direction_ancestors", "ancestors");
-        setProperty("direction_descendants", "descendants");
-        setProperty("logger_level", Level.ALL.getName());
-        setProperty("direction_both", "both");
-        setProperty("storage_identifier", "storageID");
-        setProperty("default_query_storage", "Neo4j");
-        setProperty("neo4j_webserver", "true");
-
-        // override certain settings if the settings file is present
+        // load settings from the file
         try
         {
-            File f = new File(settingsFile);
-            if(f.exists() && !f.isDirectory())
-            {
-                spadeProperties.load(new FileInputStream(settingsFile));
-            }
-            else
-            {
-                Logger.getLogger(Settings.class.getName()).log(Level.INFO, "Default settings maintained", (Throwable) null);
-            }
+            spadeProperties.load(new FileInputStream(settingsFile));
         }
-        catch(IOException ex)
+        catch(Exception ex)
         {
-            Logger.getLogger(Settings.class.getName()).log(Level.SEVERE, "Error Reading Settings File", ex);
+            Logger.getLogger(Settings.class.getName()).log(Level.SEVERE, "Error reading settings file! Shutting down...", ex);
+            System.exit(-1);
         }
     }
 
     public static String getProperty(String property) {
         return spadeProperties.getProperty(property);
-    }
-
-    public static void setProperty(String property, String value) {
-        spadeProperties.setProperty(property.toLowerCase(), value);
-    }
-
-    public static void saveSettings() throws IOException {
-        spadeProperties.store(new FileOutputStream(settingsFile), null);
     }
 
     public static String getDefaultConfigFilePath(Class<?> forClass){

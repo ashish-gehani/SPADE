@@ -39,7 +39,7 @@ public abstract class Neo4j<R, P> extends AbstractQuery<R, P>
             List<String> values = entry.getValue();
             query.append(VERTEX_ALIAS).append(".");
             query.append(colName);
-            query.append(values.get(ARITHMETIC_OPERATOR));
+            query.append(values.get(COMPARISON_OPERATOR));
             query.append("'");
             query.append(values.get(COL_VALUE));
             query.append("'");

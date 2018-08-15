@@ -19,7 +19,7 @@
  */
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -31,22 +31,28 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class NoEphemeralWrites extends AbstractTransformer {
+public class NoEphemeralWrites extends AbstractTransformer
+{
 
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		
-		Map<AbstractVertex, Set<String>> fileReadBy = new HashMap<AbstractVertex, Set<String>>();
+		Map<AbstractVertex, Set<String>> fileReadBy = new HashMap<>();
 		
-		for(AbstractEdge edge : graph.edgeSet()){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
 			
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 		
 			if(OPMConstants.isPathBasedArtifact(newEdge.getChildVertex())
-					|| OPMConstants.isPathBasedArtifact(newEdge.getParentVertex())){
+					|| OPMConstants.isPathBasedArtifact(newEdge.getParentVertex()))
+			{
 				String operation = getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION);
-				if(OPMConstants.isIncomingDataOperation(operation)){
-					if(fileReadBy.get(newEdge.getParentVertex()) == null){
-						fileReadBy.put(newEdge.getParentVertex(), new HashSet<String>());
+				if(OPMConstants.isIncomingDataOperation(operation))
+				{
+					if(fileReadBy.get(newEdge.getParentVertex()) == null)
+					{
+						fileReadBy.put(newEdge.getParentVertex(), new HashSet<>());
 					}
 					fileReadBy.get(newEdge.getParentVertex()).add(
 							getAnnotationSafe(newEdge.getChildVertex(), OPMConstants.PROCESS_PID));
@@ -56,14 +62,17 @@ public class NoEphemeralWrites extends AbstractTransformer {
 	
 		Graph resultGraph = new Graph();
 		
-		for(AbstractEdge edge : graph.edgeSet()){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 			if(OPMConstants.isPathBasedArtifact(newEdge.getChildVertex()) &&
-					OPMConstants.isOutgoingDataOperation(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION))){
+					OPMConstants.isOutgoingDataOperation(getAnnotationSafe(newEdge, OPMConstants.EDGE_OPERATION)))
+			{
 				AbstractVertex vertex = newEdge.getChildVertex();
 				if((fileReadBy.get(vertex) == null) || (fileReadBy.get(vertex).size() == 1 
 						&& fileReadBy.get(vertex).toArray()[0].equals(
-								getAnnotationSafe(newEdge.getParentVertex(), OPMConstants.PROCESS_PID)))){
+								getAnnotationSafe(newEdge.getParentVertex(), OPMConstants.PROCESS_PID))))
+				{
 					continue; 
 				}
 			}		
@@ -74,5 +83,4 @@ public class NoEphemeralWrites extends AbstractTransformer {
 		
 		return resultGraph;
 	}
-	
 }

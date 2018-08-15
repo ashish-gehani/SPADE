@@ -19,13 +19,14 @@
  */
 package spade.core;
 
+import com.mysql.jdbc.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 
 import java.io.Serializable;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.apache.commons.codec.digest.DigestUtils;
+import spade.reporter.audit.OPMConstants;
 
 /**
  * This is the class from which other vertex classes (e.g., OPM vertices) are
@@ -33,7 +34,8 @@ import org.apache.commons.codec.digest.DigestUtils;
  *
  * @author Dawood Tariq
  */
-public abstract class AbstractVertex implements Serializable {
+public abstract class AbstractVertex implements Serializable
+{
 
     /**
 	 * 
@@ -82,11 +84,16 @@ public abstract class AbstractVertex implements Serializable {
      * @param key The annotation key.
      * @param value The annotation value.
      */
-    public final void addAnnotation(String key, String value) {
-        if (key == null || value == null) {
-            return;
+    public final void addAnnotation(String key, String value)
+    {
+        if(!StringUtils.isNullOrEmpty(key))
+        {
+            if(value == null)
+            {
+                value = "";
+            }
+            annotations.put(key, value);
         }
-        annotations.put(key, value);
     }
 
     /**
@@ -94,11 +101,20 @@ public abstract class AbstractVertex implements Serializable {
      *
      * @param newAnnotations New annotations to be added.
      */
-    public final void addAnnotations(Map<String, String> newAnnotations) {
-        for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet()) {
+    public final void addAnnotations(Map<String, String> newAnnotations)
+    {
+        for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet())
+        {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            addAnnotation(key, value);
+            if(!StringUtils.isNullOrEmpty(key))
+            {
+                if(value == null)
+                {
+                    value = "";
+                }
+                addAnnotation(key, value);
+            }
         }
     }
 
@@ -129,7 +145,7 @@ public abstract class AbstractVertex implements Serializable {
      * @return A string indicating the type of this vertex.
      */
     public final String type() {
-        return annotations.get("type");
+        return annotations.get(OPMConstants.TYPE);
     }
 
     /**
@@ -163,10 +179,23 @@ public abstract class AbstractVertex implements Serializable {
         return annotations.equals(vertex.annotations);
     }
 
+    public boolean isCompleteNetworkVertex()
+    {
+        String subtype = this.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
+        String source = this.getAnnotation(OPMConstants.SOURCE);
+        if(subtype != null && subtype.equalsIgnoreCase(OPMConstants.SUBTYPE_NETWORK_SOCKET)
+                && source.equalsIgnoreCase(OPMConstants.SOURCE_AUDIT_NETFILTER))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     public boolean isNetworkVertex()
     {
-        String subtype = this.getAnnotation("subtype");
-        if(subtype != null && subtype.equalsIgnoreCase("network"))
+        String subtype = this.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
+        if(subtype != null && subtype.equalsIgnoreCase(OPMConstants.SUBTYPE_NETWORK_SOCKET))
         {
             return true;
         }
@@ -182,10 +211,10 @@ public abstract class AbstractVertex implements Serializable {
      * @return An integer-valued hash code.
      */
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         final int seed1 = 67;
-        final int seed2 = 3;
-        int hashCode = seed2;
+        int hashCode = 3;
         hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
         return hashCode;
     }

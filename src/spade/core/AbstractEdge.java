@@ -23,7 +23,9 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.mysql.jdbc.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
+import spade.reporter.audit.OPMConstants;
 
 /**
  * This is the class from which other edge classes (e.g., OPM edges) are
@@ -31,7 +33,8 @@ import org.apache.commons.codec.digest.DigestUtils;
  *
  * @author Dawood Tariq
  */
-public abstract class AbstractEdge implements Serializable {
+public abstract class AbstractEdge implements Serializable
+{
 
     /**
 	 * 
@@ -71,11 +74,16 @@ public abstract class AbstractEdge implements Serializable {
      * @param key The annotation key.
      * @param value The annotation value.
      */
-    public final void addAnnotation(String key, String value) {
-        if (key == null || value == null) {
-            return;
+    public final void addAnnotation(String key, String value)
+    {
+        if(!StringUtils.isNullOrEmpty(key))
+        {
+            if(value == null)
+            {
+                value = "";
+            }
+            annotations.put(key, value);
         }
-        annotations.put(key, value);
     }
 
     /**
@@ -83,11 +91,20 @@ public abstract class AbstractEdge implements Serializable {
      *
      * @param newAnnotations New annotations to be added.
      */
-    public final void addAnnotations(Map<String, String> newAnnotations) {
-        for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet()) {
+    public final void addAnnotations(Map<String, String> newAnnotations)
+    {
+        for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet())
+        {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            addAnnotation(key, value);
+            if(!StringUtils.isNullOrEmpty(key))
+            {
+                if(value == null)
+                {
+                    value = "";
+                }
+                addAnnotation(key, value);
+            }
         }
     }
 
@@ -118,7 +135,7 @@ public abstract class AbstractEdge implements Serializable {
      * @return A string indicating the type of this edge.
      */
     public final String type() {
-        return annotations.get("type");
+        return annotations.get(OPMConstants.TYPE);
     }
 
     // The following functions that get and set source and destination vertices

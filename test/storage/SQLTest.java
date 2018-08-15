@@ -30,18 +30,19 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 import spade.query.scaffold.Scaffold;
-import spade.storage.SQL;
+import spade.query.scaffold.ScaffoldFactory;
+import spade.storage.PostgreSQL;
 
 import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * This class is used to test the functions of spade.storage.SQL.java
+ * This class is used to test the functions of spade.storage.PostgreSQL.java
  * @author Raza Ahmad
  */
 class SQLTest {
-    private static final SQL testSQLObject = new SQL();
+    private static final PostgreSQL testSQLObject = new PostgreSQL();
     private static Graph graph = new Graph();
 
 
@@ -159,7 +160,7 @@ class SQLTest {
         if(!testSQLObject.initialize(connectionString))
             throw new SQLException();
 
-        Scaffold scaffold = new Scaffold();
+        Scaffold scaffold = ScaffoldFactory.createDefaultScaffold();
         scaffold.initialize("/tmp");
         AbstractStorage.setScaffold(scaffold);
         testSQLObject.putEdge(e1);
@@ -175,7 +176,7 @@ class SQLTest {
 
 
     /**
-     * This function tests the functionality of findPaths function in spade.storage.SQL.java
+     * This function tests the functionality of findPaths function in spade.storage.PostgreSQL.java
      */
     @Test
     void findPaths()
@@ -230,7 +231,7 @@ class SQLTest {
     }
 
     /*
-    * This function tests the functionality of getLineage function in spade.storage.SQL.java
+    * This function tests the functionality of getLineage function in spade.storage.PostgreSQL.java
     * */
     @Test
     void getLineage()

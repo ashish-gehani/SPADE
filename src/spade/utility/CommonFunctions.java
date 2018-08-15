@@ -21,9 +21,10 @@ package spade.utility;
 
 import java.io.File;
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,6 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.FileUtils;
 
 public class CommonFunctions {
 
@@ -167,6 +169,16 @@ public class CommonFunctions {
 		}
 	}
     
+    public static boolean bigIntegerEquals(BigInteger a, BigInteger b){
+		if(a == null && b == null){
+			return true;
+		}else if((a == null && b != null) || (a != null && b == null)){
+			return false;
+		}else{
+			return a.equals(b);
+		}
+	}
+    
     /**
      * Create hex string from ascii
      * 
@@ -194,8 +206,8 @@ public class CommonFunctions {
     			logger.log(Level.WARNING, id + ": Failed to get size of external map", e);
     		}
     		if(sizeBytes != null){
-    			BigDecimal sizeGB = FileUtility.bytesToGigaBytes(sizeBytes);
-    			logger.log(Level.INFO, id + ": Size of the external map on disk: {0} GB", sizeGB.doubleValue());
+    			String displaySize = FileUtils.byteCountToDisplaySize(sizeBytes);
+    			logger.log(Level.INFO, id + ": Size of the external map on disk: {0}", displaySize);
     		}
     		try{
     			map.delete();
@@ -281,21 +293,31 @@ public class CommonFunctions {
     				"Invalid '"+File.separator+"' character in external DB name: "+dbDirAndNameValue+".");
     	}		
 
-    	if(!FileUtility.directoryExists(parentDBDirPathValue)){
-    		if(!FileUtility.mkdirs(parentDBDirPathValue)){
-    			throw new Exception(exceptionPrefix + "Failed to create directory: " + parentDBDirPathValue);
+    	try{
+    		if(!FileUtility.createDirectories(parentDBDirPathValue)){
+    			throw new Exception("");
     		}
+    	}catch(Exception e){
+    		throw new Exception(exceptionPrefix + e.getMessage() + ". Failed to create dbs parent directory: " + parentDBDirPathValue);
     	}
 
     	dbDirAndNameValue += "_" + System.currentTimeMillis();
     	String dbPath = parentDBDirPathValue + File.separator + dbDirAndNameValue;
 
-    	if(FileUtility.directoryExists(dbPath)){
-    		throw new Exception(exceptionPrefix + "File already exists at path: " + dbPath);
-    	}else{
-    		if(!FileUtility.mkdirs(dbPath)){
-    			throw new Exception(exceptionPrefix + "Failed to create directory: " + dbPath);
+    	try{
+    		if(FileUtility.doesPathExist(dbPath)){
+    			throw new Exception("DB path already in use");
     		}
+    	}catch(Exception e){
+    		throw new Exception(exceptionPrefix + e.getMessage() + ". Failed to check if db path exists: " + dbPath);
+    	}
+    	
+    	try{
+    		if(!FileUtility.createDirectories(dbPath)){
+    			throw new Exception("");
+    		}
+    	}catch(Exception e){
+    		throw new Exception(exceptionPrefix + e.getMessage() + ". Failed to create db directory: " + dbPath);
     	}
 
     	try{
@@ -317,8 +339,28 @@ public class CommonFunctions {
     		});
     		return map;
     	}catch(Exception e){
-    		FileUtility.deleteFile(dbPath);
+    		try{
+    			if(FileUtility.doesPathExist(dbPath)){
+    				FileUtility.deleteFile(dbPath);
+    			}
+    		}catch(Exception e2){
+    			
+    		}
     		throw new Exception(exceptionPrefix + "Exception: " + e.getMessage());
+    	}
+    }
+    
+    public static List<String> mapToLines(Map<String, String> map, String keyValueSeparator){
+    	if(map == null){
+    		return null;
+    	}else{
+    		List<String> lines = new ArrayList<String>();
+    		for(Map.Entry<String, String> entry : map.entrySet()){
+    			String key = entry.getKey();
+    			String value = entry.getValue();
+    			lines.add(key + keyValueSeparator + value);
+    		}
+    		return lines;
     	}
     }
 }

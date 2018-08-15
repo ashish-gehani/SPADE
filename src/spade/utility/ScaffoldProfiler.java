@@ -1,13 +1,12 @@
 package spade.utility;
 
 import com.mysql.jdbc.StringUtils;
-import com.sleepycat.je.Cursor;
 import spade.core.*;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
 import spade.query.scaffold.Scaffold;
-import spade.storage.SQL;
+import spade.storage.PostgreSQL;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -15,11 +14,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +29,7 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 public class ScaffoldProfiler
 {
-    private static SQL sqlStorage = new SQL();
+    private static PostgreSQL sqlStorage = new PostgreSQL();
     private static Scaffold scaffold;
 
     public static void populateScaffold()

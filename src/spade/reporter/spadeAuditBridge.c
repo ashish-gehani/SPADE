@@ -20,7 +20,7 @@
 http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 --------------------------------------------------------------------------------
 	*/
-
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>

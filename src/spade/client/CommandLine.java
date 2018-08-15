@@ -1,8 +1,6 @@
 package spade.client;
 
 import jline.ConsoleReader;
-import org.apache.hadoop.fs.shell.Command;
-import org.neo4j.cypher.internal.compiler.v2_0.prettifier.Comma;
 import spade.core.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -24,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static spade.analyzer.CommandLine.DigQueryCommands;
+import static spade.analyzer.CommandLine.QueryCommands;
 import static spade.analyzer.CommandLine.getQueryCommands;
 
 /**
@@ -99,6 +97,7 @@ public class CommandLine
         catch (NumberFormatException | IOException ex)
         {
             System.err.println(CommandLine.class.getName() + " Error connecting to SPADE! " + ex);
+            System.err.println("Make sure that the CommandLine analyzer is running.");
             System.exit(-1);
         }
 
@@ -125,12 +124,12 @@ public class CommandLine
                     System.out.print(COMMAND_PROMPT);
                     String line = commandReader.readLine();
 
-                    if(line.equals(DigQueryCommands.QUERY_EXIT.value))
+                    if(line.equals(QueryCommands.QUERY_EXIT.value))
                     {
                         clientOutputStream.println(line);
                         break;
                     }
-                    else if(line.equals(DigQueryCommands.QUERY_LIST_CONSTRAINTS.value))
+                    else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
                     {
                         System.out.println("-------------------------------------------------");
                         System.out.println("Constraint Name\t\t | Constraint Expression");
@@ -144,7 +143,7 @@ public class CommandLine
                         System.out.println("-------------------------------------------------");
                         System.out.println();
                     }
-                    else if(line.contains("="))
+                    else if(line.contains(":"))
                     {
                         // probably a constraint
                         createConstraint(line);
@@ -159,8 +158,19 @@ public class CommandLine
                         }
                         long start_time = System.currentTimeMillis();
                         clientOutputStream.println(query);
-                        String returnType = (String) clientInputStream.readObject();
-                        String resultString = (String) clientInputStream.readObject();
+                        String returnTypeName = (String) clientInputStream.readObject();
+                        if(returnTypeName.equalsIgnoreCase("error"))
+                        {
+                            System.out.println("Error executing query request!");
+                            continue;
+                        }
+                        Class<?> returnType = Class.forName(returnTypeName);
+                        Object result = clientInputStream.readObject();
+                        String resultString = "";
+                        if(returnType.isAssignableFrom(result.getClass()))
+                        {
+                            resultString = result.toString();
+                        }
                         long elapsed_time = System.currentTimeMillis() - start_time;
                         System.out.println("Time taken for query: " + elapsed_time + " ms");
                         if(RESULT_EXPORT_PATH != null)
@@ -169,19 +179,19 @@ public class CommandLine
                             writer.write(resultString);
                             writer.flush();
                             writer.close();
-                            System.out.println("Output exported to file");
+                            System.out.println("Output exported to file: " + RESULT_EXPORT_PATH);
                             RESULT_EXPORT_PATH = null;
                         }
                         else
                         {
                             System.out.println();
                             System.out.println("Result:");
-                            System.out.println("Return type: " + returnType);
-                            System.out.println("Result: " + resultString);
+                            System.out.println("Return type: " + returnTypeName);
+                            System.out.println("Result value: " + resultString);
                             System.out.println("------------------");
                         }
                     }
-                    else if(line.toLowerCase().contains("export"))
+                    else if(line.toLowerCase().startsWith("export"))
                     {
                         // save export path for next answer's dot file
                         parseExport(line);
@@ -214,6 +224,7 @@ public class CommandLine
             if(command.equalsIgnoreCase("export") && operator.equals(">"))
             {
                 RESULT_EXPORT_PATH = path;
+                System.out.println("Output export path set to '" + path + "' for next query.");
             }
         }
         catch(Exception ex)
@@ -224,10 +235,9 @@ public class CommandLine
 
     private static void createConstraint(String line)
     {
-        Pattern pattern = Pattern.compile("((?<=(=))|(?=(=)))");
-        String[] tokens = pattern.split(line, 3);
+        String[] tokens = line.split(":");
         String constraint_name = tokens[0].trim();
-        String constraint_expression = tokens[2].trim();
+        String constraint_expression = tokens[1].trim();
         constraints.put(constraint_name, constraint_expression);
         System.out.println("Constraint '" + constraint_name + "' created.");
     }

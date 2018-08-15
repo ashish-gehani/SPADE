@@ -23,7 +23,7 @@
 
 print_help ()
 {
-	echo "spade start | stop | debug | control | dig | help"
+	echo "spade start | stop | debug | control | query | help"
 	echo ""
 	echo "'spade start' : Starts SPADE"
 	echo "'spade stop' : Stops SPADE after buffers empty"
@@ -40,8 +40,8 @@ print_help ()
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 JAVALIBPATH="$SPADE_ROOT/lib/"
-JVMARGS="-server -Xms4G -Xmx16G"
-JVMARGSDEBUG="-server -Xms4G -Xmx16G -XX:+UseConcMarkSweepGC"
+JVMARGS="-server -Xms8G -Xmx16G"
+JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
 
 pushd "${SPADE_ROOT}" > /dev/null
 
@@ -57,18 +57,22 @@ else
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Control
 	elif [ $1 = "debug" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
-	elif [ $1 = "start" ] ; then
+	elif [ $1 = "start" ]  || [ $1 = "remote-debug" ] ; then
+		remote_debugging_flags=
+		if [ $1 = "remote-debug" ] ; then
+			remote_debugging_flags="-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
+		fi
 		running=0
 		if [ -f "$spadePidFilePath" ] ; then
 			existingSpadePid=`cat $spadePidFilePath`
 			if [ -n "$existingSpadePid" ] ; then
 				if ps -p "$existingSpadePid" 2>&1 > /dev/null ; then
 					running=1
-				fi 
+				fi
 			fi
 		fi
 		if [ "$running" -eq 0 ] ; then
-			nohup java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.core.Kernel 2>&1 > /dev/null &
+			nohup java $remote_debugging_flags -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.core.Kernel 2>&1 > /dev/null &
 			spadePid=$!
 			if ps -p "$spadePid" 2>&1 > /dev/null ; then
 				echo -n $spadePid > $spadePidFilePath

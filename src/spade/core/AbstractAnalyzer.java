@@ -1,5 +1,8 @@
 package spade.core;
 
+import spade.client.QueryMetaData;
+import spade.utility.InconsistencyDetector;
+
 import javax.net.ssl.SSLServerSocket;
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,9 +16,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 import static spade.core.Kernel.sslServerSocketFactory;
 
 /**
@@ -23,13 +29,35 @@ import static spade.core.Kernel.sslServerSocketFactory;
  */
 public abstract class AbstractAnalyzer
 {
-
     public String QUERY_PORT;
     protected AbstractResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
-    protected boolean USE_TRANSFORMER = false;
     private static Map<String, List<String>> functionToClassMap;
     protected static boolean EXPORT_RESULT = false;
+    public static final String COMPARISON_OPERATORS = "=|>|<|>=|<=";
+    public static final String BOOLEAN_OPERATORS = "AND|OR";
+    protected static final InconsistencyDetector inconsistencyDetector = new InconsistencyDetector();
+    protected static Properties databaseConfigs = new Properties();
+    private static String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.core.AbstractAnalyzer.config";
+    public static boolean USE_SCAFFOLD;
+    public static boolean USE_TRANSFORMER;
+    static
+    {
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+            USE_SCAFFOLD = Boolean.parseBoolean(databaseConfigs.getProperty("use_scaffold"));
+            USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
+        }
+        catch(Exception ex)
+        {
+            // default settings
+            USE_SCAFFOLD = false;
+            USE_TRANSFORMER = false;
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING,
+                    "Loading configurations from the file unsuccessful! Falling back to default settings" , ex);
+        }
+    }
 
     /**
      * remoteResolutionRequired is used by query module to signal the Analyzer
@@ -54,7 +82,7 @@ public abstract class AbstractAnalyzer
 
     public abstract boolean initialize();
 
-    public AbstractAnalyzer()
+    static
     {
         // load functionToClassMap here
         String file_name = "cfg/functionToClassMap";
@@ -70,7 +98,7 @@ public abstract class AbstractAnalyzer
         catch(IOException | ClassNotFoundException ex)
         {
             functionToClassMap = new HashMap<>();
-            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!", ex);
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!");
         }
     }
 
@@ -105,17 +133,35 @@ public abstract class AbstractAnalyzer
     {
         // key -> values
         // function name -> function class name, function return type
-        List<String> values = functionToClassMap.get(functionName);
-        if(values == null)
+        List<String> classInfo = functionToClassMap.get(functionName);
+        if(classInfo == null)
         {
+            String className;
             //TODO: create all query classes with abstractanalyzer beforehand
             if(functionName.equals("GetLineage") || functionName.equals("GetPaths"))
-                values = Arrays.asList("spade.query.common." + functionName, "spade.query.common.GetLineage");
+            {
+                className = "spade.query.common." + functionName;
+                classInfo = Arrays.asList(className, "spade.core.Graph");
+            }
             else
-                values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
-            functionToClassMap.put(functionName, values);
+            {
+                String storageName = AbstractQuery.getCurrentStorage().getClass().getSimpleName().toLowerCase();
+                className = "spade.query." + storageName + "." + functionName;
+                classInfo = Arrays.asList(className, "java.lang.Object");
+            }
+            try
+            {
+                Class.forName(className);
+                functionToClassMap.put(functionName, classInfo);
+            }
+            catch(ClassNotFoundException ex)
+            {
+                Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, "Unable to find/load query class!", ex);
+                return null;
+            }
         }
-        return values.get(0);
+
+        return classInfo.get(0);
     }
 
     public String getReturnType(String functionName)
@@ -123,7 +169,8 @@ public abstract class AbstractAnalyzer
         List<String> values = functionToClassMap.get(functionName);
         if(values == null)
         {
-            values = Arrays.asList("spade.query.sql.postgresql." + functionName, "Object");
+            String storageName = AbstractQuery.getCurrentStorage().getClass().getSimpleName().toLowerCase();
+            values = Arrays.asList("spade.query." + storageName + "." + functionName, "Object");
         }
 
         return values.get(1);
@@ -169,9 +216,9 @@ public abstract class AbstractAnalyzer
         @Override
         public abstract void run();
 
-        protected abstract void parseQuery(String line);
+        protected abstract boolean parseQuery(String line);
 
-        protected Graph iterateTransformers(Graph graph, String query)
+        protected Graph iterateTransformers(Graph graph, QueryMetaData queryMetaData)
         {
             synchronized (Kernel.transformers)
             {
@@ -182,8 +229,7 @@ public abstract class AbstractAnalyzer
                     {
                         try
                         {
-                            //TODO: update the transformer function to reflect changes
-                            graph = transformer.putGraph(graph, null);
+                            graph = transformer.putGraph(graph, queryMetaData);
                             if(graph != null)
                             {
                                 //commit after every transformer to enable reading without error

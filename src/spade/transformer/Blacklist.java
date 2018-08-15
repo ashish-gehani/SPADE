@@ -19,7 +19,7 @@
  */
 package spade.transformer;
 
-import spade.client.QueryParameters;
+import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -32,72 +32,91 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-public class Blacklist extends AbstractTransformer{
+public class Blacklist extends AbstractTransformer
+{
 	
 	private Pattern filesToRemovePattern = null;
 	
-	public boolean initialize(String arguments){
+	public boolean initialize(String arguments)
+	{
 		
-		try{
+		try
+		{
 			String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 			filesToRemovePattern = FileUtility.constructRegexFromFile(filepath);
-			if(filesToRemovePattern == null){
+			if(filesToRemovePattern == null)
+			{
 				throw new Exception("Regex read from file '"+filepath+"' cannot be null");
 			}
+
 			return true;
-		}catch(Exception e){
+		}
+		catch(Exception e)
+		{
 			Logger.getLogger(getClass().getName()).log(Level.WARNING, null, e);
 			return false;
 		}
 		
 	}
 	
-	public Graph putGraph(Graph graph, QueryParameters digQueryParams){
+	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	{
 		Graph resultGraph = new Graph();
 		
 		AbstractVertex queriedVertex = null;
 		
-		if(digQueryParams != null){
-			queriedVertex = digQueryParams.getVertex();
+		if(queryMetaData != null)
+		{
+			queriedVertex = queryMetaData.getRootVertex();
 		}
 		
-		for(AbstractEdge edge : graph.edgeSet()){
+		for(AbstractEdge edge : graph.edgeSet())
+		{
 			String srcFilepath = getAnnotationSafe(edge.getChildVertex(), OPMConstants.ARTIFACT_PATH);
 			String dstFilepath = getAnnotationSafe(edge.getParentVertex(), OPMConstants.ARTIFACT_PATH);
-			if(!(fileEqualsVertex(srcFilepath, queriedVertex) || fileEqualsVertex(dstFilepath, queriedVertex))){
-				if(isFileToBeRemoved(srcFilepath) 
-					|| isFileToBeRemoved(dstFilepath)){
+			if(!(fileEqualsVertex(srcFilepath, queriedVertex) || fileEqualsVertex(dstFilepath, queriedVertex)))
+			{
+				if(isFileToBeRemoved(srcFilepath) || isFileToBeRemoved(dstFilepath))
+				{
 					continue;
 				}
 			}
 			AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null){
+			if(newEdge != null && newEdge.getChildVertex() != null && newEdge.getParentVertex() != null)
+			{
 				resultGraph.putVertex(newEdge.getChildVertex());
 				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
 			}
 		}
+
 		return resultGraph;
 	}
 	
-	private boolean isFileToBeRemoved(String path){
-		if(filesToRemovePattern != null && path != null){
+	private boolean isFileToBeRemoved(String path)
+	{
+		if(filesToRemovePattern != null && path != null)
+		{
 			return filesToRemovePattern.matcher(path).find();
 		}
+
 		return false;
 	}
 	
-	private boolean fileEqualsVertex(String path, AbstractVertex vertex){
-		if(path == null || vertex == null){
+	private boolean fileEqualsVertex(String path, AbstractVertex vertex)
+	{
+		if(path == null || vertex == null)
+		{
 			return false;
 		}
-		if(OPMConstants.isPathBasedArtifact(vertex)){
+		if(OPMConstants.isPathBasedArtifact(vertex))
+		{
 			String vpath = getAnnotationSafe(vertex, OPMConstants.ARTIFACT_PATH);
-			if(path.equals(vpath)){
+			if(path.equals(vpath))
+			{
 				return true;
 			}
 		}
 		return false;
 	}
-	
 }
