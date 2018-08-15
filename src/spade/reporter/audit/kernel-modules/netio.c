@@ -27,12 +27,14 @@
 
 #include "globals.h"
 
-#define UENTRY 0xffffff9c
-#define UEXIT 0xffffff9b
-#define MREAD1 0xffffff38
-#define MREAD2 0xffffff37
-#define MWRITE1 0xfffffed4
-#define MWRITE2 0xfffffed3
+#define UENTRY		0xffffff9c // -100
+#define UENTRY_ID	0xffffff9a // -102
+#define UEXIT		0xffffff9b // -101
+#define MREAD1		0xffffff38 // -200
+#define MREAD2		0xffffff37 // -201
+#define MWRITE1 	0xfffffed4 // -300
+#define MWRITE2 	0xfffffed3 // -301
+#define UDEP		0xfffffe70 // -400
 
 /* 
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
@@ -411,13 +413,13 @@ asmlinkage long new_kill(pid_t pid, int sig){
 		int success = retval == 0 ? 1 : 0;
 		struct task_struct* current_task = current;
 		
-		if(pid == UENTRY || pid == UEXIT || pid == MREAD1 || pid == MREAD2 || pid == MWRITE1 || pid == MWRITE2){
+		if(pid == UENTRY || pid == UENTRY_ID || pid == UEXIT || pid == MREAD1 || pid == MREAD2 || pid == MWRITE1 || pid == MWRITE2 || pid == UDEP){
 			success = 1; // Need to always handle this
 			isUBSIEvent = 1;
 		}
 		
 		if(log_syscall((int)(current_task->pid), (int)(current_task->real_parent->pid),
-			(int)(current_task->real_cred->uid.val), success) > 0 && isUBSIEvent == 1){
+			(int)(current_task->real_cred->uid.val), success) > 0){// && isUBSIEvent == 1){
 			char* task_command = current_task->comm;
 			int task_command_len = strlen(task_command);
 			int hex_task_command_len = (task_command_len * 2) + 1; // +1 for NULL
