@@ -39,24 +39,28 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.commons.codec.binary.Hex;
 
-import com.bbn.tc.schema.avro.cdm18.AbstractObject;
-import com.bbn.tc.schema.avro.cdm18.Event;
-import com.bbn.tc.schema.avro.cdm18.FileObject;
-import com.bbn.tc.schema.avro.cdm18.Host;
-import com.bbn.tc.schema.avro.cdm18.HostIdentifier;
-import com.bbn.tc.schema.avro.cdm18.HostType;
-import com.bbn.tc.schema.avro.cdm18.Interface;
-import com.bbn.tc.schema.avro.cdm18.MemoryObject;
-import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
-import com.bbn.tc.schema.avro.cdm18.Principal;
-import com.bbn.tc.schema.avro.cdm18.SHORT;
-import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
-import com.bbn.tc.schema.avro.cdm18.Subject;
-import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
-import com.bbn.tc.schema.avro.cdm18.UUID;
-import com.bbn.tc.schema.avro.cdm18.UnitDependency;
-import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
+import com.bbn.tc.schema.avro.cdm19.AbstractObject;
+import com.bbn.tc.schema.avro.cdm19.Event;
+import com.bbn.tc.schema.avro.cdm19.EventType;
+import com.bbn.tc.schema.avro.cdm19.FileObject;
+import com.bbn.tc.schema.avro.cdm19.Host;
+import com.bbn.tc.schema.avro.cdm19.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm19.InstrumentationSource;
+import com.bbn.tc.schema.avro.cdm19.Interface;
+import com.bbn.tc.schema.avro.cdm19.IpcObject;
+import com.bbn.tc.schema.avro.cdm19.IpcObjectType;
+import com.bbn.tc.schema.avro.cdm19.MemoryObject;
+import com.bbn.tc.schema.avro.cdm19.NetFlowObject;
+import com.bbn.tc.schema.avro.cdm19.Principal;
+import com.bbn.tc.schema.avro.cdm19.RecordType;
+import com.bbn.tc.schema.avro.cdm19.SHORT;
+import com.bbn.tc.schema.avro.cdm19.SrcSinkObject;
+import com.bbn.tc.schema.avro.cdm19.Subject;
+import com.bbn.tc.schema.avro.cdm19.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm19.UUID;
+import com.bbn.tc.schema.avro.cdm19.UnitDependency;
 
+import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
@@ -86,6 +90,7 @@ public class CDM extends AbstractReporter{
 								CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS = "verticesBloomFilterExpectedNumberOfElements",
 								CONFIG_KEY_SCHEMA = "Schema";
 	
+	public final static String KEY_CDM_TYPE = "cdm.type";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -119,8 +124,7 @@ public class CDM extends AbstractReporter{
 							logger.log(Level.INFO, "Shutting down the data reader thread");
 							break;
 						}
-						Object datum = tccdmDatum.getDatum();
-						processDatum(datum);
+						processDatum(tccdmDatum);
 					}
 					try{
 						dataReader.close();
@@ -344,140 +348,351 @@ public class CDM extends AbstractReporter{
 		logger.log(Level.INFO, "Lines read: {0}, Internal buffer size: {1}, JVM memory in use: {2}MB", new Object[]{linesRead, internalBufferSize, usedMemoryMB});
 	}
 	
-	private void processEvent(Event event){
-		Map<String, String> edgeKeyValues = new HashMap<String, String>();
-		if(event.getSequence() != null){
-			edgeKeyValues.put("sequence", String.valueOf(event.getSequence()));
-		}
-		if(event.getType() != null){
-			edgeKeyValues.put("cdm.type", String.valueOf(event.getType()));
-		}
-		if(event.getThreadId() != null){
-			edgeKeyValues.put("threadId", String.valueOf(event.getThreadId()));
-		}
-		if(event.getTimestampNanos() != null){
-			edgeKeyValues.put("timestampNanos", String.valueOf(event.getTimestampNanos()));
-		}
-		if(event.getLocation() != null){
-			edgeKeyValues.put("location", String.valueOf(event.getLocation()));
-		}
-		if(event.getSize() != null){
-			edgeKeyValues.put("size", String.valueOf(event.getSize()));
-		}
-		edgeKeyValues.putAll(getValuesFromPropertiesMap(event.getProperties()));
+	private void handleUnitDependency(UnitDependency unitDependency, InstrumentationSource source){
+		UUID unitUuid = unitDependency.getUnit();
+		UUID dependentUnitUuid = unitDependency.getDependentUnit();		
+		putEdge(dependentUnitUuid, unitUuid, null, "UnitDependency", source);
+	}
+	
+	private void handleEvent(Event event, InstrumentationSource source){
+		EventType type = event.getType();
+		if(type != null){
+			Map<String, String> edgeMap = new HashMap<String, String>();
+			addAnnotationIfNotNull(edgeMap, "sequence", event.getSequence());
+			addAnnotationIfNotNull(edgeMap, "threadId", event.getThreadId());
+			addAnnotationIfNotNull(edgeMap, "timestampNanos", event.getTimestampNanos());
+			addAnnotationIfNotNull(edgeMap, "location", event.getLocation());
+			addAnnotationIfNotNull(edgeMap, "size", event.getSize());
+			
+			addAnnotationsIfNotNull(edgeMap, event.getProperties());
+			
+			UUID src1 = null, dst1 = null, src2 = null, dst2 = null, src3 = null, dst3 = null;
+			
+			String opm = null;
 		
-		String opmValue = null, operationValue = null;
-		
-		UUID src1Uuid = null, dst1Uuid = null, // process to/from primary
-				src2Uuid = null, dst2Uuid = null, //process to/from secondary
-				src3Uuid = null, dst3Uuid = null; //primary to/from secondary
-		
-		switch (event.getType()) {
-			case EVENT_OTHER:
-				operationValue = edgeKeyValues.get(OPMConstants.EDGE_OPERATION);
-				if(OPMConstants.OPERATION_TEE.equals(operationValue) 
-						|| OPMConstants.OPERATION_SPLICE.equals(operationValue)){
-					src1Uuid = event.getSubject();
-					dst1Uuid = event.getPredicateObject();
-					
-					src2Uuid = event.getPredicateObject2();
-					dst2Uuid = event.getSubject();
-					
-					src3Uuid = event.getPredicateObject2();
-					dst3Uuid = event.getPredicateObject();
-				}else if(OPMConstants.OPERATION_VMSPLICE.equals(operationValue)){
-					src1Uuid = event.getPredicateObject();
-					dst1Uuid = event.getSubject();
-				}else if(OPMConstants.OPERATION_INIT_MODULE.equals(operationValue)
-						|| OPMConstants.OPERATION_FINIT_MODULE.equals(operationValue)){
-					src1Uuid = event.getSubject();
-					dst1Uuid = event.getPredicateObject();
-				}
-				break;
-			case EVENT_OPEN:
-			case EVENT_CLOSE:
-				opmValue = edgeKeyValues.get(OPMConstants.OPM);
-			case EVENT_LOADLIBRARY:
-			case EVENT_RECVMSG:
-			case EVENT_RECVFROM:
-			case EVENT_READ:
-			case EVENT_ACCEPT:
-				if(opmValue != null){
-					if(opmValue.equals(OPMConstants.USED)){
-						src1Uuid = event.getSubject();
-						dst1Uuid = event.getPredicateObject();
-					}else if(opmValue.equals(OPMConstants.WAS_GENERATED_BY)){
-						src1Uuid = event.getPredicateObject();
-						dst1Uuid = event.getSubject();
+			switch(type){
+				case EVENT_OTHER:
+				{
+					String operation = edgeMap.get(OPMConstants.EDGE_OPERATION);
+					if(operation != null){
+						switch(operation){
+							case OPMConstants.OPERATION_TEE:
+							case OPMConstants.OPERATION_SPLICE:
+							{
+								src1 = event.getSubject();
+								dst1 = event.getPredicateObject();
+								
+								src2 = event.getPredicateObject2();
+								dst2 = event.getSubject();
+								
+								src3 = event.getPredicateObject2();
+								dst3 = event.getPredicateObject();
+							}
+							break;
+							case OPMConstants.OPERATION_VMSPLICE:
+							{
+								src1 = event.getPredicateObject();
+								dst1 = event.getSubject();
+							}
+							break;
+							case OPMConstants.OPERATION_FINIT_MODULE:
+							case OPMConstants.OPERATION_INIT_MODULE:
+							{
+								src1 = event.getSubject();
+								dst1 = event.getPredicateObject();
+							}
+							break;
+							default:
+								logger.log(Level.WARNING, "Unexpected 'operation' in event: " + event);
+								return;
+						}
+					}else{
+						logger.log(Level.WARNING, "NULL 'operation' for event: " + event);
+						return;
 					}
-				}else{
-					src1Uuid = event.getSubject();
-					dst1Uuid = event.getPredicateObject();
 				}
-				break;					
-			case EVENT_EXIT:
-			case EVENT_UNIT:
-			case EVENT_FORK:
-			case EVENT_EXECUTE:
-			case EVENT_CLONE:
-			case EVENT_CHANGE_PRINCIPAL:
-				src1Uuid = event.getPredicateObject();
-				dst1Uuid = event.getSubject();
-				break;								
-			case EVENT_CONNECT:
-			case EVENT_CREATE_OBJECT:
-			case EVENT_WRITE:
-			case EVENT_MPROTECT:
-			case EVENT_SENDTO:
-			case EVENT_SENDMSG:
-			case EVENT_UNLINK:
-			case EVENT_MODIFY_FILE_ATTRIBUTES:
-			case EVENT_TRUNCATE:
-				src1Uuid = event.getPredicateObject();
-				dst1Uuid = event.getSubject();
-				break;								
-			case EVENT_LINK:
-			case EVENT_RENAME:
-			case EVENT_MMAP:
-			case EVENT_UPDATE:
-				src1Uuid = event.getSubject();
-				dst1Uuid = event.getPredicateObject();
-				
-				src2Uuid = event.getPredicateObject2();
-				dst2Uuid = event.getSubject();
-				
-				src3Uuid = event.getPredicateObject2();
-				dst3Uuid = event.getPredicateObject();
 				break;
-			default:
-				logger.log(Level.WARNING, "Unexpected Event type: " + event.getType());
-				return;
-		}
-		
-		if(src1Uuid != null && dst1Uuid != null){
-			SimpleEdge edge = new SimpleEdge(
-					uuidToVertexMap.get(getUUIDAsString(src1Uuid)),
-					uuidToVertexMap.get(getUUIDAsString(dst1Uuid)));
-			edge.addAnnotations(edgeKeyValues);
-			putEdge(edge);
-		}
-		if(src2Uuid != null && dst2Uuid != null){
-			SimpleEdge edge = new SimpleEdge(
-					uuidToVertexMap.get(getUUIDAsString(src2Uuid)),
-					uuidToVertexMap.get(getUUIDAsString(dst2Uuid)));
-			edge.addAnnotations(edgeKeyValues);
-			putEdge(edge);
-		}
-		if(src3Uuid != null && dst3Uuid != null){
-			SimpleEdge edge = new SimpleEdge(
-					uuidToVertexMap.get(getUUIDAsString(src3Uuid)),
-					uuidToVertexMap.get(getUUIDAsString(dst3Uuid)));
-			edge.addAnnotations(edgeKeyValues);
-			putEdge(edge);
+				case EVENT_OPEN:
+				case EVENT_CLOSE:
+					opm = edgeMap.get(OPMConstants.OPM);
+					if(opm == null){
+						logger.log(Level.WARNING, "Missing 'opm' for event: " + event);
+					}else{
+						switch(opm){
+							case OPMConstants.USED:
+							{
+								src1 = event.getSubject();
+								dst1 = event.getPredicateObject();
+							}
+							break;
+							case OPMConstants.WAS_GENERATED_BY:
+							{
+								src1 = event.getPredicateObject();
+								dst1 = event.getSubject();
+							}
+							break;
+							default:
+								logger.log(Level.SEVERE, "Unexpected 'opm' value for event: " + event);
+								return;
+						}
+					}
+					break;
+				case EVENT_LOADLIBRARY:
+				case EVENT_RECVMSG:
+				case EVENT_RECVFROM:
+				case EVENT_READ:
+				case EVENT_ACCEPT:
+				{
+					src1 = event.getSubject();
+					dst1 = event.getPredicateObject();
+				}
+				break;
+				case EVENT_EXIT:
+				case EVENT_UNIT:
+				case EVENT_FORK:
+				case EVENT_EXECUTE:
+				case EVENT_CLONE:
+				case EVENT_CHANGE_PRINCIPAL:
+				{
+					src1 = event.getPredicateObject();
+					dst1 = event.getSubject();
+				}
+				break;
+				case EVENT_CONNECT:
+				case EVENT_CREATE_OBJECT:
+				case EVENT_WRITE:
+				case EVENT_MPROTECT:
+				case EVENT_SENDTO:
+				case EVENT_SENDMSG:
+				case EVENT_UNLINK:
+				case EVENT_MODIFY_FILE_ATTRIBUTES:
+				case EVENT_TRUNCATE:
+				{
+					src1 = event.getPredicateObject();
+					dst1 = event.getSubject();
+				}
+				break;
+				case EVENT_LINK:
+				case EVENT_RENAME:
+				case EVENT_MMAP:
+				case EVENT_UPDATE:
+				{
+					src1 = event.getSubject();
+					dst1 = event.getPredicateObject();
+					
+					src2 = event.getPredicateObject2();
+					dst2 = event.getSubject();
+					
+					src3 = event.getPredicateObject2();
+					dst3 = event.getPredicateObject();
+				}
+				break;
+				default: 
+					logger.log(Level.WARNING, "Unhandled event type '"+type+"' for event: " + event);
+					return;
+			}
+			
+			if(src1 != null && dst1 != null){
+				putEdge(src1, dst1, edgeMap, type, source);
+			}
+			if(src2 != null && dst2 != null){
+				putEdge(src2, dst2, edgeMap, type, source);
+			}
+			if(src3 != null && dst3 != null){
+				putEdge(src3, dst3, edgeMap, type, source);
+			}
+		}else{
+			logger.log(Level.WARNING, "NULL event type for event: " + event);
 		}
 	}
 	
-	private void processDatum(Object datum){
+	private void handleFileObject(FileObject fileObject, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Object();
+		UUID uuid = fileObject.getUuid();
+		AbstractObject baseObject = fileObject.getBaseObject();
+		
+		addAnnotationsIfNotNull(vertex, baseObject);
+		
+		putVertex(vertex, uuid, null, fileObject.getType(), source);
+	}
+	
+	private void handleHost(Host host, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Object();
+		UUID uuid = host.getUuid();
+		
+		addAnnotationIfNotNull(vertex, "hostName", host.getHostName());
+		addAnnotationIfNotNull(vertex, "osDetails", host.getOsDetails());
+		addAnnotationIfNotNull(vertex, "hostType", host.getHostType());
+		
+		List<HostIdentifier> hostIdentifiers = host.getHostIdentifiers();
+		if(hostIdentifiers != null){
+			for(HostIdentifier hostIdentifier : hostIdentifiers){
+				if(hostIdentifier != null){
+					addAnnotationIfNotNull(vertex, String.valueOf(hostIdentifier.getIdType()), hostIdentifier.getIdValue());
+				}
+			}
+		}
+		
+		List<Interface> interfaces = host.getInterfaces();
+		if(interfaces != null){
+			int interfaceIndex = 0;
+			for(Interface interfaze : interfaces){
+				if(interfaze != null){
+					addAnnotationIfNotNull(vertex, "name " + interfaceIndex, interfaze.getName());
+					addAnnotationIfNotNull(vertex, "macAddress " + interfaceIndex, interfaze.getMacAddress());
+					addAnnotationIfNotNull(vertex, "ipAddresses " + interfaceIndex, interfaze.getIpAddresses());
+					interfaceIndex++;
+				}
+			}
+		}
+		putVertex(vertex, uuid, null, "Host", source);
+	}
+	
+	private void handleIpcObject(IpcObject ipcObject, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Object();
+		UUID uuid = ipcObject.getUuid();
+		AbstractObject baseObject = ipcObject.getBaseObject();
+		
+		IpcObjectType type = ipcObject.getType();
+		
+		String fd0Key = null, fd1Key = null;
+		
+		switch(type){
+			case IPC_OBJECT_PIPE_UNNAMED:
+				fd0Key = "sourceFileDescriptor";
+				fd1Key = "sinkFileDescriptor";
+				break;
+			case IPC_OBJECT_SOCKET_PAIR:
+				fd0Key = "fd0";
+				fd1Key = "fd1";
+				break;
+			default:
+				logger.log(Level.WARNING, "Unexpected IpcObject type '"+type+"' for object: " + ipcObject);
+				return;
+		}
+		
+		addAnnotationIfNotNull(vertex, fd0Key, ipcObject.getFd1());
+		addAnnotationIfNotNull(vertex, fd1Key, ipcObject.getFd2());
+		
+		addAnnotationsIfNotNull(vertex, baseObject);
+		
+		putVertex(vertex, uuid, null, type, source);
+	}
+	
+	private void handleMemoryObject(MemoryObject memoryObject, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Object();
+		UUID uuid = memoryObject.getUuid();
+		AbstractObject baseObject = memoryObject.getBaseObject();
+		
+		addAnnotationIfNotNull(vertex, "memoryAddress", memoryObject.getMemoryAddress());
+		addAnnotationIfNotNull(vertex, "size", memoryObject.getSize());
+		
+		addAnnotationsIfNotNull(vertex, baseObject);
+		
+		putVertex(vertex, uuid, null, "MemoryObject", source);
+	}
+	
+	private void handleNetFlowObject(NetFlowObject netFlowObject, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Object();
+		UUID uuid = netFlowObject.getUuid();
+		AbstractObject baseObject = netFlowObject.getBaseObject();
+		
+		addAnnotationIfNotNull(vertex, "localAddress", netFlowObject.getLocalAddress());
+		addAnnotationIfNotNull(vertex, "localPort", netFlowObject.getLocalPort());
+		addAnnotationIfNotNull(vertex, "remoteAddress", netFlowObject.getRemoteAddress());
+		addAnnotationIfNotNull(vertex, "remotePort", netFlowObject.getRemotePort());
+		addAnnotationIfNotNull(vertex, "ipProtocol", netFlowObject.getIpProtocol());
+		
+		addAnnotationsIfNotNull(vertex, baseObject);
+		
+		putVertex(vertex, uuid, null, "NetFlowObject", source);
+	}
+	
+	private void handleSrcSinkObject(SrcSinkObject srcSinkObject, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Object();
+		UUID uuid = srcSinkObject.getUuid();
+		AbstractObject baseObject = srcSinkObject.getBaseObject();
+		
+		addAnnotationIfNotNull(vertex, "fileDescriptor", srcSinkObject.getFileDescriptor());
+		addAnnotationsIfNotNull(vertex, baseObject);
+		
+		putVertex(vertex, uuid, null, "SrcSinkObject", source);
+	}
+	
+	private void handlePrincipal(Principal principal, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Principal();
+		UUID uuid = principal.getUuid();
+		
+		List<CharSequence> gids = principal.getGroupIds();
+		
+		CharSequence gid = gids.size() > 0 ? gids.get(0) : null;
+		CharSequence egid = gids.size() > 1 ? gids.get(1) : null;
+		CharSequence sgid = gids.size() > 2 ? gids.get(2) : null;
+		CharSequence fsgid = gids.size() > 3 ? gids.get(3) : null;
+		
+		addAnnotationIfNotNull(vertex, "userId", principal.getUserId());
+		addAnnotationIfNotNull(vertex, "gid", gid);
+		addAnnotationIfNotNull(vertex, "egid", egid);
+		addAnnotationIfNotNull(vertex, "sgid", sgid);
+		addAnnotationIfNotNull(vertex, "fsgid", fsgid);
+		
+		putVertex(vertex, uuid, principal.getProperties(), "Principal", source);
+	}
+	
+	private void handleSubject(Subject subject, InstrumentationSource source){
+		AbstractVertex vertex = new spade.vertex.cdm.Subject();
+		UUID uuid = subject.getUuid();
+		UUID principalUuid = subject.getLocalPrincipal();
+		
+		addAnnotationIfNotNull(vertex, "pid", subject.getCid());
+		addAnnotationIfNotNull(vertex, "parentSubjectUuid", getUUIDAsString(subject.getParentSubject()));
+		addAnnotationIfNotNull(vertex, "localPrincipal", getUUIDAsString(subject.getLocalPrincipal()));
+		addAnnotationIfNotNull(vertex, "startTimestampNanos", subject.getStartTimestampNanos());
+		addAnnotationIfNotNull(vertex, "unitId", subject.getUnitId());
+		addAnnotationIfNotNull(vertex, "iteration", subject.getIteration());
+		addAnnotationIfNotNull(vertex, "count", subject.getCount());
+		addAnnotationIfNotNull(vertex, "cmdLine", subject.getCmdLine());
+		
+		putVertex(vertex, uuid, subject.getProperties(), subject.getType(), source);
+		
+		putEdge(uuid, principalUuid, null, null, source);
+	}
+	
+	private void putVertex(AbstractVertex vertex, UUID uuid, 
+			Map<CharSequence, CharSequence> properties, Object cdmType,
+			InstrumentationSource source){
+		String uuidString = getUUIDAsString(uuid);
+		addCdmType(vertex, cdmType);
+		addSource(vertex, source);
+		addAnnotationIfNotNull(vertex, "uuid", uuidString);
+		addAnnotationsIfNotNull(vertex, properties);
+		uuidToVertexMap.put(uuidString, vertex);
+		super.putVertex(vertex);
+	}
+	
+	private void putEdge(UUID sourceUuid, UUID destinationUuid, Map<String, String> annotations,
+			Object cdmType, InstrumentationSource source){
+		if(sourceUuid != null && destinationUuid != null){
+			String sourceUuidString = getUUIDAsString(sourceUuid);
+			String destinationUuidString = getUUIDAsString(destinationUuid);
+			if(sourceUuidString != null && destinationUuidString != null){
+				AbstractVertex sourceVertex = uuidToVertexMap.get(sourceUuidString);
+				AbstractVertex destinationVertex = uuidToVertexMap.get(destinationUuidString);
+				if(sourceVertex != null && destinationVertex != null){
+					SimpleEdge edge = new SimpleEdge(sourceVertex, destinationVertex);
+					if(annotations != null){
+						edge.addAnnotations(annotations);
+					}
+					addCdmType(edge, cdmType);
+					addSource(edge, source);
+					super.putEdge(edge);
+				}
+			}
+		}
+		
+	}
+	
+	private void processDatum(TCCDMDatum tccdmdatum){
 		if(reportingEnabled){
 			linesRead++;
 			long currentTime = System.currentTimeMillis();
@@ -487,192 +702,110 @@ public class CDM extends AbstractReporter{
 			}
 		}
 		
-		if(datum != null){
-			Class<?> datumClass = datum.getClass();
-			if(datumClass.equals(UnitDependency.class)){
-				UnitDependency unitDependency = (UnitDependency)datum;
-				UUID unitUuid = unitDependency.getUnit();//dst
-				UUID dependentUnitUuid = unitDependency.getDependentUnit();//src
-				String unitUuidString = getUUIDAsString(unitUuid);
-				String dependentUnitUuidString = getUUIDAsString(dependentUnitUuid);
-				AbstractVertex unitVertex = uuidToVertexMap.get(unitUuidString);
-				AbstractVertex dependentUnitVertex = uuidToVertexMap.get(dependentUnitUuidString);
-				spade.edge.cdm.SimpleEdge edge = new spade.edge.cdm.SimpleEdge(dependentUnitVertex, unitVertex);
-				putEdge(edge);
-			}else if(datumClass.equals(Event.class)){
-				Event event = (Event)datum;
-				processEvent(event);				
+		if(tccdmdatum != null){
+			Object datum = tccdmdatum.getDatum();
+			if(datum != null){
+				RecordType recordType = tccdmdatum.getType();
+				if(recordType != null){
+					InstrumentationSource source = tccdmdatum.getSource();
+					if(source == null){
+						logger.log(Level.WARNING, "NULL instrumentation source in datum: " + tccdmdatum);
+					}
+					try{
+						switch(recordType){
+							case RECORD_EVENT: handleEvent((Event)datum, source); break;
+							case RECORD_FILE_OBJECT: handleFileObject((FileObject)datum, source); break;
+							case RECORD_HOST: handleHost((Host)datum, source); break;
+							case RECORD_IPC_OBJECT: handleIpcObject((IpcObject)datum, source); break;
+							case RECORD_MEMORY_OBJECT: handleMemoryObject((MemoryObject)datum, source); break;
+							case RECORD_NET_FLOW_OBJECT: handleNetFlowObject((NetFlowObject)datum, source); break;
+							case RECORD_PRINCIPAL: handlePrincipal((Principal)datum, source); break;
+							case RECORD_SRC_SINK_OBJECT: handleSrcSinkObject((SrcSinkObject)datum, source); break;
+							case RECORD_SUBJECT: handleSubject((Subject)datum, source); break;
+							case RECORD_UNIT_DEPENDENCY: handleUnitDependency((UnitDependency)datum, source); break;
+							
+							// Unconvertables
+							case RECORD_END_MARKER:
+							case RECORD_TIME_MARKER:
+							default: break;
+						}
+					}catch(ClassCastException cce){
+						logger.log(Level.SEVERE, "Mismatched record type in datum: " + tccdmdatum, cce);
+					}catch(Throwable t){
+						logger.log(Level.WARNING, "Failed to process datum: " + tccdmdatum, t);
+					}
+				}else{
+					logger.log(Level.WARNING, "NULL type in datum: " + tccdmdatum);
+				}
 			}else{
-				
-				UUID uuid = null;
-				AbstractVertex vertex = null;
-				UUID principalUuid = null;
-				
-				if(datumClass.equals(Subject.class)){
-					vertex = new spade.vertex.cdm.Subject();
-					Subject subject = (Subject)datum;
-					uuid = subject.getUuid();
-					if(subject.getCid() != null){
-						vertex.addAnnotation("pid", String.valueOf(subject.getCid()));
-					}
-					if(subject.getParentSubject() != null){
-						vertex.addAnnotation("parentSubjectUuid", getUUIDAsString(subject.getParentSubject()));
-					}
-					if(subject.getLocalPrincipal() != null){
-						vertex.addAnnotation("localPrincipal", getUUIDAsString(subject.getLocalPrincipal()));
-					}
-					principalUuid = subject.getLocalPrincipal();
-					if(subject.getStartTimestampNanos() != null){
-						vertex.addAnnotation("startTimestampNanos", String.valueOf(subject.getStartTimestampNanos()));
-					}
-					if(subject.getUnitId() != null){
-						vertex.addAnnotation("unitId", String.valueOf(subject.getUnitId()));
-					}
-					if(subject.getIteration() != null){
-						vertex.addAnnotation("iteration", String.valueOf(subject.getIteration()));
-					}
-					if(subject.getCount() != null){
-						vertex.addAnnotation("count", String.valueOf(subject.getCount()));
-					}
-					if(subject.getCmdLine() != null){
-						vertex.addAnnotation("cmdLine", String.valueOf(subject.getCmdLine()));
-					}
-					vertex.addAnnotations(getValuesFromPropertiesMap(subject.getProperties()));
-					if(subject.getType() != null){
-						vertex.addAnnotation("cdm.type", String.valueOf(subject.getType()));
-					}
-				}else if(datumClass.equals(Principal.class)){
-					vertex = new spade.vertex.cdm.Principal();
-					Principal principal = (Principal)datum;
-					uuid = principal.getUuid();
-					if(principal.getUserId() != null){
-						vertex.addAnnotation("userId", String.valueOf(principal.getUserId()));
-					}
-					List<CharSequence> groupIds = principal.getGroupIds();
-					if(groupIds.size() > 0){
-						vertex.addAnnotation("gid", String.valueOf(groupIds.get(0)));
-					}
-					if(groupIds.size() > 1){
-						vertex.addAnnotation("egid", String.valueOf(groupIds.get(1)));
-					}
-					if(groupIds.size() > 2){
-						vertex.addAnnotation("sgid", String.valueOf(groupIds.get(2)));
-					}
-					if(groupIds.size() > 3){
-						vertex.addAnnotation("fsgid", String.valueOf(groupIds.get(3)));
-					}
-					vertex.addAnnotations(getValuesFromPropertiesMap(principal.getProperties()));
-					vertex.addAnnotation("cdm.type", "Principal");
-				}else { // artifacts
-					vertex = new spade.vertex.cdm.Object();
-					AbstractObject baseObject = null;
-					if(datumClass.equals(MemoryObject.class)){
-						MemoryObject memoryObject = (MemoryObject)datum;
-						uuid = memoryObject.getUuid();
-						baseObject = memoryObject.getBaseObject();
-						if(memoryObject.getMemoryAddress() != null){
-							vertex.addAnnotation("memoryAddress", String.valueOf(memoryObject.getMemoryAddress()));
-						}
-						if(memoryObject.getSize() != null){
-							vertex.addAnnotation("size", String.valueOf(memoryObject.getSize()));
-						}
-						vertex.addAnnotation("cdm.type", "MemoryObject");
-					}else if(datumClass.equals(NetFlowObject.class)){
-						NetFlowObject netFlowObject = (NetFlowObject)datum;
-						uuid = netFlowObject.getUuid();
-						baseObject = netFlowObject.getBaseObject();
-						if(netFlowObject.getLocalAddress() != null){
-							vertex.addAnnotation("localAddress", String.valueOf(netFlowObject.getLocalAddress()));
-						}
-						if(netFlowObject.getLocalPort() != null){
-							vertex.addAnnotation("localPort", String.valueOf(netFlowObject.getLocalPort()));
-						}
-						if(netFlowObject.getRemoteAddress() != null){
-							vertex.addAnnotation("remoteAddress", String.valueOf(netFlowObject.getRemoteAddress()));
-						}
-						if(netFlowObject.getRemotePort() != null){
-							vertex.addAnnotation("remotePort", String.valueOf(netFlowObject.getRemotePort()));
-						}
-						if(netFlowObject.getIpProtocol() != null){
-							vertex.addAnnotation("ipProtocol", String.valueOf(netFlowObject.getIpProtocol()));
-						}
-						vertex.addAnnotation("cdm.type", "NetFlowObject");
-					}else if(datumClass.equals(SrcSinkObject.class)){
-						SrcSinkObject srcSinkObject = (SrcSinkObject)datum;
-						// unknown
-						uuid = srcSinkObject.getUuid();
-						baseObject = srcSinkObject.getBaseObject();
-						if(srcSinkObject.getFileDescriptor() != null){
-							vertex.addAnnotation("fileDescriptor", String.valueOf(srcSinkObject.getFileDescriptor()));
-						}
-						vertex.addAnnotation("cdm.type", "SrcSinkObject");
-					}else if(datumClass.equals(UnnamedPipeObject.class)){
-						UnnamedPipeObject unnamedPipeObject = (UnnamedPipeObject)datum;
-						uuid = unnamedPipeObject.getUuid();
-						baseObject = unnamedPipeObject.getBaseObject();
-						if(unnamedPipeObject.getSourceFileDescriptor() != null){
-							vertex.addAnnotation("sourceFileDescriptor", String.valueOf(unnamedPipeObject.getSourceFileDescriptor()));
-						}
-						if(unnamedPipeObject.getSinkFileDescriptor() != null){
-							vertex.addAnnotation("sinkFileDescriptor", String.valueOf(unnamedPipeObject.getSinkFileDescriptor()));
-						}
-						vertex.addAnnotation("cdm.type", "UnnamedPipeObject");
-					}else if(datumClass.equals(FileObject.class)){
-						FileObject fileObject = (FileObject)datum;
-						uuid = fileObject.getUuid();
-						baseObject = fileObject.getBaseObject();
-						if(fileObject.getType() != null){
-							vertex.addAnnotation("cdm.type", String.valueOf(fileObject.getType()));
-						}
-					}else if(datumClass.equals(Host.class)){
-						Host hostObject = (Host)datum;
-						uuid = hostObject.getUuid();
-						CharSequence hostName = hostObject.getHostName();
-						CharSequence osDetails = hostObject.getOsDetails();
-						HostType hostType = hostObject.getHostType();
-						List<HostIdentifier> hostIdentifiers = hostObject.getHostIdentifiers();
-						List<Interface> interfaces = hostObject.getInterfaces();
-						vertex.addAnnotation("hostName", String.valueOf(hostName));
-						vertex.addAnnotation("osDetails", String.valueOf(osDetails));
-						vertex.addAnnotation("hostType", String.valueOf(hostType));
-						if(hostIdentifiers != null){
-							for(HostIdentifier hostIdentifier : hostIdentifiers){
-								if(hostIdentifier != null){
-									vertex.addAnnotation(String.valueOf(hostIdentifier.getIdType()), 
-											String.valueOf(hostIdentifier.getIdValue()));
-								}
-							}
-						}
-						if(interfaces != null){
-							for(Interface interfaze : interfaces){
-								if(interfaze != null){
-									vertex.addAnnotation("name", String.valueOf(interfaze.getName()));
-									vertex.addAnnotation("macAddress", String.valueOf(interfaze.getMacAddress()));
-									vertex.addAnnotation("ipAddresses", String.valueOf(interfaze.getIpAddresses()));
-								}
-							}
-						}
-						vertex.addAnnotation("cdm.type", "Host");
-					}
-					vertex.addAnnotations(getValuesFromArtifactAbstractObject(baseObject));
-				}
-				if(uuid != null && vertex != null){
-					String uuidString = getUUIDAsString(uuid);
-					vertex.addAnnotation("uuid", uuidString);
-					uuidToVertexMap.put(uuidString, vertex);
-					putVertex(vertex);
-					if(principalUuid != null){
-						AbstractVertex principalVertex = uuidToVertexMap.get(getUUIDAsString(principalUuid));
-						if(principalVertex != null){
-							SimpleEdge edge = new SimpleEdge(vertex, principalVertex);
-							putEdge(edge);
-						}
-					}
-				}
+				logger.log(Level.WARNING, "NULL object in datum: " + tccdmdatum);
 			}
-		}		
+		}else{
+			logger.log(Level.WARNING, "NULL datum");
+		}
 	}
 	
+	private void addSource(AbstractVertex vertex, InstrumentationSource source){
+		addSource(vertex.getAnnotations(), source);
+	}
+	
+	private void addSource(AbstractEdge edge, InstrumentationSource source){
+		addSource(edge.getAnnotations(), source);
+	}
+	
+	private void addSource(Map<String, String> map, InstrumentationSource source){
+		addAnnotationIfNotNull(map, "source", source);
+	}
+	
+	private void addCdmType(AbstractVertex vertex, Object value){
+		addCdmType(vertex.getAnnotations(), value);
+	}
+	
+	private void addCdmType(AbstractEdge edge, Object value){
+		addCdmType(edge.getAnnotations(), value);
+	}
+	
+	private void addCdmType(Map<String, String> map, Object value){
+		addAnnotationIfNotNull(map, KEY_CDM_TYPE, value);
+	}
+	
+	private void addAnnotationIfNotNull(AbstractVertex vertex, String key, Object value){
+		addAnnotationIfNotNull(vertex.getAnnotations(), key, value);
+	}
+	
+	private void addAnnotationsIfNotNull(AbstractVertex vertex, AbstractObject object){
+		if(object != null){
+			addAnnotationIfNotNull(vertex, "epoch", object.getEpoch());
+			addAnnotationIfNotNull(vertex, "permission", getPermissionSHORTAsString(object.getPermission()));
+			addAnnotationsIfNotNull(vertex, object.getProperties());
+		}
+	}
+	
+	private void addAnnotationIfNotNull(Map<String, String> map, String key, Object value){
+		if(value != null){
+			map.put(key, value.toString());
+		}
+	}
+	
+	private void addAnnotationsIfNotNull(Map<String, String> map, Map<CharSequence, CharSequence> properties){
+		if(properties != null){
+			for(Map.Entry<CharSequence, CharSequence> entry : properties.entrySet()){
+				addAnnotationIfNotNull(map, String.valueOf(entry.getKey()), entry.getValue());
+			}
+		}
+	}
+	
+	
+	private void addAnnotationsIfNotNull(AbstractVertex vertex, Map<CharSequence, CharSequence> properties){
+		addAnnotationsIfNotNull(vertex.getAnnotations(), properties);
+	}
+	
+	/**
+	 * Returns null if null arguments
+	 * 
+	 * @param uuid
+	 * @return null or encoded hex value
+	 */
 	private String getUUIDAsString(UUID uuid){
 		if(uuid != null){
 			return Hex.encodeHexString(uuid.bytes());
@@ -680,6 +813,12 @@ public class CDM extends AbstractReporter{
 		return null;
 	}
 	
+	/**
+	 * Return null if null arguments
+	 * 
+	 * @param permission
+	 * @return null/Octal representation of permissions
+	 */
 	private String getPermissionSHORTAsString(SHORT permission){
 		if(permission == null){
 			return null;
@@ -690,34 +829,6 @@ public class CDM extends AbstractReporter{
 			int permissionShort = bb.getShort(0);
 			return Integer.toOctalString(permissionShort);
 		}
-	}
-	
-	private Map<String, String> getValuesFromArtifactAbstractObject(AbstractObject object){
-		Map<String, String> keyValues = new HashMap<String, String>();
-		if(object != null){
-			if(object.getEpoch() != null){
-				keyValues.put("epoch", String.valueOf(object.getEpoch()));
-			}
-			if(object.getPermission() != null){
-				keyValues.put("permission", new String(getPermissionSHORTAsString(object.getPermission())));
-			}
-			keyValues.putAll(getValuesFromPropertiesMap(object.getProperties()));
-		}
-		return keyValues;
-	}
-	
-	private Map<String, String> getValuesFromPropertiesMap(Map<CharSequence, CharSequence> propertiesMap){
-		Map<String, String> keyValues = new HashMap<String, String>();
-		if(propertiesMap != null){
-			propertiesMap.entrySet().forEach(
-					entry -> {
-							if(entry.getValue() != null){
-								keyValues.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
-							}
-						}
-					);
-		}
-		return keyValues;
 	}
 	
 	@Override

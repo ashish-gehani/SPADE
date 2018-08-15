@@ -1,8 +1,8 @@
 {
   "type" : "record",
   "name" : "TCCDMDatum",
-  "namespace" : "com.bbn.tc.schema.avro.cdm18",
-  "doc" : "* A record representing either a vertex or an edge. This is the top level record that allows\n     * us to easily mix the vertices and edges defined above on the wire.",
+  "namespace" : "com.bbn.tc.schema.avro.cdm19",
+  "doc" : "* A record representing either a vertex or an edge. This is the top level record that allows\n     * us to easily mix the vertices and edges defined above on the wire.\n     *\n     * Host records delineate system (re)starts in a data\n     * stream. i.e., A data stream MUST start with a Host record and a\n     * new session number. TCCDMDatum records that contain a Host\n     * record define the Host UUID in the Host record, and MUST also\n     * include the same UUID in the TCCDMDatum record's hostId field.",
   "fields" : [ {
     "name" : "datum",
     "type" : [ {
@@ -14,6 +14,7 @@
         "type" : {
           "type" : "fixed",
           "name" : "UUID",
+          "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
           "size" : 16
         },
         "doc" : "universally unique identifier for the host"
@@ -23,7 +24,7 @@
         "doc" : "hostname or machine name"
       }, {
         "name" : "hostIdentifiers",
-        "type" : {
+        "type" : [ "null", {
           "type" : "array",
           "items" : {
             "type" : "record",
@@ -37,11 +38,11 @@
               "type" : "string"
             } ]
           }
-        },
+        } ],
         "doc" : "list of identifiers, such as serial number, IMEI number"
       }, {
         "name" : "osDetails",
-        "type" : "string",
+        "type" : [ "null", "string" ],
         "doc" : "OS level details revealed by tools such as uname -a"
       }, {
         "name" : "hostType",
@@ -54,7 +55,7 @@
         "doc" : "host's role or device type, such as mobile, server, desktop"
       }, {
         "name" : "interfaces",
-        "type" : {
+        "type" : [ "null", {
           "type" : "array",
           "items" : {
             "type" : "record",
@@ -68,13 +69,13 @@
               "type" : "string"
             }, {
               "name" : "ipAddresses",
-              "type" : {
+              "type" : [ "null", {
                 "type" : "array",
                 "items" : "string"
-              }
+              } ]
             } ]
           }
-        },
+        } ],
         "doc" : "names and addresses of network interfaces"
       } ]
     }, {
@@ -96,10 +97,6 @@
         "doc" : "The type of the principal, local by default",
         "default" : "PRINCIPAL_LOCAL"
       }, {
-        "name" : "hostId",
-        "type" : "UUID",
-        "doc" : "Host where principal exists"
-      }, {
         "name" : "userId",
         "type" : "string",
         "doc" : "The operating system identifier associated with the user"
@@ -110,10 +107,10 @@
         "default" : null
       }, {
         "name" : "groupIds",
-        "type" : {
+        "type" : [ "null", {
           "type" : "array",
           "items" : "string"
-        },
+        } ],
         "doc" : "The ids of the groups which this user is part of"
       }, {
         "name" : "properties",
@@ -138,10 +135,6 @@
         "type" : [ "null", "UUID" ],
         "doc" : "* The UUID of the source or sink object associated with this\n         * tag. (Optional)\n         *\n         * This attribute is optional because if the\n         * ProvenanceTagNode is simply joining two existing\n         * provenances (e.g., when two values are added together), there\n         * is no flow object associated with that definition.\n         *",
         "default" : null
-      }, {
-        "name" : "hostId",
-        "type" : "UUID",
-        "doc" : "Host on which the src/sink action is occuring"
       }, {
         "name" : "subject",
         "type" : "UUID",
@@ -235,17 +228,14 @@
         "doc" : "* parent subject's UUID. For a process, this is a parent\n         * process. For a thread, this is the process that created the\n         * thread. Only optional because in some cases the parent may not\n         * be known; null value indicates that the parent is unknown.",
         "default" : null
       }, {
-        "name" : "hostId",
-        "type" : "UUID",
-        "doc" : "Host where subject is executing"
-      }, {
         "name" : "localPrincipal",
-        "type" : "UUID",
-        "doc" : "UUID of local principal that owns this subject"
+        "type" : [ "null", "UUID" ],
+        "doc" : "* UUID of local principal that owns this subject This\n         * attribute is optional because there are times when\n         * the owner of the subject may not be known at the time the file\n         * object is reported (e.g., missed open call). Otherwise,\n         * the local principal SHOULD be included.",
+        "default" : null
       }, {
         "name" : "startTimestampNanos",
-        "type" : "long",
-        "doc" : "* The start time of the subject\n         * A timestamp stores the number of nanoseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC."
+        "type" : [ "null", "long" ],
+        "doc" : "* The start time of the subject\n         * A timestamp stores the number of nanoseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * This attribute is optional because there are times when the\n         * subject's start time may not be known. This happens when\n         * the subject was started before TC instrumentation software\n         * was started. Otherwise, the timestamp SHOULD be included."
       }, {
         "name" : "unitId",
         "type" : [ "null", "int" ],
@@ -316,10 +306,6 @@
           "name" : "AbstractObject",
           "doc" : "*  Objects, in general, represent data sources and sinks which\n     *  could include sockets, files, memory, and any data in general\n     *  that can be an input and/or output to an event.  This record\n     *  is intended to be abstract i.e., one should not instantiate an\n     *  Object but rather instantiate one of its sub types (ie,\n     *  encapsulating records) FileObject, UnnamedPipeObject,\n     *  RegistryKeyObject, NetFlowObject, MemoryObject, or\n     *  SrcSinkObject.",
           "fields" : [ {
-            "name" : "hostId",
-            "type" : "UUID",
-            "doc" : "Host where object exists"
-          }, {
             "name" : "permission",
             "type" : [ "null", {
               "type" : "fixed",
@@ -351,7 +337,7 @@
           "type" : "enum",
           "name" : "FileObjectType",
           "doc" : "* These types enumerate the types of FileObjects",
-          "symbols" : [ "FILE_OBJECT_BLOCK", "FILE_OBJECT_CHAR", "FILE_OBJECT_DIR", "FILE_OBJECT_FILE", "FILE_OBJECT_LINK", "FILE_OBJECT_NAMED_PIPE", "FILE_OBJECT_PEFILE", "FILE_OBJECT_UNIX_SOCKET" ]
+          "symbols" : [ "FILE_OBJECT_BLOCK", "FILE_OBJECT_CHAR", "FILE_OBJECT_DIR", "FILE_OBJECT_FILE", "FILE_OBJECT_LINK", "FILE_OBJECT_PEFILE", "FILE_OBJECT_UNIX_SOCKET" ]
         },
         "doc" : "The type of FileObject"
       }, {
@@ -403,8 +389,8 @@
       } ]
     }, {
       "type" : "record",
-      "name" : "UnnamedPipeObject",
-      "doc" : "* Represents an unnamed pipe. Instantiates an AbstractObject.",
+      "name" : "IpcObject",
+      "doc" : "* Represents an IPC. Instantiates an AbstractObject.",
       "fields" : [ {
         "name" : "uuid",
         "type" : "UUID",
@@ -414,21 +400,30 @@
         "type" : "AbstractObject",
         "doc" : "The base object attributes"
       }, {
-        "name" : "sourceFileDescriptor",
-        "type" : [ "null", "int" ],
-        "doc" : "* Although file descriptor and UUID src/sink pairs are\n         * individually optional, at least one pair MUST be used.",
+        "name" : "type",
+        "type" : {
+          "type" : "enum",
+          "name" : "IpcObjectType",
+          "doc" : "* These types enumerate the types of IpcObjects",
+          "symbols" : [ "IPC_OBJECT_PIPE_NAMED", "IPC_OBJECT_PIPE_UNNAMED", "IPC_OBJECT_SOCKET_ABSTRACT", "IPC_OBJECT_SOCKET_PAIR", "IPC_OBJECT_SOCKET_PATHNAME", "IPC_OBJECT_SOCKET_UNNAMED", "IPC_OBJECT_WINDOWS_ALPC", "IPC_OBJECT_WINDOWS_MAILSLOT" ]
+        },
+        "doc" : "The type of IpcObject"
+      }, {
+        "name" : "uuid1",
+        "type" : [ "null", "UUID" ],
+        "doc" : "* If flow is unidirectional, then source is UUID1/fd1 and\n         * destination is UUID2/fd2.",
         "default" : null
       }, {
-        "name" : "sinkFileDescriptor",
-        "type" : [ "null", "int" ],
-        "default" : null
-      }, {
-        "name" : "sourceUUID",
+        "name" : "uuid2",
         "type" : [ "null", "UUID" ],
         "default" : null
       }, {
-        "name" : "sinkUUID",
-        "type" : [ "null", "UUID" ],
+        "name" : "fd1",
+        "type" : [ "null", "int" ],
+        "default" : null
+      }, {
+        "name" : "fd2",
+        "type" : [ "null", "int" ],
         "default" : null
       } ]
     }, {
@@ -618,20 +613,20 @@
         "doc" : "The base object attributes"
       }, {
         "name" : "localAddress",
-        "type" : "string",
-        "doc" : "The local IP address for this flow"
+        "type" : [ "null", "string" ],
+        "doc" : "* The local IP address for this flow. Optional for when not\n         * obtained initially."
       }, {
         "name" : "localPort",
-        "type" : "int",
-        "doc" : "The local network port for this flow"
+        "type" : [ "null", "int" ],
+        "doc" : "* The local network port for this flow. Optional for AF_UNIX\n         * sockets (unnamed and abstract), or for when not obtained\n         * initially."
       }, {
         "name" : "remoteAddress",
-        "type" : "string",
-        "doc" : "The remote IP address for this flow"
+        "type" : [ "null", "string" ],
+        "doc" : "* The remote IP address for this flow. Optional for binds\n         * that are a listening action and not a full connection, or\n         * for when not obtained initially."
       }, {
         "name" : "remotePort",
-        "type" : "int",
-        "doc" : "The remote network port for this flow"
+        "type" : [ "null", "int" ],
+        "doc" : "* The remote network port for this flow. Optional for binds\n         * that are a listening action and not a full connection. Also\n         * optional for AF_UNIX sockets (unnamed and abstract) and for\n         * when not obtained intially."
       }, {
         "name" : "ipProtocol",
         "type" : [ "null", "int" ],
@@ -692,7 +687,7 @@
           "type" : "enum",
           "name" : "SrcSinkType",
           "doc" : "* There are many types of sources such as sensors.  The type of a\n     * sensor could be base (close to hardware) or composite.  This is\n     * mostly (only?) applicable to the Android platform.  See\n     * https://source.android.com/devices/sensors/index.html for\n     * details.",
-          "symbols" : [ "SRCSINK_ACCELEROMETER", "SRCSINK_TEMPERATURE", "SRCSINK_GYROSCOPE", "SRCSINK_MAGNETIC_FIELD", "SRCSINK_HEART_RATE", "SRCSINK_LIGHT", "SRCSINK_PROXIMITY", "SRCSINK_PRESSURE", "SRCSINK_RELATIVE_HUMIDITY", "SRCSINK_LINEAR_ACCELERATION", "SRCSINK_MOTION", "SRCSINK_STEP_DETECTOR", "SRCSINK_STEP_COUNTER", "SRCSINK_TILT_DETECTOR", "SRCSINK_ROTATION_VECTOR", "SRCSINK_GRAVITY", "SRCSINK_GEOMAGNETIC_ROTATION_VECTOR", "SRCSINK_GPS", "SRCSINK_AUDIO", "SRCSINK_SYSTEM_PROPERTY", "SRCSINK_ENV_VARIABLE", "SRCSINK_ACCESSIBILITY_SERVICE", "SRCSINK_ACTIVITY_MANAGEMENT", "SRCSINK_ALARM_SERVICE", "SRCSINK_ANDROID_TV", "SRCSINK_AUDIO_IO", "SRCSINK_BACKUP_MANAGER", "SRCSINK_BINDER", "SRCSINK_BLUETOOTH", "SRCSINK_BOOT_EVENT", "SRCSINK_BROADCAST_RECEIVER_MANAGEMENT", "SRCSINK_CAMERA", "SRCSINK_CLIPBOARD", "SRCSINK_COMPONENT_MANAGEMENT", "SRCSINK_CONTENT_PROVIDER", "SRCSINK_CONTENT_PROVIDER_MANAGEMENT", "SRCSINK_DATABASE", "SRCSINK_DEVICE_ADMIN", "SRCSINK_DEVICE_SEARCH", "SRCSINK_DEVICE_USER", "SRCSINK_DISPLAY", "SRCSINK_DROPBOX", "SRCSINK_EMAIL", "SRCSINK_EXPERIMENTAL", "SRCSINK_FILE", "SRCSINK_FILE_SYSTEM", "SRCSINK_FILE_SYSTEM_MANAGEMENT", "SRCSINK_FINGERPRINT", "SRCSINK_FLASHLIGHT", "SRCSINK_GATEKEEPER", "SRCSINK_HDMI", "SRCSINK_IDLE_DOCK_SCREEN", "SRCSINK_IMS", "SRCSINK_INFRARED", "SRCSINK_INSTALLED_PACKAGES", "SRCSINK_JSSE_TRUST_MANAGER", "SRCSINK_KEYCHAIN", "SRCSINK_KEYGUARD", "SRCSINK_LOCATION", "SRCSINK_MACHINE_LEARNING", "SRCSINK_MEDIA", "SRCSINK_MEDIA_CAPTURE", "SRCSINK_MEDIA_LOCAL_MANAGEMENT", "SRCSINK_MEDIA_LOCAL_PLAYBACK", "SRCSINK_MEDIA_NETWORK_CONNECTION", "SRCSINK_MEDIA_REMOTE_PLAYBACK", "SRCSINK_MIDI", "SRCSINK_NATIVE", "SRCSINK_NETWORK", "SRCSINK_NETWORK_MANAGEMENT", "SRCSINK_NFC", "SRCSINK_NOTIFICATION", "SRCSINK_PAC_PROXY", "SRCSINK_PERMISSIONS", "SRCSINK_PERSISTANT_DATA", "SRCSINK_POSIX", "SRCSINK_POWER_MANAGEMENT", "SRCSINK_PRINT_SERVICE", "SRCSINK_PROCESS_MANAGEMENT", "SRCSINK_RECEIVER_MANAGEMENT", "SRCSINK_RPC", "SRCSINK_SCREEN_AUDIO_CAPTURE", "SRCSINK_SERIAL_PORT", "SRCSINK_SERVICE_CONNECTION", "SRCSINK_SERVICE_MANAGEMENT", "SRCSINK_SMS_MMS", "SRCSINK_SPEECH_INTERACTION", "SRCSINK_STATUS_BAR", "SRCSINK_SYNC_FRAMEWORK", "SRCSINK_TELEPHONY", "SRCSINK_TEST", "SRCSINK_TEXT_SERVICES", "SRCSINK_THREADING", "SRCSINK_TIME_EVENT", "SRCSINK_UI", "SRCSINK_UID_EVENT", "SRCSINK_UI_AUTOMATION", "SRCSINK_UI_MODE", "SRCSINK_UI_RPC", "SRCSINK_USAGE_STATS", "SRCSINK_USB", "SRCSINK_USER_ACCOUNTS_MANAGEMENT", "SRCSINK_USER_INPUT", "SRCSINK_VIBRATOR", "SRCSINK_WAKE_LOCK", "SRCSINK_WALLPAPER_MANAGER", "SRCSINK_WAP", "SRCSINK_WEB_BROWSER", "SRCSINK_WIDGETS", "SRCSINK_IPC", "SRCSINK_UNKNOWN" ]
+          "symbols" : [ "SRCSINK_ACCELEROMETER", "SRCSINK_TEMPERATURE", "SRCSINK_GYROSCOPE", "SRCSINK_MAGNETIC_FIELD", "SRCSINK_HEART_RATE", "SRCSINK_LIGHT", "SRCSINK_PROXIMITY", "SRCSINK_PRESSURE", "SRCSINK_RELATIVE_HUMIDITY", "SRCSINK_LINEAR_ACCELERATION", "SRCSINK_MOTION", "SRCSINK_STEP_DETECTOR", "SRCSINK_STEP_COUNTER", "SRCSINK_TILT_DETECTOR", "SRCSINK_ROTATION_VECTOR", "SRCSINK_GRAVITY", "SRCSINK_GEOMAGNETIC_ROTATION_VECTOR", "SRCSINK_GPS", "SRCSINK_AUDIO", "SRCSINK_SYSTEM_PROPERTY", "SRCSINK_ENV_VARIABLE", "SRCSINK_ACCESSIBILITY_SERVICE", "SRCSINK_ACTIVITY_MANAGEMENT", "SRCSINK_ALARM_SERVICE", "SRCSINK_ANDROID_AUTO", "SRCSINK_ANDROID_RADIO", "SRCSINK_ANDROID_TV", "SRCSINK_ANDROID_VR", "SRCSINK_AUDIO_IO", "SRCSINK_AUTOFILL", "SRCSINK_BACKUP_MANAGER", "SRCSINK_BINDER", "SRCSINK_BLUETOOTH", "SRCSINK_BOOT_EVENT", "SRCSINK_BROADCAST_RECEIVER_MANAGEMENT", "SRCSINK_CAMERA", "SRCSINK_CLIPBOARD", "SRCSINK_COMPANION_DEVICE", "SRCSINK_COMPONENT_MANAGEMENT", "SRCSINK_CONTENT_PROVIDER", "SRCSINK_CONTENT_PROVIDER_MANAGEMENT", "SRCSINK_DATABASE", "SRCSINK_DEVICE_ADMIN", "SRCSINK_DEVICE_SEARCH", "SRCSINK_DEVICE_USER", "SRCSINK_DISPLAY", "SRCSINK_DROPBOX", "SRCSINK_EMAIL", "SRCSINK_EXPERIMENTAL", "SRCSINK_FILE", "SRCSINK_FILE_SYSTEM", "SRCSINK_FILE_SYSTEM_MANAGEMENT", "SRCSINK_FINGERPRINT", "SRCSINK_FLASHLIGHT", "SRCSINK_GATEKEEPER", "SRCSINK_HDMI", "SRCSINK_IDLE_DOCK_SCREEN", "SRCSINK_IMS", "SRCSINK_INFRARED", "SRCSINK_INSTALLED_PACKAGES", "SRCSINK_JSSE_TRUST_MANAGER", "SRCSINK_KEYCHAIN", "SRCSINK_KEYGUARD", "SRCSINK_LOCATION", "SRCSINK_LOWPAN", "SRCSINK_MACHINE_LEARNING", "SRCSINK_MBMS", "SRCSINK_MEDIA", "SRCSINK_MEDIA_CAPTURE", "SRCSINK_MEDIA_LOCAL_MANAGEMENT", "SRCSINK_MEDIA_LOCAL_PLAYBACK", "SRCSINK_MEDIA_NETWORK_CONNECTION", "SRCSINK_MEDIA_REMOTE_PLAYBACK", "SRCSINK_MIDI", "SRCSINK_NATIVE", "SRCSINK_NETWORK", "SRCSINK_NETWORK_MANAGEMENT", "SRCSINK_NFC", "SRCSINK_NOTIFICATION", "SRCSINK_OVERLAY_MANAGER", "SRCSINK_PAC_PROXY", "SRCSINK_PERMISSIONS", "SRCSINK_PERSISTANT_DATA", "SRCSINK_POSIX", "SRCSINK_POWER_MANAGEMENT", "SRCSINK_PRINT_SERVICE", "SRCSINK_PROCESS_MANAGEMENT", "SRCSINK_QUICK_SETTINGS", "SRCSINK_RECEIVER_MANAGEMENT", "SRCSINK_RCS", "SRCSINK_RPC", "SRCSINK_SCREEN_AUDIO_CAPTURE", "SRCSINK_SERIAL_PORT", "SRCSINK_SERVICE_CONNECTION", "SRCSINK_SERVICE_MANAGEMENT", "SRCSINK_SHORTCUTS", "SRCSINK_SMS_MMS", "SRCSINK_SPEECH_INTERACTION", "SRCSINK_STATUS_BAR", "SRCSINK_SYNC_FRAMEWORK", "SRCSINK_SYSTEM_UPDATE", "SRCSINK_TASK_STACK", "SRCSINK_TELEPHONY", "SRCSINK_TEST", "SRCSINK_TEXT_SERVICES", "SRCSINK_THREADING", "SRCSINK_TIME_EVENT", "SRCSINK_UI", "SRCSINK_UID_EVENT", "SRCSINK_UI_AUTOMATION", "SRCSINK_UI_MODE", "SRCSINK_UI_RPC", "SRCSINK_USAGE_STATS", "SRCSINK_USB", "SRCSINK_USER_ACCOUNTS_MANAGEMENT", "SRCSINK_USER_INPUT", "SRCSINK_VIBRATOR", "SRCSINK_WAKE_LOCK", "SRCSINK_WALLPAPER_MANAGER", "SRCSINK_WAP", "SRCSINK_WEB_BROWSER", "SRCSINK_WIDGETS", "SRCSINK_IPC", "SRCSINK_UNKNOWN" ]
         },
         "doc" : "The type of the object"
       }, {
@@ -720,7 +715,7 @@
           "type" : "enum",
           "name" : "EventType",
           "doc" : "* EventType enumerates the most common system calls. Since there\n     * are hundreds of possible system calls, enumerating all of them\n     * and managing the list across OS versions is a\n     * challenge. EVENT_OTHER is the catch all for events not enumerated here. Any events\n     * that are expected to be of importance, should be included in this list.",
-          "symbols" : [ "EVENT_ACCEPT", "EVENT_ADD_OBJECT_ATTRIBUTE", "EVENT_BIND", "EVENT_BLIND", "EVENT_BOOT", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_DUP", "EVENT_EXECUTE", "EVENT_EXIT", "EVENT_FLOWS_TO", "EVENT_FCNTL", "EVENT_FORK", "EVENT_LINK", "EVENT_LOADLIBRARY", "EVENT_LOGCLEAR", "EVENT_LOGIN", "EVENT_LOGOUT", "EVENT_LSEEK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MODIFY_PROCESS", "EVENT_MOUNT", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_OTHER", "EVENT_READ", "EVENT_READ_SOCKET_PARAMS", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_SENDTO", "EVENT_SENDMSG", "EVENT_SERVICEINSTALL", "EVENT_SHM", "EVENT_SIGNAL", "EVENT_STARTSERVICE", "EVENT_TRUNCATE", "EVENT_UMOUNT", "EVENT_UNIT", "EVENT_UNLINK", "EVENT_UPDATE", "EVENT_WAIT", "EVENT_WRITE", "EVENT_WRITE_SOCKET_PARAMS" ]
+          "symbols" : [ "EVENT_ACCEPT", "EVENT_ADD_OBJECT_ATTRIBUTE", "EVENT_BIND", "EVENT_BLIND", "EVENT_BOOT", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CORRELATION", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_DUP", "EVENT_EXECUTE", "EVENT_EXIT", "EVENT_FLOWS_TO", "EVENT_FCNTL", "EVENT_FORK", "EVENT_LINK", "EVENT_LOADLIBRARY", "EVENT_LOGCLEAR", "EVENT_LOGIN", "EVENT_LOGOUT", "EVENT_LSEEK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MODIFY_PROCESS", "EVENT_MOUNT", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_OTHER", "EVENT_READ", "EVENT_READ_SOCKET_PARAMS", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_SENDTO", "EVENT_SENDMSG", "EVENT_SERVICEINSTALL", "EVENT_SHM", "EVENT_SIGNAL", "EVENT_STARTSERVICE", "EVENT_TRUNCATE", "EVENT_UMOUNT", "EVENT_UNIT", "EVENT_UNLINK", "EVENT_UPDATE", "EVENT_WAIT", "EVENT_WRITE", "EVENT_WRITE_SOCKET_PARAMS" ]
         },
         "doc" : "The type of the event"
       }, {
@@ -728,10 +723,6 @@
         "type" : [ "null", "int" ],
         "doc" : "* The thread id to which this event belongs.  Required for\n         * all events, except the EVENT_ADD_OBJECT_ATTRIBUTE and\n         * EVENT_FLOWS_TO event.",
         "default" : null
-      }, {
-        "name" : "hostId",
-        "type" : "UUID",
-        "doc" : "Host where event occurred"
       }, {
         "name" : "subject",
         "type" : [ "null", "UUID" ],
@@ -762,9 +753,12 @@
         "type" : "long",
         "doc" : "* The time at which the event occurred. Timestamps allow\n         * reasoning about order of events on a host when the same\n         * clock is used. A timestamp stores the number of nanoseconds\n         * from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * TODO: When different clocks are used on a host or across\n         * hosts, we need to also define a clock source\n         *\n         * NOTE: When an object update is inferred without an explicit\n         * system call event, TA1s may not have an accurate timestamp\n         * of when the object was updated. In that case, the timestamp\n         * used in the update event is the same as the timestamp used\n         * in the next system call event that uses the updated object."
       }, {
-        "name" : "name",
-        "type" : [ "null", "string" ],
-        "doc" : "Event name (Optional)",
+        "name" : "names",
+        "type" : [ "null", {
+          "type" : "array",
+          "items" : "string"
+        } ],
+        "doc" : "* Event names (Optional). Multiple names may be provided to\n         * allow for reporting many parameterless system calls in a\n         * single Event record.",
         "default" : null
       }, {
         "name" : "parameters",
@@ -821,15 +815,6 @@
       } ]
     }, {
       "type" : "record",
-      "name" : "StartMarker",
-      "doc" : "* StartMarker records delineate system (re)starts in a data stream.",
-      "fields" : [ {
-        "name" : "sessionNumber",
-        "type" : "int",
-        "doc" : "sequence number that monotonically increases each time the system is started"
-      } ]
-    }, {
-      "type" : "record",
       "name" : "EndMarker",
       "doc" : "* EndMarker records marks the end of a data stream.",
       "fields" : [ {
@@ -849,7 +834,24 @@
   }, {
     "name" : "CDMVersion",
     "type" : "string",
-    "default" : "18"
+    "default" : "19"
+  }, {
+    "name" : "type",
+    "type" : {
+      "type" : "enum",
+      "name" : "RecordType",
+      "doc" : "*",
+      "symbols" : [ "RECORD_HOST", "RECORD_PRINCIPAL", "RECORD_PROVENANCE_TAG_NODE", "RECORD_SUBJECT", "RECORD_FILE_OBJECT", "RECORD_IPC_OBJECT", "RECORD_REGISTRY_KEY_OBJECT", "RECORD_PACKET_SOCKET_OBJECT", "RECORD_NET_FLOW_OBJECT", "RECORD_MEMORY_OBJECT", "RECORD_SRC_SINK_OBJECT", "RECORD_EVENT", "RECORD_UNIT_DEPENDENCY", "RECORD_TIME_MARKER", "RECORD_END_MARKER" ]
+    },
+    "doc" : "The type of record in the union"
+  }, {
+    "name" : "hostId",
+    "type" : "UUID",
+    "doc" : "unique identifier of the host publishing this record"
+  }, {
+    "name" : "sessionNumber",
+    "type" : "int",
+    "doc" : "sequence number that monotonically increases each time the system is started"
   }, {
     "name" : "source",
     "type" : {
