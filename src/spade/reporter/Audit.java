@@ -854,6 +854,24 @@ public class Audit extends AbstractReporter {
 				return false;
 			}
 			
+			boolean useMergeUnit = false;
+			String mergeUnitKey = "mergeUnit";
+			String mergeUnitValue = argsMap.get(mergeUnitKey);
+			if(mergeUnitValue != null){
+				Integer mergeUnit = CommonFunctions.parseInt(mergeUnitValue, null);
+				if(mergeUnit != null){
+					if(mergeUnit >= 0){ // must be positive
+						useMergeUnit = true;
+					}else{
+						logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be non-negative: '" + mergeUnitValue+"'");
+						return false;
+					}
+				}else{
+					logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be an integer: '" + mergeUnitValue+"'");
+					return false;
+				}
+			}
+			
 			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
 			rulesType = argsMap.get("syscall");
 			if(rulesType != null && !rulesType.equals("none") && !rulesType.equals("all")){
@@ -863,6 +881,7 @@ public class Audit extends AbstractReporter {
 			
 			spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
 					((CREATE_BEEP_UNITS) ? " -u" : "") + 
+					((useMergeUnit) ? " -m " + mergeUnitValue : "") +
 					// Don't use WAIT_FOR_LOG_END here because the interrupt would be ignored by spadeAuditBridge then
 					" -s " + "/var/run/audispd_events";
 			
