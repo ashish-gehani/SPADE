@@ -21,6 +21,7 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -219,12 +220,12 @@ public class CommandLine extends AbstractAnalyzer
                                         Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
                                         clearRemoteResolutionRequired();
                                         // TODO: perform consistency check here - Carol
-                                        inconsistencyDetector.setResponseGraph(finalGraphSet);
-                                        int inconsistencyCount = inconsistencyDetector.findInconsistency();
+                                        discrepancyDetector.setResponseGraph(finalGraphSet);
+                                        int inconsistencyCount = discrepancyDetector.findInconsistency();
                                         logger.log(Level.WARNING, "inconsistencyCount: " + inconsistencyCount);
                                         if(inconsistencyCount == 0)
                                         {
-                                            inconsistencyDetector.update();
+                                            discrepancyDetector.update();
                                         }
                                         // TODO: return the stitched graphs
                                         for(Graph graph : finalGraphSet)
@@ -232,6 +233,23 @@ public class CommandLine extends AbstractAnalyzer
                                             result = Graph.union((Graph) result, graph);
                                         }
                                         logger.log(Level.INFO, "Remote resolution completed.");
+                                    }
+                                    else
+                                    {
+                                        int vertex_count = ((Graph)result).vertexSet().size();
+                                        int edge_count = ((Graph)result).edgeSet().size();
+                                        int total = vertex_count + edge_count;
+                                        String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
+                                                edge_count + ", total: " + total;
+                                        logger.log(Level.INFO, stats);
+
+                                        modifyResult((Graph) result);
+                                        Set<Graph> resultSet = new HashSet<>();
+                                        resultSet.add((Graph) result);
+                                        discrepancyDetector.setResponseGraph(resultSet);
+                                        int inconsistencyCount = discrepancyDetector.findInconsistency();
+                                        if(inconsistencyCount == 0)
+                                            discrepancyDetector.update();
                                     }
                                     if(USE_TRANSFORMER)
                                     {

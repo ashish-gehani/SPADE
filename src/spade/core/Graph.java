@@ -445,6 +445,12 @@ public class Graph extends AbstractStorage implements Serializable
         return resultGraph;
     }
 
+    public void remove(Graph graph)
+    {
+        vertexSet.removeAll(graph.vertexSet());
+        edgeSet.removeAll(graph.edgeSet());
+    }
+
     public static Graph importGraph(String path) {
         if (path == null) {
             return null;
