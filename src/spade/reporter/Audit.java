@@ -187,6 +187,7 @@ public class Audit extends AbstractReporter {
 	private String HANDLE_KM_RECORDS_KEY = "handleLocalEndpoints";
 	// Handle the flag below with care!
 	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
+	private Integer mergeUnit = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private Set<String> namesOfProcessesToIgnoreFromConfig = new HashSet<String>();
@@ -501,6 +502,22 @@ public class Audit extends AbstractReporter {
 			HANDLE_KM_RECORDS = ADD_KM;
 		}
 		
+		String mergeUnitKey = "mergeUnit";
+		String mergeUnitValue = args.get(mergeUnitKey);
+		if(mergeUnitValue != null){
+			mergeUnit = CommonFunctions.parseInt(mergeUnitValue, null);
+			if(mergeUnit != null){
+				if(mergeUnit < 0){ // must be positive
+					mergeUnit = null;
+					logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be non-negative: '" + mergeUnitValue+"'");
+					return false;
+				}
+			}else{
+				logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be an integer: '" + mergeUnitValue+"'");
+				return false;
+			}
+		}
+		
 		if((ADD_KM && NETFILTER_RULES) // both can't be true
 				|| ((HANDLE_KM_RECORDS != null && HANDLE_KM_RECORDS) && REFINE_NET)){ // both can't be true
 			logger.log(Level.SEVERE, "Incompatible flags value (Can only handle data from either module or iptables): "
@@ -515,11 +532,12 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
-								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST});
+								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
+								mergeUnitKey, mergeUnit});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -826,6 +844,7 @@ public class Audit extends AbstractReporter {
 											((CREATE_BEEP_UNITS) ? " -u" : "") + 
 											((WAIT_FOR_LOG_END) ? " -w" : "") + 
 											" -d " + inputLogDirectoryArgument +
+											((mergeUnit != null) ? " -m " + mergeUnit : "") +
 											((inputLogTimeArgument != null) ? " -t " + inputLogTimeArgument : "");
 							
 						}else{
@@ -854,24 +873,6 @@ public class Audit extends AbstractReporter {
 				return false;
 			}
 			
-			boolean useMergeUnit = false;
-			String mergeUnitKey = "mergeUnit";
-			String mergeUnitValue = argsMap.get(mergeUnitKey);
-			if(mergeUnitValue != null){
-				Integer mergeUnit = CommonFunctions.parseInt(mergeUnitValue, null);
-				if(mergeUnit != null){
-					if(mergeUnit >= 0){ // must be positive
-						useMergeUnit = true;
-					}else{
-						logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be non-negative: '" + mergeUnitValue+"'");
-						return false;
-					}
-				}else{
-					logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be an integer: '" + mergeUnitValue+"'");
-					return false;
-				}
-			}
-			
 			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
 			rulesType = argsMap.get("syscall");
 			if(rulesType != null && !rulesType.equals("none") && !rulesType.equals("all")){
@@ -881,7 +882,7 @@ public class Audit extends AbstractReporter {
 			
 			spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
 					((CREATE_BEEP_UNITS) ? " -u" : "") + 
-					((useMergeUnit) ? " -m " + mergeUnitValue : "") +
+					((mergeUnit != null) ? " -m " + mergeUnit : "") +
 					// Don't use WAIT_FOR_LOG_END here because the interrupt would be ignored by spadeAuditBridge then
 					" -s " + "/var/run/audispd_events";
 			
