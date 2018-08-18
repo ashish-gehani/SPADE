@@ -149,20 +149,35 @@ public abstract class AbstractAnalyzer
     {
         // key -> values
         // function name -> function class name, function return type
-        List<String> className = functionToClassMap.get(functionName);
-        if(className == null)
+        List<String> classInfo = functionToClassMap.get(functionName);
+        if(classInfo == null)
         {
+            String className;
             //TODO: create all query classes with abstractanalyzer beforehand
             if(functionName.equals("GetLineage") || functionName.equals("GetPaths"))
-                className = Arrays.asList("spade.query.common." + functionName, "spade.core.Graph");
+            {
+                className = "spade.query.common." + functionName;
+                classInfo = Arrays.asList(className, "spade.core.Graph");
+            }
             else
             {
                 String storageName = AbstractQuery.getCurrentStorage().getClass().getSimpleName().toLowerCase();
-                className = Arrays.asList("spade.query." + storageName + "." + functionName, "java.lang.Object");
+                className = "spade.query." + storageName + "." + functionName;
+                classInfo = Arrays.asList(className, "java.lang.Object");
             }
-            functionToClassMap.put(functionName, className);
+            try
+            {
+                Class.forName(className);
+                functionToClassMap.put(functionName, classInfo);
+            }
+            catch(ClassNotFoundException ex)
+            {
+                Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, "Unable to find/load query class!", ex);
+                return null;
+            }
         }
-        return className.get(0);
+
+        return classInfo.get(0);
     }
 
     public String getReturnType(String functionName)

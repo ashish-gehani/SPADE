@@ -113,7 +113,8 @@ public abstract class AbstractStorage
             SCAFFOLD_PATH = SPADE_ROOT + "db/scaffold";
             SCAFFOLD_DATABASE_NAME = "BerkeleyDB";
             Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING,
-                    "Loading scaffold configurations from file unsuccessful! Falling back to default settings", ex);
+            "Loading scaffold configurations from file '" + configFile + "' " +
+                    " unsuccessful! Falling back to default settings", ex);
         }
     }
 
