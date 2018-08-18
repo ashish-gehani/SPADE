@@ -263,7 +263,7 @@ public class PostgreSQL extends SQL
             logger.log(Level.SEVERE, null, ex);
             return false;
         }
-        return super.shutdown();
+        return true;
     }
 
     /**
@@ -443,7 +443,6 @@ public class PostgreSQL extends SQL
 
             if(BUILD_SCAFFOLD)
             {
-                //TODO: device policy in case of non-insertion into scaffold
                 insertScaffoldEntry(incomingEdge);
             }
         }

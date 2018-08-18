@@ -1,4 +1,4 @@
-package spade.utility;
+package storage;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;

@@ -1,3 +1,19 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2017 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.utility;
 
 import java.util.Map;
@@ -5,8 +21,6 @@ import java.util.Set;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Vertex;
-import spade.core.Edge;
 import spade.core.Graph;
 
 import java.text.SimpleDateFormat;
@@ -22,50 +36,37 @@ import java.util.logging.Logger;
  *
  */
 
-public class InconsistencyDetector {
+public class DiscrepancyDetector
+{
 	
 	private Set<Graph> cachedGraphs;
 	private Set<Graph> responseGraphs;
-	private Map<AbstractVertex,List<AbstractEdge>> outgoingCachedGraphEdges;
-	private Map<AbstractVertex,List<AbstractEdge>> outgoingResponseGraphEdges;
-	private static final Logger logger = Logger.getLogger(InconsistencyDetector.class.getName());
+	private static final Logger logger = Logger.getLogger(DiscrepancyDetector.class.getName());
 		
 	/**
-	 * Constructs a new Inconsistency Detector
+	 * Constructs a new Discrepancy Detector
 	 * 
 	 */
-	public InconsistencyDetector()
+	public DiscrepancyDetector()
 	{
 		cachedGraphs = new HashSet<>();
 		responseGraphs = new HashSet<>();
 		cachedGraphs.add(new Graph());
-		outgoingCachedGraphEdges = new HashMap<>();
-		outgoingResponseGraphEdges = new HashMap<>();
 	}
 	
 	/**
 	 * Updates the cached graph by adding a checked response graph to it
-	 *  should be called after an inconsistency detection that returned false
+	 *  should be called after an discrepancy detection that returned false
 	 *  Updates the cached main graph by adding all the vertices and edges in responseGraphs set to it
-	 *  Updates the outgoingCachedGraphEdges mapping
 	 */
 	public void update()
 	{
 		Graph mainCachedGraph = cachedGraphs.iterator().next();
 		for(Graph response: responseGraphs)
 		{
-			Map<AbstractVertex, List<AbstractEdge>> outgoingEdges = outgoingEdges(response);
 			for(AbstractVertex responseVertex: response.vertexSet())
 			{
-				// put new vertex in cached graph
 				mainCachedGraph.putVertex(responseVertex);
-				// update outgoingCachedGraphEdges
-				List<AbstractEdge> cachedEdgeList = outgoingCachedGraphEdges.get(responseVertex);
-				if(cachedEdgeList == null)
-					cachedEdgeList = new ArrayList<>();
-				// if a list already existed just add the new edges to it
-				cachedEdgeList.addAll(outgoingEdges.get(responseVertex));
-				outgoingCachedGraphEdges.put(responseVertex,cachedEdgeList);
 			}
 			for(AbstractEdge e: response.edgeSet())
 			{
@@ -78,48 +79,43 @@ public class InconsistencyDetector {
 	/**
 	 * Tests every graph in the test set against the correspondent graph in the ground set (if it exists)
 	 * 
-	 * @return true if found inconsistency or false if not
+	 * @return true if found discrepancy or false if not
 	 */
-	public int findInconsistency()
+	public int findDiscrepancy ()
 	{
-		int inconsistencyCount = 0;
+		int discrepancyCount = 0;
 		for(Graph T: responseGraphs)
 		{
-			inconsistencyCount += findInconsistency(getCachedGraph(), T);
+			discrepancyCount += findDiscrepancy(getCachedGraph(), T);
 		}
 
-		return inconsistencyCount;
+		return discrepancyCount;
 	}
 	
 	/**
 	 * 
 	 * @return main cached graph in cachedGraphs set
 	 */
-	private Graph getCachedGraph() {
+	private Graph getCachedGraph()
+	{
 		return cachedGraphs.iterator().next();
 	}
 
 	/**
-	 * Algorithm to detect basic inconsistencies between graphs G1 and G2
+	 * Algorithm to detect basic discrepancies between graphs g_earlier and g_later
 	 * 
-	 * @return true if found inconsistency or false if not
+	 * @return count of discrepancies found
 	 */
-	private int findInconsistency(Graph g_earlier, Graph g_later)
+	private int findDiscrepancy(Graph g_earlier, Graph g_later)
 	{
-		SimpleDateFormat referenceTime = new SimpleDateFormat(g_earlier.getComputeTime());
-		SimpleDateFormat testTime = new SimpleDateFormat(g_later.getComputeTime());
-		// TODO there is no function to compare them
-
-		int inconsistencyCount = 0;
+		int discrepancyCount = 0;
 		Set<AbstractVertex> referenceVertexSet = g_earlier.vertexSet();
+		Set<AbstractEdge> referenceEdgeSet = g_earlier.edgeSet();
 		Set<AbstractVertex> testVertexSet = g_later.vertexSet();
 		Set<AbstractEdge> testEdgeSet = g_later.edgeSet();
 		for(AbstractVertex x : testVertexSet)
 		{
 			if(!referenceVertexSet.contains(x)) // x is not in ground
-				continue;
-			List<AbstractEdge> referenceEdgeSet = outgoingCachedGraphEdges.get(x);
-			if(referenceEdgeSet == null)
 				continue;
 			for(AbstractEdge e : referenceEdgeSet)
 			{
@@ -129,13 +125,13 @@ public class InconsistencyDetector {
 					// y is in testGraph
 					if(testVertexSet.contains(e.getParentVertex()))
 					{
-						logger.log(Level.WARNING, "Inconsistency Detected: missing edge");
-						inconsistencyCount++;
+						logger.log(Level.WARNING, "Discrepancy Detected: missing edge");
+						discrepancyCount++;
 					}
 					if(x.getDepth() < g_earlier.getMaxDepth())
 					{
-						logger.log(Level.WARNING, "Inconsistency Detected: missing edge and vertex");
-						inconsistencyCount++;
+						logger.log(Level.WARNING, "Discrepancy Detected: missing edge and vertex");
+						discrepancyCount++;
 					}
 				}
 			}
@@ -144,10 +140,10 @@ public class InconsistencyDetector {
 		for(AbstractEdge e : testEdgeSet)
 		{
 			if(!testVertexSet.contains(e.getChildVertex()) || !testVertexSet.contains(e.getParentVertex()))
-				inconsistencyCount++;
+				discrepancyCount++;
 		}
 
-		return inconsistencyCount;
+		return discrepancyCount;
 	}
 	
 
@@ -191,12 +187,4 @@ public class InconsistencyDetector {
 	public Set<Graph> getResponseGraph() {
 		return responseGraphs;
 	}
-	
-	/**
-	 * @return outgoingEdges for ground graph groundGraph
-	 */
-	public Map<AbstractVertex,List<AbstractEdge>> getoutgoingCachedGraphEdges() {
-		return outgoingCachedGraphEdges;
-	}
-	
 }

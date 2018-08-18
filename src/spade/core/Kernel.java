@@ -885,7 +885,6 @@ public class Kernel
                         storage.vertexCount = 0;
                         storage.edgeCount = 0;
                         storages.add(storage);
-                        AbstractQuery.setCurrentStorage(storage);
                         logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
                         outputStream.println("done");
                     }

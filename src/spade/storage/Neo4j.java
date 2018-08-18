@@ -79,7 +79,7 @@ import static spade.core.Kernel.FILE_SEPARATOR;
 /**
  * Neo4j storage implementation.
  *
- * @author Dawood Tariq and Hasanat Kazmi databasePath
+ * @author Dawood Tariq and Hasanat Kazmi
  */
 public class Neo4j extends AbstractStorage
 {
@@ -166,7 +166,7 @@ public class Neo4j extends AbstractStorage
         catch(Exception ex)
         {
             String msg  = "Loading Neo4j configurations for SPADE unsuccessful! Unexpected behavior might follow";
-            logger.log(Level.SEVERE, msg, ex);
+            logger.log(Level.WARNING, msg, ex);
         }
     }
 
