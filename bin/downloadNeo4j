@@ -2,12 +2,12 @@
 OS_NAME=$(uname)
 if [ $OS_NAME == "Linux" ]
 then
-  wget -O ../neo4j-community-3.4.4.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-3.4.4-unix.tar.gz"
-  tar -xf ../neo4j-community-3.4.4.tar.gz
-  rm ../neo4j-community-3.4.4.tar.gz
+  wget -O lib/neo4j-community-3.4.4.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-3.4.4-unix.tar.gz"
+  tar -xf lib/neo4j-community-3.4.4.tar.gz -C lib/
+  rm lib/neo4j-community-3.4.4.tar.gz
 elif [ $OS_NAME == "Darwin" ]
 then
-  curl -o neo4j-community-3.4.4.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-3.4.4-unix.tar.gz"
-  tar -xf neo4j-community-3.4.4.tar.gz
-  rm neo4j-community-3.4.4.tar.gz
+  curl -o lib/neo4j-community-3.4.4.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-3.4.4-unix.tar.gz"
+  tar -xf lib/neo4j-community-3.4.4.tar.gz -C lib/
+  rm lib/neo4j-community-3.4.4.tar.gz
 fi
