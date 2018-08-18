@@ -488,7 +488,7 @@ public class Audit extends AbstractReporter {
 			}
 		}else{ // live audit
 			// Default values
-			ADD_KM = true;
+			ADD_KM = false;
 			
 			// Parsing the values for the KM vars after the default values have be set appropriately (see above)
 			if(isValidBoolean(addKmArgValue)){
