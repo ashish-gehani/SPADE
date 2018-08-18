@@ -775,7 +775,7 @@ public class Kernel
     public static void addCommand(String line, PrintStream outputStream)
     {
         String[] tokens = line.split("\\s+", 4);
-        if (tokens.length < 2)
+        if (tokens.length < 3)
         {
             outputStream.println("Usage:");
             outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
@@ -784,7 +784,7 @@ public class Kernel
             return;
         }
         String moduleName = tokens[1].toLowerCase();
-        String className = tokens.length >= 3 ? tokens[2] : null;
+        String className = tokens[2];
         String arguments = null;
         String position = null;
         SimpleEntry<String, String> positionArgumentsEntry;
@@ -793,12 +793,6 @@ public class Kernel
         switch (moduleName)
         {
             case "reporter":
-                if (tokens.length < 3)
-                {
-                    outputStream.println("Usage:");
-                    outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
-                    return;
-                }
                 arguments = (tokens.length == 3) ? null : tokens[3];
                 logger.log(Level.INFO, "Adding reporter: {0}", className);
                 outputStream.print("Adding reporter " + className + "... ");
@@ -836,12 +830,6 @@ public class Kernel
                 break;
 
             case "analyzer":
-                if (tokens.length < 3)
-                {
-                    outputStream.println("Usage:");
-                    outputStream.println("\t" + ADD_ANALYZER_SKETCH_STRING);
-                    return;
-                }
                 logger.log(Level.INFO, "Adding analyzer: {0}", className);
                 outputStream.print("Adding analyzer " + className + "... ");
                 AbstractAnalyzer analyzer;
@@ -867,12 +855,6 @@ public class Kernel
                 break;
 
             case "storage":
-                if (tokens.length < 3)
-                {
-                    outputStream.println("Usage:");
-                    outputStream.println("\t" + ADD_REPORTER_STORAGE_STRING);
-                    return;
-                }
                 arguments = (tokens.length == 3) ? null : tokens[3];
                 logger.log(Level.INFO, "Adding storage: {0}", className);
                 outputStream.print("Adding storage " + className + "... ");
@@ -903,7 +885,6 @@ public class Kernel
                         storage.vertexCount = 0;
                         storage.edgeCount = 0;
                         storages.add(storage);
-                        AbstractQuery.setCurrentStorage(storage);
                         logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
                         logger.log(Level.INFO, "currentStorage set to "+ storage.getClass().getName());
                         outputStream.println("done");
@@ -1002,7 +983,8 @@ public class Kernel
                 try
                 {
                     index = Integer.parseInt(position) - 1;
-                } catch (NumberFormatException numberFormatException)
+                }
+                catch (NumberFormatException numberFormatException)
                 {
                     outputStream.println("error: Position must be specified and must be a number");
                     return;
@@ -1047,12 +1029,6 @@ public class Kernel
                 break;
 
             case "sketch":
-                if (tokens.length < 3)
-                {
-                    outputStream.println("Usage:");
-                    outputStream.println("\t" + ADD_ANALYZER_SKETCH_STRING);
-                    return;
-                }
                 logger.log(Level.INFO, "Adding sketch: {0}", className);
                 outputStream.print("Adding sketch " + className + "... ");
 

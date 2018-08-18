@@ -1,3 +1,19 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2017 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.analyzer;
 
 import spade.client.QueryMetaData;
@@ -230,15 +246,13 @@ public class CommandLine extends AbstractAnalyzer
                                         // final graph is a set of un-stitched graphs
                                         Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
                                         clearRemoteResolutionRequired();
-                                        // TODO: perform consistency check here - Carol
-                                        inconsistencyDetector.setResponseGraph(finalGraphSet);
-                                        int inconsistencyCount = inconsistencyDetector.findInconsistency();
-                                        logger.log(Level.WARNING, "inconsistencyCount: " + inconsistencyCount);
-                                        if(inconsistencyCount == 0)
+                                        discrepancyDetector.setResponseGraph(finalGraphSet);
+                                        int discrepancyCount = discrepancyDetector.findDiscrepancy();
+                                        logger.log(Level.WARNING, "discrepancyCount: " + discrepancyCount);
+                                        if(discrepancyCount == 0)
                                         {
-                                            inconsistencyDetector.update();
+                                            discrepancyDetector.update();
                                         }
-                                        // TODO: return the stitched graphs
                                         for(Graph graph : finalGraphSet)
                                         {
                                             result = Graph.union((Graph) result, graph);

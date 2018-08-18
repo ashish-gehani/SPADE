@@ -110,7 +110,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public boolean shutdown()
     {
-        return super.shutdown();
+        return true;
     }
 
     /**

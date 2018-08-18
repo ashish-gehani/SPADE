@@ -1,6 +1,25 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2017 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.client;
 
 import jline.ConsoleReader;
+import spade.core.AbstractQuery;
+import spade.core.AbstractStorage;
+import spade.core.Kernel;
 import spade.core.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -104,6 +123,10 @@ public class CommandLine
         try
         {
             System.out.println("SPADE 3.0 Query Client");
+            if(AbstractQuery.getCurrentStorage() == null)
+            {
+                System.out.println("No storage set for querying. Use command: 'set storage <storage_name>'");
+            }
 
             // Set up command history and tab completion.
             ConsoleReader commandReader = new ConsoleReader();
@@ -120,7 +143,6 @@ public class CommandLine
             {
                 try
                 {
-                    System.out.println(getQueryCommands());
                     System.out.print(COMMAND_PROMPT);
                     String line = commandReader.readLine();
 
@@ -128,6 +150,11 @@ public class CommandLine
                     {
                         clientOutputStream.println(line);
                         break;
+                    }
+                    else if(AbstractQuery.getCurrentStorage() == null)
+                    {
+                        System.out.println("No storage set for querying. Use command: 'set storage <storage_name>'");
+                        continue;
                     }
                     else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
                     {
@@ -196,6 +223,11 @@ public class CommandLine
                         // save export path for next answer's dot file
                         parseExport(line);
                     }
+                    else if(line.toLowerCase().startsWith("set"))
+                    {
+                        // set storage for querying
+                        parseSetStorage(line);
+                    }
                     else
                     {
                         System.out.println("Invalid input!");
@@ -210,6 +242,34 @@ public class CommandLine
         catch (IOException ex)
         {
             System.err.println(CommandLine.class.getName() + " Error in CommandLine Client! " + ex);
+        }
+    }
+
+    private static void parseSetStorage(String line)
+    {
+        try
+        {
+            String[] tokens = line.split("\\s+");
+            String setCommand = tokens[0].toLowerCase().trim();
+            String storageCommand = tokens[1].toLowerCase().trim();
+            String storageName = tokens[2].toLowerCase().trim();
+            if(setCommand.equals("set") && storageCommand.equals("storage"))
+            {
+                AbstractStorage storage = Kernel.getStorage(storageName);
+                if(storage != null)
+                {
+                    AbstractQuery.setCurrentStorage(storage);
+                    System.out.println("Storage '" + storageName + "' successfully set for querying.");
+                }
+                else
+                {
+                    System.out.println("Storage '" + tokens[2] + "' not found");
+                }
+            }
+        }
+        catch(Exception ex)
+        {
+            System.err.println(CommandLine.class.getName() + " Error setting storages!");
         }
     }
 

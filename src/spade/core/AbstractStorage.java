@@ -113,7 +113,8 @@ public abstract class AbstractStorage
             SCAFFOLD_PATH = SPADE_ROOT + "db/scaffold";
             SCAFFOLD_DATABASE_NAME = "BerkeleyDB";
             Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING,
-                    "Loading configurations from file unsuccessful! Falling back to default settings", ex);
+            "Loading scaffold configurations from file '" + configFile + "' " +
+                    " unsuccessful! Falling back to default settings", ex);
         }
     }
 
@@ -296,7 +297,6 @@ public abstract class AbstractStorage
         int depth = 0;
         Queue<AbstractVertex> queue = new LinkedList<>();
         queue.add(getVertex(hash));
-        //TODO: keep a visited array
         while(!queue.isEmpty() && depth < maxDepth)
         {
             currentVertex = queue.remove();

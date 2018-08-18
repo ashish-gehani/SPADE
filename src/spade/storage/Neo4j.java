@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -40,7 +41,6 @@ import java.util.Calendar;
 import java.util.Date;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.collections.CollectionUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.Direction;
@@ -60,9 +60,8 @@ import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
-import org.neo4j.helpers.collection.IteratorUtil;
-import org.neo4j.kernel.Traversal;
-import org.neo4j.tooling.GlobalGraphOperations;
+import org.neo4j.helpers.collection.Iterators;
+import org.neo4j.graphdb.PathExpanders;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -72,13 +71,18 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.core.BloomFilter;
+import spade.utility.CommonFunctions;
+
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 
 /**
  * Neo4j storage implementation.
  *
  * @author Dawood Tariq and Hasanat Kazmi
  */
-public class Neo4j extends AbstractStorage {
+public class Neo4j extends AbstractStorage
+{
 
     // Identifying annotation to add to each edge/vertex
     private static final String ID_STRING = "id";
@@ -96,7 +100,7 @@ public class Neo4j extends AbstractStorage {
 
     public enum RelationshipTypes implements RelationshipType { EDGE }
     public enum NodeTypes implements Label { VERTEX }
-    private String neo4jDatabaseDirectoryPath = null;
+    private String databasePath;
 
     public final String HASHCODE_LABEL = "hashCode";
     private double falsePositiveProbability = 0.0001;
@@ -150,24 +154,48 @@ public class Neo4j extends AbstractStorage {
     private int foundInDbCountTmp = 0;
     private int falsePositiveCountTmp = 0;
     //
+    private static Properties databaseConfigs = new Properties();
+
+    public Neo4j()
+    {
+        String configFile =  CONFIG_PATH + FILE_SEPARATOR + "spade.storage.Neo4j.config";
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+        }
+        catch(Exception ex)
+        {
+            String msg  = "Loading Neo4j configurations for SPADE unsuccessful! Unexpected behavior might follow";
+            logger.log(Level.WARNING, msg, ex);
+        }
+    }
 
     @Override
-    public boolean initialize(String arguments) {
-        try {
-            neo4jDatabaseDirectoryPath = arguments;
-            if (neo4jDatabaseDirectoryPath == null) {
-                return false;
+    public boolean initialize(String arguments)
+    {
+        try
+        {
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            databasePath = argsMap.get("databasePath");
+            if (databasePath == null)
+            {
+                databasePath = databaseConfigs.getProperty("databasePath");
             }
-            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
-            try {
+            File databaseFile = new File(databasePath);
+            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(databaseFile);
+            try
+            {
                 graphDbBuilder.loadPropertiesFromFile(NEO_CONFIG_FILE);
-                logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
-            } catch (Exception exception) {
-                logger.log(Level.INFO, "Default Neo4j configurations loaded.");
+                logger.log(Level.INFO, "Neo4j internal configurations loaded from config file.");
+            }
+            catch (Exception exception)
+            {
+                logger.log(Level.INFO, "Default Neo4j internal configurations loaded.");
             }
             graphDb = graphDbBuilder.newGraphDatabase();
 
-            try ( Transaction tx = graphDb.beginTx() ) {
+            try ( Transaction tx = graphDb.beginTx() )
+            {
                 index = graphDb.index();
                 // Create vertex index
                 vertexIndex = index.forNodes(VERTEX_INDEX);
@@ -179,14 +207,17 @@ public class Neo4j extends AbstractStorage {
             nodeBloomFilter = loadBloomFilter(NODE_BLOOMFILTER);
             edgeBloomFilter = loadBloomFilter(EDGE_BLOOMFILTER);
 
-            if (LOG_PERFORMANCE_STATS==true) {
+            if (LOG_PERFORMANCE_STATS==true)
+            {
               logger.log(Level.INFO, "nodeBloomFilter size at startup: " + nodeBloomFilter.count());
             }
             reportProgressDate = Calendar.getInstance().getTime();
             lastFlushTime = Calendar.getInstance().getTime();
 
             return true;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
@@ -195,7 +226,7 @@ public class Neo4j extends AbstractStorage {
     private BloomFilter loadBloomFilter(String fileName) {
 
     	try {
-    		File filePath = new File(neo4jDatabaseDirectoryPath, fileName);
+    		File filePath = new File(databasePath, fileName);
     		if (filePath.exists()) {
 	    		FileInputStream fileInputStream = new FileInputStream(
 	    			filePath.toString()
@@ -218,7 +249,7 @@ public class Neo4j extends AbstractStorage {
 
     	try {
     		FileOutputStream fileOutputStream = new FileOutputStream(
-    			new File(neo4jDatabaseDirectoryPath, fileName).toString()
+    			new File(databasePath, fileName).toString()
 			);
     		ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
     		objectOutputStream.writeObject(bloomFilter);
@@ -757,7 +788,7 @@ public class Neo4j extends AbstractStorage {
         Set<Long> addedNodeIds = new HashSet<>();
         Set<Long> addedEdgeIds = new HashSet<>();
 
-        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.OUTGOING), maxLength);
+        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(PathExpanders.forDirection(Direction.OUTGOING), maxLength);
         for (Node sourceNode : sourceNodes) {
             for (Node destinationNode : destinationNodes) {
                 try ( Transaction tx = graphDb.beginTx() ) {
@@ -920,7 +951,8 @@ public class Neo4j extends AbstractStorage {
         final Index<Node> vertexIndex;
         final RelationshipIndex edgeIndex;
         System.out.println("Loading database...");
-        final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder( dbpath )
+        File databaseFile = new File(dbpath);
+        final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(databaseFile)
             .setConfig(GraphDatabaseSettings.pagecache_memory, "" + (Runtime.getRuntime().totalMemory()*9)/10)
             // .setConfig(GraphDatabaseSettings.keep_logical_logs, "false")
             .newGraphDatabase();
@@ -1057,22 +1089,23 @@ public class Neo4j extends AbstractStorage {
 
 
         System.out.println("Counted Nodes and Relationships to index...");
-        final int total;
+        final long total;
 
-        try ( Transaction tx = graphDb.beginTx() ) {
-            total = IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllNodes()) + IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllRelationships());
+        try ( Transaction tx = graphDb.beginTx() )
+        {
+            total = Iterators.count(graphDb.getAllNodes().iterator()) + Iterators.count(graphDb.getAllRelationships().iterator());
             tx.success();
         }
         System.out.println("done.\n");
 
-        int percentageCompleted = 0;
+        long percentageCompleted = 0;
         int count = 0;
 
         try ( Transaction tx = graphDb.beginTx() ) {
 
             // index nodes
-            Iterator<Node> nodeIterator = GlobalGraphOperations.at(graphDb).getAllNodes().iterator();
-            Iterator<Relationship> edgeIterator = GlobalGraphOperations.at(graphDb).getAllRelationships().iterator();
+            Iterator<Node> nodeIterator = graphDb.getAllNodes().iterator();
+            Iterator<Relationship> edgeIterator = graphDb.getAllRelationships().iterator();
 
             while (edgeIterator.hasNext() || nodeIterator.hasNext()) {
 

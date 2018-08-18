@@ -1,9 +1,26 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2017 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.storage;
 
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
+import spade.utility.CommonFunctions;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -12,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,7 +49,8 @@ public class MySQL extends SQL
         }
         catch(IOException ex)
         {
-            logger.log(Level.SEVERE, "Loading MySQL configurations from file unsuccessful!", ex);
+            String msg  = "Loading H2 configurations from file unsuccessful! Unexpected behavior might follow";
+            logger.log(Level.SEVERE, msg, ex);
         }
     }
 
@@ -40,13 +59,13 @@ public class MySQL extends SQL
      * if not already present. The necessary tables include VERTEX and EDGE tables
      * to store provenance metadata.
      *
-     * @param arguments A string of 4 space-separated tokens used for making a successful
-     *                  connection to the database, of the following format:
-     *                  'database_path username password'
-     *                  <p>
+     * @param arguments A string of 3 space-separated tokens for making a successful connection
+     *                  to the database, could be provided in the following format:
+     *                  'databasePath databaseUser databasePassword'
+     *
      *                  Example argument strings are as follows:
      *                  spade.mysql sa null
-     *                  <p>
+     *
      *                  Points to note:
      *                  1. For external databases like MySQL or PostgreSQL, a stand-alone database
      *                  version needs to be installed and executed in parallel, and independent of the
@@ -58,12 +77,17 @@ public class MySQL extends SQL
     {
         try
         {
-            // Arguments consist of 3 space-separated tokens: 'URL username password'
-            String[] tokens = arguments.split("\\s+");
-            String databaseURL = tokens[0];
-            databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + "/" + databaseURL;
-            String databaseUsername = tokens[1];
-            String databasePassword = tokens[2];
+
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            // These arguments could be provided: databasePath databaseUsername databasePassword
+            String databasePath = (argsMap.get("databasePath") != null) ? argsMap.get("databasePath") :
+                    databaseConfigs.getProperty("databasePath");
+            String databaseUsername = (argsMap.get("databaseUsername") != null) ? argsMap.get("databaseUsername") :
+                    databaseConfigs.getProperty("databaseUsername");
+            String databasePassword = (argsMap.get("databasePassword") != null) ? argsMap.get("databasePassword") :
+                    databaseConfigs.getProperty("databasePassword");
+
+            String databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databasePath;
 
             Class.forName(databaseConfigs.getProperty("databaseDriver")).newInstance();
             dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
@@ -305,7 +329,6 @@ public class MySQL extends SQL
             s.execute(insertString);
             if(BUILD_SCAFFOLD)
             {
-                //TODO: device policy in case of non-insertion into scaffold
                 insertScaffoldEntry(incomingEdge);
             }
             s.close();

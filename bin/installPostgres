@@ -1,0 +1,66 @@
+#!/bin/bash
+
+declare -A vars=( )                  # refresh variables for each line
+while read  words; do                # iterate over lines of input
+  set -- "${words[@]}"                 # update positional parameters
+  for word; do
+    if [[ $word = *"="* ]]; then       # if a word contains an "="...
+       vars[${word%%[[:space:]]=*}]=${word#*=[[:space:]]}    # ...then set it as an associative-array key
+    fi
+  done
+#  echo "${vars[Var]} $5"              # Here, we use content read from that line.
+
+done <cfg/spade.storage.PostgreSQL.config
+#for k in "${!vars[@]}";
+#do
+#  echo "$k: ${vars[$k]}"
+#done
+
+# PostgreSQL installation
+
+OS_NAME=$(uname)
+if [ $OS_NAME == "Linux" ]
+then
+  DIST_NAME=$(lsb_release -is)
+  if [ $DIST_NAME == "Ubuntu" ]
+  then
+    sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+    sudo apt-get install wget ca-certificates
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+    sudo apt-get update
+    sudo apt-get upgrade
+    sudo apt-get install postgresql-9.5
+    echo "Installed PostgreSQL 9.5"
+    sudo -u postgres createuser ${vars[databaseUsername]} --createdb --no-password
+    echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
+    chmod 0600 $HOME/.pgpass
+    echo "Successfully created user '${vars[databaseUsername]}'"
+    sudo sed -i -e '1ilocal   all   spade   trust\'  /etc/postgresql/9.5/main/pg_hba.conf
+    sudo service postgresql restart
+    sudo  createdb ${vars[databasePath]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
+    echo "Successfully created database '${vars[databasePath]}' for user '${vars[databaseUsername]}'"
+  else
+    sudo dnf install https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-28-x86_64/pgdg-fedora95-9.5-5.noarch.rpm
+    sudo dnf install postgresql95 postgresql95-server
+    echo "Installed PostgreSQL 9.5"
+    sudo /usr/pgsql-9.5/bin/postgresql95-setup initdb
+    sudo systemctl enable postgresql-9.5
+    sudo systemctl start postgresql-9.5
+    sudo -u postgres createuser ${vars[databaseUsername]} --createdb --no-password
+    echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
+    chmod 0600 $HOME/.pgpass
+    echo "Successfully created user '${vars[databaseUsername]}'"
+    sudo sed -i -e '1ilocal   all   spade   trust\'  /var/lib/pgsql/9.5/data/pg_hba.conf
+    sudo systemctl restart postgresql-9.5
+    sudo createdb ${vars[databasePath]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
+    echo "Successfully created database '${vars[databasePath]}' for user '${vars[databaseUsername]}'"
+  fi
+elif [ $OS_NAME == "Darwin" ]
+then
+  brew install postgresql@9.5
+  pg_ctl -D /usr/local/var/postgres start && brew services start postgresql
+  createuser ${vars[databaseUser]} --createdb --no-password
+  echo "*:*:*:${vars[databaseUser]}:${vars[databasePassword]}" > $HOME/.pgpass
+  chmod 0600 $HOME/.pgpass
+  createdb ${vars[databaseName]} --no-password --owner=${vars[databaseUser]} --username=${vars[databaseUser]}
+fi
