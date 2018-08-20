@@ -2559,6 +2559,7 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
+		String size = eventData.get(AuditEventReader.ARG1);
 
 		ArtifactIdentifier artifactIdentifier = null;
 		String permissions = null;
@@ -2592,6 +2593,9 @@ public class Audit extends AbstractReporter {
 			artifactManager.artifactPermissioned(artifactIdentifier, permissions);
 			Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
+			if(size != null){
+				wgb.addAnnotation(OPMConstants.EDGE_SIZE, size);
+			}
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}else{
 			log(Level.INFO, "Failed to find artifact identifier from the event data", null, time, eventId, syscall);
