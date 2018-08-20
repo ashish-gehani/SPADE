@@ -2579,18 +2579,21 @@ public class Audit extends AbstractReporter {
 			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(), 
 					time, eventId, syscall);
 			permissions = pathRecord.getPermissions();
+			if(artifactIdentifier != null){
+				artifactManager.artifactVersioned(artifactIdentifier);
+				artifactManager.artifactPermissioned(artifactIdentifier, permissions);
+			}
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get(AuditEventReader.ARG0);
 			artifactIdentifier = processManager.getFd(pid, fd);
 			if(artifactIdentifier == null){
 				artifactIdentifier = addUnknownFd(pid, fd);
 			}
+			artifactManager.artifactVersioned(artifactIdentifier);
 		}
 
 		if(artifactIdentifier != null){
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			artifactManager.artifactVersioned(artifactIdentifier);
-			artifactManager.artifactPermissioned(artifactIdentifier, permissions);
 			Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 			if(size != null){
