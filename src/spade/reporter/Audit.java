@@ -187,6 +187,7 @@ public class Audit extends AbstractReporter {
 	private String HANDLE_KM_RECORDS_KEY = "handleLocalEndpoints";
 	// Handle the flag below with care!
 	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
+	private Integer mergeUnit = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
 
 	private Set<String> namesOfProcessesToIgnoreFromConfig = new HashSet<String>();
@@ -487,7 +488,7 @@ public class Audit extends AbstractReporter {
 			}
 		}else{ // live audit
 			// Default values
-			ADD_KM = false;
+			ADD_KM = true;
 			
 			// Parsing the values for the KM vars after the default values have be set appropriately (see above)
 			if(isValidBoolean(addKmArgValue)){
@@ -499,6 +500,22 @@ public class Audit extends AbstractReporter {
 			
 			// If added modules then also must handle. If not added then cannot handle.
 			HANDLE_KM_RECORDS = ADD_KM;
+		}
+		
+		String mergeUnitKey = "mergeUnit";
+		String mergeUnitValue = args.get(mergeUnitKey);
+		if(mergeUnitValue != null){
+			mergeUnit = CommonFunctions.parseInt(mergeUnitValue, null);
+			if(mergeUnit != null){
+				if(mergeUnit < 0){ // must be positive
+					mergeUnit = null;
+					logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be non-negative: '" + mergeUnitValue+"'");
+					return false;
+				}
+			}else{
+				logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be an integer: '" + mergeUnitValue+"'");
+				return false;
+			}
 		}
 		
 		if((ADD_KM && NETFILTER_RULES) // both can't be true
@@ -515,11 +532,12 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
-								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST});
+								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
+								mergeUnitKey, mergeUnit});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -826,6 +844,7 @@ public class Audit extends AbstractReporter {
 											((CREATE_BEEP_UNITS) ? " -u" : "") + 
 											((WAIT_FOR_LOG_END) ? " -w" : "") + 
 											" -d " + inputLogDirectoryArgument +
+											((mergeUnit != null) ? " -m " + mergeUnit : "") +
 											((inputLogTimeArgument != null) ? " -t " + inputLogTimeArgument : "");
 							
 						}else{
@@ -863,6 +882,7 @@ public class Audit extends AbstractReporter {
 			
 			spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
 					((CREATE_BEEP_UNITS) ? " -u" : "") + 
+					((mergeUnit != null) ? " -m " + mergeUnit : "") +
 					// Don't use WAIT_FOR_LOG_END here because the interrupt would be ignored by spadeAuditBridge then
 					" -s " + "/var/run/audispd_events";
 			
@@ -2539,6 +2559,7 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
+		String size = eventData.get(AuditEventReader.ARG1);
 
 		ArtifactIdentifier artifactIdentifier = null;
 		String permissions = null;
@@ -2558,20 +2579,26 @@ public class Audit extends AbstractReporter {
 			artifactIdentifier = getArtifactIdentifierFromPathMode(path, pathRecord.getPathType(), 
 					time, eventId, syscall);
 			permissions = pathRecord.getPermissions();
+			if(artifactIdentifier != null){
+				artifactManager.artifactVersioned(artifactIdentifier);
+				artifactManager.artifactPermissioned(artifactIdentifier, permissions);
+			}
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get(AuditEventReader.ARG0);
 			artifactIdentifier = processManager.getFd(pid, fd);
 			if(artifactIdentifier == null){
 				artifactIdentifier = addUnknownFd(pid, fd);
 			}
+			artifactManager.artifactVersioned(artifactIdentifier);
 		}
 
 		if(artifactIdentifier != null){
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			artifactManager.artifactVersioned(artifactIdentifier);
-			artifactManager.artifactPermissioned(artifactIdentifier, permissions);
 			Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 			WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
+			if(size != null){
+				wgb.addAnnotation(OPMConstants.EDGE_SIZE, size);
+			}
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}else{
 			log(Level.INFO, "Failed to find artifact identifier from the event data", null, time, eventId, syscall);

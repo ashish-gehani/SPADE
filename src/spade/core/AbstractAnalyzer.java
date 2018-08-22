@@ -1,7 +1,23 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2017 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.core;
 
 import spade.client.QueryMetaData;
-import spade.utility.InconsistencyDetector;
+import spade.utility.DiscrepancyDetector;
 
 import javax.net.ssl.SSLServerSocket;
 import java.io.File;
@@ -16,9 +32,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 import static spade.core.Kernel.sslServerSocketFactory;
 
 /**
@@ -29,12 +48,32 @@ public abstract class AbstractAnalyzer
     public String QUERY_PORT;
     protected AbstractResolver remoteResolver;
     protected volatile boolean SHUTDOWN = false;
-    protected boolean USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
     private static Map<String, List<String>> functionToClassMap;
     protected static boolean EXPORT_RESULT = false;
     public static final String COMPARISON_OPERATORS = "=|>|<|>=|<=";
     public static final String BOOLEAN_OPERATORS = "AND|OR";
-    protected static final InconsistencyDetector inconsistencyDetector = new InconsistencyDetector();
+    protected static final DiscrepancyDetector discrepancyDetector = new DiscrepancyDetector();
+    protected static Properties databaseConfigs = new Properties();
+    private static String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.core.AbstractAnalyzer.config";
+    public static boolean USE_SCAFFOLD;
+    public static boolean USE_TRANSFORMER;
+    static
+    {
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+            USE_SCAFFOLD = Boolean.parseBoolean(databaseConfigs.getProperty("use_scaffold"));
+            USE_TRANSFORMER = Boolean.parseBoolean(Settings.getProperty("use_transformer"));
+        }
+        catch(Exception ex)
+        {
+            // default settings
+            USE_SCAFFOLD = false;
+            USE_TRANSFORMER = false;
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING,
+                    "Loading configurations from the file unsuccessful! Falling back to default settings" , ex);
+        }
+    }
 
     /**
      * remoteResolutionRequired is used by query module to signal the Analyzer
@@ -75,7 +114,7 @@ public abstract class AbstractAnalyzer
         catch(IOException | ClassNotFoundException ex)
         {
             functionToClassMap = new HashMap<>();
-            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!", ex);
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!");
         }
     }
 
@@ -110,20 +149,35 @@ public abstract class AbstractAnalyzer
     {
         // key -> values
         // function name -> function class name, function return type
-        List<String> className = functionToClassMap.get(functionName);
-        if(className == null)
+        List<String> classInfo = functionToClassMap.get(functionName);
+        if(classInfo == null)
         {
+            String className;
             //TODO: create all query classes with abstractanalyzer beforehand
             if(functionName.equals("GetLineage") || functionName.equals("GetPaths"))
-                className = Arrays.asList("spade.query.common." + functionName, "spade.core.Graph");
+            {
+                className = "spade.query.common." + functionName;
+                classInfo = Arrays.asList(className, "spade.core.Graph");
+            }
             else
             {
                 String storageName = AbstractQuery.getCurrentStorage().getClass().getSimpleName().toLowerCase();
-                className = Arrays.asList("spade.query." + storageName + "." + functionName, "java.lang.Object");
+                className = "spade.query." + storageName + "." + functionName;
+                classInfo = Arrays.asList(className, "java.lang.Object");
             }
-            functionToClassMap.put(functionName, className);
+            try
+            {
+                Class.forName(className);
+                functionToClassMap.put(functionName, classInfo);
+            }
+            catch(ClassNotFoundException ex)
+            {
+                Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, "Unable to find/load query class!", ex);
+                return null;
+            }
         }
-        return className.get(0);
+
+        return classInfo.get(0);
     }
 
     public String getReturnType(String functionName)
@@ -131,7 +185,8 @@ public abstract class AbstractAnalyzer
         List<String> values = functionToClassMap.get(functionName);
         if(values == null)
         {
-            values = Arrays.asList("spade.query.postgresql." + functionName, "Object");
+            String storageName = AbstractQuery.getCurrentStorage().getClass().getSimpleName().toLowerCase();
+            values = Arrays.asList("spade.query." + storageName + "." + functionName, "Object");
         }
 
         return values.get(1);
@@ -177,7 +232,7 @@ public abstract class AbstractAnalyzer
         @Override
         public abstract void run();
 
-        protected abstract void parseQuery(String line);
+        protected abstract boolean parseQuery(String line);
 
         protected Graph iterateTransformers(Graph graph, QueryMetaData queryMetaData)
         {

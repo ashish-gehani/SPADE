@@ -4,7 +4,7 @@
 JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
-JAVAC_CP = build:lib/*
+JAVAC_CP = build:lib/*:lib/neo4j-community-3.4.4/lib/*
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
@@ -46,7 +46,7 @@ ifeq ($(OS_NAME), Linux)
 endif
 ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 	OS_BUILD = build/spade/reporter/ProcMon.class
-	JAVAC_CP = build;lib\*
+	JAVAC_CP = build;lib\*;lib\neo4j-community-3.4.4\lib\*
 endif
  
 # -------- Default Build Configuration -----
@@ -54,7 +54,7 @@ REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM
 # -------------------------------------------
  
 .PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages android-build
- 
+
 all:    build
 	./bin/keys/generatekeys.sh
  
@@ -66,11 +66,21 @@ help:
  
 # ---------- Building SPADE ----------    
 .SECONDEXPANSION:
- 
+
 build: | prepare-dirs
 build: build-java $$(OS_BUILD) lib/spade.jar
-build-java: core clients utilities storages filters query analyzers sketches transformers reporters
- 
+build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
+
+NEO4J_DIR=lib/neo4j-community-3.4.4
+download-neo4j:
+	@if [ -d $(NEO4J_DIR) ]; then \
+		echo "Neo4j already exists"; \
+	else \
+		echo "Neo4j does not exist. Downloading now..."; \
+		bin/downloadNeo4j \
+		echo "--- Downloaded Neo4j and dependencies ---"; \
+	fi
+
 .SUFFIXES : .class .java
  
 prepare-dirs:
@@ -135,7 +145,7 @@ src/spade/reporter/spade_reporter_LinuxFUSE.h: build/spade/reporter/LinuxFUSE.cl
 	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/LinuxFUSE.java
 lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
+	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome) -I$(shell java -classpath build spade.utility.JavaHome)/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
  
 # Build the OpenBSM reporter.
 build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c lib/spadeOpenBSM
@@ -149,7 +159,7 @@ lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/MacFUSE.java
-	gcc -dynamiclib -I$(shell java -classpath build spade.utility.JavaHome)/../include -I$(shell java -classpath build spade.utility.JavaHome)/../include/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
+	gcc -dynamiclib -I$(shell java -classpath build spade.utility.JavaHome) -I$(shell java -classpath build spade.utility.JavaHome)/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
  
 llvm:
 	@make $(LLVM_RULE)

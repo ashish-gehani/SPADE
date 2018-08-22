@@ -1,3 +1,19 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2017 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.query.scaffold;
 
 
@@ -16,7 +32,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractStorage.scaffoldPath;
+import static spade.core.AbstractStorage.SCAFFOLD_PATH;
 
 
 public class InMemory extends Scaffold
@@ -61,7 +77,7 @@ public class InMemory extends Scaffold
     public boolean shutdown()
     {
         // store scaffold
-        String file_name = scaffoldPath + "scaffold";
+        String file_name = SCAFFOLD_PATH + "scaffold";
         File file = new File(file_name);
         try
         {

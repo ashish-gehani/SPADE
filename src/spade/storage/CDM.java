@@ -34,36 +34,38 @@ import java.util.logging.Logger;
 
 import org.apache.avro.generic.GenericContainer;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SslConfigs;
 
-import com.bbn.tc.schema.avro.cdm18.AbstractObject;
-import com.bbn.tc.schema.avro.cdm18.EndMarker;
-import com.bbn.tc.schema.avro.cdm18.Event;
-import com.bbn.tc.schema.avro.cdm18.EventType;
-import com.bbn.tc.schema.avro.cdm18.FileObject;
-import com.bbn.tc.schema.avro.cdm18.FileObjectType;
-import com.bbn.tc.schema.avro.cdm18.Host;
-import com.bbn.tc.schema.avro.cdm18.HostIdentifier;
-import com.bbn.tc.schema.avro.cdm18.HostType;
-import com.bbn.tc.schema.avro.cdm18.InstrumentationSource;
-import com.bbn.tc.schema.avro.cdm18.Interface;
-import com.bbn.tc.schema.avro.cdm18.MemoryObject;
-import com.bbn.tc.schema.avro.cdm18.NetFlowObject;
-import com.bbn.tc.schema.avro.cdm18.Principal;
-import com.bbn.tc.schema.avro.cdm18.PrincipalType;
-import com.bbn.tc.schema.avro.cdm18.SHORT;
-import com.bbn.tc.schema.avro.cdm18.SrcSinkObject;
-import com.bbn.tc.schema.avro.cdm18.SrcSinkType;
-import com.bbn.tc.schema.avro.cdm18.StartMarker;
-import com.bbn.tc.schema.avro.cdm18.Subject;
-import com.bbn.tc.schema.avro.cdm18.SubjectType;
-import com.bbn.tc.schema.avro.cdm18.TCCDMDatum;
-import com.bbn.tc.schema.avro.cdm18.TimeMarker;
-import com.bbn.tc.schema.avro.cdm18.UUID;
-import com.bbn.tc.schema.avro.cdm18.UnitDependency;
-import com.bbn.tc.schema.avro.cdm18.UnnamedPipeObject;
+import com.bbn.tc.schema.avro.cdm19.AbstractObject;
+import com.bbn.tc.schema.avro.cdm19.EndMarker;
+import com.bbn.tc.schema.avro.cdm19.Event;
+import com.bbn.tc.schema.avro.cdm19.EventType;
+import com.bbn.tc.schema.avro.cdm19.FileObject;
+import com.bbn.tc.schema.avro.cdm19.FileObjectType;
+import com.bbn.tc.schema.avro.cdm19.Host;
+import com.bbn.tc.schema.avro.cdm19.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm19.HostType;
+import com.bbn.tc.schema.avro.cdm19.InstrumentationSource;
+import com.bbn.tc.schema.avro.cdm19.Interface;
+import com.bbn.tc.schema.avro.cdm19.IpcObject;
+import com.bbn.tc.schema.avro.cdm19.IpcObjectType;
+import com.bbn.tc.schema.avro.cdm19.MemoryObject;
+import com.bbn.tc.schema.avro.cdm19.NetFlowObject;
+import com.bbn.tc.schema.avro.cdm19.Principal;
+import com.bbn.tc.schema.avro.cdm19.PrincipalType;
+import com.bbn.tc.schema.avro.cdm19.RecordType;
+import com.bbn.tc.schema.avro.cdm19.SHORT;
+import com.bbn.tc.schema.avro.cdm19.SrcSinkObject;
+import com.bbn.tc.schema.avro.cdm19.SrcSinkType;
+import com.bbn.tc.schema.avro.cdm19.Subject;
+import com.bbn.tc.schema.avro.cdm19.SubjectType;
+import com.bbn.tc.schema.avro.cdm19.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm19.TimeMarker;
+import com.bbn.tc.schema.avro.cdm19.UUID;
+import com.bbn.tc.schema.avro.cdm19.UnitDependency;
 import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
@@ -152,6 +154,7 @@ public class CDM extends Kafka {
 			new HashMap<Set<TypeOperation>, EventType>();
 	
 	private UUID hostUUID = null;
+	private String hostUUIDHex = null;
 	
 	private int sessionNumber = 0; // default zero
 	
@@ -354,7 +357,7 @@ public class CDM extends Kafka {
 				}
 
 				Event event = new Event(uuid, 
-						sequence, eventType, threadId, hostUUID, subjectUUID, predicateObjectUUID, 
+						sequence, eventType, threadId, subjectUUID, predicateObjectUUID, 
 						predicateObjectPath, predicateObject2UUID, predicateObject2Path, timestampNanos, 
 						null, null, location, size, null, properties);
 
@@ -471,7 +474,7 @@ public class CDM extends Kafka {
 							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, process.getAnnotations(), properties);
 
 							Subject subject = new Subject(subjectUUID, subjectType, pid, 
-									pidSubjectUUID.get(ppid), hostUUID, principalUUID, startTime, 
+									pidSubjectUUID.get(ppid), principalUUID, startTime, 
 									unitId, iteration, count, cmdLine, null, null, null,
 									properties);
 
@@ -519,7 +522,7 @@ public class CDM extends Kafka {
 					groupIds.add(agentVertex.getAnnotation(OPMConstants.AGENT_FSGID));
 				}
 				Principal principal = new Principal(uuid, PrincipalType.PRINCIPAL_LOCAL, 
-						hostUUID, userId, null, groupIds, properties);
+						userId, null, groupIds, properties);
 				return principal;
 			}else{
 				logger.log(Level.WARNING, "Missing 'uid' in agent vertex");
@@ -613,7 +616,7 @@ public class CDM extends Kafka {
 					Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 
-					AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
+					AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
 					tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
 							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
@@ -633,7 +636,7 @@ public class CDM extends Kafka {
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
 
-						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
 						tccdmObject = new MemoryObject(getUuid(vertex), baseObject, memoryAddress, null, null, size);
 
@@ -660,17 +663,17 @@ public class CDM extends Kafka {
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), OPMConstants.ARTIFACT_PID, properties);
 
-						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
-						tccdmObject = new UnnamedPipeObject(getUuid(vertex), baseObject, 
-								sourceFileDescriptor, sinkFileDescriptor, null, null); // TODO UUID for src and sink???
+						tccdmObject = new IpcObject(getUuid(vertex), baseObject, IpcObjectType.IPC_OBJECT_PIPE_UNNAMED, 
+								null, null, sourceFileDescriptor, sinkFileDescriptor);
 					}
 					
 				}else if(OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR.equals(artifactType)
 						|| OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR.equals(artifactType)){
 					String tgid = vertex.getAnnotation(OPMConstants.ARTIFACT_TGID);
-					String fd0 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD0);
-					String fd1 = vertex.getAnnotation(OPMConstants.ARTIFACT_FD1);
+					Integer fd0 = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_FD0), null);
+					Integer fd1 = CommonFunctions.parseInt(vertex.getAnnotation(OPMConstants.ARTIFACT_FD1), null);
 					if(tgid == null || fd0 == null || fd1 == null){
 						logger.log(Level.WARNING, "Error parsing tgid/fd0/fd1 in artifact {0}", new Object[]{vertex});
 						return false;
@@ -681,15 +684,13 @@ public class CDM extends Kafka {
 							properties.put(OPMConstants.ARTIFACT_PROTOCOL, String.valueOf(protocol));
 						}
 						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
-						properties.put(OPMConstants.ARTIFACT_FD0, String.valueOf(fd0));
-						properties.put(OPMConstants.ARTIFACT_FD1, String.valueOf(fd1));
 						properties.put(OPMConstants.ARTIFACT_SUBTYPE, artifactType);
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
 						
-						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
-						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
-								SrcSinkType.SRCSINK_UNKNOWN, null);
+						tccdmObject = new IpcObject(getUuid(vertex), baseObject, IpcObjectType.IPC_OBJECT_SOCKET_PAIR, 
+								null, null, fd0, fd1);
 					}
 				}else if(OPMConstants.SUBTYPE_UNKNOWN.equals(artifactType)){
 
@@ -704,12 +705,25 @@ public class CDM extends Kafka {
 						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
 						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
 
-						AbstractObject baseObject = new AbstractObject(hostUUID, null, epoch, properties);
+						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
 						tccdmObject = new SrcSinkObject(getUuid(vertex), baseObject, 
 								SrcSinkType.SRCSINK_UNKNOWN, fd);
 					}
 
+				}else if(OPMConstants.SUBTYPE_NAMED_PIPE.equals(artifactType)){
+					
+					String permissionsAnnotation = vertex.getAnnotation(OPMConstants.ARTIFACT_PERMISSIONS);
+					SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
+
+					Map<CharSequence, CharSequence> properties = new HashMap<>();
+					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+					addIfNotNull(OPMConstants.ARTIFACT_PATH, vertex.getAnnotations(), properties);
+
+					AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
+
+					tccdmObject = new IpcObject(getUuid(vertex), baseObject, IpcObjectType.IPC_OBJECT_PIPE_NAMED, null, null, null, null);
+					
 				}else if(artifactType != null){
 					FileObjectType fileObjectType = null;
 					switch (artifactType) {
@@ -719,7 +733,6 @@ public class CDM extends Kafka {
 						case OPMConstants.SUBTYPE_CHARACTER_DEVICE: fileObjectType = FileObjectType.FILE_OBJECT_CHAR; break;
 						case OPMConstants.SUBTYPE_LINK: fileObjectType = FileObjectType.FILE_OBJECT_LINK; break;
 						case OPMConstants.SUBTYPE_UNIX_SOCKET: fileObjectType = FileObjectType.FILE_OBJECT_UNIX_SOCKET; break;
-						case OPMConstants.SUBTYPE_NAMED_PIPE: fileObjectType = FileObjectType.FILE_OBJECT_NAMED_PIPE; break;
 						default: break;
 					}
 					if(fileObjectType != null){
@@ -771,39 +784,34 @@ public class CDM extends Kafka {
 		
 		SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
 
-		AbstractObject baseObject = new AbstractObject(hostUUID, permissions, epoch, properties);
+		AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
 		FileObject fileObject = new FileObject(uuid, baseObject, type, null, null, null, null, null);
 
 		return fileObject;
 	}
 
-	/**
-	 * Creates a SrcSinkObject with special annotations to be used as start of stream and end of stream markers
-	 * AND publishes the object too
-	 * 
-	 * Annotations: 'start time' if start of stream, 'end time' if end of stream
-	 * 
-	 * @param isStart true if start of stream, false if end of stream
-	 * @return SrcSinkObject instance
-	 */
-	private void publishStreamMarkerObject(boolean isStart){
+	private void publishCurrentTimeMarker(){
 		long currentTimeNanos = System.currentTimeMillis() * 1000 * 1000; // millis to nanos
 		TimeMarker timeMarker = new TimeMarker(currentTimeNanos);
-		Object sessionMarker = null;
-		if(isStart){
-			sessionMarker = new StartMarker(this.sessionNumber);
-		}else{
-			// manually add the time marker for end and the session end marker count
-			incrementStatsCount(timeMarker.getClass().getSimpleName());
-			incrementStatsCount(EndMarker.class.getSimpleName());
-			Map<CharSequence, CharSequence> recordCounts = new HashMap<>();
-			for(Map.Entry<String, Long> entry : this.stats.entrySet()){
-				recordCounts.put(entry.getKey(), String.valueOf(entry.getValue()));
-			}
-			sessionMarker = new EndMarker(this.sessionNumber, recordCounts);
-		}
-		// First publish time marker and then publish session start/end marker
+		incrementStatsCount(timeMarker.getClass().getSimpleName());
 		publishRecords(Arrays.asList(buildTcCDMDatum(timeMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
+	}
+	
+	/**
+	 * 
+	 * Annotations: 'end time' for end of stream
+	 */
+	private void publishEndStreamAndTimeMarkerObjects(){
+		// First publish time marker and then publish session start/end marker
+		publishCurrentTimeMarker();
+		Object sessionMarker = null;
+		// manually add the session end marker count
+		incrementStatsCount(EndMarker.class.getSimpleName());
+		Map<CharSequence, CharSequence> recordCounts = new HashMap<>();
+		for(Map.Entry<String, Long> entry : this.stats.entrySet()){
+			recordCounts.put(entry.getKey(), String.valueOf(entry.getValue()));
+		}
+		sessionMarker = new EndMarker(this.sessionNumber, recordCounts);
 		publishRecords(Arrays.asList(buildTcCDMDatum(sessionMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
 	}
 	
@@ -855,6 +863,11 @@ public class CDM extends Kafka {
 								FileObjectType fileObjectType = ((FileObject)cdmObject).getType();
 								if(fileObjectType != null){
 									incrementStatsCount(fileObjectType.name());
+								}
+							}else if(cdmObject.getClass().equals(IpcObjectType.class)){
+								IpcObjectType ipcObjectType = ((IpcObject)cdmObject).getType();
+								if(ipcObjectType != null){
+									incrementStatsCount(ipcObjectType.name());
 								}
 							}else{
 								incrementStatsCount(cdmObject.getClass().getSimpleName());
@@ -1042,9 +1055,13 @@ public class CDM extends Kafka {
 				}
 				logger.log(Level.INFO, "Session number = " + this.sessionNumber);
 				populateEventRules();
-				publishStreamMarkerObject(true);
+				// Set the Host UUID before publishing any record
+				this.hostUUID = getHostUUID(hostVertex);
+				// Host is always the first record of the steam now.
 				publishHost(hostVertex);
-				this.hostUUID = getUuid(hostVertex);
+				// Publish the time marker after the host record
+				publishCurrentTimeMarker();
+				
 			}
 			return true;
 		}
@@ -1385,7 +1402,7 @@ public class CDM extends Kafka {
 			pidSubjectUUID.clear();
 			publishedPrincipals.clear();
 
-			publishStreamMarkerObject(false);
+			publishEndStreamAndTimeMarkerObjects();
 
 			return super.shutdown();
 		} catch (Exception exception) {
@@ -1534,7 +1551,31 @@ public class CDM extends Kafka {
 		TCCDMDatum.Builder tccdmDatumBuilder = TCCDMDatum.newBuilder();
 		tccdmDatumBuilder.setDatum(value);
 		tccdmDatumBuilder.setSource(source);
+		tccdmDatumBuilder.setHostId(hostUUID);
+		tccdmDatumBuilder.setSessionNumber(sessionNumber);
+		tccdmDatumBuilder.setType(getRecordType(value));
 		return tccdmDatumBuilder.build();
+	}
+	
+	private RecordType getRecordType(Object object){
+		RecordType type = null;
+		String className = object.getClass().getSimpleName().toLowerCase();
+		switch (className){
+			case "endmarker": type = RecordType.RECORD_END_MARKER; break;
+			case "event": type = RecordType.RECORD_EVENT; break;
+			case "fileobject": type = RecordType.RECORD_FILE_OBJECT; break;
+			case "host": type = RecordType.RECORD_HOST; break;
+			case "ipcobject": type = RecordType.RECORD_IPC_OBJECT; break;
+			case "memoryobject": type = RecordType.RECORD_MEMORY_OBJECT; break;
+			case "netflowobject": type = RecordType.RECORD_NET_FLOW_OBJECT; break;
+			case "principal": type = RecordType.RECORD_PRINCIPAL; break;
+			case "srcsinkobject": type = RecordType.RECORD_SRC_SINK_OBJECT; break;
+			case "subject": type = RecordType.RECORD_SUBJECT; break;
+			case "timemarker": type = RecordType.RECORD_TIME_MARKER; break;
+			case "unitdependency": type = RecordType.RECORD_UNIT_DEPENDENCY; break;
+			default: break;
+		}
+		return type;
 	}
 
 	/**
@@ -1720,6 +1761,26 @@ public class CDM extends Kafka {
 		return rulesToEventType.get(getTypeOperationSet(edges));
 	}
 
+	private UUID getUUID(String str){
+		if(str != null){
+			byte[] hash = DigestUtils.md5(str);
+			if(hexUUIDs){
+				hash = String.valueOf(Hex.encodeHex(hash, true)).getBytes();
+			}
+			return new UUID(hash);
+		}
+		return null;
+	}
+	
+	private UUID getHostUUID(AbstractVertex vertex){
+		if(vertex != null){
+			String str = vertex.toString() + "," + sessionNumber;
+			this.hostUUIDHex = Hex.encodeHexString(str.getBytes());
+			return getUUID(str);
+		}
+		return null;
+	}
+	
 	/**
 	 * Uses the bigHashCode function in AbstractVertex to get the hashcode which 
 	 * is then used to build the UUID object.
@@ -1733,12 +1794,8 @@ public class CDM extends Kafka {
 	 */
 	private UUID getUuid(AbstractVertex vertex){
 		if(vertex != null){
-			byte[] vertexHash = new byte[0];
-			vertexHash = vertex.bigHashCodeBytes();
-			if(hexUUIDs){
-				vertexHash = String.valueOf(Hex.encodeHex(vertexHash, true)).getBytes();
-			}
-			return new UUID(vertexHash);
+			String str = vertex.toString() + "," + hostUUIDHex + "," + sessionNumber;
+			return getUUID(str);
 		}
 		return null;
 	}
@@ -1756,12 +1813,8 @@ public class CDM extends Kafka {
 	 */
 	private UUID getUuid(AbstractEdge edge){
 		if(edge != null){
-			byte[] edgeHash = new byte[0];
-			edgeHash = edge.bigHashCodeBytes();
-			if(hexUUIDs){
-				edgeHash = String.valueOf(Hex.encodeHex(edgeHash, true)).getBytes();
-			}
-			return new UUID(edgeHash);
+			String str = edge.toString() + "," + hostUUIDHex + "," + sessionNumber;
+			return getUUID(str);
 		}
 		return null;
 	}

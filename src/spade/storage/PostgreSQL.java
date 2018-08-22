@@ -44,6 +44,7 @@ import static spade.core.Kernel.CONFIG_PATH;
 import static spade.core.Kernel.FILE_SEPARATOR;
 
 import au.com.bytecode.opencsv.CSVWriter;
+import spade.utility.CommonFunctions;
 
 /**
  * Basic PostgreSQL storage implementation.
@@ -82,7 +83,8 @@ public class PostgreSQL extends SQL
         }
         catch(IOException ex)
         {
-            logger.log(Level.SEVERE, "Loading PostgreSQL configurations from file unsuccessful!", ex);
+            String msg  = "Loading PostgreSQL configurations from file unsuccessful! Unexpected behavior might follow";
+            logger.log(Level.SEVERE, msg, ex);
         }
         setPrimaryKey = Boolean.parseBoolean(databaseConfigs.getProperty("setPrimaryKey",
                 String.valueOf(setPrimaryKey)));
@@ -105,9 +107,9 @@ public class PostgreSQL extends SQL
      * if not already present. The necessary tables include VERTEX and EDGE tables
      * to store provenance metadata.
      *
-     * @param arguments A string of 4 space-separated tokens used for making a successful
-     *                  connection to the database, of the following format:
-     *                  'database_path username password'
+     * @param arguments A string of 3 space-separated tokens for making a successful connection
+     *                  to the database, could be provided in the following format:
+     *                  'databasePath databaseUser databasePassword'
      *
      *                  Example argument strings are as follows:
      *                  spade_pg root 12345
@@ -124,12 +126,15 @@ public class PostgreSQL extends SQL
     {
         try
         {
-            // Arguments consist of 3 space-separated tokens: 'URL username password'
-            String[] tokens = arguments.split("\\s+");
-            String databaseURL = tokens[0];
-            databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databaseURL;
-            String databaseUsername = tokens[1];
-            String databasePassword = tokens[2];
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            String databasePath = (argsMap.get("databasePath") != null) ? argsMap.get("databasePath") :
+                    databaseConfigs.getProperty("databasePath");
+            String databaseUsername = (argsMap.get("databaseUsername") != null) ? argsMap.get("databaseUsername") :
+                    databaseConfigs.getProperty("databaseUsername");
+            String databasePassword = (argsMap.get("databasePassword") != null) ? argsMap.get("databasePassword") :
+                    databaseConfigs.getProperty("databasePassword");
+
+            String databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databasePath;
 
             Class.forName(databaseConfigs.getProperty("databaseDriver")).newInstance();
             dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);
@@ -258,7 +263,7 @@ public class PostgreSQL extends SQL
             logger.log(Level.SEVERE, null, ex);
             return false;
         }
-        return super.shutdown();
+        return true;
     }
 
     /**
@@ -436,9 +441,8 @@ public class PostgreSQL extends SQL
             s.close();
             globalTxCheckin(false);
 
-            if(USE_SCAFFOLD)
+            if(BUILD_SCAFFOLD)
             {
-                //TODO: device policy in case of non-insertion into scaffold
                 insertScaffoldEntry(incomingEdge);
             }
         }
@@ -475,7 +479,7 @@ public class PostgreSQL extends SQL
             }
         }
 
-        if(USE_SCAFFOLD)
+        if(BUILD_SCAFFOLD)
         {
             insertScaffoldEntry(incomingEdge);
         }

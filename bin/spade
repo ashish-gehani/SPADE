@@ -38,10 +38,10 @@ print_help ()
 }
 
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
+CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*:$SPADE_ROOT/lib/neo4j-community-3.4.1/lib/*"
 JAVALIBPATH="$SPADE_ROOT/lib/"
-JVMARGS="-server -Xms4G -Xmx16G"
-JVMARGSDEBUG="-server -Xms4G -Xmx16G -XX:+UseConcMarkSweepGC"
+JVMARGS="-server -Xms8G -Xmx16G"
+JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
 
 pushd "${SPADE_ROOT}" > /dev/null
 

@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -59,9 +60,8 @@ import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
-import org.neo4j.helpers.collection.IteratorUtil;
-import org.neo4j.kernel.Traversal;
-import org.neo4j.tooling.GlobalGraphOperations;
+import org.neo4j.helpers.collection.Iterators;
+import org.neo4j.graphdb.PathExpanders;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -71,13 +71,18 @@ import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.core.BloomFilter;
+import spade.utility.CommonFunctions;
+
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 
 /**
  * Neo4j storage implementation.
  *
  * @author Dawood Tariq and Hasanat Kazmi
  */
-public class Neo4j extends AbstractStorage {
+public class Neo4j extends AbstractStorage
+{
 
     // Identifying annotation to add to each edge/vertex
     private static final String ID_STRING = "id";
@@ -95,7 +100,7 @@ public class Neo4j extends AbstractStorage {
 
     public enum RelationshipTypes implements RelationshipType { EDGE }
     public enum NodeTypes implements Label { VERTEX }
-    private String neo4jDatabaseDirectoryPath = null;
+    private String databasePath;
 
     public final String HASHCODE_LABEL = "hashCode";
     private double falsePositiveProbability = 0.0001;
@@ -149,24 +154,48 @@ public class Neo4j extends AbstractStorage {
     private int foundInDbCountTmp = 0;
     private int falsePositiveCountTmp = 0;
     //
+    private static Properties databaseConfigs = new Properties();
+
+    public Neo4j()
+    {
+        String configFile =  CONFIG_PATH + FILE_SEPARATOR + "spade.storage.Neo4j.config";
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+        }
+        catch(Exception ex)
+        {
+            String msg  = "Loading Neo4j configurations for SPADE unsuccessful! Unexpected behavior might follow";
+            logger.log(Level.WARNING, msg, ex);
+        }
+    }
 
     @Override
-    public boolean initialize(String arguments) {
-        try {
-            neo4jDatabaseDirectoryPath = arguments;
-            if (neo4jDatabaseDirectoryPath == null) {
-                return false;
+    public boolean initialize(String arguments)
+    {
+        try
+        {
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            databasePath = argsMap.get("databasePath");
+            if (databasePath == null)
+            {
+                databasePath = databaseConfigs.getProperty("databasePath");
             }
-            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(neo4jDatabaseDirectoryPath);
-            try {
+            File databaseFile = new File(databasePath);
+            GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(databaseFile);
+            try
+            {
                 graphDbBuilder.loadPropertiesFromFile(NEO_CONFIG_FILE);
-                logger.log(Level.INFO, "Neo4j configurations loaded from config file.");
-            } catch (Exception exception) {
-                logger.log(Level.INFO, "Default Neo4j configurations loaded.");
+                logger.log(Level.INFO, "Neo4j internal configurations loaded from config file.");
+            }
+            catch (Exception exception)
+            {
+                logger.log(Level.INFO, "Default Neo4j internal configurations loaded.");
             }
             graphDb = graphDbBuilder.newGraphDatabase();
 
-            try ( Transaction tx = graphDb.beginTx() ) {
+            try ( Transaction tx = graphDb.beginTx() )
+            {
                 index = graphDb.index();
                 // Create vertex index
                 vertexIndex = index.forNodes(VERTEX_INDEX);
@@ -178,14 +207,17 @@ public class Neo4j extends AbstractStorage {
             nodeBloomFilter = loadBloomFilter(NODE_BLOOMFILTER);
             edgeBloomFilter = loadBloomFilter(EDGE_BLOOMFILTER);
 
-            if (LOG_PERFORMANCE_STATS==true) {
+            if (LOG_PERFORMANCE_STATS==true)
+            {
               logger.log(Level.INFO, "nodeBloomFilter size at startup: " + nodeBloomFilter.count());
             }
             reportProgressDate = Calendar.getInstance().getTime();
             lastFlushTime = Calendar.getInstance().getTime();
 
             return true;
-        } catch (Exception exception) {
+        }
+        catch (Exception exception)
+        {
             logger.log(Level.SEVERE, null, exception);
             return false;
         }
@@ -194,7 +226,7 @@ public class Neo4j extends AbstractStorage {
     private BloomFilter loadBloomFilter(String fileName) {
 
     	try {
-    		File filePath = new File(neo4jDatabaseDirectoryPath, fileName);
+    		File filePath = new File(databasePath, fileName);
     		if (filePath.exists()) {
 	    		FileInputStream fileInputStream = new FileInputStream(
 	    			filePath.toString()
@@ -217,7 +249,7 @@ public class Neo4j extends AbstractStorage {
 
     	try {
     		FileOutputStream fileOutputStream = new FileOutputStream(
-    			new File(neo4jDatabaseDirectoryPath, fileName).toString()
+    			new File(databasePath, fileName).toString()
 			);
     		ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
     		objectOutputStream.writeObject(bloomFilter);
@@ -242,8 +274,8 @@ public class Neo4j extends AbstractStorage {
      * This function queries the underlying storage and retrieves the edge
      * matching the given criteria.
      *
-     * @param childVertexHash  hash of the source vertex.
-     * @param parentVertexHash hash of the destination vertex.
+     * @param childVertexHash  hash of the child vertex.
+     * @param parentVertexHash hash of the parent vertex.
      * @return returns edge object matching the given vertices OR NULL.
      */
     @Override
@@ -270,13 +302,37 @@ public class Neo4j extends AbstractStorage {
      * A child is defined as a vertex which is the source of a
      * direct edge between itself and the given vertex.
      *
-     * @param parentHash hash of the given vertex
+     * @param expression expression for the given vertex
      * @return returns graph object containing children of the given vertex OR NULL.
      */
     @Override
-    public Graph getChildren(String parentHash)
+    public Graph getChildren(String expression)
     {
-        return null;
+        try ( Transaction tx = graphDb.beginTx() )
+        {
+            IndexHits<Node> queryHits = vertexIndex.query(expression);
+            Node startingNode;
+            if(queryHits != null && queryHits.size() > 0)
+            {
+                startingNode = queryHits.iterator().next();
+            }
+            else
+            {
+                return null;
+            }
+            Iterable<Relationship> relationships = startingNode.getRelationships(Direction.INCOMING);
+            Graph children = new Graph();
+            for(Relationship relationship: relationships)
+            {
+                children.putVertex(convertNodeToVertex(relationship.getStartNode()));
+            }
+
+            queryHits.close();
+            tx.success();
+            children.commitIndex();
+
+            return children;
+        }
     }
 
     /**
@@ -284,13 +340,37 @@ public class Neo4j extends AbstractStorage {
      * A parent is defined as a vertex which is the destination of a
      * direct edge between itself and the given vertex.
      *
-     * @param childVertexHash hash of the given vertex
+     * @param expression expression for the given vertex
      * @return returns graph object containing parents of the given vertex OR NULL.
      */
     @Override
-    public Graph getParents(String childVertexHash)
+    public Graph getParents(String expression)
     {
-        return null;
+        try ( Transaction tx = graphDb.beginTx() )
+        {
+            IndexHits<Node> queryHits = vertexIndex.query(expression);
+            Node startingNode;
+            if(queryHits != null && queryHits.size() > 0)
+            {
+                startingNode = queryHits.iterator().next();
+            }
+            else
+            {
+                return null;
+            }
+            Iterable<Relationship> relationships = startingNode.getRelationships(Direction.OUTGOING);
+            Graph parents = new Graph();
+            for(Relationship relationship: relationships)
+            {
+                parents.putVertex(convertNodeToVertex(relationship.getEndNode()));
+            }
+
+            queryHits.close();
+            tx.success();
+            parents.commitIndex();
+
+            return parents;
+        }
     }
 
     @Override
@@ -378,8 +458,10 @@ public class Neo4j extends AbstractStorage {
   	}
 
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
-      String bigHashCode = incomingVertex.bigHashCode();
+    public boolean putVertex(AbstractVertex incomingVertex)
+    {
+        incomingVertex.removeAnnotation(ID_STRING);
+        String bigHashCode = incomingVertex.bigHashCode();
     	globalTxCheckin();
 
     	try {
@@ -390,7 +472,7 @@ public class Neo4j extends AbstractStorage {
           }
           dbHitCountForVertex++;
 
-          // L3: confirming from db if we have bloom filter false postive after FIFO cache miss
+          // L3: confirming from db if we have bloom filter false positive after FIFO cache miss
           Node newVertex;
           newVertex = vertexIndex.get(HASHCODE_LABEL, bigHashCode).getSingle();
         	if (newVertex != null) {
@@ -405,20 +487,20 @@ public class Neo4j extends AbstractStorage {
         reportProgress();
 
         Node newVertex = graphDb.createNode(NodeTypes.VERTEX);
-        for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+        newVertex.setProperty(PRIMARY_KEY, bigHashCode);
+        vertexIndex.add(newVertex, PRIMARY_KEY, bigHashCode);
+        for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
+        {
           String key = currentEntry.getKey();
           String value = currentEntry.getValue();
-          if (key.equalsIgnoreCase(ID_STRING)) {
-            continue;
-          }
           newVertex.setProperty(key, value);
           vertexIndex.add(newVertex, key, value);
         }
 
-        newVertex.setProperty(HASHCODE_LABEL, bigHashCode);
-        vertexIndex.add(newVertex, HASHCODE_LABEL, bigHashCode);
-        newVertex.setProperty(ID_STRING, newVertex.getId());
-        vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
+//        newVertex.setProperty(HASHCODE_LABEL, bigHashCode);
+//        vertexIndex.add(newVertex, HASHCODE_LABEL, bigHashCode);
+//        newVertex.setProperty(ID_STRING, newVertex.getId());
+//        vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
         nodeBloomFilter.add(bigHashCode);
         putInLocalCache(newVertex, bigHashCode);
 
@@ -430,12 +512,16 @@ public class Neo4j extends AbstractStorage {
 
 
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
+    public boolean putEdge(AbstractEdge incomingEdge)
+    {
+        incomingEdge.removeAnnotation(ID_STRING);
         String bigHashCode = incomingEdge.bigHashCode();
-        if (edgeBloomFilter.contains(bigHashCode)) {
+        if (edgeBloomFilter.contains(bigHashCode))
+        {
             Relationship edge;
             edge = edgeIndex.get(HASHCODE_LABEL, bigHashCode).getSingle();
-            if (edge != null) {
+            if (edge != null)
+            {
                 // if (LOG_PERFORMANCE_STATS == true) {
                 //     // if there is heavy repetition of edges then comment out this logging or it will slow down ingestion
                 //     logger.log(Level.INFO, "Edge (bigHashCode: " + bigHashCode + ") is already in db, skiping");
@@ -444,98 +530,133 @@ public class Neo4j extends AbstractStorage {
             }
         }
         
-        AbstractVertex srcVertex = incomingEdge.getChildVertex();
-        AbstractVertex dstVertex = incomingEdge.getParentVertex();
+        AbstractVertex childVertex = incomingEdge.getChildVertex();
+        AbstractVertex parentVertex = incomingEdge.getParentVertex();
         globalTxCheckin();
 
-        try {
-            String srcVertexBigHashCode = srcVertex.bigHashCode();
-            String dstVertexBigHashCode = dstVertex.bigHashCode();
-            Node srcNode = localNodeCache.get(srcVertexBigHashCode);
-            Node dstNode = localNodeCache.get(dstVertexBigHashCode);
+        try
+        {
+            String childVertexHash = childVertex.bigHashCode();
+            String parentVertexHash = parentVertex.bigHashCode();
+            Node childNode = localNodeCache.get(childVertexHash);
+            Node parentNode = localNodeCache.get(parentVertexHash);
 
-            if (srcNode == null) {
+            if (childNode == null)
+            {
                 dbHitCountForEdge++;
-                srcNode = vertexIndex.get(HASHCODE_LABEL, srcVertexBigHashCode).getSingle();
-                if (srcNode == null) {
+                childNode = vertexIndex.get(HASHCODE_LABEL, childVertexHash).getSingle();
+                if (childNode == null)
+                {
                     // insert vertex if not in db
-                    putVertex(srcVertex);
-                    srcNode = localNodeCache.get(srcVertexBigHashCode);
+                    putVertex(childVertex);
+                    childNode = localNodeCache.get(childVertexHash);
                 }
-                putInLocalCache(srcNode, srcVertexBigHashCode);
+                putInLocalCache(childNode, childVertexHash);
             }
 
-            if (dstNode == null) {
+            if (parentNode == null)
+            {
                 dbHitCountForEdge++;
-                dstNode = vertexIndex.get(HASHCODE_LABEL, dstVertexBigHashCode).getSingle();
-                if (dstNode == null) {
+                parentNode = vertexIndex.get(HASHCODE_LABEL, parentVertexHash).getSingle();
+                if (parentNode == null)
+                {
                     // insert vertex if not in db
-                    putVertex(dstVertex);
-                    dstNode = localNodeCache.get(dstVertexBigHashCode);
+                    putVertex(parentVertex);
+                    parentNode = localNodeCache.get(parentVertexHash);
                 }
-                putInLocalCache(dstNode, dstVertexBigHashCode);
+                putInLocalCache(parentNode, parentVertexHash);
             }
 
             edgeCount++;
             reportProgress();
 
-            Relationship newEdge = srcNode.createRelationshipTo(dstNode, RelationshipTypes.EDGE);
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+            Relationship newEdge = childNode.createRelationshipTo(parentNode, RelationshipTypes.EDGE);
+            newEdge.setProperty(PRIMARY_KEY, bigHashCode);
+            edgeIndex.add(newEdge, PRIMARY_KEY, bigHashCode);
+            newEdge.setProperty(CHILD_VERTEX_KEY, childVertexHash);
+            edgeIndex.add(newEdge, CHILD_VERTEX_KEY, childVertexHash);
+            newEdge.setProperty(PARENT_VERTEX_KEY, parentVertexHash);
+            edgeIndex.add(newEdge, PARENT_VERTEX_KEY, parentVertexHash);
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
+            {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                if (key.equalsIgnoreCase(ID_STRING)) {
-                    continue;
-                }
                 newEdge.setProperty(key, value);
                 edgeIndex.add(newEdge, key, value);
-
-                newEdge.setProperty(HASHCODE_LABEL, bigHashCode);
-                edgeIndex.add(newEdge, HASHCODE_LABEL, bigHashCode);
-                newEdge.setProperty(ID_STRING, newEdge.getId());
-                edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
-                edgeBloomFilter.add(bigHashCode);
             }
+//            newEdge.setProperty(HASHCODE_LABEL, bigHashCode);
+//            edgeIndex.add(newEdge, HASHCODE_LABEL, bigHashCode);
+            newEdge.setProperty(ID_STRING, newEdge.getId());
+            edgeIndex.add(newEdge, ID_STRING, Long.toString(newEdge.getId()));
+            edgeBloomFilter.add(bigHashCode);
 
         } finally {
         }
         return true;
     }
 
-    public static AbstractVertex convertNodeToVertex(Node node) {
+    public static AbstractVertex convertNodeToVertex(Node node)
+    {
         AbstractVertex resultVertex = new Vertex();
-        for (String key : node.getPropertyKeys()) {
+        for (String key : node.getPropertyKeys())
+        {
+            if(key.equalsIgnoreCase(PRIMARY_KEY))
+            {
+                continue;
+            }
             Object value = node.getProperty(key);
-            if (value instanceof String) {
+            if (value instanceof String)
+            {
                 resultVertex.addAnnotation(key, (String) value);
-            } else if (value instanceof Long) {
+            }
+            else if (value instanceof Long)
+            {
                 resultVertex.addAnnotation(key, Long.toString((Long) value));
-            } else if (value instanceof Double) {
+            }
+            else if (value instanceof Double)
+            {
                 resultVertex.addAnnotation(key, Double.toString((Double) value));
             }
         }
         return resultVertex;
     }
 
-    public static AbstractEdge convertRelationshipToEdge(Relationship relationship) {
-        AbstractEdge resultEdge = new Edge((Vertex) convertNodeToVertex(relationship.getStartNode()), (Vertex) convertNodeToVertex(relationship.getEndNode()));
-        for (String key : relationship.getPropertyKeys()) {
+    public static AbstractEdge convertRelationshipToEdge(Relationship relationship)
+    {
+        AbstractEdge resultEdge = new Edge(convertNodeToVertex(relationship.getStartNode()), convertNodeToVertex(relationship.getEndNode()));
+        for (String key : relationship.getPropertyKeys())
+        {
+            if(key.equals(PRIMARY_KEY) ||
+                    key.equals(CHILD_VERTEX_KEY) ||
+                    key.equals(PARENT_VERTEX_KEY))
+            {
+                continue;
+            }
             Object value = relationship.getProperty(key);
-            if (value instanceof String) {
+            if (value instanceof String)
+            {
                 resultEdge.addAnnotation(key, (String) value);
-            } else if (value instanceof Long) {
+            }
+            else if (value instanceof Long)
+            {
                 resultEdge.addAnnotation(key, Long.toString((Long) value));
-            } else if (value instanceof Double) {
+            }
+            else if (value instanceof Double)
+            {
                 resultEdge.addAnnotation(key, Double.toString((Double) value));
             }
         }
         return resultEdge;
     }
 
-    public Graph getVertices(String expression) {
-        try ( Transaction tx = graphDb.beginTx() ) {
+    public Graph getVertices(String expression)
+    {
+        try ( Transaction tx = graphDb.beginTx() )
+        {
             Graph resultGraph = new Graph();
             IndexHits<Node> queryHits = vertexIndex.query(expression);
-            for (Node foundNode : queryHits) {
+            for (Node foundNode : queryHits)
+            {
                 resultGraph.putVertex(convertNodeToVertex(foundNode));
             }
             queryHits.close();
@@ -545,51 +666,72 @@ public class Neo4j extends AbstractStorage {
         }
     }
 
-    public Graph getEdges(String sourceExpression, String destinationExpression, String edgeExpression) {
+    public Graph getEdges(String childExpression, String parentExpression, String edgeExpression)
+    {
         Graph resultGraph = new Graph();
-        Set<AbstractVertex> sourceSet = null;
-        Set<AbstractVertex> destinationSet = null;
-        if (sourceExpression != null) {
-            if (sourceExpression.trim().equalsIgnoreCase("null")) {
-                sourceExpression = null;
-            } else {
-                sourceSet = getVertices(sourceExpression).vertexSet();
+        Set<AbstractVertex> childSet = null;
+        Set<AbstractVertex> parentSet = null;
+        if (childExpression != null)
+        {
+            if (childExpression.trim().equalsIgnoreCase("null"))
+            {
+                childExpression = null;
+            }
+            else
+            {
+                childSet = getVertices(childExpression).vertexSet();
             }
         }
-        if (destinationExpression != null) {
-            if (destinationExpression.trim().equalsIgnoreCase("null")) {
-                destinationExpression = null;
-            } else {
-                destinationSet = getVertices(destinationExpression).vertexSet();
+        if (parentExpression != null)
+        {
+            if (parentExpression.trim().equalsIgnoreCase("null"))
+            {
+                parentExpression = null;
+            }
+            else
+            {
+                parentSet = getVertices(parentExpression).vertexSet();
             }
         }
-        try( Transaction tx = graphDb.beginTx() ){
+        try( Transaction tx = graphDb.beginTx() )
+        {
             IndexHits<Relationship> queryHits = edgeIndex.query(edgeExpression);
-            for (Relationship foundRelationship : queryHits) {
-                AbstractVertex sourceVertex = convertNodeToVertex(foundRelationship.getStartNode());
-                AbstractVertex destinationVertex = convertNodeToVertex(foundRelationship.getEndNode());
+            for (Relationship foundRelationship : queryHits)
+            {
+                AbstractVertex childVertex = convertNodeToVertex(foundRelationship.getStartNode());
+                AbstractVertex parentVertex = convertNodeToVertex(foundRelationship.getEndNode());
                 AbstractEdge tempEdge = convertRelationshipToEdge(foundRelationship);
-                if ((sourceExpression != null) && (destinationExpression != null)) {
-                    if (sourceSet.contains(tempEdge.getChildVertex()) && destinationSet.contains(tempEdge.getParentVertex())) {
-                        resultGraph.putVertex(sourceVertex);
-                        resultGraph.putVertex(destinationVertex);
+                if ((childExpression != null) && (parentExpression != null))
+                {
+                    if (childSet.contains(tempEdge.getChildVertex()) && parentSet.contains(tempEdge.getParentVertex()))
+                    {
+                        resultGraph.putVertex(childVertex);
+                        resultGraph.putVertex(parentVertex);
                         resultGraph.putEdge(tempEdge);
                     }
-                } else if ((sourceExpression != null) && (destinationExpression == null)) {
-                    if (sourceSet.contains(tempEdge.getChildVertex())) {
-                        resultGraph.putVertex(sourceVertex);
-                        resultGraph.putVertex(destinationVertex);
+                }
+                else if ((childExpression != null) && (parentExpression == null))
+                {
+                    if (childSet.contains(tempEdge.getChildVertex()))
+                    {
+                        resultGraph.putVertex(childVertex);
+                        resultGraph.putVertex(parentVertex);
                         resultGraph.putEdge(tempEdge);
                     }
-                } else if ((sourceExpression == null) && (destinationExpression != null)) {
-                    if (destinationSet.contains(tempEdge.getParentVertex())) {
-                        resultGraph.putVertex(sourceVertex);
-                        resultGraph.putVertex(destinationVertex);
+                }
+                else if ((childExpression == null) && (parentExpression != null))
+                {
+                    if (parentSet.contains(tempEdge.getParentVertex()))
+                    {
+                        resultGraph.putVertex(childVertex);
+                        resultGraph.putVertex(parentVertex);
                         resultGraph.putEdge(tempEdge);
                     }
-                } else if ((sourceExpression == null) && (destinationExpression == null)) {
-                    resultGraph.putVertex(sourceVertex);
-                    resultGraph.putVertex(destinationVertex);
+                }
+                else if ((childExpression == null) && (parentExpression == null))
+                {
+                    resultGraph.putVertex(childVertex);
+                    resultGraph.putVertex(parentVertex);
                     resultGraph.putEdge(tempEdge);
                 }
             }
@@ -600,11 +742,14 @@ public class Neo4j extends AbstractStorage {
         return resultGraph;
     }
 
-    public Graph getEdges(int srcVertexId, int dstVertexId) {
+    public Graph getEdges(int childVertexId, int parentVertexId)
+    {
         Graph resultGraph = new Graph();
-        try( Transaction tx = graphDb.beginTx() ){
-            IndexHits<Relationship> queryHits = edgeIndex.query("type:*", graphDb.getNodeById(srcVertexId), graphDb.getNodeById(dstVertexId));
-            for (Relationship currentRelationship : queryHits) {
+        try( Transaction tx = graphDb.beginTx() )
+        {
+            IndexHits<Relationship> queryHits = edgeIndex.query("type:*", graphDb.getNodeById(childVertexId), graphDb.getNodeById(parentVertexId));
+            for (Relationship currentRelationship : queryHits)
+            {
                 resultGraph.putVertex(convertNodeToVertex(currentRelationship.getStartNode()));
                 resultGraph.putVertex(convertNodeToVertex(currentRelationship.getEndNode()));
                 resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
@@ -643,7 +788,7 @@ public class Neo4j extends AbstractStorage {
         Set<Long> addedNodeIds = new HashSet<>();
         Set<Long> addedEdgeIds = new HashSet<>();
 
-        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(Traversal.expanderForAllTypes(Direction.OUTGOING), maxLength);
+        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(PathExpanders.forDirection(Direction.OUTGOING), maxLength);
         for (Node sourceNode : sourceNodes) {
             for (Node destinationNode : destinationNodes) {
                 try ( Transaction tx = graphDb.beginTx() ) {
@@ -806,7 +951,8 @@ public class Neo4j extends AbstractStorage {
         final Index<Node> vertexIndex;
         final RelationshipIndex edgeIndex;
         System.out.println("Loading database...");
-        final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder( dbpath )
+        File databaseFile = new File(dbpath);
+        final GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(databaseFile)
             .setConfig(GraphDatabaseSettings.pagecache_memory, "" + (Runtime.getRuntime().totalMemory()*9)/10)
             // .setConfig(GraphDatabaseSettings.keep_logical_logs, "false")
             .newGraphDatabase();
@@ -856,8 +1002,8 @@ public class Neo4j extends AbstractStorage {
                             for ( String key : node.getPropertyKeys() ) {
                                 vertexIndex.add(node, key, (String) node.getProperty( key ));
                             }
-                            node.setProperty(spade.storage.Neo4j.ID_STRING, node.getId());
-                            vertexIndex.add(node, spade.storage.Neo4j.ID_STRING, Long.toString(node.getId()));
+                            node.setProperty(ID_STRING, node.getId());
+                            vertexIndex.add(node, ID_STRING, Long.toString(node.getId()));
 
                             counter++;
                         }
@@ -900,8 +1046,8 @@ public class Neo4j extends AbstractStorage {
                             for ( String key : relationship.getPropertyKeys() ) {
                                 edgeIndex.add(relationship, key, (String) relationship.getProperty( key ));
                             }
-                            relationship.setProperty(spade.storage.Neo4j.ID_STRING, relationship.getId());
-                            edgeIndex.add(relationship, spade.storage.Neo4j.ID_STRING, Long.toString(relationship.getId()));
+                            relationship.setProperty(ID_STRING, relationship.getId());
+                            edgeIndex.add(relationship, ID_STRING, Long.toString(relationship.getId()));
 
                             counter++;
                         }
@@ -943,22 +1089,23 @@ public class Neo4j extends AbstractStorage {
 
 
         System.out.println("Counted Nodes and Relationships to index...");
-        final int total;
+        final long total;
 
-        try ( Transaction tx = graphDb.beginTx() ) {
-            total = IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllNodes()) + IteratorUtil.count(GlobalGraphOperations.at(graphDb).getAllRelationships());
+        try ( Transaction tx = graphDb.beginTx() )
+        {
+            total = Iterators.count(graphDb.getAllNodes().iterator()) + Iterators.count(graphDb.getAllRelationships().iterator());
             tx.success();
         }
         System.out.println("done.\n");
 
-        int percentageCompleted = 0;
+        long percentageCompleted = 0;
         int count = 0;
 
         try ( Transaction tx = graphDb.beginTx() ) {
 
             // index nodes
-            Iterator<Node> nodeIterator = GlobalGraphOperations.at(graphDb).getAllNodes().iterator();
-            Iterator<Relationship> edgeIterator = GlobalGraphOperations.at(graphDb).getAllRelationships().iterator();
+            Iterator<Node> nodeIterator = graphDb.getAllNodes().iterator();
+            Iterator<Relationship> edgeIterator = graphDb.getAllRelationships().iterator();
 
             while (edgeIterator.hasNext() || nodeIterator.hasNext()) {
 

@@ -1,3 +1,19 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2017 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.analyzer;
 
 import spade.client.QueryMetaData;
@@ -19,9 +35,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +47,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import static spade.core.AbstractStorage.USE_SCAFFOLD;
+import static spade.core.AbstractStorage.BUILD_SCAFFOLD;
 import static spade.core.AbstractStorage.scaffold;
 
 /**
@@ -180,18 +196,36 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         try
                         {
-                            parseQuery(line.trim());
+                            if(AbstractQuery.getCurrentStorage() == null)
+                            {
+                                String message = "No storage available to query!";
+                                throw new Exception(message);
+                            }
+                            boolean parse_successful = parseQuery(line.trim());
+                            if(!parse_successful)
+                            {
+                                String message = "Querying parsing not successful! Make sure you follow the guidelines";
+                                throw new Exception(message);
+                            }
                             AbstractQuery queryClass;
                             Class<?> returnType;
                             Object result;
-                            if(USE_SCAFFOLD)
+                            if( (functionName.equalsIgnoreCase("GetLineage") ||
+                                    functionName.equalsIgnoreCase("GetPaths") )
+                                    && USE_SCAFFOLD && BUILD_SCAFFOLD)
                             {
                                 result = scaffold.queryManager(queryParameters);
                                 returnType = Graph.class;
                             }
                             else
                             {
-                                queryClass = (AbstractQuery) Class.forName(getFunctionClassName(functionName)).newInstance();
+                                String functionClassName = getFunctionClassName(functionName);
+                                if(functionClassName == null)
+                                {
+                                    String message = "Required query class not available!";
+                                    throw new Exception(message);
+                                }
+                                queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
                                 returnType = Class.forName(getReturnType(functionName));
                                 result = queryClass.execute(queryParameters, resultLimit);
                             }
@@ -204,7 +238,7 @@ public class CommandLine extends AbstractAnalyzer
                                         logger.log(Level.INFO, "Performing remote resolution.");
                                         //TODO: Could use a factory pattern here to get remote resolver
                                         remoteResolver = new Recursive((Graph) result, functionName,
-                                                        Integer.parseInt(maxLength), direction);
+                                                Integer.parseInt(maxLength), direction);
                                         Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
                                         remoteResolverThread.start();
                                         // wait for thread to complete to get the final graph
@@ -212,18 +246,16 @@ public class CommandLine extends AbstractAnalyzer
                                         // final graph is a set of un-stitched graphs
                                         Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
                                         clearRemoteResolutionRequired();
-                                        // TODO: perform consistency check here - Carol
-                                        inconsistencyDetector.setResponseGraph(finalGraphSet);
-                                        int inconsistencyCount = inconsistencyDetector.findInconsistency();
-                                        logger.log(Level.WARNING, "inconsistencyCount: " + inconsistencyCount);
-                                        if(inconsistencyCount == 0)
+                                        discrepancyDetector.setResponseGraph(finalGraphSet);
+                                        int discrepancyCount = discrepancyDetector.findDiscrepancy();
+                                        logger.log(Level.WARNING, "discrepancyCount: " + discrepancyCount);
+                                        if(discrepancyCount == 0)
                                         {
-                                            inconsistencyDetector.update();
+                                            discrepancyDetector.update();
                                         }
-                                        // TODO: return the stitched graphs
-                                        for(Graph graph: finalGraphSet)
+                                        for(Graph graph : finalGraphSet)
                                         {
-                                            result = Graph.union((Graph)result, graph);
+                                            result = Graph.union((Graph) result, graph);
                                         }
                                         logger.log(Level.INFO, "Remote resolution completed.");
                                     }
@@ -235,14 +267,26 @@ public class CommandLine extends AbstractAnalyzer
                                         result = iterateTransformers((Graph) result, queryMetaData);
                                         logger.log(Level.INFO, "Transformers applied successfully.");
                                     }
-                                    // if result output is to be converted into dot file format
-                                    if(EXPORT_RESULT)
-                                    {
-                                        returnType = String.class;
-                                        result = ((Graph) result).exportGraph();
-                                        EXPORT_RESULT = false;
-                                    }
                                 }
+                                // if result output is to be converted into dot file format
+                                if(EXPORT_RESULT)
+                                {
+                                    Graph temp_result = new Graph();
+                                    if(functionName.equalsIgnoreCase("GetEdge"))
+                                    {
+                                        temp_result.edgeSet().addAll((Set<AbstractEdge>) result);
+                                        result = temp_result;
+                                    }
+                                    else if(functionName.equalsIgnoreCase("GetVertex"))
+                                    {
+                                        temp_result.vertexSet().addAll((Set<AbstractVertex>) result);
+                                        result = temp_result;
+                                    }
+                                    returnType = String.class;
+                                    result = ((Graph) result).exportGraph();
+                                    EXPORT_RESULT = false;
+                                }
+
                             }
                             else
                             {
@@ -251,21 +295,12 @@ public class CommandLine extends AbstractAnalyzer
                             queryOutputStream.writeObject(returnType.getName());
                             if(result != null)
                             {
-//                                String string = "Vertices: " + ((Graph) result).vertexSet().size();
-//                                string += ". Edges: " + ((Graph) result).edgeSet().size() + ".\n";
-//                                logger.log(Level.INFO, string);
-//                                string += result.toString();
-//                                logger.log(Level.INFO, string);
-//                                queryOutputStream.writeObject(string);
-                                if(functionName.equals("GetLineage"))
-                                    modifyResult((Graph) result);
                                 queryOutputStream.writeObject(result);
                             }
                             else
                             {
                                 queryOutputStream.writeObject("Result Empty");
                             }
-
                         }
                         catch(Exception ex)
                         {
@@ -350,7 +385,7 @@ public class CommandLine extends AbstractAnalyzer
         }
 
         @Override
-        public void parseQuery(String query_line)
+        public boolean parseQuery(String query_line)
         {
             if(query_line.startsWith("export"))
             {
@@ -435,7 +470,9 @@ public class CommandLine extends AbstractAnalyzer
             catch(Exception ex)
             {
                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query: \n" + query_line, ex);
+                return false;
             }
+            return true;
         }
 
         private Map<String, Object> getQueryMetaData(Graph result)
