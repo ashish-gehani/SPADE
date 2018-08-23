@@ -793,7 +793,6 @@ public class CDM extends Kafka {
 	private void publishCurrentTimeMarker(){
 		long currentTimeNanos = System.currentTimeMillis() * 1000 * 1000; // millis to nanos
 		TimeMarker timeMarker = new TimeMarker(currentTimeNanos);
-		incrementStatsCount(timeMarker.getClass().getSimpleName());
 		publishRecords(Arrays.asList(buildTcCDMDatum(timeMarker, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE)));
 	}
 	
