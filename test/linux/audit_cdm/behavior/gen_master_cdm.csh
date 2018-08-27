@@ -12,6 +12,7 @@ endif
 
 foreach file (`ls $PWD/$1/*.bin`)
   echo $file
+  sleep 5
   if (! -e $file".json.master") then
    sudo ./gen_audit_spade.sh $file >& /dev/null
    sleep 5
