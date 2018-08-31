@@ -300,10 +300,10 @@ public class Kernel
     {
         String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
         String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
-        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PUBLIC_KEYS_FOLDER + FILE_SEPARATOR + "server.public";
-        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PRIVATE_KEYS_FOLDER + FILE_SEPARATOR + "server.private";
-        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PUBLIC_KEYS_FOLDER + FILE_SEPARATOR + "client.public";
-        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PRIVATE_KEYS_FOLDER + FILE_SEPARATOR + "client.private";
+        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverpublic.keystore";
+        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverprivate.keystore";
+        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientpublic.keystore";
+        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientprivate.keystore";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
@@ -323,7 +323,7 @@ public class Kernel
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(serverKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+        kmf.init(clientKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
@@ -338,7 +338,7 @@ public class Kernel
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(clientKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(serverKeyStorePrivate, "private".toCharArray());
+        kmf.init(serverKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);

@@ -77,8 +77,8 @@ public class Control {
     {
         String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
         String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
-        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PUBLIC_KEYS_FOLDER + FILE_SEPARATOR + "server.public";
-        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PRIVATE_KEYS_FOLDER + FILE_SEPARATOR + "client.private";
+        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverpublic.keystore";
+        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientprivate.keystore";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
