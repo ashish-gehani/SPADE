@@ -45,6 +45,15 @@ import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
+import static spade.core.Kernel.KEYSTORE_FOLDER;
+import static spade.core.Kernel.KEYS_FOLDER;
+import static spade.core.Kernel.PASSWORD_PRIVATE_KEYSTORE;
+import static spade.core.Kernel.PASSWORD_PUBLIC_KEYSTORE;
+import static spade.core.Kernel.PRIVATE_KEYS_FOLDER;
+import static spade.core.Kernel.PUBLIC_KEYS_FOLDER;
+
 public class Control {
 
     private static PrintStream outputStream;
@@ -53,7 +62,7 @@ public class Control {
     private static BufferedReader SPADEControlOut;
     private static volatile boolean shutdown;
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private static final String historyFile = SPADE_ROOT + "cfg/control.history";
+    private static final String historyFile = SPADE_ROOT + CONFIG_PATH + FILE_SEPARATOR + "control.history";
     private static final String COMMAND_PROMPT = "-> ";
     private static final int THREAD_SLEEP_DELAY = 10;
     // Members for creating secure sockets
@@ -61,17 +70,20 @@ public class Control {
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
     
-    private static final Object SPADEControlInLock = new Object(); //an object to synchronize on and to wait until SPADEControlIn has been initialized
+    //an object to synchronize on and to wait until SPADEControlIn has been initialized
+    private static final Object SPADEControlInLock = new Object();
 
     private static void setupKeyStores() throws Exception
     {
-        String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
-        String clientPrivatePath = SPADE_ROOT + "cfg/ssl/client.private";
+        String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
+        String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
+        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PUBLIC_KEYS_FOLDER + FILE_SEPARATOR + "server.public";
+        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PRIVATE_KEYS_FOLDER + FILE_SEPARATOR + "client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
-        serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
+        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
         clientKeyStorePrivate = KeyStore.getInstance("JKS");
-        clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
+        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
     }
 
     private static void setupClientSSLContext() throws Exception
@@ -82,7 +94,7 @@ public class Control {
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(serverKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+        kmf.init(clientKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);

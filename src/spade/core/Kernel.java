@@ -93,6 +93,30 @@ public class Kernel
      */
      public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
     /**
+     * Name of keys folder.
+     */
+    public static final String KEYS_FOLDER = "keys";
+    /**
+     * Name of keystore folders.
+     */
+    public static final String KEYSTORE_FOLDER = "keystore";
+    /**
+     * Name of private keys folder.
+     */
+    public static final String PRIVATE_KEYS_FOLDER = "private";
+    /**
+     * Name of public keys folder.
+     */
+    public static final String PUBLIC_KEYS_FOLDER = "public";
+    /**
+     * Password for private keystore.
+     */
+    public static final String PASSWORD_PRIVATE_KEYSTORE = "private_password";
+    /**
+     * Password for public keystore.
+     */
+    public static final String PASSWORD_PUBLIC_KEYSTORE = "public_password";
+    /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
      */
@@ -274,20 +298,21 @@ public class Kernel
 
     private static void setupKeyStores() throws Exception
     {
-        String KEYSTORE_PATH = CONFIG_PATH + FILE_SEPARATOR + "ssl";
-        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.public";
-        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.private";
-        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.public";
-        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.private";
+        String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
+        String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
+        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PUBLIC_KEYS_FOLDER + FILE_SEPARATOR + "server.public";
+        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PRIVATE_KEYS_FOLDER + FILE_SEPARATOR + "server.private";
+        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PUBLIC_KEYS_FOLDER + FILE_SEPARATOR + "client.public";
+        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + PRIVATE_KEYS_FOLDER + FILE_SEPARATOR + "client.private";
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
-        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), "public".toCharArray());
+        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
         serverKeyStorePrivate = KeyStore.getInstance("JKS");
-        serverKeyStorePrivate.load(new FileInputStream(SERVER_PRIVATE_PATH), "private".toCharArray());
+        serverKeyStorePrivate.load(new FileInputStream(SERVER_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
         clientKeyStorePublic = KeyStore.getInstance("JKS");
-        clientKeyStorePublic.load(new FileInputStream(CLIENT_PUBLIC_PATH), "public".toCharArray());
+        clientKeyStorePublic.load(new FileInputStream(CLIENT_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
         clientKeyStorePrivate = KeyStore.getInstance("JKS");
-        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), "private".toCharArray());
+        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
     }
 
     private static void setupClientSSLContext() throws Exception
