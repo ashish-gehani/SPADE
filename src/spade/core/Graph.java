@@ -19,20 +19,8 @@
  */
 package spade.core;
 
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.queryparser.classic.ParseException;
-import org.apache.lucene.queryparser.classic.QueryParser;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.RAMDirectory;
 
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
@@ -47,7 +35,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -81,8 +68,8 @@ public class Graph extends AbstractStorage implements Serializable
     private static final Pattern nodePattern = Pattern.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
     private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
 
-    private transient Analyzer analyzer = new KeywordAnalyzer();
-    private transient QueryParser queryParser = new QueryParser(null, analyzer);
+//    private transient Analyzer analyzer = new KeywordAnalyzer();
+//    private transient QueryParser queryParser = new QueryParser(null, analyzer);
     private Set<AbstractVertex> vertexSet = new LinkedHashSet<>();
     private Map<String, AbstractVertex> vertexIdentifiers = new HashMap<>();
     private Map<AbstractVertex, String> reverseVertexIdentifiers = new HashMap<>();
@@ -91,35 +78,27 @@ public class Graph extends AbstractStorage implements Serializable
     private Map<AbstractEdge, String> reverseEdgeIdentifiers = new HashMap<>();
     private Map<AbstractVertex, Integer> networkMap = new HashMap<>();
     private int serial_number = 1;
+
     /**
      * For query results spanning multiple hosts, this is used to indicate
      * whether the network boundaries have been properly transformed.
      */
     public boolean transformed = false;
-    private Directory vertexIndex;
-    private Directory edgeIndex;
-    private transient IndexWriter vertexIndexWriter;
-    private transient IndexWriter edgeIndexWriter;
+//    private Directory vertexIndex;
+//    private Directory edgeIndex;
+//    private transient IndexWriter vertexIndexWriter;
+//    private transient IndexWriter edgeIndexWriter;
 
     /**
      * Fields for discrepancy check and query params
      */
     private String hostName;
+    private byte[] signature;
+    private String queryString;
     private String computeTime;
     private int maxDepth;
     private AbstractVertex rootVertex;
-
-    public AbstractVertex getDestinationVertex()
-    {
-        return destinationVertex;
-    }
-
     private AbstractVertex destinationVertex;
-    private String signature;
-    
-    public void mergeThreads() {
-
-    }
 
     /**
      * An empty constructor.
@@ -127,11 +106,11 @@ public class Graph extends AbstractStorage implements Serializable
     public Graph() {
         // Lucene initialization
         try {
-            vertexIndex = new RAMDirectory();
-            edgeIndex = new RAMDirectory();
-            vertexIndexWriter = new IndexWriter(vertexIndex, new IndexWriterConfig(analyzer));
-            edgeIndexWriter = new IndexWriter(edgeIndex, new IndexWriterConfig(analyzer));
-            queryParser.setAllowLeadingWildcard(true);
+//            vertexIndex = new RAMDirectory();
+//            edgeIndex = new RAMDirectory();
+//            vertexIndexWriter = new IndexWriter(vertexIndex, new IndexWriterConfig(analyzer));
+//            edgeIndexWriter = new IndexWriter(edgeIndex, new IndexWriterConfig(analyzer));
+//            queryParser.setAllowLeadingWildcard(true);
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
@@ -251,8 +230,8 @@ public class Graph extends AbstractStorage implements Serializable
 
     public void commitIndex() {
         try {
-            vertexIndexWriter.commit();
-            edgeIndexWriter.commit();
+//            vertexIndexWriter.commit();
+//            edgeIndexWriter.commit();
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
@@ -717,19 +696,19 @@ public class Graph extends AbstractStorage implements Serializable
     public List<Integer> listVertices(String expression) {
         try {
             List<Integer> results = new ArrayList<>();
-            IndexReader reader = DirectoryReader.open(vertexIndex);
-            IndexSearcher searcher = new IndexSearcher(reader);
-            ScoreDoc[] hits = searcher.search(queryParser.parse(expression), MAX_QUERY_HITS).scoreDocs;
-
-            for (int i = 0; i < hits.length; ++i) {
-                int docId = hits[i].doc;
-                Document foundDoc = searcher.doc(docId);
-                results.add(Integer.parseInt(foundDoc.get(PRIMARY_KEY)));
-            }
-
-            reader.close();
+//            IndexReader reader = DirectoryReader.open(vertexIndex);
+//            IndexSearcher searcher = new IndexSearcher(reader);
+//            ScoreDoc[] hits = searcher.search(queryParser.parse(expression), MAX_QUERY_HITS).scoreDocs;
+//
+//            for (int i = 0; i < hits.length; ++i) {
+//                int docId = hits[i].doc;
+//                Document foundDoc = searcher.doc(docId);
+//                results.add(Integer.parseInt(foundDoc.get(PRIMARY_KEY)));
+//            }
+//
+//            reader.close();
             return results;
-        } catch (IOException | ParseException | NumberFormatException exception) {
+        } catch (Exception exception) {
             logger.log(Level.WARNING, "Error while listing vertices. Returning empty array.", exception);
             return new ArrayList<>();
         }
@@ -935,14 +914,29 @@ public class Graph extends AbstractStorage implements Serializable
         this.rootVertex = rootVertex;
     }
 
-    public String getSignature()
+    public byte[] getSignature()
     {
         return signature;
     }
 
-    public void setSignature(String signature)
+    public void setSignature(byte[] signature)
     {
         this.signature = signature;
+    }
+
+    public AbstractVertex getDestinationVertex()
+    {
+        return destinationVertex;
+    }
+
+    public String getQueryString()
+    {
+        return queryString;
+    }
+
+    public void setQueryString(String queryString)
+    {
+        this.queryString = queryString;
     }
 
     @Override
@@ -953,4 +947,5 @@ public class Graph extends AbstractStorage implements Serializable
                 ", edgeSet=" + edgeSet +
                 '}';
     }
+
 }

@@ -28,6 +28,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Signature;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -116,6 +120,77 @@ public abstract class AbstractAnalyzer
             functionToClassMap = new HashMap<>();
             Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.WARNING, "Unable to read functionToClassMap from file!");
         }
+    }
+
+    public static boolean verifySignature(Graph graph)
+    {
+        try
+        {
+            Signature signature = Signature.getInstance("SHA256withRSA");
+            String serverName = graph.getHostName();
+            if(serverName != null)
+            {
+                String key_alias = serverName + ".server.public";
+                PublicKey publicKey = Kernel.getServerPublicKey(key_alias);
+                if(publicKey == null)
+                {
+                    return false;
+                }
+                signature.initVerify(publicKey);
+
+                for(AbstractVertex vertex : graph.vertexSet())
+                {
+                    signature.update(vertex.bigHashCodeBytes());
+                }
+                for(AbstractEdge edge : graph.edgeSet())
+                {
+                    signature.update(edge.bigHashCodeBytes());
+                }
+                signature.update(graph.getQueryString().getBytes("UTF-8"));
+
+                return signature.verify(graph.getSignature());
+            }
+        } catch(Exception ex)
+        {
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, "Error verifying the result graph!", ex);
+        }
+
+        return false;
+    }
+
+    protected static boolean addSignature(Graph graph)
+    {
+        try
+        {
+            SecureRandom secureRandom = new SecureRandom();
+            secureRandom.nextInt();
+            Signature signature = Signature.getInstance("SHA256withRSA");
+            PrivateKey privateKey = Kernel.getServerPrivateKey("serverprivate");
+            if(privateKey == null)
+            {
+                return false;
+            }
+            signature.initSign(privateKey, secureRandom);
+
+            for(AbstractVertex vertex : graph.vertexSet())
+            {
+                signature.update(vertex.bigHashCodeBytes());
+            }
+            for(AbstractEdge edge : graph.edgeSet())
+            {
+                signature.update(edge.bigHashCodeBytes());
+            }
+            signature.update(graph.getQueryString().getBytes("UTF-8"));
+
+            byte[] digitalSignature = signature.sign();
+            graph.setSignature(digitalSignature);
+
+            return true;
+        } catch(Exception ex)
+        {
+            Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE, "Error signing the result graph!", ex);
+        }
+        return false;
     }
 
     public void shutdown()
@@ -217,6 +292,7 @@ public abstract class AbstractAnalyzer
     {
         protected Socket querySocket;
         protected Map<String, List<String>> queryParameters;
+        protected String queryString;
         protected String queryConstraints;
         protected String functionName;
         protected String queryStorage;

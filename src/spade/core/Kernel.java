@@ -20,6 +20,7 @@
 package spade.core;
 
 import spade.filter.FinalCommitFilter;
+import spade.utility.HostInfo;
 import spade.utility.LogManager;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -38,14 +39,19 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.Key;
 import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.Date;
@@ -116,6 +122,10 @@ public class Kernel
      * Password for public keystore.
      */
     public static final String PASSWORD_PUBLIC_KEYSTORE = "public_password";
+    /**
+     * Public name for this host.
+     */
+    public static String HOST_NAME = null;
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
@@ -238,7 +248,25 @@ public class Kernel
     public static SSLSocketFactory sslSocketFactory;
     public static SSLServerSocketFactory sslServerSocketFactory;
 
-    private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
+    //time to timeout after when reading from the control client socket
+    private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000;
+
+    // reads name of the host
+    private static void getHostName()
+    {
+        String hostName = HostInfo.getHostName();
+        if(hostName != null)
+        {
+            try(PrintWriter out = new PrintWriter("hostname.txt"))
+            {
+                HOST_NAME = hostName;
+                out.println(hostName);
+            } catch(Exception ex)
+            {
+                logger.log(Level.WARNING, "error saving hostname to file");
+            }
+        }
+    }
 
     /**
      * The main initialization function.
@@ -283,6 +311,8 @@ public class Kernel
         {
             System.err.println("Error initializing exception logger");
         }
+
+        getHostName();
 
         registerShutdownThread();
 
@@ -343,6 +373,34 @@ public class Kernel
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
         sslServerSocketFactory = sslContext.getServerSocketFactory();
+    }
+
+    public static PrivateKey getServerPrivateKey(String alias)
+    {
+        try
+        {
+            KeyStore.ProtectionParameter protectionParameter =
+                    new KeyStore.PasswordProtection(PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+            KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) serverKeyStorePrivate.getEntry(alias, protectionParameter);
+            return privateKeyEntry.getPrivateKey();
+        } catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error getting server private key", ex);
+            return null;
+        }
+    }
+
+    public static PublicKey getServerPublicKey(String alias)
+    {
+        try
+        {
+            Certificate certificate = serverKeyStorePublic.getCertificate(alias);
+            return certificate.getPublicKey();
+        } catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error getting server public key", ex);
+            return null;
+        }
     }
 
     public static void addServerSocket(ServerSocket socket)
@@ -911,7 +969,6 @@ public class Kernel
                         storage.edgeCount = 0;
                         storages.add(storage);
                         logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
-                        logger.log(Level.INFO, "currentStorage set to "+ storage.getClass().getName());
                         outputStream.println("done");
                     }
                     else

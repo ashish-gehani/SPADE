@@ -57,7 +57,7 @@ REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM
 
 all:    build
 	./bin/keys/generatekeys.sh
- 
+
 help:
 	@echo 'Usage:'
 	@echo '  	make                	- to compile the code'

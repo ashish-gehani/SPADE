@@ -17,9 +17,6 @@
 package spade.client;
 
 import jline.ConsoleReader;
-import spade.core.AbstractQuery;
-import spade.core.AbstractStorage;
-import spade.core.Kernel;
 import spade.core.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -29,6 +26,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,18 +37,16 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.regex.Pattern;
 
 import static spade.analyzer.CommandLine.QueryCommands;
-import static spade.analyzer.CommandLine.getQueryCommands;
 import static spade.core.Kernel.CONFIG_PATH;
 import static spade.core.Kernel.FILE_SEPARATOR;
 import static spade.core.Kernel.KEYSTORE_FOLDER;
 import static spade.core.Kernel.KEYS_FOLDER;
 import static spade.core.Kernel.PASSWORD_PRIVATE_KEYSTORE;
 import static spade.core.Kernel.PASSWORD_PUBLIC_KEYSTORE;
-import static spade.core.Kernel.PRIVATE_KEYS_FOLDER;
-import static spade.core.Kernel.PUBLIC_KEYS_FOLDER;
 
 /**
  * @author raza
@@ -64,12 +60,41 @@ public class CommandLine
     private static final String COMMAND_PROMPT = "-> ";
     private static HashMap<String, String> constraints = new HashMap<>();
     private static String RESULT_EXPORT_PATH = null;
+    private static String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.client.CommandLine.config";
+    protected static Properties configs = new Properties();
+    private static boolean STORAGE_SET = false;
 
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
 
+    static
+    {
+        try
+        {
+            configs.setProperty("storage_set", "false");
+            configs.store(new FileOutputStream(configFile), null);
+        }
+        catch(Exception ex)
+        {
+            System.err.println("Error reading/writing config file for the client");
+        }
+    }
+
+    public CommandLine()
+    {
+        try
+        {
+            configs.load(new FileInputStream(configFile));
+            STORAGE_SET = Boolean.parseBoolean(configs.getProperty("storage_set", "false"));
+        }
+        catch(Exception ex)
+        {
+            STORAGE_SET = false;
+            System.err.println("Unable to read config file for CommandLine client");
+        }
+    }
 
     private static void setupKeyStores() throws Exception
     {
@@ -133,7 +158,7 @@ public class CommandLine
         try
         {
             System.out.println("SPADE 3.0 Query Client");
-            if(AbstractQuery.getCurrentStorage() == null)
+            if(!STORAGE_SET)
             {
                 System.out.println("No storage set for querying. Use command: 'set storage <storage_name>'");
             }
@@ -161,10 +186,26 @@ public class CommandLine
                         clientOutputStream.println(line);
                         break;
                     }
-                    else if(AbstractQuery.getCurrentStorage() == null)
+                    else if(line.toLowerCase().startsWith("set"))
+                    {
+                        // set storage for querying
+                        clientOutputStream.println(line);
+                        String result = (String) clientInputStream.readObject();
+                        if(result.equalsIgnoreCase("success"))
+                        {
+                            STORAGE_SET = true;
+                            configs.setProperty("storage_set", "true");
+                            configs.store(new FileOutputStream(configFile), null);
+                            System.out.println("Storage set successfully. You can query now!");
+                        }
+                        else if(result.equalsIgnoreCase("failure"))
+                        {
+                            System.err.println("Storage not set successfully!");
+                        }
+                    }
+                    else if(!STORAGE_SET)
                     {
                         System.out.println("No storage set for querying. Use command: 'set storage <storage_name>'");
-                        continue;
                     }
                     else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
                     {
@@ -233,11 +274,6 @@ public class CommandLine
                         // save export path for next answer's dot file
                         parseExport(line);
                     }
-                    else if(line.toLowerCase().startsWith("set"))
-                    {
-                        // set storage for querying
-                        parseSetStorage(line);
-                    }
                     else
                     {
                         System.out.println("Invalid input!");
@@ -252,34 +288,6 @@ public class CommandLine
         catch (IOException ex)
         {
             System.err.println(CommandLine.class.getName() + " Error in CommandLine Client! " + ex);
-        }
-    }
-
-    private static void parseSetStorage(String line)
-    {
-        try
-        {
-            String[] tokens = line.split("\\s+");
-            String setCommand = tokens[0].toLowerCase().trim();
-            String storageCommand = tokens[1].toLowerCase().trim();
-            String storageName = tokens[2].toLowerCase().trim();
-            if(setCommand.equals("set") && storageCommand.equals("storage"))
-            {
-                AbstractStorage storage = Kernel.getStorage(storageName);
-                if(storage != null)
-                {
-                    AbstractQuery.setCurrentStorage(storage);
-                    System.out.println("Storage '" + storageName + "' successfully set for querying.");
-                }
-                else
-                {
-                    System.out.println("Storage '" + tokens[2] + "' not found");
-                }
-            }
-        }
-        catch(Exception ex)
-        {
-            System.err.println(CommandLine.class.getName() + " Error setting storages!");
         }
     }
 

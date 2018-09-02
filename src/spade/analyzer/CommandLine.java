@@ -20,6 +20,7 @@ import spade.client.QueryMetaData;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Kernel;
@@ -35,7 +36,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -129,6 +129,7 @@ public class CommandLine extends AbstractAnalyzer
                         try
                         {
                             serverSocket.close();
+                            logger.log(Level.INFO, "Closed server socket for analyzer");
                         }
                         catch(Exception ex)
                         {
@@ -192,6 +193,18 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         break;
                     }
+                    else if (line.toLowerCase().startsWith("set"))
+                    {
+                        boolean success = parseSetStorage(line);
+                        if(success)
+                        {
+                            queryOutputStream.writeObject("success");
+                        }
+                        else
+                        {
+                            queryOutputStream.writeObject("failure");
+                        }
+                    }
                     else
                     {
                         try
@@ -233,6 +246,9 @@ public class CommandLine extends AbstractAnalyzer
                             {
                                 if(result instanceof Graph)
                                 {
+                                    ((Graph) result).setQueryString(queryString);
+                                    ((Graph) result).setHostName(Kernel.HOST_NAME);
+                                    AbstractAnalyzer.addSignature((Graph) result);
                                     if(isRemoteResolutionRequired())
                                     {
                                         logger.log(Level.INFO, "Performing remote resolution.");
@@ -384,6 +400,38 @@ public class CommandLine extends AbstractAnalyzer
             }
         }
 
+        private boolean parseSetStorage(String line)
+        {
+            try
+            {
+                String[] tokens = line.split("\\s+");
+                String setCommand = tokens[0].toLowerCase().trim();
+                String storageCommand = tokens[1].toLowerCase().trim();
+                String storageName = tokens[2].toLowerCase().trim();
+                if(setCommand.equals("set") && storageCommand.equals("storage"))
+                {
+                    AbstractStorage storage = Kernel.getStorage(storageName);
+                    if(storage != null)
+                    {
+                        AbstractQuery.setCurrentStorage(storage);
+                        logger.log(Level.INFO, "Storage '" + storageName + "' successfully set for querying.");
+                        return true;
+                    }
+                    else
+                    {
+                        logger.log(Level.SEVERE, "Storage '" + tokens[2] + "' not found");
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                logger.log(Level.SEVERE, " Error setting storages! " + ex);
+            }
+
+            return false;
+        }
+
+
         @Override
         public boolean parseQuery(String query_line)
         {
@@ -392,6 +440,7 @@ public class CommandLine extends AbstractAnalyzer
                 query_line = query_line.substring(query_line.indexOf("export") + "export".length());
                 EXPORT_RESULT = true;
             }
+            queryString = query_line;
             queryParameters = new LinkedHashMap<>();
             try
             {

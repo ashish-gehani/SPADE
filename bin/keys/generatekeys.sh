@@ -3,7 +3,7 @@
 KEYS_PRESENT=cfg/keys/key.generation.done
 
 if [ -f $KEYS_PRESENT ] ; then
-	printf 'Keys present. Will not generate new ones.\n'
+	printf 'Keys present. Will not generate new ones.\nRun `addkeys.sh` to import public keys from remote hosts into the keystore.\n'
 	exit
 fi
 
@@ -18,19 +18,6 @@ keytool -genkey -alias clientprivate -keystore cfg/keys/keystore/clientprivate.k
 # Generate server public/private key pair
 echo Generating server public-private key pair
 keytool -genkey -alias serverprivate -keystore cfg/keys/keystore/serverprivate.keystore -storetype JKS -keyalg rsa -dname "CN=Your Name, OU=Your Organizational Unit, O=Your Organization, L=Your City, S=Your State, C=Your Country" -storepass private_password -keypass private_password
-
-
-# Export public keys from other hosts into public keystore
-for file in cfg/keys/public/*.client.public; do
-	[ -f "$file" ] || continue
-	filename=${file##*/}
-	keytool -import -noprompt -alias "$filename" -keystore cfg/keys/keystore/clientpublic.keystore -file "$file" -storepass public_password
-done
-for file in cfg/keys/public/*.server.public; do
-	[ -f "$file" ] || continue
-	filename=${file##*/}
-	keytool -import -noprompt -alias "$filename" -keystore cfg/keys/keystore/serverpublic.keystore -file "$file" -storepass public_password
-done
 
 
 # Export client public key and import it into public keystore

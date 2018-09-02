@@ -50,7 +50,31 @@ import spade.reporter.audit.VertexIdentifier;
 public class HostInfo{
 
 	private static final Logger logger = Logger.getLogger(HostInfo.class.getName());
-	
+
+
+	public static String getHostName()
+	{
+		Host host = HostInfo.ReadFromOperatingSystem.readSafe();
+		if(host != null)
+		{
+			Map<String, String> hostMap = Host.hostToMap(host);
+			String hostName = hostMap.get(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
+			if(hostName == null || hostName.isEmpty())
+			{
+				logger.log(Level.WARNING, "unable to get host name");
+			}
+			else
+			{
+				return hostName;
+			}
+		}
+		else
+		{
+			logger.log(Level.WARNING, "unable to get host information");
+		}
+		return null;
+	}
+
 	/**
 	 * Class to read host information from the underlying operating system.
 	 * Currently only for Ubuntu 14.04.

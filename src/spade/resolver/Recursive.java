@@ -17,6 +17,7 @@
 package spade.resolver;
 
 import org.apache.commons.collections.CollectionUtils;
+import spade.core.AbstractAnalyzer;
 import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractResolver;
@@ -139,7 +140,6 @@ class ContactRemote implements Callable<Graph>
             SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket();
             int connectTimeOut = 5000; // 5 sec
             remoteSocket.connect(new InetSocketAddress(host, port), connectTimeOut);
-//            SSLSocket remoteSocket = (SSLSocket) Kernel.sslSocketFactory.createSocket(host, port);
 
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
@@ -209,18 +209,28 @@ class ContactRemote implements Callable<Graph>
             returnType = (String) graphInputStream.readObject();
             if(returnType.equals(Graph.class.getName()))
             {
-                AbstractEdge localToRemoteEdge = new Edge(networkVertex, targetNetworkVertex);
-                localToRemoteEdge.addAnnotation("type", "WasDerivedFrom");
-                AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, networkVertex);
-                remoteToLocalEdge.addAnnotation("type", "WasDerivedFrom");
                 resultGraph = (Graph) graphInputStream.readObject();
-                resultGraph.putVertex(networkVertex);
-                resultGraph.putEdge(localToRemoteEdge);
-                resultGraph.putEdge(remoteToLocalEdge);
+                boolean verified = AbstractAnalyzer.verifySignature(resultGraph);
+                if(verified)
+                {
+                    logger.log(Level.INFO, "Signature of remote graph verified successfully");
+                    AbstractEdge localToRemoteEdge = new Edge(networkVertex, targetNetworkVertex);
+                    localToRemoteEdge.addAnnotation("type", "WasDerivedFrom");
+                    AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, networkVertex);
+                    remoteToLocalEdge.addAnnotation("type", "WasDerivedFrom");
+                    resultGraph.putVertex(networkVertex);
+                    resultGraph.putEdge(localToRemoteEdge);
+                    resultGraph.putEdge(remoteToLocalEdge);
+                } else
+                {
+                    logger.log(Level.WARNING, "Not able to verify signature of remote graph");
+                    return null;
+                }
             }
             else
             {
                 logger.log(Level.INFO, "Return type not Graph!");
+                return null;
             }
 
             remoteSocketOut.println("exit");
