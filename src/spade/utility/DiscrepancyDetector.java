@@ -1,33 +1,23 @@
-/*
- --------------------------------------------------------------------------------
- SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2017 SRI International
- This program is free software: you can redistribute it and/or
- modify it under the terms of the GNU General Public License as
- published by the Free Software Foundation, either version 3 of the
- License, or (at your option) any later version.
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- General Public License for more details.
- You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/>.
- --------------------------------------------------------------------------------
- */
 package spade.utility;
-
-import java.util.Map;
-import java.util.Set;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 
-import java.text.SimpleDateFormat;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -38,15 +28,16 @@ import java.util.logging.Logger;
 
 public class DiscrepancyDetector
 {
-	
+
 	private Set<Graph> cachedGraphs;
 	private Set<Graph> responseGraphs;
 	private static final Logger logger = Logger.getLogger(DiscrepancyDetector.class.getName());
+	private Queue<Graph> removeGraphs = new LinkedList<>();
 		
 	/**
 	 * Constructs a new Discrepancy Detector
-	 * 
-	 */
+	 *
+     */
 	public DiscrepancyDetector()
 	{
 		cachedGraphs = new HashSet<>();
@@ -57,99 +48,186 @@ public class DiscrepancyDetector
 	/**
 	 * Updates the cached graph by adding a checked response graph to it
 	 *  should be called after an discrepancy detection that returned false
-	 *  Updates the cached main graph by adding all the vertices and edges in responseGraphs set to it
 	 */
 	public void update()
 	{
-		Graph mainCachedGraph = cachedGraphs.iterator().next();
-		for(Graph response: responseGraphs)
-		{
-			for(AbstractVertex responseVertex: response.vertexSet())
+        try
+        {
+            Properties props = new Properties();
+            props.load(new FileInputStream("update_cache.txt"));
+            boolean update_cache = Boolean.parseBoolean(props.getProperty("update_cache"));
+
+			Graph mainCachedGraph = cachedGraphs.iterator().next();
+			File file = null;
+			if(!update_cache)
 			{
-				mainCachedGraph.putVertex(responseVertex);
+				file = new File("graph_cache");
+				FileOutputStream fos = new FileOutputStream(file);
+				ObjectOutputStream oos = new ObjectOutputStream(fos);
+				oos.writeObject(mainCachedGraph);
+				oos.flush();
+				oos.close();
+				fos.close();
 			}
-			for(AbstractEdge e: response.edgeSet())
+			int cache_size = mainCachedGraph.vertexSet().size() + mainCachedGraph.edgeSet().size();
+			String stats = "graph cache size: " + cache_size;
+			logger.log(Level.INFO, stats);
+			long start_time = System.nanoTime();
+			for(Graph response : responseGraphs)
 			{
-				mainCachedGraph.putEdge(e);
-			}			
+				removeGraphs.add(response);
+				for(AbstractVertex responseVertex : response.vertexSet())
+				{
+					// put new vertex in cached graph
+					mainCachedGraph.putVertex(responseVertex);
+				}
+				for(AbstractEdge responseEdge : response.edgeSet())
+				{
+					mainCachedGraph.putEdge(responseEdge);
+				}
+			}
+			long execution_time = System.nanoTime() - start_time;
+			logger.log(Level.INFO, "cache merge time(ns): " + execution_time);
+			if(!update_cache)
+			{
+				FileInputStream fis = new FileInputStream(file);
+				ObjectInputStream ois = new ObjectInputStream(fis);
+				cachedGraphs = new HashSet<>();
+				mainCachedGraph = (Graph) ois.readObject();
+				cachedGraphs.add(mainCachedGraph);
+				cache_size = mainCachedGraph.vertexSet().size() + mainCachedGraph.edgeSet().size();
+				stats = "again--graph cache size: " + cache_size;
+				logger.log(Level.INFO, stats);
+				ois.close();
+				fis.close();
+			}
+		} catch(Exception ex)
+		{
+			logger.log(Level.INFO, "Error updating cache", ex);
 		}
 	}
 
 
 	/**
 	 * Tests every graph in the test set against the correspondent graph in the ground set (if it exists)
-	 * 
+	 *
 	 * @return true if found discrepancy or false if not
 	 */
-	public int findDiscrepancy ()
+	public int findDiscrepancy()
 	{
 		int discrepancyCount = 0;
-		for(Graph T: responseGraphs)
+		for(Graph g_later : responseGraphs)
 		{
-			discrepancyCount += findDiscrepancy(getCachedGraph(), T);
+			Graph g_earlier = getCachedGraph();
+			discrepancyCount += findDiscrepancy(g_earlier, g_later);
+			try
+			{
+				Properties props = new Properties();
+				props.load(new FileInputStream("prune_graph.txt"));
+				boolean prune_graph = Boolean.parseBoolean(props.getProperty("prune_graph"));
+				if(prune_graph)
+				{
+					Graph graph = removeGraphs.remove();
+					g_earlier.remove(graph);
+					cachedGraphs = new HashSet<>();
+					cachedGraphs.add(g_earlier);
+					findDiscrepancy(g_earlier, g_later);
+				}
+			} catch(Exception ex)
+			{
+				logger.log(Level.WARNING, "error finding discrepancy", ex);
+			}
 		}
-
 		return discrepancyCount;
 	}
-	
+
+
 	/**
-	 * 
+	 *
 	 * @return main cached graph in cachedGraphs set
 	 */
-	private Graph getCachedGraph()
-	{
-		return cachedGraphs.iterator().next();
+    private Graph getCachedGraph()
+    {
+        return cachedGraphs.iterator().next();
 	}
 
 	/**
-	 * Algorithm to detect basic discrepancies between graphs g_earlier and g_later
-	 * 
-	 * @return count of discrepancies found
+     * Algorithm to detect basic discrepancies between graphs g_earlier and g_later
+     *
+	 * @return true if found discrepancy or false if not
 	 */
 	private int findDiscrepancy(Graph g_earlier, Graph g_later)
 	{
 		int discrepancyCount = 0;
-		Set<AbstractVertex> referenceVertexSet = g_earlier.vertexSet();
-		Set<AbstractEdge> referenceEdgeSet = g_earlier.edgeSet();
-		Set<AbstractVertex> testVertexSet = g_later.vertexSet();
-		Set<AbstractEdge> testEdgeSet = g_later.edgeSet();
-		for(AbstractVertex x : testVertexSet)
+		Set<AbstractVertex> g_earlierVertexSet = g_earlier.vertexSet();
+		Set<AbstractEdge> g_earlierEdgeSet = g_earlier.edgeSet();
+		Set<AbstractVertex> g_laterVertexSet = g_later.vertexSet();
+		Set<AbstractEdge> g_laterEdgeSet = g_later.edgeSet();
+		for(AbstractVertex x : g_laterVertexSet)
 		{
-			if(!referenceVertexSet.contains(x)) // x is not in ground
+			// x is not in ground
+			if(!g_earlierVertexSet.contains(x))
 				continue;
-			for(AbstractEdge e : referenceEdgeSet)
+			for(AbstractEdge e : g_earlierEdgeSet)
 			{
-				// x -e-> y and e is in g_earlier and NOT in g_later
-				if(!testEdgeSet.contains(e))
+				if(e.getParentVertex().equals(x))
 				{
-					// y is in testGraph
-					if(testVertexSet.contains(e.getParentVertex()))
+					// x -e-> y and e is in g_earlier and NOT in g_later
+					if(!g_laterEdgeSet.contains(e))
 					{
-						logger.log(Level.WARNING, "Discrepancy Detected: missing edge");
-						discrepancyCount++;
-					}
-					if(x.getDepth() < g_earlier.getMaxDepth())
-					{
-						logger.log(Level.WARNING, "Discrepancy Detected: missing edge and vertex");
-						discrepancyCount++;
+						// y is in g_later
+						if(g_laterVertexSet.contains(e.getChildVertex()))
+						{
+							logger.log(Level.WARNING, "Discrepancy Detected: missing edge");
+							discrepancyCount++;
+						} else if(x.getDepth() < g_later.getMaxDepth())
+						{
+							logger.log(Level.WARNING, "Discrepancy Detected: missing edge and vertex");
+							discrepancyCount++;
+						}
 					}
 				}
 			}
 		}
-		// verify if every vertex in the edges is in V2
-		for(AbstractEdge e : testEdgeSet)
+		// verify if both vertices in an edge are in g_later
+		for(AbstractEdge e : g_laterEdgeSet)
 		{
-			if(!testVertexSet.contains(e.getChildVertex()) || !testVertexSet.contains(e.getParentVertex()))
+			if(!g_laterVertexSet.contains(e.getChildVertex()) || !g_laterVertexSet.contains(e.getParentVertex()))
+			{
+				logger.log(Level.WARNING, "Discrepancy Detected: missing vertex");
 				discrepancyCount++;
+			}
 		}
+		// verify if this vertex is an end point to at least one edge
+		for(AbstractVertex x : g_laterVertexSet)
+		{
+			boolean isChild = false;
+			for(AbstractEdge e : g_laterEdgeSet)
+			{
+				if(e.getChildVertex().equals(x) || x.equals(g_later.getRootVertex()))
+				{
+					isChild = true;
+					// break;
+				}
+			}
+			if(!isChild)
+			{
+				logger.log(Level.WARNING, "Discrepancy Detected: dangling vertex, " + x.bigHashCode());
+				discrepancyCount++;
+			}
+		}
+
+		logger.log(Level.INFO, "discrepancyCount: " + discrepancyCount);
+		int cache_size = g_earlier.vertexSet().size() + g_earlier.edgeSet().size();
+		String stats = "graph cache size: " + cache_size;
+		logger.log(Level.INFO, stats);
 
 		return discrepancyCount;
 	}
-	
 
 	/**
 	 * Constructs a mapping from vertices to their outgoing edges
-	 * 
+	 *
 	 * @param G a graph
 	 * @return a map from the vertices to their respective outgoing edges
 	 */
@@ -159,32 +237,36 @@ public class DiscrepancyDetector
 		Set<AbstractEdge> E = G.edgeSet();
 		for(AbstractEdge e : E)
 		{
-			AbstractVertex v = e.getChildVertex();
-			List<AbstractEdge> L = out.get(v);
+            AbstractVertex v = e.getParentVertex();
+            List<AbstractEdge> L = out.get(v);
 			if(L == null)
 				L = new ArrayList<>();
 			L.add(e);
-			out.put(v, L);
+            logger.log(Level.INFO, "L.size: " + L.size());
+            out.put(v, L);
 		}
-		return out;
+        logger.log(Level.INFO, "out.size: " + out.size());
+        return out;
 	}
 
-	
-	public void setResponseGraph(Set<Graph> t) {
+	public void setResponseGraph(Set<Graph> t)
+	{
 		responseGraphs = t;
 	}
-	
+
 	/**
 	 * @return ground graph groundGraph
 	 */
-	public Set<Graph> getCachedGraphs() {
+	public Set<Graph> getCachedGraphs()
+	{
 		return cachedGraphs;
 	}
-	
+
 	/**
 	 * @return Graph testGraph
 	 */
-	public Set<Graph> getResponseGraph() {
+	public Set<Graph> getResponseGraph()
+	{
 		return responseGraphs;
 	}
 }

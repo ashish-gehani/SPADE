@@ -221,7 +221,14 @@ class ContactRemote implements Callable<Graph>
                     resultGraph.putVertex(networkVertex);
                     resultGraph.putEdge(localToRemoteEdge);
                     resultGraph.putEdge(remoteToLocalEdge);
-                } else
+                    int vertex_count = resultGraph.vertexSet().size();
+                    int edge_count = resultGraph.edgeSet().size();
+                    int total = vertex_count + edge_count;
+                    String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
+                            edge_count + ", total: " + total;
+                    logger.log(Level.INFO, stats);
+                }
+                else
                 {
                     logger.log(Level.WARNING, "Not able to verify signature of remote graph");
                     return null;

@@ -163,8 +163,8 @@ public class Graph extends AbstractStorage implements Serializable
                 doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
             doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            // vertexIndexWriter.addDocument(doc);
-            // vertexIndexWriter.commit();
+//             vertexIndexWriter.addDocument(doc);
+//             vertexIndexWriter.commit();
 
             String hashCode = incomingVertex.bigHashCode();
             vertexIdentifiers.put(hashCode, incomingVertex);

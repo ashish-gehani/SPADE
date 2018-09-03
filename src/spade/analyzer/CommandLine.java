@@ -38,10 +38,12 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -275,6 +277,25 @@ public class CommandLine extends AbstractAnalyzer
                                         }
                                         logger.log(Level.INFO, "Remote resolution completed.");
                                     }
+                                    else
+                                    {
+                                        int vertex_count = ((Graph)result).vertexSet().size();
+                                        int edge_count = ((Graph)result).edgeSet().size();
+                                        int total = vertex_count + edge_count;
+                                        String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
+                                                edge_count + ", total: " + total;
+                                        logger.log(Level.INFO, stats);
+
+                                        modifyResult((Graph) result);
+                                        logger.log(Level.INFO, "result vertex set size: " + ((Graph)result).vertexSet().size());
+                                        logger.log(Level.INFO, "result edge set size: " + ((Graph)result).edgeSet().size());
+                                        Set<Graph> resultSet = new HashSet<>();
+                                        resultSet.add((Graph) result);
+                                        discrepancyDetector.setResponseGraph(resultSet);
+                                        int discrepancyCount = discrepancyDetector.findDiscrepancy();
+                                        if(discrepancyCount == 0)
+                                            discrepancyDetector.update();
+                                    }
                                     if(USE_TRANSFORMER)
                                     {
                                         logger.log(Level.INFO, "Applying transformers on the final result.");
@@ -302,7 +323,6 @@ public class CommandLine extends AbstractAnalyzer
                                     result = ((Graph) result).exportGraph();
                                     EXPORT_RESULT = false;
                                 }
-
                             }
                             else
                             {
@@ -362,7 +382,9 @@ public class CommandLine extends AbstractAnalyzer
                 int removedVerticesCount = 0;
                 String removedVertices = "";
                 List<AbstractVertex> verticesToRemove = new ArrayList<>();
-                for(AbstractVertex vertex: result.vertexSet())
+                List<AbstractVertex> vertexSet = new ArrayList<>(result.vertexSet());
+                Collections.shuffle(vertexSet, new Random(43));
+                for(AbstractVertex vertex: vertexSet)
                 {
                     if(removedVerticesCount >= vertices)
                         break;
@@ -371,15 +393,19 @@ public class CommandLine extends AbstractAnalyzer
                     removedVerticesCount++;
                 }
                 logger.log(Level.INFO, "removedVertices: " + removedVertices);
+                logger.log(Level.INFO, "result vertex set size: " + result.vertexSet().size());
                 for(int i = 0; i < verticesToRemove.size(); i++)
                 {
                     result.vertexSet().remove(verticesToRemove.get(i));
                 }
+                logger.log(Level.INFO, "result vertex set size: " + result.vertexSet().size());
 
                 int removedEdgesCount = 0;
                 String removedEdges = "";
                 List<AbstractEdge> edgesToRemove = new ArrayList<>();
-                for(AbstractEdge edge: result.edgeSet())
+                List<AbstractEdge> edgeSet = new ArrayList<>(result.edgeSet());
+                Collections.shuffle(edgeSet, new Random(43));
+                for(AbstractEdge edge: edgeSet)
                 {
                     if(removedEdgesCount >= edges)
                         break;
@@ -388,10 +414,12 @@ public class CommandLine extends AbstractAnalyzer
                     removedEdgesCount++;
                 }
                 logger.log(Level.INFO, "removedEdges: " + removedEdges);
+                logger.log(Level.INFO, "result edge set size: " + result.edgeSet().size());
                 for(int i = 0; i < edgesToRemove.size(); i++)
                 {
                     result.edgeSet().remove(edgesToRemove.get(i));
                 }
+                logger.log(Level.INFO, "result edge set size: " + result.edgeSet().size());
 
             }
             catch(Exception ex)
@@ -542,11 +570,3 @@ public class CommandLine extends AbstractAnalyzer
         }
     }
 }
-
-
-
-
-
-
-
-
