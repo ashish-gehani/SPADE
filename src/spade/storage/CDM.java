@@ -863,7 +863,7 @@ public class CDM extends Kafka {
 								if(fileObjectType != null){
 									incrementStatsCount(fileObjectType.name());
 								}
-							}else if(cdmObject.getClass().equals(IpcObjectType.class)){
+							}else if(cdmObject.getClass().equals(IpcObject.class)){
 								IpcObjectType ipcObjectType = ((IpcObject)cdmObject).getType();
 								if(ipcObjectType != null){
 									incrementStatsCount(ipcObjectType.name());
