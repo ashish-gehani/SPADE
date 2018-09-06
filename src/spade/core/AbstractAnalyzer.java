@@ -122,7 +122,7 @@ public abstract class AbstractAnalyzer
         }
     }
 
-    public static boolean verifySignature(Graph graph)
+    public static boolean verifySignature(Graph graph, String nonce)
     {
         try
         {
@@ -147,6 +147,7 @@ public abstract class AbstractAnalyzer
                     signature.update(edge.bigHashCodeBytes());
                 }
                 signature.update(graph.getQueryString().getBytes("UTF-8"));
+                signature.update(nonce.getBytes("UTF-8"));
 
                 return signature.verify(graph.getSignature());
             }
@@ -158,7 +159,7 @@ public abstract class AbstractAnalyzer
         return false;
     }
 
-    protected static boolean addSignature(Graph graph)
+    protected static boolean addSignature(Graph graph, String nonce)
     {
         try
         {
@@ -181,6 +182,10 @@ public abstract class AbstractAnalyzer
                 signature.update(edge.bigHashCodeBytes());
             }
             signature.update(graph.getQueryString().getBytes("UTF-8"));
+            if(nonce != null)
+            {
+                signature.update(nonce.getBytes("UTF-8"));
+            }
 
             byte[] digitalSignature = signature.sign();
             graph.setSignature(digitalSignature);

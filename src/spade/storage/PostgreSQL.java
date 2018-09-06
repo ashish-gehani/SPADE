@@ -354,7 +354,7 @@ public class PostgreSQL extends SQL
             return true;
         }
         String edgeHash = incomingEdge.bigHashCode();
-        if(Cache.isPresent(edgeHash))
+        if(Cache.isEdgePresent(edgeHash))
             return true;
 
         String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
@@ -647,7 +647,7 @@ public class PostgreSQL extends SQL
             return true;
         }
         String vertexHash = incomingVertex.bigHashCode();
-        if(Cache.isPresent(vertexHash))
+        if(Cache.isVertexPresent(vertexHash))
             return true;
 
         // Use StringBuilder to build the PostgreSQL insert statement

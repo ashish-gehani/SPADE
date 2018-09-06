@@ -65,7 +65,7 @@ public class Sketch extends AbstractResolver
 
     public Sketch(Graph graph, String func, int d, String dir, Socket s)
     {
-        super(graph, func, d, dir);
+        super(graph, func, d, dir, null);
         clientSocket = s;
     }
 

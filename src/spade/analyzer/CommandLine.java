@@ -25,11 +25,11 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Kernel;
 import spade.resolver.Recursive;
+import spade.utility.Query;
 
-import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
@@ -185,12 +185,13 @@ public class CommandLine extends AbstractAnalyzer
                 OutputStream outStream = querySocket.getOutputStream();
                 InputStream inStream = querySocket.getInputStream();
                 ObjectOutputStream queryOutputStream = new ObjectOutputStream(outStream);
-                BufferedReader queryInputStream = new BufferedReader(new InputStreamReader(inStream));
-
+                ObjectInputStream queryInputStream = new ObjectInputStream(inStream);
                 while(!SHUTDOWN)
                 {
                     // Commands read from the input stream and executed.
-                    String line = queryInputStream.readLine();
+                    Query query = (Query) queryInputStream.readObject();
+                    String line = query.getQueryString();
+                    String nonce = query.getQueryTime();
                     if(line.equalsIgnoreCase(QueryCommands.QUERY_EXIT.value))
                     {
                         break;
@@ -216,6 +217,7 @@ public class CommandLine extends AbstractAnalyzer
                                 String message = "No storage available to query!";
                                 throw new Exception(message);
                             }
+                            logger.log(Level.INFO, "Executing query: " + line.trim());
                             boolean parse_successful = parseQuery(line.trim());
                             if(!parse_successful)
                             {
@@ -223,14 +225,17 @@ public class CommandLine extends AbstractAnalyzer
                                 throw new Exception(message);
                             }
                             AbstractQuery queryClass;
-                            Class<?> returnType;
-                            Object result;
+                            Object localResult;
+                            Class<?> resultType;
+                            Object finalResult = null;
+                            Class<?> finalResultType;
                             if( (functionName.equalsIgnoreCase("GetLineage") ||
                                     functionName.equalsIgnoreCase("GetPaths") )
                                     && USE_SCAFFOLD && BUILD_SCAFFOLD)
                             {
-                                result = scaffold.queryManager(queryParameters);
-                                returnType = Graph.class;
+                                localResult = scaffold.queryManager(queryParameters);
+                                resultType = Graph.class;
+                                finalResultType = Set.class;
                             }
                             else
                             {
@@ -241,86 +246,115 @@ public class CommandLine extends AbstractAnalyzer
                                     throw new Exception(message);
                                 }
                                 queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
-                                returnType = Class.forName(getReturnType(functionName));
-                                result = queryClass.execute(queryParameters, resultLimit);
+                                resultType = Class.forName(getReturnType(functionName));
+                                finalResultType = resultType;
+                                localResult = queryClass.execute(queryParameters, resultLimit);
+                                finalResult = localResult;
                             }
-                            if(result != null && returnType.isAssignableFrom(result.getClass()))
+                            //TODO: Do something in case when no result found
+                            if(localResult != null && resultType.isAssignableFrom(localResult.getClass()))
                             {
-                                if(result instanceof Graph)
+                                if(localResult instanceof Graph)
                                 {
-                                    ((Graph) result).setQueryString(queryString);
-                                    ((Graph) result).setHostName(Kernel.HOST_NAME);
-                                    AbstractAnalyzer.addSignature((Graph) result);
+                                    ((Graph) localResult).setQueryString(queryString);
+                                    ((Graph) localResult).setHostName(Kernel.HOST_NAME);
+                                    AbstractAnalyzer.addSignature((Graph) localResult, nonce);
+                                    Properties props = new Properties();
+                                    props.load(new FileInputStream("find_inconsistency.txt"));
+                                    boolean find_inconsistency = Boolean.parseBoolean(props.getProperty("find_inconsistency"));
                                     if(isRemoteResolutionRequired())
                                     {
                                         logger.log(Level.INFO, "Performing remote resolution.");
                                         //TODO: Could use a factory pattern here to get remote resolver
-                                        remoteResolver = new Recursive((Graph) result, functionName,
-                                                Integer.parseInt(maxLength), direction);
-                                        Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
+                                        remoteResolver = new Recursive((Graph) localResult, functionName,
+                                                Integer.parseInt(maxLength), direction, nonce);
+                                        Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-Resolver");
                                         remoteResolverThread.start();
                                         // wait for thread to complete to get the final graph
                                         remoteResolverThread.join();
-                                        // final graph is a set of un-stitched graphs
-                                        Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
+                                        // returns a set of un-stitched graphs
+                                        finalResult = remoteResolver.getCombinedResultSet();
+                                        finalResultType = Set.class;
                                         clearRemoteResolutionRequired();
-                                        discrepancyDetector.setResponseGraph(finalGraphSet);
-                                        int discrepancyCount = discrepancyDetector.findDiscrepancy();
-                                        logger.log(Level.WARNING, "discrepancyCount: " + discrepancyCount);
-                                        if(discrepancyCount == 0)
+                                        if(find_inconsistency)
                                         {
-                                            discrepancyDetector.update();
+                                            discrepancyDetector.setQueryDirection(direction);
+                                            discrepancyDetector.setResponseGraph((Set<Graph>) finalResult);
+                                            int discrepancyCount = discrepancyDetector.findDiscrepancy();
+                                            logger.log(Level.WARNING, "discrepancyCount: " + discrepancyCount);
+                                            if(discrepancyCount == 0)
+                                            {
+                                                discrepancyDetector.update();
+                                            }
                                         }
-                                        for(Graph graph : finalGraphSet)
-                                        {
-                                            result = Graph.union((Graph) result, graph);
-                                        }
+                                        ((Set<Graph>) finalResult).add((Graph) localResult);
                                         logger.log(Level.INFO, "Remote resolution completed.");
                                     }
                                     else
                                     {
-                                        int vertex_count = ((Graph)result).vertexSet().size();
-                                        int edge_count = ((Graph)result).edgeSet().size();
+                                        int vertex_count = ((Graph) localResult).vertexSet().size();
+                                        int edge_count = ((Graph) localResult).edgeSet().size();
                                         int total = vertex_count + edge_count;
                                         String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
                                                 edge_count + ", total: " + total;
                                         logger.log(Level.INFO, stats);
 
-                                        modifyResult((Graph) result);
-                                        logger.log(Level.INFO, "result vertex set size: " + ((Graph)result).vertexSet().size());
-                                        logger.log(Level.INFO, "result edge set size: " + ((Graph)result).edgeSet().size());
-                                        Set<Graph> resultSet = new HashSet<>();
-                                        resultSet.add((Graph) result);
-                                        discrepancyDetector.setResponseGraph(resultSet);
-                                        int discrepancyCount = discrepancyDetector.findDiscrepancy();
-                                        if(discrepancyCount == 0)
-                                            discrepancyDetector.update();
+                                        if(find_inconsistency)
+                                        {
+                                            discrepancyDetector.setQueryDirection(direction);
+                                            modifyResult((Graph) localResult);
+                                            logger.log(Level.INFO, "result vertex set size: " + ((Graph) localResult).vertexSet().size());
+                                            logger.log(Level.INFO, "result edge set size: " + ((Graph) localResult).edgeSet().size());
+                                            finalResult = new HashSet<>();
+                                            ((Set<Graph>) finalResult).add((Graph) localResult);
+                                            discrepancyDetector.setResponseGraph((Set<Graph>) finalResult);
+                                            int discrepancyCount = discrepancyDetector.findDiscrepancy();
+                                            logger.log(Level.INFO, "discrepancyCount:" + discrepancyCount);
+                                            if(discrepancyCount == 0)
+                                                discrepancyDetector.update();
+                                        } else
+                                        {
+                                            finalResult = new HashSet<>();
+                                            ((Set<Graph>) finalResult).add((Graph) localResult);
+                                        }
+                                        finalResultType = Set.class;
                                     }
                                     if(USE_TRANSFORMER)
                                     {
+                                        localResult = new Graph();
+                                        for(Graph graph : (Set<Graph>) finalResult)
+                                        {
+                                            localResult = Graph.union((Graph) localResult, graph);
+                                        }
                                         logger.log(Level.INFO, "Applying transformers on the final result.");
-                                        Map<String, Object> queryMetaDataMap = getQueryMetaData((Graph) result);
+                                        Map<String, Object> queryMetaDataMap = getQueryMetaData((Graph) localResult);
                                         QueryMetaData queryMetaData = new QueryMetaData(queryMetaDataMap);
-                                        result = iterateTransformers((Graph) result, queryMetaData);
+                                        localResult = iterateTransformers((Graph) localResult, queryMetaData);
+                                        finalResult = localResult;
                                         logger.log(Level.INFO, "Transformers applied successfully.");
                                     }
                                 }
                                 // if result output is to be converted into dot file format
                                 if(EXPORT_RESULT)
                                 {
+                                    for(Graph graph : (Set<Graph>) finalResult)
+                                    {
+                                        localResult = Graph.union((Graph) localResult, graph);
+                                    }
+
                                     Graph temp_result = new Graph();
                                     if(functionName.equalsIgnoreCase("GetEdge"))
                                     {
-                                        temp_result.edgeSet().addAll((Set<AbstractEdge>) result);
-                                        result = temp_result;
+                                        temp_result.edgeSet().addAll((Set<AbstractEdge>) localResult);
+                                        localResult = temp_result;
                                     }
                                     else if(functionName.equalsIgnoreCase("GetVertex"))
                                     {
-                                        temp_result.vertexSet().addAll((Set<AbstractVertex>) result);
-                                        result = temp_result;
+                                        temp_result.vertexSet().addAll((Set<AbstractVertex>) localResult);
+                                        localResult = temp_result;
                                     }
-                                    returnType = String.class;
-                                    result = ((Graph) result).exportGraph();
+                                    finalResultType = String.class;
+                                    finalResult = ((Graph) localResult).exportGraph();
                                     EXPORT_RESULT = false;
                                 }
                             }
@@ -328,10 +362,10 @@ public class CommandLine extends AbstractAnalyzer
                             {
                                 logger.log(Level.SEVERE, "Return type null or mismatch!");
                             }
-                            queryOutputStream.writeObject(returnType.getName());
-                            if(result != null)
+                            queryOutputStream.writeObject(finalResultType.getName());
+                            if(finalResult != null)
                             {
-                                queryOutputStream.writeObject(result);
+                                queryOutputStream.writeObject(finalResult);
                             }
                             else
                             {
@@ -383,43 +417,46 @@ public class CommandLine extends AbstractAnalyzer
                 String removedVertices = "";
                 List<AbstractVertex> verticesToRemove = new ArrayList<>();
                 List<AbstractVertex> vertexSet = new ArrayList<>(result.vertexSet());
-                Collections.shuffle(vertexSet, new Random(43));
+                props = new Properties();
+                props.load(new FileInputStream("random_seed.txt"));
+                int random_seed = Integer.parseInt(props.getProperty("random_seed"));
+                Collections.shuffle(vertexSet, new Random(random_seed));
                 for(AbstractVertex vertex: vertexSet)
                 {
                     if(removedVerticesCount >= vertices)
+                    {
                         break;
+                    }
                     removedVertices =  removedVertices + vertex.bigHashCode() + ", ";
                     verticesToRemove.add(vertex);
                     removedVerticesCount++;
                 }
                 logger.log(Level.INFO, "removedVertices: " + removedVertices);
-                logger.log(Level.INFO, "result vertex set size: " + result.vertexSet().size());
                 for(int i = 0; i < verticesToRemove.size(); i++)
                 {
                     result.vertexSet().remove(verticesToRemove.get(i));
                 }
-                logger.log(Level.INFO, "result vertex set size: " + result.vertexSet().size());
 
                 int removedEdgesCount = 0;
                 String removedEdges = "";
                 List<AbstractEdge> edgesToRemove = new ArrayList<>();
                 List<AbstractEdge> edgeSet = new ArrayList<>(result.edgeSet());
-                Collections.shuffle(edgeSet, new Random(43));
+                Collections.shuffle(edgeSet, new Random(random_seed));
                 for(AbstractEdge edge: edgeSet)
                 {
                     if(removedEdgesCount >= edges)
+                    {
                         break;
+                    }
                     removedEdges = removedEdges + edge.bigHashCode() + ", ";
                     edgesToRemove.add(edge);
                     removedEdgesCount++;
                 }
                 logger.log(Level.INFO, "removedEdges: " + removedEdges);
-                logger.log(Level.INFO, "result edge set size: " + result.edgeSet().size());
                 for(int i = 0; i < edgesToRemove.size(); i++)
                 {
                     result.edgeSet().remove(edgesToRemove.get(i));
                 }
-                logger.log(Level.INFO, "result edge set size: " + result.edgeSet().size());
 
             }
             catch(Exception ex)
@@ -484,7 +521,7 @@ public class CommandLine extends AbstractAnalyzer
                 {
                     case "GetLineage":
                         maxLength = arguments[1].trim();
-                        direction = arguments[2].trim();
+                        direction = arguments[2].trim().toLowerCase();
                         break;
                     case "GetPaths":
                         maxLength = arguments[1].trim();

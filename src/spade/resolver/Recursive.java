@@ -22,20 +22,23 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractResolver;
 import spade.core.AbstractVertex;
+import spade.core.Cache;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Kernel;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
+import spade.utility.Query;
 
 import javax.net.ssl.SSLSocket;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,41 +59,43 @@ public class Recursive extends AbstractResolver
     private static final int NTHREADS = 10;
     private static final Logger logger = Logger.getLogger(Recursive.class.getName());
 
-    public Recursive(Graph partialGraph, String function, int depth, String direction)
+    public Recursive(Graph localResult, String function, int depth, String direction, String nonce)
     {
-        super(partialGraph, function, depth, direction);
+        super(localResult, function, depth, direction, nonce);
     }
 
     @Override
     public void run()
     {
-        Map<AbstractVertex, Integer> currentNetworkMap = partialGraph.networkMap();
+        Map<AbstractVertex, Integer> currentNetworkMap = localResult.networkMap();
         logger.log(Level.INFO, "network Map" + currentNetworkMap.toString());
         try
         {
             // Perform remote query on network vertices.
             ExecutorService  executor = Executors.newFixedThreadPool(NTHREADS);
-            List<Future<Graph>> futures = new ArrayList<>();
+            List<Future<Set<Graph>>> futures = new ArrayList<>();
             for (Map.Entry<AbstractVertex, Integer> currentEntry : currentNetworkMap.entrySet())
             {
                 AbstractVertex networkVertex = currentEntry.getKey();
                 if(!networkVertex.getAnnotation(OPMConstants.SOURCE).equals(OPMConstants.SOURCE_AUDIT_NETFILTER))
+                {
                     continue;
+                }
                 int currentDepth = currentEntry.getValue();
 
                 // Execute remote query
-                Callable<Graph> worker = new ContactRemote(networkVertex, depth - currentDepth, direction);
-                Future<Graph> submit = executor.submit(worker);
+                Callable<Set<Graph>> worker = new ContactRemote(localResult, networkVertex, depth - currentDepth, direction, nonce);
+                Future<Set<Graph>> submit = executor.submit(worker);
                 futures.add(submit);
             }
-            for(Future<Graph> future: futures)
+            for(Future<Set<Graph>> future : futures)
             {
                 try
                 {
-                    Graph remoteGraph = future.get();
+                    Set<Graph> remoteGraph = future.get();
                     if(remoteGraph != null)
                     {
-                        finalGraph.add(remoteGraph);
+                        combinedResultSet.addAll(remoteGraph);
                     }
                 }
                 catch(Exception ex)
@@ -105,20 +110,25 @@ public class Recursive extends AbstractResolver
             logger.log(Level.SEVERE, "Error in contacting remote hosts for query resolution", ex);
         }
     }
+
 }
 
-class ContactRemote implements Callable<Graph>
+class ContactRemote implements Callable<Set<Graph>>
 {
+    private Graph localResult;
     private AbstractVertex networkVertex;
     private int depth;
     private String direction;
+    private String nonce;
     private static final Logger logger = Logger.getLogger(ContactRemote.class.getName());
 
-    ContactRemote(AbstractVertex networkVertex, int depth, String direction)
+    ContactRemote(Graph localResult, AbstractVertex networkVertex, int depth, String direction, String nonce)
     {
         this.networkVertex = networkVertex;
         this.depth = depth;
         this.direction = direction;
+        this.nonce = nonce;
+        this.localResult = localResult;
     }
 
     /**
@@ -128,9 +138,9 @@ class ContactRemote implements Callable<Graph>
      * @throws Exception if unable to compute a result
      */
     @Override
-    public Graph call() throws Exception
+    public Set<Graph> call() throws Exception
     {
-        Graph resultGraph = null;
+        Set<Graph> resultGraphSet = new HashSet<>();
         try
         {
             // Establish a connection to the remote host
@@ -144,7 +154,7 @@ class ContactRemote implements Callable<Graph>
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             ObjectInputStream graphInputStream = new ObjectInputStream(inStream);
-            PrintWriter remoteSocketOut = new PrintWriter(outStream, true);
+            ObjectOutputStream remoteSocketOut = new ObjectOutputStream(outStream);
 
             String networkVertexQuery = "GetVertex(" +
                     OPMConstants.ARTIFACT_LOCAL_ADDRESS +
@@ -167,8 +177,12 @@ class ContactRemote implements Callable<Graph>
                     AbstractQuery.OPERATORS.EQUALS +
                     OPMConstants.SOURCE_AUDIT_NETFILTER +
                     ")";
-
-            remoteSocketOut.println(networkVertexQuery);
+            if(nonce == null)
+            {
+                nonce = String.valueOf(System.nanoTime());
+            }
+            Query remoteVertexQuery = new Query(networkVertexQuery, nonce);
+            remoteSocketOut.writeObject(remoteVertexQuery);
             logger.log(Level.INFO, "remote vertex query: " + networkVertexQuery);
             String returnType = (String) graphInputStream.readObject();
             // Check whether the remote query server returned a vertex set in response
@@ -203,44 +217,71 @@ class ContactRemote implements Callable<Graph>
                     ", " +
                     direction +
                     ")";
-            remoteSocketOut.println(lineageQuery);
-            logger.log(Level.INFO, "remote lineage query: " + lineageQuery);
-
-            returnType = (String) graphInputStream.readObject();
-            if(returnType.equals(Graph.class.getName()))
+            Graph resultGraph = Cache.findValidResponse(lineageQuery, nonce);
+            int vertex_count = 0;
+            int edge_count = 0;
+            if(resultGraph == null)
             {
-                resultGraph = (Graph) graphInputStream.readObject();
-                boolean verified = AbstractAnalyzer.verifySignature(resultGraph);
-                if(verified)
+                Query remoteLineageQuery = new Query(lineageQuery, nonce);
+                remoteSocketOut.writeObject(remoteLineageQuery);
+                logger.log(Level.INFO, "remote lineage query: " + lineageQuery);
+
+                returnType = (String) graphInputStream.readObject();
+                if(returnType.equals(Set.class.getName()))
                 {
-                    logger.log(Level.INFO, "Signature of remote graph verified successfully");
-                    AbstractEdge localToRemoteEdge = new Edge(networkVertex, targetNetworkVertex);
-                    localToRemoteEdge.addAnnotation("type", "WasDerivedFrom");
-                    AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, networkVertex);
-                    remoteToLocalEdge.addAnnotation("type", "WasDerivedFrom");
-                    resultGraph.putVertex(networkVertex);
-                    resultGraph.putEdge(localToRemoteEdge);
-                    resultGraph.putEdge(remoteToLocalEdge);
-                    int vertex_count = resultGraph.vertexSet().size();
-                    int edge_count = resultGraph.edgeSet().size();
-                    int total = vertex_count + edge_count;
-                    String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
-                            edge_count + ", total: " + total;
-                    logger.log(Level.INFO, stats);
-                }
-                else
+                    resultGraphSet = (Set<Graph>) graphInputStream.readObject();
+                    boolean all_verified = true;
+                    for(Graph graph : resultGraphSet)
+                    {
+                        vertex_count += graph.vertexSet().size();
+                        edge_count += graph.edgeSet().size();
+                        boolean verified = AbstractAnalyzer.verifySignature(graph, nonce);
+                        all_verified = all_verified && verified;
+                        if(!verified)
+                        {
+                            logger.log(Level.WARNING, "Not able to verify signature of remote graph by Host " + graph.getHostName());
+                        }
+                    }
+                    if(all_verified)
+                    {
+                        logger.log(Level.INFO, "Signatures of all remote graph verified successfully");
+                        AbstractEdge localToRemoteEdge = new Edge(networkVertex, targetNetworkVertex);
+                        localToRemoteEdge.addAnnotation("type", "WasDerivedFrom");
+                        AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, networkVertex);
+                        remoteToLocalEdge.addAnnotation("type", "WasDerivedFrom");
+                        localResult.putVertex(networkVertex);
+                        localResult.putVertex(targetNetworkVertex);
+                        localResult.putEdge(localToRemoteEdge);
+                        localResult.putEdge(remoteToLocalEdge);
+                        vertex_count++;
+                        edge_count += 2;
+                        int total = vertex_count + edge_count;
+                        String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
+                                edge_count + ", total: " + total;
+                        logger.log(Level.INFO, stats);
+                    } else
+                    {
+                        logger.log(Level.WARNING, "Not able to verify signature of some remote graphs");
+                        return null;
+                    }
+                } else
                 {
-                    logger.log(Level.WARNING, "Not able to verify signature of remote graph");
+                    logger.log(Level.INFO, "Return type not Set!");
                     return null;
                 }
-            }
-            else
+            } else
             {
-                logger.log(Level.INFO, "Return type not Graph!");
-                return null;
+                vertex_count += resultGraph.vertexSet().size();
+                edge_count += resultGraph.edgeSet().size();
+                int total = vertex_count + edge_count;
+                String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
+                        edge_count + ", total: " + total;
+                logger.log(Level.INFO, stats);
+                resultGraphSet.add(resultGraph);
+                logger.log(Level.INFO, "Remote graph query satisfied by the cache");
             }
 
-            remoteSocketOut.println("exit");
+            remoteSocketOut.writeObject(new Query("exit", null));
             remoteSocketOut.close();
             graphInputStream.close();
             inStream.close();
@@ -254,6 +295,6 @@ class ContactRemote implements Callable<Graph>
         }
 
         logger.log(Level.INFO, "Remote resolution successful!");
-        return resultGraph;
+        return resultGraphSet;
     }
 }

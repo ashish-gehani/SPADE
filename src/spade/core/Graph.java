@@ -97,6 +97,10 @@ public class Graph extends AbstractStorage implements Serializable
     private String queryString;
     private String computeTime;
     private int maxDepth;
+    /* period of validity of this graph in hours,
+     * if it is stored in the cache
+     */
+    private int TTL = 1;
     private AbstractVertex rootVertex;
     private AbstractVertex destinationVertex;
 

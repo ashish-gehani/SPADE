@@ -170,7 +170,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
-        if(!Cache.isPresent(childVertexHash) || !Cache.isPresent(parentVertexHash))
+        if(!Cache.isVertexPresent(childVertexHash) || !Cache.isVertexPresent(parentVertexHash))
         return null;
 
     AbstractEdge edge = null;
@@ -232,7 +232,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public AbstractVertex getVertex(String vertexHash)
     {
-        if(!Cache.isPresent(vertexHash))
+        if(!Cache.isVertexPresent(vertexHash))
             return null;
 
         String query = "SELECT * FROM " +
@@ -263,7 +263,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public Graph getChildren(String parentHash)
     {
-        if(!Cache.isPresent(parentHash))
+        if(!Cache.isVertexPresent(parentHash))
             return null;
 
         Graph children = null;
@@ -343,7 +343,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public Graph getParents(String childVertexHash)
     {
-        if(!Cache.isPresent(childVertexHash))
+        if(!Cache.isVertexPresent(childVertexHash))
             return null;
 
         Graph parents = null;

@@ -30,23 +30,26 @@ public abstract class AbstractResolver implements Runnable
     public static final String DESTINATION_PORT = "destination_port";
 
     // fields required to fetch and return remote parts of result graph
-    protected Set<Graph> finalGraph = new HashSet<>();
-    protected Graph partialGraph;
+    protected Set<Graph> combinedResultSet;
+    protected Graph localResult;
     protected int depth;
     protected String direction;
     protected String function;
+    protected String nonce;
 
-    protected AbstractResolver(Graph partialGraph, String function, int depth, String direction)
+    protected AbstractResolver(Graph localResult, String function, int depth, String direction, String nonce)
     {
-        this.partialGraph = partialGraph;
+        this.combinedResultSet = new HashSet<>();
+        this.localResult = localResult;
         this.function = function;
         this.depth = depth;
         this.direction = direction;
+        this.nonce = nonce;
     }
 
-    public Set<Graph> getFinalGraph()
+    public Set<Graph> getCombinedResultSet()
     {
-        return finalGraph;
+        return combinedResultSet;
     }
 
     @Override

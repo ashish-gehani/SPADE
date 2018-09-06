@@ -18,6 +18,7 @@ package spade.client;
 
 import jline.ConsoleReader;
 import spade.core.Settings;
+import spade.utility.Query;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -31,8 +32,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.HashMap;
@@ -53,7 +54,7 @@ import static spade.core.Kernel.PASSWORD_PUBLIC_KEYSTORE;
  */
 public class CommandLine
 {
-    private static PrintStream clientOutputStream;
+    private static ObjectOutputStream clientOutputStream;
     private static ObjectInputStream clientInputStream;
     private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     private static final String historyFile = SPADE_ROOT + CONFIG_PATH + FILE_SEPARATOR + "query.history";
@@ -146,7 +147,7 @@ public class CommandLine
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             clientInputStream = new ObjectInputStream(inStream);
-            clientOutputStream = new PrintStream(outStream);
+            clientOutputStream = new ObjectOutputStream(outStream);
         }
         catch (NumberFormatException | IOException ex)
         {
@@ -180,16 +181,15 @@ public class CommandLine
                 {
                     System.out.print(COMMAND_PROMPT);
                     String line = commandReader.readLine();
-
+                    Query localQuery = new Query(line, null);
                     if(line.equals(QueryCommands.QUERY_EXIT.value))
                     {
-                        clientOutputStream.println(line);
+                        clientOutputStream.writeObject(localQuery);
                         break;
-                    }
-                    else if(line.toLowerCase().startsWith("set"))
+                    } else if(line.toLowerCase().startsWith("set"))
                     {
                         // set storage for querying
-                        clientOutputStream.println(line);
+                        clientOutputStream.writeObject(localQuery);
                         String result = (String) clientInputStream.readObject();
                         if(result.equalsIgnoreCase("success"))
                         {
@@ -197,17 +197,14 @@ public class CommandLine
                             configs.setProperty("storage_set", "true");
                             configs.store(new FileOutputStream(configFile), null);
                             System.out.println("Storage set successfully. You can query now!");
-                        }
-                        else if(result.equalsIgnoreCase("failure"))
+                        } else if(result.equalsIgnoreCase("failure"))
                         {
                             System.err.println("Storage not set successfully!");
                         }
-                    }
-                    else if(!STORAGE_SET)
+                    } else if(!STORAGE_SET)
                     {
                         System.out.println("No storage set for querying. Use command: 'set storage <storage_name>'");
-                    }
-                    else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
+                    } else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
                     {
                         System.out.println("-------------------------------------------------");
                         System.out.println("Constraint Name\t\t | Constraint Expression");
@@ -220,22 +217,21 @@ public class CommandLine
                         }
                         System.out.println("-------------------------------------------------");
                         System.out.println();
-                    }
-                    else if(line.contains(":"))
+                    } else if(line.contains(":"))
                     {
                         // probably a constraint
                         createConstraint(line);
-                    }
-                    else if(line.contains("("))
+                    } else if(line.contains("("))
                     {
                         // send line to analyzer
-                        String query = parseQuery(line);
+                        String queryString = parseQuery(line);
                         if(RESULT_EXPORT_PATH != null)
                         {
-                            query = "export " + query;
+                            queryString = "export " + queryString;
                         }
                         long start_time = System.currentTimeMillis();
-                        clientOutputStream.println(query);
+                        localQuery.setQueryString(queryString);
+                        clientOutputStream.writeObject(localQuery);
                         String returnTypeName = (String) clientInputStream.readObject();
                         if(returnTypeName.equalsIgnoreCase("error"))
                         {
@@ -259,8 +255,7 @@ public class CommandLine
                             writer.close();
                             System.out.println("Output exported to file: " + RESULT_EXPORT_PATH);
                             RESULT_EXPORT_PATH = null;
-                        }
-                        else
+                        } else
                         {
                             System.out.println();
                             System.out.println("Result:");
@@ -268,13 +263,11 @@ public class CommandLine
                             System.out.println("Result value: " + resultString);
                             System.out.println("------------------");
                         }
-                    }
-                    else if(line.toLowerCase().startsWith("export"))
+                    } else if(line.toLowerCase().startsWith("export"))
                     {
                         // save export path for next answer's dot file
                         parseExport(line);
-                    }
-                    else
+                    } else
                     {
                         System.out.println("Invalid input!");
                     }
