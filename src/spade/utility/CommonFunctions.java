@@ -363,4 +363,37 @@ public class CommonFunctions {
     		return lines;
     	}
     }
+    
+    /**
+     * Returns hostname gotten by executing the command 'uname -n'
+     * 
+     * If failed to get the hostname then error message printed and null returned.
+     * If succeeded then always returns a non-null value.
+     * 
+     * @return null/hostname
+     */
+    public static String getHostNameByUname(){
+    	String command = "uname -n";
+		try{
+			Execute.Output output = Execute.getOutput(command);
+			if(output.hasError()){
+				output.log();
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				if(stdOutLines == null || stdOutLines.isEmpty()){
+					logger.log(Level.SEVERE, "NULL/Empty '" + command + "' output.");
+				}else{
+					String hostName = stdOutLines.get(0);
+					if(hostName != null){
+						return hostName;
+					}else{
+						logger.log(Level.SEVERE, "NULL '" + command + "' output line.");
+					}
+				}
+			}
+		}catch(Throwable e){
+			logger.log(Level.SEVERE, "Failed to execute command '" + command + "'", e);
+		}
+		return null;
+    }
 }
