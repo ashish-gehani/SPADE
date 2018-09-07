@@ -95,10 +95,15 @@ public class Graph extends AbstractStorage implements Serializable
     private String hostName;
     private byte[] signature;
     private String queryString;
+    /* time at which this graph was constructed completely
+    */
     private String computeTime;
+    /*used as a nonce as well
+    */
+    private String queryTime;
     private int maxDepth;
     /* period of validity of this graph in hours,
-     * if it is stored in the cache
+     * if it is stored in the cache. Would be configurable
      */
     private int TTL = 1;
     private AbstractVertex rootVertex;
@@ -206,16 +211,16 @@ public class Graph extends AbstractStorage implements Serializable
         // Add edge to Lucene index
         try
         {
-            Document doc = new Document();
+//            Document doc = new Document();
             for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
             {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
-                doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
+//                doc.add(new Field(key, value, Field.Store.YES, Field.Index.ANALYZED));
             }
-            doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(SRC_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getChildVertex()), Field.Store.YES, Field.Index.ANALYZED));
-            doc.add(new Field(DST_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getParentVertex()), Field.Store.YES, Field.Index.ANALYZED));
+//            doc.add(new Field(PRIMARY_KEY, Integer.toString(serial_number), Field.Store.YES, Field.Index.ANALYZED));
+//            doc.add(new Field(SRC_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getChildVertex()), Field.Store.YES, Field.Index.ANALYZED));
+//            doc.add(new Field(DST_VERTEX_ID, reverseVertexIdentifiers.get(incomingEdge.getParentVertex()), Field.Store.YES, Field.Index.ANALYZED));
 //            edgeIndexWriter.addDocument(doc);
 //            edgeIndexWriter.commit();
 
@@ -359,6 +364,13 @@ public class Graph extends AbstractStorage implements Serializable
 
         resultGraph.commitIndex();
         return resultGraph;
+    }
+
+    public void union(Graph graph)
+    {
+        this.vertexSet().addAll(graph.vertexSet());
+        this.edgeSet().addAll(graph.edgeSet());
+        this.networkMap().putAll(graph.networkMap());
     }
 
     /**
@@ -529,10 +541,6 @@ public class Graph extends AbstractStorage implements Serializable
 
     public String exportGraph()
     {
-        if (vertexSet.isEmpty())
-        {
-            return null;
-        }
         StringBuilder outputString = new StringBuilder(500);
         try
         {

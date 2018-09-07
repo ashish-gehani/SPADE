@@ -258,7 +258,6 @@ public class CommandLine extends AbstractAnalyzer
                                 {
                                     ((Graph) localResult).setQueryString(queryString);
                                     ((Graph) localResult).setHostName(Kernel.HOST_NAME);
-                                    AbstractAnalyzer.addSignature((Graph) localResult, nonce);
                                     Properties props = new Properties();
                                     props.load(new FileInputStream("find_inconsistency.txt"));
                                     boolean find_inconsistency = Boolean.parseBoolean(props.getProperty("find_inconsistency"));
@@ -287,20 +286,26 @@ public class CommandLine extends AbstractAnalyzer
                                                 discrepancyDetector.update();
                                             }
                                         }
+                                        AbstractAnalyzer.addSignature((Graph) localResult, nonce);
                                         ((Set<Graph>) finalResult).add((Graph) localResult);
-                                        logger.log(Level.INFO, "Remote resolution completed.");
-                                    }
-                                    else
-                                    {
                                         int vertex_count = ((Graph) localResult).vertexSet().size();
                                         int edge_count = ((Graph) localResult).edgeSet().size();
                                         int total = vertex_count + edge_count;
-                                        String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
-                                                edge_count + ", total: " + total;
+                                        String stats = "Local result stats. Total: " + total + " Vertices: " + vertex_count + ", Edges: " + edge_count;
+                                        logger.log(Level.INFO, stats);
+                                        logger.log(Level.INFO, "Remote resolution completed.");
+                                    } else
+                                    {
+                                        AbstractAnalyzer.addSignature((Graph) localResult, nonce);
+                                        int vertex_count = ((Graph) localResult).vertexSet().size();
+                                        int edge_count = ((Graph) localResult).edgeSet().size();
+                                        int total = vertex_count + edge_count;
+                                        String stats = "Result graph stats. Total: " + total + " Vertices: " + vertex_count + ", Edges: " + edge_count;
                                         logger.log(Level.INFO, stats);
 
                                         if(find_inconsistency)
                                         {
+                                            logger.log(Level.INFO, "find_inconsistency: true");
                                             discrepancyDetector.setQueryDirection(direction);
                                             modifyResult((Graph) localResult);
                                             logger.log(Level.INFO, "result vertex set size: " + ((Graph) localResult).vertexSet().size());
@@ -324,7 +329,7 @@ public class CommandLine extends AbstractAnalyzer
                                         localResult = new Graph();
                                         for(Graph graph : (Set<Graph>) finalResult)
                                         {
-                                            localResult = Graph.union((Graph) localResult, graph);
+                                            ((Graph) localResult).union(graph);
                                         }
                                         logger.log(Level.INFO, "Applying transformers on the final result.");
                                         Map<String, Object> queryMetaDataMap = getQueryMetaData((Graph) localResult);
@@ -337,24 +342,29 @@ public class CommandLine extends AbstractAnalyzer
                                 // if result output is to be converted into dot file format
                                 if(EXPORT_RESULT)
                                 {
-                                    for(Graph graph : (Set<Graph>) finalResult)
+                                    if(localResult instanceof Graph)
                                     {
-                                        localResult = Graph.union((Graph) localResult, graph);
+                                        for(Graph graph : (Set<Graph>) finalResult)
+                                        {
+                                            ((Graph) localResult).union(graph);
+                                        }
+                                    } else
+                                    {
+                                        Graph temp_result = new Graph();
+                                        if(functionName.equalsIgnoreCase("GetEdge"))
+                                        {
+                                            temp_result.edgeSet().addAll((Set<AbstractEdge>) localResult);
+                                            localResult = temp_result;
+                                        } else if(functionName.equalsIgnoreCase("GetVertex"))
+                                        {
+                                            temp_result.vertexSet().addAll((Set<AbstractVertex>) localResult);
+                                            localResult = temp_result;
+                                        }
                                     }
 
-                                    Graph temp_result = new Graph();
-                                    if(functionName.equalsIgnoreCase("GetEdge"))
-                                    {
-                                        temp_result.edgeSet().addAll((Set<AbstractEdge>) localResult);
-                                        localResult = temp_result;
-                                    }
-                                    else if(functionName.equalsIgnoreCase("GetVertex"))
-                                    {
-                                        temp_result.vertexSet().addAll((Set<AbstractVertex>) localResult);
-                                        localResult = temp_result;
-                                    }
                                     finalResultType = String.class;
                                     finalResult = ((Graph) localResult).exportGraph();
+                                    logger.log(Level.INFO, "Exporting the result to file");
                                     EXPORT_RESULT = false;
                                 }
                             }

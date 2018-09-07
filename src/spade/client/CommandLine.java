@@ -181,6 +181,7 @@ public class CommandLine
                 {
                     System.out.print(COMMAND_PROMPT);
                     String line = commandReader.readLine();
+                    //queryTime is used as nonce. null for local queries
                     Query localQuery = new Query(line, null);
                     if(line.equals(QueryCommands.QUERY_EXIT.value))
                     {

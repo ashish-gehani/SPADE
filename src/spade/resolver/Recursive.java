@@ -217,7 +217,8 @@ class ContactRemote implements Callable<Set<Graph>>
                     ", " +
                     direction +
                     ")";
-            Graph resultGraph = Cache.findValidResponse(lineageQuery, nonce);
+//            Graph resultGraph = Cache.findValidResponse(lineageQuery, nonce);
+            Graph resultGraph = null;
             int vertex_count = 0;
             int edge_count = 0;
             if(resultGraph == null)
@@ -256,13 +257,12 @@ class ContactRemote implements Callable<Set<Graph>>
                         vertex_count++;
                         edge_count += 2;
                         int total = vertex_count + edge_count;
-                        String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
-                                edge_count + ", total: " + total;
+                        String stats = "Result graph stats. Total: " + total + " Vertices: " + vertex_count + ", Edges: " + edge_count;
                         logger.log(Level.INFO, stats);
                     } else
                     {
-                        logger.log(Level.WARNING, "Not able to verify signature of some remote graphs");
-                        return null;
+                        logger.log(Level.WARNING, "Not able to verify signature of some remote graphs. Exiting!");
+//                        return null;
                     }
                 } else
                 {
@@ -274,8 +274,7 @@ class ContactRemote implements Callable<Set<Graph>>
                 vertex_count += resultGraph.vertexSet().size();
                 edge_count += resultGraph.edgeSet().size();
                 int total = vertex_count + edge_count;
-                String stats = "result graph stats. vertices: " + vertex_count + ", edges: " +
-                        edge_count + ", total: " + total;
+                String stats = "Result graph stats. Total: " + total + " Vertices: " + vertex_count + ", Edges: " + edge_count;
                 logger.log(Level.INFO, stats);
                 resultGraphSet.add(resultGraph);
                 logger.log(Level.INFO, "Remote graph query satisfied by the cache");

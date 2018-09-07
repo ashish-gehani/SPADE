@@ -26,7 +26,8 @@ public class GetChildren extends PostgreSQL<Graph, Map<String, List<String>>>
     {
         // implicit assumption that parameters contain annotation PARENT_VERTEX_KEY
         StringBuilder query = new StringBuilder(100);
-
+        // sample query
+        // SELECT * FROM vertex WHERE hash IN (SELECT childVertexHash FROM edge WHERE parentVertexHash='123')
         query.append("SELECT * FROM ");
         query.append(VERTEX_TABLE);
         query.append(" WHERE ");

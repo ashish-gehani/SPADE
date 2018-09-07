@@ -78,6 +78,7 @@ public class DiscrepancyDetector
 			File file = null;
 			if(!update_cache)
 			{
+				logger.log(Level.INFO, "update_cache: false");
 				file = new File("graph_cache");
 				FileOutputStream fos = new FileOutputStream(file);
 				ObjectOutputStream oos = new ObjectOutputStream(fos);
@@ -89,7 +90,7 @@ public class DiscrepancyDetector
 			int vertex_count = graphCache.getVertexCount();
 			int edge_count = graphCache.getEdgeCount();
 			int cache_size = vertex_count + edge_count;
-			String stats = "graph cache size before update: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
+			String stats = "graph cache size before update. Total: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
 			logger.log(Level.INFO, stats);
 			long start_time = System.nanoTime();
 			for(Graph response : responseGraphs)
@@ -116,7 +117,7 @@ public class DiscrepancyDetector
 				vertex_count = graphCache.getVertexCount();
 				edge_count = graphCache.getEdgeCount();
 				cache_size = vertex_count + edge_count;
-				stats = "again--graph cache size: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
+				stats = "graph cache size after reload. Total: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
 				logger.log(Level.INFO, stats);
 				ois.close();
 				fis.close();
@@ -125,7 +126,7 @@ public class DiscrepancyDetector
 				vertex_count = graphCache.getVertexCount();
 				edge_count = graphCache.getEdgeCount();
 				cache_size = vertex_count + edge_count;
-				stats = "graph cache size after update: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
+				stats = "graph cache size after update. Total: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
 				logger.log(Level.INFO, stats);
 			}
 		} catch(Exception ex)
@@ -157,6 +158,7 @@ public class DiscrepancyDetector
 				boolean prune_graph = Boolean.parseBoolean(props.getProperty("prune_graph"));
 				if(prune_graph)
 				{
+					logger.log(Level.INFO, "prune_graph: true");
 					Graph graph = prunableGraphs.remove();
 					graphCache.removeGraph(graph);
 					g_earlier = graphCache.getCache();
@@ -260,34 +262,10 @@ public class DiscrepancyDetector
 		int vertex_count = g_earlier.vertexSet().size();
 		int edge_count = g_earlier.edgeSet().size();
 		int cache_size = vertex_count + edge_count;
-		String stats = "graph cache size: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
+		String stats = "graph cache size. Total: " + cache_size + ". vertices: " + vertex_count + ", edges: " + edge_count;
 		logger.log(Level.INFO, stats);
 
 		return discrepancyCount;
-	}
-
-	/**
-	 * Constructs a mapping from vertices to their outgoing edges
-	 *
-	 * @param G a graph
-	 * @return a map from the vertices to their respective outgoing edges
-	 */
-	public static Map<AbstractVertex,List<AbstractEdge>> outgoingEdges(Graph G)
-	{
-		Map<AbstractVertex,List<AbstractEdge>> out = new HashMap<>();
-		Set<AbstractEdge> E = G.edgeSet();
-		for(AbstractEdge e : E)
-		{
-			AbstractVertex v = e.getParentVertex();
-			List<AbstractEdge> L = out.get(v);
-			if(L == null)
-				L = new ArrayList<>();
-			L.add(e);
-			logger.log(Level.INFO, "L.size: " + L.size());
-			out.put(v, L);
-		}
-		logger.log(Level.INFO, "out.size: " + out.size());
-		return out;
 	}
 
 	public void setResponseGraph(Set<Graph> t)
