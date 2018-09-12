@@ -162,8 +162,9 @@ public class DiscrepancyDetector
 					Graph graph = prunableGraphs.remove();
 					graphCache.removeGraph(graph);
 					g_earlier = graphCache.getCache();
-					findDiscrepancy(g_earlier, g_later);
-				}
+                    int postPruneDiscrepancyCount = findDiscrepancy(g_earlier, g_later);
+                    logger.log(Level.INFO, postPruneDiscrepancyCount + " discrepancies found after pruning");
+                }
 			} catch(Exception ex)
 			{
 				logger.log(Level.WARNING, "Error finding discrepancy", ex);
@@ -187,24 +188,29 @@ public class DiscrepancyDetector
 		Set<AbstractEdge> g_laterEdgeSet = g_later.edgeSet();
 		for(AbstractVertex x : g_laterVertexSet)
 		{
-			// x is not in ground
-			if(!g_earlierVertexSet.contains(x))
+            // if x is not in G_earlier
+            if(!g_earlierVertexSet.contains(x))
 			{
 				continue;
 			}
 			for(AbstractEdge e : g_earlierEdgeSet)
 			{
 				AbstractVertex startingVertex;
-				if(DIRECTION_DESCENDANTS.startsWith(queryDirection))
+                // for descendant query, x will be parent vertex
+                if(DIRECTION_DESCENDANTS.startsWith(queryDirection))
 					startingVertex = e.getParentVertex();
 				else
 					startingVertex = e.getChildVertex();
-				if(startingVertex.equals(x))
+                // selects edges that have x as its starting vertex
+                // y->x for descendant query
+                if(startingVertex.equals(x))
 				{
-					// x -e-> y and e is in g_earlier and NOT in g_later
-					if(!g_laterEdgeSet.contains(e))
+                    // if e=(x, y) is present in G_earlier but not in G_later
+                    if(!g_laterEdgeSet.contains(e))
 					{
-						AbstractVertex endingVertex;
+                        // choosing y as endingVertex
+                        // for descendant query, y will be child vertex
+                        AbstractVertex endingVertex;
 						if(DIRECTION_DESCENDANTS.startsWith(queryDirection))
 							endingVertex = e.getChildVertex();
 						else
@@ -213,7 +219,9 @@ public class DiscrepancyDetector
 						if(g_laterVertexSet.contains(endingVertex))
 						{
 							logger.log(Level.WARNING, "Discrepancy detected: missing edge");
-							discrepancyCount++;
+                            logger.log(Level.INFO, "missing edge: " + e.toString());
+                            logger.log(Level.INFO, "ending vertex: " + endingVertex.toString());
+                            discrepancyCount++;
 						} else if(x.getDepth() < g_later.getMaxDepth())
 						{
 							logger.log(Level.WARNING, "Discrepancy detected: missing edge and vertex");

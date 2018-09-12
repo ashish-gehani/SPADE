@@ -32,8 +32,8 @@ import java.util.Set;
  */
 public class Cache implements Serializable
 {
-    private static Set<Graph> cachedGraphs;
-    private static Graph mainGraphCache;
+    private Set<Graph> cachedGraphs;
+    private Graph mainGraphCache;
     private static Cache cacheInstance;
 
     public static Cache getInstance()
@@ -57,7 +57,7 @@ public class Cache implements Serializable
         mainGraphCache.remove(graph);
     }
 
-    public static Graph findValidResponse(String query, String queryTime)
+    public Graph findValidResponse(String query, String queryTime)
     {
         // TODO: implement the policy of finding response matches
         // if (queryTime > responseTime + TTL); then return null

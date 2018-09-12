@@ -122,6 +122,8 @@ public abstract class PostgreSQL<R, P> extends AbstractQuery<R, P>
                     {
                         if (!(colName == null || colName.equals(PRIMARY_KEY)))
                         {
+                            if(colName.equals(CHILD_VERTEX_KEY) || colName.equals(PARENT_VERTEX_KEY))
+                                value = stripDashes(value);
                             annotations.put(colName, value);
                         }
                     }
