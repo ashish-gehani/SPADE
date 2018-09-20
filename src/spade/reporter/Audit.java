@@ -1775,6 +1775,49 @@ public class Audit extends AbstractReporter {
 	}
 	
 	/**
+	 * Converts syscall args: 'a0', 'a1', 'a2', and 'a3' from hexadecimal values to decimal values
+	 * 
+	 * Conversion done based on the length of the hex value string. If length <= 8 then integer else a long.
+	 * If length > 16 then truncated to long.
+	 * 
+	 * Done so to avoid the issue of incorrectly fitting a small negative (i.e. int) value into a big (i.e. long) value
+	 * causing a wrong interpretation of bits.
+	 * 
+	 * @param eventData map that contains the above-mentioned args keys and values
+	 * @param time time of the event
+	 * @param eventId id of the event
+	 * @param syscall syscall of the event
+	 */
+	private void convertArgsHexToDec(Map<String, String> eventData, String time, String eventId, SYSCALL syscall){
+		String[] argKeys = {AuditEventReader.ARG0, AuditEventReader.ARG1, AuditEventReader.ARG2, AuditEventReader.ARG3};
+		for(String argKey : argKeys){
+			String hexArgValue = eventData.get(argKey);
+			if(hexArgValue != null){
+				int hexArgValueLength = hexArgValue.length();
+				try{
+					BigInteger bigInt = new BigInteger(hexArgValue, 16);
+					String argValueString = null;
+					if(hexArgValueLength <= 8){
+						int argInt = bigInt.intValue();
+						argValueString = Integer.toString(argInt);
+					}else{ // greater than 8
+						if(hexArgValueLength > 16){
+							log(Level.SEVERE, "Truncated value for '" + argKey + "': '"+hexArgValue+"'. Too big for 'long' datatype", null, time, eventId, syscall);
+						}
+						long argLong = bigInt.longValue();
+						argValueString = Long.toString(argLong);
+					}
+					eventData.put(argKey, argValueString);
+				}catch(Exception e){
+					log(Level.SEVERE, "Non-numerical value for '" + argKey + "': '"+hexArgValue+"'", e, time, eventId, syscall);
+				}
+			}else{
+				log(Level.SEVERE, "NULL value for '" + argKey + "'", null, time, eventId, syscall);
+			}
+		}
+	}
+	
+	/**
 	 * Gets the key value map from the internal data structure and gets the system call from the map.
 	 * Gets the appropriate system call based on current architecture
 	 * If global flag to log only successful events is set to true but the current event wasn't successful then only handle it if was either a kill
@@ -1822,13 +1865,7 @@ public class Audit extends AbstractReporter {
 			}
 
 			//convert all arguments from hexadecimal format to decimal format and replace them. done for convenience here and to avoid issues. 
-			for(int argumentNumber = 0; argumentNumber<4; argumentNumber++){ //only 4 arguments received from linux audit
-				try{
-					eventData.put("a"+argumentNumber, String.valueOf(new BigInteger(eventData.get("a"+argumentNumber), 16).longValue()));
-				}catch(Exception e){
-					logger.log(Level.INFO, "Missing/Non-numerical argument#" + argumentNumber + " for event id '"+eventId+"'");
-				}
-			}
+			convertArgsHexToDec(eventData, time, eventId, syscall);
 			
 			// Check if one of the network related syscalls. Must do this check before because HANDLE_KM_RECORDS can be null
 			switch (syscall) {
