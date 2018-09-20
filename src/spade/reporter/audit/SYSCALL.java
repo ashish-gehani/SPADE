@@ -19,14 +19,14 @@
  */
 package spade.reporter.audit;
 
-public enum SYSCALL {
+public enum SYSCALL{
 
 	FORK, VFORK, CLONE, EXECVE, 
 	UNIT, // Used for beep unit creation (not an actual system call)
 	LOAD, // Used for linked libraries when an execve happens (not an actual system call)
 	SETUID, SETREUID, SETRESUID, SETFSUID,
 	SETGID, SETREGID, SETRESGID, SETFSGID,
-	MMAP, MMAP2, MPROTECT,
+	MMAP, MPROTECT,
 	BIND, ACCEPT, ACCEPT4, CONNECT, SOCKET, 
 	SENDTO, SENDMSG, RECVFROM, RECVMSG, 
 	SEND, // Used for grouping SENDTO and SENDMSG system call (not an actual system call) 
@@ -50,21 +50,12 @@ public enum SYSCALL {
 	SOCKETPAIR, // Only in 64-bit
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
-	public static SYSCALL getSyscall(int syscallNum, int arch){
-		if(arch == 32){
-			return get32BitSyscall(syscallNum);
-		}else if(arch == 64){
-			return get64BitSyscall(syscallNum);
-		}
-		return null;
-	}
-	
-	private static SYSCALL get64BitSyscall(int syscallNum){
+	public static SYSCALL get64BitSyscall(int syscallNum){
 		// System call numbers are derived from:
         // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
-		switch (syscallNum) {
+		switch(syscallNum){
 			case 53:	return SOCKETPAIR;
 			case 175:	return INIT_MODULE;
 			case 313:	return FINIT_MODULE;
@@ -88,7 +79,8 @@ public enum SYSCALL {
 			case 91:	return FCHMOD;
 			case 268:	return FCHMODAT;
 			case 72:	return FCNTL;
-			case 58:	return FORK;
+			case 57:	return FORK;
+			case 58:	return VFORK;
 			case 77:	return FTRUNCATE;
 			case 86:	return LINK;
 			case 265:	return LINKAT;
@@ -126,81 +118,9 @@ public enum SYSCALL {
 			case 76:	return TRUNCATE;	
 			case 87:	return UNLINK;
 			case 263:	return UNLINKAT;
-			case 57:	return VFORK;
 			case 1:		return WRITE;
 			case 20:	return WRITEV;
 			default:	return UNSUPPORTED;
-		}
-	}
-
-	private static SYSCALL get32BitSyscall(int syscallNum){
-		// System call numbers are derived from:
-        // https://android.googlesource.com/platform/bionic/+/android-4.1.1_r1/libc/SYSCALLS.TXT
-        // TODO: Update the calls to make them linux specific.
-		
-		// source : https://github.com/bnoordhuis/strace/blob/master/linux/i386/syscallent.h
-		switch (syscallNum) {
-			case 128: return INIT_MODULE;
-			case 350: return FINIT_MODULE;
-			case 315: return TEE;
-			case 313: return SPLICE;
-			case 316: return VMSPLICE;
-			case 1: return EXIT;
-			case 2: return FORK;
-			case 3: return READ;
-			case 4: return WRITE;
-			case 5: return OPEN;
-			case 6: return CLOSE;
-			case 9: return LINK;
-			case 10: return UNLINK;
-			case 11: return EXECVE;
-			case 14: return MKNOD;
-			case 15: return CHMOD;
-			case 38: return RENAME;
-			case 41: return DUP;
-			case 42: return PIPE;
-			case 55: return FCNTL;
-			case 63: return DUP2;
-			case 83: return SYMLINK;
-			case 90: return MMAP2;
-			case 92: return TRUNCATE;
-			case 93: return FTRUNCATE;
-			case 94: return FCHMOD;
-			case 120: return CLONE;
-			case 125: return MPROTECT;
-			case 145: return READV;
-			case 146: return WRITEV;			
-			case 180: return PREAD;
-			case 333: return PREADV;
-			case 181: return PWRITE;
-			case 334: return PWRITEV;
-			case 190: return VFORK;
-			case 192: return MMAP2;
-			case 252: return EXIT_GROUP;
-			case 282: return BIND;
-			case 283: return CONNECT;
-			case 285: return ACCEPT;
-			case 290: return SENDTO;
-			case 292: return RECVFROM;
-			case 295: return OPENAT;
-			case 296: return SENDMSG;
-			case 297: return RECVMSG;
-			case 301: return UNLINKAT;
-			case 302: return RENAMEAT;
-			case 303: return LINKAT;
-			case 304: return SYMLINKAT;
-			case 322: return OPENAT;
-			case 331: return PIPE2;
-			case 359: return PIPE2;
-			case 216:	return SETFSGID;
-			case 215:	return SETFSUID;
-			case 214:	return SETGID;
-			case 213:	return SETUID;
-			case 204:	return SETREGID;
-			case 203:	return SETREUID;
-			case 210:	return SETRESGID;
-			case 208:	return SETRESUID;
-			default: return UNSUPPORTED;
 		}
 	}
 }

@@ -197,6 +197,7 @@ event_buf_t *event_buf;
 bool incomplete_record = false;
 
 void syscall_handler(char *buf);
+int get_max_pid();
 
 /*
 			Java does not support reading from Unix domain sockets.

@@ -165,8 +165,6 @@ public class Audit extends AbstractReporter {
 	private long reportEveryMs;
 	private long lastReportedTime;
 	
-	private Boolean ARCH_32BIT = true;
-	
 	// These are the default values
 	private boolean FAIL_FAST = true;
 	private boolean USE_READ_WRITE = false;
@@ -249,26 +247,6 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.WARNING, "Failed to read config", e);
 		}
 		return configMap;
-	}
-	
-	/**
-	 * Used only in case of live audit.
-	 * Returns null if failed to get the arch value.
-	 * Returns true if the arch is 32 bit and return false
-	 * if the arch is 64 bit.
-	 * 
-	 * @return true/false/null
-	 */
-	private Boolean is32BitArch(){
-		try {
-			InputStream archStream = Runtime.getRuntime().exec("uname -i").getInputStream();
-			BufferedReader archReader = new BufferedReader(new InputStreamReader(archStream));
-			String archLine = archReader.readLine().trim();
-			return archLine.equals("i686");
-		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Error reading the system architecture", e);
-			return null; //if unable to find out the architecture then report failure
-		}
 	}
 	
 	/**
@@ -746,17 +724,6 @@ public class Audit extends AbstractReporter {
 			// is log playback
 			isLiveAudit = false;
 			
-			// In case of audit log files get arch from the arguments
-			ARCH_32BIT = null;
-			if("32".equals(argsMap.get("arch"))){
-				ARCH_32BIT = true;
-			}else if("64".equals(argsMap.get("arch"))){
-				ARCH_32BIT = false;
-			}else{
-				logger.log(Level.SEVERE, "Must specify whether the system on which log was collected was 32 bit or 64 bit");
-				return false;
-			}
-			
 			if(inputAuditLogFileArgument != null){
 			
 				try{
@@ -867,11 +834,6 @@ public class Audit extends AbstractReporter {
 		}else{ // live audit
 
 			isLiveAudit = true;
-			
-			ARCH_32BIT = is32BitArch();
-			if(ARCH_32BIT == null){
-				return false;
-			}
 			
 			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
 			rulesType = argsMap.get("syscall");
@@ -1411,12 +1373,7 @@ public class Audit extends AbstractReporter {
 				}
 				
 				// Set arch to use in the rules
-				String archField = "";
-				if (ARCH_32BIT){
-					archField = "-F arch=b32 ";
-				}else{
-					archField = "-F arch=b64 ";
-				}
+				String archField = "-F arch=b64 ";
 				
 				String uidField = null;
 				if(ignoreUid){ // ignore the given uid
@@ -1494,9 +1451,6 @@ public class Audit extends AbstractReporter {
 					}
 					if (USE_MEMORY_SYSCALLS) {
 						auditRuleWithSuccess += "-S mmap -S mprotect ";
-						if(ARCH_32BIT){
-							auditRuleWithSuccess += "-S mmap2 ";
-						}
 					}
 					auditRuleWithSuccess += "-S unlink -S unlinkat ";
 					auditRuleWithSuccess += "-S link -S linkat -S symlink -S symlinkat ";
@@ -1516,9 +1470,8 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S truncate -S ftruncate ";
 					auditRuleWithSuccess += "-S init_module -S finit_module ";
 					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
-					if(!ARCH_32BIT){
-						auditRuleWithSuccess += "-S socketpair ";
-					}
+					auditRuleWithSuccess += "-S socketpair ";
+					
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
 					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
@@ -1818,13 +1771,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private SYSCALL getSyscall(int syscallNumber){
-		int arch = -1;
-		if(ARCH_32BIT){
-			arch = 32;
-		}else{
-			arch = 64;
-		}
-		return SYSCALL.getSyscall(syscallNumber, arch);
+		return SYSCALL.get64BitSyscall(syscallNumber);
 	}
 	
 	/**
@@ -1947,7 +1894,6 @@ public class Audit extends AbstractReporter {
 				handleIOEvent(syscall, eventData, true);
 				break;
 			case MMAP:
-			case MMAP2:
 				handleMmap(eventData, syscall);
 				break;
 			case MPROTECT:
