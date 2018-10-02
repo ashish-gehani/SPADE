@@ -159,8 +159,10 @@ public class DiscrepancyDetector
 				if(prune_graph)
 				{
 					logger.log(Level.INFO, "prune_graph: true");
+					logger.log(Level.INFO, "g_later size before pruning, vertices: " + g_later.vertexSet().size() + ", edges: " + g_later.edgeSet().size());
 					Graph graph = prunableGraphs.remove();
 					graphCache.removeGraph(graph);
+					logger.log(Level.INFO, "g_later size after pruning, vertices: " + g_later.vertexSet().size() + ", edges: " + g_later.edgeSet().size());
 					g_earlier = graphCache.getCache();
                     int postPruneDiscrepancyCount = findDiscrepancy(g_earlier, g_later);
                     logger.log(Level.INFO, postPruneDiscrepancyCount + " discrepancies found after pruning");
@@ -181,6 +183,8 @@ public class DiscrepancyDetector
 	 */
 	private int findDiscrepancy(Graph g_earlier, Graph g_later)
 	{
+		logger.log(Level.INFO, "g_earlier size, vertices: " + g_earlier.vertexSet().size() + ", edges: " + g_earlier.edgeSet().size());
+		logger.log(Level.INFO, "g_later size, vertices: " + g_later.vertexSet().size() + ", edges: " + g_later.edgeSet().size());
 		int discrepancyCount = 0;
 		Set<AbstractVertex> g_earlierVertexSet = g_earlier.vertexSet();
 		Set<AbstractEdge> g_earlierEdgeSet = g_earlier.edgeSet();
@@ -215,17 +219,12 @@ public class DiscrepancyDetector
 							endingVertex = e.getChildVertex();
 						else
 							endingVertex = e.getParentVertex();
-						// y is in g_later
-						if(g_laterVertexSet.contains(endingVertex))
+						if(x.getDepth() < g_later.getMaxDepth())
 						{
-							logger.log(Level.WARNING, "Discrepancy detected: missing edge");
-                            logger.log(Level.INFO, "missing edge: " + e.toString());
+							logger.log(Level.WARNING, "Discrepancy detected: missing edge and vertex collapsed");
+							logger.log(Level.INFO, "missing edge: " + e.toString());
                             logger.log(Level.INFO, "ending vertex: " + endingVertex.toString());
                             discrepancyCount++;
-						} else if(x.getDepth() < g_later.getMaxDepth())
-						{
-							logger.log(Level.WARNING, "Discrepancy detected: missing edge and vertex");
-							discrepancyCount++;
 						}
 					}
 				}

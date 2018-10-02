@@ -23,6 +23,8 @@ package spade.core;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This Singleton class encapsulates the caching policy
@@ -35,6 +37,7 @@ public class Cache implements Serializable
     private Set<Graph> cachedGraphs;
     private Graph mainGraphCache;
     private static Cache cacheInstance;
+    private static final Logger logger = Logger.getLogger(Cache.class.getName());
 
     public static Cache getInstance()
     {
@@ -54,6 +57,13 @@ public class Cache implements Serializable
     public void removeGraph(Graph graph)
     {
         cachedGraphs.remove(graph);
+        logger.log(Level.INFO, "graph to remove: vertices=" + graph.vertexSet().size() + ", edges=" + graph.edgeSet().size());
+        // finds the difference from graphs in the cache
+        for(Graph cachedGraph : cachedGraphs)
+        {
+            graph.remove(cachedGraph);
+        }
+        logger.log(Level.INFO, "differential graph to remove: vertices=" + graph.vertexSet().size() + ", edges=" + graph.edgeSet().size());
         mainGraphCache.remove(graph);
     }
 
